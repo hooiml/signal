@@ -49,13 +49,16 @@ export const generateMarketAura = async (
         throw new Error('GEMINI_API_KEY not configured');
     }
 
+    // Convert raw sentiment to display score (0-100)
+    const scaledSentiment = Math.round(((socialSentiment + 1) / 2) * 100);
+
     const prompt = `You are a senior market analyst generating daily "Market Aura" summaries.
 
 Generate a Market Aura summary based on:
 
 ## Quantitative Data
 - VIX Level: ${vixValue.toFixed(2)} (${vixAuraLevel})
-- Social Sentiment Score: ${socialSentiment.toFixed(2)} (-1 bearish to +1 bullish)
+- Social Sentiment Score: ${scaledSentiment}/100 (Where 0 is Extreme Bearish, 100 is Extreme Bullish)
 
 ## Top Reddit Posts (Past 24h)
 ${redditPosts.slice(0, 5).map((p, i) => `${i + 1}. ${p}`).join('\n')}
@@ -68,7 +71,7 @@ ${stockTwits.slice(0, 5).map((t, i) => `${i + 1}. ${t}`).join('\n')}
 
 ## Instructions
 - Use VIX thresholds: <13=EXTREME_GREED, 13-17=GREED, 17-23=NEUTRAL, 23-30=FEAR, >30=EXTREME_FEAR
-- Score formula: 100 - (VIX * 2.5), adjusted by social sentiment
+- When referencing "Social Sentiment", ALWAYS use the 0-100 score provided (e.g. "Sentiment is strong at 78/100"). DO NOT refer to 0.xx decimals.
 - Be concise but insightful
 - Highlight contradictions and contrarian signals
 

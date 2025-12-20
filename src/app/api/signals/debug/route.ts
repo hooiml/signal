@@ -3,7 +3,15 @@ import { fetchRawMarketData } from '@/lib/signal';
 
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(request: Request) {
+    // Security: Require CRON_SECRET for debug endpoint
+    const authHeader = request.headers.get('authorization');
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     try {
         // Fetch raw data for both markets to compare
         const usData = await fetchRawMarketData('US');

@@ -9,7 +9,18 @@ import { generateMarketAura } from '@/lib/gemini';
 export const runtime = 'nodejs';
 export const maxDuration = 30; // Allow longer runtime for AI processing
 
-export const GET = async (): Promise<NextResponse> => {
+export const GET = async (request: Request): Promise<NextResponse> => {
+    // Security: Require CRON_SECRET for this expensive endpoint
+    const authHeader = request.headers.get('authorization');
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json(
+            { error: 'Unauthorized. Provide valid CRON_SECRET in Authorization header.' },
+            { status: 401 }
+        );
+    }
+
     try {
         // 1. Fetch all data sources in parallel
         const [vixData, redditPosts, newsItems, stockTwits] = await Promise.all([

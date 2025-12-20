@@ -3,7 +3,15 @@ import { sql } from '@/lib/db';
 
 export const runtime = 'edge';
 
-export const GET = async (): Promise<NextResponse> => {
+export const GET = async (request: Request): Promise<NextResponse> => {
+    // Security: Require CRON_SECRET
+    const authHeader = request.headers.get('authorization');
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     try {
         const result = await sql`SELECT NOW() as current_time, version() as pg_version`;
 

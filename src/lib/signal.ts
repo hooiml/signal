@@ -1,9 +1,8 @@
-import { fetchVIX, fetchQuotes, MarketData as YahooMarketData } from '@/lib/yahoo-finance';
+import { fetchVIX, fetchIndicesWithChart, fetchQuotes, MarketData as YahooMarketData } from '@/lib/yahoo-finance';
 import { fetchMultipleSubreddits, RedditPost } from '@/lib/reddit';
 import { fetchMarketNews, NewsItem } from '@/lib/rss-feeds';
 import { fetchTrendingTwits, calculateStockTwitsSentiment, StockTwit } from '@/lib/stocktwits';
-import { generateMarketAura } from '@/lib/gemini';
-import { calculateSentimentScore, getScoreDescription, SentimentOutput, getScoreBucket } from '@/lib/sentiment-calculator';
+import { calculateSentimentScore, getScoreDescription, SentimentOutput } from '@/lib/sentiment-calculator';
 import { sql } from '@/lib/db';
 
 interface AggregateMarketData {
@@ -84,21 +83,62 @@ function calculateNewsSentiment(news: NewsItem[]): number {
 }
 
 /**
- * Step 1: Gather all raw data (Cheap & Fast)
+ * Step 1a: Fetch CORE market data (Tiered Strategy)
+ * - Priority: Indices + Top 4 Popular = Full chart data (sparklines)
+ * - Deferred: Rest of stocks = Batch API (fast, no sparklines)
+ */
+export const fetchCoreMarketData = async (market: MarketType) => {
+    const config = CONFIG[market];
+
+    // Split into priority (sparklines) and deferred (batch) groups
+    const prioritySymbols = [...config.indices, ...config.popular.slice(0, 4)];
+    const deferredSymbols = [...config.popular.slice(4), ...config.active];
+
+    // Fetch VIX + Priority (with sparklines) + Deferred (batch) in parallel
+    const [vixData, priorityQuotes, deferredQuotes] = await Promise.all([
+        fetchVIX(),
+        fetchIndicesWithChart(prioritySymbols),  // Full chart data
+        fetchQuotes(deferredSymbols)             // Fast batch (no sparklines)
+    ]);
+
+    // Combine and categorize
+    const allQuotes = [...priorityQuotes, ...deferredQuotes];
+    const indicesData = allQuotes.filter((q: YahooMarketData) => config.indices.includes(q.symbol));
+    const popularData = allQuotes.filter((q: YahooMarketData) => config.popular.includes(q.symbol));
+    const activeData = allQuotes.filter((q: YahooMarketData) => config.active.includes(q.symbol));
+
+    return { vixData, indicesData, popularData, activeData, config };
+};
+
+/**
+ * Step 1b: Fetch SOCIAL data (Slower - Reddit, RSS, StockTwits)
+ */
+export const fetchSocialData = async (market: MarketType) => {
+    const config = CONFIG[market];
+
+    const [redditPosts, newsItems, stockTwits] = await Promise.all([
+        fetchMultipleSubreddits(config.subreddits, 10),
+        fetchMarketNews(market),
+        fetchTrendingTwits(config.stocktwitsLimit)
+    ]);
+
+    return { redditPosts, newsItems, stockTwits };
+};
+
+/**
+ * Step 1 (Legacy): Gather all raw data - uses both Core and Social
  */
 export const fetchRawMarketData = async (market: MarketType): Promise<AggregateMarketData> => {
     const config = CONFIG[market];
 
-    // FETCH EVERYTHING IN PARALLEL
-    const [vixData, redditPosts, newsItems, stockTwits, indicesData, popularData, activeData] = await Promise.all([
-        fetchVIX(), // Always global VIX for now as baseline
-        fetchMultipleSubreddits(config.subreddits, 10),
-        fetchMarketNews(market),
-        fetchTrendingTwits(config.stocktwitsLimit),
-        fetchQuotes(config.indices),
-        fetchQuotes(config.popular),
-        fetchQuotes(config.active)
+    // FETCH CORE + SOCIAL IN PARALLEL
+    const [coreData, socialData] = await Promise.all([
+        fetchCoreMarketData(market),
+        fetchSocialData(market)
     ]);
+
+    const { vixData, indicesData, popularData, activeData } = coreData;
+    const { redditPosts, newsItems, stockTwits } = socialData;
 
     // Calculate sentiment scores
     const redditSentiment = calculateRedditSentiment(redditPosts);
@@ -118,10 +158,12 @@ export const fetchRawMarketData = async (market: MarketType): Promise<AggregateM
     }
 
     // Calculate using robust formula with DYNAMIC CONFIG based on market
+    // Fix #7: vixChangePct should be actual percent, not raw change
+    const vixChangePct = vixData.price > 0 ? (vixData.change / vixData.price) * 100 : 0;
     const sentimentOutput = calculateSentimentScore({
         vix: vixData.price,
         social: combinedSentiment,
-        vixChangePct: vixData.change,
+        vixChangePct: vixChangePct,
     }, {
         // OVERRIDE WEIGHTS FOR MALAYSIA
         // If MY: Global VIX (40%) + Local News (60%)
@@ -149,69 +191,49 @@ export const fetchRawMarketData = async (market: MarketType): Promise<AggregateM
  * Step 2: Get AI Analysis (Expensive - Check Cache First)
  */
 export const getAuraAnalysis = async (marketData: AggregateMarketData, market: MarketType) => {
-    // Check Cache
+    // 1. Try to read LATEST analysis from DB (regardless of date, just get the last known good state)
     try {
         const cached = await sql`
       SELECT * FROM market_signals 
       WHERE market_type = ${market} 
-      AND signal_date = CURRENT_DATE
+      ORDER BY updated_at DESC, signal_date DESC
       LIMIT 1
     `;
 
         if (cached.length > 0) {
-            console.log(`✅ Using cached AI analysis for ${market}`);
+            // Check staleness (optional log)
+            const isStale = new Date(cached[0].signal_date).toDateString() !== new Date().toDateString();
+            if (isStale) console.log(`⚠️ Serving stale AI analysis for ${market} from ${cached[0].signal_date}`);
+
             return {
+                // Use the DB's stored level/score if available, or current live calculation?
+                // Ideally, "Aura" (Text) matches the stored record, but "Score" (Number) is live.
+                // Hybrid approach: Live score, Stored Text.
                 auraLevel: marketData.sentimentOutput.auraLevel,
                 auraScore: marketData.sentimentOutput.score,
+
+                // Text content from DB
                 summary: cached[0].summary,
-                keyDrivers: cached[0].key_drivers,
+                keyDrivers: typeof cached[0].key_drivers === 'string' ? JSON.parse(cached[0].key_drivers) : cached[0].key_drivers,
                 outlook: cached[0].outlook || "Market conditions are evolving. Monitor key drivers for changes."
             };
         }
     } catch (e) {
-        console.warn('Cache check failed, generating fresh:', e);
+        console.error('DB Read failed:', e);
     }
 
-    // Generate Fresh
-    console.log(`🧠 Generating fresh AI analysis for ${market}...`);
-    const aura = await generateMarketAura(
-        marketData.vixData.price,
-        marketData.sentimentOutput.auraLevel,
-        marketData.combinedSentiment,
-        marketData.redditPosts.map(p => p.title),
-        marketData.newsItems.map(n => n.title),
-        market === 'US' ? marketData.stockTwits.map(t => `${t.body.substring(0, 80)} [${t.sentiment || 'N/A'}]`) : []
-    );
-
-    // Save to DB (Async, don't block return)
-    (async () => {
-        try {
-            await sql`
-        INSERT INTO market_signals (
-          market_type, aura_level, aura_score, summary, key_drivers, outlook,
-          vix_value, social_sentiment_score, data_sources, model_version, signal_date
-        ) VALUES (
-          ${market}, ${aura.auraLevel}, ${marketData.sentimentOutput.score}, ${aura.summary}, ${JSON.stringify(aura.keyDrivers)}, ${aura.outlook},
-          ${marketData.vixData.price}, ${marketData.combinedSentiment}, 
-          ${JSON.stringify(['yahoo', 'reddit', 'stocktwits', 'gemini'])}, 'v0.5-quant', CURRENT_DATE
-        )
-        ON CONFLICT (market_type, signal_date) DO UPDATE SET
-          aura_level = EXCLUDED.aura_level,
-          aura_score = EXCLUDED.aura_score,
-          summary = EXCLUDED.summary,
-          key_drivers = EXCLUDED.key_drivers,
-          outlook = EXCLUDED.outlook,
-          updated_at = NOW()
-      `;
-        } catch (err) {
-            console.error('Failed to save signal to DB:', err);
-        }
-    })();
+    // 2. Fallback if DB is empty or fails (DO NOT generate fresh on render)
+    console.warn(`⚠️ No AI analysis found in DB for ${market}. Returning fallback.`);
 
     return {
-        ...aura,
-        auraScore: marketData.sentimentOutput.score,
         auraLevel: marketData.sentimentOutput.auraLevel,
+        auraScore: marketData.sentimentOutput.score,
+        summary: "Market intelligence is currently compiling. Live data suggests " + marketData.sentimentOutput.auraLevel.replace('_', ' ') + " conditions.",
+        keyDrivers: [
+            { factor: "VIX Index", impact: "neutral", description: `VIX is at ${marketData.vixData.price.toFixed(2)}` },
+            { factor: "Social Volume", impact: "neutral", description: "Analyzing current social chatter intensity." }
+        ],
+        outlook: "Awaiting updated analysis. Check back shortly."
     };
 };
 

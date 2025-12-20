@@ -4,6 +4,7 @@ export interface RedditPost {
     score: number;
     num_comments: number;
     url: string;
+    permalink: string;
     created_utc: number;
     subreddit: string;
 }
@@ -148,6 +149,7 @@ export const fetchSubredditPosts = async (subreddit: string, limit = 10): Promis
             score: child.data.score,
             num_comments: child.data.num_comments,
             url: child.data.url,
+            permalink: child.data.permalink,
             created_utc: child.data.created_utc,
             subreddit: child.data.subreddit_name_prefixed
         }));
@@ -165,21 +167,20 @@ export const fetchSubredditPosts = async (subreddit: string, limit = 10): Promis
 };
 
 /**
- * Fetch from multiple subreddits in parallel
+ * Fetch from multiple subreddits in parallel (with slight stagger)
  */
 export const fetchMultipleSubreddits = async (subreddits: string[], limitPerSub = 10): Promise<RedditPost[]> => {
-    const results: RedditPost[] = [];
+    // Fetch ALL subreddits in parallel (Reddit public API is rate-limited but tolerant for small bursts)
+    const promises = subreddits.map((sub, index) =>
+        // Stagger start by 100ms per subreddit to be slightly nicer to Reddit
+        new Promise<RedditPost[]>(resolve =>
+            setTimeout(async () => {
+                const posts = await fetchSubredditPosts(sub, limitPerSub);
+                resolve(posts);
+            }, index * 100)
+        )
+    );
 
-    // Fetch sequentially with delay to avoid rate limits
-    for (const sub of subreddits) {
-        const posts = await fetchSubredditPosts(sub, limitPerSub);
-        results.push(...posts);
-
-        // Wait 1 second between requests to avoid rate limiting
-        if (subreddits.indexOf(sub) < subreddits.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-    }
-
-    return results;
+    const results = await Promise.all(promises);
+    return results.flat();
 };

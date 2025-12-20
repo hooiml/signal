@@ -10,7 +10,32 @@ interface StockData {
     fiftyTwoWeekHigh: number;
     fiftyTwoWeekLow: number;
     fiftyTwoWeekChangePercent: number;
+    sparkline?: number[];
 }
+
+// Sparkline Component
+const Sparkline = ({ data, color, opacity = "opacity-30" }: { data?: number[], color: string, opacity?: string }) => {
+    if (!data || data.length < 5) return null;
+
+    const width = 80;
+    const height = 40;
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    const range = max - min || 1;
+
+    // Create SVG path
+    const points = data.map((d, i) => {
+        const x = (i / (data.length - 1)) * width;
+        const y = height - ((d - min) / range) * height;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+
+    return (
+        <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className={opacity}>
+            <path d={`M ${points}`} fill="none" stroke="currentColor" strokeWidth="2" className={color} vectorEffect="non-scaling-stroke" />
+        </svg>
+    );
+};
 
 interface MarketTabsProps {
     stocks: StockData[];
@@ -57,7 +82,7 @@ export default function MarketTabs({ stocks }: MarketTabsProps) {
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={`text-xs font-bold px-3 py-1.5 rounded-full transition-colors whitespace-nowrap ${activeTab === tab.id
-                            ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                            ? 'bg-purple-500/10 text-white border border-purple-500/20'
                             : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
                             }`}
                     >
@@ -67,28 +92,49 @@ export default function MarketTabs({ stocks }: MarketTabsProps) {
             </div>
 
             {/* Stock List */}
-            <div className="flex gap-2 w-full pb-2 overflow-x-auto scrollbar-thin">
-                {sortedStocks.slice(0, 15).map((stock, i) => (
-                    <div key={i} className="flex flex-col items-center bg-white/[0.03] rounded-lg px-3 py-2 min-w-[80px] shrink-0 border border-white/5 hover:bg-white/[0.05] transition-colors group">
-                        <span className="text-xs font-bold text-gray-300 group-hover:text-white">{stock.symbol}</span>
+            <div className="flex gap-2 w-full pb-2 overflow-x-auto scrollbar-thin min-h-[85px]">
+                {sortedStocks.length > 0 ? (
+                    sortedStocks.slice(0, 15).map((stock, i) => (
+                        <div key={i} className="flex flex-col items-center justify-center bg-white/[0.03] rounded-lg px-2 py-2 min-w-[90px] shrink-0 border border-white/5 hover:bg-white/[0.05] transition-colors group relative overflow-hidden h-[80px]">
 
-                        {/* Dynamic metric display based on tab */}
-                        {activeTab.includes('52w') ? (
-                            // Show year stats for 52w tabs
-                            <div className="flex flex-col items-center mt-1">
-                                <span className={`text-[10px] font-mono ${stock.fiftyTwoWeekChangePercent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    {stock.fiftyTwoWeekChangePercent >= 0 ? '+' : ''}{stock.fiftyTwoWeekChangePercent.toFixed(0)}%
+                            {/* Sparkline Background */}
+                            {stock.sparkline && (
+                                <div className="absolute inset-x-0 bottom-0 h-10 z-0 pointer-events-none px-1 pb-1">
+                                    <Sparkline
+                                        data={stock.sparkline}
+                                        color={stock.change >= 0 ? 'text-emerald-500' : 'text-rose-500'}
+                                        opacity={stock.change >= 0 ? "opacity-30" : "opacity-50"}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Content Stack */}
+                            <div className="relative z-10 flex flex-col items-center w-full">
+                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">{stock.symbol}</span>
+                                <span className="text-sm font-bold text-white tracking-tight leading-none mb-1">
+                                    {stock.price < 1000
+                                        ? stock.price.toFixed(2)
+                                        : (stock.price / 1000).toFixed(1) + 'k'}
                                 </span>
-                                <span className="text-[9px] text-gray-600">vs Low</span>
+
+                                {/* Dynamic metric display based on tab */}
+                                {activeTab.includes('52w') ? (
+                                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded backdrop-blur-sm shadow-sm ${stock.fiftyTwoWeekChangePercent >= 0 ? 'bg-emerald-500/30 text-emerald-50 border border-emerald-500/30' : 'bg-rose-500/30 text-rose-50 border border-rose-500/30'}`}>
+                                        {stock.fiftyTwoWeekChangePercent >= 0 ? '+' : ''}{stock.fiftyTwoWeekChangePercent.toFixed(0)}%
+                                    </span>
+                                ) : (
+                                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded backdrop-blur-sm shadow-sm ${stock.change >= 0 ? 'bg-emerald-500/30 text-emerald-50 border border-emerald-500/30' : 'bg-rose-500/30 text-rose-50 border border-rose-500/30'}`}>
+                                        {stock.change >= 0 ? '+' : ''}{stock.changePercent.toFixed(1)}%
+                                    </span>
+                                )}
                             </div>
-                        ) : (
-                            // Show daily stats for others
-                            <span className={`text-[10px] font-mono mt-1 ${stock.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {stock.change >= 0 ? '+' : ''}{stock.changePercent.toFixed(1)}%
-                            </span>
-                        )}
+                        </div>
+                    ))
+                ) : (
+                    <div className="w-full flex flex-col items-center justify-center text-gray-500 py-2">
+                        <span className="text-xs italic">No data available for this category</span>
                     </div>
-                ))}
+                )}
             </div>
         </div>
     );
