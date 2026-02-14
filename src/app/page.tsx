@@ -370,8 +370,9 @@ export default async function Home(props: PageProps) {
                 <h4 className="text-xs font-bold text-gray-600 mb-3 px-1 mt-6">REDDIT SIGNALS</h4>
                 <div className="space-y-3">
                   {sources.reddit.slice(0, 5).map((post: RedditPost, i: number) => {
-                    const isBullish = post.title.toLowerCase().match(/bull|call|moon|buy|long|surge/);
-                    const isBearish = post.title.toLowerCase().match(/bear|put|crash|sell|short|dump/);
+                    const postTitle = post.title || '';
+                    const isBullish = postTitle.toLowerCase().match(/bull|call|moon|buy|long|surge/);
+                    const isBearish = postTitle.toLowerCase().match(/bear|put|crash|sell|short|dump/);
                     const borderColor = isBullish ? 'border-emerald-500/50' : isBearish ? 'border-rose-500/50' : 'border-transparent';
 
                     return (

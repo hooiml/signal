@@ -1,4 +1,4 @@
-import { fetchVIX, fetchIndicesWithChart, fetchQuotes, MarketData as YahooMarketData } from '@/lib/yahoo-finance';
+import { fetchVIX, fetchIndicesWithChart, fetchQuotes, fetchHistoricalCurrencyVol, MarketData as YahooMarketData } from '@/lib/yahoo-finance';
 import { fetchMultipleSubreddits, RedditPost } from '@/lib/reddit';
 import { fetchMarketNews, NewsItem } from '@/lib/rss-feeds';
 import { fetchTrendingTwits, calculateStockTwitsSentiment, StockTwit } from '@/lib/stocktwits';
@@ -22,7 +22,7 @@ interface AggregateMarketData {
 /**
  * Calculate social sentiment from Reddit posts using keyword analysis
  */
-function calculateRedditSentiment(posts: RedditPost[]): number {
+export function calculateRedditSentiment(posts: RedditPost[]): number {
     const keywords = (text: string) => {
         const t = text.toLowerCase();
         const bullish = (t.match(/bull|call|moon|buy|long|breakout|rally|surge|soar/g) || []).length;
@@ -32,7 +32,8 @@ function calculateRedditSentiment(posts: RedditPost[]): number {
 
     let score = 0;
     posts.forEach(p => {
-        score += keywords(p.title + (p.selftext || ''));
+        // Include both title and post body for deeper sentiment judgement
+        score += keywords(p.title + ' ' + (p.selftext || ''));
     });
 
     // Normalize to -1 to +1, with softer scaling
@@ -62,7 +63,7 @@ const CONFIG = {
  * Calculate sentiment from News Headlines (Simple Keyword Match)
  * Essential for markets like MY where Reddit/StockTwits volume is low.
  */
-function calculateNewsSentiment(news: NewsItem[]): number {
+export function calculateNewsSentiment(news: NewsItem[]): number {
     const keywords = (text: string) => {
         const t = text.toLowerCase();
         // Weighted keywords for financial news
@@ -72,14 +73,34 @@ function calculateNewsSentiment(news: NewsItem[]): number {
     };
 
     let score = 0;
+    const now = Date.now();
+
     // Analyze last 10 headlines
     news.slice(0, 10).forEach(n => {
-        score += keywords(n.title + (n.contentSnippet || ''));
+        const sentiment = keywords(n.title + (n.contentSnippet || ''));
+
+        // AGE DECAY: Headlines older than 4h lose half their weight. (Quant Audit Recommendation)
+        let weight = 1.0;
+        if (n.pubDate) {
+            const pubDate = new Date(n.pubDate).getTime();
+            const ageHours = (now - pubDate) / (1000 * 60 * 60);
+            if (ageHours > 0) {
+                // Half-life: 4 hours
+                weight = Math.pow(2, -(ageHours / 4));
+            }
+        }
+
+        score += (sentiment * weight);
     });
+
+    // CONFIDENCE ADJUSTMENT: Dampen score if headlines are sparse (Quant Audit Recommendation)
+    // Threshold: 5 headlines for 100% confidence.
+    const confidence = Math.min(1.0, news.length / 5);
+    const finalScore = score * confidence;
 
     // Normalize: News is usually more neutral, so any signal is significant.
     // Scale slightly more aggressively than reddit.
-    return Math.max(-1, Math.min(1, score / 8));
+    return Math.max(-1, Math.min(1, finalScore / 8));
 }
 
 /**
@@ -95,10 +116,12 @@ export const fetchCoreMarketData = async (market: MarketType) => {
     const deferredSymbols = [...config.popular.slice(4), ...config.active];
 
     // Fetch VIX + Priority (with sparklines) + Deferred (batch) in parallel
-    const [vixData, priorityQuotes, deferredQuotes] = await Promise.all([
+    // For MY, we also fetch currency volatility as a local proxy
+    const [vixData, priorityQuotes, deferredQuotes, myrVol] = await Promise.all([
         fetchVIX(),
         fetchIndicesWithChart(prioritySymbols),  // Full chart data
-        fetchQuotes(deferredSymbols)             // Fast batch (no sparklines)
+        fetchQuotes(deferredSymbols),            // Fast batch (no sparklines)
+        market === 'MY' ? fetchHistoricalCurrencyVol('USDMYR=X') : Promise.resolve(null)
     ]);
 
     // Combine and categorize
@@ -107,7 +130,7 @@ export const fetchCoreMarketData = async (market: MarketType) => {
     const popularData = allQuotes.filter((q: YahooMarketData) => config.popular.includes(q.symbol));
     const activeData = allQuotes.filter((q: YahooMarketData) => config.active.includes(q.symbol));
 
-    return { vixData, indicesData, popularData, activeData, config };
+    return { vixData, indicesData, popularData, activeData, config, myrVol };
 };
 
 /**
@@ -119,7 +142,8 @@ export const fetchSocialData = async (market: MarketType) => {
     const [redditPosts, newsItems, stockTwits] = await Promise.all([
         fetchMultipleSubreddits(config.subreddits, 10),
         fetchMarketNews(market),
-        fetchTrendingTwits(config.stocktwitsLimit)
+        // StockTwits is only relevant for US market
+        market === 'US' ? fetchTrendingTwits(config.stocktwitsLimit) : Promise.resolve([])
     ]);
 
     return { redditPosts, newsItems, stockTwits };
@@ -129,7 +153,6 @@ export const fetchSocialData = async (market: MarketType) => {
  * Step 1 (Legacy): Gather all raw data - uses both Core and Social
  */
 export const fetchRawMarketData = async (market: MarketType): Promise<AggregateMarketData> => {
-    const config = CONFIG[market];
 
     // FETCH CORE + SOCIAL IN PARALLEL
     const [coreData, socialData] = await Promise.all([
@@ -137,7 +160,7 @@ export const fetchRawMarketData = async (market: MarketType): Promise<AggregateM
         fetchSocialData(market)
     ]);
 
-    const { vixData, indicesData, popularData, activeData } = coreData;
+    const { vixData, indicesData, popularData, activeData, myrVol } = coreData;
     const { redditPosts, newsItems, stockTwits } = socialData;
 
     // Calculate sentiment scores
@@ -149,27 +172,36 @@ export const fetchRawMarketData = async (market: MarketType): Promise<AggregateM
     let combinedSentiment: number;
 
     if (market === 'US') {
-        // US: Tech-heavy, retail-heavy. Reddit/StockTwits are dominant signal providers.
-        combinedSentiment = (redditSentiment * 0.4) + (stockTwitsSentiment * 0.6);
+        // US: Tech-heavy, retail-heavy. Balanced Reddit/StockTwits.
+        combinedSentiment = (redditSentiment * 0.5) + (stockTwitsSentiment * 0.5);
     } else {
-        // MY: Retail social is weak. News is the primary driver of sentiment.
-        // We use News Sentiment as the "Social/Narrative" component.
-        combinedSentiment = newsSentiment;
+        // MY: News is the primary driver (earnings, politics, macro).
+        // Reddit (BursaBets) is a secondary retail signal.
+        combinedSentiment = (redditSentiment * 0.2) + (newsSentiment * 0.8);
     }
 
-    // Calculate using robust formula with DYNAMIC CONFIG based on market
-    // Fix #7: vixChangePct should be actual percent, not raw change
-    const vixChangePct = vixData.price > 0 ? (vixData.change / vixData.price) * 100 : 0;
+    // Proxy Selection: For MY, use scaled Currency Volatility instead of US VIX
+    let fearGaugeValue = vixData.price;
+    let fearGaugeChangePct = vixData.price > 0 ? (vixData.change / vixData.price) * 100 : 0;
+
+    if (market === 'MY' && myrVol && myrVol.vol20d > 0) {
+        // Scale FX Vol to VIX-equivalent (e.g. 0.005 std-dev * 4000 = 20 VIX)
+        // High FX vol = Higher fearGaugeValue = Lower sentiment score
+        fearGaugeValue = myrVol.vol20d * 4000;
+        fearGaugeChangePct = myrVol.currentPrice > 0 ? (myrVol.change / myrVol.currentPrice) * 100 : 0;
+
+        // Clamp proxy to reasonable VIX-like bounds (10 to 80)
+        fearGaugeValue = Math.max(10, Math.min(80, fearGaugeValue));
+    }
+
     const sentimentOutput = calculateSentimentScore({
-        vix: vixData.price,
+        vix: fearGaugeValue,
         social: combinedSentiment,
-        vixChangePct: vixChangePct,
+        vixChangePct: fearGaugeChangePct,
     }, {
-        // OVERRIDE WEIGHTS FOR MALAYSIA
-        // If MY: Global VIX (40%) + Local News (60%)
-        // We reduce VIX influence because low US volatility doesn't always equal KLCI Euphoria.
-        vixBaseWeight: market === 'MY' ? 0.40 : 0.65,
-        socialBaseWeight: market === 'MY' ? 0.60 : 0.35,
+        // Optimized weights: US is VIX-anchored, MY is News-anchored.
+        vixBaseWeight: market === 'MY' ? 0.30 : 0.60,
+        socialBaseWeight: market === 'MY' ? 0.70 : 0.40,
     });
 
     return {
@@ -240,15 +272,42 @@ export const getAuraAnalysis = async (marketData: AggregateMarketData, market: M
     return injectLiveAuraData(fallbackAura, marketData);
 };
 
+interface AuraData {
+    auraLevel: string;
+    auraScore: number;
+    summary: string;
+    keyDrivers: Array<{ factor: string; impact: string; description: string }>;
+    outlook: string;
+    generatedAt?: string;
+}
+
 /**
  * Trust Layer: Inject live data into potentially stale AI text
  */
-function injectLiveAuraData(aura: any, marketData: AggregateMarketData) {
+function injectLiveAuraData(aura: AuraData, marketData: AggregateMarketData) {
     if (!aura || !aura.summary) return aura;
 
-    // Replace VIX mentions like "VIX at 20.60" or "VIX: 20.60" with live data
+    // 1. Sync VIX numbers
     const liveVix = marketData.vixData.price.toFixed(2);
-    const updatedSummary = aura.summary.replace(/VIX (?:at|is|level of)?\s?\d+\.?\d*/gi, `VIX at ${liveVix}`);
+    // Permissive regex for VIX mentions (VIX at 20, VIX of 20, VIX is 20, etc.)
+    let updatedSummary = aura.summary.replace(
+        /(?:VIX Index|VIX|volatility index) (?:at|is|level of|of|around)?\s*\d+\.?\d*/gi,
+        `VIX at ${liveVix}`
+    );
+
+    // 2. Sync Sentiment Levels (e.g., replace stale 'GREED' with live 'FEAR')
+    if (marketData.sentimentOutput.auraLevel) {
+        const liveLevel = marketData.sentimentOutput.auraLevel.replace(/_/g, ' ');
+        // List of all possible levels to search and replace
+        const allLevels = ['EXTREME GREED', 'GREED', 'NEUTRAL', 'ANXIETY', 'FEAR', 'EXTREME FEAR'];
+
+        allLevels.forEach(level => {
+            if (level !== liveLevel) {
+                const levelRegex = new RegExp(`\\b${level}\\b`, 'gi');
+                updatedSummary = updatedSummary.replace(levelRegex, liveLevel);
+            }
+        });
+    }
 
     return {
         ...aura,
@@ -282,8 +341,8 @@ export const getSmartSignal = async (market: MarketType = 'US') => {
                 fetchDurationMs,
                 status: 'OK',
                 dataQuality,
-                vixSource: market === 'MY' ? 'US_VIX_PROXY' : 'CBOE_VIX',
-                vixDisclaimer: market === 'MY' ? 'Using US VIX as global risk proxy. Local KLSE volatility coming in Phase 2.' : null,
+                vixSource: market === 'MY' ? 'USD/MYR_VOL_PROXY' : 'CBOE_VIX',
+                vixDisclaimer: market === 'MY' ? 'Using 20-day Rolling Ringgit Volatility as local fear gauge. Scaled for VIX-parity.' : null,
                 sentimentVelocity: marketData.sentimentOutput.components.vixScore > 0 ? (marketData.sentimentOutput.components.socialScore / marketData.sentimentOutput.components.vixScore).toFixed(2) : 'N/A', // Simple ratio as proxy for velocity for now
             },
             marketAura: aura,
@@ -307,7 +366,7 @@ export const getSmartSignal = async (market: MarketType = 'US') => {
             sources: {
                 reddit: marketData.redditPosts,
                 news: marketData.newsItems,
-                stocktwits: marketData.stockTwits,
+                stocktwits: marketData.stockTwits.slice(0, 10).map((t: StockTwit) => `${t.body.substring(0, 80)} [${t.sentiment || 'N/A'}]`),
             },
         };
     } catch (error) {

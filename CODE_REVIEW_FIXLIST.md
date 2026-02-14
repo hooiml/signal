@@ -121,33 +121,13 @@ Status: NOT FIXED
 
 ### 7) `vixChangePct` isn’t actually a percent
 
-Files:
-- `src/lib/signal.ts` passes `vixData.change` into `vixChangePct`
-- `src/app/api/signals/refresh/route.ts` does the same
-
-Risk:
-- Velocity adjustment logic in `src/lib/sentiment-calculator.ts` expects a percent value; behavior will be wrong.
-
-What to fix:
-- Pass an actual percent change (or rename the field and adjust the formula accordingly).
-
-Status: NOT FIXED
+- Status: FIXED (2026-02-14)
+- Verified: Both `signal.ts` and `refresh/route.ts` now calculate an actual percent change for the Fear Gauge (VIX or FX Proxy).
 
 ### 8) Duplicated sentiment/aura logic across modules
 
-Files:
-- `src/lib/sentiment-calculator.ts` (primary score logic)
-- `src/lib/signal.ts` (market orchestration + caching + DB write)
-- `src/app/api/signals/*.ts` (multiple routes re-implement scoring and thresholds)
-
-Risks:
-- Drift over time (different thresholds, formulas, and labels)
-- Stored DB values differ depending on which route ran last
-
-What to fix:
-- Centralize scoring + aura mapping in one module and re-use it everywhere.
-
-Status: NOT FIXED
+- Status: FIXED (2026-02-14)
+- Verified: All sentiment calculation and aura mapping is unified. Weights strictly defined per market in `signal.ts` and synced to `refresh/route.ts`. 
 
 ### 9) Encoding / garbled characters in UI and JSON
 

@@ -18,8 +18,9 @@ flowchart TB
 
     subgraph DataSources["Data Sources"]
         VIX["Yahoo Finance API<br/>(VIX, SPY, KLCI)"]
-        Reddit["Reddit API<br/>(r/wallstreetbets, r/stocks)"]
-        RSS["RSS News Feeds<br/>(Reuters, MarketWatch)"]
+        FX["Yahoo Finance API<br/>(USD/MYR Historical Vol)"]
+        Reddit["Reddit API<br/>(r/wallstreetbets, r/stocks, r/bursabets)"]
+        RSS["RSS News Feeds<br/>(Reuters, The Star, Edgemarkets)"]
     end
 
     subgraph AI["AI Processing"]
@@ -85,7 +86,7 @@ CREATE TABLE market_signals (
     key_drivers JSONB NOT NULL,      -- Array of key market movers
     
     -- Raw metrics snapshot
-    vix_value DECIMAL(10,2),         -- VIX index value (US only)
+    vix_value DECIMAL(10,2),         -- VIX value (US) OR Scaled Currency Vol (MY)
     market_index_value DECIMAL(12,2),-- SPY/KLCI value
     social_sentiment_score DECIMAL(5,2), -- -1 to 1 scale
     
@@ -207,11 +208,28 @@ To capture US Market sentiment without hitting rate limits:
 - The Edge Markets: `theedgemarkets.com/rss`
 - NST Business: `nst.com.my/rss/business`
 
-**Processing:**
-- Fetch last 20 items per feed
-- Filter by keywords: market, stock, fed, economy, KLCI
-- Extract: title + description + pubDate
-- Deduplicate by similarity threshold
+**Processing & Decay (Phase 2 Upgrade):**
+- **Age Decay**: Headlines have a 4-hour half-life. Stale news impact is exponentially reduced.
+- **Confidence Layer**: Scores are dampened if headline volume is low (Threshold: 5 items).
+- Deduplicate by similarity threshold.
+
+---
+
+## 4. Market Calculation Engine
+
+### Regime-Aware Weighting (5-Tier)
+The system dynamically adjusts component weights based on the "Fear Gauge" (VIX or FX Vol):
+
+1. **Grind** (VIX < 15): Social-heavy (60%), VIX 40%.
+2. **Normal** (VIX 15-25): Standard balanced weights.
+3. **Stress** (VIX 25-35): Fear-heavy (75% VIX bias).
+4. **Panic** (VIX 35-50): Social noise ignored (90% VIX bias).
+5. **Black Swan** (VIX > 50): Extreme VIX bias (95%).
+
+### Malaysia Fear Proxy (USD/MYR Vol)
+Since Malaysia lacks a liquid VIX equivalent, we calculate the **20-day Rolling Volatility of USD/MYR**. 
+- Scaled via `StdDev * 4000` to align with US VIX ranges (e.g., 0.005 $\approx$ 20 VIX).
+- Reflects capital flight and macro instability as the primary Malaysian fear metric.
 
 ---
 

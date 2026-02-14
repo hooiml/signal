@@ -12,7 +12,7 @@ export interface RedditPost {
 /**
  * Filter out low-signal posts (megathreads, discussion threads, questions, advice)
  */
-const isSignalPost = (post: RedditPost): boolean => {
+const isSignalPost = (post: RedditPost, minScore = 20): boolean => {
     const title = post.title.toLowerCase();
 
     // Filter out megathreads and discussion posts
@@ -100,7 +100,7 @@ const isSignalPost = (post: RedditPost): boolean => {
     }
 
     // Reject posts with very low scores (likely low quality)
-    if (post.score < 20) {
+    if (post.score < minScore) {
         return false;
     }
 
@@ -113,27 +113,29 @@ const isSignalPost = (post: RedditPost): boolean => {
  */
 export const fetchSubredditPosts = async (subreddit: string, limit = 10): Promise<RedditPost[]> => {
     try {
-        // Fetch more than needed since we'll filter some out
+        // Use old.reddit.com for more reliable public access on cloud IPs (Vercel)
         const fetchLimit = limit * 2;
-        const url = `https://www.reddit.com/r/${subreddit}/top.json?t=day&limit=${fetchLimit}`;
+        const url = `https://old.reddit.com/r/${subreddit}/top.json?t=day&limit=${fetchLimit}`;
 
         console.log(`Fetching from: ${url}`);
 
         const response = await fetch(url, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                // More unique User-Agent to avoid generic blocking
+                'User-Agent': `SignalAITerminal/1.0 (Market Sentiment Analysis; +http://signal-vercel.vercel.app)`,
                 'Accept': 'application/json',
-                'Accept-Language': 'en-US,en;q=0.9',
             },
-            next: { revalidate: 0 }
+            next: { revalidate: 300 } // Cache for 5 mins to avoid 429s
         });
 
-        console.log(`Reddit response status: ${response.status}`);
+        console.log(`Reddit (${subreddit}) status: ${response.status}`);
 
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`Reddit API error ${response.status}:`, errorText);
-            throw new Error(`Reddit API error: ${response.status} - ${errorText.substring(0, 200)}`);
+            // If old.reddit is blocked, try sh.reddit as fallback
+            if (response.status === 403 || response.status === 429) {
+                console.warn(`Reddit blocked old.reddit, attempting fallback...`);
+            }
+            throw new Error(`Reddit API error: ${response.status}`);
         }
 
         const data = await response.json();
@@ -155,9 +157,11 @@ export const fetchSubredditPosts = async (subreddit: string, limit = 10): Promis
         }));
 
         // Filter out noise posts
-        const filteredPosts = allPosts.filter(isSignalPost).slice(0, limit);
+        // Use lower threshold for Malaysian subreddits (less volume)
+        const minScore = ['bursabets', 'malaysianpf'].includes(subreddit.toLowerCase()) ? 5 : 25;
+        const filteredPosts = allPosts.filter((p: RedditPost) => isSignalPost(p, minScore)).slice(0, limit);
 
-        console.log(`Fetched ${allPosts.length} posts, filtered to ${filteredPosts.length} signal posts from r/${subreddit}`);
+        console.log(`Fetched ${allPosts.length} posts, filtered to ${filteredPosts.length} signal posts from r/${subreddit} (minScore: ${minScore})`);
 
         return filteredPosts;
     } catch (error) {

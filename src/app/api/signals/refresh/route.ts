@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { fetchVIX } from '@/lib/yahoo-finance';
+import { fetchVIX, fetchHistoricalCurrencyVol } from '@/lib/yahoo-finance';
 import { fetchMultipleSubreddits } from '@/lib/reddit';
+import type { RedditPost } from '@/lib/reddit';
 import { fetchMarketNews } from '@/lib/rss-feeds';
+import type { NewsItem } from '@/lib/rss-feeds';
 import { fetchTrendingTwits, calculateStockTwitsSentiment } from '@/lib/stocktwits';
+import type { StockTwit } from '@/lib/stocktwits';
+import {
+    calculateRedditSentiment,
+    calculateNewsSentiment
+} from '@/lib/signal';
 import { generateMarketAura } from '@/lib/gemini';
-import { calculateSentimentScore, getScoreDescription } from '@/lib/sentiment-calculator';
+import { calculateSentimentScore } from '@/lib/sentiment-calculator';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -28,73 +35,93 @@ export const GET = async (request: Request): Promise<NextResponse> => {
     }
 
     try {
-        console.log('🔄 FORCE REFRESH: Bypassing cache...');
+        const { searchParams } = new URL(request.url);
+        const market = (searchParams.get('market') as 'US' | 'MY') || 'US';
 
-        // 1. Fetch all data sources
-        const [vixData, redditPosts, newsItems, stockTwits] = await Promise.all([
-            fetchVIX(),
-            fetchMultipleSubreddits(['wallstreetbets', 'stocks', 'investing'], 10),
-            fetchMarketNews('US'),
-            fetchTrendingTwits(20)
-        ]);
+        console.log(`🔄 FORCE REFRESH (${market}): Bypassing cache...`);
 
-        // 2. Calculate sentiment scores
-        const keywords = (text: string) => {
-            const t = text.toLowerCase();
-            const bullish = (t.match(/bull|call|moon|buy|long|breakout|rally|surge|soar/g) || []).length;
-            const bearish = (t.match(/bear|put|crash|sell|short|dump|plunge|collapse/g) || []).length;
-            return bullish - bearish;
-        };
+        // 1. Fetch all data sources (Optimized: Skip StockTwits for MY, Add MYR Vol)
+        const [vixData, redditPosts, newsItems, stockTwits, myrVol] = await Promise.all([
+            fetchVIX(), // Always US VIX as proxy
+            fetchMultipleSubreddits(market === 'MY' ? ['bursabets', 'malaysianpf'] : ['wallstreetbets', 'stocks', 'investing'], 10),
+            fetchMarketNews(market),
+            market === 'US' ? fetchTrendingTwits(20) : Promise.resolve([] as StockTwit[]),
+            market === 'MY' ? fetchHistoricalCurrencyVol('USDMYR=X') : Promise.resolve(null)
+        ]) as [any, RedditPost[], NewsItem[], StockTwit[], any];
 
-        let redditScore = 0;
-        redditPosts.forEach(p => redditScore += keywords(p.title + (p.selftext || '')));
-        const redditSentiment = Math.max(-1, Math.min(1, redditScore / 15));
-        const stockTwitsSentiment = calculateStockTwitsSentiment(stockTwits);
-        const combinedSentiment = (redditSentiment * 0.4) + (stockTwitsSentiment * 0.6);
+        // 2. Calculate sentiment scores with market-specific weighting
+        const redditSentiment = calculateRedditSentiment(redditPosts);
+        const stockTwitsSentiment = market === 'US' ? calculateStockTwitsSentiment(stockTwits) : 0;
+        const newsSentiment = calculateNewsSentiment(newsItems);
+
+        // Calculate combined sentiment (Unified with signal.ts)
+        const combinedSentiment = market === 'MY'
+            ? (redditSentiment * 0.2) + (newsSentiment * 0.8) // MY: News-heavy
+            : (redditSentiment * 0.5) + (stockTwitsSentiment * 0.5); // US: Balanced Social
+
+        // Proxy Selection: For MY, use scaled Currency Volatility instead of US VIX
+        let fearGaugeValue = vixData.price;
+        let fearGaugeChangePct = vixData.price > 0 ? (vixData.change / vixData.price) * 100 : 0;
+
+        if (market === 'MY' && myrVol && myrVol.vol20d > 0) {
+            fearGaugeValue = Math.max(10, Math.min(80, myrVol.vol20d * 4000));
+            fearGaugeChangePct = myrVol.currentPrice > 0 ? (myrVol.change / myrVol.currentPrice) * 100 : 0;
+        }
 
         // 3. Calculate using the new robust formula
-        // Fix #7: vixChangePct should be actual percent, not raw change
-        const vixChangePct = vixData.price > 0 ? (vixData.change / vixData.price) * 100 : 0;
         const sentimentOutput = calculateSentimentScore({
-            vix: vixData.price,
+            vix: fearGaugeValue,
             social: combinedSentiment,
-            vixChangePct: vixChangePct,
+            vixChangePct: fearGaugeChangePct,
+        }, {
+            // Unified Optimized Weights
+            vixBaseWeight: market === 'MY' ? 0.30 : 0.60,
+            socialBaseWeight: market === 'MY' ? 0.70 : 0.40,
         });
 
-        console.log('📊 Calculated:', {
+        console.log(`📊 Calculated (${market}):`, {
             vix: vixData.price,
             social: combinedSentiment,
             score: sentimentOutput.score,
             auraLevel: sentimentOutput.auraLevel,
         });
 
-        // 4. Generate fresh AI analysis (this costs tokens!)
-        console.log('🧠 Generating fresh AI analysis...');
+        // 4. Generate fresh AI analysis
+        console.log(`🧠 Generating fresh AI analysis for ${market}...`);
+
+        // Pass real data or empty arrays based on market
+        const inputStockTwits = stockTwits;
+
         const aura = await generateMarketAura(
+            market,
             vixData.price,
             sentimentOutput.auraLevel,
             combinedSentiment,
-            redditPosts.map(p => p.title),
-            newsItems.map(n => n.title),
-            stockTwits.map(t => `${t.body.substring(0, 80)} [${t.sentiment || 'N/A'}]`)
+            redditPosts.map((p: RedditPost) => p.title),
+            newsItems.map((n: NewsItem) => n.title),
+            inputStockTwits.slice(0, 10).map((t: StockTwit) => `${t.body.substring(0, 80)} [${t.sentiment || 'N/A'}]`)
         );
 
-        // 5. Upsert to DB (Fix #6: Use ON CONFLICT instead of DELETE+INSERT)
+        // 5. Upsert to DB with accurate metadata
+        const dataSources = market === 'MY'
+            ? ['yahoo', 'reddit', 'rss-news', 'gemini']
+            : ['yahoo', 'reddit', 'stocktwits', 'gemini'];
+
         await sql`
             INSERT INTO market_signals (
-                market_type, aura_level, aura_score, summary, key_drivers, outlook,
+                market_type, aura_level, aura_score, summary, key_drivers, outlook, 
                 vix_value, social_sentiment_score, data_sources, model_version, signal_date
             ) VALUES (
-                'US', 
+                ${market}, 
                 ${sentimentOutput.auraLevel}, 
                 ${sentimentOutput.score}, 
                 ${aura.summary}, 
                 ${JSON.stringify(aura.keyDrivers)}, 
-                ${aura.outlook},
+                ${aura.outlook}, 
                 ${vixData.price}, 
                 ${combinedSentiment}, 
-                ${JSON.stringify(['yahoo', 'reddit', 'stocktwits', 'gemini'])}, 
-                'v0.6-quantfix', 
+                ${JSON.stringify(dataSources)},
+                'v0.8-alpha-optimized', 
                 CURRENT_DATE
             )
             ON CONFLICT (market_type, signal_date) DO UPDATE SET
@@ -114,22 +141,17 @@ export const GET = async (request: Request): Promise<NextResponse> => {
 
         return NextResponse.json({
             success: true,
-            message: 'Force refresh complete. Cache cleared and DB updated.',
-            data: {
-                auraLevel: sentimentOutput.auraLevel,
-                auraScore: sentimentOutput.score,
-                scoreDescription: getScoreDescription(sentimentOutput.score),
-                vix: vixData.price,
-                socialSentiment: combinedSentiment,
-                components: sentimentOutput.components,
-            }
+            market,
+            timestamp: new Date().toISOString(),
+            score: sentimentOutput.score,
+            level: sentimentOutput.auraLevel
         });
 
     } catch (error) {
-        console.error('Force refresh error:', error);
-        return NextResponse.json({
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
-        }, { status: 500 });
+        console.error('❌ Refresh error:', error);
+        return NextResponse.json(
+            { error: 'Refresh failed', details: error instanceof Error ? error.message : String(error) },
+            { status: 500 }
+        );
     }
 };

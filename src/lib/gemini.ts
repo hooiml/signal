@@ -3,6 +3,8 @@
  * Uses Gemini 1.5 Flash for fast, free summarization
  */
 
+import type { MarketType } from "./signal";
+
 export interface MarketAura {
     auraLevel: 'EXTREME_GREED' | 'GREED' | 'NEUTRAL' | 'FEAR' | 'EXTREME_FEAR';
     auraScore: number;
@@ -36,6 +38,7 @@ interface GeminiResponse {
  * Call Gemini API for market aura generation
  */
 export const generateMarketAura = async (
+    market: MarketType,
     vixValue: number,
     vixAuraLevel: string,
     socialSentiment: number,
@@ -52,9 +55,16 @@ export const generateMarketAura = async (
     // Convert raw sentiment to display score (0-100)
     const scaledSentiment = Math.round(((socialSentiment + 1) / 2) * 100);
 
-    const prompt = `You are a senior market analyst generating daily "Market Aura" summaries.
+    const marketName = market === 'MY' ? 'Malaysia' : 'United States';
+    const marketContext = market === 'MY'
+        ? "Focus on Bursa Malaysia (KLSE) and local macroeconomic factors. Ignore US-specific tickers like $NVDA, $TSLA, etc., unless they directly impact global sentiment for MY."
+        : "Focus on US markets (S&P 500, Nasdaq, Dow).";
 
-Generate a Market Aura summary based on:
+    const prompt = `You are a senior market analyst generating daily "Market Aura" summaries for the ${marketName} market.
+ 
+ ${marketContext}
+
+ Generate a Market Aura summary based on:
 
 ## Quantitative Data
 - VIX Level: ${vixValue.toFixed(2)} (${vixAuraLevel})

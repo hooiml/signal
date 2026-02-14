@@ -33,10 +33,12 @@
 - [ ] Add historical signal charts
 - [ ] Create watchlist management UI
 
-## Phase 5: Malaysia Market
-- [ ] Add KLCI data fetching
-- [ ] Configure MY-specific RSS feeds (The Edge Markets)
-- [ ] Extend aura generation for MY market
+## Phase 5: Malaysia Market ✅
+- [x] Add KLCI data fetching
+- [x] Configure MY-specific RSS feeds (The Star, Edgemarkets)
+- [x] Extend aura generation for MY market
+- [x] Implement local fear proxy (USD/MYR 20d Rolling Vol)
+- [x] Optimize social weight (20% Reddit / 80% News)
 
 ## Phase 6: Advanced Indicators (V2 Backlog)
 - [ ] **VIX/VXV Term Structure** - Add CBOE VXV feed to detect contango/backwardation

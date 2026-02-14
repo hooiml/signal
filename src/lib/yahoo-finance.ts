@@ -147,3 +147,55 @@ export const fetchIndicesWithChart = async (symbols: string[]): Promise<MarketDa
     const results = await Promise.all(promises);
     return results.filter((r): r is MarketData => r !== null);
 };
+/**
+ * Fetch historical data for a currency pair and calculate its 20-day rolling volatility
+ * Used as a localized 'Fear Gauge' for Malaysia (USD/MYR)
+ */
+export const fetchHistoricalCurrencyVol = async (symbol: string): Promise<{ currentPrice: number, vol20d: number, change: number }> => {
+    try {
+        // Fetch 30 days of data to get at least 20 daily changes
+        const response = await fetch(`${YAHOO_BASE_URL}/${symbol}?interval=1d&range=30d`, {
+            headers: { 'User-Agent': 'Signal/1.0' },
+            next: { revalidate: 3600 } // Volatility doesn't change every minute, cache for 1h
+        });
+
+        if (!response.ok) throw new Error(`Yahoo Finance API error: ${response.status}`);
+
+        const data = await response.json();
+        const result = data.chart.result[0];
+        const quotes = result.indicators.quote[0].close || [];
+        const validQuotes = quotes.filter((q: number | null) => q !== null) as number[];
+
+        if (validQuotes.length < 2) return { currentPrice: 0, vol20d: 0, change: 0 };
+
+        // 1. Calculate daily % changes
+        const returns: number[] = [];
+        for (let i = 1; i < validQuotes.length; i++) {
+            const ret = (validQuotes[i] - validQuotes[i - 1]) / validQuotes[i - 1];
+            returns.push(ret);
+        }
+
+        // 2. Take the last 20 daily returns
+        const windowSize = 20;
+        const recentReturns = returns.slice(-windowSize);
+
+        // 3. Calculate Standard Deviation
+        const mean = recentReturns.reduce((sum, r) => sum + r, 0) / recentReturns.length;
+        const variance = recentReturns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / recentReturns.length;
+        const stdDev = Math.sqrt(variance);
+
+        // 4. Return raw standard deviation (usually ~0.002 to 0.01 for FX)
+        // We'll scale this later in the sentiment calculator to be comparable to VIX.
+        const currentPrice = validQuotes[validQuotes.length - 1];
+        const prevPrice = validQuotes[validQuotes.length - 2];
+
+        return {
+            currentPrice,
+            vol20d: stdDev,
+            change: currentPrice - prevPrice
+        };
+    } catch (e) {
+        console.error(`Failed to fetch historical vol for ${symbol}:`, e);
+        return { currentPrice: 0, vol20d: 0, change: 0 };
+    }
+};

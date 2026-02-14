@@ -150,8 +150,6 @@ export function calculateSentimentScoreSimple(
 ): SentimentOutput {
     const {
         vixBaseWeight = 0.65,
-        socialBaseWeight = 0.35,
-        crisisThreshold = 30,
         enableVelocity = true,
         velocityThreshold = 15,
     } = config;
@@ -164,15 +162,32 @@ export function calculateSentimentScoreSimple(
     const vixScore = normalizeVixScore(safeVix, config);
     const socialScore = normalizeSocialScore(safeSocial);
 
-    // 2. REGIME-AWARE GRADIENT WEIGHTING (Corrected Implementation)
-    // As volatility increases (volScore drops), smoothly increase VIX weight from baseline to max
-    // This prevents binary "flickering" during transitional periods
-    // Formula: baseline + (range * penalty), where penalty = 0 during calm, up to 1 during crisis
-    const volatilityPenalty = Math.max(0, (50 - vixScore) / 50); // 0 when calm (score>50), up to 1 in crisis
-    const vixWeight = Math.min(0.90, vixBaseWeight + (0.25 * volatilityPenalty));
-    // Result: volScore=80 (calm) → weight=vixBaseWeight (0.65)
-    //         volScore=25 (elevated) → weight=vixBaseWeight + 0.125 = 0.775
-    //         volScore=0 (crisis) → weight=vixBaseWeight + 0.25 = 0.90 (capped)
+    // 2. 5-TIER REGIME-AWARE WEIGHTING (Quant Audit Recommended)
+    // Dynamic weights adjust based on VIX levels to prevent social noise in panics
+    let regimeBaseVixWeight = vixBaseWeight;
+    const regimeMaxVixWeight = 0.95;
+
+    if (safeVix < 15) {
+        // GRIND REGIME: VIX < 15. Social sentiment is highly predictive/noisy.
+        regimeBaseVixWeight = Math.min(vixBaseWeight, 0.40);
+    } else if (safeVix < 25) {
+        // NORMAL REGIME: VIX 15-25. Use the provided base weights.
+        regimeBaseVixWeight = vixBaseWeight;
+    } else if (safeVix < 35) {
+        // STRESS REGIME: VIX 25-35. Shift toward VIX anchor.
+        regimeBaseVixWeight = Math.max(vixBaseWeight, 0.75);
+    } else if (safeVix < 50) {
+        // PANIC REGIME: VIX 35-50. Social is noise. VIX is everything.
+        regimeBaseVixWeight = Math.max(vixBaseWeight, 0.90);
+    } else {
+        // BLACK SWAN: VIX > 50. Pure volatility regime.
+        regimeBaseVixWeight = 0.95;
+    }
+
+    // Apply a smooth gradient within the regime to prevent sudden jumps
+    // (Existing transition logic preserved and integrated)
+    const volatilityPenalty = Math.max(0, (50 - vixScore) / 50);
+    const vixWeight = Math.max(regimeBaseVixWeight, Math.min(regimeMaxVixWeight, regimeBaseVixWeight + (0.15 * volatilityPenalty)));
     const socialWeight = 1 - vixWeight;
 
     // 3. Velocity adjustment (optional)
