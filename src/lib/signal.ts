@@ -41,8 +41,7 @@ export function calculateRedditSentiment(posts: RedditPost[]): number {
 }
 
 export type MarketType = 'US' | 'MY';
-
-const CONFIG = {
+export const CONFIG = {
     US: {
         indices: ['^GSPC', '^IXIC', '^DJI', '^RUT'],
         popular: ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'NFLX', 'AMD', 'AVGO'],
@@ -144,7 +143,7 @@ export const fetchSocialData = async (market: MarketType) => {
         fetchMarketNews(market),
         // StockTwits is only relevant for US market
         market === 'US' ? fetchTrendingTwits(config.stocktwitsLimit) : Promise.resolve([])
-    ]) as [RedditPost[], any[], any[]];
+    ]) as [RedditPost[], NewsItem[], StockTwit[]];
 
     // DIAGNOSTIC MOCK: If empty, add a indicator post to verify UI rendering
     if (redditPosts.length === 0) {

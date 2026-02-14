@@ -2,7 +2,8 @@ import { getSmartSignal } from "@/lib/signal";
 import MarketTabs from "@/components/MarketTabs";
 import Link from 'next/link';
 import type { MarketData } from "@/lib/yahoo-finance";
-import type { RedditPost } from "@/lib/reddit";
+import RedditFeed from "@/components/RedditFeed";
+import { CONFIG } from "@/lib/signal";
 
 
 interface PageProps {
@@ -375,31 +376,11 @@ export default async function Home(props: PageProps) {
               {/* Reddit */}
               <div>
                 <h4 className="text-xs font-bold text-gray-600 mb-3 px-1 mt-6">REDDIT SIGNALS</h4>
-                <div className="space-y-3">
-                  {sources?.reddit?.length ? sources.reddit.slice(0, 5).map((post: RedditPost, i: number) => {
-                    const postTitle = post.title || '';
-                    const isBullish = postTitle.toLowerCase().match(/bull|call|moon|buy|long|surge/);
-                    const isBearish = postTitle.toLowerCase().match(/bear|put|crash|sell|short|dump/);
-                    const borderColor = isBullish ? 'border-emerald-500/50' : isBearish ? 'border-rose-500/50' : 'border-transparent';
-
-                    return (
-                      <a key={i} href={`https://www.reddit.com${post.permalink}`} target="_blank" rel="noopener noreferrer" className={`block p-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.06] transition-colors border-l-2 ${borderColor} hover:border-white/10 group`}>
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="text-[10px] text-orange-500 font-bold uppercase tracking-wider">{post.subreddit}</span>
-                          <div className="flex items-center gap-1 bg-orange-500/10 px-2 py-0.5 rounded-full text-[10px] text-orange-500 border border-orange-500/10">
-                            <span>⬆</span>
-                            <span className="font-mono font-bold">{post.score > 1000 ? `${(post.score / 1000).toFixed(1)}k` : post.score}</span>
-                          </div>
-                        </div>
-                        <div className="text-sm text-gray-300 leading-snug group-hover:text-white line-clamp-2">{postTitle}</div>
-                      </a>
-                    )
-                  }) : (
-                    <div className="p-4 text-center rounded-xl bg-white/[0.01] border border-white/5 text-gray-500 text-[10px] italic">
-                      No active signals detected in r/BursaBets / r/MalaysianPF.
-                    </div>
-                  )}
-                </div>
+                <RedditFeed
+                  initialPosts={sources?.reddit || []}
+                  subreddits={CONFIG[market].subreddits}
+                  market={market}
+                />
               </div>
             </div>
           </div>
