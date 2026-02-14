@@ -1,0 +1,9 @@
+{
+    "crons": [
+        {
+            "path": "/api/signals/refresh",
+            "schedule": "*/30 * * * *"
+        }
+    ],
+    "framework": "nextjs"
+}

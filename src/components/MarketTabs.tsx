@@ -76,14 +76,14 @@ export default function MarketTabs({ stocks }: MarketTabsProps) {
     return (
         <div className="bg-[#111] border border-[#222] rounded-2xl p-4 overflow-hidden">
             {/* Tab Navigation */}
-            <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide mb-2 border-b border-white/5">
+            <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide mb-2 border-b border-white/5 mask-fade-right">
                 {tabs.map((tab) => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={`text-xs font-bold px-3 py-1.5 rounded-full transition-colors whitespace-nowrap ${activeTab === tab.id
-                            ? 'bg-purple-500/10 text-white border border-purple-500/20'
-                            : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+                        className={`text-[10px] md:text-xs font-bold px-3 py-1.5 rounded-full transition-all whitespace-nowrap shrink-0 ${activeTab === tab.id
+                            ? 'bg-purple-500 text-white shadow-[0_0_12px_rgba(168,85,247,0.4)] border border-purple-400/20'
+                            : 'text-gray-500 hover:text-gray-300 hover:bg-white/5 border border-transparent'
                             }`}
                     >
                         {tab.label}

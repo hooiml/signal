@@ -205,7 +205,7 @@ export const getAuraAnalysis = async (marketData: AggregateMarketData, market: M
             const isStale = new Date(cached[0].signal_date).toDateString() !== new Date().toDateString();
             if (isStale) console.log(`⚠️ Serving stale AI analysis for ${market} from ${cached[0].signal_date}`);
 
-            return {
+            return injectLiveAuraData({
                 // Use the DB's stored level/score if available, or current live calculation?
                 // Ideally, "Aura" (Text) matches the stored record, but "Score" (Number) is live.
                 // Hybrid approach: Live score, Stored Text.
@@ -215,8 +215,9 @@ export const getAuraAnalysis = async (marketData: AggregateMarketData, market: M
                 // Text content from DB
                 summary: cached[0].summary,
                 keyDrivers: typeof cached[0].key_drivers === 'string' ? JSON.parse(cached[0].key_drivers) : cached[0].key_drivers,
-                outlook: cached[0].outlook || "Market conditions are evolving. Monitor key drivers for changes."
-            };
+                outlook: cached[0].outlook || "Market conditions are evolving. Monitor key drivers for changes.",
+                generatedAt: cached[0].updated_at || cached[0].created_at || cached[0].signal_date
+            }, marketData);
         }
     } catch (e) {
         console.error('DB Read failed:', e);
@@ -225,7 +226,7 @@ export const getAuraAnalysis = async (marketData: AggregateMarketData, market: M
     // 2. Fallback if DB is empty or fails (DO NOT generate fresh on render)
     console.warn(`⚠️ No AI analysis found in DB for ${market}. Returning fallback.`);
 
-    return {
+    const fallbackAura = {
         auraLevel: marketData.sentimentOutput.auraLevel,
         auraScore: marketData.sentimentOutput.score,
         summary: "Market intelligence is currently compiling. Live data suggests " + marketData.sentimentOutput.auraLevel.replace('_', ' ') + " conditions.",
@@ -235,7 +236,26 @@ export const getAuraAnalysis = async (marketData: AggregateMarketData, market: M
         ],
         outlook: "Awaiting updated analysis. Check back shortly."
     };
+
+    return injectLiveAuraData(fallbackAura, marketData);
 };
+
+/**
+ * Trust Layer: Inject live data into potentially stale AI text
+ */
+function injectLiveAuraData(aura: any, marketData: AggregateMarketData) {
+    if (!aura || !aura.summary) return aura;
+
+    // Replace VIX mentions like "VIX at 20.60" or "VIX: 20.60" with live data
+    const liveVix = marketData.vixData.price.toFixed(2);
+    const updatedSummary = aura.summary.replace(/VIX (?:at|is|level of)?\s?\d+\.?\d*/gi, `VIX at ${liveVix}`);
+
+    return {
+        ...aura,
+        summary: updatedSummary
+    };
+}
+
 
 /**
  * Main Orchestrator
@@ -264,6 +284,7 @@ export const getSmartSignal = async (market: MarketType = 'US') => {
                 dataQuality,
                 vixSource: market === 'MY' ? 'US_VIX_PROXY' : 'CBOE_VIX',
                 vixDisclaimer: market === 'MY' ? 'Using US VIX as global risk proxy. Local KLSE volatility coming in Phase 2.' : null,
+                sentimentVelocity: marketData.sentimentOutput.components.vixScore > 0 ? (marketData.sentimentOutput.components.socialScore / marketData.sentimentOutput.components.vixScore).toFixed(2) : 'N/A', // Simple ratio as proxy for velocity for now
             },
             marketAura: aura,
             marketPulse: {

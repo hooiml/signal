@@ -164,10 +164,22 @@ export default async function Home(props: PageProps) {
 
             <div className="grid grid-cols-2 gap-4 mt-8 pt-8 border-t border-white/5">
               <div>
-                <div className="text-xs text-gray-400 font-bold mb-1">{market === 'MY' ? 'GLOBAL VIX (US)' : 'VIX INDEX'}</div>
+                <div className="text-xs text-gray-400 font-bold mb-1 flex items-center gap-1">
+                  <span>{market === 'MY' ? 'GLOBAL VIX (US)' : 'VIX INDEX'}</span>
+                  <div className="tooltip-container cursor-help">
+                    <span className="w-3.5 h-3.5 inline-flex items-center justify-center rounded-full border border-gray-600 text-gray-500 text-[9px] font-bold">i</span>
+                    <span className="tooltip-text">
+                      <span className="font-bold text-white block mb-1">VIX Guide (Fear Gauge):</span>
+                      <span className="flex justify-between gap-4"><span>&lt; 13</span> <span className="text-emerald-400">Low Vol (Complacency)</span></span>
+                      <span className="flex justify-between gap-4"><span>17 - 23</span> <span className="text-blue-400">Neutral / Typical</span></span>
+                      <span className="flex justify-between gap-4"><span>23 - 30</span> <span className="text-yellow-400">Anxiety / Elevated</span></span>
+                      <span className="flex justify-between gap-4"><span>&gt; 30</span> <span className="text-rose-500">Panic / Crisis</span></span>
+                    </span>
+                  </div>
+                </div>
                 <div className="flex items-baseline gap-2">
                   <div className="text-2xl font-mono text-white">{rawMetrics.vix.toFixed(2)}</div>
-                  <div className={`text-sm font-mono ${rawMetrics.vixChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  <div className={`text-sm font-mono ${rawMetrics.vixChange <= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {rawMetrics.vixChange >= 0 ? '+' : ''}{rawMetrics.vixChange.toFixed(2)}
                   </div>
                 </div>
@@ -220,6 +232,15 @@ export default async function Home(props: PageProps) {
                   <div className="flex justify-between font-mono text-xs">
                     <span className="text-emerald-400 font-bold">{Math.round(rawMetrics.components.vixWeight * 100)}%</span>
                     <span className="text-blue-400 font-bold">{Math.round((1 - rawMetrics.components.vixWeight) * 100)}%</span>
+                  </div>
+
+                  {/* Source Attribution Breakdown */}
+                  <div className="pt-2 flex items-center justify-between text-[10px] text-gray-600 uppercase tracking-tighter">
+                    <div className="flex gap-3">
+                      <span>Reddit: {Math.round(rawMetrics.breakdown.reddit * 100)}%</span>
+                      <span>StockTwits: {Math.round(rawMetrics.breakdown.stocktwits * 100)}%</span>
+                    </div>
+                    <span className="text-gray-500 italic">Verified Signal Terminal v1.0</span>
                   </div>
                 </div>
               </div>
@@ -298,9 +319,16 @@ export default async function Home(props: PageProps) {
           </div>
 
           <div className="bg-[#111] border border-white/10 rounded-3xl p-8 min-h-[400px] hover:border-white/20 transition-colors">
-            <h3 className="text-gray-400 text-sm font-medium mb-6 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse"></span>
-              AI Market Analysis
+            <h3 className="text-gray-400 text-sm font-medium mb-6 uppercase tracking-wider flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse"></span>
+                AI Market Analysis
+              </div>
+              {marketAura.generatedAt && (
+                <span className="text-[9px] text-gray-600 font-mono font-normal normal-case tracking-tight">
+                  Generated {getRelativeTime(marketAura.generatedAt)}
+                </span>
+              )}
             </h3>
             <div className="prose prose-invert prose-sm max-w-none">
               <p className="font-mono text-xs md:text-sm text-gray-400 leading-7 md:leading-8 whitespace-pre-line tracking-tight">{marketAura.summary}</p>
@@ -374,6 +402,7 @@ export default async function Home(props: PageProps) {
             Data: {meta.dataQuality}
           </span>
           <span>Updated: {getRelativeTime(meta.lastUpdated)}</span>
+          <span className="text-gray-600">Velocity: {meta.sentimentVelocity}</span>
           <span className="text-gray-600">Latency: {(meta.fetchDurationMs / 1000).toFixed(1)}s</span>
         </div>
         {

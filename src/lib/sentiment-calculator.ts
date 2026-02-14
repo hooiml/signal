@@ -118,9 +118,9 @@ function normalizeVixScore(vix: number, config: SentimentConfig): number {
         vixScore = 100 - (percentile * 100);
     } else {
         // ABSOLUTE SCALE: Logistic function for smooth mapping
-        // - Centered at VIX=19.5 (true historical median, corrected from 25)
-        // - Steepness=5 controls transition smoothness
-        vixScore = 100 / (1 + Math.exp((vix - 19.5) / 5));
+        // - Centered at VIX=24 (per user mandates)
+        // - Steepness=6 controls transition smoothness
+        vixScore = 100 / (1 + Math.exp((vix - 24) / 6));
     }
 
     // Clamp and round
