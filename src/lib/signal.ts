@@ -146,15 +146,16 @@ export const fetchSocialData = async (market: MarketType) => {
         market === 'US' ? fetchTrendingTwits(config.stocktwitsLimit) : Promise.resolve([])
     ]) as [RedditPost[], any[], any[]];
 
-    // DIAGNOSTIC MOCK: If Malaysia and empty, add a indicator post
-    if (market === 'MY' && redditPosts.length === 0) {
+    // DIAGNOSTIC MOCK: If empty, add a indicator post to verify UI rendering
+    if (redditPosts.length === 0) {
+        console.warn(`[Social] No reddit posts found for ${market}. Injecting diagnostic signal.`);
         redditPosts.push({
-            title: "📡 [DIAGNOSTIC] Reddit Sync Active - Waiting for Subreddit Signal...",
-            selftext: "This is a fallback message showing that the UI is working but the Reddit API is currently returning 0 results for Bursa subreddits.",
+            title: `📡 [DIAGNOSTIC] ${market} Reddit Sync Active - No Threads Found`,
+            selftext: `The Signal system is connected to Reddit, but the ${market} signal stream is currently returning zero valid results. This indicates either a temporary lack of volatility or a network filter on the source API.`,
             score: 1,
             num_comments: 0,
-            url: "https://www.reddit.com/r/bursabets",
-            permalink: "/r/bursabets",
+            url: "https://www.reddit.com",
+            permalink: "/",
             created_utc: Date.now() / 1000,
             subreddit: "r/System"
         });

@@ -347,11 +347,18 @@ export default async function Home(props: PageProps) {
           <div className="bg-[#111] border border-white/10 rounded-3xl p-6 h-[700px] overflow-hidden flex flex-col hover:border-white/20 transition-colors flex-1">
             <h3 className="text-gray-400 text-xs font-bold mb-4 uppercase tracking-wider sticky top-0 bg-[#111] py-2 z-10 border-b border-white/5 flex justify-between">
               <span>Market Intelligence</span>
-              <span className="text-emerald-500">{sources.news.length + sources.reddit.length} Signals</span>
+              <span className="text-emerald-500">
+                {(sources?.news?.length || 0) + (sources?.reddit?.length || 0)} Signals
+              </span>
             </h3>
 
             <div className="overflow-y-auto space-y-6 pr-2 scrollbar-thin">
-              {/* News */}
+              {/* Error State Overlay */}
+              {!sources && (
+                <div className="p-8 text-center bg-rose-500/5 rounded-2xl border border-rose-500/10 text-rose-500 text-xs font-medium">
+                  ⚠️ Critical Sync Fault: Source API Unreachable.
+                </div>
+              )}
               <div>
                 <h4 className="text-xs font-bold text-gray-600 mb-3 px-1">HEADLINES</h4>
                 <div className="space-y-4">
@@ -404,7 +411,7 @@ export default async function Home(props: PageProps) {
       <footer className="max-w-7xl mx-auto w-full mt-12 pt-6 border-t border-white/5 flex flex-wrap justify-between items-center gap-4 text-xs text-gray-600">
         <div className="flex items-center gap-4 text-gray-500 text-[11px] select-none">
           <span className={`px-2 py-0.5 rounded text-[10px] ${meta.dataQuality === 'GOOD' ? 'bg-emerald-900/30 text-emerald-500' : 'bg-yellow-900/30 text-yellow-500'}`}>
-            Data: {meta.dataQuality} | V2.5.6-DIAGNOSTIC
+            Data: {meta.dataQuality} | V2.5.7-DIAGNOSTIC
           </span>
           <span>Updated: {getRelativeTime(meta.lastUpdated)}</span>
           <span className="text-gray-600">Velocity: {meta.sentimentVelocity}</span>
