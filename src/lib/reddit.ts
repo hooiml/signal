@@ -1,3 +1,7 @@
+import Parser from 'rss-parser';
+
+const parser = new Parser();
+
 export interface RedditPost {
     title: string;
     selftext: string;
@@ -85,63 +89,86 @@ const isSignalPost = (post: RedditPost, minScore = 20): boolean => {
  * Rate limit: 10 requests/minute (sufficient for daily cron jobs)
  */
 export const fetchSubredditPosts = async (subreddit: string, limit = 10): Promise<RedditPost[]> => {
-    try {
-        const fetchLimit = limit * 2;
-        // USE 'hot' instead of 'top' to get fresher content on low-volume days
-        // Switch to www.reddit.com which is sometimes preferred by Vercel edge
-        const url = `https://www.reddit.com/r/${subreddit}/hot.json?limit=${fetchLimit}`;
+    const fetchLimit = limit * 2;
+    const isMYSub = ['bursabets', 'malaysianpf'].includes(subreddit.toLowerCase());
 
-        console.log(`Fetching from: ${url}`);
+    // Try multiple origins because Vercel IPs are often blocked by Reddit
+    const origins = [
+        `https://www.reddit.com/r/${subreddit}/hot.json?limit=${fetchLimit}`,
+        `https://old.reddit.com/r/${subreddit}/hot.json?limit=${fetchLimit}`
+    ];
 
-        const response = await fetch(url, {
-            headers: {
-                // Use a standard browser User-Agent to avoid generic blocking
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'application/json',
-            },
-            next: { revalidate: 60 } // Reduce cache to 1 min to help debugging/stale data
-        });
+    for (const url of origins) {
+        try {
+            console.log(`[Reddit] Fetching JSON from: ${url}`);
 
-        console.log(`Reddit (${subreddit}) status: ${response.status}`);
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'application/json',
+                    'Referer': 'https://www.reddit.com/',
+                },
+                next: { revalidate: 30 }
+            });
 
-        if (!response.ok) {
-            // If old.reddit is blocked, try sh.reddit as fallback
-            if (response.status === 403 || response.status === 429) {
-                console.warn(`Reddit blocked old.reddit, attempting fallback...`);
+            if (!response.ok) {
+                console.warn(`[Reddit] JSON ${new URL(url).hostname} failed: ${response.status}`);
+                continue;
             }
-            throw new Error(`Reddit API error: ${response.status}`);
+
+            const data = await response.json();
+            if (!data?.data?.children) continue;
+
+            const allPosts = data.data.children.map((child: { data: any }) => ({
+                title: child.data.title,
+                selftext: child.data.selftext || '',
+                score: child.data.score || 0,
+                num_comments: child.data.num_comments || 0,
+                url: child.data.url || '',
+                permalink: child.data.permalink || '',
+                created_utc: child.data.created_utc || Date.now() / 1000,
+                subreddit: child.data.subreddit_name_prefixed || `r/${subreddit}`
+            }));
+
+            const minScore = isMYSub ? 0 : 25;
+            const filteredPosts = allPosts.filter((p: RedditPost) => {
+                if (isMYSub) return true;
+                return isSignalPost(p, minScore);
+            }).slice(0, limit);
+
+            if (filteredPosts.length > 0) return filteredPosts;
+        } catch (error) {
+            console.error(`[Reddit] JSON Error with origin ${url}:`, error);
         }
+    }
 
-        const data = await response.json();
+    // FINAL FALLBACK: RSS Feed (Often bypassed by 403 blocks)
+    try {
+        const rssUrl = `https://www.reddit.com/r/${subreddit}/.rss`;
+        console.log(`[Reddit] Attempting RSS Fallback: ${rssUrl}`);
 
-        if (!data?.data?.children) {
-            console.error('Invalid Reddit response structure:', JSON.stringify(data).substring(0, 200));
-            return [];
-        }
-
-        const allPosts = data.data.children.map((child: { data: any }) => ({
-            title: child.data.title,
-            selftext: child.data.selftext,
-            score: child.data.score,
-            num_comments: child.data.num_comments,
-            url: child.data.url,
-            permalink: child.data.permalink,
-            created_utc: child.data.created_utc,
-            subreddit: child.data.subreddit_name_prefixed
+        const feed = await parser.parseURL(rssUrl);
+        const rssPosts: RedditPost[] = feed.items.map(item => ({
+            title: item.title || '',
+            selftext: item.contentSnippet || '',
+            score: 10, // Mock score for RSS
+            num_comments: 5,
+            url: item.link || '',
+            permalink: (item.link || '').replace('https://www.reddit.com', ''),
+            created_utc: new Date(item.pubDate || '').getTime() / 1000,
+            subreddit: `r/${subreddit}`
         }));
 
-        // Filter out noise posts
-        // For Malaysia, we set minScore to 0 because volume is low and we want to see ANY signal.
-        const minScore = ['bursabets', 'malaysianpf'].includes(subreddit.toLowerCase()) ? 0 : 25;
-        const filteredPosts = allPosts.filter((p: RedditPost) => isSignalPost(p, minScore)).slice(0, limit);
-
-        console.log(`Fetched ${allPosts.length} posts, filtered to ${filteredPosts.length} signal posts from r/${subreddit} (minScore: ${minScore})`);
-
-        return filteredPosts;
-    } catch (error) {
-        console.error(`Error fetching from r/${subreddit}:`, error);
-        return [];
+        if (rssPosts.length > 0) {
+            console.log(`[Reddit] RSS Success! Found ${rssPosts.length} posts for r/${subreddit}`);
+            return rssPosts.slice(0, limit);
+        }
+    } catch (rssError) {
+        console.error(`[Reddit] RSS Fallback failed for r/${subreddit}:`, rssError);
     }
+
+    console.error(`[Reddit] All origins (JSON + RSS) failed for r/${subreddit}`);
+    return [];
 };
 
 /**

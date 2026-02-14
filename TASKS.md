@@ -10,11 +10,11 @@
 - [x] Run database migrations (create tables in Neon)
 
 ## Phase 2: Social Intelligence ✅
-- [x] Create Reddit fetcher (`src/lib/reddit.ts`) - Public API, no OAuth needed
+- [x] Create Reddit fetcher (`src/lib/reddit.ts`) - Public API (Hot + RSS Fallback)
 - [x] Create RSS feed parser (`src/lib/rss-feeds.ts`)
 - [x] Create StockTwits fetcher (`src/lib/stocktwits.ts`)
 - [x] Build social aggregation endpoint (`/api/signals/aggregate`)
-- [x] Implement noise filtering for Reddit posts
+- [x] Implement noise filtering (Relaxed for MY, Triple-Origin for Vercel)
 
 ## Phase 3: AI Integration ✅
 - [x] Configure Gemini API client (`src/lib/gemini.ts`)
