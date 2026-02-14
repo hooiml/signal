@@ -144,7 +144,21 @@ export const fetchSocialData = async (market: MarketType) => {
         fetchMarketNews(market),
         // StockTwits is only relevant for US market
         market === 'US' ? fetchTrendingTwits(config.stocktwitsLimit) : Promise.resolve([])
-    ]);
+    ]) as [RedditPost[], any[], any[]];
+
+    // DIAGNOSTIC MOCK: If Malaysia and empty, add a indicator post
+    if (market === 'MY' && redditPosts.length === 0) {
+        redditPosts.push({
+            title: "📡 [DIAGNOSTIC] Reddit Sync Active - Waiting for Subreddit Signal...",
+            selftext: "This is a fallback message showing that the UI is working but the Reddit API is currently returning 0 results for Bursa subreddits.",
+            score: 1,
+            num_comments: 0,
+            url: "https://www.reddit.com/r/bursabets",
+            permalink: "/r/bursabets",
+            created_utc: Date.now() / 1000,
+            subreddit: "r/System"
+        });
+    }
 
     return { redditPosts, newsItems, stockTwits };
 };

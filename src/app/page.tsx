@@ -369,7 +369,7 @@ export default async function Home(props: PageProps) {
               <div>
                 <h4 className="text-xs font-bold text-gray-600 mb-3 px-1 mt-6">REDDIT SIGNALS</h4>
                 <div className="space-y-3">
-                  {sources?.reddit?.slice(0, 5).map((post: RedditPost, i: number) => {
+                  {sources?.reddit?.length ? sources.reddit.slice(0, 5).map((post: RedditPost, i: number) => {
                     const postTitle = post.title || '';
                     const isBullish = postTitle.toLowerCase().match(/bull|call|moon|buy|long|surge/);
                     const isBearish = postTitle.toLowerCase().match(/bear|put|crash|sell|short|dump/);
@@ -384,10 +384,14 @@ export default async function Home(props: PageProps) {
                             <span className="font-mono font-bold">{post.score > 1000 ? `${(post.score / 1000).toFixed(1)}k` : post.score}</span>
                           </div>
                         </div>
-                        <div className="text-sm text-gray-300 leading-snug group-hover:text-white line-clamp-2">{post.title}</div>
+                        <div className="text-sm text-gray-300 leading-snug group-hover:text-white line-clamp-2">{postTitle}</div>
                       </a>
                     )
-                  })}
+                  }) : (
+                    <div className="p-4 text-center rounded-xl bg-white/[0.01] border border-white/5 text-gray-500 text-[10px] italic">
+                      No active signals detected in r/BursaBets / r/MalaysianPF.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -400,7 +404,7 @@ export default async function Home(props: PageProps) {
       <footer className="max-w-7xl mx-auto w-full mt-12 pt-6 border-t border-white/5 flex flex-wrap justify-between items-center gap-4 text-xs text-gray-600">
         <div className="flex items-center gap-4 text-gray-500 text-[11px] select-none">
           <span className={`px-2 py-0.5 rounded text-[10px] ${meta.dataQuality === 'GOOD' ? 'bg-emerald-900/30 text-emerald-500' : 'bg-yellow-900/30 text-yellow-500'}`}>
-            Data: {meta.dataQuality}
+            Data: {meta.dataQuality} | V2.5.6-DIAGNOSTIC
           </span>
           <span>Updated: {getRelativeTime(meta.lastUpdated)}</span>
           <span className="text-gray-600">Velocity: {meta.sentimentVelocity}</span>
