@@ -14,6 +14,7 @@ export interface RedditPost {
  */
 const isSignalPost = (post: RedditPost, minScore = 20): boolean => {
     const title = post.title.toLowerCase();
+    const isMYSub = ['bursabets', 'malaysianpf'].includes(post.subreddit.toLowerCase().replace('r/', ''));
 
     // Filter out megathreads and discussion posts
     const noisePatterns = [
@@ -22,62 +23,11 @@ const isSignalPost = (post: RedditPost, minScore = 20): boolean => {
         'weekend discussion',
         'weekly discussion',
         'monthly discussion',
-        'rate my portfolio',
-        'what are your moves',
         'daily thread',
         'weekend thread',
         'earnings thread',
-        'what is your',
         'quarterly thread',
         'ask r/',
-        'rant thread',
-        'advice thread',
-        'newbie thread',
-        // Question/advice seeking posts
-        'how much has your',
-        'do i belong',
-        'first time',
-        'first options',
-        'should i',
-        'is it worth',
-        'help me',
-        'advice needed',
-        'need advice',
-        'what would you',
-        'how do i',
-        'how can i',
-        'am i doing',
-        'did i make',
-        'beginner question',
-        'eternal question',
-        'buy now or wait',
-        'sell or hold',
-        'what stocks are you',
-        'which stocks',
-        'where to start',
-        'how and from where',
-        'from where to start',
-        // Personal brags/reflections (no market signal)
-        'best month yet',
-        'worst month',
-        'biggest mistake',
-        'biggest stupid',
-        'my biggest',
-        'i made this year',
-        'my gains',
-        'my losses',
-        'finally broke',
-        'thank you all for',
-        // Portfolio-specific questions
-        'portfolio:',
-        'my portfolio',
-        'time horizon',
-        'is a 20',
-        // Speculative comparison questions
-        'the next',
-        'is amazon',
-        'is tesla',
-        'is nvidia'
     ];
 
     // Reject if matches noise patterns
@@ -85,17 +35,40 @@ const isSignalPost = (post: RedditPost, minScore = 20): boolean => {
         return false;
     }
 
-    // Reject if it's a question (ends with ?) - with exceptions for rhetorical market questions
-    if (title.endsWith('?')) {
-        const questionWords = [
-            'how much', 'how do', 'how can', 'how and',
-            'should i', 'do i', 'am i', 'did i',
-            'what stocks', 'which stock', 'where',
-            'is a ', 'is it', 'will i'
+    // RELAXED FILTER FOR MALAYSIA:
+    // Malaysia subreddits are low volume and often discussion/question based.
+    // We allow advice/questions for MY but keep it strict for WSB/US.
+    if (!isMYSub) {
+        const strictNoise = [
+            'rate my portfolio', 'what are your moves', 'what is your',
+            'rant thread', 'advice thread', 'newbie thread',
+            'how much has your', 'do i belong', 'first time', 'first options',
+            'should i', 'is it worth', 'help me', 'advice needed', 'need advice',
+            'what would you', 'how do i', 'how can i', 'am i doing', 'did i make',
+            'beginner question', 'eternal question', 'buy now or wait', 'sell or hold',
+            'what stocks are you', 'which stocks', 'where to start', 'how and from where',
+            'from where to start', 'best month yet', 'worst month', 'biggest mistake',
+            'biggest stupid', 'my biggest', 'i made this year', 'my gains', 'my losses',
+            'finally broke', 'thank you all for', 'portfolio:', 'my portfolio',
+            'time horizon', 'is a 20', 'the next', 'is amazon', 'is tesla', 'is nvidia'
         ];
 
-        if (questionWords.some(q => title.includes(q))) {
+        if (strictNoise.some(pattern => title.includes(pattern))) {
             return false;
+        }
+
+        // Reject if it's a question (ends with ?) - with exceptions for rhetorical market questions
+        if (title.endsWith('?')) {
+            const questionWords = [
+                'how much', 'how do', 'how can', 'how and',
+                'should i', 'do i', 'am i', 'did i',
+                'what stocks', 'which stock', 'where',
+                'is a ', 'is it', 'will i'
+            ];
+
+            if (questionWords.some(q => title.includes(q))) {
+                return false;
+            }
         }
     }
 
@@ -113,19 +86,20 @@ const isSignalPost = (post: RedditPost, minScore = 20): boolean => {
  */
 export const fetchSubredditPosts = async (subreddit: string, limit = 10): Promise<RedditPost[]> => {
     try {
-        // Use old.reddit.com for more reliable public access on cloud IPs (Vercel)
         const fetchLimit = limit * 2;
-        const url = `https://old.reddit.com/r/${subreddit}/top.json?t=day&limit=${fetchLimit}`;
+        // USE 'hot' instead of 'top' to get fresher content on low-volume days
+        // Switch to www.reddit.com which is sometimes preferred by Vercel edge
+        const url = `https://www.reddit.com/r/${subreddit}/hot.json?limit=${fetchLimit}`;
 
         console.log(`Fetching from: ${url}`);
 
         const response = await fetch(url, {
             headers: {
-                // More unique User-Agent to avoid generic blocking
-                'User-Agent': `SignalAITerminal/1.0 (Market Sentiment Analysis; +http://signal-vercel.vercel.app)`,
+                // Use a standard browser User-Agent to avoid generic blocking
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'application/json',
             },
-            next: { revalidate: 300 } // Cache for 5 mins to avoid 429s
+            next: { revalidate: 60 } // Reduce cache to 1 min to help debugging/stale data
         });
 
         console.log(`Reddit (${subreddit}) status: ${response.status}`);
@@ -157,8 +131,8 @@ export const fetchSubredditPosts = async (subreddit: string, limit = 10): Promis
         }));
 
         // Filter out noise posts
-        // Use lower threshold for Malaysian subreddits (less volume)
-        const minScore = ['bursabets', 'malaysianpf'].includes(subreddit.toLowerCase()) ? 5 : 25;
+        // For Malaysia, we set minScore to 0 because volume is low and we want to see ANY signal.
+        const minScore = ['bursabets', 'malaysianpf'].includes(subreddit.toLowerCase()) ? 0 : 25;
         const filteredPosts = allPosts.filter((p: RedditPost) => isSignalPost(p, minScore)).slice(0, limit);
 
         console.log(`Fetched ${allPosts.length} posts, filtered to ${filteredPosts.length} signal posts from r/${subreddit} (minScore: ${minScore})`);

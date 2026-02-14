@@ -355,7 +355,7 @@ export default async function Home(props: PageProps) {
               <div>
                 <h4 className="text-xs font-bold text-gray-600 mb-3 px-1">HEADLINES</h4>
                 <div className="space-y-4">
-                  {sources.news.slice(0, 5).map((news: { link: string; source: string; title: string; pubDate: string }, i: number) => (
+                  {sources?.news?.slice(0, 5).map((news: { link: string; source: string; title: string; pubDate: string }, i: number) => (
                     <a key={i} href={news.link} target="_blank" rel="noopener noreferrer" className="block p-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.06] transition-colors border border-transparent hover:border-white/10 group">
                       <div className="text-xs text-blue-400 mb-1 font-medium">{news.source}</div>
                       <div className="text-sm text-gray-300 leading-snug group-hover:text-white">{news.title}</div>
@@ -369,7 +369,7 @@ export default async function Home(props: PageProps) {
               <div>
                 <h4 className="text-xs font-bold text-gray-600 mb-3 px-1 mt-6">REDDIT SIGNALS</h4>
                 <div className="space-y-3">
-                  {sources.reddit.slice(0, 5).map((post: RedditPost, i: number) => {
+                  {sources?.reddit?.slice(0, 5).map((post: RedditPost, i: number) => {
                     const postTitle = post.title || '';
                     const isBullish = postTitle.toLowerCase().match(/bull|call|moon|buy|long|surge/);
                     const isBearish = postTitle.toLowerCase().match(/bear|put|crash|sell|short|dump/);
