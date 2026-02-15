@@ -9,10 +9,10 @@ export async function GET() {
     // Standard condition: VIX=18 (Fear/Neutral), Social=60 (Neutral/Greed)
     const scenarioA_Indicators: IndicatorData[] = [
         {
-            name: 'vix', display_name: 'VIX Index', value: 18, score: 50, weight: 0, signal: 'NEUTRAL', enabled: true, last_updated: new Date().toISOString()
+            name: 'vix', display_name: 'VIX Index', value: 18, score: 50, weight: 0, signal: 'neutral', enabled: true, last_updated: new Date().toISOString()
         },
         {
-            name: 'social', display_name: 'Social Sentiment', value: 0.2, score: 60, weight: 0, signal: 'NEUTRAL', enabled: true, last_updated: new Date().toISOString()
+            name: 'social', display_name: 'Social Sentiment', value: 0.2, score: 60, weight: 0, signal: 'neutral', enabled: true, last_updated: new Date().toISOString()
         }
     ];
 
@@ -22,7 +22,7 @@ export async function GET() {
     // Condition: Social is missing/disabled. VIX should take 100% weight.
     const scenarioB_Indicators: IndicatorData[] = [
         {
-            name: 'vix', display_name: 'VIX Index', value: 22, score: 40, weight: 0, signal: 'BUY', enabled: true, last_updated: new Date().toISOString()
+            name: 'vix', display_name: 'VIX Index', value: 22, score: 40, weight: 0, signal: 'buy', enabled: true, last_updated: new Date().toISOString()
         }
     ];
 
@@ -32,10 +32,10 @@ export async function GET() {
     // Condition: VIX=35 (Panic). Should trigger dynamic override (VIX weight > 80%).
     const scenarioC_Indicators: IndicatorData[] = [
         {
-            name: 'vix', display_name: 'VIX Index', value: 35, score: 10, weight: 0, signal: 'BUY', enabled: true, last_updated: new Date().toISOString()
+            name: 'vix', display_name: 'VIX Index', value: 35, score: 10, weight: 0, signal: 'buy', enabled: true, last_updated: new Date().toISOString()
         },
         {
-            name: 'social', display_name: 'Social Sentiment', value: -0.5, score: 20, weight: 0, signal: 'BUY', enabled: true, last_updated: new Date().toISOString()
+            name: 'social', display_name: 'Social Sentiment', value: -0.5, score: 20, weight: 0, signal: 'buy', enabled: true, last_updated: new Date().toISOString()
         }
     ];
 
@@ -45,13 +45,13 @@ export async function GET() {
     // Condition: MY market. VIX(USDMYR)=Low, News=High, Social=Mid.
     const scenarioD_Indicators: IndicatorData[] = [
         {
-            name: 'vix', display_name: 'USD/MYR Volatility', value: 4.1, score: 60, weight: 0, signal: 'NEUTRAL', enabled: true, last_updated: new Date().toISOString()
+            name: 'vix', display_name: 'USD/MYR Volatility', value: 4.1, score: 60, weight: 0, signal: 'neutral', enabled: true, last_updated: new Date().toISOString()
         },
         {
-            name: 'social', display_name: 'BursaBets', value: 0.1, score: 55, weight: 0, signal: 'NEUTRAL', enabled: true, last_updated: new Date().toISOString()
+            name: 'social', display_name: 'BursaBets', value: 0.1, score: 55, weight: 0, signal: 'neutral', enabled: true, last_updated: new Date().toISOString()
         },
         {
-            name: 'news', display_name: 'News Sentiment', value: 0.6, score: 80, weight: 0, signal: 'SELL', enabled: true, last_updated: new Date().toISOString()
+            name: 'news', display_name: 'News Sentiment', value: 0.6, score: 80, weight: 0, signal: 'sell', enabled: true, last_updated: new Date().toISOString()
         }
     ];
 
@@ -61,13 +61,13 @@ export async function GET() {
     // Condition: VIX, Social, and AAII are all active.
     const scenarioE_Indicators: IndicatorData[] = [
         {
-            name: 'vix', display_name: 'VIX Index', value: 18, score: 50, weight: 0, signal: 'NEUTRAL', enabled: true, last_updated: new Date().toISOString()
+            name: 'vix', display_name: 'VIX Index', value: 18, score: 50, weight: 0, signal: 'neutral', enabled: true, last_updated: new Date().toISOString()
         },
         {
-            name: 'social', display_name: 'Social Sentiment', value: 0.2, score: 60, weight: 0, signal: 'NEUTRAL', enabled: true, last_updated: new Date().toISOString()
+            name: 'social', display_name: 'Social Sentiment', value: 0.2, score: 60, weight: 0, signal: 'neutral', enabled: true, last_updated: new Date().toISOString()
         },
         {
-            name: 'aaii', display_name: 'AAII Sentiment', value: 45, score: 80, weight: 0, signal: 'SELL', enabled: true, last_updated: new Date().toISOString()
+            name: 'aaii', display_name: 'AAII Sentiment', value: 45, score: 80, weight: 0, signal: 'sell', enabled: true, last_updated: new Date().toISOString()
         }
     ];
 

@@ -10,7 +10,7 @@ interface AnalysisCardProps {
     warnings: string[];
     metadata: {
         regime?: string;
-        [key: string]: string | number | boolean | undefined | Record<string, unknown>;
+        [key: string]: any; // Allow any type including arrays
     };
     mode?: 'standard' | 'contrarian';
     reasoning?: string;

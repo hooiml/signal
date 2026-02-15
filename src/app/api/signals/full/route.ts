@@ -55,6 +55,7 @@ export const GET = async (request: Request): Promise<NextResponse> => {
 
         // 4. Generate AI-powered Market Aura via Gemini
         const aura = await generateMarketAura(
+            'US', // market parameter
             vixData.price,
             vixAuraLevel,
             combinedSentiment,
