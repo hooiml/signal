@@ -4,6 +4,9 @@ import { fetchMarketNews, NewsItem } from '@/lib/rss-feeds';
 import { fetchTrendingTwits, calculateStockTwitsSentiment, StockTwit } from '@/lib/stocktwits';
 import { calculateSentimentScore, getScoreDescription, SentimentOutput } from '@/lib/sentiment-calculator';
 import { sql } from '@/lib/db';
+import { calculateCompositeScoreV2 } from './sentiment-calculator-v2';
+import { IndicatorData, SignalTier } from './types/signal-v2';
+import { getLatestInstitutionalData } from './institutional-service';
 
 interface AggregateMarketData {
     vixData: { price: number; change: number };
@@ -333,7 +336,7 @@ function injectLiveAuraData(aura: AuraData, marketData: AggregateMarketData) {
 /**
  * Main Orchestrator
  */
-export const getSmartSignal = async (market: MarketType = 'US') => {
+export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard' | 'contrarian' = 'standard', enableSocial: boolean = true) => {
     const fetchStart = Date.now();
 
     try {
@@ -346,6 +349,118 @@ export const getSmartSignal = async (market: MarketType = 'US') => {
         const hasNews = marketData.newsItems.length > 0;
         const hasVix = marketData.vixData.price > 0;
         const dataQuality = hasNews && hasVix ? 'GOOD' : (!hasVix ? 'DEGRADED' : 'LIMITED');
+
+        // V2 INTEGRATION (Hybrid Phase)
+        // -----------------------------
+        // Fetch Phase 2 Institutional Data
+        const institutionalRaw = await getLatestInstitutionalData();
+
+        // Normalize Institutional Scores (0-100)
+        // Higher score = More Bullish/Greedy (Sell signal in contrarian logic)
+        const normalizeInst = (name: string, val: number): number => {
+            if (name === 'aaii') {
+                // AAII Bullish %: 20% (Fear) to 50% (Greed)
+                return Math.min(Math.max((val - 20) / (50 - 20) * 100, 0), 100);
+            }
+            if (name === 'naaim') {
+                // NAAIM Exposure: 40% (Fear) to 90% (Greed)
+                return Math.min(Math.max((val - 40) / (90 - 40) * 100, 0), 100);
+            }
+            if (name === 'bofa') {
+                // BofA SSI: Standardized score (placeholder range 50-60)
+                return Math.min(Math.max((val - 50) / (60 - 50) * 100, 0), 100);
+            }
+            return 50;
+        };
+
+        const instIndicators: IndicatorData[] = institutionalRaw.map(entry => {
+            const score = normalizeInst(entry.indicator_name, entry.value);
+            return {
+                name: entry.indicator_name,
+                display_name: entry.indicator_name.toUpperCase(),
+                value: entry.value,
+                score: score,
+                weight: 0,
+                signal: getSignalFromScore(score),
+                enabled: true,
+                last_updated: entry.report_date
+            };
+        });
+
+        // Construct IndicatorData for V2 calculator
+        const vixIndicator: IndicatorData = {
+            name: 'vix',
+            display_name: market === 'MY' ? 'USD/MYR Volatility' : 'VIX Index',
+            value: marketData.vixData.price,
+            score: marketData.sentimentOutput.components.vixScore,
+            weight: 0, // Will be calculated by V2
+            signal: getSignalFromScore(marketData.sentimentOutput.components.vixScore),
+            enabled: true,
+            last_updated: new Date().toISOString()
+        };
+
+        const socialIndicator: IndicatorData = {
+            name: market === 'MY' ? 'news' : 'social', // Map to correct V2 key
+            display_name: market === 'MY' ? 'News Sentiment' : 'Social Sentiment',
+            value: marketData.combinedSentiment, // -1 to +1
+            score: marketData.sentimentOutput.components.socialScore,
+            weight: 0, // Will be calculated by V2
+            signal: getSignalFromScore(marketData.sentimentOutput.components.socialScore),
+            enabled: enableSocial, // Use parameter to control enabled state
+            last_updated: new Date().toISOString()
+        };
+
+        const v2Signal = calculateCompositeScoreV2(
+            [vixIndicator, socialIndicator, ...instIndicators],
+            { market, mode }
+        );
+
+        // Populate stock data in metadata
+        v2Signal.metadata.stocks = market === 'US'
+            ? marketData.popularStocks.slice(0, 10).map(s => ({
+                symbol: s.symbol,
+                price: s.price,
+                change: s.change,
+                changePercent: s.changePercent
+            }))
+            : marketData.activeStocks.slice(0, 10).map(s => ({
+                symbol: s.symbol,
+                price: s.price,
+                change: s.change,
+                changePercent: s.changePercent
+            }));
+
+        // Populate article data from news and reddit
+        const oneMonthAgo = Date.now() - (30 * 24 * 60 * 60 * 1000); // 30 days in milliseconds
+
+        const articlesData = [
+            ...marketData.newsItems
+                .filter(n => {
+                    if (!n.pubDate) return true; // Include if no date
+                    const newsDate = new Date(n.pubDate).getTime();
+                    return newsDate >= oneMonthAgo;
+                })
+                .slice(0, 5)
+                .map(n => ({
+                    title: n.title,
+                    source: n.source || 'News',
+                    url: n.link,
+                    pubDate: n.pubDate,
+                    sentiment: undefined as 'bullish' | 'bearish' | 'neutral' | undefined
+                })),
+            ...marketData.redditPosts
+                .filter(p => (p.created_utc * 1000) >= oneMonthAgo) // Only posts from last 30 days
+                .slice(0, 5)
+                .map(p => ({
+                    title: p.title,
+                    source: p.subreddit,
+                    url: `https://reddit.com${p.permalink}`,
+                    pubDate: new Date(p.created_utc * 1000).toISOString(),
+                    sentiment: undefined as 'bullish' | 'bearish' | 'neutral' | undefined
+                }))
+        ];
+
+        v2Signal.metadata.articles = articlesData;
 
         return {
             // METADATA (Production-grade additions)
@@ -382,6 +497,7 @@ export const getSmartSignal = async (market: MarketType = 'US') => {
                 news: marketData.newsItems,
                 stocktwits: marketData.stockTwits.slice(0, 10).map((t: StockTwit) => `${t.body.substring(0, 80)} [${t.sentiment || 'N/A'}]`),
             },
+            v2: v2Signal,
         };
     } catch (error) {
         // Defensive: Return graceful error state instead of crashing
@@ -402,3 +518,11 @@ export const getSmartSignal = async (market: MarketType = 'US') => {
         };
     }
 };
+
+function getSignalFromScore(score: number): SignalTier {
+    if (score < 20) return 'strong-buy';
+    if (score < 40) return 'buy';
+    if (score < 65) return 'neutral';
+    if (score < 85) return 'sell';
+    return 'strong-sell';
+}

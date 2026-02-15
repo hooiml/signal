@@ -94,9 +94,46 @@ export const fetchMarketIndex = async (symbol: string): Promise<MarketData> => {
 export const fetchQuotes = async (symbols: string[]): Promise<MarketData[]> => {
     if (symbols.length === 0) return [];
 
-    // Use individual chart fetches (v8 endpoint) - more reliable than batch (v7)
-    // The v7/finance/quote endpoint often returns 401 errors
-    const promises = symbols.map(s => fetchMarketIndex(s).catch(() => null));
+    // Fetch with sparkline data (5-minute intervals for smooth mini charts)
+    const promises = symbols.map(async (symbol): Promise<MarketData | null> => {
+        try {
+            const response = await fetch(`${YAHOO_BASE_URL}/${symbol}?interval=5m&range=1d`, {
+                headers: { 'User-Agent': 'Signal/1.0' },
+                next: { revalidate: 0 }
+            });
+
+            if (!response.ok) return null;
+
+            const data = await response.json();
+            const result = data.chart.result[0];
+            const meta = result.meta;
+            const quotes = result.indicators.quote[0].close || [];
+
+            // Filter out nulls for sparkline
+            const sparkline = quotes.filter((p: number | null) => p !== null) as number[];
+
+            const price = meta.regularMarketPrice || meta.chartPreviousClose || 0;
+            const prevClose = meta.chartPreviousClose || meta.previousClose || price;
+            const change = price - prevClose;
+            const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+
+            return {
+                symbol,
+                price,
+                change,
+                changePercent: isNaN(changePercent) ? 0 : changePercent,
+                fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh || price,
+                fiftyTwoWeekLow: meta.fiftyTwoWeekLow || price,
+                fiftyTwoWeekChangePercent: 0,
+                timestamp: new Date(),
+                sparkline: sparkline.length > 0 ? sparkline : undefined
+            };
+        } catch (error) {
+            console.error(`Failed to fetch ${symbol}:`, error);
+            return null;
+        }
+    });
+
     const results = await Promise.all(promises);
     return results.filter((r): r is MarketData => r !== null);
 };

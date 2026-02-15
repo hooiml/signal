@@ -1,0 +1,121 @@
+
+// Phase 1: Core Type Definitions for Signal v2.0 DSS
+// ==================================================
+
+/**
+ * Normalized Indicator Data Structure
+ * Standardizes inputs from VIX, Social, AAII, etc. into a common format
+ */
+export interface IndicatorData {
+    name: string;           // 'vix', 'social', 'aaii', 'bofa'
+    display_name: string;   // 'Volatility Index', 'Social Sentiment', etc.
+    value: number;          // Raw value (e.g. 18.5 for VIX, 0.42 for AAII)
+    score: number;          // Normalized 0-100 score
+    weight: number;         // 0-1 contribution to composite score
+    signal: SignalTier;
+    enabled: boolean;       // Is this indicator currently active?
+    last_updated: string;   // ISO timestamp
+    percentile?: number;    // Optional: historical percentile (0-100)
+
+    // Metadata for debugging/transparency
+    metadata?: {
+        raw_source?: unknown;   // Original source data (optional)
+        confidence?: number; // 0-1 confidence in this specific data point
+        source_breakdown?: Record<string, number>; // e.g. { reddit: 0.6, twitter: 0.4 }
+    };
+}
+
+/**
+ * Generic Signal Actions (Categorized from tiers)
+ */
+export type SignalAction = 'BUY' | 'NEUTRAL' | 'SELL';
+
+/**
+ * Confidence Metrics for Signal Confluence
+ */
+export interface ConfidenceMetrics {
+    agreement_pct: number;       // % of active indicators agreeing with majority signal
+    level: 'high' | 'moderate' | 'low';
+    majority_signal: SignalAction;
+    conflicting_indicators: string[]; // Names of indicators disagreeing with majority
+    warning?: string;            // E.g. "Single source mode: confidence reduced"
+}
+
+/**
+ * Full Market Signal (v2 Output)
+ */
+export interface MarketSignal {
+    composite_score: number;     // 0-100 master score
+    tier: SignalTier;           // 5-tier classification
+    mode: 'standard' | 'contrarian';
+
+    // Interpretation logic
+    interpretation: {
+        action: string;          // "Strong Buy", "Caution", etc.
+        reasoning: string;       // Generated text explaining the signal
+        color: string;           // Hex color code for UI
+        emoji: string;           // 🚀, 🐻, ⚠️, etc.
+    };
+
+    // Component breakdown
+    components: {
+        [key: string]: IndicatorData;
+    };
+
+    // Meta-analysis
+    confidence: ConfidenceMetrics;
+    metadata: {
+        market: 'US' | 'MY';
+        data_freshness: Record<string, string>; // { vix: '2026-02-15T...', social: '...' }
+        weight_distribution: Record<string, number>; // { vix: 0.65, social: 0.35 }
+        stocks?: Array<{
+            symbol: string;
+            price: number;
+            change: number;
+            changePercent: number;
+        }>;
+        articles?: Array<{
+            title: string;
+            source: string;
+            url?: string;
+            pubDate?: string;
+            sentiment?: 'bullish' | 'bearish' | 'neutral';
+        }>;
+    };
+}
+
+/**
+ * 5-Tier Signal Classification
+ * Maps to existing bucket ranges: 0-19, 20-39, 40-64, 65-84, 85-100
+ */
+export type SignalTier = 'strong-buy' | 'buy' | 'neutral' | 'sell' | 'strong-sell';
+
+/**
+ * Comparison with V1 Types (Migration Helper)
+ * 
+ * V1: SentimentOutput { value: number; description: string; sentiment: AuraLevel; ... }
+ * V2: MarketSignal { composite_score: number; tier: SignalTier; ... }
+ */
+
+/**
+ * Application State & Configuration
+ */
+export interface AppState {
+    config: {
+        mode: 'standard' | 'contrarian';
+        active_sources: string[]; // ['vix', 'social', 'aaii']
+        market: 'US' | 'MY';
+        custom_weights?: Record<string, number>; // Optional overrides
+        version: string; // '2.0.0'
+    };
+    data: {
+        current_signal: MarketSignal;
+        historical_signals: MarketSignal[];
+        raw_indicators: Record<string, unknown>;
+    };
+    ui: {
+        loading: boolean;
+        error: string | null;
+        expanded_panels: string[];
+    };
+}
