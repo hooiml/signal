@@ -196,7 +196,9 @@ function calculateConfidence(indicators: IndicatorData[], majorityTier: SignalTi
             level: 'low',
             majority_signal: getSignalFromTier(majorityTier),
             conflicting_indicators: [],
-            warning: 'Single source mode: reliability is reduced.'
+            warning: 'Single source mode: reliability is reduced.',
+            source_count: activeCount,
+            cap_reason: 'Confidence capped because fewer than 2 sources are active.'
         };
     }
 
@@ -221,11 +223,22 @@ function calculateConfidence(indicators: IndicatorData[], majorityTier: SignalTi
     if (agreementPct >= 80) level = 'high';
     else if (agreementPct < 50) level = 'low';
 
+    const capReason = activeCount < 3
+        ? `Confidence capped at Moderate because only ${activeCount} active sources are available.`
+        : undefined;
+
+    if (capReason && level === 'high') {
+        level = 'moderate';
+    }
+
     return {
         agreement_pct: agreementPct,
         level,
         majority_signal: majoritySignal,
-        conflicting_indicators: conflicts
+        conflicting_indicators: conflicts,
+        warning: capReason,
+        source_count: activeCount,
+        cap_reason: capReason
     };
 }
 

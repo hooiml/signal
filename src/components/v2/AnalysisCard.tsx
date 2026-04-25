@@ -32,25 +32,30 @@ export const AnalysisCard = ({ tier, market, warnings, metadata, confidence, mod
     const analysis = compositeScore !== null
         ? buildEvidenceBasedAnalysis(compositeScore, market, mode, metadata, confidence)
         : (reasoning || getInterpretation(tier, market));
+    const context = metadata.interpretation_context;
 
     return (
         <div className="w-full space-y-4">
-            <div className="relative overflow-hidden p-5 rounded-xl border border-slate-800 bg-slate-900 shadow-lg">
-                <div className="absolute inset-y-0 left-0 w-1 bg-indigo-500" />
-                <h3 className="text-sm font-bold uppercase tracking-widest text-indigo-400 mb-2">Analyst Note</h3>
-                <p className="text-base leading-relaxed text-slate-200 font-medium">
+            <div className="relative overflow-hidden p-5 rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="absolute inset-y-0 left-0 w-1 bg-indigo-600" />
+                <h3 className="text-sm font-bold uppercase tracking-widest text-indigo-700 mb-2">Analyst Note</h3>
+                <p className="text-base leading-relaxed text-slate-800 font-medium">
                     {analysis}
                 </p>
 
-                {metadata?.regime && (
-                    <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
-                        <span className="text-[11px] uppercase font-bold text-rose-400 flex items-center">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-600 mr-2 animate-pulse" />
-                            Regime: {metadata.regime === 'high-volatility' ? 'High Vol' : 'Normal'}
-                        </span>
-                        <span className="text-[11px] uppercase font-bold text-slate-500">
-                            Mode: {mode === 'standard' ? 'Momentum' : 'Contrarian'}
-                        </span>
+                {context && (
+                    <div className="mt-4 space-y-3 border-t border-slate-100 pt-4 text-sm text-slate-700">
+                        <div className="grid grid-cols-1 gap-3">
+                            <FactLine label="Regime" value={context.regime} />
+                            <FactLine label="Agreement" value={context.agreeing_signals.length > 0 ? context.agreeing_signals.join(', ') : 'No strong agreement'} />
+                            <FactLine label="Disagreement" value={context.disagreement_note || 'No major disagreement detected'} />
+                            <FactLine label="Caveat" value={context.limitation} />
+                        </div>
+                        {context.aaii_note && (
+                            <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-xs leading-relaxed text-indigo-900">
+                                {context.aaii_note}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -69,6 +74,13 @@ export const AnalysisCard = ({ tier, market, warnings, metadata, confidence, mod
     );
 };
 
+const FactLine = ({ label, value }: { label: string; value: string }) => (
+    <div>
+        <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{label}</div>
+        <div className="mt-1 text-sm leading-snug text-slate-800">{value}</div>
+    </div>
+);
+
 function buildEvidenceBasedAnalysis(
     score: number,
     market: 'US' | 'MY',
@@ -84,15 +96,17 @@ function buildEvidenceBasedAnalysis(
         ? drivers.map(driver => `${driver.name} (${driver.detail})`).join(', ')
         : 'available signal components';
     const breadth = getIndexBreadth(metadata.index_trend);
+    const context = metadata.interpretation_context;
     const confidenceText = confidence
-        ? `${confidence.level} confidence with ${confidence.agreement_pct}% indicator agreement`
+        ? `${confidence.level} agreement across ${confidence.agreement_pct}% of active indicators`
         : null;
     const qualityWarnings = metadata.signal_quality?.warnings ?? [];
     const caution = qualityWarnings[0] ?? confidence?.warning ?? null;
 
     const parts = [
-        `${stance} The score is ${score}, led by ${driverText}.`,
-        breadth,
+        `${context?.regime ? `${context.regime}: ` : ''}${stance} The score is ${score}, led by ${driverText}.`,
+        context?.breadth_note ?? breadth,
+        context?.disagreement_note ? `Disagreement: ${context.disagreement_note}` : null,
         confidenceText ? `Read quality is ${confidenceText}.` : null,
         caution ? `Caution: ${trimSentence(caution)}` : null,
     ].filter(Boolean);

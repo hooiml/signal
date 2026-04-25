@@ -5,7 +5,7 @@ import { fetchTrendingTwits, calculateStockTwitsSentiment, StockTwit } from '@/l
 import { calculateSentimentScore, getScoreDescription, SentimentOutput } from '@/lib/sentiment-calculator';
 import { sql } from '@/lib/db';
 import { calculateCompositeScoreV2 } from './sentiment-calculator-v2';
-import { IndicatorData, SignalTier } from './types/signal-v2';
+import { IndicatorData, MarketSignal, SignalTier } from './types/signal-v2';
 import { getLatestInstitutionalData } from './institutional-service';
 
 interface AggregateMarketData {
@@ -44,6 +44,14 @@ export function calculateRedditSentiment(posts: RedditPost[]): number {
 }
 
 export type MarketType = 'US' | 'MY';
+type MarketMode = 'standard' | 'contrarian';
+
+interface SnapshotSummaryRow {
+    snapshot_date: string;
+    composite_score: number;
+    tier: SignalTier;
+}
+
 export const CONFIG = {
     US: {
         indices: ['^GSPC', '^IXIC', '^DJI', '^RUT'],
@@ -155,13 +163,22 @@ export const fetchSocialData = async (market: MarketType) => {
 /**
  * Step 1 (Legacy): Gather all raw data - uses both Core and Social
  */
-export const fetchRawMarketData = async (market: MarketType, enableSocial = true): Promise<AggregateMarketData> => {
+export const fetchRawMarketData = async (
+    market: MarketType,
+    enableSocial = true,
+    loadSocialData = enableSocial
+): Promise<AggregateMarketData> => {
 
     // FETCH CORE + SOCIAL IN PARALLEL
     const [coreData, socialData] = await Promise.all([
         fetchCoreMarketData(market),
-        enableSocial
-            ? fetchSocialData(market)
+        loadSocialData
+            ? enableSocial
+                ? fetchSocialData(market)
+                : fetchSocialData(market).catch(error => {
+                    console.warn('Counterfactual social fetch failed:', error);
+                    return { redditPosts: [], newsItems: [], stockTwits: [] };
+                })
             : Promise.resolve({ redditPosts: [], newsItems: [], stockTwits: [] })
     ]);
 
@@ -223,6 +240,158 @@ export const fetchRawMarketData = async (market: MarketType, enableSocial = true
         sentimentOutput,
     };
 };
+
+async function ensureSignalSnapshotsTable() {
+    await sql`
+        CREATE TABLE IF NOT EXISTS signal_snapshots (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            market_type VARCHAR(10) NOT NULL CHECK (market_type IN ('US', 'MY')),
+            mode VARCHAR(20) NOT NULL CHECK (mode IN ('standard', 'contrarian')),
+            enable_social BOOLEAN NOT NULL DEFAULT true,
+            snapshot_date DATE NOT NULL,
+            composite_score INTEGER NOT NULL CHECK (composite_score BETWEEN 0 AND 100),
+            tier VARCHAR(20) NOT NULL,
+            confidence_level VARCHAR(20) NOT NULL,
+            agreement_pct INTEGER NOT NULL,
+            majority_signal VARCHAR(20) NOT NULL,
+            components JSONB NOT NULL,
+            score_drivers JSONB NOT NULL,
+            index_trend JSONB NOT NULL,
+            signal_quality JSONB NOT NULL,
+            interpretation_context JSONB NOT NULL,
+            metadata_snapshot JSONB NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(market_type, mode, enable_social, snapshot_date)
+        )
+    `;
+
+    await sql`
+        CREATE INDEX IF NOT EXISTS idx_signal_snapshots_lookup
+        ON signal_snapshots(market_type, mode, enable_social, snapshot_date DESC)
+    `;
+}
+
+async function persistSignalSnapshot(
+    signal: MarketSignal,
+    options: { market: MarketType; mode: MarketMode; enableSocial: boolean }
+) {
+    try {
+        await ensureSignalSnapshotsTable();
+
+        const today = new Date().toISOString().slice(0, 10);
+        const previousRows = await sql`
+            SELECT snapshot_date::text as snapshot_date, composite_score, tier
+            FROM signal_snapshots
+            WHERE market_type = ${options.market}
+              AND mode = ${options.mode}
+              AND enable_social = ${options.enableSocial}
+              AND snapshot_date < CURRENT_DATE
+            ORDER BY snapshot_date DESC
+            LIMIT 1
+        ` as SnapshotSummaryRow[];
+
+        const historyBefore = await sql`
+            SELECT snapshot_date::text as snapshot_date, composite_score, tier
+            FROM signal_snapshots
+            WHERE market_type = ${options.market}
+              AND mode = ${options.mode}
+              AND enable_social = ${options.enableSocial}
+            ORDER BY snapshot_date DESC
+            LIMIT 29
+        ` as SnapshotSummaryRow[];
+
+        const componentsSnapshot = Object.fromEntries(
+            Object.entries(signal.components).map(([key, component]) => [
+                key,
+                {
+                    raw_value: component.value,
+                    score: component.score,
+                    weight: component.weight,
+                    signal: component.signal,
+                    last_updated: component.last_updated,
+                    display_name: component.display_name,
+                }
+            ])
+        );
+        const metadataSnapshot = {
+            data_freshness: signal.metadata.data_freshness,
+            weight_distribution: signal.metadata.weight_distribution,
+            mode_note: signal.metadata.interpretation_context?.mode_note,
+            article_feed_role: signal.metadata.interpretation_context?.article_feed_role,
+            counterfactuals: signal.metadata.counterfactuals,
+        };
+
+        await sql`
+            INSERT INTO signal_snapshots (
+                market_type, mode, enable_social, snapshot_date, composite_score, tier,
+                confidence_level, agreement_pct, majority_signal, components, score_drivers,
+                index_trend, signal_quality, interpretation_context, metadata_snapshot
+            ) VALUES (
+                ${options.market},
+                ${options.mode},
+                ${options.enableSocial},
+                CURRENT_DATE,
+                ${signal.composite_score},
+                ${signal.tier},
+                ${signal.confidence.level},
+                ${signal.confidence.agreement_pct},
+                ${signal.confidence.majority_signal},
+                ${JSON.stringify(componentsSnapshot)},
+                ${JSON.stringify(signal.metadata.score_drivers || [])},
+                ${JSON.stringify(signal.metadata.index_trend || [])},
+                ${JSON.stringify(signal.metadata.signal_quality || {})},
+                ${JSON.stringify(signal.metadata.interpretation_context || {})},
+                ${JSON.stringify(metadataSnapshot)}
+            )
+            ON CONFLICT (market_type, mode, enable_social, snapshot_date)
+            DO UPDATE SET
+                composite_score = EXCLUDED.composite_score,
+                tier = EXCLUDED.tier,
+                confidence_level = EXCLUDED.confidence_level,
+                agreement_pct = EXCLUDED.agreement_pct,
+                majority_signal = EXCLUDED.majority_signal,
+                components = EXCLUDED.components,
+                score_drivers = EXCLUDED.score_drivers,
+                index_trend = EXCLUDED.index_trend,
+                signal_quality = EXCLUDED.signal_quality,
+                interpretation_context = EXCLUDED.interpretation_context,
+                metadata_snapshot = EXCLUDED.metadata_snapshot,
+                updated_at = NOW()
+        `;
+
+        const previous = previousRows[0];
+        const delta = previous ? signal.composite_score - Number(previous.composite_score) : null;
+        const history = [
+            { snapshot_date: today, composite_score: signal.composite_score, tier: signal.tier },
+            ...historyBefore.filter(row => row.snapshot_date !== today)
+        ].slice(0, 30);
+
+        return {
+            scoreDelta: {
+                previous_score: previous ? Number(previous.composite_score) : null,
+                delta,
+                previous_date: previous?.snapshot_date ?? null,
+                snapshot_date: today,
+                label: delta === null
+                    ? 'Baseline snapshot logged today'
+                    : delta === 0
+                        ? `No change since ${previous.snapshot_date}`
+                        : `${delta >= 0 ? '+' : ''}${delta} since ${previous.snapshot_date}`
+            },
+            history: history
+                .reverse()
+                .map(row => ({
+                    date: row.snapshot_date,
+                    score: Number(row.composite_score),
+                    tier: row.tier,
+                }))
+        };
+    } catch (error) {
+        console.error('Signal snapshot logging failed:', error);
+        return null;
+    }
+}
 
 /**
  * Step 2: Get AI Analysis (Expensive - Check Cache First)
@@ -328,7 +497,7 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
     const fetchStart = Date.now();
 
     try {
-        const marketData = await fetchRawMarketData(market, enableSocial);
+        const marketData = await fetchRawMarketData(market, enableSocial, true);
         const aura = await getAuraAnalysis(marketData, market);
 
         const fetchDurationMs = Date.now() - fetchStart;
@@ -398,10 +567,12 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             last_updated: new Date().toISOString()
         };
 
-        const v2Signal = calculateCompositeScoreV2(
-            [vixIndicator, socialIndicator, ...instIndicators],
-            { market, mode }
-        );
+        const signalInputs = [vixIndicator, socialIndicator, ...instIndicators];
+        const v2Signal = calculateCompositeScoreV2(signalInputs, { market, mode });
+        const sourceName = socialIndicator.name as 'social' | 'news';
+        v2Signal.metadata.counterfactuals = {
+            source_toggle: buildSourceToggleCounterfactual(signalInputs, sourceName, socialIndicator.display_name, { market, mode }, enableSocial, marketData)
+        };
 
         // Populate stock data in metadata
         v2Signal.metadata.stocks = market === 'US'
@@ -421,7 +592,7 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
         // Populate article data from news and reddit
         const oneMonthAgo = Date.now() - (30 * 24 * 60 * 60 * 1000); // 30 days in milliseconds
 
-        const articlesData = [
+        const articlesData = enableSocial ? [
             ...marketData.newsItems
                 .filter(n => {
                     if (!n.pubDate) return true; // Include if no date
@@ -446,7 +617,7 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                     pubDate: new Date(p.created_utc * 1000).toISOString(),
                     sentiment: undefined as 'bullish' | 'bearish' | 'neutral' | undefined
                 }))
-        ];
+        ] : [];
 
         v2Signal.metadata.articles = articlesData;
         v2Signal.metadata.index_trend = marketData.marketIndices.map(index => ({
@@ -495,30 +666,104 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             ...(marketData.marketIndices.length === 0 ? ['Index trend data is unavailable for this market.'] : [])
         ];
 
+        const majoritySignal = v2Signal.confidence.majority_signal;
+        const getComponentAction = (signal: string) => {
+            if (signal === 'strong-buy' || signal === 'buy') return 'BUY';
+            if (signal === 'strong-sell' || signal === 'sell') return 'SELL';
+            return 'NEUTRAL';
+        };
+        const agreeingSignals = componentEntries
+            .filter(component => getComponentAction(component.signal) === majoritySignal)
+            .map(component => component.display_name);
+        const conflictingSignals = componentEntries
+            .filter(component => getComponentAction(component.signal) !== majoritySignal)
+            .map(component => component.display_name);
+        const breadthAction = positiveIndexCount > negativeIndexCount
+            ? 'BUY'
+            : negativeIndexCount > positiveIndexCount ? 'SELL' : 'NEUTRAL';
+        const breadthConflicts = breadthAction !== 'NEUTRAL' && breadthAction !== majoritySignal;
+        const aaiiComponent = componentEntries.find(component => component.name === 'aaii');
+        const aaiiNote = aaiiComponent
+            ? mode === 'contrarian'
+                ? `AAII is read contrarian in this mode: ${aaiiComponent.value.toFixed(1)}% bullish is treated as ${aaiiComponent.score >= 65 ? 'crowding risk' : aaiiComponent.score <= 35 ? 'fear/opportunity context' : 'neutral sentiment context'}. Survey date: ${aaiiComponent.last_updated}.`
+                : `AAII is read as momentum confirmation in this mode, but extreme bullishness can still signal crowding. Latest bullish reading: ${aaiiComponent.value.toFixed(1)}% on ${aaiiComponent.last_updated}.`
+            : undefined;
+        const disagreementNote = conflictingSignals.length > 0
+            ? `${conflictingSignals.join(', ')} ${conflictingSignals.length === 1 ? 'does' : 'do'} not align with the majority ${majoritySignal} read.`
+            : breadthConflicts
+                ? `Index breadth points ${breadthAction.toLowerCase()} while the component majority is ${majoritySignal.toLowerCase()}.`
+                : undefined;
+        const breadthNote = marketData.marketIndices.length > 0
+            ? `${positiveIndexCount} of ${marketData.marketIndices.length} tracked indexes ${positiveIndexCount === 1 ? 'is' : 'are'} positive and ${negativeIndexCount} ${negativeIndexCount === 1 ? 'is' : 'are'} negative as of this request.`
+            : undefined;
+
         v2Signal.metadata.signal_quality = {
             freshness,
             source_coverage: sourceCoverage,
             noise_level: noiseLevel,
             market_regime: marketRegime,
-            warnings: qualityWarnings
+            warnings: [
+                ...qualityWarnings,
+                ...(disagreementNote ? [disagreementNote] : [])
+            ],
+            confidence_explanation: v2Signal.confidence.cap_reason
+                ? `Confidence measures indicator agreement, not forecast accuracy. ${v2Signal.confidence.cap_reason}`
+                : 'Confidence measures indicator agreement, not forecast accuracy.'
         };
 
         v2Signal.metadata.score_drivers = componentEntries
             .map(component => ({
+                key: component.name,
                 name: component.display_name,
                 impact: component.signal === 'buy' || component.signal === 'strong-buy'
                     ? 'positive' as const
                     : component.signal === 'sell' || component.signal === 'strong-sell' ? 'negative' as const : 'neutral' as const,
                 contribution: Math.round(component.score * component.weight),
-                detail: `${component.score.toFixed(0)} score at ${(component.weight * 100).toFixed(0)}% weight`
+                score: component.score,
+                weight: component.weight,
+                raw_value: component.value,
+                last_updated: component.last_updated,
+                detail: `${component.score.toFixed(0)} score at ${(component.weight * 100).toFixed(0)}% weight`,
+                mode_note: component.name === 'aaii' ? aaiiNote : undefined
             }))
             .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
+
+        v2Signal.metadata.interpretation_context = {
+            regime: marketRegime,
+            agreeing_signals: agreeingSignals,
+            conflicting_signals: conflictingSignals,
+            disagreement_note: disagreementNote,
+            limitation: v2Signal.confidence.cap_reason
+                ? `${v2Signal.confidence.cap_reason} Confidence reflects indicator agreement only; it is not a probability forecast or trading advice.`
+                : 'Confidence reflects indicator agreement only; it is not a probability forecast or trading advice.',
+            mode_note: mode === 'standard'
+                ? 'Standard mode reads high scores as momentum/trend confirmation.'
+                : 'Contrarian mode reads high scores as crowding risk and low scores as fear/opportunity context.',
+            aaii_note: aaiiNote,
+            article_feed_role: 'Context feed; articles are not individually weighted as score components.',
+            breadth_note: breadthNote
+        };
 
         v2Signal.metadata.trend_context = {
             score_trend: 'Not tracked yet',
             last_signal_change: 'Not tracked yet',
             note: 'Historical score snapshots are needed before this dashboard can show signal changes and hit-rate evidence.'
         };
+
+        const snapshotState = await persistSignalSnapshot(v2Signal, { market, mode, enableSocial });
+        if (snapshotState) {
+            v2Signal.metadata.score_delta = snapshotState.scoreDelta;
+            v2Signal.metadata.score_history = snapshotState.history;
+            v2Signal.metadata.trend_context = {
+                score_trend: snapshotState.scoreDelta.label,
+                last_signal_change: snapshotState.scoreDelta.previous_date
+                    ? `Compared with ${snapshotState.scoreDelta.previous_date}`
+                    : 'Baseline snapshot created',
+                note: snapshotState.history.length > 1
+                    ? `${snapshotState.history.length} daily snapshots are available for this market/mode.`
+                    : 'Daily snapshot logging has started. Trend context will become more useful as history accumulates.'
+            };
+        }
 
         return {
             // METADATA (Production-grade additions)
@@ -583,4 +828,52 @@ function getSignalFromScore(score: number): SignalTier {
     if (score < 65) return 'neutral';
     if (score < 85) return 'sell';
     return 'strong-sell';
+}
+
+function buildSourceToggleCounterfactual(
+    indicators: IndicatorData[],
+    sourceName: 'social' | 'news',
+    sourceLabel: string,
+    config: { market: MarketType; mode: MarketMode },
+    active: boolean,
+    marketData: AggregateMarketData
+): NonNullable<MarketSignal['metadata']['counterfactuals']>['source_toggle'] {
+    const socialDataCount = sourceName === 'news'
+        ? marketData.newsItems.length + marketData.redditPosts.length
+        : marketData.redditPosts.length + marketData.stockTwits.length;
+
+    if (socialDataCount === 0) {
+        return {
+            source: sourceName,
+            source_label: sourceLabel,
+            active,
+            current_score: calculateCompositeScoreV2(indicators, config).composite_score,
+            with_source_score: null,
+            without_source_score: null,
+            delta_without_source: null,
+            summary: `${sourceLabel} comparison unavailable because no current source data was fetched.`,
+            unavailable_reason: 'No current source data available.'
+        };
+    }
+
+    const withSource = calculateCompositeScoreV2(
+        indicators.map(indicator => indicator.name === sourceName ? { ...indicator, enabled: true } : indicator),
+        config
+    );
+    const withoutSource = calculateCompositeScoreV2(
+        indicators.map(indicator => indicator.name === sourceName ? { ...indicator, enabled: false } : indicator),
+        config
+    );
+    const deltaWithoutSource = withoutSource.composite_score - withSource.composite_score;
+
+    return {
+        source: sourceName,
+        source_label: sourceLabel,
+        active,
+        current_score: active ? withSource.composite_score : withoutSource.composite_score,
+        with_source_score: withSource.composite_score,
+        without_source_score: withoutSource.composite_score,
+        delta_without_source: deltaWithoutSource,
+        summary: `${sourceLabel} impact: ${withSource.composite_score} with source vs ${withoutSource.composite_score} without (${deltaWithoutSource >= 0 ? '+' : ''}${deltaWithoutSource}).`
+    };
 }

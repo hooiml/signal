@@ -52,19 +52,32 @@ export const SignalDashboard = () => {
         );
     }
 
+    const scoreDelta = signalData?.metadata.score_delta;
+    const scoreDeltaLabel = scoreDelta
+        ? scoreDelta.delta === null
+            ? scoreDelta.label
+            : scoreDelta.delta === 0
+                ? `No change since ${scoreDelta.previous_date || 'previous snapshot'}`
+                : `${scoreDelta.delta >= 0 ? '+' : ''}${scoreDelta.delta} since ${scoreDelta.previous_date || 'previous snapshot'}`
+        : '0-100 signal index';
+    const sourceCoverage = signalData?.metadata.signal_quality?.source_coverage;
+    const confidenceDetail = signalData
+        ? `${getAgreementCount(signalData)} agree${sourceCoverage === 'limited' ? ' · limited sources' : ''}`
+        : 'Agreement pending';
     const summaryItems = signalData
         ? [
-            { label: 'Composite Score', value: signalData.composite_score.toString(), detail: '0-100 signal index' },
+            { label: 'Composite Score', value: signalData.composite_score.toString(), detail: scoreDeltaLabel },
             { label: 'Current Tier', value: signalData.tier.replace('-', ' '), detail: config.mode === 'standard' ? 'Momentum read' : 'Contrarian read' },
-            { label: 'Confidence', value: signalData.confidence.level, detail: `${signalData.confidence.agreement_pct}% agreement` },
-            { label: 'Market', value: config.market, detail: config.enableSocial ? 'Social enabled' : 'Institutional only' }
+            { label: 'Confidence', value: signalData.confidence.level, detail: confidenceDetail },
+            { label: 'Market', value: config.market, detail: config.enableSocial ? 'Social enabled' : 'Social disabled' }
         ]
         : [
             { label: 'Composite Score', value: loading ? '...' : '--', detail: '0-100 signal index' },
             { label: 'Current Tier', value: loading ? '...' : '--', detail: 'Awaiting signal' },
             { label: 'Confidence', value: loading ? '...' : '--', detail: 'Agreement pending' },
-            { label: 'Market', value: config.market, detail: config.enableSocial ? 'Social enabled' : 'Institutional only' }
+            { label: 'Market', value: config.market, detail: config.enableSocial ? 'Social enabled' : 'Social disabled' }
         ];
+    const disagreementNote = signalData?.metadata.interpretation_context?.disagreement_note;
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-20">
@@ -76,6 +89,7 @@ export const SignalDashboard = () => {
                 onModeChange={(m) => updateConfig({ mode: m })}
                 onSocialToggle={(enabled) => updateConfig({ enableSocial: enabled })}
                 isLoaded={isLoaded}
+                sourceToggleImpact={signalData?.metadata.counterfactuals?.source_toggle}
             />
 
             <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -91,6 +105,42 @@ export const SignalDashboard = () => {
                     </div>
                 ))}
             </div>
+
+            {!loading && signalData && sourceCoverage === 'limited' && (
+                <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <div className="text-sm font-bold uppercase tracking-widest text-amber-900">
+                                Limited Coverage Mode
+                            </div>
+                            <p className="mt-1 text-sm leading-relaxed text-amber-800">
+                                {signalData.confidence.cap_reason || 'Fewer than 3 active sources are available, so confidence is capped and should be treated as directional.'}
+                            </p>
+                        </div>
+                        <span className="w-fit rounded-full border border-amber-300 bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-amber-800">
+                            {Object.keys(signalData.components).length} active sources
+                        </span>
+                    </div>
+                </div>
+            )}
+
+            {!loading && disagreementNote && (
+                <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <div className="text-sm font-bold uppercase tracking-widest text-amber-900">
+                                Signal Conflict Detected
+                            </div>
+                            <p className="mt-1 text-sm leading-relaxed text-amber-800">
+                                {disagreementNote}
+                            </p>
+                        </div>
+                        <span className="w-fit rounded-full border border-amber-300 bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-amber-800">
+                            review inputs
+                        </span>
+                    </div>
+                </div>
+            )}
 
             {/* Strategy Presets */}
             <div className="mb-6">
@@ -162,6 +212,9 @@ export const SignalDashboard = () => {
                             <span className="w-2 h-2 rounded-full bg-indigo-500 mr-2 shadow-sm" />
                             Signal Components
                         </h2>
+                        <span className="hidden text-[11px] text-slate-400 sm:inline">
+                            Mode interpretation per input - {config.mode === 'standard' ? 'Momentum' : 'Contrarian'}
+                        </span>
                         {signalData && (
                             <span className="text-[11px] text-slate-400 font-mono">
                                 Latency: {signalData.metadata?.weight_distribution ? 'Institutional Active' : 'Fallback'}
@@ -190,6 +243,7 @@ export const SignalDashboard = () => {
                                     indicators={Object.values(signalData.components)}
                                     compositeTier={signalData.tier}
                                     mode={config.mode}
+                                    disagreementNote={disagreementNote}
                                 />
                             </div>
 
@@ -227,3 +281,9 @@ export const SignalDashboard = () => {
         </div>
     );
 };
+
+function getAgreementCount(signal: MarketSignal) {
+    const activeCount = Object.values(signal.components).filter(component => component.enabled).length;
+    const agreedCount = Math.round((signal.confidence.agreement_pct / 100) * activeCount);
+    return `${agreedCount} of ${activeCount}`;
+}

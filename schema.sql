@@ -90,6 +90,35 @@ CREATE INDEX IF NOT EXISTS idx_institutional_indicator_date
     ON institutional_data(indicator_name, report_date DESC);
 
 -- ============================================
+-- TABLE: signal_snapshots
+-- Purpose: Store daily full signal vectors for deltas, sparklines, and future backtesting
+-- ============================================
+CREATE TABLE IF NOT EXISTS signal_snapshots (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    market_type VARCHAR(10) NOT NULL CHECK (market_type IN ('US', 'MY')),
+    mode VARCHAR(20) NOT NULL CHECK (mode IN ('standard', 'contrarian')),
+    enable_social BOOLEAN NOT NULL DEFAULT true,
+    snapshot_date DATE NOT NULL,
+    composite_score INTEGER NOT NULL CHECK (composite_score BETWEEN 0 AND 100),
+    tier VARCHAR(20) NOT NULL,
+    confidence_level VARCHAR(20) NOT NULL,
+    agreement_pct INTEGER NOT NULL,
+    majority_signal VARCHAR(20) NOT NULL,
+    components JSONB NOT NULL,
+    score_drivers JSONB NOT NULL,
+    index_trend JSONB NOT NULL,
+    signal_quality JSONB NOT NULL,
+    interpretation_context JSONB NOT NULL,
+    metadata_snapshot JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT unique_signal_snapshot UNIQUE (market_type, mode, enable_social, snapshot_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_signal_snapshots_lookup
+    ON signal_snapshots(market_type, mode, enable_social, snapshot_date DESC);
+
+-- ============================================
 -- TABLE: data_fetch_log
 -- Purpose: Track data fetch history and errors
 -- ============================================

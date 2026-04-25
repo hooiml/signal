@@ -1,33 +1,37 @@
 'use client';
 
 import React from 'react';
-import { IndicatorData, SignalTier } from '@/lib/types/signal-v2';
+import { IndicatorData, SignalAction, SignalTier } from '@/lib/types/signal-v2';
 
 interface IndicatorAgreementProps {
     indicators: IndicatorData[];
     compositeTier: SignalTier;
     mode?: 'standard' | 'contrarian';
+    disagreementNote?: string;
 }
 
-export const IndicatorAgreement = ({ indicators, compositeTier, mode = 'contrarian' }: IndicatorAgreementProps) => {
+export const IndicatorAgreement = ({ indicators, compositeTier, mode = 'contrarian', disagreementNote }: IndicatorAgreementProps) => {
     // Calculate majority signal
-    const signalCounts: Record<string, number> = {};
+    const signalCounts: Record<SignalAction, number> = {
+        BUY: 0,
+        NEUTRAL: 0,
+        SELL: 0,
+    };
     const activeIndicators = indicators.filter(i => i.enabled);
 
     activeIndicators.forEach(ind => {
-        const signal = ind.signal;
+        const signal = getSignalAction(ind.signal);
         signalCounts[signal] = (signalCounts[signal] || 0) + 1;
     });
 
     const majoritySignal = Object.entries(signalCounts)
-        .sort((a, b) => b[1] - a[1])[0]?.[0] as SignalTier || 'neutral';
+        .sort((a, b) => b[1] - a[1])[0]?.[0] as SignalAction || 'NEUTRAL';
 
     const majorityCount = signalCounts[majoritySignal] || 0;
-    const agreementPercent = activeIndicators.length > 0
-        ? Math.round((majorityCount / activeIndicators.length) * 100)
-        : 0;
+    const agreementLabel = `${majorityCount} of ${activeIndicators.length} direction`;
 
-    const hasConflict = compositeTier !== majoritySignal;
+    const compositeSignal = getSignalAction(compositeTier);
+    const hasConflict = Boolean(disagreementNote) || compositeSignal !== majoritySignal;
 
     const getSignalColor = (signal: SignalTier) => {
         if (signal === 'strong-buy') return 'text-emerald-600';
@@ -45,10 +49,21 @@ export const IndicatorAgreement = ({ indicators, compositeTier, mode = 'contrari
         return 'bg-rose-600';
     };
 
+    const getActionColor = (signal: SignalAction) => {
+        if (signal === 'BUY') return 'text-emerald-600';
+        if (signal === 'SELL') return 'text-rose-600';
+        return 'text-indigo-600';
+    };
+
     return (
         <div className="w-full p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="text-xs uppercase font-bold tracking-widest text-slate-500 mb-3">
-                Indicator Agreement
+            <div className="mb-3 flex flex-col gap-1">
+                <div className="text-xs uppercase font-bold tracking-widest text-slate-500">
+                    Indicator Agreement
+                </div>
+                <div className="text-[11px] leading-relaxed text-slate-500">
+                    Composite is weighted by score and source weight. Majority is the unweighted BUY/SELL/NEUTRAL direction count.
+                </div>
             </div>
 
             <div className="space-y-2">
@@ -77,11 +92,11 @@ export const IndicatorAgreement = ({ indicators, compositeTier, mode = 'contrari
                 <div className="flex items-center justify-between">
                     <span className="text-xs text-slate-500 uppercase tracking-wider">Majority Signal:</span>
                     <div className="flex items-center gap-2">
-                        <span className={`font-bold uppercase tracking-wider text-xs ${getSignalColor(majoritySignal)}`}>
-                            {majoritySignal.replace('-', ' ')}
+                        <span className={`font-bold uppercase tracking-wider text-xs ${getActionColor(majoritySignal)}`}>
+                            {majoritySignal}
                         </span>
                         <span className="text-slate-500 font-mono text-[10px]">
-                            ({agreementPercent}% agreement)
+                            ({agreementLabel})
                         </span>
                     </div>
                 </div>
@@ -90,12 +105,12 @@ export const IndicatorAgreement = ({ indicators, compositeTier, mode = 'contrari
                 {hasConflict && (
                     <div className="mt-2 p-2 rounded bg-amber-50 border border-amber-200">
                         <div className="flex items-start gap-2">
-                            <span className="text-amber-700 text-xs">âš ï¸</span>
+                            <span className="text-amber-700 text-xs font-bold">!</span>
                             <div className="flex-1">
                                 <div className="text-xs text-amber-800 font-bold">Signal Conflict Detected</div>
                                 <div className="text-[10px] text-amber-700 mt-0.5">
-                                    Composite signal ({compositeTier.replace('-', ' ')}) differs from majority ({majoritySignal.replace('-', ' ')}).
-                                    {mode === 'contrarian' ? ' This is expected in contrarian mode.' : ' Review individual indicators for context.'}
+                                    {disagreementNote || `Composite direction (${compositeSignal}) differs from majority direction (${majoritySignal}).`}
+                                    {mode === 'contrarian' ? ' This may be expected in contrarian mode.' : ' Review individual indicators for context.'}
                                 </div>
                             </div>
                         </div>
@@ -105,3 +120,9 @@ export const IndicatorAgreement = ({ indicators, compositeTier, mode = 'contrari
         </div>
     );
 };
+
+function getSignalAction(tier: SignalTier): SignalAction {
+    if (tier === 'strong-buy' || tier === 'buy') return 'BUY';
+    if (tier === 'strong-sell' || tier === 'sell') return 'SELL';
+    return 'NEUTRAL';
+}

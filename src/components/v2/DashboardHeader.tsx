@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { MarketRegion, MarketMode } from '@/hooks/use-signal-config';
+import { MarketSignal } from '@/lib/types/signal-v2';
 
 interface DashboardHeaderProps {
     market: MarketRegion;
@@ -11,9 +12,10 @@ interface DashboardHeaderProps {
     onModeChange: (m: MarketMode) => void;
     onSocialToggle: (enabled: boolean) => void;
     isLoaded: boolean;
+    sourceToggleImpact?: NonNullable<MarketSignal['metadata']['counterfactuals']>['source_toggle'];
 }
 
-export const DashboardHeader = ({ market, mode, enableSocial, onMarketChange, onModeChange, onSocialToggle, isLoaded }: DashboardHeaderProps) => {
+export const DashboardHeader = ({ market, mode, enableSocial, onMarketChange, onModeChange, onSocialToggle, isLoaded, sourceToggleImpact }: DashboardHeaderProps) => {
     const segmentClass = (active: boolean) =>
         `px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-widest transition-all ${active
             ? 'bg-white text-slate-900 border border-slate-200 shadow-sm'
@@ -71,6 +73,16 @@ export const DashboardHeader = ({ market, mode, enableSocial, onMarketChange, on
                                 <div>Focus purely on institutional indicators.</div>
                                 <div>Test signal strength without retail sentiment.</div>
                             </div>
+                            {sourceToggleImpact && (
+                                <div className="mb-3 rounded-md border border-indigo-100 bg-indigo-50 p-2 text-indigo-900">
+                                    <div className="font-bold text-indigo-700">Current score impact</div>
+                                    <div className="mt-1">
+                                        {sourceToggleImpact.with_source_score !== null && sourceToggleImpact.without_source_score !== null
+                                            ? `${sourceToggleImpact.with_source_score} with ${sourceToggleImpact.source_label} vs ${sourceToggleImpact.without_source_score} without`
+                                            : sourceToggleImpact.summary}
+                                    </div>
+                                </div>
+                            )}
                             <div className="border-t border-slate-100 pt-2 text-[9px] text-slate-500">
                                 Momentum and contrarian strategies interpret the same signal differently.
                             </div>

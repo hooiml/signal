@@ -32,12 +32,17 @@ export const ArticleList = ({ articles, market }: ArticleCardProps) => {
 
     return (
         <div className="w-full mt-6">
-            <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold uppercase tracking-widest text-slate-600">
-                    Market Articles
-                </h3>
-                <span className="text-[11px] text-slate-500 uppercase tracking-wider">
-                    {market === 'US' ? 'Reddit + StockTwits' : 'News + Reddit'}
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-slate-600">
+                        Market Context Feed
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                        Context only. These cards are not individually weighted in the composite score.
+                    </p>
+                </div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    {market === 'US' ? 'News + Reddit context' : 'News + Reddit context'}
                 </span>
             </div>
 

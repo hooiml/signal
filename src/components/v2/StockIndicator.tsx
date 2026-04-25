@@ -48,11 +48,16 @@ export const StockIndicator = ({ stocks, market }: StockIndicatorProps) => {
 
     return (
         <div className="w-full">
-            <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-600">
-                    {market === 'US' ? 'Popular US Stocks' : 'Active MY Stocks'}
-                </h3>
-                <span className="text-[11px] text-emerald-700 uppercase tracking-wider font-bold">Live</span>
+            <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-slate-600">
+                        {market === 'US' ? 'Popular US Watchlist' : 'Active MY Watchlist'}
+                    </h3>
+                    <p className="text-sm text-slate-500">
+                        Live price context only. These tickers are not direct score components unless they appear in sentiment/news sources.
+                    </p>
+                </div>
+                <span className="w-fit text-[11px] text-emerald-700 uppercase tracking-wider font-bold">Live quotes</span>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2">

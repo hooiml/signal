@@ -39,6 +39,8 @@ export interface ConfidenceMetrics {
     majority_signal: SignalAction;
     conflicting_indicators: string[]; // Names of indicators disagreeing with majority
     warning?: string;            // E.g. "Single source mode: confidence reduced"
+    source_count?: number;
+    cap_reason?: string;
 }
 
 /**
@@ -87,12 +89,19 @@ export interface MarketSignal {
             noise_level: 'low' | 'moderate' | 'elevated';
             market_regime: string;
             warnings: string[];
+            confidence_explanation?: string;
         };
         score_drivers?: Array<{
+            key: string;
             name: string;
             impact: 'positive' | 'negative' | 'neutral';
             contribution: number;
+            score: number;
+            weight: number;
+            raw_value: number;
+            last_updated: string;
             detail: string;
+            mode_note?: string;
         }>;
         index_trend?: Array<{
             symbol: string;
@@ -100,10 +109,46 @@ export interface MarketSignal {
             changePercent: number;
             trend: 'positive' | 'negative' | 'flat';
         }>;
+        interpretation_context?: {
+            regime: string;
+            agreeing_signals: string[];
+            conflicting_signals: string[];
+            disagreement_note?: string;
+            limitation: string;
+            mode_note: string;
+            aaii_note?: string;
+            article_feed_role: string;
+            breadth_note?: string;
+        };
+        score_delta?: {
+            previous_score: number | null;
+            delta: number | null;
+            previous_date: string | null;
+            snapshot_date: string;
+            label: string;
+        };
+        score_history?: Array<{
+            date: string;
+            score: number;
+            tier: SignalTier;
+        }>;
         trend_context?: {
             score_trend: string;
             last_signal_change: string;
             note: string;
+        };
+        counterfactuals?: {
+            source_toggle?: {
+                source: 'social' | 'news';
+                source_label: string;
+                active: boolean;
+                current_score: number;
+                with_source_score: number | null;
+                without_source_score: number | null;
+                delta_without_source: number | null;
+                summary: string;
+                unavailable_reason?: string;
+            };
         };
     };
 }

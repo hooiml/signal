@@ -54,6 +54,34 @@ export const IndicatorList = ({ indicators, mode = 'contrarian', market = 'US', 
         return 'Combines sentiment from r/wallstreetbets, r/stocks, r/investing, and StockTwits. Weighted by post engagement and recency.';
     };
 
+    const formatRawValue = (indicator: IndicatorData) => {
+        if (indicator.name === 'social' || indicator.name === 'news') {
+            return clampSentiment(indicator.value).toFixed(2);
+        }
+
+        return indicator.value.toFixed(2);
+    };
+
+    const getValueScaleLabel = (indicator: IndicatorData) => {
+        if (indicator.name === 'social' || indicator.name === 'news') {
+            return 'raw sentiment -1 to +1';
+        }
+
+        if (indicator.name === 'aaii') {
+            return 'bullish survey %';
+        }
+
+        return market === 'MY' && indicator.name === 'vix' ? 'volatility proxy' : 'market value';
+    };
+
+    const getScoreScaleLabel = (indicator: IndicatorData) => {
+        if (indicator.name === 'social' || indicator.name === 'news') {
+            return 'Signal score: normalized sentiment scale';
+        }
+
+        return 'Score: 0-100 normalized';
+    };
+
     const getSignalColor = (signal: SignalTier) => {
         if (signal === 'strong-buy') return 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm';
         if (signal === 'buy') return 'bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-sm';
@@ -149,10 +177,11 @@ export const IndicatorList = ({ indicators, mode = 'contrarian', market = 'US', 
                                 </div>
                                 <div className="text-right">
                                     <span className="text-base font-mono tabular-nums font-semibold text-slate-900">
-                                        {typeof indicator.value === 'number' && indicator.name !== 'combinedSentiment'
-                                            ? indicator.value.toFixed(2)
-                                            : indicator.value}
+                                        {formatRawValue(indicator)}
                                     </span>
+                                    <div className="text-[9px] uppercase tracking-wider text-slate-400">
+                                        {getValueScaleLabel(indicator)}
+                                    </div>
                                 </div>
                             </div>
 
@@ -174,7 +203,7 @@ export const IndicatorList = ({ indicators, mode = 'contrarian', market = 'US', 
                             <div className="mt-3 space-y-2">
                                 {/* Score */}
                                 <div className="text-[11px] font-mono tabular-nums text-slate-500 text-right">
-                                    Score: {indicator.score.toFixed(0)}
+                                    {getScoreScaleLabel(indicator)}: {indicator.score.toFixed(0)}
                                 </div>
 
                                 {/* Raw Signal */}
@@ -210,3 +239,7 @@ export const IndicatorList = ({ indicators, mode = 'contrarian', market = 'US', 
         </div>
     );
 };
+
+function clampSentiment(value: number) {
+    return Math.max(-1, Math.min(1, value));
+}

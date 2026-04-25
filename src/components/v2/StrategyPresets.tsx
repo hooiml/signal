@@ -18,9 +18,9 @@ export const StrategyPresets = ({ currentMode, currentSocial, onPresetSelect }: 
 
     const activePreset = getCurrentPreset();
     const presets = [
-        { id: 'momentum' as const, name: 'Momentum', detail: 'Standard + social' },
-        { id: 'contrarian_pure' as const, name: 'Pure Contrarian', detail: 'Institutional only' },
-        { id: 'contrarian_informed' as const, name: 'Informed Contrarian', detail: 'Contrarian + social' }
+        { id: 'momentum' as const, name: 'Momentum', detail: 'Trend-following read' },
+        { id: 'contrarian_pure' as const, name: 'Contrarian Core', detail: 'Excludes noisy social feed' },
+        { id: 'contrarian_informed' as const, name: 'Informed Contrarian', detail: 'Contrarian + social context' }
     ];
 
     return (
@@ -32,6 +32,9 @@ export const StrategyPresets = ({ currentMode, currentSocial, onPresetSelect }: 
                     </h3>
                     <p className="mt-1 text-sm text-slate-600">
                         Select how the engine interprets sentiment extremes.
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                        Switching presets recalculates the score and changes how AAII sentiment is interpreted.
                     </p>
                 </div>
 
