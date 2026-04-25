@@ -13,29 +13,46 @@ interface SignalConfig {
 }
 
 const STORAGE_KEY = 'signal-dashboard-config';
+const DEFAULT_CONFIG: SignalConfig = {
+    mode: 'standard',
+    market: 'US',
+    enableSocial: true
+};
+
+const isSignalConfig = (value: unknown): value is SignalConfig => {
+    if (!value || typeof value !== 'object') return false;
+    const config = value as Partial<SignalConfig>;
+    return (config.mode === 'standard' || config.mode === 'contrarian')
+        && (config.market === 'US' || config.market === 'MY')
+        && typeof config.enableSocial === 'boolean';
+};
+
+const getInitialConfig = (): SignalConfig => {
+    if (typeof window === 'undefined') return DEFAULT_CONFIG;
+
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (!stored) return DEFAULT_CONFIG;
+
+    try {
+        const parsed: unknown = JSON.parse(stored);
+        return isSignalConfig(parsed) ? parsed : DEFAULT_CONFIG;
+    } catch (error) {
+        console.error('Failed to parse signal configuration:', error);
+        return DEFAULT_CONFIG;
+    }
+};
 
 export function useSignalConfig() {
-    // Default values
-    const [config, setConfig] = useState<SignalConfig>({
-        mode: 'standard',
-        market: 'US',
-        enableSocial: true
-    });
-
+    const [config, setConfig] = useState<SignalConfig>(DEFAULT_CONFIG);
     const [isLoaded, setIsLoaded] = useState(false);
 
-    // Load from localStorage on mount
     useEffect(() => {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            try {
-                const parsed = JSON.parse(stored);
-                setConfig(parsed);
-            } catch (e) {
-                console.error('Failed to parse signal configuration:', e);
-            }
-        }
-        setIsLoaded(true);
+        const timeoutId = window.setTimeout(() => {
+            setConfig(getInitialConfig());
+            setIsLoaded(true);
+        }, 0);
+
+        return () => window.clearTimeout(timeoutId);
     }, []);
 
     // Save to localStorage on change

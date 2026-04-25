@@ -4,7 +4,11 @@ import { sql } from '@/lib/db';
 
 export async function GET(request: Request) {
     const authHeader = request.headers.get('authorization');
-    const adminSecret = process.env.ADMIN_SECRET || 'dev-secret';
+    const adminSecret = process.env.ADMIN_SECRET;
+
+    if (!adminSecret) {
+        return NextResponse.json({ error: 'ADMIN_SECRET is not configured' }, { status: 500 });
+    }
 
     if (authHeader !== `Bearer ${adminSecret}`) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

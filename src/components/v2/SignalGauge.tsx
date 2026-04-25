@@ -55,7 +55,7 @@ export const SignalGauge = ({ score, tier, confidence }: SignalGaugeProps) => {
                         cy={size / 2}
                         r={radius}
                         fill="none"
-                        stroke="var(--card-border)"
+                        stroke="#e2e8f0" /* slate-200 */
                         strokeWidth={strokeWidth}
                         strokeDasharray={`${circumference * 0.75} ${circumference}`}
                         strokeLinecap="round"
@@ -79,22 +79,22 @@ export const SignalGauge = ({ score, tier, confidence }: SignalGaugeProps) => {
 
                 {/* Center Text */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center pt-8">
-                    <span className="text-5xl font-black tracking-tighter" style={{ color }}>
+                    <span className="text-6xl font-bold tracking-tight font-mono tabular-nums text-slate-900">
                         {Math.round(animatedScore)}
                     </span>
-                    <span className="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-bold -mt-1">
+                    <span className="text-[11px] uppercase tracking-[0.3em] text-slate-500 font-bold -mt-1">
                         Score
                     </span>
                 </div>
             </div>
 
             <div className="mt-4 flex flex-col items-center">
-                <h2 className="text-xl font-bold uppercase tracking-tight" style={{ color }}>
+                <h2 className="text-5xl font-extrabold capitalize tracking-tight" style={{ color }}>
                     {tier.replace('-', ' ')}
                 </h2>
-                <div className="mt-1 flex items-center space-x-2">
-                    <span className="text-[10px] uppercase tracking-widest text-slate-400">Confidence:</span>
-                    <span className={`text-[10px] font-bold uppercase tracking-widest ${confidence === 'high' ? 'text-emerald-500' : confidence === 'medium' ? 'text-amber-500' : 'text-rose-500'
+                <div className="mt-2 flex items-center space-x-2">
+                    <span className="text-[11px] uppercase tracking-widest text-slate-500">Confidence:</span>
+                    <span className={`text-[11px] font-bold uppercase tracking-widest ${confidence === 'high' ? 'text-emerald-600' : confidence === 'medium' ? 'text-amber-500' : 'text-rose-600'
                         }`}>
                         {confidence}
                     </span>

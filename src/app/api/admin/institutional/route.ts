@@ -4,7 +4,11 @@ import { updateInstitutionalIndicator } from '@/lib/institutional-service';
 
 export async function POST(request: Request) {
     const authHeader = request.headers.get('authorization');
-    const adminSecret = process.env.ADMIN_SECRET || 'dev-secret';
+    const adminSecret = process.env.ADMIN_SECRET;
+
+    if (!adminSecret) {
+        return NextResponse.json({ error: 'ADMIN_SECRET is not configured' }, { status: 500 });
+    }
 
     if (authHeader !== `Bearer ${adminSecret}`) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -15,7 +19,7 @@ export async function POST(request: Request) {
         const { name, value, date } = body;
 
         // Validation
-        if (!name || value === undefined || !date) {
+        if (typeof name !== 'string' || value === undefined || typeof date !== 'string') {
             return NextResponse.json({ error: 'Missing required fields (name, value, date)' }, { status: 400 });
         }
 
@@ -24,7 +28,17 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: `Invalid indicator name. Must be one of: ${validIndicators.join(', ')}` }, { status: 400 });
         }
 
-        const success = await updateInstitutionalIndicator(name.toLowerCase(), value, date);
+        const numericValue = Number(value);
+        if (!Number.isFinite(numericValue)) {
+            return NextResponse.json({ error: 'value must be a finite number' }, { status: 400 });
+        }
+
+        const parsedDate = new Date(date);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsedDate.getTime())) {
+            return NextResponse.json({ error: 'date must use YYYY-MM-DD format' }, { status: 400 });
+        }
+
+        const success = await updateInstitutionalIndicator(name.toLowerCase(), numericValue, date);
 
         if (success) {
             return NextResponse.json({ success: true, message: `Updated ${name} to ${value} for ${date}` });

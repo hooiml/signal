@@ -16,6 +16,46 @@ export interface StockTwit {
     };
 }
 
+interface StockTwitsApiMessage {
+    id: number;
+    body: string;
+    created_at: string;
+    entities?: {
+        sentiment?: {
+            basic?: 'Bullish' | 'Bearish';
+        };
+    };
+    symbols?: StockTwit['symbols'];
+    likes?: {
+        total?: number;
+    };
+    reshares?: {
+        reshared_count?: number;
+    };
+    user: {
+        username: string;
+        followers?: number;
+    };
+}
+
+interface StockTwitsApiResponse {
+    messages?: StockTwitsApiMessage[];
+}
+
+const mapStockTwit = (msg: StockTwitsApiMessage): StockTwit => ({
+    id: msg.id,
+    body: msg.body,
+    created_at: msg.created_at,
+    sentiment: msg.entities?.sentiment?.basic,
+    symbols: msg.symbols || [],
+    likes_count: msg.likes?.total || 0,
+    reshares_count: msg.reshares?.reshared_count || 0,
+    user: {
+        username: msg.user.username,
+        followers: msg.user.followers || 0
+    }
+});
+
 /**
  * Fetch trending market posts from StockTwits
  * No authentication required for public streams
@@ -43,7 +83,7 @@ export const fetchTrendingTwits = async (limit = 10): Promise<StockTwit[]> => {
             throw new Error(`StockTwits API error: ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = await response.json() as StockTwitsApiResponse;
 
         if (!data?.messages) {
             console.error('Invalid StockTwits response structure');
@@ -52,19 +92,7 @@ export const fetchTrendingTwits = async (limit = 10): Promise<StockTwit[]> => {
 
         console.log(`Fetched ${data.messages.length} StockTwits posts`);
 
-        return data.messages.map((msg: any) => ({
-            id: msg.id,
-            body: msg.body,
-            created_at: msg.created_at,
-            sentiment: msg.entities?.sentiment?.basic,
-            symbols: msg.symbols || [],
-            likes_count: msg.likes?.total || 0,
-            reshares_count: msg.reshares?.reshared_count || 0,
-            user: {
-                username: msg.user.username,
-                followers: msg.user.followers || 0
-            }
-        }));
+        return data.messages.map(mapStockTwit);
     } catch (error) {
         console.error('Error fetching StockTwits:', error);
         return [];
@@ -90,25 +118,13 @@ export const fetchTickerTwits = async (ticker: string, limit = 10): Promise<Stoc
             throw new Error(`StockTwits API error: ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = await response.json() as StockTwitsApiResponse;
 
         if (!data?.messages) {
             return [];
         }
 
-        return data.messages.map((msg: any) => ({
-            id: msg.id,
-            body: msg.body,
-            created_at: msg.created_at,
-            sentiment: msg.entities?.sentiment?.basic,
-            symbols: msg.symbols || [],
-            likes_count: msg.likes?.total || 0,
-            reshares_count: msg.reshares?.reshared_count || 0,
-            user: {
-                username: msg.user.username,
-                followers: msg.user.followers || 0
-            }
-        }));
+        return data.messages.map(mapStockTwit);
     } catch (error) {
         console.error(`Error fetching StockTwits for ${ticker}:`, error);
         return [];

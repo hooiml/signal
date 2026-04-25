@@ -36,18 +36,32 @@ export const GET = async (request: Request): Promise<NextResponse> => {
 
     try {
         const { searchParams } = new URL(request.url);
-        const market = (searchParams.get('market') as 'US' | 'MY') || 'US';
+        const marketParam = searchParams.get('market') || 'US';
+        if (marketParam !== 'US' && marketParam !== 'MY') {
+            return NextResponse.json({ error: 'Invalid market. Use US or MY.' }, { status: 400 });
+        }
+        const market = marketParam;
 
         console.log(`🔄 FORCE REFRESH (${market}): Bypassing cache...`);
 
         // 1. Fetch all data sources (Optimized: Skip StockTwits for MY, Add MYR Vol)
+        const vixPromise = fetchVIX(); // Always US VIX as proxy
+        const redditPromise = fetchMultipleSubreddits(
+            market === 'MY' ? ['bursabets', 'malaysianpf'] : ['wallstreetbets', 'stocks', 'investing'],
+            10
+        );
+        const newsPromise = fetchMarketNews(market);
+        const stockTwitsPromise: Promise<StockTwit[]> = market === 'US' ? fetchTrendingTwits(20) : Promise.resolve([]);
+        const myrVolPromise: ReturnType<typeof fetchHistoricalCurrencyVol> | Promise<null> =
+            market === 'MY' ? fetchHistoricalCurrencyVol('USDMYR=X') : Promise.resolve(null);
+
         const [vixData, redditPosts, newsItems, stockTwits, myrVol] = await Promise.all([
-            fetchVIX(), // Always US VIX as proxy
-            fetchMultipleSubreddits(market === 'MY' ? ['bursabets', 'malaysianpf'] : ['wallstreetbets', 'stocks', 'investing'], 10),
-            fetchMarketNews(market),
-            market === 'US' ? fetchTrendingTwits(20) : Promise.resolve([] as StockTwit[]),
-            market === 'MY' ? fetchHistoricalCurrencyVol('USDMYR=X') : Promise.resolve(null)
-        ]) as [any, RedditPost[], NewsItem[], StockTwit[], any];
+            vixPromise,
+            redditPromise,
+            newsPromise,
+            stockTwitsPromise,
+            myrVolPromise
+        ]);
 
         // 2. Calculate sentiment scores with market-specific weighting
         const redditSentiment = calculateRedditSentiment(redditPosts);

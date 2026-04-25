@@ -81,6 +81,30 @@ export interface MarketSignal {
             pubDate?: string;
             sentiment?: 'bullish' | 'bearish' | 'neutral';
         }>;
+        signal_quality?: {
+            freshness: 'fresh' | 'mixed' | 'stale';
+            source_coverage: 'strong' | 'moderate' | 'limited';
+            noise_level: 'low' | 'moderate' | 'elevated';
+            market_regime: string;
+            warnings: string[];
+        };
+        score_drivers?: Array<{
+            name: string;
+            impact: 'positive' | 'negative' | 'neutral';
+            contribution: number;
+            detail: string;
+        }>;
+        index_trend?: Array<{
+            symbol: string;
+            price: number;
+            changePercent: number;
+            trend: 'positive' | 'negative' | 'flat';
+        }>;
+        trend_context?: {
+            score_trend: string;
+            last_signal_change: string;
+            note: string;
+        };
     };
 }
 

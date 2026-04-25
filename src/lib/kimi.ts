@@ -125,7 +125,7 @@ Score formula: 100 - (VIX * 2.5), adjusted by social sentiment`;
     try {
         const parsed = JSON.parse(content) as MarketAura;
         return parsed;
-    } catch (e) {
+    } catch {
         console.error('Failed to parse Kimi response:', content);
         throw new Error('Invalid JSON from Kimi K2');
     }

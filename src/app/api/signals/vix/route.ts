@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { fetchVIX } from '@/lib/yahoo-finance';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 /**
  * VIX Thresholds based on Kimi K2's analysis (post-2008 regime-adjusted)

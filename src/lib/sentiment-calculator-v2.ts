@@ -13,7 +13,7 @@ export function calculateCompositeScoreV2(
     const { market, mode } = config;
 
     // 1. Filter enabled indicators
-    const activeIndicators = indicators.filter(i => i.enabled);
+    const enabledIndicators = indicators.filter(i => i.enabled);
 
     // 2. Define Base Weights (Per Market)
     // Matches existing V1 logic: US=VIX dominated, MY=News dominated
@@ -35,7 +35,7 @@ export function calculateCompositeScoreV2(
     // 2a. Dynamic Regime Adjustment (High Volatility Override)
     // If VIX > 30 (Panic), valid signals are drowned out by noise.
     // We boost VIX weight to 85% to ensure safety.
-    const vixIndicator = activeIndicators.find(i => i.name === 'vix');
+    const vixIndicator = enabledIndicators.find(i => i.name === 'vix');
     let dynamicWeights = { ... (BASE_WEIGHTS[market] || BASE_WEIGHTS['US']) };
 
     if (market === 'US' && vixIndicator && vixIndicator.value > 30) {
@@ -51,17 +51,20 @@ export function calculateCompositeScoreV2(
 
     // 3. Proportional Redistribution
     let totalBaseWeight = 0;
-    activeIndicators.forEach(ind => {
+    enabledIndicators.forEach(ind => {
         totalBaseWeight += (marketWeights[ind.name] || 0);
     });
 
     // Avoid division by zero
     if (totalBaseWeight === 0) totalBaseWeight = 1;
 
-    // Redistribute weights
-    activeIndicators.forEach(ind => {
+    // Redistribute weights without mutating the original inputs.
+    const activeIndicators = enabledIndicators.map(ind => {
         const base = marketWeights[ind.name] || 0;
-        ind.weight = base / totalBaseWeight;
+        return {
+            ...ind,
+            weight: base / totalBaseWeight
+        };
     });
 
     // 4. Calculate Composite Score
@@ -90,7 +93,7 @@ export function calculateCompositeScoreV2(
     const interpretation = generateInterpretation(tier, mode, compositeScore);
 
     // 6a. Update individual indicator signals based on mode (for confidence consistency)
-    activeIndicators.forEach(ind => {
+    const scoredIndicators = activeIndicators.map(ind => {
         const isContr = mode === 'contrarian';
         let indTier: SignalTier = 'neutral';
         if (ind.score >= 85) indTier = isContr ? 'strong-sell' : 'strong-buy';
@@ -98,23 +101,26 @@ export function calculateCompositeScoreV2(
         else if (ind.score >= 40) indTier = 'neutral';
         else if (ind.score >= 20) indTier = isContr ? 'buy' : 'sell';
         else indTier = isContr ? 'strong-buy' : 'strong-sell';
-        ind.signal = indTier;
+        return {
+            ...ind,
+            signal: indTier
+        };
     });
 
     // 7. Calculate Confidence
-    const confidence = calculateConfidence(activeIndicators, tier);
+    const confidence = calculateConfidence(scoredIndicators, tier);
 
     return {
         composite_score: compositeScore,
         tier,
         mode,
         interpretation,
-        components: activeIndicators.reduce((acc, curr) => ({ ...acc, [curr.name]: curr }), {}),
+        components: scoredIndicators.reduce((acc, curr) => ({ ...acc, [curr.name]: curr }), {}),
         confidence,
         metadata: {
             market,
-            data_freshness: activeIndicators.reduce((acc, curr) => ({ ...acc, [curr.name]: curr.last_updated }), {}),
-            weight_distribution: activeIndicators.reduce((acc, curr) => ({ ...acc, [curr.name]: curr.weight }), {}),
+            data_freshness: scoredIndicators.reduce((acc, curr) => ({ ...acc, [curr.name]: curr.last_updated }), {}),
+            weight_distribution: scoredIndicators.reduce((acc, curr) => ({ ...acc, [curr.name]: curr.weight }), {}),
             stocks: [] // Will be populated by the API layer
         }
     };
@@ -131,21 +137,21 @@ function generateInterpretation(tier: SignalTier, mode: 'standard' | 'contrarian
     // Contrarian: Fade trend (Mean Reversion) - Existing specific logic
 
     switch (tier) {
-        case 'strong-sell': // Extreme Greed (85-100)
+        case 'strong-sell':
             return {
-                action: isContrarian ? 'Extreme Caution / Trim' : 'Strong Momentum',
+                action: isContrarian ? 'Extreme Caution / Trim' : 'Strong Downtrend',
                 reasoning: isContrarian
                     ? `Market is euphoric (Score: ${score}). High risk of reversal. Consider taking profits.`
-                    : `Market showing exceptional strength. Momentum is powerful.`,
+                    : `Market is under extreme pressure (Score: ${score}). Downside momentum is powerful.`,
                 color: '#DC2626', // Red
                 emoji: isContrarian ? '⚠️' : '🚀'
             };
-        case 'sell': // Greed (65-84)
+        case 'sell':
             return {
-                action: isContrarian ? 'Fade / Take Profit' : 'Ride Uptrend',
+                action: isContrarian ? 'Fade / Take Profit' : 'Defensive',
                 reasoning: isContrarian
                     ? `Greed is elevated. Good time to scale out of positions.`
-                    : `Bullish trend is healthy. Stay long but watch for overheating.`,
+                    : `Market sentiment is weak. Downside momentum exists.`,
                 color: '#F87171',
                 emoji: isContrarian ? '💰' : '📈'
             };
@@ -156,21 +162,21 @@ function generateInterpretation(tier: SignalTier, mode: 'standard' | 'contrarian
                 color: '#9CA3AF', // Gray
                 emoji: '⚖️'
             };
-        case 'buy': // Fear (20-39)
+        case 'buy':
             return {
-                action: isContrarian ? 'Accumulate' : 'Caution',
+                action: isContrarian ? 'Accumulate' : 'Ride Uptrend',
                 reasoning: isContrarian
                     ? `Fear is present. Good opportunity to start building positions.`
-                    : `Market sentiment is weak. Downside momentum exists.`,
+                    : `Bullish trend is healthy. Stay long but watch for overheating.`,
                 color: '#34D399', // Green
                 emoji: isContrarian ? '🛒' : '📉'
             };
-        case 'strong-buy': // Extreme Fear (0-19)
+        case 'strong-buy':
             return {
-                action: isContrarian ? 'Strong Buy / Aggressive' : 'Avoid / Catching Knife',
+                action: isContrarian ? 'Strong Buy / Aggressive' : 'Strong Momentum',
                 reasoning: isContrarian
                     ? `Extreme panic detected (Score: ${score}). Best time for long-term entries.`
-                    : `Market is crashing. High volatility. Stay away until stabilization.`,
+                    : `Market showing exceptional strength (Score: ${score}). Momentum is powerful.`,
                 color: '#10B981',
                 emoji: isContrarian ? '💎' : '🔪'
             };

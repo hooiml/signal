@@ -30,37 +30,36 @@ const MiniSparkline = ({ data, isPositive }: { data: number[]; isPositive: boole
 
     return (
         <svg
-            className="absolute inset-0 w-full h-full opacity-20"
+            className="absolute inset-0 w-full h-full opacity-25"
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
         >
             <polyline
                 fill="none"
-                stroke={isPositive ? '#10b981' : '#ef4444'}
+                stroke={isPositive ? '#0f766e' : '#dc2626'}
                 strokeWidth="2"
                 points={points}
             />
         </svg>
     );
 };
-
 export const StockIndicator = ({ stocks, market }: StockIndicatorProps) => {
     const currencySymbol = market === 'MY' ? 'RM' : '$';
 
     return (
         <div className="w-full">
             <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-600">
                     {market === 'US' ? 'Popular US Stocks' : 'Active MY Stocks'}
                 </h3>
-                <span className="text-[9px] text-slate-500 uppercase tracking-wider">Live</span>
+                <span className="text-[11px] text-emerald-700 uppercase tracking-wider font-bold">Live</span>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                 {stocks.map((stock) => (
                     <div
                         key={stock.symbol}
-                        className="relative p-2.5 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors overflow-hidden"
+                        className="relative p-2.5 rounded-lg border border-slate-200 bg-white hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md transition-all overflow-hidden shadow-sm"
                     >
                         {/* Background Sparkline */}
                         {stock.sparkline && (
@@ -72,14 +71,14 @@ export const StockIndicator = ({ stocks, market }: StockIndicatorProps) => {
 
                         {/* Content */}
                         <div className="relative z-10 flex flex-col">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300 mb-1">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
                                 {stock.symbol}
                             </span>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-sm font-mono font-medium text-white">
+                                <span className="text-base font-mono font-semibold text-slate-950">
                                     {currencySymbol}{stock.price.toFixed(2)}
                                 </span>
-                                <span className={`text-[9px] font-mono font-medium ${stock.change >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                                <span className={`text-[11px] font-mono font-semibold ${stock.change >= 0 ? 'text-emerald-700' : 'text-rose-700'
                                     }`}>
                                     {stock.change >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%
                                 </span>

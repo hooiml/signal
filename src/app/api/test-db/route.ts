@@ -1,14 +1,18 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export const GET = async (request: Request): Promise<NextResponse> => {
     // Security: Require CRON_SECRET
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret) {
+        return NextResponse.json({ error: 'CRON_SECRET is not configured' }, { status: 500 });
+    }
+
+    if (authHeader !== `Bearer ${cronSecret}`) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

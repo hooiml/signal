@@ -141,7 +141,7 @@ ${stockTwits.slice(0, 5).map((t, i) => `${i + 1}. ${t}`).join('\n')}
         const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const parsed = JSON.parse(cleanedContent) as MarketAura;
         return parsed;
-    } catch (e) {
+    } catch {
         console.error('Failed to parse Gemini response:', content);
         throw new Error('Invalid JSON from Gemini');
     }

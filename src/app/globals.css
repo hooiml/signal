@@ -1,21 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --background: #050505;
-  --foreground: #f0f0f0;
-  --card: #0d0d0d;
-  --card-border: #1a1a1a;
-  
-  /* Signal V2 Tiers - Premium Pallete */
-  --tier-strong-buy: #10b981;  /* Emerald 500 */
-  --tier-buy: #34d399;         /* Emerald 400 */
-  --tier-neutral: #64748b;     /* Slate 500 */
-  --tier-sell: #f59e0b;        /* Amber 500 */
-  --tier-strong-sell: #ef4444; /* Red 500 */
+  --background: #f8fafc; /* slate-50 */
+  --foreground: #0f172a; /* slate-900 */
+  --card: #ffffff; /* white */
+  --card-border: #e2e8f0; /* slate-200 */
+
+  /* Signal V2 Tiers - vibrant colors for light mode */
+  --tier-strong-buy: #059669;  /* emerald-600 */
+  --tier-buy: #10b981;         /* emerald-500 */
+  --tier-neutral: #4f46e5;     /* indigo-600 */
+  --tier-sell: #f43f5e;        /* rose-500 */
+  --tier-strong-sell: #e11d48; /* rose-600 */
 
   /* Surface Effects */
-  --glass-bg: rgba(255, 255, 255, 0.03);
-  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.95);
+  --glass-border: rgba(0, 0, 0, 0.05);
 }
 
 @theme inline {
@@ -31,11 +31,21 @@
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-source-sans), Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.font-mono {
+  font-family: var(--font-roboto-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
 /* Custom Scrollbar for a sleek look */

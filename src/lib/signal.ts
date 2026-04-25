@@ -148,20 +148,6 @@ export const fetchSocialData = async (market: MarketType) => {
         market === 'US' ? fetchTrendingTwits(config.stocktwitsLimit) : Promise.resolve([])
     ]) as [RedditPost[], NewsItem[], StockTwit[]];
 
-    // DIAGNOSTIC MOCK: If empty, add a indicator post to verify UI rendering
-    if (redditPosts.length === 0) {
-        console.warn(`[Social] No reddit posts found for ${market}. Injecting diagnostic signal.`);
-        redditPosts.push({
-            title: `📡 [DIAGNOSTIC] ${market} Reddit Sync Active - No Threads Found`,
-            selftext: `The Signal system is connected to Reddit, but the ${market} signal stream is currently returning zero valid results. This indicates either a temporary lack of volatility or a network filter on the source API.`,
-            score: 1,
-            num_comments: 0,
-            url: "https://www.reddit.com",
-            permalink: "/",
-            created_utc: Date.now() / 1000,
-            subreddit: "r/System"
-        });
-    }
 
     return { redditPosts, newsItems, stockTwits };
 };
@@ -169,12 +155,14 @@ export const fetchSocialData = async (market: MarketType) => {
 /**
  * Step 1 (Legacy): Gather all raw data - uses both Core and Social
  */
-export const fetchRawMarketData = async (market: MarketType): Promise<AggregateMarketData> => {
+export const fetchRawMarketData = async (market: MarketType, enableSocial = true): Promise<AggregateMarketData> => {
 
     // FETCH CORE + SOCIAL IN PARALLEL
     const [coreData, socialData] = await Promise.all([
         fetchCoreMarketData(market),
-        fetchSocialData(market)
+        enableSocial
+            ? fetchSocialData(market)
+            : Promise.resolve({ redditPosts: [], newsItems: [], stockTwits: [] })
     ]);
 
     const { vixData, indicesData, popularData, activeData, myrVol } = coreData;
@@ -340,7 +328,7 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
     const fetchStart = Date.now();
 
     try {
-        const marketData = await fetchRawMarketData(market);
+        const marketData = await fetchRawMarketData(market, enableSocial);
         const aura = await getAuraAnalysis(marketData, market);
 
         const fetchDurationMs = Date.now() - fetchStart;
@@ -461,6 +449,76 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
         ];
 
         v2Signal.metadata.articles = articlesData;
+        v2Signal.metadata.index_trend = marketData.marketIndices.map(index => ({
+            symbol: index.symbol,
+            price: index.price,
+            changePercent: index.changePercent,
+            trend: index.changePercent > 0.15 ? 'positive' : index.changePercent < -0.15 ? 'negative' : 'flat'
+        }));
+
+        const componentEntries = Object.values(v2Signal.components);
+        const staleComponents = componentEntries.filter(component => {
+            const updatedAt = new Date(component.last_updated).getTime();
+            if (Number.isNaN(updatedAt)) return true;
+            const ageDays = (Date.now() - updatedAt) / (24 * 60 * 60 * 1000);
+            return ageDays > 14;
+        });
+
+        const freshness = staleComponents.length === 0
+            ? 'fresh'
+            : staleComponents.length === componentEntries.length ? 'stale' : 'mixed';
+
+        const sourceCoverage = componentEntries.length >= 4
+            ? 'strong'
+            : componentEntries.length >= 3 ? 'moderate' : 'limited';
+
+        const socialAbs = Math.abs(marketData.combinedSentiment);
+        const socialVolume = marketData.redditPosts.length + marketData.stockTwits.length;
+        const noiseLevel = !enableSocial || socialVolume === 0
+            ? 'low'
+            : socialAbs > 0.75 || socialVolume < 5 ? 'elevated' : 'moderate';
+
+        const positiveIndexCount = marketData.marketIndices.filter(index => index.changePercent > 0).length;
+        const negativeIndexCount = marketData.marketIndices.filter(index => index.changePercent < 0).length;
+        const marketRegime = marketData.vixData.price >= 30
+            ? 'High-Volatility Stress'
+            : v2Signal.composite_score >= 65 && positiveIndexCount >= negativeIndexCount
+                ? 'Risk-On Momentum'
+                : v2Signal.composite_score <= 35 && negativeIndexCount > positiveIndexCount
+                    ? 'Risk-Off Defensive'
+                    : 'Mixed / Neutral';
+
+        const qualityWarnings = [
+            ...staleComponents.map(component => `${component.display_name} data is stale (${component.last_updated}).`),
+            ...(sourceCoverage === 'limited' ? ['Source coverage is limited; treat confidence as directional only.'] : []),
+            ...(noiseLevel === 'elevated' ? ['Social signal is elevated or sparse; retail sentiment may be noisy.'] : []),
+            ...(marketData.marketIndices.length === 0 ? ['Index trend data is unavailable for this market.'] : [])
+        ];
+
+        v2Signal.metadata.signal_quality = {
+            freshness,
+            source_coverage: sourceCoverage,
+            noise_level: noiseLevel,
+            market_regime: marketRegime,
+            warnings: qualityWarnings
+        };
+
+        v2Signal.metadata.score_drivers = componentEntries
+            .map(component => ({
+                name: component.display_name,
+                impact: component.signal === 'buy' || component.signal === 'strong-buy'
+                    ? 'positive' as const
+                    : component.signal === 'sell' || component.signal === 'strong-sell' ? 'negative' as const : 'neutral' as const,
+                contribution: Math.round(component.score * component.weight),
+                detail: `${component.score.toFixed(0)} score at ${(component.weight * 100).toFixed(0)}% weight`
+            }))
+            .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
+
+        v2Signal.metadata.trend_context = {
+            score_trend: 'Not tracked yet',
+            last_signal_change: 'Not tracked yet',
+            note: 'Historical score snapshots are needed before this dashboard can show signal changes and hit-rate evidence.'
+        };
 
         return {
             // METADATA (Production-grade additions)

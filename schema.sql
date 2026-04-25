@@ -74,6 +74,22 @@ CREATE TABLE IF NOT EXISTS watchlist (
 CREATE INDEX IF NOT EXISTS idx_watchlist_user ON watchlist(user_id, market_type) WHERE is_active = true;
 
 -- ============================================
+-- TABLE: institutional_data
+-- Purpose: Store slower-moving survey/manual indicators such as AAII
+-- ============================================
+CREATE TABLE IF NOT EXISTS institutional_data (
+    id SERIAL PRIMARY KEY,
+    indicator_name VARCHAR(50) NOT NULL,
+    value DECIMAL(10, 4) NOT NULL,
+    report_date DATE NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT unique_institutional_indicator_date UNIQUE (indicator_name, report_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_institutional_indicator_date
+    ON institutional_data(indicator_name, report_date DESC);
+
+-- ============================================
 -- TABLE: data_fetch_log
 -- Purpose: Track data fetch history and errors
 -- ============================================
