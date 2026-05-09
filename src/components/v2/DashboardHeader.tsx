@@ -1,8 +1,9 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { MarketRegion, MarketMode } from '@/hooks/use-signal-config';
 import { MarketSignal } from '@/lib/types/signal-v2';
+import { CockpitTheme, getThemeClasses, formatDateLabel } from './cockpit-utils';
 
 interface DashboardHeaderProps {
     market: MarketRegion;
@@ -12,102 +13,112 @@ interface DashboardHeaderProps {
     onModeChange: (m: MarketMode) => void;
     onSocialToggle: (enabled: boolean) => void;
     isLoaded: boolean;
+    isUpdating?: boolean;
+    snapshotDate?: string | null;
     sourceToggleImpact?: NonNullable<MarketSignal['metadata']['counterfactuals']>['source_toggle'];
+    theme: CockpitTheme;
+    onThemeToggle: () => void;
 }
 
-export const DashboardHeader = ({ market, mode, enableSocial, onMarketChange, onModeChange, onSocialToggle, isLoaded, sourceToggleImpact }: DashboardHeaderProps) => {
-    const segmentClass = (active: boolean) =>
-        `px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-widest transition-all ${active
-            ? 'bg-white text-slate-900 border border-slate-200 shadow-sm'
-            : 'text-slate-500 hover:text-slate-700 border border-transparent'
-        }`;
+export const DashboardHeader = ({
+    market,
+    mode,
+    enableSocial,
+    onMarketChange,
+    onModeChange,
+    onSocialToggle,
+    isLoaded,
+    isUpdating = false,
+    snapshotDate,
+    sourceToggleImpact,
+    theme,
+    onThemeToggle,
+}: DashboardHeaderProps) => {
+    const themeClasses = getThemeClasses(theme);
+
+    const editableShell = `rounded-2xl border px-3 py-2 ${themeClasses.commandGroup}`;
+    const metaShell = theme === 'light'
+        ? 'rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2'
+        : 'rounded-xl border border-slate-800 bg-slate-900/45 px-3 py-2';
+
+    const segmentClass = (active: boolean) => {
+        if (active) {
+            return theme === 'light'
+                ? 'rounded-xl border border-sky-400 bg-sky-100 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-sky-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]'
+                : 'rounded-xl border border-sky-400/40 bg-sky-500/18 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-sky-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]';
+        }
+
+        return theme === 'light'
+            ? 'rounded-xl border border-transparent px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 hover:text-slate-900'
+            : 'rounded-xl border border-transparent px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 hover:text-slate-200';
+    };
+
+    const sourceImpactText = sourceToggleImpact
+        ? (sourceToggleImpact.with_source_score !== null && sourceToggleImpact.without_source_score !== null
+            ? `Without ${sourceToggleImpact.source_label.toLowerCase()}: ${sourceToggleImpact.without_source_score} (${sourceToggleImpact.delta_without_source === null ? 'n/a' : `${sourceToggleImpact.delta_without_source > 0 ? '+' : ''}${sourceToggleImpact.delta_without_source}`})`
+            : sourceToggleImpact.summary)
+        : null;
 
     return (
-        <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between w-full mb-7 pt-7">
-            <div>
-                <div className="flex items-center gap-3 mb-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.15)] animate-pulse-slow" />
-                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">Market Desk</span>
-                </div>
-                <h1 className="text-5xl font-extrabold tracking-tight text-slate-900 flex items-center">
-                    Signal <span className="ml-3 rounded-md bg-indigo-50 border border-indigo-200 px-2 py-1 text-[11px] font-bold tracking-widest text-indigo-600 shadow-sm">V2.0</span>
-                </h1>
-                <p className="text-base text-slate-500 font-medium mt-2">
-                    Institutional sentiment and market momentum dashboard
-                </p>
-            </div>
-
-            <div className={`grid grid-cols-1 gap-3 sm:grid-cols-3 md:flex md:items-end md:gap-4 transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
-                <div className="flex flex-col">
-                    <span className="text-[11px] uppercase font-bold text-slate-500 mb-2 tracking-widest">Target Market</span>
-                    <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200">
-                        <button onClick={() => onMarketChange('US')} className={segmentClass(market === 'US')}>
-                            US
-                        </button>
-                        <button onClick={() => onMarketChange('MY')} className={segmentClass(market === 'MY')}>
-                            MY
-                        </button>
-                    </div>
-                </div>
-
-                <div className="flex flex-col">
-                    <span className="text-[11px] uppercase font-bold text-slate-500 mb-2 tracking-widest">Data Sources</span>
-                    <label className="group relative flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 hover:border-indigo-300 hover:bg-slate-50 cursor-pointer transition-all duration-300">
-                        <input
-                            type="checkbox"
-                            checked={enableSocial}
-                            onChange={(e) => onSocialToggle(e.target.checked)}
-                            className="w-3.5 h-3.5 rounded border-slate-300 bg-white checked:bg-indigo-600 checked:border-indigo-600 cursor-pointer accent-indigo-600"
-                        />
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 group-hover:text-slate-900 transition-colors">
-                            Social
-                        </span>
-                        <svg className="w-3 h-3 text-slate-400 group-hover:text-indigo-600 cursor-help transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-
-                        <div className="absolute left-0 bottom-full mb-2 w-72 p-3 bg-white border border-slate-200 rounded-lg text-[10px] text-slate-600 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-xl pointer-events-none">
-                            <div className="font-bold text-indigo-700 mb-2">Social sentiment</div>
-                            <div className="space-y-2 mb-3">
-                                <div>Reduce noise from social media volatility.</div>
-                                <div>Focus purely on institutional indicators.</div>
-                                <div>Test signal strength without retail sentiment.</div>
-                            </div>
-                            {sourceToggleImpact && (
-                                <div className="mb-3 rounded-md border border-indigo-100 bg-indigo-50 p-2 text-indigo-900">
-                                    <div className="font-bold text-indigo-700">Current score impact</div>
-                                    <div className="mt-1">
-                                        {sourceToggleImpact.with_source_score !== null && sourceToggleImpact.without_source_score !== null
-                                            ? `${sourceToggleImpact.with_source_score} with ${sourceToggleImpact.source_label} vs ${sourceToggleImpact.without_source_score} without`
-                                            : sourceToggleImpact.summary}
-                                    </div>
-                                </div>
-                            )}
-                            <div className="border-t border-slate-100 pt-2 text-[9px] text-slate-500">
-                                Momentum and contrarian strategies interpret the same signal differently.
+        <div className={`sticky top-0 z-20 mb-5 rounded-2xl border px-4 py-3 backdrop-blur ${themeClasses.commandStrip} ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                <div className="min-w-0 flex-1 space-y-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className={editableShell}>
+                            <div className={`px-1 text-[10px] font-semibold uppercase tracking-[0.22em] ${themeClasses.textSubtle}`}>Market</div>
+                            <div className="mt-2 flex items-center gap-1">
+                                <button onClick={() => onMarketChange('US')} className={segmentClass(market === 'US')}>US</button>
+                                <button onClick={() => onMarketChange('MY')} className={segmentClass(market === 'MY')}>MY</button>
                             </div>
                         </div>
-                    </label>
+
+                        <div className={editableShell}>
+                            <div className={`px-1 text-[10px] font-semibold uppercase tracking-[0.22em] ${themeClasses.textSubtle}`}>Mode</div>
+                            <div className="mt-2 flex items-center gap-1">
+                                <button onClick={() => onModeChange('standard')} className={segmentClass(mode === 'standard')}>Momentum</button>
+                                <button onClick={() => onModeChange('contrarian')} className={segmentClass(mode === 'contrarian')}>Contrarian</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className={`flex flex-wrap items-center gap-3 rounded-2xl border px-3 py-2 ${themeClasses.commandGroup}`}>
+                        <span className={`text-[10px] font-semibold uppercase tracking-[0.22em] ${themeClasses.textSubtle}`}>Source</span>
+                        <span className={`text-sm font-semibold ${themeClasses.textSecondary}`}>{enableSocial ? 'Social on' : 'Social off'}</span>
+                        <label className="relative inline-flex h-5 w-10 items-center">
+                            <input
+                                type="checkbox"
+                                checked={enableSocial}
+                                onChange={(event) => onSocialToggle(event.target.checked)}
+                                className="peer sr-only"
+                            />
+                            <span className={`absolute inset-0 rounded-full transition ${enableSocial ? 'bg-emerald-500' : theme === 'light' ? 'bg-slate-300' : 'bg-slate-700'}`} />
+                            <span className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition ${enableSocial ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </label>
+                        {sourceImpactText && (
+                            <span className={`text-sm ${themeClasses.textMuted}`}>· {sourceImpactText}</span>
+                        )}
+                    </div>
                 </div>
 
-                <div className="flex flex-col">
-                    <span className="text-[11px] uppercase font-bold text-slate-500 mb-2 tracking-widest">Signal Mode</span>
-                    <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200">
-                        <button onClick={() => onModeChange('standard')} className={`group relative ${segmentClass(mode === 'standard')}`}>
-                            Momentum
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-white border border-slate-200 rounded-lg text-[9px] leading-relaxed text-slate-600 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-xl pointer-events-none">
-                                <div className="font-bold text-indigo-700 mb-1">Momentum Mode</div>
-                                Follow the trend. High scores = bullish, low scores = bearish.
-                            </div>
-                        </button>
-                        <button onClick={() => onModeChange('contrarian')} className={`group relative ${segmentClass(mode === 'contrarian')}`}>
-                            Contrarian
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-white border border-slate-200 rounded-lg text-[9px] leading-relaxed text-slate-600 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-xl pointer-events-none">
-                                <div className="font-bold text-indigo-700 mb-1">Contrarian Mode</div>
-                                Fade extremes. High scores = sell signal, low scores = buy signal.
-                            </div>
-                        </button>
+                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                    <div className={metaShell}>
+                        <div className={`text-[10px] font-semibold uppercase tracking-[0.22em] ${themeClasses.textSubtle}`}>Snapshot</div>
+                        <div className={`mt-1 text-sm font-semibold ${themeClasses.textSecondary}`}>{snapshotDate ? formatDateLabel(snapshotDate, true) : 'Waiting for snapshot'}</div>
                     </div>
+                    <div className={metaShell}>
+                        <div className={`text-[10px] font-semibold uppercase tracking-[0.22em] ${themeClasses.textSubtle}`}>Status</div>
+                        <div className={`mt-1 flex items-center gap-2 text-sm font-semibold ${themeClasses.textSecondary}`}>
+                            <span className={`h-2 w-2 rounded-full ${isUpdating ? 'bg-sky-400' : 'bg-emerald-500'}`} />
+                            {isUpdating ? 'Updating' : 'Live'}
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onThemeToggle}
+                        className={`${metaShell} text-[11px] font-semibold uppercase tracking-[0.18em] ${themeClasses.textSecondary}`}
+                    >
+                        {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                    </button>
                 </div>
             </div>
         </div>

@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "harness": "powershell -ExecutionPolicy Bypass -File scripts/harness/check-all.ps1",
+    "harness:update-map": "powershell -ExecutionPolicy Bypass -File scripts/harness/generate-repo-map.ps1"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",

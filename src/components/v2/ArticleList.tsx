@@ -1,6 +1,8 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
+import { SignalTier } from '@/lib/types/signal-v2';
+import { CockpitTheme, formatDateLabel, getSignalAction, getThemeClasses } from './cockpit-utils';
 
 interface ArticleCardProps {
     articles: Array<{
@@ -11,71 +13,84 @@ interface ArticleCardProps {
         sentiment?: 'bullish' | 'bearish' | 'neutral';
     }>;
     market: 'US' | 'MY';
+    compositeTier: SignalTier;
+    theme: CockpitTheme;
 }
 
-export const ArticleList = ({ articles, market }: ArticleCardProps) => {
+export const ArticleList = ({ articles, market, compositeTier, theme }: ArticleCardProps) => {
+    const themeClasses = getThemeClasses(theme);
     if (!articles || articles.length === 0) {
         return null;
     }
 
-    const getSentimentColor = (sentiment?: string) => {
-        if (sentiment === 'bullish') return 'text-emerald-800 bg-emerald-50 border border-emerald-200';
-        if (sentiment === 'bearish') return 'text-rose-800 bg-rose-50 border border-rose-200';
-        return 'text-slate-700 bg-slate-100 border border-slate-200';
-    };
-
-    const getSentimentLabel = (sentiment?: string) => {
-        if (sentiment === 'bullish') return 'Bullish';
-        if (sentiment === 'bearish') return 'Bearish';
-        return 'Neutral';
-    };
+    const compositeAction = getSignalAction(compositeTier);
 
     return (
-        <div className="w-full mt-6">
-            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <section className={`rounded-3xl border p-5 ${themeClasses.panel}`}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-slate-600">
-                        Market Context Feed
-                    </h3>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Context only. These cards are not individually weighted in the composite score.
+                    <div className={`text-[11px] font-semibold uppercase tracking-[0.24em] ${themeClasses.textSubtle}`}>Latest developments</div>
+                    <h2 className={`mt-2 text-2xl font-semibold ${themeClasses.textPrimary}`}>Recent context tied to the current signal</h2>
+                    <p className={`mt-1 text-sm leading-6 ${themeClasses.textMuted}`}>
+                        Context only. Feed items are not individually weighted in the composite score.
                     </p>
                 </div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    {market === 'US' ? 'News + Reddit context' : 'News + Reddit context'}
+                <span className={`text-xs font-semibold uppercase tracking-[0.18em] ${themeClasses.textSubtle}`}>
+                    {market === 'US' ? 'US context feed' : 'MY context feed'}
                 </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {articles.slice(0, 10).map((article, index) => (
-                    <a
-                        key={index}
-                        href={article.url || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group p-3 rounded-lg border border-slate-200 bg-white hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md transition-all shadow-sm"
-                    >
-                        <div className="flex flex-col gap-2">
-                            <div className="flex items-start justify-between gap-2">
-                                <h4 className="text-sm text-slate-800 font-medium leading-snug line-clamp-2 group-hover:text-blue-700 transition-colors">
-                                    {article.title}
-                                </h4>
-                                {article.sentiment && (
-                                    <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap ${getSentimentColor(article.sentiment)}`}>
-                                        {getSentimentLabel(article.sentiment)}
-                                    </span>
-                                )}
+            <div className="mt-5 grid gap-3 xl:grid-cols-2">
+                {articles.slice(0, 6).map((article, index) => {
+                    const tag = getArticleTag(article.sentiment, compositeAction, theme);
+                    const content = (
+                        <div className={`flex h-full flex-col gap-3 rounded-2xl border p-4 transition hover:border-slate-400/60 ${themeClasses.panelSoft}`}>
+                            <div className="flex items-start justify-between gap-3">
+                                <h3 className={`text-base font-semibold leading-7 ${themeClasses.textPrimary}`}>{article.title}</h3>
+                                <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${tag.tone}`}>
+                                    {tag.label}
+                                </span>
                             </div>
-                            <div className="flex items-center justify-between text-[11px] text-slate-500">
-                                <span className="font-medium">{article.source}</span>
-                                {article.pubDate && (
-                                    <span>{new Date(article.pubDate).toLocaleDateString()}</span>
-                                )}
+                            <div className={`mt-auto flex items-center justify-between gap-3 text-sm ${themeClasses.textMuted}`}>
+                                <span>{article.source}</span>
+                                <span>{formatDateLabel(article.pubDate, true)}</span>
                             </div>
                         </div>
-                    </a>
-                ))}
+                    );
+
+                    return article.url ? (
+                        <a key={`${article.title}-${index}`} href={article.url} target="_blank" rel="noopener noreferrer">
+                            {content}
+                        </a>
+                    ) : (
+                        <div key={`${article.title}-${index}`}>{content}</div>
+                    );
+                })}
             </div>
-        </div>
+        </section>
     );
 };
+
+function getArticleTag(sentiment: 'bullish' | 'bearish' | 'neutral' | undefined, compositeAction: ReturnType<typeof getSignalAction>, theme: CockpitTheme) {
+    if (!sentiment || sentiment === 'neutral' || compositeAction === 'NEUTRAL') {
+        return {
+            label: 'Context',
+            tone: theme === 'light' ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-slate-700 bg-slate-900/70 text-slate-300',
+        };
+    }
+
+    const supports = (compositeAction === 'BUY' && sentiment === 'bullish') || (compositeAction === 'SELL' && sentiment === 'bearish');
+
+    if (supports) {
+        return {
+            label: 'Supports',
+            tone: theme === 'light' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200',
+        };
+    }
+
+    return {
+        label: 'Opposes',
+        tone: theme === 'light' ? 'border-rose-300 bg-rose-50 text-rose-700' : 'border-rose-400/40 bg-rose-500/10 text-rose-200',
+    };
+}
+

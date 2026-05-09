@@ -1,31 +1,34 @@
+﻿'use client';
 
-'use client';
-
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useSignalConfig } from '@/hooks/use-signal-config';
 import { DashboardHeader } from './DashboardHeader';
-import { SignalGauge } from './SignalGauge';
-import { IndicatorList } from './IndicatorList';
-import { IndicatorAgreement } from './IndicatorAgreement';
-import { StrategyPresets } from './StrategyPresets';
-import { StockIndicator } from './StockIndicator';
-import { ArticleList } from './ArticleList';
+import { HeroDecisionPanel } from './HeroDecisionPanel';
+import { TrustChangeBand } from './TrustChangeBand';
+import { EvidenceMatrix } from './EvidenceMatrix';
 import { AnalysisCard } from './AnalysisCard';
-import { SignalQualityPanel } from './SignalQualityPanel';
+import { ArticleList } from './ArticleList';
+import { SupportingContext } from './SupportingContext';
 import { MarketSignal } from '@/lib/types/signal-v2';
+import { CockpitTheme, getThemeClasses } from './cockpit-utils';
+
+const THEME_STORAGE_KEY = 'signal-dashboard-theme';
 
 export const SignalDashboard = () => {
-    const { config, updateConfig, applyPreset, isLoaded } = useSignalConfig();
+    const { config, updateConfig, isLoaded } = useSignalConfig();
     const [signalData, setSignalData] = useState<MarketSignal | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [theme, setTheme] = useState<CockpitTheme>('dark');
 
     const fetchSignal = useCallback(async () => {
         setLoading(true);
         setError(null);
+
         try {
             const res = await fetch(`/api/signals/v2?market=${config.market}&mode=${config.mode}&enableSocial=${config.enableSocial}`);
             const json = await res.json();
+
             if (json.success) {
                 setSignalData(json.data);
             } else {
@@ -44,152 +47,69 @@ export const SignalDashboard = () => {
         }
     }, [isLoaded, fetchSignal]);
 
+    useEffect(() => {
+        const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+        if (storedTheme === 'light' || storedTheme === 'dark') {
+            setTheme(storedTheme);
+        }
+    }, []);
+
+    useEffect(() => {
+        document.documentElement.setAttribute('data-cockpit-theme', theme);
+        window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    }, [theme]);
+
     if (!isLoaded) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700"></div>
-            </div>
-        );
+        return <CockpitSkeleton />;
     }
 
-    const scoreDelta = signalData?.metadata.score_delta;
-    const scoreDeltaLabel = scoreDelta
-        ? scoreDelta.delta === null
-            ? scoreDelta.label
-            : scoreDelta.delta === 0
-                ? `No change since ${scoreDelta.previous_date || 'previous snapshot'}`
-                : `${scoreDelta.delta >= 0 ? '+' : ''}${scoreDelta.delta} since ${scoreDelta.previous_date || 'previous snapshot'}`
-        : '0-100 signal index';
-    const sourceCoverage = signalData?.metadata.signal_quality?.source_coverage;
-    const confidenceDetail = signalData
-        ? `${getAgreementCount(signalData)} agree${sourceCoverage === 'limited' ? ' · limited sources' : ''}`
-        : 'Agreement pending';
-    const summaryItems = signalData
-        ? [
-            { label: 'Composite Score', value: signalData.composite_score.toString(), detail: scoreDeltaLabel },
-            { label: 'Current Tier', value: signalData.tier.replace('-', ' '), detail: config.mode === 'standard' ? 'Momentum read' : 'Contrarian read' },
-            { label: 'Confidence', value: signalData.confidence.level, detail: confidenceDetail },
-            { label: 'Market', value: config.market, detail: config.enableSocial ? 'Social enabled' : 'Social disabled' }
-        ]
-        : [
-            { label: 'Composite Score', value: loading ? '...' : '--', detail: '0-100 signal index' },
-            { label: 'Current Tier', value: loading ? '...' : '--', detail: 'Awaiting signal' },
-            { label: 'Confidence', value: loading ? '...' : '--', detail: 'Agreement pending' },
-            { label: 'Market', value: config.market, detail: config.enableSocial ? 'Social enabled' : 'Social disabled' }
-        ];
-    const disagreementNote = signalData?.metadata.interpretation_context?.disagreement_note;
+    const isUpdating = loading && Boolean(signalData);
+    const themeClasses = getThemeClasses(theme);
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-20">
+        <div className={`cockpit-theme-scope mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 lg:px-8 ${themeClasses.pageText}`}>
             <DashboardHeader
                 market={config.market}
                 mode={config.mode}
                 enableSocial={config.enableSocial}
-                onMarketChange={(m) => updateConfig({ market: m })}
-                onModeChange={(m) => updateConfig({ mode: m })}
-                onSocialToggle={(enabled) => updateConfig({ enableSocial: enabled })}
+                onMarketChange={(market) => updateConfig({ market })}
+                onModeChange={(mode) => updateConfig({ mode })}
+                onSocialToggle={(enableSocial) => updateConfig({ enableSocial })}
                 isLoaded={isLoaded}
+                isUpdating={isUpdating}
+                snapshotDate={signalData?.metadata.score_delta?.snapshot_date || null}
                 sourceToggleImpact={signalData?.metadata.counterfactuals?.source_toggle}
+                theme={theme}
+                onThemeToggle={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}
             />
 
-            <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {summaryItems.map((item) => (
-                    <div
-                        key={item.label}
-                        className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
-                    >
-                        <div className="absolute inset-x-0 top-0 h-1 bg-slate-200" />
-                        <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">{item.label}</div>
-                        <div className="mt-2 text-3xl font-bold capitalize tracking-tight text-slate-900 font-mono tabular-nums">{item.value}</div>
-                        <div className="mt-1 text-sm font-medium text-slate-500">{item.detail}</div>
-                    </div>
-                ))}
-            </div>
+            {!signalData && loading && <CockpitSkeleton compact />}
 
-            {!loading && signalData && sourceCoverage === 'limited' && (
-                <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                            <div className="text-sm font-bold uppercase tracking-widest text-amber-900">
-                                Limited Coverage Mode
-                            </div>
-                            <p className="mt-1 text-sm leading-relaxed text-amber-800">
-                                {signalData.confidence.cap_reason || 'Fewer than 3 active sources are available, so confidence is capped and should be treated as directional.'}
-                            </p>
-                        </div>
-                        <span className="w-fit rounded-full border border-amber-300 bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-amber-800">
-                            {Object.keys(signalData.components).length} active sources
-                        </span>
-                    </div>
-                </div>
+            {!signalData && !loading && (
+                <section className="rounded-3xl border border-rose-500/25 bg-rose-500/10 p-8 text-slate-100 shadow-[0_20px_60px_rgba(2,6,23,0.25)]">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-rose-200">Signal unavailable</div>
+                    <h2 className="mt-3 text-3xl font-semibold text-white">No signal is available right now</h2>
+                    <p className="mt-3 max-w-2xl text-base leading-7 text-slate-300">
+                        {error || 'The current market, mode, or source combination did not return a signal. Try refreshing or change the current settings.'}
+                    </p>
+                </section>
             )}
 
-            {!loading && disagreementNote && (
-                <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                            <div className="text-sm font-bold uppercase tracking-widest text-amber-900">
-                                Signal Conflict Detected
-                            </div>
-                            <p className="mt-1 text-sm leading-relaxed text-amber-800">
-                                {disagreementNote}
-                            </p>
-                        </div>
-                        <span className="w-fit rounded-full border border-amber-300 bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-amber-800">
-                            review inputs
-                        </span>
-                    </div>
-                </div>
-            )}
+            {signalData && (
+                <div className="space-y-6">
+                    <HeroDecisionPanel
+                        signal={signalData}
+                        mode={config.mode}
+                        isUpdating={isUpdating}
+                        error={error && !loading ? `Showing the last available signal while refresh failed. ${error}` : null}
+                        theme={theme}
+                    />
 
-            {/* Strategy Presets */}
-            <div className="mb-6">
-                <StrategyPresets
-                    currentMode={config.mode}
-                    currentSocial={config.enableSocial}
+                    <TrustChangeBand signal={signalData} theme={theme} />
 
-                    onPresetSelect={applyPreset}
-                />
-            </div>
+                    <EvidenceMatrix signal={signalData} market={config.market} theme={theme} />
 
-            {!loading && signalData && (
-                <SignalQualityPanel signal={signalData} />
-            )}
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Left Column: Gauge & Interpretation */}
-                <div className="lg:col-span-5 space-y-5">
-                    <div className="flex flex-col items-center bg-white rounded-xl border border-slate-200 p-8 relative overflow-hidden group w-full shadow-sm transition-all duration-500">
-                        <div className="absolute inset-x-0 top-0 h-1.5 bg-slate-100" />
-                        <div className="absolute left-6 top-6 rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-slate-500">
-                            Signal Index
-                        </div>
-                        <div className="absolute top-0 right-0 p-6 opacity-[0.01] group-hover:opacity-[0.02] transition-opacity duration-700 pointer-events-none">
-                            <div className="text-[8rem] font-bold select-none uppercase tracking-tight leading-none text-slate-900">
-                                {signalData?.metadata?.market}
-                            </div>
-                        </div>
-
-                        {loading ? (
-                            <div className="h-[280px] flex items-center justify-center">
-                                <div className="animate-pulse text-indigo-600 font-bold uppercase tracking-widest text-xs">Synchronizing...</div>
-                            </div>
-                        ) : signalData ? (
-                            <SignalGauge
-                                score={signalData.composite_score}
-                                tier={signalData.tier}
-                                confidence={signalData.confidence.level === 'moderate' ? 'medium' : signalData.confidence.level}
-                            />
-                        ) : null}
-
-                        {error && (
-                            <div className="bg-rose-50 border border-rose-200 text-rose-600 text-[10px] p-3 rounded mt-4 w-full text-center font-medium">
-                                {error}
-                            </div>
-                        )}
-                    </div>
-
-                    {!loading && signalData && (
+                    <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
                         <AnalysisCard
                             tier={signalData.tier}
                             mode={config.mode}
@@ -199,91 +119,45 @@ export const SignalDashboard = () => {
                             warnings={signalData.confidence.warning ? [signalData.confidence.warning] : []}
                             metadata={{
                                 ...signalData.metadata,
-                                composite_score: signalData.composite_score
+                                composite_score: signalData.composite_score,
                             }}
+                            theme={theme}
                         />
-                    )}
-                </div>
 
-                {/* Right Column: Indicator Grid */}
-                <div className="lg:col-span-7">
-                    <div className="flex items-center justify-between mb-4 px-2">
-                        <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500 flex items-center">
-                            <span className="w-2 h-2 rounded-full bg-indigo-500 mr-2 shadow-sm" />
-                            Signal Components
-                        </h2>
-                        <span className="hidden text-[11px] text-slate-400 sm:inline">
-                            Mode interpretation per input - {config.mode === 'standard' ? 'Momentum' : 'Contrarian'}
-                        </span>
-                        {signalData && (
-                            <span className="text-[11px] text-slate-400 font-mono">
-                                Latency: {signalData.metadata?.weight_distribution ? 'Institutional Active' : 'Fallback'}
-                            </span>
+                        {signalData.metadata.articles && signalData.metadata.articles.length > 0 ? (
+                            <ArticleList
+                                articles={signalData.metadata.articles}
+                                market={config.market}
+                                compositeTier={signalData.tier}
+                                theme={theme}
+                            />
+                        ) : (
+                            <section className={`rounded-3xl border p-5 ${themeClasses.panel}`}>
+                                <div className={`text-[11px] font-semibold uppercase tracking-[0.24em] ${themeClasses.textSubtle}`}>Latest developments</div>
+                                <h2 className={`mt-2 text-2xl font-semibold ${themeClasses.textPrimary}`}>No recent developments</h2>
+                                <p className={`mt-2 text-sm leading-6 ${themeClasses.textMuted}`}>
+                                    The signal still uses active indicators. Feed context is unavailable right now.
+                                </p>
+                            </section>
                         )}
                     </div>
 
-                    {loading ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {[1, 2, 3, 4, 5].map(i => (
-                                <div key={i} className="h-24 bg-slate-100 border border-slate-200 rounded-xl animate-pulse" />
-                            ))}
-                        </div>
-                    ) : signalData ? (
-                        <>
-                            <IndicatorList
-                                indicators={Object.values(signalData.components)}
-                                mode={config.mode}
-                                market={config.market}
-                                compositeScore={signalData.composite_score}
-                            />
-
-                            {/* Indicator Agreement Dashboard */}
-                            <div className="mt-6">
-                                <IndicatorAgreement
-                                    indicators={Object.values(signalData.components)}
-                                    compositeTier={signalData.tier}
-                                    mode={config.mode}
-                                    disagreementNote={disagreementNote}
-                                />
-                            </div>
-
-                            {/* Stock Indicator Section */}
-                            <div className="mt-6">
-                                <StockIndicator
-                                    stocks={signalData.metadata.stocks || []}
-                                    market={config.market}
-                                />
-                            </div>
-
-                            {/* Article List Section */}
-                            {signalData.metadata.articles && signalData.metadata.articles.length > 0 && (
-                                <ArticleList
-                                    articles={signalData.metadata.articles}
-                                    market={config.market}
-                                />
-                            )}
-                        </>
-                    ) : null}
+                    <SupportingContext signal={signalData} market={config.market} theme={theme} />
                 </div>
-            </div>
-
-            {/* Footer Status */}
-            <div className="mt-12 pt-6 border-t border-slate-200 flex justify-between items-center text-[9px] uppercase tracking-widest font-bold text-slate-400">
-                <div>Engine: Alpha-Sent-V2</div>
-                <div className="flex items-center space-x-4">
-                    <span className="flex items-center">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5" />
-                        Live Feeds
-                    </span>
-                    <span>© 2026 Signal Dashboard</span>
-                </div>
-            </div>
+            )}
         </div>
     );
 };
 
-function getAgreementCount(signal: MarketSignal) {
-    const activeCount = Object.values(signal.components).filter(component => component.enabled).length;
-    const agreedCount = Math.round((signal.confidence.agreement_pct / 100) * activeCount);
-    return `${agreedCount} of ${activeCount}`;
-}
+const CockpitSkeleton = ({ compact = false }: { compact?: boolean }) => (
+    <div className={compact ? 'space-y-6' : 'mx-auto max-w-7xl space-y-6 px-4 pb-20 pt-6 sm:px-6 lg:px-8'}>
+        <div className="h-24 animate-pulse rounded-3xl border border-slate-800 bg-slate-900/70" />
+        <div className="h-80 animate-pulse rounded-3xl border border-slate-800 bg-slate-900/70" />
+        <div className="grid gap-4 lg:grid-cols-2">
+            <div className="h-64 animate-pulse rounded-3xl border border-slate-800 bg-slate-900/70" />
+            <div className="h-64 animate-pulse rounded-3xl border border-slate-800 bg-slate-900/70" />
+        </div>
+        <div className="h-96 animate-pulse rounded-3xl border border-slate-800 bg-slate-900/70" />
+    </div>
+);
+

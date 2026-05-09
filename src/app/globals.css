@@ -1,21 +1,16 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 :root {
-  --background: #f8fafc; /* slate-50 */
-  --foreground: #0f172a; /* slate-900 */
-  --card: #ffffff; /* white */
-  --card-border: #e2e8f0; /* slate-200 */
+  --background: #020617;
+  --foreground: #e2e8f0;
+  --card: #0f172a;
+  --card-border: rgba(148, 163, 184, 0.14);
 
-  /* Signal V2 Tiers - vibrant colors for light mode */
-  --tier-strong-buy: #059669;  /* emerald-600 */
-  --tier-buy: #10b981;         /* emerald-500 */
-  --tier-neutral: #4f46e5;     /* indigo-600 */
-  --tier-sell: #f43f5e;        /* rose-500 */
-  --tier-strong-sell: #e11d48; /* rose-600 */
-
-  /* Surface Effects */
-  --glass-bg: rgba(255, 255, 255, 0.95);
-  --glass-border: rgba(0, 0, 0, 0.05);
+  --tier-strong-buy: #34d399;
+  --tier-buy: #86efac;
+  --tier-neutral: #7dd3fc;
+  --tier-sell: #fda4af;
+  --tier-strong-sell: #fb7185;
 }
 
 @theme inline {
@@ -33,9 +28,10 @@
 body {
   background-color: var(--background);
   background-image:
-    linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
+    radial-gradient(circle at top, rgba(56, 189, 248, 0.14), transparent 28%),
+    linear-gradient(rgba(148, 163, 184, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.045) 1px, transparent 1px);
+  background-size: auto, 44px 44px, 44px 44px;
   color: var(--foreground);
   font-family: var(--font-source-sans), Arial, Helvetica, sans-serif;
   font-size: 16px;
@@ -44,77 +40,92 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html[data-cockpit-theme='light'] body {
+  background-color: #f8fafc;
+  color: #0f172a;
+  background-image:
+    radial-gradient(circle at top, rgba(14, 165, 233, 0.12), transparent 28%),
+    linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+}
+
+html[data-cockpit-theme='light'] .cockpit-page {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+html[data-cockpit-theme='light'] .cockpit-page-orb {
+  opacity: 0.8;
+}
+
+html[data-cockpit-theme='light'] .cockpit-page-grid {
+  opacity: 0.45;
+}
+
+html[data-cockpit-theme='light'] .cockpit-theme-scope .text-white,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .text-slate-100,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .text-slate-200,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .text-slate-300 {
+  color: #0f172a !important;
+}
+
+html[data-cockpit-theme='light'] .cockpit-theme-scope .text-slate-400 {
+  color: #475569 !important;
+}
+
+html[data-cockpit-theme='light'] .cockpit-theme-scope .text-slate-500 {
+  color: #64748b !important;
+}
+
+html[data-cockpit-theme='light'] .cockpit-theme-scope .bg-slate-950\/80,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .bg-slate-950\/70,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .bg-slate-950\/65,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .bg-slate-950\/45,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .bg-slate-950\/40,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .bg-slate-950\/35,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .bg-slate-950\/30,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .bg-slate-900\/80,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .bg-slate-900\/70,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .bg-slate-900\/55,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .bg-slate-900\/50,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .bg-slate-900\/45 {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+}
+
+html[data-cockpit-theme='light'] .cockpit-theme-scope .border-slate-800,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .border-slate-800\/70,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .border-slate-800\/80,
+html[data-cockpit-theme='light'] .cockpit-theme-scope .border-slate-700 {
+  border-color: rgba(148, 163, 184, 0.5) !important;
+}
+
 .font-mono {
   font-family: var(--font-roboto-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
-/* Custom Scrollbar for a sleek look */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--background);
+  background: #020617;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 4px;
+  background: #334155;
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: #475569;
 }
 
 @keyframes pulse-slow {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  50% { opacity: 0.55; }
 }
 
 .animate-pulse-slow {
   animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Tooltip Styles */
-.tooltip-container {
-  position: relative;
-  display: inline-block;
-}
-
-.tooltip-text {
-  visibility: hidden;
-  width: 200px;
-  background-color: #222;
-  color: #fff;
-  text-align: center;
-  border-radius: 6px;
-  padding: 8px;
-  position: absolute;
-  z-index: 10;
-  bottom: 125%;
-  left: 50%;
-  margin-left: -100px;
-  opacity: 0;
-  transition: opacity 0.3s;
-  border: 1px solid #333;
-  font-size: 0.75rem; /* text-xs */
-  line-height: 1.4;
-  font-weight: normal;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-}
-
-.tooltip-text::after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  margin-left: -5px;
-  border-width: 5px;
-  border-style: solid;
-  border-color: #222 transparent transparent transparent;
-}
-
-.tooltip-container:hover .tooltip-text {
-  visibility: visible;
-  opacity: 1;
-}
