@@ -48,3 +48,12 @@ npm run harness
 3. Update `docs/signal-scoring.md` for score semantics, weights, confidence, or freshness rules.
 4. Verify the dashboard still renders limited/degraded coverage clearly.
 
+## Scheduled Refresh
+
+- `vercel.json` runs `/api/signals/refresh` once per day to warm the current V2 dashboard snapshots.
+- The default scheduled refresh warms:
+  - `US + standard + social on`
+  - `US + contrarian + social on`
+  - `MY + standard + social on`
+  - `MY + contrarian + social on`
+- For a fuller manual warm, call `/api/signals/refresh?includeSourceOff=true` with the same cron/admin authorization header so source-off variants are also refreshed.

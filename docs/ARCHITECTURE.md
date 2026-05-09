@@ -29,6 +29,7 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 4. `src/lib/signal.ts` orchestrates market-data, social/news, institutional, and snapshot work.
 5. `src/lib/sentiment-calculator-v2.ts` normalizes active indicators into a `MarketSignal`.
 6. UI components render score, tier, confidence, source coverage, articles, and component details.
+7. Vercel cron calls `/api/signals/refresh` daily to pre-warm the current V2 signal snapshots used by the dashboard.
 
 ## Data Sources
 
@@ -37,6 +38,7 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 - StockTwits is used for US social sentiment.
 - Institutional data is loaded through `institutional-service`.
 - Snapshot history is persisted through `src/lib/db.ts` when the signal route runs.
+- A scheduled refresh path precomputes the default V2 market/mode combinations once per day so the dashboard is less dependent on first-visitor refreshes.
 
 ## Architecture Rules
 
@@ -46,4 +48,3 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 - UI components should render typed signal payloads and avoid duplicating scoring logic.
 - External clients should stay in `src/lib` and expose typed helper functions.
 - Generated docs under `docs/generated` should be updated by scripts, not hand-edited for long-lived facts.
-

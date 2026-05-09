@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { MarketSignal } from '@/lib/types/signal-v2';
-import { CockpitTheme, formatDateLabel, formatDelta, formatNumber, getAgreementLabel, getBroadMarketConfirmation, getConfidenceTone, getDriverSummary, getEvidenceConcentration, getInvalidationSummary, getPrimaryCaveat, getSignalHorizon, getThemeClasses, getTierLabel, getTierTone } from './cockpit-utils';
+import { CockpitTheme, formatDateLabel, formatDelta, formatNumber, getActiveSourceSummary, getAgreementLabel, getBroadMarketConfirmation, getConfidenceTone, getDecisionReliability, getDriverSummary, getEvidenceConcentration, getInvalidationSummary, getPrimaryCaveat, getReadHeadline, getSignalHorizon, getSourceFreshnessSummary, getThemeClasses, getTierLabel, getTierTone } from './cockpit-utils';
 
 interface HeroDecisionPanelProps {
     signal: MarketSignal;
@@ -20,11 +20,15 @@ export const HeroDecisionPanel = ({ signal, mode, isUpdating, error, theme }: He
     const primaryCaveat = getPrimaryCaveat(signal);
     const agreementLabel = getAgreementLabel(signal);
     const driverSummary = getDriverSummary(signal);
+    const readHeadline = getReadHeadline(signal.tier, mode);
+    const decisionReliability = getDecisionReliability(signal);
     const signalHorizon = getSignalHorizon(signal);
     const broadMarketConfirmation = getBroadMarketConfirmation(signal);
     const evidenceConcentration = getEvidenceConcentration(signal);
     const invalidationSummary = getInvalidationSummary(signal);
     const marketRegime = quality?.market_regime || signal.metadata.interpretation_context?.regime || 'Regime unavailable';
+    const activeSourceSummary = getActiveSourceSummary(signal);
+    const freshnessSummary = getSourceFreshnessSummary(signal);
     const scoreHistory = signal.metadata.score_history?.slice(-5) || [];
     const scorePercent = Math.max(0, Math.min(100, signal.composite_score));
 
@@ -49,15 +53,19 @@ export const HeroDecisionPanel = ({ signal, mode, isUpdating, error, theme }: He
                     </div>
 
                     <div className={`flex flex-wrap items-center gap-3 text-sm ${themeClasses.textMuted}`}>
-                        <span className={`rounded-full border px-3 py-1 font-medium ${themeClasses.panelMuted} ${themeClasses.textSecondary}`}>{signalHorizon}</span>
+                        <span className={`rounded-full border px-3 py-1 font-medium ${themeClasses.panelMuted} ${themeClasses.textSecondary}`}>Horizon: {signalHorizon}</span>
+                        <span className={`rounded-full border px-3 py-1 font-medium ${themeClasses.panelMuted} ${themeClasses.textSecondary}`}>Weekly inputs included</span>
                         <span>{broadMarketConfirmation}</span>
                     </div>
 
                     <div className="space-y-3">
-                        <div className={`text-4xl font-black uppercase tracking-tight sm:text-5xl ${tone.text}`}>
-                            {getTierLabel(signal.tier)}
+                        <div className={`text-3xl font-black tracking-tight sm:text-4xl ${themeClasses.textPrimary}`}>
+                            {readHeadline}
                         </div>
                         <div className="flex flex-wrap items-end gap-4">
+                            <div className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] ${tone.chip}`}>
+                                Bucket: {getTierLabel(signal.tier)}
+                            </div>
                             <div className="flex items-end gap-2">
                                 <span className={`font-mono text-6xl font-semibold tracking-tight sm:text-7xl ${themeClasses.textPrimary}`}>{formatNumber(signal.composite_score)}</span>
                                 <span className={`pb-2 text-sm font-medium uppercase tracking-[0.18em] ${themeClasses.textSubtle}`}>/100</span>
@@ -74,10 +82,18 @@ export const HeroDecisionPanel = ({ signal, mode, isUpdating, error, theme }: He
                     </div>
 
                     <div className={`flex flex-wrap items-center gap-3 text-sm ${themeClasses.textSecondary}`}>
+                        <Badge label={`Reliability ${decisionReliability}`} tone={decisionReliability === 'Limited' ? getConfidenceTone('low', theme) : decisionReliability === 'Moderate' ? getConfidenceTone('moderate', theme) : getConfidenceTone('high', theme)} />
                         <Badge label={`Confidence ${signal.confidence.level}`} tone={getConfidenceTone(signal.confidence.level, theme)} />
-                        {quality && <Badge label={`Coverage ${quality.source_coverage}`} tone={`${themeClasses.panelMuted} ${themeClasses.textSecondary}`} />}
                         {quality && <Badge label={`Freshness ${quality.freshness}`} tone={`${themeClasses.panelMuted} ${themeClasses.textSecondary}`} />}
+                        <Badge label={activeSourceSummary} tone={`${themeClasses.panelMuted} ${themeClasses.textSecondary}`} />
                         <span className={`text-sm ${themeClasses.textMuted}`}>{agreementLabel} agreement</span>
+                    </div>
+
+                    <div className={`flex flex-wrap items-center gap-3 text-sm ${themeClasses.textMuted}`}>
+                        <span><span className={`font-semibold ${themeClasses.textSecondary}`}>System:</span> {isUpdating ? 'Updating' : 'Live'}</span>
+                        <span><span className={`font-semibold ${themeClasses.textSecondary}`}>Signal freshness:</span> {quality?.freshness || 'Unknown'}</span>
+                        <span><span className={`font-semibold ${themeClasses.textSecondary}`}>Fresh source:</span> {freshnessSummary.freshSource}</span>
+                        <span><span className={`font-semibold ${themeClasses.textSecondary}`}>Stale source:</span> {freshnessSummary.staleSource}</span>
                     </div>
 
                     {primaryCaveat && (
@@ -129,7 +145,7 @@ export const HeroDecisionPanel = ({ signal, mode, isUpdating, error, theme }: He
                         <div className={`mt-3 border-t ${themeClasses.divider}`}>
                             <MarketFrameRow themeClasses={themeClasses} label="Regime" value={marketRegime} />
                             <MarketFrameRow themeClasses={themeClasses} label="Breadth" value={broadMarketConfirmation} />
-                            <MarketFrameRow themeClasses={themeClasses} label="Break condition" value={invalidationSummary} />
+                            <MarketFrameRow themeClasses={themeClasses} label="Invalidation" value={invalidationSummary} />
                         </div>
                         <div className={`mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs ${themeClasses.textMuted}`}>
                             {scoreHistory.length > 1 && (

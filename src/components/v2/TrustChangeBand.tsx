@@ -45,7 +45,7 @@ export const TrustChangeBand = ({ signal, theme }: TrustChangeBandProps) => {
                 <div className={`text-[11px] font-semibold uppercase tracking-[0.24em] ${themeClasses.textSubtle}`}>What changed</div>
                 <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
                     <div>
-                        <h2 className={`text-2xl font-semibold ${themeClasses.textPrimary}`}>Movement since the previous snapshot</h2>
+                        <h2 className={`text-2xl font-semibold ${themeClasses.textPrimary}`}>Why the score moved {formatDelta(scoreDelta?.delta)}</h2>
                         <p className={`mt-1 text-sm leading-6 ${themeClasses.textMuted}`}>
                             {!scoreDelta || scoreDelta.previous_score === null
                                 ? 'No previous snapshot available yet. The cockpit will show movement after the next recorded signal.'

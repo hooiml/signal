@@ -131,18 +131,10 @@ export const SignalDashboard = () => {
                                 compositeTier={signalData.tier}
                                 theme={theme}
                             />
-                        ) : (
-                            <section className={`rounded-3xl border p-5 ${themeClasses.panel}`}>
-                                <div className={`text-[11px] font-semibold uppercase tracking-[0.24em] ${themeClasses.textSubtle}`}>Latest developments</div>
-                                <h2 className={`mt-2 text-2xl font-semibold ${themeClasses.textPrimary}`}>No recent developments</h2>
-                                <p className={`mt-2 text-sm leading-6 ${themeClasses.textMuted}`}>
-                                    The signal still uses active indicators. Feed context is unavailable right now.
-                                </p>
-                            </section>
-                        )}
+                        ) : null}
                     </div>
 
-                    <SupportingContext signal={signalData} market={config.market} theme={theme} />
+                    <SupportingContext signal={signalData} market={config.market} theme={theme} hasDevelopments={Boolean(signalData.metadata.articles && signalData.metadata.articles.length > 0)} />
                 </div>
             )}
         </div>

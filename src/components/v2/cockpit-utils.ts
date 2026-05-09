@@ -330,6 +330,44 @@ export function getDriverSummary(signal: MarketSignal) {
     return `${topDriver.name} is the clearest driver right now: ${topDriver.detail}`;
 }
 
+export function getReadHeadline(tier: SignalTier, mode: 'standard' | 'contrarian') {
+    if (mode === 'standard') {
+        if (tier === 'strong-buy' || tier === 'buy') return 'Constructive momentum read';
+        if (tier === 'neutral') return 'Balanced momentum read';
+        return 'Defensive momentum read';
+    }
+
+    if (tier === 'strong-buy' || tier === 'buy') return 'Fear-driven opportunity read';
+    if (tier === 'neutral') return 'Balanced contrarian read';
+    return 'Crowding-risk read';
+}
+
+export function getDecisionReliability(signal: MarketSignal) {
+    const quality = signal.metadata.signal_quality;
+    const sourceCount = signal.confidence.source_count ?? Object.values(signal.components).filter((component) => component.enabled).length;
+
+    if (!quality) return 'Unspecified';
+    if (quality.source_coverage === 'limited' || quality.freshness === 'stale' || sourceCount <= 2) return 'Limited';
+    if (quality.source_coverage === 'moderate' || quality.freshness === 'mixed' || signal.confidence.level === 'moderate') return 'Moderate';
+    return 'Strong';
+}
+
+export function getActiveSourceSummary(signal: MarketSignal) {
+    const count = signal.confidence.source_count ?? Object.values(signal.components).filter((component) => component.enabled).length;
+    return `${count} active source${count === 1 ? '' : 's'}`;
+}
+
+export function getSourceFreshnessSummary(signal: MarketSignal) {
+    const active = Object.values(signal.components).filter((component) => component.enabled);
+    const stale = active.filter((component) => getFreshnessLabel(component.last_updated) === 'Stale');
+    const fresh = active.filter((component) => getFreshnessLabel(component.last_updated) === 'Fresh');
+
+    return {
+        staleSource: stale.length > 0 ? stale.map((component) => component.display_name).join(', ') : 'None',
+        freshSource: fresh.length > 0 ? fresh.map((component) => component.display_name).join(', ') : 'None',
+    };
+}
+
 export function getSignalHorizon(signal: MarketSignal) {
     const freshness = signal.metadata.signal_quality?.freshness;
     const sourceCount = signal.confidence.source_count ?? Object.values(signal.components).filter((component) => component.enabled).length;
@@ -381,17 +419,11 @@ export function getEvidenceConcentration(signal: MarketSignal) {
 }
 
 export function getInvalidationSummary(signal: MarketSignal) {
-    const conflicts = signal.confidence.conflicting_indicators;
-    if (conflicts.length > 0) {
-        return `Watch ${conflicts.join(', ')} first. A reversal there would weaken the current read fastest.`;
-    }
-
     const warnings = signal.metadata.signal_quality?.warnings ?? [];
-    if (warnings.length > 0) {
-        return warnings[0];
+    if (warnings.length > 0 && warnings[0].toLowerCase().includes('stale')) {
+        return 'Not defined for current read';
     }
-
-    return 'Watch for breadth rollover, volatility shock, or loss of driver support.';
+    return 'Not defined for current read';
 }
 
 function clampSentiment(value: number) {

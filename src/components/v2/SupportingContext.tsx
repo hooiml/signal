@@ -8,9 +8,10 @@ interface SupportingContextProps {
     signal: MarketSignal;
     market: 'US' | 'MY';
     theme: CockpitTheme;
+    hasDevelopments: boolean;
 }
 
-export const SupportingContext = ({ signal, market, theme }: SupportingContextProps) => {
+export const SupportingContext = ({ signal, market, theme, hasDevelopments }: SupportingContextProps) => {
     const themeClasses = getThemeClasses(theme);
     const trendContext = signal.metadata.trend_context;
     const interpretationContext = signal.metadata.interpretation_context;
@@ -76,6 +77,7 @@ export const SupportingContext = ({ signal, market, theme }: SupportingContextPr
                         <ul className={`space-y-2 text-sm leading-6 ${themeClasses.textSecondary}`}>
                             <li>Confidence measures agreement between active indicators, not the probability of success.</li>
                             <li>{interpretationContext?.article_feed_role || 'Latest developments provide context only and are not individually weighted in the composite score.'}</li>
+                            {!hasDevelopments && <li>News/social feed unavailable; not included in the current read.</li>}
                             <li>Snapshot recorded {formatDateLabel(signal.metadata.score_delta?.snapshot_date, true)}.</li>
                         </ul>
                     </Panel>
