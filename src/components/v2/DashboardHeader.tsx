@@ -58,6 +58,8 @@ export const DashboardHeader = ({
             ? `Without ${sourceToggleImpact.source_label.toLowerCase()}: ${sourceToggleImpact.without_source_score} (${sourceToggleImpact.delta_without_source === null ? 'n/a' : `${sourceToggleImpact.delta_without_source > 0 ? '+' : ''}${sourceToggleImpact.delta_without_source}`})`
             : sourceToggleImpact.summary)
         : null;
+    const sourceToggleLabel = sourceToggleImpact?.source_label || (market === 'MY' ? 'News Sentiment' : 'Social Sentiment');
+    const compactSourceLabel = sourceToggleLabel.replace(/\s+sentiment$/i, '');
 
     return (
         <div className={`sticky top-0 z-20 mb-5 rounded-2xl border px-4 py-3 backdrop-blur ${themeClasses.commandStrip} ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
@@ -83,7 +85,7 @@ export const DashboardHeader = ({
 
                     <div className={`flex flex-wrap items-center gap-3 rounded-2xl border px-3 py-2 ${themeClasses.commandGroup}`}>
                         <span className={`text-[10px] font-semibold uppercase tracking-[0.22em] ${themeClasses.textSubtle}`}>Source</span>
-                        <span className={`text-sm font-semibold ${themeClasses.textSecondary}`}>{enableSocial ? 'Social on' : 'Social off'}</span>
+                        <span className={`text-sm font-semibold ${themeClasses.textSecondary}`}>{compactSourceLabel} {enableSocial ? 'on' : 'off'}</span>
                         <label className="relative inline-flex h-5 w-10 items-center">
                             <input
                                 type="checkbox"

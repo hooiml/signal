@@ -656,12 +656,12 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             : v2Signal.composite_score >= 65 && positiveIndexCount >= negativeIndexCount
                 ? 'Risk-On Momentum'
                 : v2Signal.composite_score <= 35 && negativeIndexCount > positiveIndexCount
-                    ? 'Risk-Off Defensive'
+                    ? 'Risk-Off Negative'
                     : 'Mixed / Neutral';
 
         const qualityWarnings = [
             ...staleComponents.map(component => `${component.display_name} data is stale (${component.last_updated}).`),
-            ...(sourceCoverage === 'limited' ? ['Source coverage is limited; treat confidence as directional only.'] : []),
+            ...(sourceCoverage === 'limited' ? ['Source coverage is limited; treat signal alignment as directional only.'] : []),
             ...(noiseLevel === 'elevated' ? ['Social signal is elevated or sparse; retail sentiment may be noisy.'] : []),
             ...(marketData.marketIndices.length === 0 ? ['Index trend data is unavailable for this market.'] : [])
         ];
@@ -672,6 +672,7 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             if (signal === 'strong-sell' || signal === 'sell') return 'SELL';
             return 'NEUTRAL';
         };
+        const readAction = getComponentAction(v2Signal.tier);
         const agreeingSignals = componentEntries
             .filter(component => getComponentAction(component.signal) === majoritySignal)
             .map(component => component.display_name);
@@ -707,25 +708,30 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                 ...(disagreementNote ? [disagreementNote] : [])
             ],
             confidence_explanation: v2Signal.confidence.cap_reason
-                ? `Confidence measures indicator agreement, not forecast accuracy. ${v2Signal.confidence.cap_reason}`
-                : 'Confidence measures indicator agreement, not forecast accuracy.'
+                ? `Signal alignment measures indicator agreement, not forecast accuracy. ${v2Signal.confidence.cap_reason}`
+                : 'Signal alignment measures indicator agreement, not forecast accuracy.'
         };
 
         v2Signal.metadata.score_drivers = componentEntries
-            .map(component => ({
-                key: component.name,
-                name: component.display_name,
-                impact: component.signal === 'buy' || component.signal === 'strong-buy'
-                    ? 'positive' as const
-                    : component.signal === 'sell' || component.signal === 'strong-sell' ? 'negative' as const : 'neutral' as const,
-                contribution: Math.round(component.score * component.weight),
-                score: component.score,
-                weight: component.weight,
-                raw_value: component.value,
-                last_updated: component.last_updated,
-                detail: `${component.score.toFixed(0)} score at ${(component.weight * 100).toFixed(0)}% weight`,
-                mode_note: component.name === 'aaii' ? aaiiNote : undefined
-            }))
+            .map(component => {
+                const componentAction = getComponentAction(component.signal);
+                const impact = componentAction === 'NEUTRAL' || readAction === 'NEUTRAL'
+                    ? 'neutral' as const
+                    : componentAction === readAction ? 'positive' as const : 'negative' as const;
+
+                return {
+                    key: component.name,
+                    name: component.display_name,
+                    impact,
+                    contribution: Math.round(component.score * component.weight),
+                    score: component.score,
+                    weight: component.weight,
+                    raw_value: component.value,
+                    last_updated: component.last_updated,
+                    detail: `${component.score.toFixed(0)} score at ${(component.weight * 100).toFixed(0)}% weight`,
+                    mode_note: component.name === 'aaii' ? aaiiNote : undefined
+                };
+            })
             .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
 
         v2Signal.metadata.interpretation_context = {
@@ -734,8 +740,8 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             conflicting_signals: conflictingSignals,
             disagreement_note: disagreementNote,
             limitation: v2Signal.confidence.cap_reason
-                ? `${v2Signal.confidence.cap_reason} Confidence reflects indicator agreement only; it is not a probability forecast or trading advice.`
-                : 'Confidence reflects indicator agreement only; it is not a probability forecast or trading advice.',
+                ? `${v2Signal.confidence.cap_reason} Signal alignment reflects indicator agreement only; it is not a probability forecast or trading advice.`
+                : 'Signal alignment reflects indicator agreement only; it is not a probability forecast or trading advice.',
             mode_note: mode === 'standard'
                 ? 'Standard mode reads high scores as momentum/trend confirmation.'
                 : 'Contrarian mode reads high scores as crowding risk and low scores as fear/opportunity context.',

@@ -45,9 +45,9 @@ function getFallbackInterpretation(tier: SignalTier, market: 'US' | 'MY') {
         ? 'Conditions remain deeply risk-off, so the current read favors watching for stabilization rather than assuming immediate relief.'
         : 'Bursa sentiment remains heavily depressed, so the current read favors patience until confirmation improves.';
     if (tier === 'buy') return 'Risk appetite is improving, but confirmation still matters before treating the setup as broad-based.';
-    if (tier === 'neutral') return 'The current signal is balanced, so the setup does not show a clear directional edge yet.';
+    if (tier === 'neutral') return 'The current read is balanced, so the setup does not show a clear directional edge yet.';
     if (tier === 'sell') return 'Optimism is building, so the current read favors tighter risk controls rather than aggressive chasing.';
-    return 'Sentiment is stretched across the current signal layers, so the read stays cautious until pressure eases.';
+    return 'Sentiment is stretched across the current evidence layers, so the read stays cautious until pressure eases.';
 }
 
 function buildEvidenceBasedAnalysis(
@@ -60,21 +60,24 @@ function buildEvidenceBasedAnalysis(
     const drivers = [...(metadata.score_drivers ?? [])]
         .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution))
         .slice(0, 2);
-    const strongestDriver = drivers[0];
+    const strongestDriver = drivers.find((driver) => driver.impact === 'positive') || null;
+    const largestDriver = drivers[0];
     const disagreement = metadata.interpretation_context?.disagreement_note || metadata.signal_quality?.warnings?.[0] || null;
-    const confidenceText = confidence
-        ? `Confidence remains ${confidence.level} because ${confidence.agreement_pct}% of active indicators align with the current read.`
-        : 'Confidence reflects current indicator agreement rather than forecast probability.';
+    const alignmentText = confidence
+        ? `Signal alignment is ${confidence.level} because ${confidence.agreement_pct}% of active indicators align with the current read.`
+        : 'Signal alignment reflects current indicator agreement rather than forecast probability.';
 
     const stance = getStance(score, mode, market);
     const support = strongestDriver
         ? `${strongestDriver.name} is the strongest supporting evidence right now: ${strongestDriver.detail}.`
+        : largestDriver
+            ? `${largestDriver.name} is the largest weighted input, but it is not currently tagged as supporting evidence.`
         : 'The read is based on the current active indicator mix.';
     const caveat = disagreement
         ? `The main caveat is ${trimSentence(disagreement.toLowerCase())}`
         : 'The main caveat is that the signal should still be read as a decision aid rather than a certainty.';
 
-    return `${stance} ${support} ${caveat} ${confidenceText}`;
+    return `${stance} ${support} ${caveat} ${alignmentText}`;
 }
 
 function getStance(score: number, mode: 'standard' | 'contrarian', market: 'US' | 'MY') {
@@ -89,10 +92,10 @@ function getStance(score: number, mode: 'standard' | 'contrarian', market: 'US' 
     }
 
     if (score >= 85) return 'The momentum read remains strong, though the setup is moving toward an optimistic extreme.';
-    if (score >= 65) return 'The momentum read remains constructive because several active inputs still support the current direction.';
+    if (score >= 65) return 'The momentum read is leaning positive because several active inputs still support the current direction.';
     if (score >= 40) return 'The momentum read is mixed, so the setup does not yet show clean follow-through.';
-    if (score >= 20) return 'The momentum read remains defensive because bearish pressure still outweighs confirmation.';
-    return 'The momentum read remains defensive because current pressure is still broad and severe.';
+    if (score >= 20) return 'The momentum read is leaning negative because bearish pressure still outweighs confirmation.';
+    return 'The momentum read is strongly negative because current pressure is still broad and severe.';
 }
 
 function trimSentence(value: string) {

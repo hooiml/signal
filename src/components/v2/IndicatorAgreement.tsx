@@ -59,10 +59,10 @@ export const IndicatorAgreement = ({ indicators, compositeTier, mode = 'contrari
         <div className="w-full p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="mb-3 flex flex-col gap-1">
                 <div className="text-xs uppercase font-bold tracking-widest text-slate-500">
-                    Indicator Agreement
+                    Signal Alignment
                 </div>
                 <div className="text-[11px] leading-relaxed text-slate-500">
-                    Composite is weighted by score and source weight. Majority is the unweighted BUY/SELL/NEUTRAL direction count.
+                    Composite is weighted by score and source weight. Majority is the unweighted positive/negative/mixed direction count.
                 </div>
             </div>
 
@@ -76,7 +76,7 @@ export const IndicatorAgreement = ({ indicators, compositeTier, mode = 'contrari
                         </div>
                         <div className="flex items-center gap-2">
                             <span className={`font-bold uppercase tracking-wider ${getSignalColor(indicator.signal)}`}>
-                                {indicator.signal.replace('-', ' ')}
+                                {getTierUiLabel(indicator.signal)}
                             </span>
                             <span className="text-slate-500 font-mono text-[10px]">
                                 {(indicator.weight * 100).toFixed(0)}%
@@ -90,10 +90,10 @@ export const IndicatorAgreement = ({ indicators, compositeTier, mode = 'contrari
 
                 {/* Majority Signal */}
                 <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-500 uppercase tracking-wider">Majority Signal:</span>
+                    <span className="text-xs text-slate-500 uppercase tracking-wider">Majority read:</span>
                     <div className="flex items-center gap-2">
                         <span className={`font-bold uppercase tracking-wider text-xs ${getActionColor(majoritySignal)}`}>
-                            {majoritySignal}
+                            {getActionUiLabel(majoritySignal)}
                         </span>
                         <span className="text-slate-500 font-mono text-[10px]">
                             ({agreementLabel})
@@ -107,9 +107,9 @@ export const IndicatorAgreement = ({ indicators, compositeTier, mode = 'contrari
                         <div className="flex items-start gap-2">
                             <span className="text-amber-700 text-xs font-bold">!</span>
                             <div className="flex-1">
-                                <div className="text-xs text-amber-800 font-bold">Signal Conflict Detected</div>
+                                <div className="text-xs text-amber-800 font-bold">Alignment Conflict Detected</div>
                                 <div className="text-[10px] text-amber-700 mt-0.5">
-                                    {disagreementNote || `Composite direction (${compositeSignal}) differs from majority direction (${majoritySignal}).`}
+                                    {disagreementNote || `Composite direction (${getActionUiLabel(compositeSignal)}) differs from majority direction (${getActionUiLabel(majoritySignal)}).`}
                                     {mode === 'contrarian' ? ' This may be expected in contrarian mode.' : ' Review individual indicators for context.'}
                                 </div>
                             </div>
@@ -125,4 +125,18 @@ function getSignalAction(tier: SignalTier): SignalAction {
     if (tier === 'strong-buy' || tier === 'buy') return 'BUY';
     if (tier === 'strong-sell' || tier === 'sell') return 'SELL';
     return 'NEUTRAL';
+}
+
+function getTierUiLabel(tier: SignalTier) {
+    if (tier === 'strong-buy') return 'strongly positive';
+    if (tier === 'buy') return 'leaning positive';
+    if (tier === 'neutral') return 'mixed';
+    if (tier === 'sell') return 'leaning negative';
+    return 'strongly negative';
+}
+
+function getActionUiLabel(action: SignalAction) {
+    if (action === 'BUY') return 'Positive';
+    if (action === 'SELL') return 'Negative';
+    return 'Mixed / Neutral';
 }

@@ -134,7 +134,7 @@ export const SignalDashboard = () => {
                         ) : null}
                     </div>
 
-                    <SupportingContext signal={signalData} market={config.market} theme={theme} hasDevelopments={Boolean(signalData.metadata.articles && signalData.metadata.articles.length > 0)} />
+                    <SupportingContext signal={signalData} market={config.market} theme={theme} />
                 </div>
             )}
         </div>

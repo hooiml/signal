@@ -4,7 +4,7 @@
 
 This document turns the high-level brief in `docs/signal-decision-cockpit-design-brief.md` into a concrete product design spec for the next Signal dashboard design pass.
 
-This is the target screen design for the main Signal dashboard. It does not change scoring rules. It changes how the existing signal, confidence, quality, and evidence are presented so the product behaves like a decision cockpit instead of a generic analytics dashboard.
+This is the target screen design for the main Signal dashboard. It does not change scoring rules. It changes how the existing read, signal alignment, quality, and evidence are presented so the product behaves like a decision cockpit instead of a generic analytics dashboard.
 
 ## Product Promise
 
@@ -12,7 +12,7 @@ The screen must behave like a market briefing:
 
 1. State the current stance immediately.
 2. Explain whether the stance is trustworthy.
-3. Show what changed from the previous snapshot.
+3. Show why the score moved from the previous snapshot.
 4. Show which evidence supports or challenges the stance.
 5. Show the most relevant recent context without confusing it with weighted signal evidence.
 
@@ -40,15 +40,15 @@ Use a seven-part screen in this exact order:
 4. Evidence matrix
 5. Analyst note
 6. Latest developments
-7. Supporting context
+7. Non-scored context
 
 Desktop should feel like a compact briefing board. The first viewport should include items 1 through 3 in full and the top of item 4.
 
 Canonical desktop composition rule:
 
 - `Latest Developments` is the last primary content module.
-- `Supporting Context` is section 7 and sits directly below Latest Developments as a compact footer band spanning the content width.
-- Supporting Context is not a side panel beside the hero or evidence matrix.
+- `Non-scored Context` is section 7 and sits directly below Latest Developments as a compact footer band spanning the content width.
+- Non-scored Context is not a side panel beside the hero or evidence matrix.
 
 ### Mobile Layout
 
@@ -57,11 +57,11 @@ Use a linear briefing order:
 1. Compact controls
 2. Hero decision panel
 3. Trust band
-4. What changed
+4. Why the score moved
 5. Evidence rows
 6. Analyst note
 7. Latest developments
-8. Supporting context
+8. Non-scored context
 
 Mobile must not preserve desktop column logic. It should read like a guided note from top to bottom.
 
@@ -103,24 +103,23 @@ This is the decision moment. It owns the page.
 
 ### Required Content
 
-- Primary signal tier
-  - Example: `Strong Buy`, `Neutral`, `Sell`
+- Primary plain-English read
+  - Example: `Conditions are leaning positive`, `Conditions are mixed`, `Optimism looks overcrowded`
 - Composite score
   - Large numeric presentation
   - Keep `0-100` visible
+  - Label by mode: `Momentum score` or `Crowding risk score`
 - Previous score and delta
   - Example: `Prev 68`, `+12`
-- Confidence
-  - Label plus agreement percentage
-  - Example: `High confidence`, `72% agreement`
-- Data quality summary
-  - Freshness
-  - Coverage
-  - Warning count if any
+- One compact reliability summary
+  - Example: `Reliability: Limited - 2 active sources, mixed freshness`
 - Timestamp
   - Last successful snapshot time
 - One-line driver summary
   - Example: `Shift driven by stronger breadth and improving earnings revisions.`
+- One plain-English meaning line
+  - Momentum example: `Current inputs show positive pressure, but this is market interpretation rather than a trading instruction.`
+  - Contrarian example: `A high score means crowding risk is elevated, not that the market looks attractive.`
 
 ### Optional Content
 
@@ -140,9 +139,11 @@ This is the decision moment. It owns the page.
 
 - This panel has the strongest typographic hierarchy and contrast on the page.
 - Score must be secondary to the tier, not the other way around.
-- Confidence and data quality should be visible without opening anything.
+- Reliability and the primary caveat should be visible without opening anything.
+- Detailed signal alignment, freshness, coverage, broad-market confirmation, and evidence concentration belong in the Trust and Change band, not as a dense hero grid.
 - Alerts about limited coverage or stale data belong inside this panel as part of the trust story, not as detached banners.
 - Only one primary caveat appears in the hero at a time.
+- Contrarian mode must use risk/crowding language and cautionary visual treatment so a high score does not read as a positive market condition.
 
 ### 3. Trust And Change Band
 
@@ -151,33 +152,38 @@ This is the decision moment. It owns the page.
 Answer two questions immediately after the hero:
 
 1. Can I trust this read?
-2. What changed since the previous snapshot?
+2. Why did the score move since the previous snapshot?
 
 ### Structure
 
 Use two adjacent modules on desktop and stacked modules on mobile:
 
 1. Trust module
-2. What changed module
+2. Score movement module
 
 ### Trust Module Content
 
-- Confidence definition
-  - Confidence means indicator agreement, not forecast accuracy
+- Signal alignment definition
+  - Signal alignment means indicator agreement, not forecast accuracy
+- Agreement percentage and active-indicator count
 - Coverage status
 - Freshness status
+- Broad-market confirmation
+- Evidence concentration
 - Important caveat if present
-  - Example: `Confidence capped due to limited source coverage`
+  - Example: `Signal alignment capped due to limited source coverage`
+- Short `Why this may be wrong` list
 
-### What Changed Module Content
+### Score Movement Module Content
 
 - Previous score and current score
 - Delta
 - Previous snapshot date
 - Current snapshot date
-- Top positive driver shift
-- Top negative driver shift
-- Regime change note if available
+- Top supporting pressure when available
+- Top challenging pressure when available
+- Source effect when available
+- Omit unavailable placeholder rows instead of showing `No source comparison`
 - Source-toggle impact if materially relevant
 
 ### Fallback Rules
@@ -202,16 +208,16 @@ Use these ownership boundaries to avoid duplication:
   - tier
   - score
   - delta summary only
-  - confidence label only
+- signal-alignment label only
   - compact quality summary only
   - timestamp
   - one-line driver
 - `Trust`
-  - confidence meaning
+  - signal alignment meaning
   - freshness detail
   - coverage detail
   - caveat explanation
-- `What changed`
+- `Why the score moved`
   - previous snapshot details
   - driver shifts
   - regime note
@@ -225,7 +231,7 @@ When multiple trust issues exist, surface only one primary caveat in the hero us
 
 1. Stale data
 2. Limited coverage
-3. Confidence capped or reduced
+3. Signal alignment capped or reduced
 4. Source disabled or source-toggle note
 
 Secondary caveats can appear in the Trust module or row-level evidence notes.
@@ -353,11 +359,11 @@ The note should contain four parts in one concise paragraph:
 1. Current read
 2. Strongest supporting evidence
 3. Main disagreement or limitation
-4. How to interpret confidence
+4. How to interpret signal alignment
 
 ### Example Shape
 
-`Momentum remains constructive, led by breadth and improving revisions. Social sentiment still challenges the read, so confidence reflects broad agreement rather than forecast certainty.`
+`Conditions are leaning positive, led by breadth and improving revisions. Social sentiment still challenges the read, so signal alignment reflects broad agreement rather than forecast certainty.`
 
 ### Design Rules
 
@@ -423,14 +429,14 @@ Hold lower-priority but still useful signal interpretation context.
 
 ### Terminology Rules
 
-- `Confidence` means agreement between active indicators.
+- `Signal alignment` means agreement between active indicators.
 - `Data quality` means freshness, coverage, and noise/readiness signals.
 - `Context` means supporting narrative or market developments, not weighted inputs.
 - `Mode` changes interpretation, not raw score generation.
 
 ### Copy Rules
 
-- Avoid vague finance language like `outlook remains constructive` unless tied to specific evidence.
+- Avoid vague finance language like `outlook remains positive` unless tied to specific evidence.
 - Prefer direct constructions:
   - `Breadth improved`
   - `Coverage is limited`
@@ -572,7 +578,7 @@ Specific empty cases:
 | Composite score | `signal.composite_score` |
 | Mode | `signal.mode` or current config |
 | Market | `metadata.market` or current config |
-| Confidence level | `signal.confidence.level` |
+| Signal alignment level | `signal.confidence.level` |
 | Agreement percent | `signal.confidence.agreement_pct` |
 | Majority signal | `signal.confidence.majority_signal` |
 | Conflicts | `signal.confidence.conflicting_indicators` |
@@ -603,7 +609,7 @@ The design phase is complete when all of the following are true:
    - what changed
 4. Indicator evidence and agreement are represented in one connected system.
 5. Context items are clearly tagged and visually separated from weighted evidence.
-6. Confidence is never presented as forecast probability.
+6. Signal alignment is never presented as forecast probability.
 7. The design can be mapped directly onto the current `v2` component/data structure with clear refactor targets.
 
 ## Immediate Next Step

@@ -30,9 +30,9 @@ export const ArticleList = ({ articles, market, compositeTier, theme }: ArticleC
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <div className={`text-[11px] font-semibold uppercase tracking-[0.24em] ${themeClasses.textSubtle}`}>Latest developments</div>
-                    <h2 className={`mt-2 text-2xl font-semibold ${themeClasses.textPrimary}`}>Recent context tied to the current signal</h2>
+                    <h2 className={`mt-2 text-2xl font-semibold ${themeClasses.textPrimary}`}>Recent context tied to the current read</h2>
                     <p className={`mt-1 text-sm leading-6 ${themeClasses.textMuted}`}>
-                        Context only. Feed items are not individually weighted in the composite score.
+                        Context only. Feed items appear only when signal-relevant and are not individually weighted in the composite score.
                     </p>
                 </div>
                 <span className={`text-xs font-semibold uppercase tracking-[0.18em] ${themeClasses.textSubtle}`}>
@@ -41,7 +41,7 @@ export const ArticleList = ({ articles, market, compositeTier, theme }: ArticleC
             </div>
 
             <div className="mt-5 grid gap-3 xl:grid-cols-2">
-                {articles.slice(0, 6).map((article, index) => {
+                {articles.slice(0, 3).map((article, index) => {
                     const tag = getArticleTag(article.sentiment, compositeAction, theme);
                     const content = (
                         <div className={`flex h-full flex-col gap-3 rounded-2xl border p-4 transition hover:border-slate-400/60 ${themeClasses.panelSoft}`}>
@@ -50,6 +50,10 @@ export const ArticleList = ({ articles, market, compositeTier, theme }: ArticleC
                                 <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${tag.tone}`}>
                                     {tag.label}
                                 </span>
+                            </div>
+                            <div className={`grid gap-2 rounded-xl border px-3 py-2 text-xs ${themeClasses.panelMuted} ${themeClasses.textMuted}`}>
+                                <span><span className={`font-semibold ${themeClasses.textSecondary}`}>Signal impact:</span> {tag.impact}</span>
+                                <span><span className={`font-semibold ${themeClasses.textSecondary}`}>Affected driver:</span> {market === 'MY' ? 'news context' : 'sentiment context'}</span>
                             </div>
                             <div className={`mt-auto flex items-center justify-between gap-3 text-sm ${themeClasses.textMuted}`}>
                                 <span>{article.source}</span>
@@ -75,6 +79,7 @@ function getArticleTag(sentiment: 'bullish' | 'bearish' | 'neutral' | undefined,
     if (!sentiment || sentiment === 'neutral' || compositeAction === 'NEUTRAL') {
         return {
             label: 'Context',
+            impact: 'neutral',
             tone: theme === 'light' ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-slate-700 bg-slate-900/70 text-slate-300',
         };
     }
@@ -84,12 +89,14 @@ function getArticleTag(sentiment: 'bullish' | 'bearish' | 'neutral' | undefined,
     if (supports) {
         return {
             label: 'Supports',
+            impact: 'supports',
             tone: theme === 'light' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200',
         };
     }
 
     return {
         label: 'Opposes',
+        impact: 'opposes',
         tone: theme === 'light' ? 'border-rose-300 bg-rose-50 text-rose-700' : 'border-rose-400/40 bg-rose-500/10 text-rose-200',
     };
 }

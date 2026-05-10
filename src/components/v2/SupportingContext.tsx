@@ -8,10 +8,9 @@ interface SupportingContextProps {
     signal: MarketSignal;
     market: 'US' | 'MY';
     theme: CockpitTheme;
-    hasDevelopments: boolean;
 }
 
-export const SupportingContext = ({ signal, market, theme, hasDevelopments }: SupportingContextProps) => {
+export const SupportingContext = ({ signal, market, theme }: SupportingContextProps) => {
     const themeClasses = getThemeClasses(theme);
     const trendContext = signal.metadata.trend_context;
     const interpretationContext = signal.metadata.interpretation_context;
@@ -21,7 +20,7 @@ export const SupportingContext = ({ signal, market, theme, hasDevelopments }: Su
 
     return (
         <section className={`rounded-3xl border p-5 ${themeClasses.panelSoft}`}>
-            <div className={`text-[11px] font-semibold uppercase tracking-[0.24em] ${themeClasses.textSubtle}`}>Supporting context</div>
+            <div className={`text-[11px] font-semibold uppercase tracking-[0.24em] ${themeClasses.textSubtle}`}>Non-scored context</div>
             <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
                 <div className="space-y-4">
                     <Panel themeClasses={themeClasses} title="Index breadth" detail="Context only. Breadth helps interpret the signal but does not replace weighted evidence.">
@@ -58,7 +57,7 @@ export const SupportingContext = ({ signal, market, theme, hasDevelopments }: Su
 
                 <div className="space-y-4">
                     {stocks.length > 0 && (
-                        <Panel themeClasses={themeClasses} title={market === 'US' ? 'Watchlist context' : 'Bursa watchlist context'} detail="Live price context only. These tickers are not weighted evidence unless they appear in a scored source.">
+                        <Panel themeClasses={themeClasses} title={market === 'US' ? 'Watchlist prices - not included in current score' : 'Bursa watchlist prices - not included in current score'} detail="Live price context only. These tickers are visually secondary and are not weighted evidence unless they appear in a scored source.">
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 {stocks.slice(0, 4).map((stock) => (
                                     <div key={stock.symbol} className={`rounded-2xl border p-3 ${themeClasses.panelMuted}`}>
@@ -73,11 +72,13 @@ export const SupportingContext = ({ signal, market, theme, hasDevelopments }: Su
                         </Panel>
                     )}
 
-                    <Panel themeClasses={themeClasses} title="Data notes" detail="Operational notes for interpreting the dashboard.">
+                    <Panel themeClasses={themeClasses} title="Methodology notes" detail="Operational notes for interpreting the dashboard.">
                         <ul className={`space-y-2 text-sm leading-6 ${themeClasses.textSecondary}`}>
-                            <li>Confidence measures agreement between active indicators, not the probability of success.</li>
+                            <li>Score reflects weighted signal alignment across active sources.</li>
+                            <li>It is not a forecast probability or financial advice.</li>
+                            <li>Signal alignment does not imply historical accuracy.</li>
+                            <li>Sources may vary in freshness and coverage.</li>
                             <li>{interpretationContext?.article_feed_role || 'Latest developments provide context only and are not individually weighted in the composite score.'}</li>
-                            {!hasDevelopments && <li>News/social feed unavailable; not included in the current read.</li>}
                             <li>Snapshot recorded {formatDateLabel(signal.metadata.score_delta?.snapshot_date, true)}.</li>
                         </ul>
                     </Panel>

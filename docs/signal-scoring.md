@@ -17,6 +17,13 @@ Mode changes the interpretation:
 - `standard`: high score supports momentum/trend-following.
 - `contrarian`: high score means crowding/greed risk; low score means fear/opportunity risk.
 
+The visible score-zone bar must stay mode-aware:
+
+- `standard`: `0-39 Negative`, `40-64 Mixed`, `65-84 Positive`, `85-100 Strong positive`.
+- `contrarian`: `0-39 Low risk`, `40-64 Elevated`, `65-84 Cautionary`, `85-100 Extreme risk`.
+
+These are current model breakpoints only. They are not validated return thresholds and should not be treated as empirical forward-return claims until backtesting exists.
+
 ## Current Base Weights
 
 US:
@@ -60,13 +67,15 @@ This is deliberately mode-aware:
 
 AAII is weekly. The survey date should be visible whenever AAII contributes to the signal.
 
-## Confidence Meaning
+## Signal Alignment Meaning
 
-Confidence means indicator agreement only. It is not a probability that the signal will be correct.
+Signal alignment means indicator agreement only. It is not a probability that the read will be correct.
 
-- High confidence: most active indicators agree.
-- Moderate confidence: some agreement with meaningful disagreement or neutral components.
-- Low confidence: few sources, low agreement, or unreliable coverage.
+- High signal alignment: most active indicators agree.
+- Moderate signal alignment: some agreement with meaningful disagreement or neutral components.
+- Low signal alignment: few sources, low agreement, or unreliable coverage.
+
+The dashboard may still use `confidence` as an internal data-field name for backward compatibility, but visible UI should describe this as signal alignment.
 
 ## Freshness Rules
 

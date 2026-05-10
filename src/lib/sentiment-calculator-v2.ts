@@ -107,7 +107,7 @@ export function calculateCompositeScoreV2(
         };
     });
 
-    // 7. Calculate Confidence
+    // 7. Calculate indicator alignment
     const confidence = calculateConfidence(scoredIndicators, tier);
 
     return {
@@ -139,7 +139,7 @@ function generateInterpretation(tier: SignalTier, mode: 'standard' | 'contrarian
     switch (tier) {
         case 'strong-sell':
             return {
-                action: isContrarian ? 'Extreme Caution / Trim' : 'Strong Downtrend',
+                action: isContrarian ? 'Optimism looks overcrowded' : 'Strongly negative',
                 reasoning: isContrarian
                     ? `Market is euphoric (Score: ${score}). High risk of reversal. Consider taking profits.`
                     : `Market is under extreme pressure (Score: ${score}). Downside momentum is powerful.`,
@@ -148,7 +148,7 @@ function generateInterpretation(tier: SignalTier, mode: 'standard' | 'contrarian
             };
         case 'sell':
             return {
-                action: isContrarian ? 'Fade / Take Profit' : 'Defensive',
+                action: isContrarian ? 'Optimism may be overcrowded' : 'Leaning negative',
                 reasoning: isContrarian
                     ? `Greed is elevated. Good time to scale out of positions.`
                     : `Market sentiment is weak. Downside momentum exists.`,
@@ -157,14 +157,14 @@ function generateInterpretation(tier: SignalTier, mode: 'standard' | 'contrarian
             };
         case 'neutral': // Neutral (40-64)
             return {
-                action: 'Hold / Wait',
+                action: 'Mixed',
                 reasoning: 'Market is lacking clear direction. Volatility is average.',
                 color: '#9CA3AF', // Gray
                 emoji: '⚖️'
             };
         case 'buy':
             return {
-                action: isContrarian ? 'Accumulate' : 'Ride Uptrend',
+                action: isContrarian ? 'Fear may be overdone' : 'Leaning positive',
                 reasoning: isContrarian
                     ? `Fear is present. Good opportunity to start building positions.`
                     : `Bullish trend is healthy. Stay long but watch for overheating.`,
@@ -173,7 +173,7 @@ function generateInterpretation(tier: SignalTier, mode: 'standard' | 'contrarian
             };
         case 'strong-buy':
             return {
-                action: isContrarian ? 'Strong Buy / Aggressive' : 'Strong Momentum',
+                action: isContrarian ? 'Fear looks overdone' : 'Strongly positive',
                 reasoning: isContrarian
                     ? `Extreme panic detected (Score: ${score}). Best time for long-term entries.`
                     : `Market showing exceptional strength (Score: ${score}). Momentum is powerful.`,
@@ -184,7 +184,7 @@ function generateInterpretation(tier: SignalTier, mode: 'standard' | 'contrarian
 }
 
 /**
- * Calculate Confidence Metrics
+ * Calculate indicator-alignment metrics.
  */
 function calculateConfidence(indicators: IndicatorData[], majorityTier: SignalTier): ConfidenceMetrics {
     const activeCount = indicators.length;
@@ -198,7 +198,7 @@ function calculateConfidence(indicators: IndicatorData[], majorityTier: SignalTi
             conflicting_indicators: [],
             warning: 'Single source mode: reliability is reduced.',
             source_count: activeCount,
-            cap_reason: 'Confidence capped because fewer than 2 sources are active.'
+            cap_reason: 'Signal alignment capped because fewer than 2 sources are active.'
         };
     }
 
@@ -224,7 +224,7 @@ function calculateConfidence(indicators: IndicatorData[], majorityTier: SignalTi
     else if (agreementPct < 50) level = 'low';
 
     const capReason = activeCount < 3
-        ? `Confidence capped at Moderate because only ${activeCount} active sources are available.`
+        ? `Signal alignment capped at Moderate because only ${activeCount} active sources are available.`
         : undefined;
 
     if (capReason && level === 'high') {

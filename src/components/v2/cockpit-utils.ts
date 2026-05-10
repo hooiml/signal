@@ -7,24 +7,24 @@ export function getThemeClasses(theme: CockpitTheme) {
     if (theme === 'light') {
         return {
             pageText: 'text-slate-950',
-            panelStrong: 'border-slate-400 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.12)]',
-            panel: 'border-slate-300 bg-white/92 shadow-[0_18px_50px_rgba(15,23,42,0.05)]',
-            panelSoft: 'border-slate-300 bg-slate-50/92',
-            panelMuted: 'border-slate-200 bg-slate-100/92',
+            panelStrong: 'border-slate-500 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.14)]',
+            panel: 'border-slate-400 bg-white/96 shadow-[0_18px_50px_rgba(15,23,42,0.07)]',
+            panelSoft: 'border-slate-400 bg-slate-50/96',
+            panelMuted: 'border-slate-300 bg-slate-100/96',
             heroBackground: 'bg-[radial-gradient(circle_at_top_right,_rgba(14,165,233,0.18),_transparent_34%),linear-gradient(160deg,_rgba(255,255,255,1),_rgba(248,250,252,0.98))]',
             textPrimary: 'text-slate-950',
             textSecondary: 'text-slate-800',
-            textMuted: 'text-slate-600',
-            textSubtle: 'text-slate-500',
+            textMuted: 'text-slate-700',
+            textSubtle: 'text-slate-600',
             textInverted: 'text-white',
-            divider: 'border-slate-200',
-            tableRowSupport: 'bg-emerald-500/[0.04]',
-            tableRowChallenge: 'bg-rose-500/[0.04]',
-            commandStrip: 'border-slate-300/90 bg-white/90 shadow-[0_14px_40px_rgba(15,23,42,0.08)]',
-            commandGroup: 'border-slate-300 bg-white/85',
-            controlMuted: 'text-slate-500',
+            divider: 'border-slate-300',
+            tableRowSupport: 'bg-emerald-500/[0.06]',
+            tableRowChallenge: 'bg-rose-500/[0.06]',
+            commandStrip: 'border-slate-400/90 bg-white/94 shadow-[0_14px_40px_rgba(15,23,42,0.1)]',
+            commandGroup: 'border-slate-400 bg-white/92',
+            controlMuted: 'text-slate-600',
             railBackground: 'bg-slate-200',
-            statChip: 'border-slate-300 bg-slate-50 text-slate-700',
+            statChip: 'border-slate-400 bg-slate-50 text-slate-800',
         };
     }
 
@@ -57,8 +57,48 @@ export function getSignalAction(tier: SignalTier): SignalAction {
     return 'NEUTRAL';
 }
 
+export function getActionUiLabel(action: SignalAction) {
+    if (action === 'BUY') return 'Positive';
+    if (action === 'SELL') return 'Negative';
+    return 'Mixed / Neutral';
+}
+
 export function getTierLabel(tier: SignalTier) {
     return tier.replace('-', ' ');
+}
+
+export function getTierUiLabel(tier: SignalTier) {
+    switch (tier) {
+        case 'strong-buy':
+            return 'Strongly positive';
+        case 'buy':
+            return 'Leaning positive';
+        case 'neutral':
+            return 'Mixed';
+        case 'sell':
+            return 'Leaning negative';
+        case 'strong-sell':
+            return 'Strongly negative';
+    }
+}
+
+export function getReadStateLabel(tier: SignalTier, mode: 'standard' | 'contrarian') {
+    if (mode === 'standard') {
+        return getTierUiLabel(tier);
+    }
+
+    switch (tier) {
+        case 'strong-buy':
+            return 'Fear looks overdone';
+        case 'buy':
+            return 'Fear may be overdone';
+        case 'neutral':
+            return 'Balanced';
+        case 'sell':
+            return 'Optimism may be crowded';
+        case 'strong-sell':
+            return 'Optimism looks overcrowded';
+    }
 }
 
 export function getModeLabel(mode: 'standard' | 'contrarian') {
@@ -81,9 +121,9 @@ export function getSupportState(indicator: IndicatorData, compositeTier: SignalT
 export function getSupportLabel(state: SupportState) {
     switch (state) {
         case 'supports':
-            return 'Supports signal';
+            return 'Supports read';
         case 'challenges':
-            return 'Challenges signal';
+            return 'Challenges read';
         case 'disabled':
             return 'Disabled';
         default:
@@ -298,7 +338,7 @@ export function getPrimaryCaveat(signal: MarketSignal) {
     }
 
     if (quality?.source_coverage === 'limited') {
-        return signal.confidence.cap_reason || 'Coverage is limited, so confidence is capped and the read is directional only.';
+        return signal.confidence.cap_reason || 'Coverage is limited, so signal alignment is capped and the read is directional only.';
     }
 
     if (signal.confidence.cap_reason || signal.confidence.warning) {
@@ -314,32 +354,50 @@ export function getPrimaryCaveat(signal: MarketSignal) {
 
 export function getTopDrivers(signal: MarketSignal) {
     const drivers = [...(signal.metadata.score_drivers ?? [])].sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
-    const positive = drivers.find((driver) => driver.impact === 'positive') || drivers[0] || null;
-    const negative = drivers.find((driver) => driver.impact === 'negative') || drivers[1] || null;
+    const positive = drivers.find((driver) => driver.impact === 'positive') || null;
+    const negative = drivers.find((driver) => driver.impact === 'negative') || null;
     return { positive, negative };
 }
 
 export function getDriverSummary(signal: MarketSignal) {
-    const topDriver = [...(signal.metadata.score_drivers ?? [])]
-        .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution))[0];
+    const drivers = [...(signal.metadata.score_drivers ?? [])]
+        .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
+    const topDriver = drivers[0];
 
     if (!topDriver) {
         return signal.interpretation.reasoning;
     }
 
-    return `${topDriver.name} is the clearest driver right now: ${topDriver.detail}`;
+    if (topDriver.impact === 'positive') {
+        return `${topDriver.name} is the clearest supporting driver right now: ${topDriver.detail}`;
+    }
+
+    if (topDriver.impact === 'negative') {
+        return `${topDriver.name} is the clearest challenge to the current read: ${topDriver.detail}`;
+    }
+
+    const supportingDriver = drivers.find((driver) => driver.impact === 'positive');
+    if (supportingDriver) {
+        return `${topDriver.name} is the largest weighted input but is neutral/mixed; ${supportingDriver.name} is the clearest supporting driver: ${supportingDriver.detail}`;
+    }
+
+    return `${topDriver.name} is the largest weighted input but is neutral/mixed: ${topDriver.detail}`;
 }
 
 export function getReadHeadline(tier: SignalTier, mode: 'standard' | 'contrarian') {
     if (mode === 'standard') {
-        if (tier === 'strong-buy' || tier === 'buy') return 'Constructive momentum read';
-        if (tier === 'neutral') return 'Balanced momentum read';
-        return 'Defensive momentum read';
+        if (tier === 'strong-buy') return 'Conditions are strongly positive';
+        if (tier === 'buy') return 'Conditions are leaning positive';
+        if (tier === 'neutral') return 'Conditions are mixed';
+        if (tier === 'sell') return 'Conditions are leaning negative';
+        return 'Conditions are strongly negative';
     }
 
-    if (tier === 'strong-buy' || tier === 'buy') return 'Fear-driven opportunity read';
-    if (tier === 'neutral') return 'Balanced contrarian read';
-    return 'Crowding-risk read';
+    if (tier === 'strong-buy') return 'Fear looks overdone';
+    if (tier === 'buy') return 'Fear may be overdone';
+    if (tier === 'neutral') return 'Fear and optimism are balanced';
+    if (tier === 'sell') return 'Optimism may be overcrowded';
+    return 'Optimism looks overcrowded';
 }
 
 export function getDecisionReliability(signal: MarketSignal) {
@@ -369,61 +427,118 @@ export function getSourceFreshnessSummary(signal: MarketSignal) {
 }
 
 export function getSignalHorizon(signal: MarketSignal) {
-    const freshness = signal.metadata.signal_quality?.freshness;
-    const sourceCount = signal.confidence.source_count ?? Object.values(signal.components).filter((component) => component.enabled).length;
-
-    if (freshness === 'fresh' && sourceCount >= 3) {
-        return 'Tactical 1-5 trading day sentiment read';
-    }
-
-    if (freshness === 'mixed') {
-        return 'Short-term read with slower weekly inputs still contributing';
-    }
-
-    return 'Directional market read until fresher confirmation arrives';
+    const metadataHorizon = (signal.metadata as MarketSignal['metadata'] & { horizon?: string }).horizon;
+    return metadataHorizon || 'Not model-defined';
 }
 
 export function getBroadMarketConfirmation(signal: MarketSignal) {
+    return getBroadMarketValidation(signal).summary;
+}
+
+export function getBroadMarketValidation(signal: MarketSignal) {
     const trend = signal.metadata.index_trend ?? [];
     if (trend.length === 0) {
-        return 'Breadth confirmation unavailable';
+        return {
+            summary: 'Unavailable',
+            aligned: 0,
+            total: 0,
+            warning: null,
+        };
     }
 
+    const action = getSignalAction(signal.tier);
     const positive = trend.filter((item) => item.trend === 'positive').length;
     const negative = trend.filter((item) => item.trend === 'negative').length;
     const flat = trend.length - positive - negative;
+    const aligned = action === 'BUY' ? positive : action === 'SELL' ? negative : flat;
+    const summary = action === 'NEUTRAL'
+        ? `${aligned} of ${trend.length} indexes aligned with neutral/mixed read`
+        : `${aligned} of ${trend.length} indexes aligned`;
 
-    if (positive > negative) {
-        return `${positive} of ${trend.length} tracked indexes confirm the read`;
-    }
-
-    if (negative > positive) {
-        return `${negative} of ${trend.length} tracked indexes challenge the read`;
-    }
-
-    return `Breadth is mixed: ${positive} positive, ${negative} negative, ${flat} flat`;
+    return {
+        summary,
+        aligned,
+        total: trend.length,
+        warning: signal.mode === 'contrarian' && aligned === 0
+            ? 'Index breadth does not confirm this read.'
+            : null,
+    };
 }
 
 export function getEvidenceConcentration(signal: MarketSignal) {
+    return getEvidenceConcentrationDetails(signal).summary;
+}
+
+export function getEvidenceConcentrationDetails(signal: MarketSignal) {
     const drivers = [...(signal.metadata.score_drivers ?? [])].sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
     if (drivers.length === 0) {
-        return 'Evidence concentration unavailable';
+        return {
+            level: 'Unavailable',
+            driver: 'Unavailable',
+            share: null as number | null,
+            summary: 'Evidence concentration unavailable',
+        };
     }
 
     const total = drivers.reduce((sum, driver) => sum + Math.abs(driver.contribution), 0);
     const top = drivers[0];
     const share = total > 0 ? Math.round((Math.abs(top.contribution) / total) * 100) : 0;
     const activeCount = Object.values(signal.components).filter((component) => component.enabled).length;
+    const level = share >= 60 ? 'High' : share >= 40 ? 'Moderate' : 'Distributed';
 
-    return `${top.name} drives about ${share}% of visible contribution across ${activeCount} active inputs`;
+    return {
+        level,
+        driver: top.name,
+        share,
+        summary: `${top.name}, ${share}% across ${activeCount} active inputs`,
+    };
 }
 
-export function getInvalidationSummary(signal: MarketSignal) {
+export function getDataCaveatSummary(signal: MarketSignal) {
     const warnings = signal.metadata.signal_quality?.warnings ?? [];
-    if (warnings.length > 0 && warnings[0].toLowerCase().includes('stale')) {
-        return 'Not defined for current read';
+    const staleWarning = warnings.find((warning) => warning.toLowerCase().includes('stale'));
+    if (staleWarning) return staleWarning;
+
+    const primaryCaveat = getPrimaryCaveat(signal);
+    if (primaryCaveat) return primaryCaveat;
+
+    return 'No active data caveat';
+}
+
+export function getModelInvalidationSummary() {
+    return 'Not defined for this read';
+}
+
+export function getReadLimitations(signal: MarketSignal) {
+    const limitations: string[] = [];
+    const concentration = getEvidenceConcentrationDetails(signal);
+    const activeSourceCount = signal.confidence.source_count ?? Object.values(signal.components).filter((component) => component.enabled).length;
+    const freshness = getSourceFreshnessSummary(signal);
+    const articles = signal.metadata.articles ?? [];
+    const quality = signal.metadata.signal_quality;
+
+    if (concentration.level === 'High' && concentration.share !== null) {
+        limitations.push(`Evidence is concentrated in ${concentration.driver} (${concentration.share}%).`);
     }
-    return 'Not defined for current read';
+
+    if (freshness.staleSource !== 'None') {
+        limitations.push(`${freshness.staleSource} data is stale.`);
+    }
+
+    if (activeSourceCount <= 2) {
+        limitations.push(`Only ${activeSourceCount} active sources are contributing.`);
+    }
+
+    if (articles.length === 0) {
+        limitations.push('News/social context is unavailable or excluded.');
+    }
+
+    if (quality?.source_coverage === 'limited' || quality?.freshness !== 'fresh') {
+        limitations.push('Source coverage or freshness limits this read.');
+    }
+
+    limitations.push('No historical validation is shown.');
+    return Array.from(new Set(limitations)).slice(0, 5);
 }
 
 function clampSentiment(value: number) {

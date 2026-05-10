@@ -93,7 +93,7 @@ export const SignalGauge = ({ score, tier, confidence }: SignalGaugeProps) => {
                     {tier.replace('-', ' ')}
                 </h2>
                 <div className="mt-2 flex items-center space-x-2">
-                    <span className="text-[11px] uppercase tracking-widest text-slate-500">Confidence:</span>
+                    <span className="text-[11px] uppercase tracking-widest text-slate-500">Signal alignment:</span>
                     <span className={`text-[11px] font-bold uppercase tracking-widest ${confidence === 'high' ? 'text-emerald-600' : confidence === 'medium' ? 'text-amber-500' : 'text-rose-600'
                         }`}>
                         {confidence}

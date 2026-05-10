@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { IndicatorData, MarketSignal } from '@/lib/types/signal-v2';
-import { CockpitTheme, formatDateLabel, formatRawValue, getFreshnessLabel, getFreshnessTone, getSupportLabel, getSupportState, getSupportTone, getThemeClasses, getTierLabel } from './cockpit-utils';
+import { CockpitTheme, formatDateLabel, formatRawValue, getActionUiLabel, getFreshnessLabel, getFreshnessTone, getReadStateLabel, getSupportLabel, getSupportState, getSupportTone, getThemeClasses, getTierUiLabel } from './cockpit-utils';
 
 interface EvidenceMatrixProps {
     signal: MarketSignal;
@@ -29,14 +29,14 @@ export const EvidenceMatrix = ({ signal, market, theme }: EvidenceMatrixProps) =
             <div className={`flex flex-col gap-3 border-b pb-5 md:flex-row md:items-end md:justify-between ${themeClasses.divider}`}>
                 <div>
                     <div className={`text-[11px] font-semibold uppercase tracking-[0.24em] ${themeClasses.textSubtle}`}>Evidence matrix</div>
-                    <h2 className={`mt-2 text-2xl font-semibold ${themeClasses.textPrimary}`}>Evidence supporting or challenging the current signal</h2>
+                    <h2 className={`mt-2 text-2xl font-semibold ${themeClasses.textPrimary}`}>Evidence supporting or challenging the current read</h2>
                     <p className={`mt-1 max-w-3xl text-sm leading-6 ${themeClasses.textMuted}`}>
-                        Rows are sorted by current contribution. Agreement is attached here so the signal can be audited in one comparison surface.
+                        Rows are sorted by current contribution. Agreement shows the raw active-indicator percentage, while alignment level is capped by coverage and freshness.
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <SummaryChip themeClasses={themeClasses} label="Composite" value={getTierLabel(signal.tier)} />
-                    <SummaryChip themeClasses={themeClasses} label="Majority" value={signal.confidence.majority_signal} />
+                    <SummaryChip themeClasses={themeClasses} label="Read state" value={getReadStateLabel(signal.tier, signal.mode)} />
+                    <SummaryChip themeClasses={themeClasses} label="Majority read" value={getActionUiLabel(signal.confidence.majority_signal)} />
                     <SummaryChip themeClasses={themeClasses} label="Agreement" value={`${signal.confidence.agreement_pct}%`} />
                     <SummaryChip themeClasses={themeClasses} label="Challenging" value={`${challengingCount}`} />
                 </div>
@@ -56,7 +56,7 @@ export const EvidenceMatrix = ({ signal, market, theme }: EvidenceMatrixProps) =
                             <th className="px-4 py-3">Source</th>
                             <th className="px-4 py-3">Raw value</th>
                             <th className="px-4 py-3">Score</th>
-                            <th className="px-4 py-3">Signal</th>
+                            <th className="px-4 py-3">Read</th>
                             <th className="px-4 py-3">Weight</th>
                             <th className="px-4 py-3">Contribution</th>
                             <th className="px-4 py-3">Freshness</th>
@@ -81,7 +81,7 @@ export const EvidenceMatrix = ({ signal, market, theme }: EvidenceMatrixProps) =
                                 <td className={`px-4 py-4 font-mono text-lg ${themeClasses.textPrimary}`}>{Math.round(row.score)}</td>
                                 <td className="px-4 py-4">
                                     <span className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${themeClasses.panelMuted} ${themeClasses.textSecondary}`}>
-                                        {getTierLabel(row.signal)}
+                                        {getTierUiLabel(row.signal)}
                                     </span>
                                 </td>
                                 <td className={`px-4 py-4 font-mono ${themeClasses.textSecondary}`}>
@@ -131,7 +131,7 @@ export const EvidenceMatrix = ({ signal, market, theme }: EvidenceMatrixProps) =
                         <div className="flex items-start justify-between gap-3">
                             <div>
                                 <div className={`text-base font-semibold ${themeClasses.textPrimary}`}>{row.display_name}</div>
-                                <div className={`mt-1 text-sm ${themeClasses.textMuted}`}>{getTierLabel(row.signal)} · {getSupportLabel(row.supportState)}</div>
+                                <div className={`mt-1 text-sm ${themeClasses.textMuted}`}>{getTierUiLabel(row.signal)} · {getSupportLabel(row.supportState)}</div>
                             </div>
                             <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${getSupportTone(row.supportState, theme)}`}>
                                 {Math.round(row.score)}

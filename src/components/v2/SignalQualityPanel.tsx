@@ -33,7 +33,7 @@ export const SignalQualityPanel = ({ signal }: SignalQualityPanelProps) => {
     const aaiiDriver = drivers.find(driver => driver.key === 'aaii');
     const qualityItems = [
         { label: 'Freshness', value: quality.freshness, detail: quality.freshness === 'fresh' ? 'All active inputs are current' : (staleInputDetail || 'Some inputs need attention') },
-        { label: 'Coverage', value: quality.source_coverage, detail: `${Object.keys(signal.components).length} active signal sources${signal.confidence.cap_reason ? ' · confidence capped' : ''}` },
+        { label: 'Coverage', value: quality.source_coverage, detail: `${Object.keys(signal.components).length} active signal sources${signal.confidence.cap_reason ? ' - signal alignment capped' : ''}` },
         { label: 'Noise Level', value: quality.noise_level, detail: quality.noise_level === 'low' ? 'Clean source mix' : 'Informational; does not affect composite score' },
         { label: 'Regime', value: quality.market_regime, detail: 'Derived from score, VIX, and index trend' }
     ];
@@ -62,8 +62,8 @@ export const SignalQualityPanel = ({ signal }: SignalQualityPanelProps) => {
                 </div>
 
                 <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
-                    <div className="text-[11px] font-bold uppercase tracking-widest text-blue-800">Confidence Meaning</div>
-                    <p className="mt-1">{quality.confidence_explanation || 'Confidence measures indicator agreement, not forecast accuracy.'}</p>
+                    <div className="text-[11px] font-bold uppercase tracking-widest text-blue-800">Signal Alignment Meaning</div>
+                    <p className="mt-1">{quality.confidence_explanation || 'Signal alignment measures indicator agreement, not forecast accuracy.'}</p>
                 </div>
 
                 {sourceToggleImpact && (
