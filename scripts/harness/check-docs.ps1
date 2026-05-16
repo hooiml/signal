@@ -6,6 +6,7 @@ $required = @(
     "docs/ARCHITECTURE.md",
     "docs/TESTING.md",
     "docs/QUALITY.md",
+    "docs/HARNESS.md",
     "docs/WORKFLOWS.md",
     "docs/signal-scoring.md",
     "docs/generated/repo-map.md"

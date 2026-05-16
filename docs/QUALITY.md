@@ -9,6 +9,7 @@ These rules capture repo taste as mechanical, repeatable guidance for future age
 - Put generated facts in `docs/generated`.
 - Keep docs linked to actual files, scripts, and commands.
 - Prefer explicit names over clever or compressed abstractions.
+- Follow `docs/HARNESS.md` when adding or changing repo knowledge checks.
 
 ## Code Boundaries
 
@@ -47,3 +48,4 @@ The harness currently checks:
 - generated repo map is current
 - large source files are visible as warnings
 
+Harness checks should start deterministic and small. Keep early quality signals warning-first unless the failure is stable, actionable, and safe to block on.

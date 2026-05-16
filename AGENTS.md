@@ -7,6 +7,7 @@ This file is the map, not the manual. Keep it short so agents can quickly find t
 - Architecture: `docs/ARCHITECTURE.md`
 - Testing and verification: `docs/TESTING.md`
 - Quality rules: `docs/QUALITY.md`
+- Harness engineering standards: `docs/HARNESS.md`
 - Repo workflows: `docs/WORKFLOWS.md`
 - Signal scoring rules: `docs/signal-scoring.md`
 - Generated repo map: `docs/generated/repo-map.md`
@@ -19,4 +20,3 @@ This file is the map, not the manual. Keep it short so agents can quickly find t
 - Do not add dependencies unless the existing stack cannot solve the problem.
 - Update docs when behavior, commands, architecture, or operating rules change.
 - Run the verification commands in `docs/TESTING.md` before claiming completion.
-

@@ -10,6 +10,8 @@ npm run typecheck
 npm run harness
 ```
 
+For docs-only or harness-metadata changes, `npm run harness` is the minimum proof. Run the full standard set when TypeScript, routes, shared contracts, or runtime behavior changed.
+
 ## Build Verification
 
 Run this before completing framework, route, dependency, or deployment-related changes:
@@ -49,3 +51,6 @@ Invalid request parameters should return a structured error instead of falling i
 
 There is no dedicated unit test runner configured yet. Until one is added, lint, typecheck, build, harness checks, API smoke tests, and browser checks are the available verification surfaces.
 
+## Harness And Eval Evidence
+
+Follow `docs/HARNESS.md` for harness design. Future Codex or agent evals should keep raw traces and run artifacts under `.tmp/`, use deterministic checks first, and promote curated fixtures only when they are stable enough to review.

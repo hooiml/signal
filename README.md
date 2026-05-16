@@ -1,33 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Signal
+
+Signal is a Next.js market-signal dashboard for decision-support views across market data, sentiment, positioning, and persisted snapshots.
+
+## Project Docs
+
+- Agent map: `AGENTS.md`
+- Architecture: `docs/ARCHITECTURE.md`
+- Harness standards: `docs/HARNESS.md`
+- Testing and verification: `docs/TESTING.md`
+- Workflows: `docs/WORKFLOWS.md`
+- Scoring rules: `docs/signal-scoring.md`
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies and run the development server:
 
-```bash
+```powershell
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The main dashboard route starts at `src/app/page.tsx`, with V2 dashboard UI under `src/components/v2`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Verification
+
+```powershell
+npm run lint
+npm run typecheck
+npm run harness
+```
+
+Run `npm run build` for route, framework, dependency, or deployment-related changes.
 
 ## Learn More
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Repo workflows: `docs/WORKFLOWS.md`
+- Testing details: `docs/TESTING.md`
+- Next.js documentation: [nextjs.org/docs](https://nextjs.org/docs)
 
 ## Deploy on Vercel
 

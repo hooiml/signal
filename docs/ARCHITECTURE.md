@@ -18,7 +18,7 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 - `src/hooks`: browser-side state and dashboard configuration.
 - `src/lib`: market-data clients, database access, orchestration, and scoring logic.
 - `src/lib/types`: shared TypeScript contracts for signal payloads.
-- `docs`: repository knowledge that agents should use as the system of record.
+- `docs`: repository knowledge that agents should use as the system of record, with `docs/HARNESS.md` defining how those docs and checks evolve.
 - `scripts/harness`: mechanical checks that keep the repo legible to agents.
 
 ## Signal Flow

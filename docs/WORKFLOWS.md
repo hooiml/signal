@@ -33,6 +33,16 @@ Then run:
 npm run harness
 ```
 
+## Updating Harness Standards
+
+1. Update the owning doc in `docs`.
+2. Keep `AGENTS.md` as a short map to that doc.
+3. Update `scripts/harness/check-docs.ps1` when a doc becomes required.
+4. Refresh the generated repo map if file or script structure changed.
+5. Run `npm run harness`.
+
+See `docs/HARNESS.md` for check design, eval artifacts, and completion evidence rules.
+
 ## Adding A New API Route
 
 1. Add the route under `src/app/api`.
