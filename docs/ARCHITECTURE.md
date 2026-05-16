@@ -34,6 +34,9 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 ## Data Sources
 
 - Yahoo Finance helpers provide VIX, indices, stocks, quotes, and Malaysia currency-volatility proxy data.
+- Cboe daily market statistics provide the US put/call options-positioning input.
+- NAAIM provides weekly active-manager exposure for US positioning context.
+- FRED pages provide the non-scored Buffett Indicator valuation backdrop.
 - RSS feeds and Reddit helpers provide contextual news and retail sentiment inputs.
 - StockTwits is used for US social sentiment.
 - Institutional data is loaded through `institutional-service`.

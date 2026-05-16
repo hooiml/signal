@@ -47,7 +47,7 @@ function Format-PathList($paths) {
 }
 
 $topLevel = Get-ChildItem -Path $root -Force |
-    Where-Object { $_.Name -notin @(".git", ".next", ".omx", ".vscode", "node_modules", "tsconfig.tsbuildinfo", ".env.local") } |
+    Where-Object { $_.Name -notin @(".git", ".next", ".omx", ".tmp", ".vscode", "node_modules", "tsconfig.tsbuildinfo", ".env.local") } |
     ForEach-Object {
         if ($_.PSIsContainer) {
             "$($_.Name)/"
@@ -123,4 +123,3 @@ if (-not (Test-Path $outputDir)) {
 
 Set-Content -Path $outputPath -Value $normalizedContent -NoNewline
 Write-Host "Updated docs/generated/repo-map.md."
-

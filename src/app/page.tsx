@@ -1,4 +1,5 @@
-﻿import { SignalDashboard } from '@/components/v2/SignalDashboard';
+import { AppNav } from '@/components/AppNav';
+import { SignalDashboard } from '@/components/v2/SignalDashboard';
 
 export const revalidate = 60;
 
@@ -10,9 +11,9 @@ export default async function Home() {
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/60 to-transparent" />
 
       <div className="relative z-10">
+        <AppNav active="signal" tone="dark" />
         <SignalDashboard />
       </div>
     </main>
   );
 }
-

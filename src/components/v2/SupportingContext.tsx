@@ -17,6 +17,7 @@ export const SupportingContext = ({ signal, market, theme }: SupportingContextPr
     const indices = signal.metadata.index_trend || [];
     const stocks = signal.metadata.stocks || [];
     const aaiiNote = interpretationContext?.aaii_note;
+    const valuationBackdrop = signal.metadata.valuation_backdrop;
 
     return (
         <section className={`rounded-3xl border p-5 ${themeClasses.panelSoft}`}>
@@ -47,6 +48,15 @@ export const SupportingContext = ({ signal, market, theme }: SupportingContextPr
                     <Panel themeClasses={themeClasses} title="Historical context" detail="Context from the current score history and interpretation helpers.">
                         <p className={`text-sm leading-6 ${themeClasses.textSecondary}`}>{trendContext?.note || 'Historical movement context will appear as additional snapshots accumulate.'}</p>
                     </Panel>
+
+                    {valuationBackdrop && (
+                        <Panel themeClasses={themeClasses} title="Valuation backdrop" detail="Strategic context only. Valuation moves slowly and should not override tactical evidence by itself.">
+                            <div className={`font-mono text-2xl ${themeClasses.textPrimary}`}>{valuationBackdrop.ratio_pct.toFixed(1)}%</div>
+                            <p className={`mt-2 text-sm leading-6 ${themeClasses.textSecondary}`}>{valuationBackdrop.label}</p>
+                            <p className={`mt-2 text-sm leading-6 ${themeClasses.textMuted}`}>{valuationBackdrop.detail}</p>
+                            <div className={`mt-3 text-xs ${themeClasses.textMuted}`}>Updated {formatDateLabel(valuationBackdrop.report_date)}</div>
+                        </Panel>
+                    )}
 
                     {aaiiNote && (
                         <Panel themeClasses={themeClasses} title="AAII cadence" detail="AAII is weekly, so several days of age can still be normal.">

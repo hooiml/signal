@@ -28,10 +28,12 @@ These are current model breakpoints only. They are not validated return threshol
 
 US:
 
-- VIX: 40%
-- Social sentiment: 30%
+- VIX: 35%
+- Social sentiment: 20%
+- Put/call ratio: 10%
 - AAII: 20%
-- BofA SSI placeholder: 10%
+- NAAIM manager exposure: 10%
+- BofA SSI placeholder/manual input: 5%
 
 Malaysia:
 
@@ -67,6 +69,30 @@ This is deliberately mode-aware:
 
 AAII is weekly. The survey date should be visible whenever AAII contributes to the signal.
 
+## Put/Call Interpretation
+
+The US put/call ratio is a daily tactical options-positioning input sourced from Cboe daily market statistics.
+
+- Low put/call means call-heavy optimism or complacency and maps to a higher greed/momentum score.
+- High put/call means fear or hedging and maps to a lower score.
+
+This input can disagree with broader sentiment because options positioning may reflect hedging demand rather than pure directional conviction.
+
+## NAAIM Interpretation
+
+NAAIM manager exposure is a weekly positioning input. It measures reported equity exposure among active managers.
+
+- Low exposure maps to fear/risk-off positioning.
+- High exposure maps to greed/crowding or strong momentum participation.
+
+It is scored for US signals, but should be interpreted as weekly positioning rather than an intraday trigger.
+
+## Buffett Indicator Backdrop
+
+The Buffett Indicator is exposed as a non-scored valuation backdrop. It compares domestic nonfinancial corporate equity market value against GDP using FRED pages.
+
+It is intentionally not part of the daily composite score because valuation moves slowly and should not override tactical evidence by itself.
+
 ## Signal Alignment Meaning
 
 Signal alignment means indicator agreement only. It is not a probability that the read will be correct.
@@ -82,8 +108,11 @@ The dashboard may still use `confidence` as an internal data-field name for back
 Current stale warning behavior treats a component as stale when `last_updated` is more than 14 days old. This is acceptable for weekly AAII but should be tightened per source later:
 
 - VIX and index breadth: live/request-time or clearly timestamped.
+- Put/call ratio: daily.
 - Social feeds: live to 15 minutes.
 - AAII: weekly, normally Thursday release.
+- NAAIM: weekly.
+- Buffett Indicator: quarterly / strategic context.
 
 ## Article Feed Role
 

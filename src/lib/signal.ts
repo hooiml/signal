@@ -7,6 +7,8 @@ import { sql } from '@/lib/db';
 import { calculateCompositeScoreV2 } from './sentiment-calculator-v2';
 import { IndicatorData, MarketSignal, SignalTier } from './types/signal-v2';
 import { getLatestInstitutionalData } from './institutional-service';
+import { BuffettIndicatorData, fetchBuffettIndicator, fetchCboePutCallRatio, fetchNaaimExposure, normalizeNaaimExposure, normalizePutCallRatio, NaaimExposureData, PutCallRatioData } from './market-indicators';
+import { getIndicatorDisplayName } from './indicator-registry';
 
 interface AggregateMarketData {
     vixData: { price: number; change: number };
@@ -16,6 +18,9 @@ interface AggregateMarketData {
     redditPosts: RedditPost[];
     newsItems: NewsItem[];
     stockTwits: StockTwit[];
+    putCallRatio: PutCallRatioData | null;
+    naaimExposure: NaaimExposureData | null;
+    buffettIndicator: BuffettIndicatorData | null;
     combinedSentiment: number;
     redditSentiment: number;
     stockTwitsSentiment: number;
@@ -127,11 +132,14 @@ export const fetchCoreMarketData = async (market: MarketType) => {
 
     // Fetch VIX + Priority (with sparklines) + Deferred (batch) in parallel
     // For MY, we also fetch currency volatility as a local proxy
-    const [vixData, priorityQuotes, deferredQuotes, myrVol] = await Promise.all([
+    const [vixData, priorityQuotes, deferredQuotes, myrVol, putCallRatio, naaimExposure, buffettIndicator] = await Promise.all([
         fetchVIX(),
         fetchIndicesWithChart(prioritySymbols),  // Full chart data
         fetchQuotes(deferredSymbols),            // Fast batch (no sparklines)
-        market === 'MY' ? fetchHistoricalCurrencyVol('USDMYR=X') : Promise.resolve(null)
+        market === 'MY' ? fetchHistoricalCurrencyVol('USDMYR=X') : Promise.resolve(null),
+        market === 'US' ? fetchCboePutCallRatio() : Promise.resolve(null),
+        market === 'US' ? fetchNaaimExposure() : Promise.resolve(null),
+        market === 'US' ? fetchBuffettIndicator() : Promise.resolve(null)
     ]);
 
     // Combine and categorize
@@ -140,7 +148,7 @@ export const fetchCoreMarketData = async (market: MarketType) => {
     const popularData = allQuotes.filter((q: YahooMarketData) => config.popular.includes(q.symbol));
     const activeData = allQuotes.filter((q: YahooMarketData) => config.active.includes(q.symbol));
 
-    return { vixData, indicesData, popularData, activeData, config, myrVol };
+    return { vixData, indicesData, popularData, activeData, config, myrVol, putCallRatio, naaimExposure, buffettIndicator };
 };
 
 /**
@@ -182,7 +190,7 @@ export const fetchRawMarketData = async (
             : Promise.resolve({ redditPosts: [], newsItems: [], stockTwits: [] })
     ]);
 
-    const { vixData, indicesData, popularData, activeData, myrVol } = coreData;
+    const { vixData, indicesData, popularData, activeData, myrVol, putCallRatio, naaimExposure, buffettIndicator } = coreData;
     const { redditPosts, newsItems, stockTwits } = socialData;
 
     // Calculate sentiment scores
@@ -234,6 +242,9 @@ export const fetchRawMarketData = async (
         redditPosts,
         newsItems,
         stockTwits,
+        putCallRatio,
+        naaimExposure,
+        buffettIndicator,
         combinedSentiment,
         redditSentiment,
         stockTwitsSentiment,
@@ -320,6 +331,7 @@ async function persistSignalSnapshot(
             mode_note: signal.metadata.interpretation_context?.mode_note,
             article_feed_role: signal.metadata.interpretation_context?.article_feed_role,
             counterfactuals: signal.metadata.counterfactuals,
+            valuation_backdrop: signal.metadata.valuation_backdrop,
         };
 
         await sql`
@@ -510,7 +522,9 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
         // V2 INTEGRATION (Hybrid Phase)
         // -----------------------------
         // Fetch Phase 2 Institutional Data
-        const institutionalRaw = await getLatestInstitutionalData();
+        const institutionalRaw = (await getLatestInstitutionalData()).filter(entry =>
+            !(entry.indicator_name === 'naaim' && marketData.naaimExposure)
+        );
 
         // Normalize Institutional Scores (0-100)
         // Higher score = More Bullish/Greedy (Sell signal in contrarian logic)
@@ -521,7 +535,7 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             }
             if (name === 'naaim') {
                 // NAAIM Exposure: 40% (Fear) to 90% (Greed)
-                return Math.min(Math.max((val - 40) / (90 - 40) * 100, 0), 100);
+                return normalizeNaaimExposure(val);
             }
             if (name === 'bofa') {
                 // BofA SSI: Standardized score (placeholder range 50-60)
@@ -566,8 +580,50 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             enabled: enableSocial, // Use parameter to control enabled state
             last_updated: new Date().toISOString()
         };
+        const putCallIndicator: IndicatorData | null = market === 'US' && marketData.putCallRatio
+            ? {
+                name: 'put_call',
+                display_name: getIndicatorDisplayName('put_call'),
+                value: marketData.putCallRatio.ratio,
+                score: normalizePutCallRatio(marketData.putCallRatio.ratio),
+                weight: 0,
+                signal: getSignalFromScore(normalizePutCallRatio(marketData.putCallRatio.ratio)),
+                enabled: true,
+                last_updated: marketData.putCallRatio.reportDate,
+                metadata: {
+                    source_url: marketData.putCallRatio.sourceUrl,
+                    cadence: 'Daily / tactical',
+                    horizon: '1-5 trading days',
+                    mode_note: 'Options positioning. High put/call can indicate fear or hedging; low put/call can indicate complacency.'
+                }
+            }
+            : null;
+        const naaimIndicator: IndicatorData | null = market === 'US' && marketData.naaimExposure
+            ? {
+                name: 'naaim',
+                display_name: getIndicatorDisplayName('naaim'),
+                value: marketData.naaimExposure.exposure,
+                score: normalizeNaaimExposure(marketData.naaimExposure.exposure),
+                weight: 0,
+                signal: getSignalFromScore(normalizeNaaimExposure(marketData.naaimExposure.exposure)),
+                enabled: true,
+                last_updated: marketData.naaimExposure.reportDate,
+                metadata: {
+                    source_url: marketData.naaimExposure.sourceUrl,
+                    cadence: 'Weekly / positioning',
+                    horizon: '1-4 weeks',
+                    mode_note: 'Weekly active-manager exposure. High exposure can confirm momentum but may also flag crowding in contrarian mode.'
+                }
+            }
+            : null;
 
-        const signalInputs = [vixIndicator, socialIndicator, ...instIndicators];
+        const signalInputs = [
+            vixIndicator,
+            socialIndicator,
+            ...(putCallIndicator ? [putCallIndicator] : []),
+            ...(naaimIndicator ? [naaimIndicator] : []),
+            ...instIndicators
+        ];
         const v2Signal = calculateCompositeScoreV2(signalInputs, { market, mode });
         const sourceName = socialIndicator.name as 'social' | 'news';
         v2Signal.metadata.counterfactuals = {
@@ -588,6 +644,18 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                 change: s.change,
                 changePercent: s.changePercent
             }));
+        if (marketData.buffettIndicator) {
+            v2Signal.metadata.valuation_backdrop = {
+                name: 'Buffett Indicator',
+                ratio_pct: marketData.buffettIndicator.ratioPct,
+                market_value_billions: marketData.buffettIndicator.marketValueBillions,
+                gdp_billions: marketData.buffettIndicator.gdpBillions,
+                report_date: marketData.buffettIndicator.reportDate,
+                label: marketData.buffettIndicator.label,
+                detail: marketData.buffettIndicator.detail,
+                source_url: marketData.buffettIndicator.sourceUrl,
+            };
+        }
 
         // Populate article data from news and reddit
         const oneMonthAgo = Date.now() - (30 * 24 * 60 * 60 * 1000); // 30 days in milliseconds
@@ -729,7 +797,7 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                     raw_value: component.value,
                     last_updated: component.last_updated,
                     detail: `${component.score.toFixed(0)} score at ${(component.weight * 100).toFixed(0)}% weight`,
-                    mode_note: component.name === 'aaii' ? aaiiNote : undefined
+                    mode_note: component.metadata?.mode_note ?? (component.name === 'aaii' ? aaiiNote : undefined)
                 };
             })
             .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));

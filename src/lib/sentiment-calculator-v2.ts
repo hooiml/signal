@@ -1,4 +1,5 @@
 import { IndicatorData, MarketSignal, SignalTier, ConfidenceMetrics, SignalAction } from './types/signal-v2';
+import { getIndicatorBaseWeights, isScoredIndicator } from './indicator-registry';
 
 /**
  * V2 Calculator: Proportional Redistribution & Soft-Min Logic
@@ -15,51 +16,29 @@ export function calculateCompositeScoreV2(
     // 1. Filter enabled indicators
     const enabledIndicators = indicators.filter(i => i.enabled);
 
-    // 2. Define Base Weights (Per Market)
-    // Matches existing V1 logic: US=VIX dominated, MY=News dominated
-    const BASE_WEIGHTS: Record<string, Record<string, number>> = {
-        US: {
-            vix: 0.40,
-            social: 0.30,
-            aaii: 0.20,
-            bofa: 0.10
-        },
-        MY: {
-            vix: 0.25,
-            social: 0.15,
-            news: 0.50,
-            aaii: 0.10
-        }
-    };
-
-    // 2a. Dynamic Regime Adjustment (High Volatility Override)
+    // 2. Dynamic Regime Adjustment (High Volatility Override)
     // If VIX > 30 (Panic), valid signals are drowned out by noise.
     // We boost VIX weight to 85% to ensure safety.
     const vixIndicator = enabledIndicators.find(i => i.name === 'vix');
-    let dynamicWeights = { ... (BASE_WEIGHTS[market] || BASE_WEIGHTS['US']) };
-
-    if (market === 'US' && vixIndicator && vixIndicator.value > 30) {
-        dynamicWeights = {
-            vix: 0.85,
-            social: 0.15,
-            aaii: 0.0,
-            bofa: 0.0
-        };
-    }
-
-    const marketWeights = dynamicWeights;
+    const marketWeights = getIndicatorBaseWeights(market, {
+        highVolatilityOverride: market === 'US' && Boolean(vixIndicator && vixIndicator.value > 30)
+    });
 
     // 3. Proportional Redistribution
     let totalBaseWeight = 0;
     enabledIndicators.forEach(ind => {
-        totalBaseWeight += (marketWeights[ind.name] || 0);
+        if (isScoredIndicator(ind.name, marketWeights)) {
+            totalBaseWeight += (marketWeights[ind.name] || 0);
+        }
     });
 
     // Avoid division by zero
     if (totalBaseWeight === 0) totalBaseWeight = 1;
 
     // Redistribute weights without mutating the original inputs.
-    const activeIndicators = enabledIndicators.map(ind => {
+    const activeIndicators = enabledIndicators
+        .filter(ind => isScoredIndicator(ind.name, marketWeights))
+        .map(ind => {
         const base = marketWeights[ind.name] || 0;
         return {
             ...ind,

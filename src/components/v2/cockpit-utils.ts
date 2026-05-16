@@ -289,8 +289,16 @@ export function formatRawValue(indicator: IndicatorData, market: 'US' | 'MY') {
         return `${clampSentiment(indicator.value).toFixed(2)} sentiment`;
     }
 
+    if (indicator.name === 'put_call') {
+        return `${indicator.value.toFixed(2)} put/call`;
+    }
+
     if (indicator.name === 'aaii') {
         return `${indicator.value.toFixed(1)}% bullish`;
+    }
+
+    if (indicator.name === 'naaim') {
+        return `${indicator.value.toFixed(1)}% exposure`;
     }
 
     if (indicator.name === 'vix' && market === 'MY') {
@@ -300,14 +308,35 @@ export function formatRawValue(indicator: IndicatorData, market: 'US' | 'MY') {
     return indicator.value.toFixed(2);
 }
 
-export function getFreshnessLabel(lastUpdated: string) {
+export function getIndicatorCadence(indicator: IndicatorData) {
+    if (indicator.metadata?.cadence) return indicator.metadata.cadence;
+    if (indicator.name === 'aaii' || indicator.name === 'naaim') return 'Weekly / positioning';
+    if (indicator.name === 'put_call' || indicator.name === 'social' || indicator.name === 'news') return 'Daily / tactical';
+    if (indicator.name === 'vix') return 'Live / tactical';
+    return 'Periodic';
+}
+
+export function getIndicatorHorizon(indicator: IndicatorData) {
+    if (indicator.metadata?.horizon) return indicator.metadata.horizon;
+    if (indicator.name === 'aaii' || indicator.name === 'naaim') return '1-4 weeks';
+    if (indicator.name === 'put_call' || indicator.name === 'social' || indicator.name === 'news' || indicator.name === 'vix') return '1-5 trading days';
+    return 'Context dependent';
+}
+
+export function getIndicatorStaleAfterDays(indicator: IndicatorData) {
+    if (indicator.name === 'put_call' || indicator.name === 'social' || indicator.name === 'news' || indicator.name === 'vix') return 2;
+    if (indicator.name === 'aaii' || indicator.name === 'naaim') return 14;
+    return 14;
+}
+
+export function getFreshnessLabel(lastUpdated: string, staleAfterDays = 14) {
     const date = new Date(lastUpdated);
     if (Number.isNaN(date.getTime())) return 'Unknown';
 
     const ageDays = (Date.now() - date.getTime()) / (1000 * 60 * 60 * 24);
 
-    if (ageDays > 14) return 'Stale';
-    if (ageDays > 3) return 'Mixed';
+    if (ageDays > staleAfterDays) return 'Stale';
+    if (ageDays > Math.max(1, staleAfterDays * 0.75)) return 'Mixed';
     return 'Fresh';
 }
 

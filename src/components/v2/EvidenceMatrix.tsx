@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { IndicatorData, MarketSignal } from '@/lib/types/signal-v2';
-import { CockpitTheme, formatDateLabel, formatRawValue, getActionUiLabel, getFreshnessLabel, getFreshnessTone, getReadStateLabel, getSupportLabel, getSupportState, getSupportTone, getThemeClasses, getTierUiLabel } from './cockpit-utils';
+import { CockpitTheme, formatDateLabel, formatRawValue, getActionUiLabel, getFreshnessLabel, getFreshnessTone, getIndicatorCadence, getIndicatorHorizon, getIndicatorStaleAfterDays, getReadStateLabel, getSupportLabel, getSupportState, getSupportTone, getThemeClasses, getTierUiLabel } from './cockpit-utils';
 
 interface EvidenceMatrixProps {
     signal: MarketSignal;
@@ -16,6 +16,8 @@ interface EvidenceRow extends IndicatorData {
     modeNote: string | null;
     supportState: ReturnType<typeof getSupportState>;
     freshness: string;
+    cadence: string;
+    horizon: string;
 }
 
 export const EvidenceMatrix = ({ signal, market, theme }: EvidenceMatrixProps) => {
@@ -76,6 +78,7 @@ export const EvidenceMatrix = ({ signal, market, theme }: EvidenceMatrixProps) =
                                 <td className="px-4 py-4">
                                     <div className={`font-semibold ${themeClasses.textPrimary}`}>{row.display_name}</div>
                                     <div className={`mt-1 text-xs ${themeClasses.textMuted}`}>Updated {formatDateLabel(row.last_updated, true)}</div>
+                                    <div className={`mt-1 text-xs ${themeClasses.textMuted}`}>{row.cadence} · {row.horizon}</div>
                                 </td>
                                 <td className={`px-4 py-4 ${themeClasses.textSecondary}`}>{formatRawValue(row, market)}</td>
                                 <td className={`px-4 py-4 font-mono text-lg ${themeClasses.textPrimary}`}>{Math.round(row.score)}</td>
@@ -132,6 +135,7 @@ export const EvidenceMatrix = ({ signal, market, theme }: EvidenceMatrixProps) =
                             <div>
                                 <div className={`text-base font-semibold ${themeClasses.textPrimary}`}>{row.display_name}</div>
                                 <div className={`mt-1 text-sm ${themeClasses.textMuted}`}>{getTierUiLabel(row.signal)} · {getSupportLabel(row.supportState)}</div>
+                                <div className={`mt-1 text-xs ${themeClasses.textMuted}`}>{row.cadence} · {row.horizon}</div>
                             </div>
                             <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${getSupportTone(row.supportState, theme)}`}>
                                 {Math.round(row.score)}
@@ -160,7 +164,7 @@ function buildRows(signal: MarketSignal): EvidenceRow[] {
 
     const rows = Object.values(signal.components).map((indicator) => {
         const driver = drivers.find((entry) => entry.key === indicator.name || entry.name === indicator.display_name);
-        const freshness = getFreshnessLabel(indicator.last_updated);
+        const freshness = getFreshnessLabel(indicator.last_updated, getIndicatorStaleAfterDays(indicator));
 
         return {
             ...indicator,
@@ -169,6 +173,8 @@ function buildRows(signal: MarketSignal): EvidenceRow[] {
             modeNote: driver?.mode_note ?? null,
             supportState: getSupportState(indicator, signal.tier),
             freshness,
+            cadence: getIndicatorCadence(indicator),
+            horizon: getIndicatorHorizon(indicator),
         } satisfies EvidenceRow;
     });
 
