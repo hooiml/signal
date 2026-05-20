@@ -192,7 +192,7 @@ Questions:
 
 Output labels:
 
-- `Ready to research deeper`
+- `Ready`
 - `Wait for better price`
 - `Too uncertain`
 - `Avoid`
@@ -202,6 +202,136 @@ Purpose:
 - Turn scattered data into a decision-support workflow.
 
 ## Data And Integration Needs
+
+## Resolved Implementation Decisions
+
+These decisions are locked for the first production implementation pass.
+
+### Data Source
+
+Use EODHD as the primary provider for fundamental, valuation, quote, earnings, and technical-context data.
+
+- Primary provider: EODHD Fundamentals API v1.1
+- Provider symbol format: `{SYMBOL}.{EXCHANGE_CODE}`, for example `AAPL.US` and `1818.KLSE`
+- Use EODHD for: company profile, market cap, revenue, margins, balance-sheet fields, cash-flow fields, valuation metrics, dividend yield, 52-week range, moving averages, earnings, and exchange symbol lookup
+- Required environment variable: `EODHD_API_TOKEN`
+
+Use Twelve Data as the fallback provider when EODHD is unavailable or does not cover a field needed by the UI.
+
+- Fallback provider: Twelve Data Fundamentals
+- Use Twelve Data for: profile, statistics, income statement, balance sheet, cash flow, earnings, market cap, and Malaysia `XKLS` coverage checks
+- Required environment variable: `TWELVE_DATA_API_KEY`
+
+Do not use Yahoo Finance as the production source for fundamentals or valuation. The existing Yahoo helper may remain for legacy market-signal price context, but the research page should normalize provider responses through a dedicated research data layer.
+
+Provider failures must degrade by field. If price succeeds but valuation fails, render price and show `Unknown` for valuation. Do not block the whole page unless the selected symbol cannot be resolved.
+
+### Persistence
+
+Use Neon Postgres for persisted research state.
+
+Persist these user-owned fields server-side:
+
+- Watchlist metadata
+- Research status
+- Target buy zone
+- Thesis fields
+- Checklist booleans
+- Last-reviewed timestamp
+- User notes
+
+Use `localStorage` only for unsaved draft text and UI preferences such as theme. Do not use a flat JSON file for app state because it will not work reliably in a deployed Vercel environment and will not scale to multi-device use.
+
+Recommended tables:
+
+- `research_watchlist`
+- `research_theses`
+- `research_checklists`
+- `research_provider_snapshots`
+
+Fetched provider data and user-authored research state must stay separate. Provider snapshots may be cached in Postgres with `provider`, `source_url`, `provider_symbol`, and `fetched_at`, but they must not overwrite user notes.
+
+### Checklist Scoring Logic
+
+The checklist has exactly nine boolean inputs:
+
+```ts
+type InvestmentChecklist = {
+    understandBusiness: boolean;
+    revenueGrowingOrStable: boolean;
+    marginsHealthyOrImproving: boolean;
+    debtManageable: boolean;
+    freeCashFlowPositiveOrImproving: boolean;
+    valuationReasonable: boolean;
+    catalystOrCompoundingReason: boolean;
+    downsideAcceptable: boolean;
+    betterThanCashOrIndex: boolean;
+};
+```
+
+Map those inputs to the output label with this logic:
+
+```ts
+function getReadiness(
+    checklist: InvestmentChecklist,
+): 'Ready' | 'Wait for better price' | 'Too uncertain' | 'Avoid' {
+    const trueCount = Object.values(checklist).filter(Boolean).length;
+
+    if (!checklist.downsideAcceptable) return 'Avoid';
+    if (!checklist.debtManageable && !checklist.freeCashFlowPositiveOrImproving) return 'Avoid';
+
+    if (!checklist.understandBusiness) return 'Too uncertain';
+    if (trueCount <= 5) return 'Too uncertain';
+
+    if (!checklist.valuationReasonable && trueCount >= 6) return 'Wait for better price';
+
+    if (
+        trueCount >= 8 &&
+        checklist.valuationReasonable &&
+        checklist.downsideAcceptable &&
+        checklist.betterThanCashOrIndex
+    ) {
+        return 'Ready';
+    }
+
+    return 'Too uncertain';
+}
+```
+
+Rules:
+
+- `Avoid` is a hard risk gate.
+- `Wait for better price` only appears when the business case is mostly intact but valuation is the blocker.
+- `Ready` requires a strong checklist and must still be phrased as research readiness, not financial advice.
+- Technical indicators must not feed this label.
+
+### Mobile Watchlist Behavior
+
+The desktop watchlist remains a dense 9-column table at `lg` and wider.
+
+For tablet widths, use a compact table:
+
+- Merge symbol, company, and market into one identity column.
+- Merge status and readiness into one decision column.
+- Keep price, buy zone, valuation, thesis strength, and reviewed date visible.
+
+For mobile widths below `md`, replace the table with cards. Do not rely on horizontal scrolling as the main mobile experience.
+
+Each mobile card must show:
+
+- Symbol, company, and market
+- Price and daily change
+- Readiness label
+- Research status
+- Valuation state
+- Thesis strength
+- Last reviewed date
+
+Move target buy zone and short thesis note into an expanded or selected detail area so card height stays scannable.
+
+### Phase Priority Change
+
+Move the Thesis Card and Checklist into the first persisted implementation slice. The research page is not differentiated by showing another finance data table; it is differentiated by forcing a clear personal thesis, risk case, invalidation condition, and review state.
 
 ### Reuse Existing Code Where Possible
 
@@ -282,23 +412,47 @@ export interface InvestmentResearchSnapshot {
 
 ## Implementation Phases
 
-### Phase 1: Static Research Page Shell
+### Phase 1: Persisted Thesis Workspace And Research Shell
 
 Add:
 
 - `/research` route
 - Navigation link
-- Static watchlist sample data
-- Page layout and empty states
-- No backend changes yet
+- Research types in `src/lib/types/research.ts`
+- Neon tables for watchlist metadata, thesis fields, checklist state, notes, and last-reviewed timestamps
+- Editable Thesis Card
+- Editable Investment Checklist with the explicit readiness logic above
+- Static provider sample data for quote, fundamentals, valuation, events, and technical context
 
 Acceptance criteria:
 
 - User can open `/research`.
 - Page clearly feels separate from the market signal cockpit.
 - Watchlist and selected-symbol panels render on desktop and mobile.
+- User can save thesis fields and checklist state.
+- Refreshing `/research` preserves saved personal research state.
+- Readiness label is computed from checklist state, not manually assigned.
+- Last-reviewed timestamp updates when the user saves the research state.
 
-### Phase 2: Live Quote And Basic Fundamentals
+### Phase 2: Watchlist UX, Mobile Cards, And Theme Support
+
+Add:
+
+- Desktop 9-column table
+- Tablet compact table
+- Mobile watchlist cards
+- Light and dark mode support for the research page
+- Theme preference stored in `localStorage`
+- Shared visual language with the main Signal cockpit without copying its hero treatment
+
+Acceptance criteria:
+
+- Desktop keeps the dense scan table.
+- Mobile uses cards with no required horizontal scrolling.
+- Light mode and dark mode both have readable contrast, visible borders, and clear selected states.
+- The first viewport shows watchlist, selected ticker state, and thesis/readiness context.
+
+### Phase 3: Live Quote And Basic Fundamentals
 
 Add:
 
@@ -307,27 +461,16 @@ Add:
 - Quote data
 - Basic company profile fields
 - Fundamental metric cards
+- EODHD provider adapter
+- Twelve Data fallback adapter
 
 Acceptance criteria:
 
 - Selecting a ticker loads live or clearly timestamped quote data.
 - Missing data renders as `Unknown`.
 - External request parameters are validated at route boundaries.
-
-### Phase 3: Thesis, Notes, And Checklist
-
-Add:
-
-- Thesis fields
-- Checklist state
-- Local persistence first, or Neon persistence if server-side storage is preferred
-- Last reviewed timestamp
-
-Acceptance criteria:
-
-- User can record why a ticker is interesting.
-- Checklist produces a clear readiness label.
-- Notes are not mixed into fetched data objects.
+- US and Bursa symbols both resolve through provider-specific symbols.
+- Provider name, source URL, and fetched timestamp are available in the normalized snapshot.
 
 ### Phase 4: Valuation, Earnings, And Research Feed
 
@@ -397,7 +540,7 @@ Mitigation:
 
 - Use decision-support language.
 - Avoid labels like `Buy now`.
-- Prefer `Worth deeper research`, `Wait`, `Avoid`, and `Too uncertain`.
+- Prefer `Ready`, `Wait for better price`, `Avoid`, and `Too uncertain`.
 
 ## Out Of Scope For MVP
 
@@ -430,10 +573,10 @@ For implementation later:
 
 The first implementation slice should be:
 
-1. Add `src/app/research/page.tsx`.
-2. Add `src/components/research/ResearchDashboard.tsx`.
-3. Add a static watchlist table and selected-symbol detail shell.
-4. Add navigation from the existing header.
-5. Keep all research data mocked or static for this first slice.
+1. Add or update `src/lib/types/research.ts`.
+2. Add Neon-backed research state tables for watchlist metadata, thesis, checklist, notes, and last-reviewed timestamps.
+3. Convert `src/components/research/ResearchDashboard.tsx` into a theme-aware workspace with desktop table, tablet compact table, and mobile cards.
+4. Move Thesis Card and Investment Checklist into the first viewport or directly adjacent selected-ticker panel.
+5. Keep quote, fundamentals, valuation, events, feed, and technical data mocked until the provider adapter phase.
 
-This keeps the change reversible and avoids mixing data-source work with UI structure.
+This keeps the change focused on the core product behavior before data-provider integration.

@@ -1,16 +1,31 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { AppNav } from '@/components/AppNav';
+import { ThemeModeSwitch } from '@/components/ThemeModeSwitch';
 
 type Market = 'US' | 'MY';
 type ResearchStatus = 'owned' | 'watch' | 'waiting' | 'avoid';
 type ValuationState = 'cheap' | 'fair' | 'expensive' | 'unknown';
 type ThesisStrength = 'high' | 'medium' | 'low';
-type ReadinessState = 'Ready to research deeper' | 'Wait for better price' | 'Too uncertain' | 'Avoid';
+type ReadinessState = 'Ready' | 'Wait for better price' | 'Too uncertain' | 'Avoid';
+type ResearchTheme = 'light' | 'dark';
+type ChecklistKey =
+    | 'understandBusiness'
+    | 'revenueGrowingOrStable'
+    | 'marginsHealthyOrImproving'
+    | 'debtManageable'
+    | 'freeCashFlowPositiveOrImproving'
+    | 'valuationReasonable'
+    | 'catalystOrCompoundingReason'
+    | 'downsideAcceptable'
+    | 'betterThanCashOrIndex';
+type InvestmentChecklist = Record<ChecklistKey, boolean>;
 type KeyValueRow = [string, string];
 
 type ResearchWatchlistItem = {
     symbol: string;
+    providerSymbol: string;
     name: string;
     market: Market;
     price?: number;
@@ -20,7 +35,6 @@ type ResearchWatchlistItem = {
     valuationState: ValuationState;
     thesisStrength: ThesisStrength;
     lastReviewedAt: string;
-    readiness: ReadinessState;
     description: string;
     sector: string;
     industry: string;
@@ -32,6 +46,7 @@ type ResearchWatchlistItem = {
     debtLevel: string;
     cashPosition: string;
     shareCountTrend: string;
+    whyInterested: string;
     bullCase: string;
     bearCase: string;
     buyTrigger: string;
@@ -70,15 +85,27 @@ type ResearchWatchlistItem = {
         volume: string;
         supportResistance: string;
     };
-    checklist: Array<{
-        label: string;
-        checked: boolean;
-    }>;
+    checklist: InvestmentChecklist;
 };
+
+const THEME_STORAGE_KEY = 'signal-dashboard-theme';
+
+const checklistItems: Array<{ key: ChecklistKey; label: string }> = [
+    { key: 'understandBusiness', label: 'Understand the business' },
+    { key: 'revenueGrowingOrStable', label: 'Revenue growing or stable' },
+    { key: 'marginsHealthyOrImproving', label: 'Margins healthy or improving' },
+    { key: 'debtManageable', label: 'Debt manageable' },
+    { key: 'freeCashFlowPositiveOrImproving', label: 'Free cash flow positive or improving' },
+    { key: 'valuationReasonable', label: 'Valuation reasonable' },
+    { key: 'catalystOrCompoundingReason', label: 'Clear catalyst or compounding reason' },
+    { key: 'downsideAcceptable', label: 'Downside acceptable' },
+    { key: 'betterThanCashOrIndex', label: 'Better than cash or index' },
+];
 
 const watchlist: ResearchWatchlistItem[] = [
     {
         symbol: 'MSFT',
+        providerSymbol: 'MSFT.US',
         name: 'Microsoft',
         market: 'US',
         price: 428.4,
@@ -88,7 +115,6 @@ const watchlist: ResearchWatchlistItem[] = [
         valuationState: 'fair',
         thesisStrength: 'high',
         lastReviewedAt: '2026-05-10',
-        readiness: 'Ready to research deeper',
         description: 'Enterprise software, cloud infrastructure, productivity apps, gaming, and AI platform exposure.',
         sector: 'Technology',
         industry: 'Software - Infrastructure',
@@ -100,6 +126,7 @@ const watchlist: ResearchWatchlistItem[] = [
         debtLevel: 'Manageable',
         cashPosition: 'Large net cash position',
         shareCountTrend: 'Stable to declining',
+        whyInterested: 'Durable enterprise distribution with cloud and AI optionality.',
         bullCase: 'Azure and AI tooling continue to compound inside existing enterprise distribution.',
         bearCase: 'AI capex rises faster than monetization and cloud growth slows from a larger base.',
         buyTrigger: 'Add only if valuation resets closer to the target zone or fundamentals accelerate.',
@@ -136,16 +163,21 @@ const watchlist: ResearchWatchlistItem[] = [
             volume: 'Normal',
             supportResistance: '$405 support, $455 resistance',
         },
-        checklist: [
-            { label: 'Business is understandable', checked: true },
-            { label: 'Revenue is growing or stable', checked: true },
-            { label: 'Margins are healthy', checked: true },
-            { label: 'Debt is manageable', checked: true },
-            { label: 'Valuation is reasonable', checked: false },
-        ],
+        checklist: {
+            understandBusiness: true,
+            revenueGrowingOrStable: true,
+            marginsHealthyOrImproving: true,
+            debtManageable: true,
+            freeCashFlowPositiveOrImproving: true,
+            valuationReasonable: false,
+            catalystOrCompoundingReason: true,
+            downsideAcceptable: true,
+            betterThanCashOrIndex: true,
+        },
     },
     {
         symbol: 'NVDA',
+        providerSymbol: 'NVDA.US',
         name: 'NVIDIA',
         market: 'US',
         price: 118.9,
@@ -155,7 +187,6 @@ const watchlist: ResearchWatchlistItem[] = [
         valuationState: 'expensive',
         thesisStrength: 'medium',
         lastReviewedAt: '2026-05-08',
-        readiness: 'Wait for better price',
         description: 'Accelerated computing platform spanning data center GPUs, networking, software, and gaming GPUs.',
         sector: 'Technology',
         industry: 'Semiconductors',
@@ -167,6 +198,7 @@ const watchlist: ResearchWatchlistItem[] = [
         debtLevel: 'Low',
         cashPosition: 'Strong',
         shareCountTrend: 'Stable',
+        whyInterested: 'Dominant AI infrastructure supplier with exceptional margin profile.',
         bullCase: 'AI infrastructure demand stays supply-constrained and software attach improves durability.',
         bearCase: 'Hyperscaler spending normalizes and customers diversify silicon away from one supplier.',
         buyTrigger: 'Wait for valuation compression or another data-center demand confirmation.',
@@ -203,16 +235,21 @@ const watchlist: ResearchWatchlistItem[] = [
             volume: 'Elevated',
             supportResistance: '$105 support, $130 resistance',
         },
-        checklist: [
-            { label: 'Business is understandable', checked: true },
-            { label: 'Revenue is growing or stable', checked: true },
-            { label: 'Margins are healthy', checked: true },
-            { label: 'Debt is manageable', checked: true },
-            { label: 'Valuation is reasonable', checked: false },
-        ],
+        checklist: {
+            understandBusiness: true,
+            revenueGrowingOrStable: true,
+            marginsHealthyOrImproving: true,
+            debtManageable: true,
+            freeCashFlowPositiveOrImproving: true,
+            valuationReasonable: false,
+            catalystOrCompoundingReason: true,
+            downsideAcceptable: true,
+            betterThanCashOrIndex: true,
+        },
     },
     {
         symbol: 'VOO',
+        providerSymbol: 'VOO.US',
         name: 'Vanguard S&P 500 ETF',
         market: 'US',
         price: 512.3,
@@ -222,7 +259,6 @@ const watchlist: ResearchWatchlistItem[] = [
         valuationState: 'fair',
         thesisStrength: 'high',
         lastReviewedAt: '2026-05-05',
-        readiness: 'Ready to research deeper',
         description: 'Broad US large-cap equity exposure through an index fund structure.',
         sector: 'ETF',
         industry: 'Broad market',
@@ -234,6 +270,7 @@ const watchlist: ResearchWatchlistItem[] = [
         debtLevel: 'Not applicable',
         cashPosition: 'Not applicable',
         shareCountTrend: 'Creation/redemption driven',
+        whyInterested: 'Baseline opportunity-cost benchmark against single-stock ideas.',
         bullCase: 'Low-cost broad exposure remains a strong baseline against single-stock risk.',
         bearCase: 'Index concentration and valuation leave less margin of safety.',
         buyTrigger: 'Use as the benchmark alternative when individual stocks are not clearly better.',
@@ -270,16 +307,21 @@ const watchlist: ResearchWatchlistItem[] = [
             volume: 'Normal',
             supportResistance: 'Watch prior month low',
         },
-        checklist: [
-            { label: 'Business is understandable', checked: true },
-            { label: 'Revenue is growing or stable', checked: true },
-            { label: 'Margins are healthy', checked: true },
-            { label: 'Debt is manageable', checked: true },
-            { label: 'Valuation is reasonable', checked: true },
-        ],
+        checklist: {
+            understandBusiness: true,
+            revenueGrowingOrStable: true,
+            marginsHealthyOrImproving: true,
+            debtManageable: true,
+            freeCashFlowPositiveOrImproving: true,
+            valuationReasonable: true,
+            catalystOrCompoundingReason: true,
+            downsideAcceptable: true,
+            betterThanCashOrIndex: true,
+        },
     },
     {
         symbol: 'MAYBANK',
+        providerSymbol: '1155.KLSE',
         name: 'Malayan Banking',
         market: 'MY',
         price: 10.02,
@@ -289,7 +331,6 @@ const watchlist: ResearchWatchlistItem[] = [
         valuationState: 'fair',
         thesisStrength: 'medium',
         lastReviewedAt: '2026-05-02',
-        readiness: 'Ready to research deeper',
         description: 'Large Malaysian banking group with regional exposure and dividend relevance.',
         sector: 'Financials',
         industry: 'Banks',
@@ -301,6 +342,7 @@ const watchlist: ResearchWatchlistItem[] = [
         debtLevel: 'Bank balance sheet',
         cashPosition: 'Bank balance sheet',
         shareCountTrend: 'Stable',
+        whyInterested: 'Dividend durability and domestic banking scale.',
         bullCase: 'Stable earnings base, dividend support, and domestic banking scale.',
         bearCase: 'Margin compression or asset-quality deterioration weakens income durability.',
         buyTrigger: 'Review after quarterly asset-quality and dividend commentary.',
@@ -337,16 +379,21 @@ const watchlist: ResearchWatchlistItem[] = [
             volume: 'Normal',
             supportResistance: 'RM9.60 support, RM10.40 resistance',
         },
-        checklist: [
-            { label: 'Business is understandable', checked: true },
-            { label: 'Revenue is growing or stable', checked: true },
-            { label: 'Margins are healthy', checked: true },
-            { label: 'Debt is manageable', checked: false },
-            { label: 'Valuation is reasonable', checked: true },
-        ],
+        checklist: {
+            understandBusiness: true,
+            revenueGrowingOrStable: true,
+            marginsHealthyOrImproving: true,
+            debtManageable: false,
+            freeCashFlowPositiveOrImproving: true,
+            valuationReasonable: true,
+            catalystOrCompoundingReason: true,
+            downsideAcceptable: true,
+            betterThanCashOrIndex: false,
+        },
     },
     {
         symbol: 'NET',
+        providerSymbol: 'NET.US',
         name: 'Cloudflare',
         market: 'US',
         price: 88.1,
@@ -356,7 +403,6 @@ const watchlist: ResearchWatchlistItem[] = [
         valuationState: 'expensive',
         thesisStrength: 'low',
         lastReviewedAt: '2026-04-29',
-        readiness: 'Too uncertain',
         description: 'Edge network, security, developer platform, and application delivery services.',
         sector: 'Technology',
         industry: 'Software - Infrastructure',
@@ -368,6 +414,7 @@ const watchlist: ResearchWatchlistItem[] = [
         debtLevel: 'Manageable',
         cashPosition: 'Adequate',
         shareCountTrend: 'Dilution watch',
+        whyInterested: 'Strong platform story, but valuation and margin proof are unresolved.',
         bullCase: 'Platform breadth creates durable expansion across security, edge compute, and developer workflows.',
         bearCase: 'Growth slows before margins prove the current valuation.',
         buyTrigger: 'Wait for either a large valuation reset or clearer operating leverage.',
@@ -404,13 +451,17 @@ const watchlist: ResearchWatchlistItem[] = [
             volume: 'Elevated on down days',
             supportResistance: '$75 support, $96 resistance',
         },
-        checklist: [
-            { label: 'Business is understandable', checked: true },
-            { label: 'Revenue is growing or stable', checked: true },
-            { label: 'Margins are healthy', checked: false },
-            { label: 'Debt is manageable', checked: true },
-            { label: 'Valuation is reasonable', checked: false },
-        ],
+        checklist: {
+            understandBusiness: true,
+            revenueGrowingOrStable: true,
+            marginsHealthyOrImproving: false,
+            debtManageable: true,
+            freeCashFlowPositiveOrImproving: false,
+            valuationReasonable: false,
+            catalystOrCompoundingReason: true,
+            downsideAcceptable: false,
+            betterThanCashOrIndex: false,
+        },
     },
 ];
 
@@ -434,31 +485,73 @@ const strengthLabels: Record<ThesisStrength, string> = {
     low: 'Low',
 };
 
-const statusStyles: Record<ResearchStatus, string> = {
-    owned: 'bg-emerald-100 text-emerald-800 ring-emerald-200',
-    watch: 'bg-sky-100 text-sky-800 ring-sky-200',
-    waiting: 'bg-amber-100 text-amber-800 ring-amber-200',
-    avoid: 'bg-rose-100 text-rose-800 ring-rose-200',
-};
+function getTheme(theme: ResearchTheme) {
+    if (theme === 'light') {
+        return {
+            page: 'bg-[#f6f7f9] text-slate-950 selection:bg-emerald-200 selection:text-slate-950',
+            panel: 'border-slate-300 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.07)]',
+            panelSoft: 'border-slate-300 bg-slate-50',
+            panelMuted: 'border-slate-200 bg-slate-100',
+            tableHead: 'bg-slate-100 text-slate-600',
+            row: 'bg-white hover:bg-slate-50',
+            selectedRow: 'border-l-2 border-emerald-600 bg-emerald-50',
+            divide: 'divide-slate-200',
+            textPrimary: 'text-slate-950',
+            textSecondary: 'text-slate-700',
+            textMuted: 'text-slate-500',
+            textSubtle: 'text-slate-600',
+            divider: 'border-slate-200',
+            input: 'border-slate-300 bg-white text-slate-950',
+            button: 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100',
+            buttonActive: 'border-emerald-700 bg-emerald-900 text-white',
+        };
+    }
 
-const valuationStyles: Record<ValuationState, string> = {
-    cheap: 'bg-emerald-100 text-emerald-800 ring-emerald-200',
-    fair: 'bg-slate-100 text-slate-700 ring-slate-200',
-    expensive: 'bg-amber-100 text-amber-800 ring-amber-200',
-    unknown: 'bg-zinc-100 text-zinc-700 ring-zinc-200',
-};
+    return {
+        page: 'bg-[#0b1118] text-[#eef2f7] selection:bg-emerald-300 selection:text-slate-950',
+        panel: 'border-[#2a3948] bg-[#111a23] shadow-[0_18px_45px_rgba(0,0,0,0.28)]',
+        panelSoft: 'border-[#2a3948] bg-[#16202a]',
+        panelMuted: 'border-[#263442] bg-[#0f1720]',
+        tableHead: 'bg-[#17212c] text-[#9aa8b8]',
+        row: 'bg-[#111a23] hover:bg-[#17212c]',
+        selectedRow: 'border-l-2 border-emerald-400 bg-emerald-400/10',
+        divide: 'divide-[#263442]',
+        textPrimary: 'text-[#eef2f7]',
+        textSecondary: 'text-[#c8d2dd]',
+        textMuted: 'text-[#9aa8b8]',
+        textSubtle: 'text-[#a8b4c2]',
+        divider: 'border-[#263442]',
+        input: 'border-[#2a3948] bg-[#0f1720] text-[#eef2f7]',
+        button: 'border-[#2a3948] bg-[#111a23] text-[#c8d2dd] hover:bg-[#16202a]',
+        buttonActive: 'border-emerald-300 bg-emerald-300 text-slate-950',
+    };
+}
 
-const readinessStyles: Record<ReadinessState, string> = {
-    'Ready to research deeper': 'border-emerald-300 bg-emerald-50 text-emerald-900',
-    'Wait for better price': 'border-amber-300 bg-amber-50 text-amber-900',
-    'Too uncertain': 'border-slate-300 bg-slate-50 text-slate-800',
-    Avoid: 'border-rose-300 bg-rose-50 text-rose-900',
-};
+function getReadiness(checklist: InvestmentChecklist): ReadinessState {
+    const trueCount = Object.values(checklist).filter(Boolean).length;
+
+    if (!checklist.downsideAcceptable) return 'Avoid';
+    if (!checklist.debtManageable && !checklist.freeCashFlowPositiveOrImproving) return 'Avoid';
+
+    if (!checklist.understandBusiness) return 'Too uncertain';
+    if (trueCount <= 5) return 'Too uncertain';
+
+    if (!checklist.valuationReasonable && trueCount >= 6) return 'Wait for better price';
+
+    if (
+        trueCount >= 8 &&
+        checklist.valuationReasonable &&
+        checklist.downsideAcceptable &&
+        checklist.betterThanCashOrIndex
+    ) {
+        return 'Ready';
+    }
+
+    return 'Too uncertain';
+}
 
 const formatCurrency = (value: number | undefined, market: Market) => {
-    if (value === undefined) {
-        return 'Unknown';
-    }
+    if (value === undefined) return 'Unknown';
 
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -468,12 +561,11 @@ const formatCurrency = (value: number | undefined, market: Market) => {
 };
 
 const formatPercent = (value: number | undefined) => {
-    if (value === undefined) {
-        return 'Unknown';
-    }
-
+    if (value === undefined) return 'Unknown';
     return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
 };
+
+const getChecklistCount = (checklist: InvestmentChecklist) => Object.values(checklist).filter(Boolean).length;
 
 const detailRows = (item: ResearchWatchlistItem): KeyValueRow[] => [
     ['Sector', item.sector],
@@ -486,6 +578,15 @@ const detailRows = (item: ResearchWatchlistItem): KeyValueRow[] => [
     ['Debt level', item.debtLevel],
     ['Cash position', item.cashPosition],
     ['Share count', item.shareCountTrend],
+];
+
+const thesisRows = (item: ResearchWatchlistItem): KeyValueRow[] => [
+    ['Why interested', item.whyInterested],
+    ['Bull case', item.bullCase],
+    ['Bear case', item.bearCase],
+    ['Buy trigger', item.buyTrigger],
+    ['Sell or avoid trigger', item.sellTrigger],
+    ['Invalidation', item.thesisBreak],
 ];
 
 const valuationRows = (item: ResearchWatchlistItem): KeyValueRow[] => [
@@ -520,223 +621,525 @@ const technicalRows = (item: ResearchWatchlistItem): KeyValueRow[] => [
 
 export const ResearchDashboard = () => {
     const [selectedSymbol, setSelectedSymbol] = useState(watchlist[0].symbol);
+    const [theme, setTheme] = useState<ResearchTheme>('dark');
+    const [isThemeLoaded, setIsThemeLoaded] = useState(false);
     const selected = watchlist.find((item) => item.symbol === selectedSymbol) ?? watchlist[0];
-    const readyCount = watchlist.filter((item) => item.readiness === 'Ready to research deeper').length;
+    const themeClasses = getTheme(theme);
+    const readinessBySymbol = new Map(watchlist.map((item) => [item.symbol, getReadiness(item.checklist)]));
+    const readyCount = watchlist.filter((item) => readinessBySymbol.get(item.symbol) === 'Ready').length;
     const waitingCount = watchlist.filter((item) => item.status === 'waiting').length;
     const unknownCount = watchlist.filter((item) => item.valuationState === 'unknown').length;
 
+    useEffect(() => {
+        const timeoutId = window.setTimeout(() => {
+            const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+            if (storedTheme === 'light' || storedTheme === 'dark') {
+                setTheme(storedTheme);
+            }
+            setIsThemeLoaded(true);
+        }, 0);
+
+        return () => window.clearTimeout(timeoutId);
+    }, []);
+
+    useEffect(() => {
+        if (!isThemeLoaded) return;
+        document.documentElement.setAttribute('data-cockpit-theme', theme);
+        window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    }, [isThemeLoaded, theme]);
+
     return (
-        <div className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
-            <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
-                <div className="min-w-0">
-                    <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-700">Static MVP sample</div>
-                    <h1 className="mt-2 text-3xl font-bold tracking-normal text-slate-950 sm:text-4xl">Investment Research</h1>
-                    <p className="mt-2 max-w-3xl text-base leading-7 text-slate-600">
-                        Long-horizon watchlist, thesis, valuation, events, and checklist context separated from the market signal cockpit.
-                    </p>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-sm">
-                    <SummaryMetric label="Tickers" value={watchlist.length.toString()} />
-                    <SummaryMetric label="Ready" value={readyCount.toString()} />
-                    <SummaryMetric label="Waiting" value={waitingCount.toString()} />
-                </div>
-            </header>
+        <main className={`min-h-screen ${themeClasses.page}`}>
+            <AppNav active="research" tone={theme} />
 
-            <div className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)]">
-                <section className="min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
-                    <div className="flex flex-col gap-2 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <h2 className="text-base font-bold text-slate-950">Watchlist Overview</h2>
-                            <p className="text-sm text-slate-500">Sample data only. Live quote and source timestamps come in the next phase.</p>
-                        </div>
-                        <div className="text-sm font-semibold text-slate-500">{unknownCount} unknown valuation states</div>
-                    </div>
-
-                    <div className="max-w-full overflow-x-auto">
-                        <table className="min-w-[920px] w-full border-collapse text-left text-sm">
-                            <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                                <tr>
-                                    <th className="px-4 py-3">Symbol</th>
-                                    <th className="px-4 py-3">Company</th>
-                                    <th className="px-4 py-3">Price</th>
-                                    <th className="px-4 py-3">Change</th>
-                                    <th className="px-4 py-3">Status</th>
-                                    <th className="px-4 py-3">Buy zone</th>
-                                    <th className="px-4 py-3">Valuation</th>
-                                    <th className="px-4 py-3">Thesis</th>
-                                    <th className="px-4 py-3">Reviewed</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {watchlist.map((item) => {
-                                    const isSelected = selected.symbol === item.symbol;
-
-                                    return (
-                                        <tr key={item.symbol} className={isSelected ? 'bg-emerald-50/70' : 'bg-white'}>
-                                            <td className="px-4 py-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setSelectedSymbol(item.symbol)}
-                                                    aria-pressed={isSelected}
-                                                    className={`rounded-md px-2 py-1 font-mono text-sm font-bold ${isSelected ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-900 hover:bg-slate-200'}`}
-                                                >
-                                                    {item.symbol}
-                                                </button>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div className="font-semibold text-slate-950">{item.name}</div>
-                                                <div className="text-xs text-slate-500">{item.market}</div>
-                                            </td>
-                                            <td className="px-4 py-3 font-semibold text-slate-800">{formatCurrency(item.price, item.market)}</td>
-                                            <td className={`px-4 py-3 font-semibold ${item.dailyChange !== undefined && item.dailyChange < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                                                {formatPercent(item.dailyChange)}
-                                            </td>
-                                            <td className="px-4 py-3"><Pill className={statusStyles[item.status]}>{statusLabels[item.status]}</Pill></td>
-                                            <td className="px-4 py-3 text-slate-700">{item.targetBuyZone}</td>
-                                            <td className="px-4 py-3"><Pill className={valuationStyles[item.valuationState]}>{valuationLabels[item.valuationState]}</Pill></td>
-                                            <td className="px-4 py-3 text-slate-700">{strengthLabels[item.thesisStrength]}</td>
-                                            <td className="px-4 py-3 text-slate-500">{item.lastReviewedAt}</td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <section className={`min-w-0 rounded-lg border p-4 shadow-sm ${readinessStyles[selected.readiness]}`}>
-                    <div className="text-[11px] font-bold uppercase tracking-[0.18em] opacity-75">Selected ticker</div>
-                    <div className="mt-3 flex items-start justify-between gap-4">
-                        <div>
-                            <div className="font-mono text-3xl font-bold tracking-normal">{selected.symbol}</div>
-                            <div className="mt-1 text-base font-semibold">{selected.name}</div>
-                        </div>
-                        <div className="text-right">
-                            <div className="text-2xl font-bold tracking-normal">{formatCurrency(selected.price, selected.market)}</div>
-                            <div className={`text-sm font-bold ${selected.dailyChange !== undefined && selected.dailyChange < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                                {formatPercent(selected.dailyChange)}
-                            </div>
+            <div className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+                <header className={`flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-end lg:justify-between ${themeClasses.divider}`}>
+                    <div className="min-w-0">
+                        <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-500">Research workspace</div>
+                        <h1 className={`mt-2 text-3xl font-bold tracking-normal sm:text-4xl ${themeClasses.textPrimary}`}>Investment Research</h1>
+                        <div className={`mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm font-semibold ${themeClasses.textMuted}`}>
+                            <span>Primary provider: EODHD</span>
+                            <span>Fallback: Twelve Data</span>
+                            <span>{unknownCount} unknown valuation states</span>
                         </div>
                     </div>
-                    <div className="mt-5 border-t border-current/15 pt-4">
-                        <div className="text-sm font-bold uppercase tracking-[0.14em] opacity-70">Readiness</div>
-                        <div className="mt-1 text-xl font-bold tracking-normal">{selected.readiness}</div>
+
+                    <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-sm">
+                        <SummaryMetric label="Tickers" value={watchlist.length.toString()} themeClasses={themeClasses} />
+                        <SummaryMetric label="Ready" value={readyCount.toString()} themeClasses={themeClasses} />
+                        <ThemeModeSwitch
+                            theme={theme}
+                            tone={theme}
+                            onToggle={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}
+                            className="min-h-[70px]"
+                        />
                     </div>
-                    <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                        <InfoPair label="Target buy zone" value={selected.targetBuyZone} />
-                        <InfoPair label="Valuation" value={valuationLabels[selected.valuationState]} />
-                        <InfoPair label="Thesis strength" value={strengthLabels[selected.thesisStrength]} />
-                        <InfoPair label="Last reviewed" value={selected.lastReviewedAt} />
-                    </dl>
-                </section>
-            </div>
+                </header>
 
-            <div className="mt-5 grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
-                <SectionCard title="Company Snapshot" eyebrow={selected.symbol}>
-                    <p className="mb-4 text-sm leading-6 text-slate-600">{selected.description}</p>
-                    <KeyValueList rows={detailRows(selected)} />
-                </SectionCard>
-
-                <SectionCard title="Thesis Card" eyebrow="Investment reason">
-                    <KeyValueList
-                        rows={[
-                            ['Bull case', selected.bullCase],
-                            ['Bear case', selected.bearCase],
-                            ['What would make me buy', selected.buyTrigger],
-                            ['What would make me sell or avoid', selected.sellTrigger],
-                            ['What would prove it wrong', selected.thesisBreak],
-                        ]}
+                <div className="mt-6 grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_360px]">
+                    <WatchlistPanel
+                        items={watchlist}
+                        selectedSymbol={selected.symbol}
+                        readinessBySymbol={readinessBySymbol}
+                        waitingCount={waitingCount}
+                        theme={theme}
+                        themeClasses={themeClasses}
+                        onSelect={setSelectedSymbol}
                     />
-                </SectionCard>
 
-                <SectionCard title="Valuation Snapshot" eyebrow={valuationLabels[selected.valuationState]}>
-                    <KeyValueList rows={valuationRows(selected)} />
-                </SectionCard>
-
-                <SectionCard title="Earnings And Events" eyebrow="Company-specific">
-                    <KeyValueList rows={eventRows(selected)} />
-                </SectionCard>
-
-                <SectionCard title="Research Feed" eyebrow="News, filings, transcripts">
-                    <div className="space-y-4">
-                        {selected.feed.map((feedItem) => (
-                            <article key={`${selected.symbol}-${feedItem.title}`} className="border-b border-slate-100 pb-4 last:border-0 last:pb-0">
-                                <div className="text-sm font-bold leading-6 text-slate-950">{feedItem.title}</div>
-                                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
-                                    <span>{feedItem.source}</span>
-                                    <span>{feedItem.date}</span>
-                                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-slate-700">{feedItem.label}</span>
-                                </div>
-                            </article>
-                        ))}
-                    </div>
-                </SectionCard>
-
-                <SectionCard title="Technical Context" eyebrow="Secondary input">
-                    <KeyValueList rows={technicalRows(selected)} />
-                </SectionCard>
-            </div>
-
-            <section className="mt-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700">Investment Checklist</div>
-                        <h2 className="mt-1 text-xl font-bold tracking-normal text-slate-950">{selected.readiness}</h2>
-                    </div>
-                    <div className="text-sm font-semibold text-slate-500">
-                        {selected.checklist.filter((item) => item.checked).length} of {selected.checklist.length} checks marked
-                    </div>
+                    <DecisionPanel selected={selected} theme={theme} themeClasses={themeClasses} />
                 </div>
-                <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                    {selected.checklist.map((item) => (
-                        <div key={`${selected.symbol}-${item.label}`} className="flex min-h-12 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs font-bold ${item.checked ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 bg-white text-slate-400'}`}>
-                                {item.checked ? 'Y' : '-'}
-                            </span>
-                            <span className="text-sm font-semibold leading-5 text-slate-800">{item.label}</span>
+
+                <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+                    <SectionPanel title="Thesis Card" eyebrow="Investment reason" themeClasses={themeClasses}>
+                        <KeyValueList rows={thesisRows(selected)} themeClasses={themeClasses} />
+                    </SectionPanel>
+
+                    <ChecklistPanel selected={selected} theme={theme} themeClasses={themeClasses} />
+                </div>
+
+                <div className="mt-5 grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
+                    <SectionPanel title="Company Snapshot" eyebrow={selected.providerSymbol} themeClasses={themeClasses}>
+                        <p className={`mb-4 text-sm leading-6 ${themeClasses.textSecondary}`}>{selected.description}</p>
+                        <KeyValueList rows={detailRows(selected)} themeClasses={themeClasses} />
+                    </SectionPanel>
+
+                    <SectionPanel title="Valuation Snapshot" eyebrow={valuationLabels[selected.valuationState]} themeClasses={themeClasses}>
+                        <KeyValueList rows={valuationRows(selected)} themeClasses={themeClasses} />
+                    </SectionPanel>
+
+                    <SectionPanel title="Earnings And Events" eyebrow="Company-specific" themeClasses={themeClasses}>
+                        <KeyValueList rows={eventRows(selected)} themeClasses={themeClasses} />
+                    </SectionPanel>
+
+                    <SectionPanel title="Research Feed" eyebrow="News, filings, transcripts" themeClasses={themeClasses}>
+                        <div className="space-y-4">
+                            {selected.feed.map((feedItem) => (
+                                <article key={`${selected.symbol}-${feedItem.title}`} className={`border-b pb-4 last:border-0 last:pb-0 ${themeClasses.divider}`}>
+                                    <div className={`text-sm font-bold leading-6 ${themeClasses.textPrimary}`}>{feedItem.title}</div>
+                                    <div className={`mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold ${themeClasses.textMuted}`}>
+                                        <span>{feedItem.source}</span>
+                                        <span>{feedItem.date}</span>
+                                        <Pill tone="neutral" theme={theme}>{feedItem.label}</Pill>
+                                    </div>
+                                </article>
+                            ))}
                         </div>
-                    ))}
+                    </SectionPanel>
+
+                    <SectionPanel title="Technical Context" eyebrow="Secondary input" themeClasses={themeClasses}>
+                        <KeyValueList rows={technicalRows(selected)} themeClasses={themeClasses} />
+                    </SectionPanel>
                 </div>
-            </section>
-        </div>
+            </div>
+        </main>
     );
 };
 
-const SummaryMetric = ({ label, value }: { label: string; value: string }) => (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-right shadow-sm">
-        <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">{label}</div>
-        <div className="mt-1 text-2xl font-bold tracking-normal text-slate-950">{value}</div>
+const WatchlistPanel = ({
+    items,
+    selectedSymbol,
+    readinessBySymbol,
+    waitingCount,
+    theme,
+    themeClasses,
+    onSelect,
+}: {
+    items: ResearchWatchlistItem[];
+    selectedSymbol: string;
+    readinessBySymbol: Map<string, ReadinessState>;
+    waitingCount: number;
+    theme: ResearchTheme;
+    themeClasses: ReturnType<typeof getTheme>;
+    onSelect: (symbol: string) => void;
+}) => (
+    <section className={`min-w-0 rounded-lg border ${themeClasses.panel}`}>
+        <div className={`flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${themeClasses.divider}`}>
+            <div>
+                <h2 className={`text-base font-bold ${themeClasses.textPrimary}`}>Watchlist Overview</h2>
+                <p className={`text-sm ${themeClasses.textMuted}`}>Sample data until provider integration.</p>
+            </div>
+            <div className={`text-sm font-semibold ${themeClasses.textMuted}`}>{waitingCount} waiting for price</div>
+        </div>
+
+        <DesktopWatchlistTable
+            items={items}
+            selectedSymbol={selectedSymbol}
+            readinessBySymbol={readinessBySymbol}
+            theme={theme}
+            themeClasses={themeClasses}
+            onSelect={onSelect}
+        />
+        <TabletWatchlistTable
+            items={items}
+            selectedSymbol={selectedSymbol}
+            readinessBySymbol={readinessBySymbol}
+            theme={theme}
+            themeClasses={themeClasses}
+            onSelect={onSelect}
+        />
+        <MobileWatchlistCards
+            items={items}
+            selectedSymbol={selectedSymbol}
+            readinessBySymbol={readinessBySymbol}
+            theme={theme}
+            themeClasses={themeClasses}
+            onSelect={onSelect}
+        />
+    </section>
+);
+
+const DesktopWatchlistTable = ({
+    items,
+    selectedSymbol,
+    readinessBySymbol,
+    theme,
+    themeClasses,
+    onSelect,
+}: {
+    items: ResearchWatchlistItem[];
+    selectedSymbol: string;
+    readinessBySymbol: Map<string, ReadinessState>;
+    theme: ResearchTheme;
+    themeClasses: ReturnType<typeof getTheme>;
+    onSelect: (symbol: string) => void;
+}) => (
+    <div className="hidden overflow-hidden lg:block">
+        <table className="w-full table-fixed border-collapse text-left text-sm">
+            <thead className={`text-[11px] font-bold uppercase tracking-[0.14em] ${themeClasses.tableHead}`}>
+                <tr>
+                    <th className="w-[11%] px-4 py-3">Symbol</th>
+                    <th className="w-[19%] px-4 py-3">Company</th>
+                    <th className="w-[10%] px-4 py-3">Price</th>
+                    <th className="w-[9%] px-4 py-3">Change</th>
+                    <th className="w-[10%] px-4 py-3">Status</th>
+                    <th className="w-[14%] px-4 py-3">Buy zone</th>
+                    <th className="w-[10%] px-4 py-3">Valuation</th>
+                    <th className="w-[8%] px-4 py-3">Thesis</th>
+                    <th className="w-[9%] px-4 py-3">Reviewed</th>
+                </tr>
+            </thead>
+            <tbody className={`divide-y ${themeClasses.divide}`}>
+                {items.map((item) => {
+                    const isSelected = selectedSymbol === item.symbol;
+                    const readiness = readinessBySymbol.get(item.symbol) ?? getReadiness(item.checklist);
+
+                    return (
+                        <tr key={item.symbol} className={isSelected ? themeClasses.selectedRow : themeClasses.row}>
+                            <td className="px-4 py-3">
+                                <SymbolButton item={item} selected={isSelected} themeClasses={themeClasses} onSelect={onSelect} />
+                            </td>
+                            <td className="min-w-0 px-4 py-3">
+                                <div className={`truncate font-semibold ${themeClasses.textPrimary}`}>{item.name}</div>
+                                <div className={`text-xs ${themeClasses.textMuted}`}>{item.market} · {item.providerSymbol}</div>
+                            </td>
+                            <td className={`px-4 py-3 font-semibold ${themeClasses.textSecondary}`}>{formatCurrency(item.price, item.market)}</td>
+                            <td className={`px-4 py-3 font-semibold ${getChangeTone(item.dailyChange, theme)}`}>{formatPercent(item.dailyChange)}</td>
+                            <td className="px-4 py-3"><Pill tone={item.status} theme={theme}>{statusLabels[item.status]}</Pill></td>
+                            <td className={`px-4 py-3 ${themeClasses.textSecondary}`}>{item.targetBuyZone}</td>
+                            <td className="px-4 py-3"><Pill tone={item.valuationState} theme={theme}>{valuationLabels[item.valuationState]}</Pill></td>
+                            <td className={`px-4 py-3 ${themeClasses.textSecondary}`}>{strengthLabels[item.thesisStrength]}</td>
+                            <td className={`px-4 py-3 text-xs ${themeClasses.textMuted}`}>{item.lastReviewedAt}<span className="sr-only"> {readiness}</span></td>
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
     </div>
 );
 
-const Pill = ({ children, className }: { children: ReactNode; className: string }) => (
-    <span className={`inline-flex whitespace-nowrap rounded-md px-2 py-1 text-xs font-bold ring-1 ${className}`}>
-        {children}
-    </span>
+const TabletWatchlistTable = ({
+    items,
+    selectedSymbol,
+    readinessBySymbol,
+    theme,
+    themeClasses,
+    onSelect,
+}: {
+    items: ResearchWatchlistItem[];
+    selectedSymbol: string;
+    readinessBySymbol: Map<string, ReadinessState>;
+    theme: ResearchTheme;
+    themeClasses: ReturnType<typeof getTheme>;
+    onSelect: (symbol: string) => void;
+}) => (
+    <div className="hidden md:block lg:hidden">
+        <table className="w-full table-fixed border-collapse text-left text-sm">
+            <thead className={`text-[11px] font-bold uppercase tracking-[0.14em] ${themeClasses.tableHead}`}>
+                <tr>
+                    <th className="w-[31%] px-4 py-3">Ticker</th>
+                    <th className="w-[17%] px-4 py-3">Price</th>
+                    <th className="w-[23%] px-4 py-3">Decision</th>
+                    <th className="w-[16%] px-4 py-3">Valuation</th>
+                    <th className="w-[13%] px-4 py-3">Reviewed</th>
+                </tr>
+            </thead>
+            <tbody className={`divide-y ${themeClasses.divide}`}>
+                {items.map((item) => {
+                    const isSelected = selectedSymbol === item.symbol;
+                    const readiness = readinessBySymbol.get(item.symbol) ?? getReadiness(item.checklist);
+
+                    return (
+                        <tr key={item.symbol} className={isSelected ? themeClasses.selectedRow : themeClasses.row}>
+                            <td className="px-4 py-3">
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <SymbolButton item={item} selected={isSelected} themeClasses={themeClasses} onSelect={onSelect} />
+                                    <div className="min-w-0">
+                                        <div className={`truncate font-semibold ${themeClasses.textPrimary}`}>{item.name}</div>
+                                        <div className={`text-xs ${themeClasses.textMuted}`}>{item.market} · {item.providerSymbol}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td className={`px-4 py-3 ${themeClasses.textSecondary}`}>
+                                <div className="font-semibold">{formatCurrency(item.price, item.market)}</div>
+                                <div className={`text-xs font-semibold ${getChangeTone(item.dailyChange, theme)}`}>{formatPercent(item.dailyChange)}</div>
+                            </td>
+                            <td className="px-4 py-3">
+                                <div className="flex flex-wrap gap-1.5">
+                                    <Pill tone={readiness} theme={theme}>{readiness}</Pill>
+                                    <Pill tone={item.status} theme={theme}>{statusLabels[item.status]}</Pill>
+                                </div>
+                            </td>
+                            <td className="px-4 py-3"><Pill tone={item.valuationState} theme={theme}>{valuationLabels[item.valuationState]}</Pill></td>
+                            <td className={`px-4 py-3 text-xs ${themeClasses.textMuted}`}>{item.lastReviewedAt}</td>
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
+    </div>
 );
 
-const SectionCard = ({ title, eyebrow, children }: { title: string; eyebrow: string; children: ReactNode }) => (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700">{eyebrow}</div>
-        <h2 className="mt-1 text-xl font-bold tracking-normal text-slate-950">{title}</h2>
+const MobileWatchlistCards = ({
+    items,
+    selectedSymbol,
+    readinessBySymbol,
+    theme,
+    themeClasses,
+    onSelect,
+}: {
+    items: ResearchWatchlistItem[];
+    selectedSymbol: string;
+    readinessBySymbol: Map<string, ReadinessState>;
+    theme: ResearchTheme;
+    themeClasses: ReturnType<typeof getTheme>;
+    onSelect: (symbol: string) => void;
+}) => (
+    <div className="grid gap-3 p-3 md:hidden">
+        {items.map((item) => {
+            const isSelected = selectedSymbol === item.symbol;
+            const readiness = readinessBySymbol.get(item.symbol) ?? getReadiness(item.checklist);
+
+            return (
+                <button
+                    key={item.symbol}
+                    type="button"
+                    onClick={() => onSelect(item.symbol)}
+                    aria-pressed={isSelected}
+                    className={`min-w-0 rounded-lg border p-3 text-left transition ${isSelected ? themeClasses.selectedRow : `${themeClasses.panelSoft} hover:border-emerald-400/70`}`}
+                >
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <div className={`font-mono text-lg font-bold ${themeClasses.textPrimary}`}>{item.symbol}</div>
+                            <div className={`truncate text-sm font-semibold ${themeClasses.textSecondary}`}>{item.name}</div>
+                            <div className={`text-xs ${themeClasses.textMuted}`}>{item.market} · {item.providerSymbol}</div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                            <div className={`font-semibold ${themeClasses.textPrimary}`}>{formatCurrency(item.price, item.market)}</div>
+                            <div className={`text-xs font-bold ${getChangeTone(item.dailyChange, theme)}`}>{formatPercent(item.dailyChange)}</div>
+                        </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                        <Pill tone={readiness} theme={theme}>{readiness}</Pill>
+                        <Pill tone={item.status} theme={theme}>{statusLabels[item.status]}</Pill>
+                        <Pill tone={item.valuationState} theme={theme}>{valuationLabels[item.valuationState]}</Pill>
+                    </div>
+                    <dl className={`mt-3 grid grid-cols-2 gap-2 text-xs ${themeClasses.textMuted}`}>
+                        <InfoPair label="Thesis" value={strengthLabels[item.thesisStrength]} compact />
+                        <InfoPair label="Reviewed" value={item.lastReviewedAt} compact />
+                    </dl>
+                    {isSelected && (
+                        <div className={`mt-3 border-t pt-3 text-sm leading-6 ${themeClasses.divider} ${themeClasses.textSecondary}`}>
+                            <span className="font-semibold">Buy zone: </span>{item.targetBuyZone}
+                        </div>
+                    )}
+                </button>
+            );
+        })}
+    </div>
+);
+
+const DecisionPanel = ({ selected, theme, themeClasses }: { selected: ResearchWatchlistItem; theme: ResearchTheme; themeClasses: ReturnType<typeof getTheme> }) => {
+    const readiness = getReadiness(selected.checklist);
+    const checklistCount = getChecklistCount(selected.checklist);
+
+    return (
+        <section className={`min-w-0 rounded-lg border p-4 ${themeClasses.panel}`}>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0">
+                    <div className={`text-[11px] font-bold uppercase tracking-[0.18em] ${themeClasses.textMuted}`}>Selected ticker</div>
+                    <div className={`mt-3 font-mono text-3xl font-bold tracking-normal ${themeClasses.textPrimary}`}>{selected.symbol}</div>
+                    <div className={`mt-1 text-base font-semibold ${themeClasses.textSecondary}`}>{selected.name}</div>
+                    <div className={`mt-1 text-xs font-semibold ${themeClasses.textMuted}`}>{selected.providerSymbol}</div>
+                </div>
+                <div className="text-right">
+                    <div className={`text-2xl font-bold tracking-normal ${themeClasses.textPrimary}`}>{formatCurrency(selected.price, selected.market)}</div>
+                    <div className={`text-sm font-bold ${getChangeTone(selected.dailyChange, theme)}`}>{formatPercent(selected.dailyChange)}</div>
+                </div>
+            </div>
+
+            <div className={`mt-5 border-t pt-4 ${themeClasses.divider}`}>
+                <div className={`text-sm font-bold uppercase tracking-[0.14em] ${themeClasses.textMuted}`}>Research readiness</div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <ReadinessBadge readiness={readiness} theme={theme} />
+                    <span className={`text-sm font-semibold ${themeClasses.textMuted}`}>{checklistCount} of {checklistItems.length} checks</span>
+                </div>
+            </div>
+
+            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                <InfoPair label="Target buy zone" value={selected.targetBuyZone} />
+                <InfoPair label="Valuation" value={valuationLabels[selected.valuationState]} />
+                <InfoPair label="Thesis strength" value={strengthLabels[selected.thesisStrength]} />
+                <InfoPair label="Last reviewed" value={selected.lastReviewedAt} />
+            </dl>
+
+            <div className={`mt-4 rounded-lg border p-3 ${themeClasses.panelMuted}`}>
+                <div className={`text-[11px] font-bold uppercase tracking-[0.16em] ${themeClasses.textMuted}`}>Thesis focus</div>
+                <p className={`mt-2 text-sm leading-6 ${themeClasses.textSecondary}`}>{selected.whyInterested}</p>
+                <p className={`mt-2 text-sm leading-6 ${themeClasses.textMuted}`}>{selected.thesisBreak}</p>
+            </div>
+        </section>
+    );
+};
+
+const ChecklistPanel = ({ selected, theme, themeClasses }: { selected: ResearchWatchlistItem; theme: ResearchTheme; themeClasses: ReturnType<typeof getTheme> }) => {
+    const readiness = getReadiness(selected.checklist);
+    const checklistCount = getChecklistCount(selected.checklist);
+
+    return (
+        <section className={`rounded-lg border p-4 ${themeClasses.panel}`}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-500">Investment Checklist</div>
+                    <h2 className={`mt-1 text-xl font-bold tracking-normal ${themeClasses.textPrimary}`}>{readiness}</h2>
+                </div>
+                <div className={`text-sm font-semibold ${themeClasses.textMuted}`}>{checklistCount} of {checklistItems.length} checks marked</div>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {checklistItems.map((item) => {
+                    const checked = selected.checklist[item.key];
+
+                    return (
+                        <div key={`${selected.symbol}-${item.key}`} className={`flex min-h-12 items-center gap-3 rounded-lg border px-3 py-2 ${themeClasses.panelMuted}`}>
+                            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs font-bold ${checked ? 'border-emerald-500 bg-emerald-500 text-slate-950' : theme === 'light' ? 'border-slate-300 bg-white text-slate-400' : 'border-[#3a4a58] bg-[#111a23] text-[#9aa8b8]'}`}>
+                                {checked ? 'Y' : '-'}
+                            </span>
+                            <span className={`text-sm font-semibold leading-5 ${themeClasses.textSecondary}`}>{item.label}</span>
+                        </div>
+                    );
+                })}
+            </div>
+        </section>
+    );
+};
+
+const SummaryMetric = ({ label, value, themeClasses }: { label: string; value: string; themeClasses: ReturnType<typeof getTheme> }) => (
+    <div className={`rounded-lg border px-4 py-3 text-right ${themeClasses.panel}`}>
+        <div className={`text-[11px] font-bold uppercase tracking-[0.16em] ${themeClasses.textMuted}`}>{label}</div>
+        <div className={`mt-1 text-2xl font-bold tracking-normal ${themeClasses.textPrimary}`}>{value}</div>
+    </div>
+);
+
+const SymbolButton = ({ item, selected, themeClasses, onSelect }: { item: ResearchWatchlistItem; selected: boolean; themeClasses: ReturnType<typeof getTheme>; onSelect: (symbol: string) => void }) => (
+    <button
+        type="button"
+        onClick={() => onSelect(item.symbol)}
+        aria-pressed={selected}
+        className={`rounded-md px-2 py-1 font-mono text-sm font-bold ${selected ? themeClasses.buttonActive : themeClasses.button}`}
+    >
+        {item.symbol}
+    </button>
+);
+
+const SectionPanel = ({ title, eyebrow, children, themeClasses }: { title: string; eyebrow: string; children: ReactNode; themeClasses: ReturnType<typeof getTheme> }) => (
+    <section className={`rounded-lg border p-4 ${themeClasses.panel}`}>
+        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-500">{eyebrow}</div>
+        <h2 className={`mt-1 text-xl font-bold tracking-normal ${themeClasses.textPrimary}`}>{title}</h2>
         <div className="mt-4">{children}</div>
     </section>
 );
 
-const KeyValueList = ({ rows }: { rows: KeyValueRow[] }) => (
-    <dl className="divide-y divide-slate-100">
+const KeyValueList = ({ rows, themeClasses }: { rows: KeyValueRow[]; themeClasses: ReturnType<typeof getTheme> }) => (
+    <dl className={`divide-y ${themeClasses.divide}`}>
         {rows.map(([label, value]) => (
             <div key={label} className="grid gap-2 py-2 text-sm sm:grid-cols-[150px_minmax(0,1fr)]">
-                <dt className="font-semibold text-slate-500">{label}</dt>
-                <dd className="leading-6 text-slate-800">{value || 'Unknown'}</dd>
+                <dt className={`font-semibold ${themeClasses.textMuted}`}>{label}</dt>
+                <dd className={`min-w-0 break-words leading-6 ${themeClasses.textSecondary}`}>{value || 'Unknown'}</dd>
             </div>
         ))}
     </dl>
 );
 
-const InfoPair = ({ label, value }: { label: string; value: string }) => (
+const InfoPair = ({ label, value, compact = false }: { label: string; value: string; compact?: boolean }) => (
     <div>
-        <dt className="text-xs font-bold uppercase tracking-[0.14em] opacity-65">{label}</dt>
-        <dd className="mt-1 font-semibold">{value}</dd>
+        <dt className={`${compact ? 'text-[10px]' : 'text-xs'} font-bold uppercase tracking-[0.14em] opacity-65`}>{label}</dt>
+        <dd className="mt-1 break-words font-semibold">{value}</dd>
     </div>
 );
+
+const ReadinessBadge = ({ readiness, theme }: { readiness: ReadinessState; theme: ResearchTheme }) => (
+    <span className={`inline-flex rounded-md border px-2.5 py-1 text-sm font-bold ${getToneClass(readiness, theme)}`}>
+        {readiness}
+    </span>
+);
+
+const Pill = ({ children, tone, theme }: { children: ReactNode; tone: ResearchStatus | ValuationState | ReadinessState | 'neutral'; theme: ResearchTheme }) => (
+    <span className={`inline-flex whitespace-nowrap rounded-md border px-2 py-1 text-xs font-bold ${getToneClass(tone, theme)}`}>
+        {children}
+    </span>
+);
+
+function getToneClass(tone: ResearchStatus | ValuationState | ReadinessState | 'neutral', theme: ResearchTheme) {
+    const light: Record<string, string> = {
+        owned: 'border-emerald-300 bg-emerald-50 text-emerald-800',
+        watch: 'border-sky-300 bg-sky-50 text-sky-800',
+        waiting: 'border-amber-300 bg-amber-50 text-amber-800',
+        avoid: 'border-rose-300 bg-rose-50 text-rose-800',
+        cheap: 'border-emerald-300 bg-emerald-50 text-emerald-800',
+        fair: 'border-slate-300 bg-slate-100 text-slate-700',
+        expensive: 'border-amber-300 bg-amber-50 text-amber-800',
+        unknown: 'border-zinc-300 bg-zinc-100 text-zinc-700',
+        Ready: 'border-emerald-300 bg-emerald-50 text-emerald-800',
+        'Wait for better price': 'border-amber-300 bg-amber-50 text-amber-800',
+        'Too uncertain': 'border-slate-300 bg-slate-100 text-slate-700',
+        Avoid: 'border-rose-300 bg-rose-50 text-rose-800',
+        neutral: 'border-slate-300 bg-slate-100 text-slate-700',
+    };
+    const dark: Record<string, string> = {
+        owned: 'border-emerald-400/50 bg-emerald-400/12 text-emerald-200',
+        watch: 'border-sky-400/50 bg-sky-400/12 text-sky-200',
+        waiting: 'border-amber-400/50 bg-amber-400/12 text-amber-200',
+        avoid: 'border-rose-400/50 bg-rose-400/12 text-rose-200',
+        cheap: 'border-emerald-400/50 bg-emerald-400/12 text-emerald-200',
+        fair: 'border-[#3a4a58] bg-[#17212c] text-[#c8d2dd]',
+        expensive: 'border-amber-400/50 bg-amber-400/12 text-amber-200',
+        unknown: 'border-[#3a4a58] bg-[#17212c] text-[#9aa8b8]',
+        Ready: 'border-emerald-400/50 bg-emerald-400/12 text-emerald-200',
+        'Wait for better price': 'border-amber-400/50 bg-amber-400/12 text-amber-200',
+        'Too uncertain': 'border-[#3a4a58] bg-[#17212c] text-[#c8d2dd]',
+        Avoid: 'border-rose-400/50 bg-rose-400/12 text-rose-200',
+        neutral: 'border-[#3a4a58] bg-[#17212c] text-[#c8d2dd]',
+    };
+
+    return theme === 'light' ? light[tone] : dark[tone];
+}
+
+function getChangeTone(value: number | undefined, theme: ResearchTheme) {
+    if (value === undefined || value === 0) {
+        return theme === 'light' ? 'text-slate-500' : 'text-[#9aa8b8]';
+    }
+
+    return value > 0
+        ? theme === 'light' ? 'text-emerald-700' : 'text-emerald-300'
+        : theme === 'light' ? 'text-rose-700' : 'text-rose-300';
+}

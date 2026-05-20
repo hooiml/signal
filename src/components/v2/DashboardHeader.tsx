@@ -4,6 +4,7 @@ import React from 'react';
 import { MarketRegion, MarketMode } from '@/hooks/use-signal-config';
 import { MarketSignal } from '@/lib/types/signal-v2';
 import { CockpitTheme, getThemeClasses, formatDateLabel } from './cockpit-utils';
+import { ThemeModeSwitch } from '@/components/ThemeModeSwitch';
 
 interface DashboardHeaderProps {
     market: MarketRegion;
@@ -114,13 +115,7 @@ export const DashboardHeader = ({
                             {isUpdating ? 'Updating' : 'Live'}
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        onClick={onThemeToggle}
-                        className={`${metaShell} text-[11px] font-semibold uppercase tracking-[0.18em] ${themeClasses.textSecondary}`}
-                    >
-                        {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-                    </button>
+                    <ThemeModeSwitch theme={theme} tone={theme} onToggle={onThemeToggle} className="self-stretch" />
                 </div>
             </div>
         </div>
