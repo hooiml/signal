@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { refreshAAIIIndicator } from '@/lib/institutional-service';
+import { requireAnyBearerSecret } from '@/lib/route-auth';
 
 export const runtime = 'nodejs';
 export const maxDuration = 20;
@@ -14,24 +15,13 @@ export async function POST(request: Request) {
 }
 
 async function handleInstitutionalRefresh(request: Request) {
-    const authHeader = request.headers.get('authorization');
-    const allowedSecrets = [process.env.CRON_SECRET, process.env.ADMIN_SECRET].filter(
-        (secret): secret is string => Boolean(secret)
+    const authError = requireAnyBearerSecret(
+        request,
+        [process.env.CRON_SECRET, process.env.ADMIN_SECRET],
+        'CRON_SECRET or ADMIN_SECRET must be configured'
     );
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    if (allowedSecrets.length === 0 && isProduction) {
-        return NextResponse.json(
-            { error: 'CRON_SECRET or ADMIN_SECRET must be configured' },
-            { status: 500 }
-        );
-    }
-
-    const isAuthorized = allowedSecrets.length === 0
-        ? true
-        : allowedSecrets.some(secret => authHeader === `Bearer ${secret}`);
-    if (!isAuthorized) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (authError) {
+        return authError;
     }
 
     try {

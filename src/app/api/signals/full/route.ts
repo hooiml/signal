@@ -1,24 +1,24 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { fetchVIX } from '@/lib/yahoo-finance';
+import { generateMarketAura } from '@/lib/gemini';
 import { fetchMultipleSubreddits } from '@/lib/reddit';
+import { requireBearerSecret } from '@/lib/route-auth';
 import { fetchMarketNews } from '@/lib/rss-feeds';
 import { fetchTrendingTwits, calculateStockTwitsSentiment } from '@/lib/stocktwits';
-import { generateMarketAura } from '@/lib/gemini';
+import { fetchVIX } from '@/lib/yahoo-finance';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30; // Allow longer runtime for AI processing
 
 export const GET = async (request: Request): Promise<NextResponse> => {
-    // Security: Require CRON_SECRET for this expensive endpoint
-    const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-        return NextResponse.json(
-            { error: 'Unauthorized. Provide valid CRON_SECRET in Authorization header.' },
-            { status: 401 }
-        );
+    const authError = requireBearerSecret(
+        request,
+        process.env.CRON_SECRET,
+        'CRON_SECRET is not configured',
+        'Unauthorized. Provide valid CRON_SECRET in Authorization header.'
+    );
+    if (authError) {
+        return authError;
     }
 
     try {
@@ -27,7 +27,7 @@ export const GET = async (request: Request): Promise<NextResponse> => {
             fetchVIX(),
             fetchMultipleSubreddits(['wallstreetbets', 'stocks', 'investing'], 5),
             fetchMarketNews('US'),
-            fetchTrendingTwits(15)
+            fetchTrendingTwits(15),
         ]);
 
         // 2. Calculate base sentiment scores
@@ -37,7 +37,9 @@ export const GET = async (request: Request): Promise<NextResponse> => {
         };
 
         let redditScore = 0;
-        redditPosts.forEach(p => redditScore += keywords(p.title + p.selftext));
+        redditPosts.forEach(p => {
+            redditScore += keywords(p.title + p.selftext);
+        });
         const redditSentiment = Math.max(-1, Math.min(1, redditScore / 20));
         const stockTwitsSentiment = calculateStockTwitsSentiment(stockTwits);
         const combinedSentiment = (redditSentiment * 0.4 + stockTwitsSentiment * 0.6);
@@ -55,7 +57,7 @@ export const GET = async (request: Request): Promise<NextResponse> => {
 
         // 4. Generate AI-powered Market Aura via Gemini
         const aura = await generateMarketAura(
-            'US', // market parameter
+            'US',
             vixData.price,
             vixAuraLevel,
             combinedSentiment,
@@ -118,22 +120,21 @@ export const GET = async (request: Request): Promise<NextResponse> => {
                     socialSentiment: parseFloat(combinedSentiment.toFixed(3)),
                     breakdown: {
                         reddit: parseFloat(redditSentiment.toFixed(3)),
-                        stocktwits: parseFloat(stockTwitsSentiment.toFixed(3))
-                    }
+                        stocktwits: parseFloat(stockTwitsSentiment.toFixed(3)),
+                    },
                 },
                 sourceCounts: {
                     reddit: redditPosts.length,
                     news: newsItems.length,
-                    stocktwits: stockTwits.length
-                }
-            }
+                    stocktwits: stockTwits.length,
+                },
+            },
         });
-
     } catch (error) {
         console.error('Full aggregation error:', error);
         return NextResponse.json({
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error',
         }, { status: 500 });
     }
 };

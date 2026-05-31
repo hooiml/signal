@@ -1,17 +1,16 @@
 
 import { NextResponse } from 'next/server';
+import { requireBearerSecret } from '@/lib/route-auth';
 import { sql } from '@/lib/db';
 
 export async function GET(request: Request) {
-    const authHeader = request.headers.get('authorization');
-    const adminSecret = process.env.ADMIN_SECRET;
-
-    if (!adminSecret) {
-        return NextResponse.json({ error: 'ADMIN_SECRET is not configured' }, { status: 500 });
-    }
-
-    if (authHeader !== `Bearer ${adminSecret}`) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authError = requireBearerSecret(
+        request,
+        process.env.ADMIN_SECRET,
+        'ADMIN_SECRET is not configured'
+    );
+    if (authError) {
+        return authError;
     }
 
     try {
@@ -60,13 +59,13 @@ export async function GET(request: Request) {
 
         return NextResponse.json({
             success: true,
-            message: 'Database setup complete: institutional_data and signal_snapshots tables created or already exist.'
+            message: 'Database setup complete: institutional_data and signal_snapshots tables created or already exist.',
         });
     } catch (error) {
         console.error('Migration error:', error);
         return NextResponse.json({
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error',
         }, { status: 500 });
     }
 }

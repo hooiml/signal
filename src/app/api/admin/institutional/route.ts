@@ -1,17 +1,16 @@
 
 import { NextResponse } from 'next/server';
 import { updateInstitutionalIndicator } from '@/lib/institutional-service';
+import { requireBearerSecret } from '@/lib/route-auth';
 
 export async function POST(request: Request) {
-    const authHeader = request.headers.get('authorization');
-    const adminSecret = process.env.ADMIN_SECRET;
-
-    if (!adminSecret) {
-        return NextResponse.json({ error: 'ADMIN_SECRET is not configured' }, { status: 500 });
-    }
-
-    if (authHeader !== `Bearer ${adminSecret}`) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authError = requireBearerSecret(
+        request,
+        process.env.ADMIN_SECRET,
+        'ADMIN_SECRET is not configured'
+    );
+    if (authError) {
+        return authError;
     }
 
     try {
@@ -42,14 +41,14 @@ export async function POST(request: Request) {
 
         if (success) {
             return NextResponse.json({ success: true, message: `Updated ${name} to ${value} for ${date}` });
-        } else {
-            return NextResponse.json({ success: false, error: 'Failed to update database' }, { status: 500 });
         }
+
+        return NextResponse.json({ success: false, error: 'Failed to update database' }, { status: 500 });
     } catch (error) {
         console.error('Admin API error:', error);
         return NextResponse.json({
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error',
         }, { status: 500 });
     }
 }

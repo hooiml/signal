@@ -1,4 +1,5 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { requireAnyBearerSecret } from '@/lib/route-auth';
 import { getSmartSignal } from '@/lib/signal';
 
 export const runtime = 'nodejs';
@@ -26,24 +27,13 @@ const SOURCE_OFF_TARGETS: RefreshTarget[] = [
 ];
 
 export const GET = async (request: Request): Promise<NextResponse> => {
-    const authHeader = request.headers.get('authorization');
-    const allowedSecrets = [process.env.CRON_SECRET, process.env.ADMIN_SECRET].filter(
-        (secret): secret is string => Boolean(secret)
+    const authError = requireAnyBearerSecret(
+        request,
+        [process.env.CRON_SECRET, process.env.ADMIN_SECRET],
+        'CRON_SECRET or ADMIN_SECRET must be configured'
     );
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    if (allowedSecrets.length === 0 && isProduction) {
-        return NextResponse.json(
-            { error: 'CRON_SECRET or ADMIN_SECRET must be configured' },
-            { status: 500 }
-        );
-    }
-
-    const isAuthorized = allowedSecrets.length === 0
-        ? true
-        : allowedSecrets.some(secret => authHeader === `Bearer ${secret}`);
-    if (!isAuthorized) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (authError) {
+        return authError;
     }
 
     const { searchParams } = new URL(request.url);

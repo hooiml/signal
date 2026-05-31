@@ -24,6 +24,10 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 The main dashboard route starts at `src/app/page.tsx`, with V2 dashboard UI under `src/components/v2`.
 
+Create `.env.local` from `.env.example` and fill in the required values before using database-backed or AI-backed routes.
+
+Protected refresh, admin, and diagnostic routes require `CRON_SECRET` and/or `ADMIN_SECRET`. Those routes fail closed when the secrets are missing.
+
 ## Verification
 
 ```powershell

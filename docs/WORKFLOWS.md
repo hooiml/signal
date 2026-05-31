@@ -61,6 +61,7 @@ See `docs/HARNESS.md` for check design, eval artifacts, and completion evidence 
 ## Scheduled Refresh
 
 - `vercel.json` runs `/api/signals/refresh` once per day to warm the current V2 dashboard snapshots.
+- Configure `CRON_SECRET` or `ADMIN_SECRET` in every environment that will call the protected refresh, admin, or diagnostic routes.
 - The default scheduled refresh warms:
   - `US + standard + social on`
   - `US + contrarian + social on`
