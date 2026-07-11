@@ -68,3 +68,25 @@ See `docs/HARNESS.md` for check design, eval artifacts, and completion evidence 
   - `MY + standard + social on`
   - `MY + contrarian + social on`
 - For a fuller manual warm, call `/api/signals/refresh?includeSourceOff=true` with the same cron/admin authorization header so source-off variants are also refreshed.
+- AAII is refreshed every Thursday at 15:00 UTC, after its normal weekly publication window. The signal warm then consumes the newest stored institutional value.
+- NAAIM is fetched without the framework data cache whenever a US signal is calculated, so the weekly table cannot remain pinned to an older cached page.
+
+### Manual Full Refresh
+
+With the local server running and `ADMIN_SECRET` or `CRON_SECRET` configured in `.env.local`, run:
+
+```powershell
+npm run data:refresh
+```
+
+The script reads the local secret from `.env.local` only when the target is localhost. A shell environment variable takes precedence.
+
+For a deployed environment, also set the base URL:
+
+```powershell
+$env:SIGNAL_BASE_URL = 'https://your-signal-host.example'
+$env:ADMIN_SECRET = '<configured deployment secret>'
+npm run data:refresh
+```
+
+The command refreshes AAII first, then warms all eight market, mode, and source-toggle combinations. It fails rather than reporting success if either stage is incomplete. Never commit the secret to `.env` files or scripts.

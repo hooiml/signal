@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test:scoring": "powershell -ExecutionPolicy Bypass -File scripts/harness/check-scoring.ps1",
     "harness": "powershell -ExecutionPolicy Bypass -File scripts/harness/check-all.ps1",
-    "harness:update-map": "powershell -ExecutionPolicy Bypass -File scripts/harness/generate-repo-map.ps1"
+    "harness:update-map": "powershell -ExecutionPolicy Bypass -File scripts/harness/generate-repo-map.ps1",
+    "data:refresh": "powershell -ExecutionPolicy Bypass -File scripts/refresh-data.ps1"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",

@@ -90,7 +90,7 @@ export function normalizePutCallRatio(ratio: number): number {
 export async function fetchNaaimExposure(): Promise<NaaimExposureData | null> {
     try {
         const response = await fetch(NAAIM_EXPOSURE_URL, {
-            cache: 'force-cache',
+            cache: 'no-store',
             headers: {
                 'user-agent': 'SignalDashboard/1.0 (+https://github.com)',
                 'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
