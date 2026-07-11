@@ -1,0 +1,94 @@
+[
+  {
+    "route": "main-v5",
+    "viewport": "desktop",
+    "artifact": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\main-v5-desktop-runtime.json",
+    "screenshot": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\main-v5-desktop-initial.png",
+    "consoleCount": 4,
+    "errorCount": 0,
+    "failedRequestCount": 0,
+    "overflow": [
+      {
+        "label": "initial",
+        "px": 0
+      },
+      {
+        "label": "after-market-tabs",
+        "px": 0
+      },
+      {
+        "label": "after-navigation-clicks",
+        "px": 0
+      }
+    ]
+  },
+  {
+    "route": "research-v5",
+    "viewport": "desktop",
+    "artifact": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-desktop-runtime.json",
+    "screenshot": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-desktop-initial.png",
+    "consoleCount": 4,
+    "errorCount": 0,
+    "failedRequestCount": 1,
+    "overflow": [
+      {
+        "label": "initial",
+        "px": 0
+      },
+      {
+        "label": "after-search",
+        "px": 0
+      },
+      {
+        "label": "after-ticker-and-tabs",
+        "px": 0
+      }
+    ]
+  },
+  {
+    "route": "main-v5",
+    "viewport": "mobile",
+    "artifact": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\main-v5-mobile-runtime.json",
+    "screenshot": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\main-v5-mobile-initial.png",
+    "consoleCount": 2,
+    "errorCount": 0,
+    "failedRequestCount": 0,
+    "overflow": [
+      {
+        "label": "initial",
+        "px": 0
+      },
+      {
+        "label": "after-market-tabs",
+        "px": 0
+      },
+      {
+        "label": "after-navigation-clicks",
+        "px": 0
+      }
+    ]
+  },
+  {
+    "route": "research-v5",
+    "viewport": "mobile",
+    "artifact": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-mobile-runtime.json",
+    "screenshot": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-mobile-initial.png",
+    "consoleCount": 4,
+    "errorCount": 0,
+    "failedRequestCount": 1,
+    "overflow": [
+      {
+        "label": "initial",
+        "px": 0
+      },
+      {
+        "label": "after-search",
+        "px": 0
+      },
+      {
+        "label": "after-ticker-and-tabs",
+        "px": 0
+      }
+    ]
+  }
+]

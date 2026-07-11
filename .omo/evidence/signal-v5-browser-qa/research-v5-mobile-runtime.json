@@ -1,0 +1,504 @@
+{
+  "route": "research-v5",
+  "viewport": {
+    "name": "mobile",
+    "width": 390,
+    "height": 844,
+    "isMobile": true
+  },
+  "exactInvocation": "Playwright chromium.goto('http://localhost:3000/research-v5') viewport=390x844 isMobile=true",
+  "states": [
+    {
+      "label": "initial",
+      "metrics": {
+        "url": "http://localhost:3000/research-v5",
+        "title": "Research V5 | Workstation",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "horizontalOverflowPx": 0,
+        "bodyTextLength": 1205,
+        "h1": [
+          "Company dossiers"
+        ],
+        "h2": [
+          "MSFT"
+        ],
+        "links": [
+          {
+            "text": "SIGNAL",
+            "href": "http://localhost:3000/main-v5"
+          },
+          {
+            "text": "Market",
+            "href": "http://localhost:3000/main-v5"
+          },
+          {
+            "text": "Research",
+            "href": "http://localhost:3000/research-v5"
+          }
+        ],
+        "buttons": [
+          {
+            "tag": "INPUT",
+            "text": "Search ticker or company",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "ALL",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "US",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "MY",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "Strategy",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "MSFT\nMicrosoft\nDCA",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "NVDA\nNVIDIA\nAVOID",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "VOO\nVanguard S&P 500 ETF\nREADY",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "MAYBANK\nMalayan Banking\nWAIT",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "NET\nCloudflare\nAVOID",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "DECISION",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "FUNDAMENTALS",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "CHECKLIST",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "EVENTS",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "TECHNICAL",
+            "role": null,
+            "disabled": null
+          }
+        ],
+        "selected": [],
+        "visibleText": [
+          "SIGNAL\nMarket\nResearch\n5\nVISIBLE\nRESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.\n\nALL\nUS\nMY\nStrategy\nWATCHLIST QUEUE\n\nSelect a company to inspect\n\nMSFT\nMicrosoft\nDCA\nNVDA\nNVIDIA\nAVOID\nVOO\nVanguard S&P 500 ETF\nREADY\nMAYBANK\nMalayan Banking\nWAIT\nNET\nCloudflare\nAVOID\nMS\nMSFT\nDCA\n\nMicrosoft\n\nTechnology / Software - Infrastructure\n\nLIVE REFERENCE PRICE\n$428.40\n▲ 0.70% today\nDECISION\nFUNDAMENTALS\nCHECKLIST\nEVENTS\nTECHNICAL\nINVESTMENT DECISION\n\nOwned position still meets the quality and valuation rules\n\nNEXT MOVE\n\nHold the position. Add only if valuation resets closer to the target zone or fundamentals accelerate.\n\nACTION STATE\nDCA\nCONFIDENCE\n88%\n\nHigh Thesis Strength\n\nPRICE LOCATION\nOutside Buy Zone\n$390 - $405\nVALUATION\nFAIR\nCurrent pricing condition\nQUALITY GATE\n8/9 checks passed\nWHY IT MAY WORK\n\nRationale: Durable enterprise distribution with cloud and AI optionality.\n\nBull case: Azure and AI tooling continue to compound inside existing enterprise distribution.\n\nMAIN RISK\n\nThesis break: Enterprise AI demand fails to convert into durable revenue growth.\n\nBear case: AI capex rises faster than monetization and cloud growth slows from a larger base.",
+          "SIGNAL\nMarket\nResearch",
+          "SIGNAL\nMarket\nResearch",
+          "SIGNAL\nMarket\nResearch",
+          "SIGNAL",
+          "SIGNAL",
+          "Market\nResearch",
+          "Market",
+          "Research",
+          "5\nVISIBLE\nRESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.\n\nALL\nUS\nMY\nStrategy\nWATCHLIST QUEUE\n\nSelect a company to inspect\n\nMSFT\nMicrosoft\nDCA\nNVDA\nNVIDIA\nAVOID\nVOO\nVanguard S&P 500 ETF\nREADY\nMAYBANK\nMalayan Banking\nWAIT\nNET\nCloudflare\nAVOID\nMS\nMSFT\nDCA\n\nMicrosoft\n\nTechnology / Software - Infrastructure\n\nLIVE REFERENCE PRICE\n$428.40\n▲ 0.70% today\nDECISION\nFUNDAMENTALS\nCHECKLIST\nEVENTS\nTECHNICAL\nINVESTMENT DECISION\n\nOwned position still meets the quality and valuation rules\n\nNEXT MOVE\n\nHold the position. Add only if valuation resets closer to the target zone or fundamentals accelerate.\n\nACTION STATE\nDCA\nCONFIDENCE\n88%\n\nHigh Thesis Strength\n\nPRICE LOCATION\nOutside Buy Zone\n$390 - $405\nVALUATION\nFAIR\nCurrent pricing condition\nQUALITY GATE\n8/9 checks passed\nWHY IT MAY WORK\n\nRationale: Durable enterprise distribution with cloud and AI optionality.\n\nBull case: Azure and AI tooling continue to compound inside existing enterprise distribution.\n\nMAIN RISK\n\nThesis break: Enterprise AI demand fails to convert into durable revenue growth.\n\nBear case: AI capex rises faster than monetization and cloud growth slows from a larger base.",
+          "5\nVISIBLE\nRESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.\n\nALL\nUS\nMY\nStrategy",
+          "5\nVISIBLE\nRESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.\n\nALL\nUS\nMY\nStrategy",
+          "5\nVISIBLE\nRESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.",
+          "5\nVISIBLE",
+          "5",
+          "VISIBLE",
+          "RESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.",
+          "RESEARCH COMMAND CENTER",
+          "Company dossiers",
+          "Move from watchlist to a clear action in one view.",
+          "ALL\nUS\nMY\nStrategy",
+          "ALL\nUS\nMY",
+          "ALL",
+          "US",
+          "MY",
+          "Strategy",
+          "Strategy",
+          "WATCHLIST QUEUE\n\nSelect a company to inspect\n\nMSFT\nMicrosoft\nDCA\nNVDA\nNVIDIA\nAVOID\nVOO\nVanguard S&P 500 ETF\nREADY\nMAYBANK\nMalayan Banking\nWAIT\nNET\nCloudflare\nAVOID\nMS\nMSFT\nDCA\n\nMicrosoft\n\nTechnology / Software - Infrastructure\n\nLIVE REFERENCE PRICE\n$428.40\n▲ 0.70% today\nDECISION\nFUNDAMENTALS\nCHECKLIST\nEVENTS\nTECHNICAL\nINVESTMENT DECISION\n\nOwned position still meets the quality and valuation rules\n\nNEXT MOVE\n\nHold the position. Add only if valuation resets closer to the target zone or fundamentals accelerate.\n\nACTION STATE\nDCA\nCONFIDENCE\n88%\n\nHigh Thesis Strength\n\nPRICE LOCATION\nOutside Buy Zone\n$390 - $405\nVALUATION\nFAIR\nCurrent pricing condition\nQUALITY GATE\n8/9 checks passed\nWHY IT MAY WORK\n\nRationale: Durable enterprise distribution with cloud and AI optionality.\n\nBull case: Azure and AI tooling continue to compound inside existing enterprise distribution.\n\nMAIN RISK\n\nThesis break: Enterprise AI demand fails to convert into durable revenue growth.\n\nBear case: AI capex rises faster than monetization and cloud growth slows from a larger base.",
+          "WATCHLIST QUEUE\n\nSelect a company to inspect\n\nMSFT\nMicrosoft\nDCA\nNVDA\nNVIDIA\nAVOID\nVOO\nVanguard S&P 500 ETF\nREADY\nMAYBANK\nMalayan Banking\nWAIT\nNET\nCloudflare\nAVOID",
+          "WATCHLIST QUEUE\n\nSelect a company to inspect",
+          "WATCHLIST QUEUE",
+          "Select a company to inspect",
+          "MSFT\nMicrosoft\nDCA\nNVDA\nNVIDIA\nAVOID\nVOO\nVanguard S&P 500 ETF\nREADY\nMAYBANK\nMalayan Banking\nWAIT\nNET\nCloudflare\nAVOID",
+          "MSFT\nMicrosoft\nDCA",
+          "MSFT",
+          "MSFT",
+          "Microsoft",
+          "DCA",
+          "NVDA\nNVIDIA\nAVOID",
+          "NVDA",
+          "NVDA",
+          "NVIDIA",
+          "AVOID",
+          "VOO\nVanguard S&P 500 ETF\nREADY",
+          "VOO",
+          "VOO",
+          "Vanguard S&P 500 ETF",
+          "READY",
+          "MAYBANK\nMalayan Banking\nWAIT",
+          "MAYBANK",
+          "MAYBANK",
+          "Malayan Banking",
+          "WAIT",
+          "NET\nCloudflare\nAVOID",
+          "NET",
+          "NET",
+          "Cloudflare",
+          "AVOID",
+          "MS\nMSFT\nDCA\n\nMicrosoft\n\nTechnology / Software - Infrastructure\n\nLIVE REFERENCE PRICE\n$428.40\n▲ 0.70% today\nDECISION\nFUNDAMENTALS\nCHECKLIST\nEVENTS\nTECHNICAL\nINVESTMENT DECISION\n\nOwned position still meets the quality and valuation rules\n\nNEXT MOVE\n\nHold the position. Add only if valuation resets closer to the target zone or fundamentals accelerate.\n\nACTION STATE\nDCA\nCONFIDENCE\n88%\n\nHigh Thesis Strength\n\nPRICE LOCATION\nOutside Buy Zone\n$390 - $405\nVALUATION\nFAIR\nCurrent pricing condition\nQUALITY GATE\n8/9 checks passed\nWHY IT MAY WORK\n\nRationale: Durable enterprise distribution with cloud and AI optionality.\n\nBull case: Azure and AI tooling continue to compound inside existing enterprise distribution.\n\nMAIN RISK\n\nThesis break: Enterprise AI demand fails to convert into durable revenue growth.\n\nBear case: AI capex rises faster than monetization and cloud growth slows from a larger base.",
+          "MS\nMSFT\nDCA\n\nMicrosoft\n\nTechnology / Software - Infrastructure\n\nLIVE REFERENCE PRICE\n$428.40\n▲ 0.70% today\nDECISION\nFUNDAMENTALS\nCHECKLIST\nEVENTS\nTECHNICAL\nINVESTMENT DECISION\n\nOwned position still meets the quality and valuation rules\n\nNEXT MOVE\n\nHold the position. Add only if valuation resets closer to the target zone or fundamentals accelerate.\n\nACTION STATE\nDCA\nCONFIDENCE\n88%\n\nHigh Thesis Strength\n\nPRICE LOCATION\nOutside Buy Zone\n$390 - $405\nVALUATION\nFAIR\nCurrent pricing condition\nQUALITY GATE\n8/9 checks passed\nWHY IT MAY WORK\n\nRationale: Durable enterprise distribution with cloud and AI optionality.\n\nBull case: Azure and AI tooling continue to compound inside existing enterprise distribution.\n\nMAIN RISK\n\nThesis break: Enterprise AI demand fails to convert into durable revenue growth.\n\nBear case: AI capex rises faster than monetization and cloud growth slows from a larger base.",
+          "MS\nMSFT\nDCA\n\nMicrosoft\n\nTechnology / Software - Infrastructure\n\nLIVE REFERENCE PRICE\n$428.40\n▲ 0.70% today",
+          "MS\nMSFT\nDCA\n\nMicrosoft\n\nTechnology / Software - Infrastructure\n\nLIVE REFERENCE PRICE\n$428.40\n▲ 0.70% today",
+          "MS\nMSFT\nDCA\n\nMicrosoft\n\nTechnology / Software - Infrastructure",
+          "MS",
+          "MSFT\nDCA\n\nMicrosoft\n\nTechnology / Software - Infrastructure",
+          "MSFT\nDCA",
+          "MSFT",
+          "DCA",
+          "Microsoft",
+          "Technology / Software - Infrastructure",
+          "LIVE REFERENCE PRICE\n$428.40\n▲ 0.70% today",
+          "LIVE REFERENCE PRICE",
+          "$428.40",
+          "▲ 0.70% today",
+          "DECISION\nFUNDAMENTALS\nCHECKLIST\nEVENTS\nTECHNICAL",
+          "DECISION\nFUNDAMENTALS\nCHECKLIST\nEVENTS\nTECHNICAL",
+          "DECISION\nFUNDAMENTALS\nCHECKLIST\nEVENTS\nTECHNICAL",
+          "DECISION",
+          "FUNDAMENTALS",
+          "CHECKLIST"
+        ]
+      }
+    },
+    {
+      "label": "after-search",
+      "metrics": {
+        "url": "http://localhost:3000/research-v5",
+        "title": "Research V5 | Workstation",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "horizontalOverflowPx": 0,
+        "bodyTextLength": 240,
+        "h1": [
+          "Company dossiers"
+        ],
+        "h2": [],
+        "links": [
+          {
+            "text": "SIGNAL",
+            "href": "http://localhost:3000/main-v5"
+          },
+          {
+            "text": "Market",
+            "href": "http://localhost:3000/main-v5"
+          },
+          {
+            "text": "Research",
+            "href": "http://localhost:3000/research-v5"
+          }
+        ],
+        "buttons": [
+          {
+            "tag": "INPUT",
+            "text": "Search ticker or company",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "ALL",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "US",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "MY",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "Strategy",
+            "role": null,
+            "disabled": null
+          }
+        ],
+        "selected": [],
+        "visibleText": [
+          "SIGNAL\nMarket\nResearch\n0\nVISIBLE\nRESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.\n\nALL\nUS\nMY\nStrategy\nWATCHLIST QUEUE\n\nSelect a company to inspect\n\nNO MATCHES\nChoose a dossier to begin evaluation.",
+          "SIGNAL\nMarket\nResearch",
+          "SIGNAL\nMarket\nResearch",
+          "SIGNAL\nMarket\nResearch",
+          "SIGNAL",
+          "SIGNAL",
+          "Market\nResearch",
+          "Market",
+          "Research",
+          "0\nVISIBLE\nRESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.\n\nALL\nUS\nMY\nStrategy\nWATCHLIST QUEUE\n\nSelect a company to inspect\n\nNO MATCHES\nChoose a dossier to begin evaluation.",
+          "0\nVISIBLE\nRESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.\n\nALL\nUS\nMY\nStrategy",
+          "0\nVISIBLE\nRESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.\n\nALL\nUS\nMY\nStrategy",
+          "0\nVISIBLE\nRESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.",
+          "0\nVISIBLE",
+          "0",
+          "VISIBLE",
+          "RESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.",
+          "RESEARCH COMMAND CENTER",
+          "Company dossiers",
+          "Move from watchlist to a clear action in one view.",
+          "ALL\nUS\nMY\nStrategy",
+          "ALL\nUS\nMY",
+          "ALL",
+          "US",
+          "MY",
+          "Strategy",
+          "Strategy",
+          "WATCHLIST QUEUE\n\nSelect a company to inspect\n\nNO MATCHES\nChoose a dossier to begin evaluation.",
+          "WATCHLIST QUEUE\n\nSelect a company to inspect\n\nNO MATCHES",
+          "WATCHLIST QUEUE\n\nSelect a company to inspect",
+          "WATCHLIST QUEUE",
+          "Select a company to inspect",
+          "NO MATCHES",
+          "NO MATCHES",
+          "Choose a dossier to begin evaluation.",
+          "Choose a dossier to begin evaluation."
+        ]
+      }
+    },
+    {
+      "label": "after-ticker-and-tabs",
+      "metrics": {
+        "url": "http://localhost:3000/research-v5",
+        "title": "Research V5 | Workstation",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "horizontalOverflowPx": 0,
+        "bodyTextLength": 240,
+        "h1": [
+          "Company dossiers"
+        ],
+        "h2": [],
+        "links": [
+          {
+            "text": "SIGNAL",
+            "href": "http://localhost:3000/main-v5"
+          },
+          {
+            "text": "Market",
+            "href": "http://localhost:3000/main-v5"
+          },
+          {
+            "text": "Research",
+            "href": "http://localhost:3000/research-v5"
+          }
+        ],
+        "buttons": [
+          {
+            "tag": "INPUT",
+            "text": "Search ticker or company",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "ALL",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "US",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "MY",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "Strategy",
+            "role": null,
+            "disabled": null
+          }
+        ],
+        "selected": [],
+        "visibleText": [
+          "SIGNAL\nMarket\nResearch\n0\nVISIBLE\nRESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.\n\nALL\nUS\nMY\nStrategy\nWATCHLIST QUEUE\n\nSelect a company to inspect\n\nNO MATCHES\nChoose a dossier to begin evaluation.",
+          "SIGNAL\nMarket\nResearch",
+          "SIGNAL\nMarket\nResearch",
+          "SIGNAL\nMarket\nResearch",
+          "SIGNAL",
+          "SIGNAL",
+          "Market\nResearch",
+          "Market",
+          "Research",
+          "0\nVISIBLE\nRESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.\n\nALL\nUS\nMY\nStrategy\nWATCHLIST QUEUE\n\nSelect a company to inspect\n\nNO MATCHES\nChoose a dossier to begin evaluation.",
+          "0\nVISIBLE\nRESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.\n\nALL\nUS\nMY\nStrategy",
+          "0\nVISIBLE\nRESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.\n\nALL\nUS\nMY\nStrategy",
+          "0\nVISIBLE\nRESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.",
+          "0\nVISIBLE",
+          "0",
+          "VISIBLE",
+          "RESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.",
+          "RESEARCH COMMAND CENTER",
+          "Company dossiers",
+          "Move from watchlist to a clear action in one view.",
+          "ALL\nUS\nMY\nStrategy",
+          "ALL\nUS\nMY",
+          "ALL",
+          "US",
+          "MY",
+          "Strategy",
+          "Strategy",
+          "WATCHLIST QUEUE\n\nSelect a company to inspect\n\nNO MATCHES\nChoose a dossier to begin evaluation.",
+          "WATCHLIST QUEUE\n\nSelect a company to inspect\n\nNO MATCHES",
+          "WATCHLIST QUEUE\n\nSelect a company to inspect",
+          "WATCHLIST QUEUE",
+          "Select a company to inspect",
+          "NO MATCHES",
+          "NO MATCHES",
+          "Choose a dossier to begin evaluation.",
+          "Choose a dossier to begin evaluation."
+        ]
+      }
+    }
+  ],
+  "consoleMessages": [
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js",
+        "line": 2297,
+        "column": 27,
+        "lineNumber": 2297,
+        "columnNumber": 27
+      }
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js",
+        "line": 2297,
+        "column": 27,
+        "lineNumber": 2297,
+        "columnNumber": 27
+      }
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] rebuilding",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js",
+        "line": 2297,
+        "column": 27,
+        "lineNumber": 2297,
+        "columnNumber": 27
+      }
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] done in 127ms",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js",
+        "line": 2297,
+        "column": 27,
+        "lineNumber": 2297,
+        "columnNumber": 27
+      }
+    }
+  ],
+  "pageErrors": [],
+  "failedRequests": [
+    {
+      "url": "http://localhost:3000/research-v5?_rsc=1kxcr",
+      "method": "GET",
+      "failure": {
+        "errorText": "net::ERR_ABORTED"
+      }
+    }
+  ],
+  "actionLog": [
+    "surface: Browser UI research-v5 mobile",
+    "invocation: Playwright chromium.goto('http://localhost:3000/research-v5') viewport=390x844 isMobile=true",
+    "screenshot: C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-mobile-initial.png",
+    "search filled 'tesla'",
+    "search filled 'zzz-no-result-qa'",
+    "not found/clickable 'TSLA'",
+    "not found/clickable 'AAPL'",
+    "not found/clickable 'NVDA'",
+    "not found/clickable 'Summary'",
+    "not found/clickable 'Signals'",
+    "not found/clickable 'News'",
+    "not found/clickable 'Technicals'",
+    "not found/clickable 'Financials'",
+    "not found/clickable 'Overview'",
+    "clicked 'Research'",
+    "screenshot: C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-mobile-after-interactions.png"
+  ]
+}

@@ -1,0 +1,254 @@
+{
+  "viewport": {
+    "name": "mobile",
+    "width": 390,
+    "height": 844,
+    "isMobile": true
+  },
+  "actions": [
+    "surface: Browser UI main-v5 mobile",
+    "invocation: Playwright chromium.goto('http://localhost:3000/main-v5') viewport=390x844 isMobile=true",
+    "PASS main Configure opens settings",
+    "PASS main market region MY selectable",
+    "PASS main analysis mode Contrarian selectable",
+    "FAIL main Summary tab selectable: TimeoutError locator.click: Timeout 3000ms exceeded.",
+    "FAIL main Evidence tab selectable: TimeoutError locator.click: Timeout 3000ms exceeded.",
+    "FAIL main News tab selectable: TimeoutError locator.click: Timeout 3000ms exceeded.",
+    "surface: Browser UI research-v5 mobile",
+    "invocation: Playwright chromium.goto('http://localhost:3000/research-v5') viewport=390x844 isMobile=true",
+    "PASS research search filters MS",
+    "PASS research search clears",
+    "PASS research filter MY selectable",
+    "PASS research ticker MAYBANK selectable",
+    "PASS research tab Fundamentals selectable",
+    "PASS research tab Checklist selectable",
+    "PASS research tab Events selectable",
+    "PASS research tab Technical selectable"
+  ],
+  "mainShot": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\main-v5-mobile-targeted-controls.png",
+  "researchSearchShot": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-mobile-search-ms.png",
+  "researchShot": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-mobile-targeted-controls.png",
+  "mainMetrics": {
+    "url": "http://localhost:3000/main-v5",
+    "bodyOverflowPx": 0,
+    "bodyText": "SIGNAL\nMarket\nResearch\nDESK SETTINGS\n|\nActive: MY Market\n•\nMode: Contrarian\n•\nSocial context: ON\nHide\nMARKET REGION\nUS\nMY\nANALYSIS MODE\nMomentum\nContrarian\nSOCIAL CONTEXT\nSocial context is Active\nSummary\nEvidence\nNews\nLIVE MARKET POSTURE\nMIXED / NEUTRAL\n\nMarket is lacking clear direction. Volatility is average.\n\nMixed\nSession move -4 pts\nRISK-OFF\nBALANCED\nRISK-ON\nCOMPOSITE SIGNAL\n63\n/100\n100\n0\nAGREEMENT\n33%\nCOVERAGE\nModerate\nUpdated Jul 10, 12:00 AM UTC\n^KLSE\n▲ 0.47%\nEVIDENCE STACK\nWHAT IS MOVING THE SIGNAL\nSIGNAL 01\n+29\nNews Sentiment\n\n50 score at 59% weight\n\nSIGNAL 02\n+24\nUSD/MYR Volatility\n\n80 score at 29% weight\n\nSIGNAL 03\n+10\nAAII\n\n87 score at 12% weight\n\nMAIN RISK FACTORS\n\n• AAII data is stale (2026-04-22).\n\n• USD/MYR Volatility, AAII do not align with the majority NEUTRAL read.\n\nWHAT WOULD CHANGE THIS VIEW?\n\nA unified breakout where indicators align (either in positive momentum or negative trend breaches) would resolve this Neutral posture into a directional Buy or Sell.",
+    "buttons": [
+      {
+        "text": "",
+        "aria": "Refresh analysis",
+        "disabled": false,
+        "cls": "flex items-center justify-center p-2 rounded-md bg-white/[0.06] hover:bg-white/["
+      },
+      {
+        "text": "DESK SETTINGS\n|\nActive: MY Market\n•\nMode: Contrarian\n•\nSocial context: ON\nHide",
+        "aria": null,
+        "disabled": false,
+        "cls": "w-full flex items-center justify-between px-5 py-3.5 bg-zinc-50/50 hover:bg-zinc"
+      },
+      {
+        "text": "US",
+        "aria": null,
+        "disabled": false,
+        "cls": "px-4 py-1.5 font-bold transition-all text-zinc-600 hover:text-zinc-900"
+      },
+      {
+        "text": "MY",
+        "aria": null,
+        "disabled": false,
+        "cls": "px-4 py-1.5 font-bold transition-all bg-zinc-900 text-white"
+      },
+      {
+        "text": "Momentum",
+        "aria": null,
+        "disabled": false,
+        "cls": "px-4 py-1.5 font-bold transition-all text-zinc-600 hover:text-zinc-900"
+      },
+      {
+        "text": "Contrarian",
+        "aria": null,
+        "disabled": false,
+        "cls": "px-4 py-1.5 font-bold transition-all bg-zinc-900 text-white"
+      },
+      {
+        "text": "Social context is Active",
+        "aria": null,
+        "disabled": false,
+        "cls": "px-4 py-2 border rounded-md font-bold transition-all bg-[#2f62d5] text-white bor"
+      },
+      {
+        "text": "Summary",
+        "aria": null,
+        "disabled": false,
+        "cls": "h-full border-b-2 px-1 text-sm font-semibold capitalize transition-all focus:out"
+      },
+      {
+        "text": "Evidence",
+        "aria": null,
+        "disabled": false,
+        "cls": "h-full border-b-2 px-1 text-sm font-semibold capitalize transition-all focus:out"
+      },
+      {
+        "text": "News",
+        "aria": null,
+        "disabled": false,
+        "cls": "h-full border-b-2 px-1 text-sm font-semibold capitalize transition-all focus:out"
+      }
+    ],
+    "overflowEls": []
+  },
+  "researchMetrics": {
+    "url": "http://localhost:3000/research-v5?ticker=MAYBANK",
+    "bodyOverflowPx": 0,
+    "bodyText": "SIGNAL\nMarket\nResearch\n1\nVISIBLE\nRESEARCH COMMAND CENTER\nCompany dossiers\n\nMove from watchlist to a clear action in one view.\n\nALL\nUS\nMY\nStrategy\nWATCHLIST QUEUE\n\nSelect a company to inspect\n\nMAYBANK\nMalayan Banking\nWAIT\nMA\nMAYBANK\nWAIT\n\nMalayan Banking\n\nFinancials / Banks\n\nLIVE REFERENCE PRICE\n$10.02\n▲ 0.30% today\nDECISION\nFUNDAMENTALS\nCHECKLIST\nEVENTS\nTECHNICAL\n50-DAY MA\nNear\n200-DAY MA\nAbove\nRSI (14)\nNeutral\nMACD\nFlat\nVOLUME\nNormal\n52-WEEK RANGE\n\nMiddle range\n\nSUPPORT / RESISTANCE BOUNDS\n\nRM9.60 support, RM10.40 resistance",
+    "buttons": [
+      {
+        "text": "ALL",
+        "aria": null,
+        "disabled": false,
+        "cls": "rounded px-3 py-1.5 font-bold transition-all text-zinc-500 hover:text-zinc-900"
+      },
+      {
+        "text": "US",
+        "aria": null,
+        "disabled": false,
+        "cls": "rounded px-3 py-1.5 font-bold transition-all text-zinc-500 hover:text-zinc-900"
+      },
+      {
+        "text": "MY",
+        "aria": null,
+        "disabled": false,
+        "cls": "rounded px-3 py-1.5 font-bold transition-all bg-[#151916] text-white"
+      },
+      {
+        "text": "Strategy",
+        "aria": null,
+        "disabled": false,
+        "cls": "flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-2 f"
+      },
+      {
+        "text": "MAYBANK\nMalayan Banking\nWAIT",
+        "aria": null,
+        "disabled": false,
+        "cls": "group min-w-[150px] rounded-md border p-3 text-left transition-all lg:min-w-0 bo"
+      },
+      {
+        "text": "DECISION",
+        "aria": null,
+        "disabled": false,
+        "cls": "h-full border-b-2 px-1 text-xs font-semibold uppercase transition-all focus:outl"
+      },
+      {
+        "text": "FUNDAMENTALS",
+        "aria": null,
+        "disabled": false,
+        "cls": "h-full border-b-2 px-1 text-xs font-semibold uppercase transition-all focus:outl"
+      },
+      {
+        "text": "CHECKLIST",
+        "aria": null,
+        "disabled": false,
+        "cls": "h-full border-b-2 px-1 text-xs font-semibold uppercase transition-all focus:outl"
+      },
+      {
+        "text": "EVENTS",
+        "aria": null,
+        "disabled": false,
+        "cls": "h-full border-b-2 px-1 text-xs font-semibold uppercase transition-all focus:outl"
+      },
+      {
+        "text": "TECHNICAL",
+        "aria": null,
+        "disabled": false,
+        "cls": "h-full border-b-2 px-1 text-xs font-semibold uppercase transition-all focus:outl"
+      }
+    ],
+    "overflowEls": [
+      {
+        "i": 72,
+        "tag": "DIV",
+        "cls": "overflow-x-auto flex px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        "text": "DECISION FUNDAMENTALS CHECKLIST EVENTS TECHNICAL",
+        "scrollWidth": 488,
+        "clientWidth": 356,
+        "delta": 132,
+        "overflowX": "auto",
+        "rect": {
+          "x": 17,
+          "y": 777.5,
+          "w": 356,
+          "h": 44
+        }
+      }
+    ]
+  },
+  "consoleMessages": [
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js",
+        "line": 2297,
+        "column": 27,
+        "lineNumber": 2297,
+        "columnNumber": 27
+      }
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js",
+        "line": 2297,
+        "column": 27,
+        "lineNumber": 2297,
+        "columnNumber": 27
+      }
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] rebuilding",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js",
+        "line": 2297,
+        "column": 27,
+        "lineNumber": 2297,
+        "columnNumber": 27
+      }
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] done in 228ms",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js",
+        "line": 2297,
+        "column": 27,
+        "lineNumber": 2297,
+        "columnNumber": 27
+      }
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js",
+        "line": 2297,
+        "column": 27,
+        "lineNumber": 2297,
+        "columnNumber": 27
+      }
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js",
+        "line": 2297,
+        "column": 27,
+        "lineNumber": 2297,
+        "columnNumber": 27
+      }
+    }
+  ],
+  "pageErrors": [],
+  "failedRequests": []
+}

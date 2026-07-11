@@ -1,0 +1,424 @@
+{
+  "route": "main-v5",
+  "viewport": {
+    "name": "desktop",
+    "width": 1440,
+    "height": 1000,
+    "isMobile": false
+  },
+  "exactInvocation": "Playwright chromium.goto('http://localhost:3000/main-v5') viewport=1440x1000 isMobile=false",
+  "states": [
+    {
+      "label": "initial",
+      "metrics": {
+        "url": "http://localhost:3000/main-v5",
+        "title": "Signal V5 | Market Dashboard",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "horizontalOverflowPx": 0,
+        "bodyTextLength": 1041,
+        "h1": [],
+        "h2": [],
+        "links": [
+          {
+            "text": "SIGNAL\nINTELLIGENCE",
+            "href": "http://localhost:3000/main-v5"
+          },
+          {
+            "text": "Market",
+            "href": "http://localhost:3000/main-v5"
+          },
+          {
+            "text": "Research",
+            "href": "http://localhost:3000/research-v5"
+          }
+        ],
+        "buttons": [
+          {
+            "tag": "BUTTON",
+            "text": "Refresh analysis",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "DESK SETTINGS\n|\nActive: US Market\n•\nMode: Momentum\n•\nSocial context: ON\nConfigure",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "Summary",
+            "role": "tab",
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "Evidence",
+            "role": "tab",
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "News",
+            "role": "tab",
+            "disabled": null
+          }
+        ],
+        "selected": [
+          "Summary"
+        ],
+        "visibleText": [
+          "SIGNAL\nINTELLIGENCE\nMarket\nResearch\nFreshness\nJul 10, 12:00 AM UTC\nDESK SETTINGS\n|\nActive: US Market\n•\nMode: Momentum\n•\nSocial context: ON\nConfigure\nSummary\nEvidence\nNews\nLIVE MARKET POSTURE\nRISK-ON MOMENTUM\n\nBullish trend is healthy. Stay long but watch for overheating.\n\nLeaning positive\nSession move -1 pts\nRISK-OFF\nBALANCED\nRISK-ON\nCOMPOSITE SIGNAL\n72\n/100\n100\n0\nAGREEMENT\n60%\nCOVERAGE\nStrong\nUpdated Jul 10, 12:00 AM UTC\n^GSPC\n▲ 0.81%\n^IXIC\n▲ 1.30%\n^DJI\n▲ 0.27%\n^RUT\n▲ 1.22%\nEVIDENCE STACK\nWHAT IS MOVING THE SIGNAL\nRanked by contribution\nSIGNAL 01\n+29\nVIX Index\n\n79 score at 37% weight\n\nSIGNAL 02\n+18\nAAII\n\n87 score at 21% weight\n\nSIGNAL 03\n+11\nSocial Sentiment\n\n50 score at 21% weight\n\nMAIN RISK FACTORS\n\n• Manager exposure (NAAIM) data is stale (2026-06-10).\n\n• AAII data is stale (2026-04-22).\n\n• Social Sentiment, Put/call ratio do not align with the majority BUY read.\n\nWHAT WOULD CHANGE THIS VIEW?\n\nA negative reversal in AAII or key momentum structures falling below support thresholds would trigger a drop to a Neutral posture.",
+          "SIGNAL\nINTELLIGENCE\nMarket\nResearch\nFreshness\nJul 10, 12:00 AM UTC",
+          "SIGNAL\nINTELLIGENCE\nMarket\nResearch\nFreshness\nJul 10, 12:00 AM UTC",
+          "SIGNAL\nINTELLIGENCE\nMarket\nResearch",
+          "SIGNAL\nINTELLIGENCE",
+          "SIGNAL",
+          "INTELLIGENCE",
+          "Market\nResearch",
+          "Market",
+          "Research",
+          "Freshness\nJul 10, 12:00 AM UTC",
+          "Freshness\nJul 10, 12:00 AM UTC",
+          "Freshness",
+          "Jul 10, 12:00 AM UTC",
+          "Refresh analysis",
+          "DESK SETTINGS\n|\nActive: US Market\n•\nMode: Momentum\n•\nSocial context: ON\nConfigure\nSummary\nEvidence\nNews\nLIVE MARKET POSTURE\nRISK-ON MOMENTUM\n\nBullish trend is healthy. Stay long but watch for overheating.\n\nLeaning positive\nSession move -1 pts\nRISK-OFF\nBALANCED\nRISK-ON\nCOMPOSITE SIGNAL\n72\n/100\n100\n0\nAGREEMENT\n60%\nCOVERAGE\nStrong\nUpdated Jul 10, 12:00 AM UTC\n^GSPC\n▲ 0.81%\n^IXIC\n▲ 1.30%\n^DJI\n▲ 0.27%\n^RUT\n▲ 1.22%\nEVIDENCE STACK\nWHAT IS MOVING THE SIGNAL\nRanked by contribution\nSIGNAL 01\n+29\nVIX Index\n\n79 score at 37% weight\n\nSIGNAL 02\n+18\nAAII\n\n87 score at 21% weight\n\nSIGNAL 03\n+11\nSocial Sentiment\n\n50 score at 21% weight\n\nMAIN RISK FACTORS\n\n• Manager exposure (NAAIM) data is stale (2026-06-10).\n\n• AAII data is stale (2026-04-22).\n\n• Social Sentiment, Put/call ratio do not align with the majority BUY read.\n\nWHAT WOULD CHANGE THIS VIEW?\n\nA negative reversal in AAII or key momentum structures falling below support thresholds would trigger a drop to a Neutral posture.",
+          "DESK SETTINGS\n|\nActive: US Market\n•\nMode: Momentum\n•\nSocial context: ON\nConfigure",
+          "DESK SETTINGS\n|\nActive: US Market\n•\nMode: Momentum\n•\nSocial context: ON\nConfigure",
+          "DESK SETTINGS\n|\nActive: US Market\n•\nMode: Momentum\n•\nSocial context: ON",
+          "DESK SETTINGS",
+          "|",
+          "Active: US Market",
+          "US Market",
+          "•",
+          "Mode: Momentum",
+          "Momentum",
+          "•",
+          "Social context: ON",
+          "ON",
+          "Configure",
+          "Configure",
+          "Summary\nEvidence\nNews\nLIVE MARKET POSTURE\nRISK-ON MOMENTUM\n\nBullish trend is healthy. Stay long but watch for overheating.\n\nLeaning positive\nSession move -1 pts\nRISK-OFF\nBALANCED\nRISK-ON\nCOMPOSITE SIGNAL\n72\n/100\n100\n0\nAGREEMENT\n60%\nCOVERAGE\nStrong\nUpdated Jul 10, 12:00 AM UTC\n^GSPC\n▲ 0.81%\n^IXIC\n▲ 1.30%\n^DJI\n▲ 0.27%\n^RUT\n▲ 1.22%\nEVIDENCE STACK\nWHAT IS MOVING THE SIGNAL\nRanked by contribution\nSIGNAL 01\n+29\nVIX Index\n\n79 score at 37% weight\n\nSIGNAL 02\n+18\nAAII\n\n87 score at 21% weight\n\nSIGNAL 03\n+11\nSocial Sentiment\n\n50 score at 21% weight\n\nMAIN RISK FACTORS\n\n• Manager exposure (NAAIM) data is stale (2026-06-10).\n\n• AAII data is stale (2026-04-22).\n\n• Social Sentiment, Put/call ratio do not align with the majority BUY read.\n\nWHAT WOULD CHANGE THIS VIEW?\n\nA negative reversal in AAII or key momentum structures falling below support thresholds would trigger a drop to a Neutral posture.",
+          "Summary\nEvidence\nNews",
+          "Summary\nEvidence\nNews",
+          "Summary",
+          "Evidence",
+          "News",
+          "LIVE MARKET POSTURE\nRISK-ON MOMENTUM\n\nBullish trend is healthy. Stay long but watch for overheating.\n\nLeaning positive\nSession move -1 pts\nRISK-OFF\nBALANCED\nRISK-ON\nCOMPOSITE SIGNAL\n72\n/100\n100\n0\nAGREEMENT\n60%\nCOVERAGE\nStrong\nUpdated Jul 10, 12:00 AM UTC\n^GSPC\n▲ 0.81%\n^IXIC\n▲ 1.30%\n^DJI\n▲ 0.27%\n^RUT\n▲ 1.22%\nEVIDENCE STACK\nWHAT IS MOVING THE SIGNAL\nRanked by contribution\nSIGNAL 01\n+29\nVIX Index\n\n79 score at 37% weight\n\nSIGNAL 02\n+18\nAAII\n\n87 score at 21% weight\n\nSIGNAL 03\n+11\nSocial Sentiment\n\n50 score at 21% weight\n\nMAIN RISK FACTORS\n\n• Manager exposure (NAAIM) data is stale (2026-06-10).\n\n• AAII data is stale (2026-04-22).\n\n• Social Sentiment, Put/call ratio do not align with the majority BUY read.\n\nWHAT WOULD CHANGE THIS VIEW?\n\nA negative reversal in AAII or key momentum structures falling below support thresholds would trigger a drop to a Neutral posture.",
+          "LIVE MARKET POSTURE\nRISK-ON MOMENTUM\n\nBullish trend is healthy. Stay long but watch for overheating.\n\nLeaning positive\nSession move -1 pts\nRISK-OFF\nBALANCED\nRISK-ON\nCOMPOSITE SIGNAL\n72\n/100\n100\n0\nAGREEMENT\n60%\nCOVERAGE\nStrong\nUpdated Jul 10, 12:00 AM UTC\n^GSPC\n▲ 0.81%\n^IXIC\n▲ 1.30%\n^DJI\n▲ 0.27%\n^RUT\n▲ 1.22%",
+          "LIVE MARKET POSTURE\nRISK-ON MOMENTUM\n\nBullish trend is healthy. Stay long but watch for overheating.\n\nLeaning positive\nSession move -1 pts\nRISK-OFF\nBALANCED\nRISK-ON\nCOMPOSITE SIGNAL\n72\n/100\n100\n0\nAGREEMENT\n60%\nCOVERAGE\nStrong\nUpdated Jul 10, 12:00 AM UTC",
+          "LIVE MARKET POSTURE\nRISK-ON MOMENTUM\n\nBullish trend is healthy. Stay long but watch for overheating.\n\nLeaning positive\nSession move -1 pts\nRISK-OFF\nBALANCED\nRISK-ON",
+          "LIVE MARKET POSTURE\nRISK-ON MOMENTUM\n\nBullish trend is healthy. Stay long but watch for overheating.\n\nLeaning positive\nSession move -1 pts",
+          "LIVE MARKET POSTURE\nRISK-ON MOMENTUM",
+          "LIVE MARKET POSTURE",
+          "RISK-ON MOMENTUM",
+          "Bullish trend is healthy. Stay long but watch for overheating.",
+          "Leaning positive\nSession move -1 pts",
+          "Leaning positive",
+          "Session move -1 pts",
+          "-1 pts",
+          "RISK-OFF\nBALANCED\nRISK-ON",
+          "RISK-OFF\nBALANCED\nRISK-ON",
+          "RISK-OFF",
+          "BALANCED",
+          "RISK-ON",
+          "COMPOSITE SIGNAL\n72\n/100\n100\n0\nAGREEMENT\n60%\nCOVERAGE\nStrong\nUpdated Jul 10, 12:00 AM UTC",
+          "COMPOSITE SIGNAL\n72\n/100\n100\n0",
+          "COMPOSITE SIGNAL",
+          "72\n/100",
+          "72",
+          "/100",
+          "100\n0",
+          "100\n0",
+          "100\n0",
+          "100",
+          "0",
+          "AGREEMENT\n60%\nCOVERAGE\nStrong",
+          "AGREEMENT\n60%",
+          "AGREEMENT",
+          "60%",
+          "COVERAGE\nStrong",
+          "COVERAGE",
+          "Strong",
+          "Updated Jul 10, 12:00 AM UTC",
+          "^GSPC\n▲ 0.81%\n^IXIC\n▲ 1.30%\n^DJI\n▲ 0.27%\n^RUT\n▲ 1.22%",
+          "^GSPC\n▲ 0.81%",
+          "^GSPC",
+          "▲ 0.81%",
+          "^IXIC\n▲ 1.30%",
+          "^IXIC"
+        ]
+      }
+    },
+    {
+      "label": "after-market-tabs",
+      "metrics": {
+        "url": "http://localhost:3000/main-v5",
+        "title": "Signal V5 | Market Dashboard",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "horizontalOverflowPx": 0,
+        "bodyTextLength": 1130,
+        "h1": [],
+        "h2": [],
+        "links": [
+          {
+            "text": "SIGNAL\nINTELLIGENCE",
+            "href": "http://localhost:3000/main-v5"
+          },
+          {
+            "text": "Market",
+            "href": "http://localhost:3000/main-v5"
+          },
+          {
+            "text": "Research",
+            "href": "http://localhost:3000/research-v5"
+          }
+        ],
+        "buttons": [
+          {
+            "tag": "BUTTON",
+            "text": "Refresh analysis",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "DESK SETTINGS\n|\nActive: US Market\n•\nMode: Momentum\n•\nSocial context: ON\nHide",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "US",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "MY",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "Momentum",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "Contrarian",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "Social context is Active",
+            "role": null,
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "Summary",
+            "role": "tab",
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "Evidence",
+            "role": "tab",
+            "disabled": null
+          },
+          {
+            "tag": "BUTTON",
+            "text": "News",
+            "role": "tab",
+            "disabled": null
+          }
+        ],
+        "selected": [
+          "Summary"
+        ],
+        "visibleText": [
+          "SIGNAL\nINTELLIGENCE\nMarket\nResearch\nFreshness\nJul 10, 12:00 AM UTC\nDESK SETTINGS\n|\nActive: US Market\n•\nMode: Momentum\n•\nSocial context: ON\nHide\nMARKET REGION\nUS\nMY\nANALYSIS MODE\nMomentum\nContrarian\nSOCIAL CONTEXT\nSocial context is Active\nSummary\nEvidence\nNews\nLIVE MARKET POSTURE\nRISK-ON MOMENTUM\n\nBullish trend is healthy. Stay long but watch for overheating.\n\nLeaning positive\nSession move -1 pts\nRISK-OFF\nBALANCED\nRISK-ON\nCOMPOSITE SIGNAL\n72\n/100\n100\n0\nAGREEMENT\n60%\nCOVERAGE\nStrong\nUpdated Jul 10, 12:00 AM UTC\n^GSPC\n▲ 0.81%\n^IXIC\n▲ 1.30%\n^DJI\n▲ 0.27%\n^RUT\n▲ 1.22%\nEVIDENCE STACK\nWHAT IS MOVING THE SIGNAL\nRanked by contribution\nSIGNAL 01\n+29\nVIX Index\n\n79 score at 37% weight\n\nSIGNAL 02\n+18\nAAII\n\n87 score at 21% weight\n\nSIGNAL 03\n+11\nSocial Sentiment\n\n50 score at 21% weight\n\nMAIN RISK FACTORS\n\n• Manager exposure (NAAIM) data is stale (2026-06-10).\n\n• AAII data is stale (2026-04-22).\n\n• Social Sentiment, Put/call ratio do not align with the majority BUY read.\n\nWHAT WOULD CHANGE THIS VIEW?\n\nA negative reversal in AAII or key momentum structures falling below support thresholds would trigger a drop to a Neutral posture.",
+          "SIGNAL\nINTELLIGENCE\nMarket\nResearch\nFreshness\nJul 10, 12:00 AM UTC",
+          "SIGNAL\nINTELLIGENCE\nMarket\nResearch\nFreshness\nJul 10, 12:00 AM UTC",
+          "SIGNAL\nINTELLIGENCE\nMarket\nResearch",
+          "SIGNAL\nINTELLIGENCE",
+          "SIGNAL",
+          "INTELLIGENCE",
+          "Market\nResearch",
+          "Market",
+          "Research",
+          "Freshness\nJul 10, 12:00 AM UTC",
+          "Freshness\nJul 10, 12:00 AM UTC",
+          "Freshness",
+          "Jul 10, 12:00 AM UTC",
+          "Refresh analysis",
+          "DESK SETTINGS\n|\nActive: US Market\n•\nMode: Momentum\n•\nSocial context: ON\nHide\nMARKET REGION\nUS\nMY\nANALYSIS MODE\nMomentum\nContrarian\nSOCIAL CONTEXT\nSocial context is Active\nSummary\nEvidence\nNews\nLIVE MARKET POSTURE\nRISK-ON MOMENTUM\n\nBullish trend is healthy. Stay long but watch for overheating.\n\nLeaning positive\nSession move -1 pts\nRISK-OFF\nBALANCED\nRISK-ON\nCOMPOSITE SIGNAL\n72\n/100\n100\n0\nAGREEMENT\n60%\nCOVERAGE\nStrong\nUpdated Jul 10, 12:00 AM UTC\n^GSPC\n▲ 0.81%\n^IXIC\n▲ 1.30%\n^DJI\n▲ 0.27%\n^RUT\n▲ 1.22%\nEVIDENCE STACK\nWHAT IS MOVING THE SIGNAL\nRanked by contribution\nSIGNAL 01\n+29\nVIX Index\n\n79 score at 37% weight\n\nSIGNAL 02\n+18\nAAII\n\n87 score at 21% weight\n\nSIGNAL 03\n+11\nSocial Sentiment\n\n50 score at 21% weight\n\nMAIN RISK FACTORS\n\n• Manager exposure (NAAIM) data is stale (2026-06-10).\n\n• AAII data is stale (2026-04-22).\n\n• Social Sentiment, Put/call ratio do not align with the majority BUY read.\n\nWHAT WOULD CHANGE THIS VIEW?\n\nA negative reversal in AAII or key momentum structures falling below support thresholds would trigger a drop to a Neutral posture.",
+          "DESK SETTINGS\n|\nActive: US Market\n•\nMode: Momentum\n•\nSocial context: ON\nHide\nMARKET REGION\nUS\nMY\nANALYSIS MODE\nMomentum\nContrarian\nSOCIAL CONTEXT\nSocial context is Active",
+          "DESK SETTINGS\n|\nActive: US Market\n•\nMode: Momentum\n•\nSocial context: ON\nHide",
+          "DESK SETTINGS\n|\nActive: US Market\n•\nMode: Momentum\n•\nSocial context: ON",
+          "DESK SETTINGS",
+          "|",
+          "Active: US Market",
+          "US Market",
+          "•",
+          "Mode: Momentum",
+          "Momentum",
+          "•",
+          "Social context: ON",
+          "ON",
+          "Hide",
+          "Hide",
+          "MARKET REGION\nUS\nMY\nANALYSIS MODE\nMomentum\nContrarian\nSOCIAL CONTEXT\nSocial context is Active",
+          "MARKET REGION\nUS\nMY",
+          "MARKET REGION",
+          "US\nMY",
+          "US",
+          "MY",
+          "ANALYSIS MODE\nMomentum\nContrarian",
+          "ANALYSIS MODE",
+          "Momentum\nContrarian",
+          "Momentum",
+          "Contrarian",
+          "SOCIAL CONTEXT\nSocial context is Active",
+          "SOCIAL CONTEXT",
+          "Social context is Active",
+          "Summary\nEvidence\nNews\nLIVE MARKET POSTURE\nRISK-ON MOMENTUM\n\nBullish trend is healthy. Stay long but watch for overheating.\n\nLeaning positive\nSession move -1 pts\nRISK-OFF\nBALANCED\nRISK-ON\nCOMPOSITE SIGNAL\n72\n/100\n100\n0\nAGREEMENT\n60%\nCOVERAGE\nStrong\nUpdated Jul 10, 12:00 AM UTC\n^GSPC\n▲ 0.81%\n^IXIC\n▲ 1.30%\n^DJI\n▲ 0.27%\n^RUT\n▲ 1.22%\nEVIDENCE STACK\nWHAT IS MOVING THE SIGNAL\nRanked by contribution\nSIGNAL 01\n+29\nVIX Index\n\n79 score at 37% weight\n\nSIGNAL 02\n+18\nAAII\n\n87 score at 21% weight\n\nSIGNAL 03\n+11\nSocial Sentiment\n\n50 score at 21% weight\n\nMAIN RISK FACTORS\n\n• Manager exposure (NAAIM) data is stale (2026-06-10).\n\n• AAII data is stale (2026-04-22).\n\n• Social Sentiment, Put/call ratio do not align with the majority BUY read.\n\nWHAT WOULD CHANGE THIS VIEW?\n\nA negative reversal in AAII or key momentum structures falling below support thresholds would trigger a drop to a Neutral posture.",
+          "Summary\nEvidence\nNews",
+          "Summary\nEvidence\nNews",
+          "Summary",
+          "Evidence",
+          "News",
+          "LIVE MARKET POSTURE\nRISK-ON MOMENTUM\n\nBullish trend is healthy. Stay long but watch for overheating.\n\nLeaning positive\nSession move -1 pts\nRISK-OFF\nBALANCED\nRISK-ON\nCOMPOSITE SIGNAL\n72\n/100\n100\n0\nAGREEMENT\n60%\nCOVERAGE\nStrong\nUpdated Jul 10, 12:00 AM UTC\n^GSPC\n▲ 0.81%\n^IXIC\n▲ 1.30%\n^DJI\n▲ 0.27%\n^RUT\n▲ 1.22%\nEVIDENCE STACK\nWHAT IS MOVING THE SIGNAL\nRanked by contribution\nSIGNAL 01\n+29\nVIX Index\n\n79 score at 37% weight\n\nSIGNAL 02\n+18\nAAII\n\n87 score at 21% weight\n\nSIGNAL 03\n+11\nSocial Sentiment\n\n50 score at 21% weight\n\nMAIN RISK FACTORS\n\n• Manager exposure (NAAIM) data is stale (2026-06-10).\n\n• AAII data is stale (2026-04-22).\n\n• Social Sentiment, Put/call ratio do not align with the majority BUY read.\n\nWHAT WOULD CHANGE THIS VIEW?\n\nA negative reversal in AAII or key momentum structures falling below support thresholds would trigger a drop to a Neutral posture.",
+          "LIVE MARKET POSTURE\nRISK-ON MOMENTUM\n\nBullish trend is healthy. Stay long but watch for overheating.\n\nLeaning positive\nSession move -1 pts\nRISK-OFF\nBALANCED\nRISK-ON\nCOMPOSITE SIGNAL\n72\n/100\n100\n0\nAGREEMENT\n60%\nCOVERAGE\nStrong\nUpdated Jul 10, 12:00 AM UTC\n^GSPC\n▲ 0.81%\n^IXIC\n▲ 1.30%\n^DJI\n▲ 0.27%\n^RUT\n▲ 1.22%",
+          "LIVE MARKET POSTURE\nRISK-ON MOMENTUM\n\nBullish trend is healthy. Stay long but watch for overheating.\n\nLeaning positive\nSession move -1 pts\nRISK-OFF\nBALANCED\nRISK-ON\nCOMPOSITE SIGNAL\n72\n/100\n100\n0\nAGREEMENT\n60%\nCOVERAGE\nStrong\nUpdated Jul 10, 12:00 AM UTC",
+          "LIVE MARKET POSTURE\nRISK-ON MOMENTUM\n\nBullish trend is healthy. Stay long but watch for overheating.\n\nLeaning positive\nSession move -1 pts\nRISK-OFF\nBALANCED\nRISK-ON",
+          "LIVE MARKET POSTURE\nRISK-ON MOMENTUM\n\nBullish trend is healthy. Stay long but watch for overheating.\n\nLeaning positive\nSession move -1 pts",
+          "LIVE MARKET POSTURE\nRISK-ON MOMENTUM",
+          "LIVE MARKET POSTURE",
+          "RISK-ON MOMENTUM",
+          "Bullish trend is healthy. Stay long but watch for overheating.",
+          "Leaning positive\nSession move -1 pts",
+          "Leaning positive",
+          "Session move -1 pts",
+          "-1 pts",
+          "RISK-OFF\nBALANCED\nRISK-ON",
+          "RISK-OFF\nBALANCED\nRISK-ON",
+          "RISK-OFF",
+          "BALANCED",
+          "RISK-ON",
+          "COMPOSITE SIGNAL\n72\n/100\n100\n0\nAGREEMENT\n60%\nCOVERAGE\nStrong\nUpdated Jul 10, 12:00 AM UTC",
+          "COMPOSITE SIGNAL\n72\n/100\n100\n0",
+          "COMPOSITE SIGNAL",
+          "72\n/100",
+          "72",
+          "/100",
+          "100\n0",
+          "100\n0",
+          "100\n0",
+          "100",
+          "0"
+        ]
+      }
+    },
+    {
+      "label": "after-navigation-clicks",
+      "metrics": {
+        "url": "http://localhost:3000/research-v5",
+        "title": "Research V5 | Workstation",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "horizontalOverflowPx": 0,
+        "bodyTextLength": 22,
+        "h1": [],
+        "h2": [],
+        "links": [],
+        "buttons": [],
+        "selected": [],
+        "visibleText": [
+          "Loading workstation..."
+        ]
+      }
+    }
+  ],
+  "consoleMessages": [
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js",
+        "line": 2297,
+        "column": 27,
+        "lineNumber": 2297,
+        "columnNumber": 27
+      }
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js",
+        "line": 2297,
+        "column": 27,
+        "lineNumber": 2297,
+        "columnNumber": 27
+      }
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] rebuilding",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js",
+        "line": 2297,
+        "column": 27,
+        "lineNumber": 2297,
+        "columnNumber": 27
+      }
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] done in 190ms",
+      "location": {
+        "url": "http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js",
+        "line": 2297,
+        "column": 27,
+        "lineNumber": 2297,
+        "columnNumber": 27
+      }
+    }
+  ],
+  "pageErrors": [],
+  "failedRequests": [],
+  "actionLog": [
+    "surface: Browser UI main-v5 desktop",
+    "invocation: Playwright chromium.goto('http://localhost:3000/main-v5') viewport=1440x1000 isMobile=false",
+    "screenshot: C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\main-v5-desktop-initial.png",
+    "clicked 'US'",
+    "not found/clickable 'Malaysia'",
+    "not found/clickable 'Crypto'",
+    "not found/clickable 'All'",
+    "not found/clickable 'Technology'",
+    "not found/clickable 'Healthcare'",
+    "not found/clickable 'Finance'",
+    "screenshot: C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\main-v5-desktop-after-tabs.png",
+    "clicked 'Research'",
+    "not found/clickable 'Signal'"
+  ]
+}

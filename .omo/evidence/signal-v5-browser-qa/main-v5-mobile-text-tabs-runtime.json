@@ -1,0 +1,29 @@
+{
+  "actions": [
+    "surface: Browser UI main-v5 mobile visible text tab click",
+    "invocation: Playwright chromium.goto('http://localhost:3000/main-v5') viewport=390x844 isMobile=true; click visible tab labels",
+    "PASS open Configure",
+    "PASS click MY",
+    "PASS click Contrarian",
+    "PASS click visible Evidence label",
+    "PASS click visible News label",
+    "PASS click visible Summary label"
+  ],
+  "shot": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\main-v5-mobile-text-tabs.png",
+  "state": {
+    "url": "http://localhost:3000/main-v5",
+    "text": "SIGNAL\nMarket\nResearch\nDESK SETTINGS\n|\nActive: MY Market\n•\nMode: Contrarian\n•\nSocial context: ON\nHide\nMARKET REGION\nUS\nMY\nANALYSIS MODE\nMomentum\nContrarian\nSOCIAL CONTEXT\nSocial context is Active\nSummary\nEvidence\nNews\nLIVE MARKET POSTURE\nMIXED / NEUTRAL\n\nMarket is lacking clear direction. Volatility is average.\n\nMixed\nSession move -4 pts\nRISK-OFF\nBALANCED\nRISK-ON\nCOMPOSITE SIGNAL\n63\n/100\n100\n0\nAGREEMENT\n33%\nCOVERAGE\nModerate\nUpdated Jul 10, 12:00 AM UTC\n^KLSE\n▲ 0.47%\nEVIDENCE STACK\nWHAT IS MOVING THE SIGNAL\nSIGNAL 01\n+29\nNews Sentiment\n\n50 score at 59% weight\n\nSIGNAL 02\n+24\nUSD/MYR Volatility\n\n80 score at 29% weight\n\nSIGNAL 03\n+10\nAAII\n\n87 score at 12% weight\n\nMAIN RISK FACTORS\n\n• AAII data is stale (2026-04-22).\n\n• USD/MYR Volatility, AAII do not align with the majority NEUTRAL read.\n\nWHAT WOULD CHANGE THIS VIEW?\n\nA unified breakout where indicators align (either in positive momentum or negative trend breaches) would resolve this Neutral posture into a directional Buy or Sell.",
+    "bodyOverflowPx": 0
+  },
+  "consoleMessages": [
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    }
+  ],
+  "pageErrors": []
+}

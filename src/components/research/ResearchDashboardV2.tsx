@@ -4,11 +4,11 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { AppNav } from '@/components/AppNav';
 import { ThemeModeSwitchV2 } from '@/components/ThemeModeSwitchV2';
 
-type Market = 'US' | 'MY';
-type ResearchStatus = 'owned' | 'watch' | 'waiting' | 'avoid';
-type ValuationState = 'cheap' | 'fair' | 'expensive' | 'unknown';
-type ThesisStrength = 'high' | 'medium' | 'low';
-type ReadinessState = 'Ready' | 'Wait for better price' | 'Too uncertain' | 'Avoid';
+export type Market = 'US' | 'MY';
+export type ResearchStatus = 'owned' | 'watch' | 'waiting' | 'avoid';
+export type ValuationState = 'cheap' | 'fair' | 'expensive' | 'unknown';
+export type ThesisStrength = 'high' | 'medium' | 'low';
+export type ReadinessState = 'Ready' | 'Wait for better price' | 'Too uncertain' | 'Avoid';
 type ResearchTheme = 'light' | 'dark';
 type ChecklistKey =
     | 'understandBusiness'
@@ -23,11 +23,14 @@ type ChecklistKey =
 type InvestmentChecklist = Record<ChecklistKey, boolean>;
 type KeyValueRow = [string, string];
 
-type ResearchWatchlistItem = {
+export type ResearchWatchlistItem = {
+    order: number;
     symbol: string;
     providerSymbol: string;
     name: string;
     market: Market;
+    positionState: 'owned' | 'not-owned';
+    inBuyZone: boolean;
     price?: number;
     dailyChange?: number;
     status: ResearchStatus;
@@ -102,12 +105,15 @@ const checklistItems: Array<{ key: ChecklistKey; label: string }> = [
     { key: 'betterThanCashOrIndex', label: 'Better than cash or index' },
 ];
 
-const watchlist: ResearchWatchlistItem[] = [
+export const watchlist: ResearchWatchlistItem[] = [
     {
+        order: 10,
         symbol: 'MSFT',
         providerSymbol: 'MSFT.US',
         name: 'Microsoft',
         market: 'US',
+        positionState: 'owned',
+        inBuyZone: false,
         price: 428.4,
         dailyChange: 0.7,
         status: 'owned',
@@ -176,10 +182,13 @@ const watchlist: ResearchWatchlistItem[] = [
         },
     },
     {
+        order: 20,
         symbol: 'NVDA',
         providerSymbol: 'NVDA.US',
         name: 'NVIDIA',
         market: 'US',
+        positionState: 'not-owned',
+        inBuyZone: false,
         price: 118.9,
         dailyChange: -1.1,
         status: 'waiting',
@@ -248,10 +257,13 @@ const watchlist: ResearchWatchlistItem[] = [
         },
     },
     {
+        order: 30,
         symbol: 'VOO',
         providerSymbol: 'VOO.US',
         name: 'Vanguard S&P 500 ETF',
         market: 'US',
+        positionState: 'not-owned',
+        inBuyZone: true,
         price: 512.3,
         dailyChange: 0.1,
         status: 'watch',
@@ -320,10 +332,13 @@ const watchlist: ResearchWatchlistItem[] = [
         },
     },
     {
+        order: 40,
         symbol: 'MAYBANK',
         providerSymbol: '1155.KLSE',
         name: 'Malayan Banking',
         market: 'MY',
+        positionState: 'not-owned',
+        inBuyZone: false,
         price: 10.02,
         dailyChange: 0.3,
         status: 'watch',
@@ -392,10 +407,13 @@ const watchlist: ResearchWatchlistItem[] = [
         },
     },
     {
+        order: 50,
         symbol: 'NET',
         providerSymbol: 'NET.US',
         name: 'Cloudflare',
         market: 'US',
+        positionState: 'not-owned',
+        inBuyZone: false,
         price: 88.1,
         dailyChange: -0.8,
         status: 'avoid',
@@ -527,7 +545,7 @@ function getThemeV2(theme: ResearchTheme) {
     };
 }
 
-function getReadiness(checklist: InvestmentChecklist): ReadinessState {
+export function getReadiness(checklist: InvestmentChecklist): ReadinessState {
     const trueCount = Object.values(checklist).filter(Boolean).length;
 
     if (!checklist.downsideAcceptable) return 'Avoid';
@@ -550,7 +568,7 @@ function getReadiness(checklist: InvestmentChecklist): ReadinessState {
     return 'Too uncertain';
 }
 
-const formatCurrency = (value: number | undefined, market: Market) => {
+export const formatCurrency = (value: number | undefined, market: Market) => {
     if (value === undefined) return 'Unknown';
 
     return new Intl.NumberFormat('en-US', {
@@ -560,12 +578,12 @@ const formatCurrency = (value: number | undefined, market: Market) => {
     }).format(value);
 };
 
-const formatPercent = (value: number | undefined) => {
+export const formatPercent = (value: number | undefined) => {
     if (value === undefined) return 'Unknown';
     return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
 };
 
-const getChecklistCount = (checklist: InvestmentChecklist) => Object.values(checklist).filter(Boolean).length;
+export const getChecklistCount = (checklist: InvestmentChecklist) => Object.values(checklist).filter(Boolean).length;
 
 const detailRows = (item: ResearchWatchlistItem): KeyValueRow[] => [
     ['Sector', item.sector],

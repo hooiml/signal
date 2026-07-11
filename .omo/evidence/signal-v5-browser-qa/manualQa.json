@@ -1,0 +1,278 @@
+{
+  "surfaceEvidence": [
+    {
+      "scenarioId": "S1",
+      "criterionRef": "desktop main-v5 visual/navigation/market controls/tabs",
+      "surface": "Browser UI desktop 1440x1000 http://localhost:3000/main-v5",
+      "exactInvocation": "Playwright chromium.goto('http://localhost:3000/main-v5') viewport=1440x1000; click Configure, MY, Contrarian, Evidence, News, Summary; click Research nav",
+      "verdict": "PASS",
+      "artifactRefs": [
+        "A2",
+        "A6",
+        "A10",
+        "A12"
+      ]
+    },
+    {
+      "scenarioId": "S2",
+      "criterionRef": "mobile main-v5 visual/navigation/market controls/tabs",
+      "surface": "Browser UI mobile 390x844 http://localhost:3000/main-v5",
+      "exactInvocation": "Playwright chromium.goto('http://localhost:3000/main-v5') viewport=390x844 isMobile=true; click Configure, MY, Contrarian, Evidence, News, Summary; click Research nav",
+      "verdict": "PASS",
+      "artifactRefs": [
+        "A3",
+        "A7",
+        "A11",
+        "A13"
+      ]
+    },
+    {
+      "scenarioId": "S3",
+      "criterionRef": "desktop research-v5 search/filter/ticker selection/content tabs",
+      "surface": "Browser UI desktop 1440x1000 http://localhost:3000/research-v5",
+      "exactInvocation": "Playwright chromium.goto('http://localhost:3000/research-v5') viewport=1440x1000; fill search 'ms'; clear; click MY; select MAYBANK; click Fundamentals, Checklist, Events, Technical",
+      "verdict": "PASS",
+      "artifactRefs": [
+        "A4",
+        "A8",
+        "A10",
+        "A14",
+        "A18"
+      ]
+    },
+    {
+      "scenarioId": "S4",
+      "criterionRef": "mobile research-v5 search/filter/ticker selection/content tabs",
+      "surface": "Browser UI mobile 390x844 http://localhost:3000/research-v5",
+      "exactInvocation": "Playwright chromium.goto('http://localhost:3000/research-v5') viewport=390x844 isMobile=true; fill search 'ms'; clear; click MY; select MAYBANK; click Fundamentals, Checklist, Events, Technical",
+      "verdict": "PASS",
+      "artifactRefs": [
+        "A5",
+        "A9",
+        "A11",
+        "A15",
+        "A19"
+      ]
+    },
+    {
+      "scenarioId": "S5",
+      "criterionRef": "desktop/mobile console and page errors",
+      "surface": "Browser runtime console/pageerror/requestfailed capture across both routes and viewports",
+      "exactInvocation": "Playwright page.on(console/pageerror/requestfailed) during all S1-S4 runs",
+      "verdict": "PASS",
+      "artifactRefs": [
+        "A1",
+        "A6",
+        "A7",
+        "A8",
+        "A9",
+        "A10",
+        "A11"
+      ]
+    },
+    {
+      "scenarioId": "S6",
+      "criterionRef": "desktop/mobile horizontal overflow",
+      "surface": "DOM layout metrics on both routes and viewports",
+      "exactInvocation": "documentElement/body scrollWidth - innerWidth plus overflowing element scan during Playwright runs",
+      "verdict": "PASS",
+      "artifactRefs": [
+        "A1",
+        "A10",
+        "A11"
+      ]
+    }
+  ],
+  "adversarialCases": [
+    {
+      "scenarioId": "ADV1",
+      "criterionRef": "research search no-result state",
+      "adversarialClass": "No-match search query",
+      "expectedBehavior": "Search with zzz-no-result-qa shows zero visible results and a clear empty state without runtime errors or page overflow.",
+      "verdict": "PASS",
+      "artifactRefs": [
+        "A8",
+        "A9",
+        "A16",
+        "A17"
+      ]
+    },
+    {
+      "scenarioId": "ADV2",
+      "criterionRef": "mobile horizontal overflow",
+      "adversarialClass": "Narrow viewport layout stress",
+      "expectedBehavior": "390px mobile viewport has no body-level horizontal overflow; horizontally scrollable internal tab row remains contained.",
+      "verdict": "PASS",
+      "artifactRefs": [
+        "A3",
+        "A5",
+        "A11",
+        "A13",
+        "A15"
+      ]
+    },
+    {
+      "scenarioId": "ADV3",
+      "criterionRef": "console errors",
+      "adversarialClass": "Runtime error/noisy console check",
+      "expectedBehavior": "No page errors; no console errors. Dev-only React DevTools/HMR informational logs are allowed.",
+      "verdict": "PASS",
+      "artifactRefs": [
+        "A6",
+        "A7",
+        "A8",
+        "A9",
+        "A10",
+        "A11"
+      ]
+    },
+    {
+      "scenarioId": "ADV4",
+      "criterionRef": "research filter changes selected ticker set",
+      "adversarialClass": "Market filter state change",
+      "expectedBehavior": "MY filter reduces visible list to MAYBANK and selecting it updates dossier content and tabs.",
+      "verdict": "PASS",
+      "artifactRefs": [
+        "A10",
+        "A11",
+        "A14",
+        "A15"
+      ]
+    }
+  ],
+  "artifactRefs": [
+    {
+      "id": "A1",
+      "kind": "json",
+      "description": "Run summary across initial route loads",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\summary.json",
+      "bytes": 2526
+    },
+    {
+      "id": "A2",
+      "kind": "png",
+      "description": "main-v5 desktop initial screenshot",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\main-v5-desktop-initial.png",
+      "bytes": 97479
+    },
+    {
+      "id": "A3",
+      "kind": "png",
+      "description": "main-v5 mobile initial screenshot",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\main-v5-mobile-initial.png",
+      "bytes": 236320
+    },
+    {
+      "id": "A4",
+      "kind": "png",
+      "description": "research-v5 desktop initial screenshot",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-desktop-initial.png",
+      "bytes": 102134
+    },
+    {
+      "id": "A5",
+      "kind": "png",
+      "description": "research-v5 mobile initial screenshot",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-mobile-initial.png",
+      "bytes": 244904
+    },
+    {
+      "id": "A6",
+      "kind": "json",
+      "description": "main-v5 desktop initial runtime and navigation log",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\main-v5-desktop-runtime.json",
+      "bytes": 22699
+    },
+    {
+      "id": "A7",
+      "kind": "json",
+      "description": "main-v5 mobile initial runtime and navigation log",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\main-v5-mobile-runtime.json",
+      "bytes": 21430
+    },
+    {
+      "id": "A8",
+      "kind": "json",
+      "description": "research-v5 desktop initial/search no-match runtime log",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-desktop-runtime.json",
+      "bytes": 22264
+    },
+    {
+      "id": "A9",
+      "kind": "json",
+      "description": "research-v5 mobile initial/search no-match runtime log",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-mobile-runtime.json",
+      "bytes": 21932
+    },
+    {
+      "id": "A10",
+      "kind": "json",
+      "description": "targeted desktop controls runtime log",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\targeted-desktop-runtime.json",
+      "bytes": 9637
+    },
+    {
+      "id": "A11",
+      "kind": "json",
+      "description": "targeted mobile controls runtime log",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\targeted-mobile-runtime.json",
+      "bytes": 9976
+    },
+    {
+      "id": "A12",
+      "kind": "png",
+      "description": "main-v5 desktop targeted region/mode/tabs screenshot",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\main-v5-desktop-text-tabs.png",
+      "bytes": 99947
+    },
+    {
+      "id": "A13",
+      "kind": "png",
+      "description": "main-v5 mobile targeted region/mode/tabs screenshot",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\main-v5-mobile-text-tabs.png",
+      "bytes": 247282
+    },
+    {
+      "id": "A14",
+      "kind": "png",
+      "description": "research-v5 desktop targeted filter/ticker/tabs screenshot",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-desktop-targeted-controls.png",
+      "bytes": 61176
+    },
+    {
+      "id": "A15",
+      "kind": "png",
+      "description": "research-v5 mobile targeted filter/ticker/tabs screenshot",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-mobile-targeted-controls.png",
+      "bytes": 135289
+    },
+    {
+      "id": "A16",
+      "kind": "png",
+      "description": "research-v5 desktop no-match search screenshot",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-desktop-after-interactions.png",
+      "bytes": 33023
+    },
+    {
+      "id": "A17",
+      "kind": "png",
+      "description": "research-v5 mobile no-match search screenshot",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-mobile-after-interactions.png",
+      "bytes": 68321
+    },
+    {
+      "id": "A18",
+      "kind": "png",
+      "description": "research-v5 desktop search ms screenshot",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-desktop-search-ms.png",
+      "bytes": 91988
+    },
+    {
+      "id": "A19",
+      "kind": "png",
+      "description": "research-v5 mobile search ms screenshot",
+      "path": "C:\\Users\\USER\\Documents\\projects\\signal\\.omo\\evidence\\signal-v5-browser-qa\\research-v5-mobile-search-ms.png",
+      "bytes": 233837
+    }
+  ]
+}

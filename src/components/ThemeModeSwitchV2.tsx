@@ -27,8 +27,8 @@ export const ThemeModeSwitchV2 = ({ theme, tone, onToggle, className = '' }: The
             aria-pressed={theme === 'dark'}
             className={`inline-grid grid-cols-2 items-center rounded-xl border p-1 text-[11px] font-bold uppercase tracking-[0.14em] transition-all duration-300 active:scale-[0.98] ${shellClass} ${className}`}
         >
-            <span className={`rounded-lg px-3 py-2 transition-all duration-300 ${theme === 'light' ? activeClass : inactiveClass}`}>Light</span>
-            <span className={`rounded-lg px-3 py-2 transition-all duration-300 ${theme === 'dark' ? activeClass : inactiveClass}`}>Dark</span>
+            <span className={`rounded-lg px-2 py-2 transition-all duration-300 sm:px-3 ${theme === 'light' ? activeClass : inactiveClass}`}>Light</span>
+            <span className={`rounded-lg px-2 py-2 transition-all duration-300 sm:px-3 ${theme === 'dark' ? activeClass : inactiveClass}`}>Dark</span>
         </button>
     );
 };
