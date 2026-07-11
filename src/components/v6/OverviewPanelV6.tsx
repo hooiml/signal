@@ -1,4 +1,6 @@
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
+import type { ResearchRecord } from '@/lib/types/research';
+import { ResearchEditorV6 } from './ResearchEditorV6';
 import {
     checklistLabelsV6,
     getActionToneV6,
@@ -13,6 +15,10 @@ type OverviewPanelV6Props = {
     ticker: ResearchWatchlistItem;
     action: ResearchActionV6;
     theme: ResearchThemeV6;
+    record: ResearchRecord;
+    saving: boolean;
+    saveError: string | null;
+    onSave: (record: ResearchRecord) => Promise<void>;
 };
 
 const SnapshotMetric = ({ label, value, themeClasses }: {
@@ -26,7 +32,7 @@ const SnapshotMetric = ({ label, value, themeClasses }: {
     </div>
 );
 
-export const OverviewPanelV6 = ({ ticker, action, theme }: OverviewPanelV6Props) => {
+export const OverviewPanelV6 = ({ ticker, action, theme, record, saving, saveError, onSave }: OverviewPanelV6Props) => {
     const checkedCount = getChecklistCountV6(ticker);
     const nextCheck = Object.entries(ticker.checklist).find(([, passed]) => !passed)?.[0];
     const progress = String((checkedCount / 9) * 360) + 'deg';
@@ -81,6 +87,7 @@ export const OverviewPanelV6 = ({ ticker, action, theme }: OverviewPanelV6Props)
                     <SnapshotMetric label="FCF" value={ticker.freeCashFlowTrend} themeClasses={themeClasses} />
                 </dl>
             </section>
+            <ResearchEditorV6 key={record.lastReviewedAt + record.symbol} initial={record} theme={theme} saving={saving} error={saveError} onSave={onSave} />
         </div>
     );
 };

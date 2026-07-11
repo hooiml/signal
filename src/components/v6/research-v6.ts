@@ -92,6 +92,7 @@ export const getResearchActionV6 = (item: ResearchWatchlistItem): ResearchAction
         && item.checklist.freeCashFlowPositiveOrImproving
         && item.checklist.downsideAcceptable;
 
+    if (count === 0) return 'Watch';
     if (item.thesisStrength === 'low'
         || !item.checklist.downsideAcceptable
         || (item.valuationState === 'expensive' && item.thesisStrength !== 'high')) return 'Avoid';

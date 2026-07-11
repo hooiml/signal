@@ -11,7 +11,7 @@ if (-not (Test-Path $sourceRoot)) {
 
 $largeFiles = Get-ChildItem -Path $sourceRoot -Recurse -File -Include *.ts,*.tsx |
     Where-Object {
-        $lineCount = (Get-Content $_.FullName | Measure-Object -Line).Lines
+        $lineCount = (Get-Content -LiteralPath $_.FullName | Measure-Object -Line).Lines
         $_ | Add-Member -NotePropertyName LineCount -NotePropertyValue $lineCount -Force
         $lineCount -gt $softLimit
     } |
@@ -26,4 +26,3 @@ if ($largeFiles.Count -gt 0) {
 }
 
 Write-Host "File size check passed."
-

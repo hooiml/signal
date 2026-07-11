@@ -48,6 +48,10 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 - StockTwits is used for US social sentiment.
 - Institutional data is loaded through `institutional-service`.
 - Snapshot history is persisted through `src/lib/db.ts` when the signal route runs.
+- User-authored watchlist, thesis, checklist, notes, and review state are persisted through `/api/research/watchlist`; provider/sample market data remains separate from these records.
+- `/api/research/symbol/[symbol]` combines cached Yahoo Finance chart data with locally calculated technicals and, for US tickers, SEC EDGAR company facts. US valuation metrics are derived from live price, shares, and the latest annual filing rather than copied from an opaque provider. Each provider degrades independently; Malaysia fundamentals and valuation remain explicitly unavailable when no free primary source covers them.
+- `/api/research/discovery` runs the bounded ranking contract in `docs/trend-discovery.md` over a curated liquid US universe. It returns confirmed leaders plus early trends, enriches both with SEC quality and valuation guardrails, checks a bounded Nasdaq earnings window, and persists hourly top-ten snapshots for score deltas and forward cohort measurement; the result is a research shortlist, not a trading recommendation.
+- `/api/research/alerts` evaluates the bounded monitoring contract in `docs/research-alerts.md` for the current research watchlist. It uses lightweight Yahoo snapshots and degrades individual ticker failures without blocking the remaining alerts.
 - A scheduled refresh path precomputes the default V2 market/mode combinations once per day so the dashboard is less dependent on first-visitor refreshes.
 
 ## Architecture Rules

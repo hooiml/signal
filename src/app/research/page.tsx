@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { ResearchDashboardV6 } from '@/components/v6/ResearchDashboardV6';
+import { ResearchLoadingV6 } from '@/components/v6/ThemeProviderV6';
 
 export const metadata: Metadata = {
     title: 'Research | Signal',
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function ResearchPage() {
     return (
-        <Suspense fallback={<div className="min-h-[100dvh] bg-[#0b1118] p-6 text-[#eef2f7]">Loading research...</div>}>
+        <Suspense fallback={<ResearchLoadingV6 />}>
             <ResearchDashboardV6 />
         </Suspense>
     );

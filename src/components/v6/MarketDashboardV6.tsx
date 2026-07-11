@@ -6,15 +6,15 @@ import type { MarketSignal } from '@/lib/types/signal-v2';
 import { DashboardHeaderV2 } from '@/components/v2/DashboardHeaderV2';
 import { AppNavV6 } from './AppNavV6';
 import { MarketBriefingV6 } from './MarketBriefingV6';
-import { getThemeV6, RESEARCH_THEME_STORAGE_KEY_V6, type ResearchThemeV6 } from './research-v6';
+import { getThemeV6, type ResearchThemeV6 } from './research-v6';
+import { useThemeV6 } from './ThemeProviderV6';
 
 export const MarketDashboardV6 = () => {
     const { config, updateConfig, isLoaded } = useSignalConfig();
     const [signal, setSignal] = useState<MarketSignal | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [theme, setTheme] = useState<ResearchThemeV6>('dark');
-    const [themeReady, setThemeReady] = useState(false);
+    const { theme, toggleTheme } = useThemeV6();
     const themeClasses = getThemeV6(theme);
 
     const fetchSignal = useCallback(async () => {
@@ -40,21 +40,6 @@ export const MarketDashboardV6 = () => {
     useEffect(() => {
         if (isLoaded) void fetchSignal();
     }, [fetchSignal, isLoaded]);
-
-    useEffect(() => {
-        const timeoutId = window.setTimeout(() => {
-            const stored = window.localStorage.getItem(RESEARCH_THEME_STORAGE_KEY_V6);
-            if (stored === 'light' || stored === 'dark') setTheme(stored);
-            setThemeReady(true);
-        }, 0);
-        return () => window.clearTimeout(timeoutId);
-    }, []);
-
-    useEffect(() => {
-        if (!themeReady) return;
-        document.documentElement.setAttribute('data-cockpit-theme', theme);
-        window.localStorage.setItem(RESEARCH_THEME_STORAGE_KEY_V6, theme);
-    }, [theme, themeReady]);
 
     const atmosphere = theme === 'light'
         ? 'bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.11),_transparent_28%),radial-gradient(circle_at_80%_10%,_rgba(14,165,233,0.08),_transparent_20%)]'
@@ -83,7 +68,7 @@ export const MarketDashboardV6 = () => {
                         snapshotDate={signal?.metadata.score_delta?.snapshot_date ?? null}
                         sourceToggleImpact={signal?.metadata.counterfactuals?.source_toggle}
                         theme={theme}
-                        onThemeToggle={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}
+                        onThemeToggle={toggleTheme}
                     />
 
                     {!signal && loading ? <MarketSkeletonV6 theme={theme} /> : null}

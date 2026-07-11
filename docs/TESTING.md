@@ -8,6 +8,7 @@ Run the smallest verification set that proves the change, then expand when share
 npm run lint
 npm run typecheck
 npm run harness
+npm run test:research
 ```
 
 For docs-only or harness-metadata changes, `npm run harness` is the minimum proof. Run the full standard set when TypeScript, routes, shared contracts, or runtime behavior changed.
@@ -46,6 +47,14 @@ Invoke-RestMethod "http://localhost:3000/api/signals/v2?market=MY&mode=contraria
 ```
 
 Invalid request parameters should return a structured error instead of falling into service code.
+
+Research journal API smoke checks should cover list, create, patch, invalid input, and delete through `/api/research/watchlist`.
+
+Free-source research smoke checks should cover a US symbol with derived valuation, a Malaysia symbol with unavailable valuation, and an invalid market through `/api/research/symbol/[symbol]`. Configure `SEC_USER_AGENT` with an app name and contact email before testing SEC EDGAR.
+
+Trend discovery smoke checks should verify `/api/research/discovery` returns no more than ten leaders and eight early trends, excludes high-risk and fundamentally unsupported results, preserves unconfirmed SEC coverage, reports scan and history coverage, returns nullable cohort performance and catalysts, and renders score, sector, valuation, and upcoming-earnings evidence in both views at desktop and mobile widths.
+
+Research alert smoke checks should POST valid US and Malaysia ticker inputs, reject an invalid symbol with `400`, and render risk/opportunity/watch conditions at desktop and mobile widths.
 
 ## Current Test Gap
 
