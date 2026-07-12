@@ -25,6 +25,7 @@ try {
         src/lib/market-indicators.ts `
         src/lib/sentiment-calculator-v2.ts `
         src/lib/indicator-registry.ts `
+        src/lib/signal-change.ts `
         src/lib/types/signal-v2.ts
 
     if ($LASTEXITCODE -ne 0) {

@@ -57,6 +57,10 @@ export type QualityDiscoveryResult = DiscoveryResult & {
     readonly catalyst: DiscoveryCatalyst | null;
 };
 
+export type DiscoveryContender = QualityDiscoveryResult & {
+    readonly contenderReason: string;
+};
+
 export type DiscoveryPerformance = {
     readonly period: '1D' | '1W' | '1M';
     readonly averageReturnPercent: number | null;
@@ -69,6 +73,7 @@ export type DiscoveryResponse = {
     readonly universeSize: number;
     readonly scannedCount: number;
     readonly candidates: readonly QualityDiscoveryResult[];
+    readonly contenders: readonly DiscoveryContender[];
     readonly emergingCandidates: readonly QualityDiscoveryResult[];
     readonly performance: readonly DiscoveryPerformance[];
     readonly historySnapshotCount: number;

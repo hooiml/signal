@@ -1,4 +1,5 @@
 import { calculateCompositeScoreV2 } from '../../src/lib/sentiment-calculator-v2';
+import { calculateDriverChanges, parseStoredComponentContributions, parseStoredDriverContributions } from '../../src/lib/signal-change';
 import { IndicatorData } from '../../src/lib/types/signal-v2';
 import { buildBuffettIndicator, normalizeNaaimExposure, normalizePutCallRatio, parseCboePutCallRatio, parseFredLatestObservation, parseNaaimExposure } from '../../src/lib/market-indicators';
 
@@ -141,11 +142,58 @@ function runBuffettTests() {
     assertEqual(buffett.label, 'Elevated valuation backdrop', 'Buffett Indicator label');
 }
 
+function runDriverChangeTests() {
+    const current = [
+        { key: 'vix', name: 'Volatility Index', contribution: 24 },
+        { key: 'social', name: 'Social Sentiment', contribution: 12 },
+        { key: 'put_call', name: 'Put/Call Ratio', contribution: 3 },
+    ];
+    const previous = [
+        { key: 'vix', name: 'Volatility Index', contribution: 31 },
+        { key: 'social', name: 'Social Sentiment', contribution: 7 },
+        { key: 'aaii', name: 'AAII Sentiment', contribution: 2 },
+    ];
+
+    const changes = calculateDriverChanges(current, previous);
+
+    assertEqual(changes[0]?.key, 'vix', 'largest driver change sorts first');
+    assertEqual(changes[0]?.delta, -7, 'driver change subtracts prior contribution');
+    assertEqual(changes[1]?.key, 'social', 'second-largest driver change');
+    assertEqual(changes[1]?.delta, 5, 'positive driver change is preserved');
+    assertEqual(changes[2]?.key, 'put_call', 'new driver remains attributable');
+    assertEqual(changes[2]?.previous_contribution, 0, 'new driver has zero prior contribution');
+    assertEqual(changes[3]?.key, 'aaii', 'removed driver remains attributable');
+    assertEqual(changes[3]?.current_contribution, 0, 'removed driver has zero current contribution');
+
+    const fractionalChanges = calculateDriverChanges(
+        [{ key: 'vix', name: 'Volatility Index', contribution: 10.4 }],
+        [{ key: 'vix', name: 'Volatility Index', contribution: 10.1 }],
+    );
+    assertNear(fractionalChanges[0]?.delta ?? 0, 0.3, 0.001, 'fractional contribution shifts are preserved');
+    assertEqual(calculateDriverChanges(current, current).length, 0, 'unchanged contributions produce no attribution');
+
+    const stored = parseStoredDriverContributions([
+        { key: 'vix', name: 'Volatility Index', contribution: 10.25 },
+        { key: 'invalid', name: 'Invalid driver', contribution: '10' },
+    ]);
+    assertEqual(stored?.length, 1, 'stored driver parser excludes malformed entries');
+    assertEqual(stored?.[0]?.contribution, 10.25, 'stored driver parser preserves fractional values');
+    assertEqual(parseStoredDriverContributions({ key: 'vix' }), null, 'legacy non-array driver payload is marked unavailable');
+
+    const storedComponents = parseStoredComponentContributions({
+        vix: { display_name: 'Volatility Index', score: 40.5, weight: 0.35 },
+        invalid: { display_name: 'Invalid', score: '40', weight: 0.2 },
+    });
+    assertEqual(storedComponents?.length, 1, 'stored component parser excludes malformed entries');
+    assertNear(storedComponents?.[0]?.contribution ?? 0, 14.175, 0.001, 'stored components reconstruct exact prior contribution');
+}
+
 function main() {
     runCoreScoringTests();
     runPutCallTests();
     runNaaimTests();
     runBuffettTests();
+    runDriverChangeTests();
     assertTrue(true, 'scoring regression tests reached completion');
     console.log('Scoring regression tests passed.');
 }

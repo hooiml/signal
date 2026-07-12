@@ -9,6 +9,7 @@ import { IndicatorData, MarketSignal, SignalTier } from './types/signal-v2';
 import { getLatestInstitutionalData } from './institutional-service';
 import { BuffettIndicatorData, fetchBuffettIndicator, fetchCboePutCallRatio, fetchNaaimExposure, normalizeNaaimExposure, normalizePutCallRatio, NaaimExposureData, PutCallRatioData } from './market-indicators';
 import { getIndicatorDisplayName } from './indicator-registry';
+import { calculateDriverChanges, parseStoredComponentContributions, parseStoredDriverContributions } from './signal-change';
 
 interface AggregateMarketData {
     vixData: { price: number; change: number };
@@ -55,6 +56,8 @@ interface SnapshotSummaryRow {
     snapshot_date: string;
     composite_score: number;
     tier: SignalTier;
+    components?: unknown;
+    score_drivers?: unknown;
 }
 
 export const CONFIG = {
@@ -292,7 +295,7 @@ async function persistSignalSnapshot(
 
         const today = new Date().toISOString().slice(0, 10);
         const previousRows = await sql`
-            SELECT snapshot_date::text as snapshot_date, composite_score, tier
+            SELECT snapshot_date::text as snapshot_date, composite_score, tier, components, score_drivers
             FROM signal_snapshots
             WHERE market_type = ${options.market}
               AND mode = ${options.mode}
@@ -374,6 +377,14 @@ async function persistSignalSnapshot(
 
         const previous = previousRows[0];
         const delta = previous ? signal.composite_score - Number(previous.composite_score) : null;
+        const previousContributions = previous
+            ? parseStoredComponentContributions(previous.components)
+                ?? parseStoredDriverContributions(previous.score_drivers)
+            : null;
+        const driverChangesAvailable = previous !== undefined && previousContributions !== null;
+        const driverChanges = driverChangesAvailable
+            ? calculateDriverChanges(signal.metadata.score_drivers ?? [], previousContributions)
+            : [];
         const history = [
             { snapshot_date: today, composite_score: signal.composite_score, tier: signal.tier },
             ...historyBefore.filter(row => row.snapshot_date !== today)
@@ -391,6 +402,8 @@ async function persistSignalSnapshot(
                         ? `No change since ${previous.snapshot_date}`
                         : `${delta >= 0 ? '+' : ''}${delta} since ${previous.snapshot_date}`
             },
+            driverChanges,
+            driverChangesAvailable,
             history: history
                 .reverse()
                 .map(row => ({
@@ -791,7 +804,7 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                     key: component.name,
                     name: component.display_name,
                     impact,
-                    contribution: Math.round(component.score * component.weight),
+                    contribution: component.score * component.weight,
                     score: component.score,
                     weight: component.weight,
                     raw_value: component.value,
@@ -828,6 +841,8 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
         if (snapshotState) {
             v2Signal.metadata.score_delta = snapshotState.scoreDelta;
             v2Signal.metadata.score_history = snapshotState.history;
+            v2Signal.metadata.driver_changes = snapshotState.driverChanges;
+            v2Signal.metadata.driver_changes_available = snapshotState.driverChangesAvailable;
             v2Signal.metadata.trend_context = {
                 score_trend: snapshotState.scoreDelta.label,
                 last_signal_change: snapshotState.scoreDelta.previous_date

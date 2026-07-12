@@ -52,9 +52,11 @@ Research journal API smoke checks should cover list, create, patch, invalid inpu
 
 Free-source research smoke checks should cover a US symbol with derived valuation, a Malaysia symbol with unavailable valuation, and an invalid market through `/api/research/symbol/[symbol]`. Configure `SEC_USER_AGENT` with an app name and contact email before testing SEC EDGAR.
 
-Trend discovery smoke checks should verify `/api/research/discovery` returns no more than ten leaders and eight early trends, excludes high-risk and fundamentally unsupported results, preserves unconfirmed SEC coverage, reports scan and history coverage, returns nullable cohort performance and catalysts, and renders score, sector, valuation, and upcoming-earnings evidence in both views at desktop and mobile widths.
+Trend discovery smoke checks should verify `/api/research/discovery` returns no more than ten leaders, ten contenders, and eight early trends; excludes high-risk and fundamentally unsupported results; preserves unconfirmed SEC coverage; reports scan and history coverage; returns nullable cohort performance and catalysts; and renders score, sector, valuation, upcoming-earnings evidence, contender reasons, and the collapsed/expanded contender state at desktop and mobile widths. Sector, risk, trend-stage, and valuation filters should combine with AND semantics, preserve original ranks, update the visible count, filter Contenders, and restore the full scan when reset.
 
 Research alert smoke checks should POST valid US and Malaysia ticker inputs, reject an invalid symbol with `400`, and render risk/opportunity/watch conditions at desktop and mobile widths.
+
+Research comparison smoke checks should select one, two, and three watchlist securities; disable a fourth selection; render live metrics and explicit unavailable states; open a compared ticker back in Research; and keep the table inside its own scroller without document-level overflow at desktop and mobile widths. The research journal should expose the persisted bear case plus buy and sell triggers.
 
 ## Current Test Gap
 

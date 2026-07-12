@@ -38,6 +38,7 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 
 ## 3. Layout
 
+- Market and Research share a 1280px maximum workspace shell with 16px mobile and 20px desktop gutters so route changes preserve the same outer alignment.
 - Desktop uses a fixed 220px watchlist rail and flexible research document.
 - The watchlist rail and research detail share one themed workspace shell with 12-16px internal padding.
 - A responsive divider separates the watchlist from the detail, while the watchlist heading keeps 16px separation before the ticker list.
@@ -50,9 +51,14 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 - Panels preserve V6's 8px radius while using V2 colors, borders, blur, and shadows.
 - Watchlist rows stay flat; only the selected row receives the V2 emerald treatment.
 - Status language remains Ready, DCA, Wait for price, Watch, and Avoid.
+- Compare is a peer workspace, not a nested card: users select up to three watchlist companies and scan one evidence table with explicit unavailable states.
+- The research journal exposes both sides of the thesis plus buy, sell, and invalidation triggers already owned by the persisted research record.
+- Trend Discovery keeps Leaders capped at ten and places ranks 11-20 behind one full-width Contenders disclosure. Expanded contender rows reuse leader anatomy and state why they missed the lead tier.
+- Discovery filters form one compact control band above the evidence table. Sector, risk, trend stage, and valuation selections update the current scan without changing original ranks; active filters expose a match count and Reset command.
 - Theme preference uses the same local-storage key as Research V2.
 - Market V6 reuses the V2 command header and places four scan targets below the decision posture: score, regime, alignment, and combined data quality.
 - Market evidence is sorted by absolute contribution. Conflicting indicators are flagged inline instead of repeated in a separate panel.
+- Market change attribution compares each driver with the prior daily snapshot and surfaces the three largest contribution shifts beneath What changed.
 - Score history is the dominant chart. Supporting context is compact and explicitly separated from weighted evidence.
 - Detailed trust, limitations, and methodology live in disclosure panels below the primary briefing.
 
@@ -69,8 +75,9 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 
 ## 6. Accepted Debt
 
-- Research values still come from the existing static watchlist fixture.
-- V6 does not persist thesis edits or checklist changes.
+- Watchlist seed symbols and posture values still come from the existing static fixture; Compare evidence is fetched from live research snapshots.
+- Saved research reviews persist thesis, bear case, triggers, notes, valuation state, ownership state, and checklist changes.
+- Comparison is point-in-time evidence and does not yet preserve historical comparison snapshots.
 - Market scenario statements are deterministic interpretations of current signal fields, not forecasts or personalized recommendations.
 
 ## 7. Story First Market Briefing

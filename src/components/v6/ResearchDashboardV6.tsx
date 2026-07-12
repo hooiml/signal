@@ -15,6 +15,7 @@ import {
 import { ResearchWatchlistV6 } from './ResearchWatchlistV6';
 import { TrendDiscoveryV6 } from './TrendDiscoveryV6';
 import { ResearchAlertsV6 } from './ResearchAlertsV6';
+import { ResearchComparisonV6 } from './ResearchComparisonV6';
 import { ResearchWorkspaceTabsV6, type ResearchWorkspaceV6 } from './ResearchWorkspaceTabsV6';
 import { applyResearchRecordV6, createWatchlistItemV6, toResearchRecordV6 } from './research-records-v6';
 import {
@@ -203,6 +204,8 @@ export const ResearchDashboardV6 = () => {
                 <main className={'flex flex-col gap-4 rounded-[10px] border p-3 backdrop-blur min-[700px]:flex-row min-[700px]:p-4 ' + themeClasses.panel}>
                     {workspace === 'alerts' ? (
                         <ResearchAlertsV6 items={items} theme={theme} onOpen={selectTicker} />
+                    ) : workspace === 'compare' ? (
+                        <ResearchComparisonV6 items={items} theme={theme} onOpen={selectTicker} />
                     ) : workspace === 'discovery' ? (
                         <TrendDiscoveryV6 theme={theme} savedSymbols={items.map((item) => item.symbol)} adding={adding} onAdd={addDiscoveryCandidate} onOpen={selectTicker} />
                     ) : (<>

@@ -16,7 +16,7 @@ export const AppNavV6 = ({ active, theme }: AppNavV6Props) => {
     const navClass = 'flex items-center gap-1 rounded-lg border p-1 ' + (isLight ? 'border-slate-300 bg-white/90' : 'border-[#2a3948] bg-[#111a23]/90');
 
     return (
-        <nav className="mx-auto flex w-full max-w-[1480px] items-center justify-between gap-4 px-4 pt-4 sm:px-6" aria-label="Primary">
+        <nav className="mx-auto flex w-full max-w-[1280px] items-center justify-between gap-4 px-4 pt-4 min-[700px]:px-5" aria-label="Primary">
             <Link href="/" className={brandClass}>Signal</Link>
             <div className={navClass}>
                 {items.map((item) => {

@@ -184,6 +184,7 @@ The user can:
 - filter by market;
 - filter by current decision;
 - select a security from the watchlist;
+- compare live quality, valuation, and technical evidence for up to three watchlist securities;
 - share or restore a selected security through a `ticker` URL parameter;
 - switch between light and dark themes.
 
@@ -213,6 +214,8 @@ These states should come from domain rules rather than manual UI coloring.
 3. **Overview**
    - Why the security is interesting.
    - Bull case.
+   - Bear case.
+   - Buy and sell triggers.
    - Thesis invalidation.
    - Research-check completion.
    - Current decision and next incomplete check.
@@ -238,6 +241,12 @@ These states should come from domain rules rather than manual UI coloring.
    - 52-week range.
    - RSI, MACD, and volume.
    - Support and resistance.
+
+8. **Comparison**
+   - Current decision for each selected security.
+   - Live price, growth, margin, valuation, and technical evidence.
+   - Explicit unavailable states when a free source does not cover a metric.
+   - A maximum of three securities so the evidence remains scannable.
 
 ### Investment Research flow
 

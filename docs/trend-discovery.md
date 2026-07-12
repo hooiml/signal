@@ -36,7 +36,7 @@ Scores below 15 are `low`, scores from 15 through 39 are `moderate`, and scores 
 
 ## Business Quality
 
-The 15 strongest eligible trends are enriched from SEC EDGAR in batches of three. The 0-100 quality score allocates:
+The 25 strongest eligible trends are enriched from SEC EDGAR in batches of three. The 0-100 quality score allocates:
 
 - Revenue growth: up to 25 points
 - Gross margin: up to 15 points
@@ -47,13 +47,17 @@ The 15 strongest eligible trends are enriched from SEC EDGAR in batches of three
 
 Candidates are labelled `quality compounder`, `cyclical acceleration`, `turnaround`, `momentum only`, or `fundamentally unsupported`. Missing SEC coverage is `unconfirmed`, never scored as poor quality. Fundamentally unsupported candidates are removed from the displayed top ten.
 
+Up to the first ten eligible candidates form the high-conviction `Leaders` list. Up to the next ten are returned as expandable `Contenders`, retaining their overall ranks and an explicit ranking reason such as a moderate risk deduction, missing SEC confirmation, or a lower combined score than the current leaders. Valuation remains visible as a separate guardrail rather than being presented as a ranking input. Contenders use the same add-to-research workflow but do not replace or dilute the Top 10.
+
+The Discovery workspace filters the current scan instantly by sector, risk, trend stage, and valuation guardrail. Filters use AND semantics, retain each ticker's original scan rank, apply to both Leaders and Contenders, and can be reset without fetching the upstream providers again.
+
 Revenue jumps above 100% are flagged as potentially non-comparable periods. SEC concept-name changes are resolved by selecting the newest annual filing across the supported revenue tags.
 
 The combined discovery score is 65% trend and 35% business quality. Trend, quality, risk, category, and evidence remain visible separately so the combined score is auditable.
 
 ## History And Relative Strength
 
-Each generated ranking stores its top-ten symbols, ranks, scores, and observed prices in `discovery_snapshots`. The UI compares the current score with the nearest retained 1-day, 1-week, and 1-month snapshots and shows when a candidate first appeared. Missing periods remain `collecting`; they are never backfilled with fabricated history.
+Each generated ranking stores leader and contender symbols, ranks, scores, and observed prices in `discovery_snapshots`. The UI compares the current score with the nearest retained 1-day, 1-week, and 1-month snapshots and shows when a candidate first appeared. Missing periods remain `collecting`; they are never backfilled with fabricated history.
 
 Sector-relative strength compares each candidate's three-month momentum with the average for other scanned companies in its mapped industry group. Positive values indicate outperformance versus those peers, not a forecast.
 
@@ -71,4 +75,4 @@ Upcoming earnings catalysts are read from Nasdaq's public earnings calendar for 
 
 ## Runtime
 
-`/api/research/discovery` scans Yahoo chart history in batches of six, enriches the leader and early-trend shortlists through SEC EDGAR, checks the bounded Nasdaq catalyst window, and caches the computed response for one hour. Failed symbols, catalyst coverage, history storage, and missing fundamentals degrade independently and are reported as warnings. The UI exposes separate Leaders and Early Trends views with scan time, history, cohort performance, sector context, valuation, catalysts, evidence, category, and scores.
+`/api/research/discovery` scans Yahoo chart history in batches of six, enriches the leader, contender, and early-trend shortlists through SEC EDGAR, checks the bounded Nasdaq catalyst window, and caches the computed response for one hour. Failed symbols, catalyst coverage, history storage, and missing fundamentals degrade independently and are reported as warnings. The UI exposes Leaders with expandable Contenders plus a separate Early Trends view, with scan time, history, cohort performance, sector context, valuation, catalysts, evidence, category, and scores.

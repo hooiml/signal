@@ -1,5 +1,6 @@
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
+export { parseResearchSnapshotResponse } from '@/lib/research/snapshot-input';
 
 const number = (value: number | null, suffix = '') => value === null ? 'Unavailable' : `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}${suffix}`;
 const money = (value: number | null) => value === null ? 'Unavailable' : new Intl.NumberFormat('en-US', { notation: 'compact', style: 'currency', currency: 'USD', maximumFractionDigits: 1 }).format(value);
@@ -45,30 +46,3 @@ export const applyResearchSnapshotV6 = (item: ResearchWatchlistItem, snapshot: R
             ? 'Unavailable' : `${number(snapshot.technicals.support)} / ${number(snapshot.technicals.resistance)}`,
     },
 });
-
-export const parseResearchSnapshotResponse = (payload: unknown): ResearchSnapshot => {
-    if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) throw new Error('Invalid research snapshot response.');
-    const body = Object.fromEntries(Object.entries(payload));
-    if (body.success !== true || !isResearchSnapshot(body.data)) {
-        throw new Error(typeof body.error === 'string' ? body.error : 'Unable to load free-source data.');
-    }
-    return body.data;
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
-const isNullableNumber = (value: unknown) => value === null || (typeof value === 'number' && Number.isFinite(value));
-
-const isResearchSnapshot = (value: unknown): value is ResearchSnapshot => {
-    if (!isRecord(value) || !isRecord(value.quote) || !isRecord(value.fundamentals) || !isRecord(value.valuation) || !isRecord(value.technicals)) return false;
-    return typeof value.symbol === 'string'
-        && (value.market === 'US' || value.market === 'MY')
-        && typeof value.fetchedAt === 'string'
-        && isNullableNumber(value.quote.price)
-        && isNullableNumber(value.quote.dailyChangePercent)
-        && isNullableNumber(value.fundamentals.revenueGrowthPercent)
-        && isNullableNumber(value.valuation.marketCap)
-        && isNullableNumber(value.valuation.priceEarnings)
-        && isNullableNumber(value.technicals.ma50)
-        && Array.isArray(value.sources) && value.sources.every((source) => typeof source === 'string')
-        && Array.isArray(value.warnings) && value.warnings.every((warning) => typeof warning === 'string');
-};

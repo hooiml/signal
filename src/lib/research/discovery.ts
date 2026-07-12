@@ -1,10 +1,11 @@
-import type { DiscoveryCandidate, DiscoveryCatalyst, DiscoveryResponse, DiscoveryResult, QualityDiscoveryResult } from '../types/research-discovery';
+import type { DiscoveryCandidate, DiscoveryCatalyst, DiscoveryContender, DiscoveryResponse, DiscoveryResult, QualityDiscoveryResult } from '../types/research-discovery';
 import { scoreDiscoveryQuality } from './discovery-quality';
 import { scoreDiscoveryCandidate } from './discovery-score';
 import { calculateCohortPerformance, calculateHistorySignals, snapshotForPeriod } from './discovery-history';
 import { sectorForSymbol, sectorRelativeStrength } from './discovery-sectors';
 import { listDiscoverySnapshots, saveDiscoverySnapshot } from './discovery-store';
 import { classifyEarlyTrend, classifyValuation } from './discovery-opportunity';
+import { describeContender, rankDiscoveryTiers } from './discovery-ranking';
 import { calculateValuation } from './valuation';
 import { fetchUpcomingCatalysts } from './catalysts';
 import { discoveryUniverse } from './discovery-universe';
@@ -128,7 +129,7 @@ export const getTrendDiscovery = async (): Promise<DiscoveryResponse> => {
     const shortlist = scanned
         .filter((candidate) => candidate.price >= 5 && candidate.averageDollarVolume >= 20_000_000 && candidate.risk !== 'high')
         .sort((left, right) => right.trendScore - left.trendScore)
-        .slice(0, 15);
+        .slice(0, 25);
     const earlyShortlist = scanned
         .filter((candidate) => {
             const stage = classifyEarlyTrend(candidate);
@@ -142,10 +143,7 @@ export const getTrendDiscovery = async (): Promise<DiscoveryResponse> => {
         enriched.push(...await Promise.all(enrichmentPool.slice(index, index + 3).map((candidate) => enrichCandidate(candidate, scanned))));
     }
     const leaderSymbols = new Set(shortlist.map((candidate) => candidate.symbol));
-    const ranked = enriched
-        .filter((candidate) => leaderSymbols.has(candidate.symbol) && candidate.category !== 'fundamentally unsupported')
-        .sort((left, right) => right.discoveryScore - left.discoveryScore)
-        .slice(0, 10);
+    const ranked = rankDiscoveryTiers(enriched.filter((candidate) => leaderSymbols.has(candidate.symbol)));
     const generatedAt = new Date().toISOString();
     let historyWarning: string | null = null;
     let history = await listDiscoverySnapshots().catch((error): readonly [] => {
@@ -153,7 +151,7 @@ export const getTrendDiscovery = async (): Promise<DiscoveryResponse> => {
         historyWarning = 'Discovery history storage is unavailable; current rankings are still live.';
         return [];
     });
-    const catalystSymbols = [...new Set([...ranked, ...earlyShortlist].map((candidate) => candidate.symbol))];
+    const catalystSymbols = [...new Set([...ranked.leaders, ...ranked.contenders, ...earlyShortlist].map((candidate) => candidate.symbol))];
     let catalysts: ReadonlyMap<string, DiscoveryCatalyst> = new Map<string, DiscoveryCatalyst>();
     let catalystWarning: string | null = null;
     try {
@@ -162,10 +160,16 @@ export const getTrendDiscovery = async (): Promise<DiscoveryResponse> => {
         if (!(error instanceof Error)) throw error;
         catalystWarning = 'Upcoming earnings coverage is temporarily unavailable.';
     }
-    const candidates: QualityDiscoveryResult[] = ranked.map((candidate, index) => ({
+    const candidates: QualityDiscoveryResult[] = ranked.leaders.map((candidate, index) => ({
         ...candidate,
         ...calculateHistorySignals(candidate.symbol, candidate.discoveryScore, index + 1, generatedAt, history),
         catalyst: catalysts.get(candidate.symbol) ?? null,
+    }));
+    const contenders: DiscoveryContender[] = ranked.contenders.map((candidate, index) => ({
+        ...candidate,
+        ...calculateHistorySignals(candidate.symbol, candidate.discoveryScore, candidates.length + index + 1, generatedAt, history),
+        catalyst: catalysts.get(candidate.symbol) ?? null,
+        contenderReason: describeContender(candidate),
     }));
     const emergingCandidates: QualityDiscoveryResult[] = enriched
         .filter((candidate) => (candidate.earlyTrendStage === 'emerging' || candidate.earlyTrendStage === 'confirmed')
@@ -185,7 +189,7 @@ export const getTrendDiscovery = async (): Promise<DiscoveryResponse> => {
         calculateCohortPerformance('1M', snapshotForPeriod(generatedAt, 30, history), currentPrices),
     ];
     try {
-        await saveDiscoverySnapshot(generatedAt, candidates);
+        await saveDiscoverySnapshot(generatedAt, [...candidates, ...contenders]);
     } catch (error) {
         if (!(error instanceof Error)) throw error;
         historyWarning = 'Discovery history storage is unavailable; current rankings are still live.';
@@ -197,6 +201,7 @@ export const getTrendDiscovery = async (): Promise<DiscoveryResponse> => {
         universeSize: discoveryUniverse.length,
         scannedCount: scanned.length,
         candidates,
+        contenders,
         emergingCandidates,
         performance,
         historySnapshotCount: history.length,

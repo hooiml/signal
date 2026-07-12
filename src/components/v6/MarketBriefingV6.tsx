@@ -12,6 +12,7 @@ import {
     getTierTone,
 } from '@/components/v2/cockpit-utils';
 import { ScoreHistoryV6 } from './ScoreHistoryV6';
+import { ChangeAttributionV6 } from './ChangeAttributionV6';
 import {
     formatCompactDateV6,
     formatSignedV6,
@@ -96,7 +97,7 @@ export const MarketBriefingV6 = ({ signal, theme, updating, refreshError }: Mark
             </div>
 
             <section className={panel + ' overflow-hidden'} aria-labelledby="changed-title">
-                <div className="grid gap-px md:grid-cols-[220px_repeat(3,minmax(0,1fr))]">
+                <div className="grid gap-px sm:grid-cols-2 lg:grid-cols-[220px_repeat(3,minmax(0,1fr))]">
                     <div className={'p-5 ' + t.cell}>
                         <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Since the prior snapshot</p>
                         <h2 id="changed-title" className={'mt-2 text-lg font-bold ' + t.textPrimary}>What changed</h2>
@@ -113,6 +114,12 @@ export const MarketBriefingV6 = ({ signal, theme, updating, refreshError }: Mark
                     <SummaryMetricV6 label="Trend" value={signal.metadata.trend_context?.score_trend ?? 'Not available'} detail={signal.metadata.trend_context?.last_signal_change ?? 'No signal change recorded'} theme={theme} />
                     <SummaryMetricV6 label="Breadth check" value={breadth.total > 0 ? breadth.aligned + ' of ' + breadth.total + ' aligned' : 'Unavailable'} detail={breadth.summary} theme={theme} />
                 </div>
+                <ChangeAttributionV6
+                    changes={signal.metadata.driver_changes ?? []}
+                    previousDate={signal.metadata.score_delta?.previous_date ?? null}
+                    available={signal.metadata.driver_changes_available ?? false}
+                    theme={theme}
+                />
             </section>
 
             <section className={panel + ' p-5 sm:p-6'} aria-labelledby="terms-title">

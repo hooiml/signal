@@ -1,6 +1,6 @@
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 
-export type ResearchWorkspaceV6 = 'research' | 'discovery' | 'alerts';
+export type ResearchWorkspaceV6 = 'research' | 'compare' | 'discovery' | 'alerts';
 
 export const ResearchWorkspaceTabsV6 = ({ active, theme, onChange }: {
     readonly active: ResearchWorkspaceV6;
@@ -9,13 +9,16 @@ export const ResearchWorkspaceTabsV6 = ({ active, theme, onChange }: {
 }) => {
     const styles = getThemeV6(theme);
     const tabs: readonly { readonly id: ResearchWorkspaceV6; readonly label: string }[] = [
-        { id: 'research', label: 'Research' }, { id: 'discovery', label: 'Discovery' }, { id: 'alerts', label: 'Alerts' },
+        { id: 'research', label: 'Research' }, { id: 'discovery', label: 'Discovery' },
+        { id: 'compare', label: 'Compare' }, { id: 'alerts', label: 'Alerts' },
     ];
     return (
-        <div className={'mb-3 flex w-fit rounded border p-1 ' + styles.panel}>
-            {tabs.map((tab) => (
-                <button key={tab.id} type="button" onClick={() => onChange(tab.id)} className={'rounded px-3 py-1.5 text-xs font-semibold ' + (active === tab.id ? styles.selectedRow : styles.textMuted)}>{tab.label}</button>
-            ))}
+        <div className="mb-3 max-w-full overflow-x-auto">
+            <div role="group" aria-label="Research workspace" className={'flex w-fit rounded border p-1 ' + styles.panel}>
+                {tabs.map((tab) => (
+                    <button key={tab.id} aria-pressed={active === tab.id} type="button" onClick={() => onChange(tab.id)} className={'min-h-10 rounded px-3 text-xs font-semibold ' + (active === tab.id ? styles.selectedRow : styles.textMuted)}>{tab.label}</button>
+                ))}
+            </div>
         </div>
     );
 };

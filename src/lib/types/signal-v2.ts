@@ -146,6 +146,14 @@ export interface MarketSignal {
             score: number;
             tier: SignalTier;
         }>;
+        driver_changes?: Array<{
+            key: string;
+            name: string;
+            current_contribution: number;
+            previous_contribution: number;
+            delta: number;
+        }>;
+        driver_changes_available?: boolean;
         trend_context?: {
             score_trend: string;
             last_signal_change: string;

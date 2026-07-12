@@ -64,7 +64,7 @@ export const calculateCohortPerformance = (
     snapshot: DiscoveryHistorySnapshot | null,
     currentPrices: ReadonlyMap<string, number>,
 ): CohortPerformance => {
-    const returns = snapshot?.candidates.flatMap((candidate) => {
+    const returns = snapshot?.candidates.filter((candidate) => candidate.rank <= 10).flatMap((candidate) => {
         const current = currentPrices.get(candidate.symbol);
         return current === undefined || candidate.price <= 0 ? [] : [((current - candidate.price) / candidate.price) * 100];
     }) ?? [];

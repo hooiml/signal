@@ -11,6 +11,11 @@ import { parseSecCompanyFacts } from '../../src/lib/research/sec-edgar';
 import { calculateCohortPerformance, calculateHistorySignals } from '../../src/lib/research/discovery-history';
 import { sectorRelativeStrength } from '../../src/lib/research/discovery-sectors';
 import { classifyEarlyTrend, classifyValuation } from '../../src/lib/research/discovery-opportunity';
+import { describeContender, rankDiscoveryTiers } from '../../src/lib/research/discovery-ranking';
+import { filterDiscoveryCandidates } from '../../src/lib/research/discovery-filters';
+import { buildComparisonMetrics } from '../../src/lib/research/comparison';
+import type { ResearchSnapshot } from '../../src/lib/types/research-snapshot';
+import { parseResearchSnapshotResponse } from '../../src/lib/research/snapshot-input';
 
 const assertEqual = <T>(actual: T, expected: T, label: string) => {
     if (actual !== expected) throw new Error(`${label}: expected ${expected}, got ${actual}`);
@@ -193,6 +198,15 @@ const runDiscoveryHistoryTests = () => {
     assertEqual(performance.averageReturnPercent, 25, 'cohort return compares saved entry price with current price');
     assertEqual(performance.trackedCount, 1, 'cohort performance reports its tracked coverage');
     assertEqual(performance.winnerCount, 1, 'cohort performance counts positive returns');
+    const leadersOnly = calculateCohortPerformance('1W', {
+        generatedAt: '2026-07-05T10:00:00.000Z',
+        candidates: [
+            { symbol: 'MU', rank: 10, discoveryScore: 64, price: 80 },
+            { symbol: 'NVDA', rank: 11, discoveryScore: 63, price: 100 },
+        ],
+    }, new Map([['MU', 100], ['NVDA', 200]]));
+    assertEqual(leadersOnly.trackedCount, 1, 'forward cohort performance remains limited to saved top-ten leaders');
+    assertEqual(leadersOnly.averageReturnPercent, 25, 'contender returns do not alter leader cohort performance');
     assertEqual(sectorRelativeStrength('MU', 30, [
         { symbol: 'MU', momentum3MonthPercent: 30 },
         { symbol: 'NVDA', momentum3MonthPercent: 10 },
@@ -214,6 +228,66 @@ const runDiscoveryOpportunityTests = () => {
     assertEqual(classifyValuation({ priceEarnings: null, priceSales: null, freeCashFlowYieldPercent: null }), 'unavailable', 'missing valuation stays unavailable');
 };
 
+const runDiscoveryRankingTests = () => {
+    const ranked = rankDiscoveryTiers(Array.from({ length: 23 }, (_, index) => ({
+        symbol: `T${index + 1}`,
+        discoveryScore: 100 - index,
+        category: index === 4 ? 'fundamentally unsupported' as const : 'quality compounder' as const,
+    })));
+    assertEqual(ranked.leaders.length, 10, 'ranking preserves ten high-conviction leaders');
+    assertEqual(ranked.contenders.length, 10, 'ranking exposes the next ten eligible candidates');
+    assertEqual([...ranked.leaders, ...ranked.contenders].some((candidate) => candidate.symbol === 'T5'), false, 'unsupported candidates do not enter either tier');
+    assertEqual(ranked.contenders[0]?.symbol, 'T12', 'contenders continue immediately after eligible leaders');
+    assertEqual(describeContender({ category: 'unconfirmed', risk: 'low' }), 'SEC quality not confirmed', 'unconfirmed contender explains missing quality evidence');
+    assertEqual(describeContender({ category: 'quality compounder', risk: 'moderate' }), 'Moderate risk deduction', 'moderate-risk contender explains its deduction');
+    assertEqual(describeContender({ category: 'quality compounder', risk: 'low' }), 'Lower combined score than current leaders', 'contender reason matches the actual ranking input');
+};
+
+const runDiscoveryFilterTests = () => {
+    const candidates = [
+        { symbol: 'MU', sector: 'Semiconductors', risk: 'low' as const, earlyTrendStage: 'emerging' as const, valuation: { guardrail: 'fair' as const } },
+        { symbol: 'AAPL', sector: 'Technology', risk: 'moderate' as const, earlyTrendStage: 'confirmed' as const, valuation: { guardrail: 'expensive' as const } },
+        { symbol: 'NVDA', sector: 'Semiconductors', risk: 'moderate' as const, earlyTrendStage: 'extended' as const, valuation: { guardrail: 'extreme' as const } },
+    ];
+    assertEqual(filterDiscoveryCandidates(candidates, { sector: 'Semiconductors', risk: 'all', stage: 'all', valuation: 'all' }).map((candidate) => candidate.symbol).join(','), 'MU,NVDA', 'sector filter keeps matching discovery candidates');
+    assertEqual(filterDiscoveryCandidates(candidates, { sector: 'all', risk: 'moderate', stage: 'confirmed', valuation: 'expensive' }).map((candidate) => candidate.symbol).join(','), 'AAPL', 'discovery filters combine with AND semantics');
+    assertEqual(filterDiscoveryCandidates(candidates, { sector: 'all', risk: 'all', stage: 'all', valuation: 'all' }).length, 3, 'all filters preserve the full candidate list');
+};
+
+const runComparisonTests = () => {
+    const snapshot: ResearchSnapshot = {
+        symbol: 'MSFT', market: 'US', fetchedAt: '2026-07-12T00:00:00.000Z',
+        quote: { name: 'Microsoft', currency: 'USD', price: 420.5, dailyChangePercent: 1.2 },
+        fundamentals: {
+            revenueGrowthPercent: 14.2, grossMarginPercent: 68.5, operatingMarginPercent: 44.1,
+            freeCashFlow: 70_000_000_000, debt: 40_000_000_000, cash: 80_000_000_000,
+            shares: 7_400_000_000, annualRevenue: 250_000_000_000, annualNetIncome: 90_000_000_000,
+            reportingPeriod: '2025-06-30', shareChangePercent: -0.8,
+        },
+        valuation: {
+            marketCap: 3_100_000_000_000, priceEarnings: 34.4, priceSales: 12.4,
+            freeCashFlowYieldPercent: 2.3, netCash: 40_000_000_000, reportingPeriod: '2025-06-30', source: 'SEC EDGAR',
+        },
+        technicals: {
+            ma50: 400, ma200: 360, rsi14: 58.2, macd: 3.5, low52Week: 330,
+            high52Week: 450, averageVolume20: 20_000_000, support: 395, resistance: 450,
+        },
+        sources: ['Yahoo Finance', 'SEC EDGAR'], warnings: [],
+    };
+    const metrics = buildComparisonMetrics(snapshot);
+    assertEqual(metrics.price, '$420.50', 'comparison formats US price');
+    assertEqual(metrics.revenueGrowth, '14.2%', 'comparison formats revenue growth');
+    assertEqual(metrics.priceEarnings, '34.4x', 'comparison formats earnings multiple');
+    assertEqual(metrics.rsi, '58.2', 'comparison formats RSI');
+    assertEqual(buildComparisonMetrics({ ...snapshot, valuation: { ...snapshot.valuation, priceEarnings: null } }).priceEarnings, 'Unavailable', 'comparison preserves missing data');
+    const response = { success: true, data: snapshot };
+    assertEqual(parseResearchSnapshotResponse(response).symbol, 'MSFT', 'snapshot boundary accepts complete comparison data');
+    assertThrows(() => parseResearchSnapshotResponse({
+        ...response,
+        data: { ...snapshot, technicals: { ...snapshot.technicals, rsi14: 'hot' } },
+    }), 'snapshot boundary rejects malformed comparison metrics');
+};
+
 runInputTests();
 runDecisionTests();
 runTechnicalTests();
@@ -224,4 +298,7 @@ runDiscoveryQualityTests();
 runSecCompanyFactsTests();
 runDiscoveryHistoryTests();
 runDiscoveryOpportunityTests();
+runDiscoveryRankingTests();
+runDiscoveryFilterTests();
+runComparisonTests();
 console.log('Research regression tests passed.');

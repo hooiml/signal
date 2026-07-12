@@ -55,7 +55,7 @@ export const MarketDashboardV6 = () => {
             <div className={'pointer-events-none absolute inset-0 bg-[size:44px_44px] transition-opacity duration-300 ' + grid} />
             <div className="relative z-10">
                 <AppNavV6 active="market" theme={theme} />
-                <div className="mx-auto w-full max-w-[1480px] px-4 pb-16 pt-5 sm:px-6">
+                <div className="mx-auto w-full max-w-[1280px] px-4 pb-16 pt-5 min-[700px]:px-5">
                     <DashboardHeaderV2
                         market={config.market}
                         mode={config.mode}

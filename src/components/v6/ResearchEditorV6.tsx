@@ -22,7 +22,7 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave }: Rese
     const [draft, setDraft] = useState(initial);
     const styles = getThemeV6(theme);
     const field = 'w-full rounded-md border px-3 py-2 text-sm outline-none focus:border-emerald-500 ' + (theme === 'light' ? 'border-slate-300 bg-white text-slate-950' : 'border-[#334354] bg-[#0b1118] text-[#eef2f7]');
-    const updateText = (key: 'whyInterested' | 'bullCase' | 'thesisBreak' | 'targetBuyZone' | 'notes', value: string) => setDraft((current) => ({ ...current, [key]: value }));
+    const updateText = (key: 'whyInterested' | 'bullCase' | 'bearCase' | 'buyTrigger' | 'sellTrigger' | 'thesisBreak' | 'targetBuyZone' | 'notes', value: string) => setDraft((current) => ({ ...current, [key]: value }));
 
     return (
         <section className={'rounded-lg border p-4 ' + styles.panel}>
@@ -37,8 +37,17 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave }: Rese
                 <label className={'text-xs font-medium ' + styles.textMuted}>Bull case
                     <textarea value={draft.bullCase} onChange={(event) => updateText('bullCase', event.target.value)} rows={3} className={'mt-1 ' + field} />
                 </label>
+                <label className={'text-xs font-medium ' + styles.textMuted}>Bear case
+                    <textarea value={draft.bearCase} onChange={(event) => updateText('bearCase', event.target.value)} rows={3} className={'mt-1 ' + field} />
+                </label>
                 <label className={'text-xs font-medium ' + styles.textMuted}>Thesis invalidation
                     <textarea value={draft.thesisBreak} onChange={(event) => updateText('thesisBreak', event.target.value)} rows={3} className={'mt-1 ' + field} />
+                </label>
+                <label className={'text-xs font-medium ' + styles.textMuted}>Buy trigger
+                    <textarea value={draft.buyTrigger} onChange={(event) => updateText('buyTrigger', event.target.value)} rows={3} className={'mt-1 ' + field} />
+                </label>
+                <label className={'text-xs font-medium ' + styles.textMuted}>Sell trigger
+                    <textarea value={draft.sellTrigger} onChange={(event) => updateText('sellTrigger', event.target.value)} rows={3} className={'mt-1 ' + field} />
                 </label>
                 <label className={'text-xs font-medium ' + styles.textMuted}>Review notes
                     <textarea value={draft.notes} onChange={(event) => updateText('notes', event.target.value)} rows={3} className={'mt-1 ' + field} />
