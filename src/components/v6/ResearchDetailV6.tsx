@@ -71,11 +71,11 @@ export const ResearchDetailV6 = ({ ticker, theme, record, saving, saveError, onS
                     <p className={'mt-1 font-mono text-sm font-semibold tabular-nums ' + (change >= 0 ? themeClasses.positive : themeClasses.risk)}>
                         {change >= 0 ? '+' : ''}{change.toFixed(2)}%
                     </p>
-                    <button type="button" onClick={() => void onDelete()} className={'mt-2 text-[11px] font-semibold ' + themeClasses.risk}>Remove</button>
+                    <button type="button" onClick={() => void onDelete()} className={'mt-1 min-h-10 rounded px-2 text-[11px] font-semibold ' + themeClasses.risk}>Remove</button>
                 </div>
             </header>
 
-            <nav className={'mt-5 overflow-x-auto border-b ' + themeClasses.divider} aria-label="Research sections">
+            <nav className={'research-scrollbar mt-5 overflow-x-auto border-b ' + themeClasses.divider} aria-label="Research sections">
                 <div className="flex min-w-max gap-1">
                     {researchTabsV6.map((tab) => {
                         const tabClass = activeTab === tab.id

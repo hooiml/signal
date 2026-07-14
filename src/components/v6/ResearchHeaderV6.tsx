@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { ThemeModeSwitchV2 } from '@/components/ThemeModeSwitchV2';
 import type { Market } from '@/components/research/ResearchDashboardV2';
 import type { ResearchActionV6, ResearchThemeV6 } from './research-v6';
@@ -15,6 +16,7 @@ type ResearchHeaderV6Props = {
     action: ResearchActionFilterV6;
     snapshotLabel: string;
     resultCount: number;
+    showResearchControls: boolean;
     onQueryChange: (query: string) => void;
     onMarketChange: (market: ResearchMarketFilterV6) => void;
     onActionChange: (action: ResearchActionFilterV6) => void;
@@ -37,12 +39,15 @@ export const ResearchHeaderV6 = ({
     action,
     snapshotLabel,
     resultCount,
+    showResearchControls,
     onQueryChange,
     onMarketChange,
     onActionChange,
     onThemeToggle,
 }: ResearchHeaderV6Props) => {
+    const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
     const isLight = theme === 'light';
+    const activeFilterCount = Number(market !== 'ALL') + Number(action !== 'ALL');
     const textPrimary = isLight ? 'text-slate-950' : 'text-[#eef2f7]';
     const textSecondary = isLight ? 'text-slate-700' : 'text-[#c8d2dd]';
     const textSubtle = isLight ? 'text-slate-500' : 'text-[#8090a2]';
@@ -73,27 +78,92 @@ export const ResearchHeaderV6 = ({
     return (
         <header className="relative z-20 mx-auto w-full max-w-[1280px] px-4 pt-3 min-[700px]:px-5">
             <nav className="flex min-h-12 items-center justify-between gap-4" aria-label="Primary">
-                <Link href="/main-v6" className={'text-sm font-bold uppercase tracking-[0.18em] ' + textPrimary}>
+                <Link href="/main-v6" className={'inline-flex min-h-10 items-center text-sm font-bold uppercase tracking-[0.18em] ' + textPrimary}>
                     Signal V6
                 </Link>
                 <div className={'flex items-center gap-1 rounded-lg border p-1 ' + navShell}>
                     <Link
                         href="/main-v6"
-                        className={'rounded-md px-3 py-2 text-xs font-semibold transition-colors ' + textSecondary + (isLight ? ' hover:bg-slate-100' : ' hover:bg-slate-800/50')}
+                        className={'inline-flex min-h-10 items-center rounded-md px-3 py-2 text-xs font-semibold transition-colors ' + textSecondary + (isLight ? ' hover:bg-slate-100' : ' hover:bg-slate-800/50')}
                     >
                         Market V6
                     </Link>
                     <Link
                         href="/research-v6"
                         aria-current="page"
-                        className={'rounded-md px-3 py-2 text-xs font-semibold ' + (isLight ? 'bg-slate-950 text-white' : 'bg-emerald-300 text-slate-950')}
+                        className={'inline-flex min-h-10 items-center rounded-md px-3 py-2 text-xs font-semibold ' + (isLight ? 'bg-slate-950 text-white' : 'bg-emerald-300 text-slate-950')}
                     >
                         Research V6
                     </Link>
                 </div>
             </nav>
 
-            <div className={'mt-3 rounded-2xl border px-4 py-3 backdrop-blur transition-colors ' + commandStrip}>
+            {showResearchControls ? <div className={'mt-3 rounded-2xl border p-2 backdrop-blur transition-colors min-[700px]:hidden ' + commandStrip}>
+                <div className="flex gap-2">
+                    <label className="min-w-0 flex-1">
+                        <span className="sr-only">Ticker search</span>
+                        <input
+                            type="search"
+                            value={query}
+                            onChange={(event) => onQueryChange(event.target.value)}
+                            placeholder="Search ticker or company"
+                            className={'h-10 w-full rounded-xl border px-3 text-sm font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 dark:focus-visible:ring-sky-300 dark:focus-visible:ring-offset-slate-950 ' + fieldClass}
+                        />
+                    </label>
+                    <button
+                        type="button"
+                        aria-controls="research-mobile-filters"
+                        aria-expanded={mobileFiltersOpen}
+                        onClick={() => setMobileFiltersOpen((current) => !current)}
+                        className={'min-h-10 rounded-xl border px-3 text-xs font-bold transition-colors ' + segmentClass(mobileFiltersOpen)}
+                    >
+                        Filters{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
+                    </button>
+                </div>
+
+                {mobileFiltersOpen ? <div id="research-mobile-filters" className={'mt-2 grid gap-2 rounded-xl border p-3 ' + commandGroup}>
+                    <div>
+                        <div className={'text-[10px] font-semibold uppercase tracking-[0.22em] ' + textSubtle}>Market</div>
+                        <div className="mt-2 flex gap-1">
+                            {(['ALL', 'US', 'MY'] as const).map((option) => (
+                                <button
+                                    key={option}
+                                    type="button"
+                                    onClick={() => onMarketChange(option)}
+                                    aria-pressed={market === option}
+                                    className={'min-h-10 rounded-xl border px-3 text-[11px] font-bold uppercase tracking-[0.16em] transition-all active:scale-95 ' + segmentClass(market === option)}
+                                >
+                                    {option === 'ALL' ? 'All' : option}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <label>
+                        <span className={'text-[10px] font-semibold uppercase tracking-[0.22em] ' + textSubtle}>Decision</span>
+                        <select
+                            value={action}
+                            onChange={(event) => onActionChange(event.target.value as ResearchActionFilterV6)}
+                            className={'mt-2 h-10 w-full rounded-xl border px-3 text-sm font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sky-400/40 ' + fieldClass}
+                        >
+                            {actionOptions.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                        </select>
+                    </label>
+                </div> : null}
+
+                <div className="mt-2 flex items-stretch gap-2">
+                    <div className={'min-w-0 flex-1 rounded-xl border px-3 py-2 ' + commandGroup}>
+                        <div className={'truncate text-[11px] font-semibold ' + textSecondary}>{snapshotLabel}</div>
+                        <div className={'mt-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ' + textSubtle}>{resultCount} ticker{resultCount === 1 ? '' : 's'}</div>
+                    </div>
+                    <ThemeModeSwitchV2 theme={theme} tone={theme} onToggle={onThemeToggle} className="shrink-0" />
+                </div>
+            </div> : <div className="mt-3 flex justify-end">
+                <ThemeModeSwitchV2 theme={theme} tone={theme} onToggle={onThemeToggle} />
+            </div>}
+
+            {showResearchControls ? <div className={'mt-3 hidden rounded-2xl border px-4 py-3 backdrop-blur transition-colors min-[700px]:block ' + commandStrip}>
                 <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
                     <div className="flex min-w-0 flex-1 flex-wrap items-end gap-3">
                         <label className={'min-w-[220px] flex-1 rounded-2xl border px-3 py-2 ' + commandGroup}>
@@ -103,7 +173,7 @@ export const ResearchHeaderV6 = ({
                                 value={query}
                                 onChange={(event) => onQueryChange(event.target.value)}
                                 placeholder="Search symbol or company"
-                                className={'mt-2 h-9 w-full rounded-xl border px-3 text-sm font-semibold outline-none transition-colors ' + fieldClass}
+                                className={'mt-2 h-10 w-full rounded-xl border px-3 text-sm font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sky-400/40 ' + fieldClass}
                             />
                         </label>
 
@@ -116,7 +186,7 @@ export const ResearchHeaderV6 = ({
                                         type="button"
                                         onClick={() => onMarketChange(option)}
                                         aria-pressed={market === option}
-                                        className={'rounded-xl border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] transition-all active:scale-95 ' + segmentClass(market === option)}
+                                        className={'min-h-10 rounded-xl border px-3 text-[11px] font-bold uppercase tracking-[0.16em] transition-all active:scale-95 ' + segmentClass(market === option)}
                                     >
                                         {option === 'ALL' ? 'All' : option}
                                     </button>
@@ -129,7 +199,7 @@ export const ResearchHeaderV6 = ({
                             <select
                                 value={action}
                                 onChange={(event) => onActionChange(event.target.value as ResearchActionFilterV6)}
-                                className={'mt-2 h-9 min-w-[150px] rounded-xl border px-3 text-sm font-semibold outline-none transition-colors ' + fieldClass}
+                                className={'mt-2 h-10 min-w-[150px] rounded-xl border px-3 text-sm font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sky-400/40 ' + fieldClass}
                             >
                                 {actionOptions.map((option) => (
                                     <option key={option.value} value={option.value}>{option.label}</option>
@@ -150,7 +220,7 @@ export const ResearchHeaderV6 = ({
                         <ThemeModeSwitchV2 theme={theme} tone={theme} onToggle={onThemeToggle} className="self-stretch" />
                     </div>
                 </div>
-            </div>
+            </div> : null}
         </header>
     );
 };

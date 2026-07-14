@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { watchlist } from '@/components/research/ResearchDashboardV2';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import { parseResearchRecord, ResearchInputError } from '@/lib/research/input';
-import type { ResearchCreateInput, ResearchRecord } from '@/lib/types/research';
+import type { ResearchCreateInput, ResearchRecord, ResearchUpdateMode } from '@/lib/types/research';
 import { ResearchDetailV6 } from './ResearchDetailV6';
 import {
     ResearchHeaderV6,
@@ -16,6 +16,7 @@ import { ResearchWatchlistV6 } from './ResearchWatchlistV6';
 import { TrendDiscoveryV6 } from './TrendDiscoveryV6';
 import { ResearchAlertsV6 } from './ResearchAlertsV6';
 import { ResearchComparisonV6 } from './ResearchComparisonV6';
+import { ResearchInboxV6 } from './ResearchInboxV6';
 import { ResearchWorkspaceTabsV6, type ResearchWorkspaceV6 } from './ResearchWorkspaceTabsV6';
 import { applyResearchRecordV6, createWatchlistItemV6, toResearchRecordV6 } from './research-records-v6';
 import {
@@ -68,6 +69,10 @@ export const ResearchDashboardV6 = () => {
     const selectedRecord = selected
         ? records.find((record) => record.symbol === selected.symbol) ?? toResearchRecordV6(selected)
         : null;
+    const inboxRecords = useMemo(
+        () => items.map((item) => records.find((record) => record.symbol === item.symbol) ?? toResearchRecordV6(item)),
+        [items, records],
+    );
     const themeClasses = getThemeV6(theme);
 
     useEffect(() => {
@@ -120,7 +125,7 @@ export const ResearchDashboardV6 = () => {
         return parseResearchRecord(body.data);
     };
 
-    const saveRecord = async (record: ResearchRecord) => {
+    const saveRecord = async (record: ResearchRecord, mode: ResearchUpdateMode = 'review'): Promise<boolean> => {
         setSaving(true);
         setSaveError(null);
         try {
@@ -131,12 +136,14 @@ export const ResearchDashboardV6 = () => {
                 }));
             }
             const saved = await readRecordResponse(await fetch('/api/research/watchlist/' + encodeURIComponent(record.symbol), {
-                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(record),
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...record, mode }),
             }));
             setRecords((current) => [...current.filter((item) => item.symbol !== saved.symbol), saved]);
             setItems((current) => current.map((item) => item.symbol === saved.symbol ? applyResearchRecordV6(item, saved) : item));
+            return true;
         } catch (error) {
             setSaveError(error instanceof Error ? error.message : 'Unable to save research.');
+            return false;
         } finally {
             setSaving(false);
         }
@@ -194,6 +201,7 @@ export const ResearchDashboardV6 = () => {
                 action={action}
                 snapshotLabel={formatSnapshotLabel(latestSnapshot)}
                 resultCount={filteredItems.length}
+                showResearchControls={workspace === 'research'}
                 onQueryChange={setQuery}
                 onMarketChange={setMarket}
                 onActionChange={setAction}
@@ -201,6 +209,7 @@ export const ResearchDashboardV6 = () => {
             />
             <div className="relative z-10 mx-auto w-full max-w-[1280px] px-4 pb-5 pt-4 min-[700px]:px-5">
                 <ResearchWorkspaceTabsV6 active={workspace} theme={theme} onChange={setWorkspace} />
+                {workspace === 'research' && <ResearchInboxV6 items={items} records={inboxRecords} theme={theme} onOpen={selectTicker} onSave={saveRecord} />}
                 <main className={'flex flex-col gap-4 rounded-[10px] border p-3 backdrop-blur min-[700px]:flex-row min-[700px]:p-4 ' + themeClasses.panel}>
                     {workspace === 'alerts' ? (
                         <ResearchAlertsV6 items={items} theme={theme} onOpen={selectTicker} />
@@ -218,7 +227,7 @@ export const ResearchDashboardV6 = () => {
                         adding={adding}
                     />
                     {selected && selectedRecord ? (
-                        <ResearchDetailV6 key={selected.symbol} ticker={selected} theme={theme} record={selectedRecord} saving={saving} saveError={saveError} onSave={saveRecord} onDelete={deleteRecord} />
+                        <ResearchDetailV6 key={selected.symbol} ticker={selected} theme={theme} record={selectedRecord} saving={saving} saveError={saveError} onSave={async (record) => { await saveRecord(record); }} onDelete={deleteRecord} />
                     ) : (
                         <section className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
                             <div>

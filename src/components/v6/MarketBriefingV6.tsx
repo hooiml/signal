@@ -13,6 +13,7 @@ import {
 } from '@/components/v2/cockpit-utils';
 import { ScoreHistoryV6 } from './ScoreHistoryV6';
 import { ChangeAttributionV6 } from './ChangeAttributionV6';
+import { MarketAlertsV6 } from './MarketAlertsV6';
 import {
     formatCompactDateV6,
     formatSignedV6,
@@ -26,12 +27,13 @@ import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 
 type MarketBriefingV6Props = {
     signal: MarketSignal;
+    enableSocial: boolean;
     theme: ResearchThemeV6;
     updating: boolean;
     refreshError: string | null;
 };
 
-export const MarketBriefingV6 = ({ signal, theme, updating, refreshError }: MarketBriefingV6Props) => {
+export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refreshError }: MarketBriefingV6Props) => {
     const t = getThemeV6(theme);
     const tierTone = getTierTone(signal.tier, theme);
     const posture = getDecisionPostureV6(signal);
@@ -184,6 +186,8 @@ export const MarketBriefingV6 = ({ signal, theme, updating, refreshError }: Mark
                     </div>
                 </section>
             </div>
+
+            <MarketAlertsV6 signal={signal} enableSocial={enableSocial} theme={theme} />
 
             <div className="grid gap-4 lg:grid-cols-2">
                 <DisclosureV6 title="Trust and limitations" theme={theme}>

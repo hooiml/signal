@@ -120,6 +120,32 @@ html[data-cockpit-theme='light'] .cockpit-theme-scope .border-slate-700 {
   background: #475569;
 }
 
+.research-scrollbar {
+  scrollbar-color: #475569 transparent;
+  scrollbar-width: thin;
+}
+
+.research-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.research-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.research-scrollbar::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+html[data-cockpit-theme='light'] .research-scrollbar {
+  scrollbar-color: #94a3b8 transparent;
+}
+
+html[data-cockpit-theme='light'] .research-scrollbar::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+}
+
 @keyframes pulse-slow {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }

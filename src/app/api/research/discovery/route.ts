@@ -3,7 +3,7 @@ import { unstable_cache } from 'next/cache';
 import { getTrendDiscovery } from '@/lib/research/discovery';
 
 export const dynamic = 'force-dynamic';
-const getCachedTrendDiscovery = unstable_cache(getTrendDiscovery, ['quality-trend-discovery-v5'], { revalidate: 3600 });
+const getCachedTrendDiscovery = unstable_cache(getTrendDiscovery, ['quality-trend-discovery-v8'], { revalidate: 3600 });
 
 export const GET = async (): Promise<NextResponse> => {
     try {

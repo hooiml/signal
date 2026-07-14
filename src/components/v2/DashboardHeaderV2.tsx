@@ -15,6 +15,8 @@ interface DashboardHeaderProps {
     onSocialToggle: (enabled: boolean) => void;
     isLoaded: boolean;
     isUpdating?: boolean;
+    lastCheckedAt?: Date | null;
+    onRefresh?: () => void;
     snapshotDate?: string | null;
     sourceToggleImpact?: NonNullable<MarketSignal['metadata']['counterfactuals']>['source_toggle'];
     theme: CockpitTheme;
@@ -30,6 +32,8 @@ export const DashboardHeaderV2 = ({
     onSocialToggle,
     isLoaded,
     isUpdating = false,
+    lastCheckedAt = null,
+    onRefresh,
     snapshotDate,
     sourceToggleImpact,
     theme,
@@ -61,6 +65,12 @@ export const DashboardHeaderV2 = ({
         : null;
     const sourceToggleLabel = sourceToggleImpact?.source_label || (market === 'MY' ? 'News Sentiment' : 'Social Sentiment');
     const compactSourceLabel = sourceToggleLabel.replace(/\s+sentiment$/i, '');
+    const lastCheckedLabel = lastCheckedAt
+        ? lastCheckedAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' })
+        : 'Not checked yet';
+    const refreshShell = theme === 'light'
+        ? 'border-slate-200 bg-slate-50/90 text-slate-700 hover:border-emerald-400 hover:bg-emerald-50 focus-visible:outline-emerald-500'
+        : 'border-slate-800 bg-slate-900/45 text-slate-200 hover:border-emerald-400/60 hover:bg-emerald-500/10 focus-visible:outline-emerald-400';
 
     return (
         <div className={`relative z-20 mb-5 rounded-2xl border px-3 py-2 backdrop-blur transition-all duration-300 sm:px-4 sm:py-3 ${themeClasses.commandStrip} ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
@@ -116,6 +126,17 @@ export const DashboardHeaderV2 = ({
                             {isUpdating ? 'Updating' : 'Live'}
                         </div>
                     </div>
+                    {onRefresh ? (
+                        <button
+                            type="button"
+                            onClick={onRefresh}
+                            disabled={!isLoaded || isUpdating}
+                            className={`min-h-14 min-w-[132px] rounded-xl border px-3 py-2 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55 ${refreshShell}`}
+                        >
+                            <span className="block text-[10px] font-semibold uppercase tracking-[0.22em]">Refresh</span>
+                            <span className="mt-1 block whitespace-nowrap text-sm font-semibold">{isUpdating ? 'Checking...' : lastCheckedLabel}</span>
+                        </button>
+                    ) : null}
                     <ThemeModeSwitchV2 theme={theme} tone={theme} onToggle={onThemeToggle} className="self-stretch" />
                 </div>
             </div>

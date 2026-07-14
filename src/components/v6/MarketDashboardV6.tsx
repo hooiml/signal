@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSignalConfig } from '@/hooks/use-signal-config';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import { DashboardHeaderV2 } from '@/components/v2/DashboardHeaderV2';
@@ -12,12 +12,20 @@ import { useThemeV6 } from './ThemeProviderV6';
 export const MarketDashboardV6 = () => {
     const { config, updateConfig, isLoaded } = useSignalConfig();
     const [signal, setSignal] = useState<MarketSignal | null>(null);
+    const [signalEnableSocial, setSignalEnableSocial] = useState(true);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
+    const requestSequence = useRef(0);
+    const activeRequest = useRef<AbortController | null>(null);
     const { theme, toggleTheme } = useThemeV6();
     const themeClasses = getThemeV6(theme);
 
     const fetchSignal = useCallback(async () => {
+        const requestId = ++requestSequence.current;
+        activeRequest.current?.abort();
+        const controller = new AbortController();
+        activeRequest.current = controller;
         setLoading(true);
         setError(null);
         try {
@@ -26,19 +34,34 @@ export const MarketDashboardV6 = () => {
                 mode: config.mode,
                 enableSocial: String(config.enableSocial),
             });
-            const response = await fetch('/api/signals/v2?' + query.toString());
+            const response = await fetch('/api/signals/v2?' + query.toString(), {
+                cache: 'no-store',
+                signal: controller.signal,
+            });
             const body = await response.json();
             if (!response.ok || !body.success) throw new Error(body.error || 'Failed to fetch signal');
+            if (requestId !== requestSequence.current) return;
             setSignal(body.data);
+            setSignalEnableSocial(config.enableSocial);
+            setLastCheckedAt(new Date());
         } catch (requestError) {
+            if (controller.signal.aborted || requestId !== requestSequence.current) return;
             setError(requestError instanceof Error ? requestError.message : 'Connection error. Please try again.');
         } finally {
-            setLoading(false);
+            if (requestId === requestSequence.current) {
+                setLoading(false);
+                activeRequest.current = null;
+            }
         }
     }, [config.enableSocial, config.market, config.mode]);
 
     useEffect(() => {
         if (isLoaded) void fetchSignal();
+        return () => {
+            requestSequence.current += 1;
+            activeRequest.current?.abort();
+            activeRequest.current = null;
+        };
     }, [fetchSignal, isLoaded]);
 
     const atmosphere = theme === 'light'
@@ -64,7 +87,9 @@ export const MarketDashboardV6 = () => {
                         onModeChange={(mode) => updateConfig({ mode })}
                         onSocialToggle={(enableSocial) => updateConfig({ enableSocial })}
                         isLoaded={isLoaded}
-                        isUpdating={updating}
+                        isUpdating={loading}
+                        lastCheckedAt={lastCheckedAt}
+                        onRefresh={() => void fetchSignal()}
                         snapshotDate={signal?.metadata.score_delta?.snapshot_date ?? null}
                         sourceToggleImpact={signal?.metadata.counterfactuals?.source_toggle}
                         theme={theme}
@@ -85,6 +110,7 @@ export const MarketDashboardV6 = () => {
                     {signal ? (
                         <MarketBriefingV6
                             signal={signal}
+                            enableSocial={signalEnableSocial}
                             theme={theme}
                             updating={updating}
                             refreshError={error}

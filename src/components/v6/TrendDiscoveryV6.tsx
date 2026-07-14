@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { defaultDiscoveryFilters, filterDiscoveryCandidates, hasDiscoveryFilters } from '@/lib/research/discovery-filters';
-import type { DiscoveryCategory, DiscoveryCatalyst, DiscoveryContender, DiscoveryResponse, DiscoveryResult, EarlyTrendStage, QualityDiscoveryResult, ValuationGuardrail } from '@/lib/types/research-discovery';
+import type { DiscoveryContender, DiscoveryResponse, DiscoveryResult, QualityDiscoveryResult } from '@/lib/types/research-discovery';
 import { DiscoveryFiltersV6 } from './DiscoveryFiltersV6';
+import { DiscoveryOwnershipEvidenceV6 } from './DiscoveryOwnershipEvidenceV6';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
+import { parseDiscoveryResponseV6 } from './research-discovery-response-v6';
 
 type TrendDiscoveryV6Props = {
     readonly theme: ResearchThemeV6;
@@ -15,76 +17,6 @@ type TrendDiscoveryV6Props = {
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
-const discoveryCategories: readonly DiscoveryCategory[] = ['quality compounder', 'cyclical acceleration', 'turnaround', 'momentum only', 'fundamentally unsupported', 'unconfirmed'];
-const isDiscoveryCategory = (value: unknown): value is DiscoveryCategory => typeof value === 'string' && discoveryCategories.some((category) => category === value);
-const isNullableNumber = (value: unknown) => value === null || typeof value === 'number';
-const earlyTrendStages: readonly EarlyTrendStage[] = ['emerging', 'confirmed', 'extended', 'not ready'];
-const valuationGuardrails: readonly ValuationGuardrail[] = ['attractive', 'fair', 'expensive', 'extreme', 'unavailable'];
-const isListedValue = <T extends string>(value: unknown, values: readonly T[]): value is T =>
-    typeof value === 'string' && values.some((candidate) => candidate === value);
-
-const isCatalyst = (value: unknown): value is DiscoveryCatalyst => {
-    if (!isRecord(value)) return false;
-    return typeof value.date === 'string' && value.type === 'earnings'
-        && (value.timing === 'pre-market' || value.timing === 'after-hours' || value.timing === 'time-not-supplied')
-        && (value.fiscalQuarterEnding === null || typeof value.fiscalQuarterEnding === 'string')
-        && (value.epsForecast === null || typeof value.epsForecast === 'string')
-        && value.source === 'Nasdaq earnings calendar';
-};
-
-const isCandidate = (value: unknown): value is QualityDiscoveryResult => {
-    if (!isRecord(value)) return false;
-    return typeof value.symbol === 'string' && typeof value.name === 'string'
-        && typeof value.price === 'number' && typeof value.trendScore === 'number'
-        && typeof value.riskScore === 'number' && (value.risk === 'low' || value.risk === 'moderate' || value.risk === 'high')
-        && typeof value.momentum3MonthPercent === 'number' && typeof value.momentum6MonthPercent === 'number'
-        && (value.qualityScore === null || typeof value.qualityScore === 'number') && typeof value.discoveryScore === 'number'
-        && isDiscoveryCategory(value.category)
-        && typeof value.sector === 'string' && typeof value.sectorRelativeStrengthPercent === 'number'
-        && isNullableNumber(value.scoreChange1Day) && isNullableNumber(value.scoreChange1Week)
-        && isNullableNumber(value.scoreChange1Month) && isNullableNumber(value.rankChange1Week)
-        && typeof value.firstSeenAt === 'string'
-        && isListedValue(value.earlyTrendStage, earlyTrendStages)
-        && isRecord(value.valuation) && isListedValue(value.valuation.guardrail, valuationGuardrails)
-        && isNullableNumber(value.valuation.priceEarnings) && isNullableNumber(value.valuation.priceSales)
-        && isNullableNumber(value.valuation.freeCashFlowYieldPercent)
-        && (value.catalyst === null || isCatalyst(value.catalyst))
-        && Array.isArray(value.reasons) && value.reasons.every((reason) => typeof reason === 'string')
-        && Array.isArray(value.qualityReasons) && value.qualityReasons.every((reason) => typeof reason === 'string')
-        && Array.isArray(value.flags) && value.flags.every((flag) => typeof flag === 'string');
-};
-
-const isContender = (value: unknown): value is DiscoveryContender => {
-    if (!isCandidate(value) || !isRecord(value)) return false;
-    return typeof Object.fromEntries(Object.entries(value)).contenderReason === 'string';
-};
-
-const parseResponse = (payload: unknown): DiscoveryResponse => {
-    if (!isRecord(payload) || payload.success !== true || !isRecord(payload.data)) throw new Error('Invalid trend discovery response.');
-    const data = payload.data;
-    if (typeof data.generatedAt !== 'string' || typeof data.universeSize !== 'number' || typeof data.scannedCount !== 'number'
-        || !Array.isArray(data.candidates) || !data.candidates.every(isCandidate)
-        || !Array.isArray(data.contenders) || !data.contenders.every(isContender)
-        || !Array.isArray(data.emergingCandidates) || !data.emergingCandidates.every(isCandidate)
-        || !Array.isArray(data.performance) || !data.performance.every((item) => isRecord(item)
-            && (item.period === '1D' || item.period === '1W' || item.period === '1M')
-            && isNullableNumber(item.averageReturnPercent) && typeof item.trackedCount === 'number' && typeof item.winnerCount === 'number')
-        || typeof data.historySnapshotCount !== 'number'
-        || !Array.isArray(data.warnings) || !data.warnings.every((warning) => typeof warning === 'string')) {
-        throw new Error('Invalid trend discovery data.');
-    }
-    return {
-        generatedAt: data.generatedAt,
-        universeSize: data.universeSize,
-        scannedCount: data.scannedCount,
-        candidates: data.candidates,
-        contenders: data.contenders,
-        emergingCandidates: data.emergingCandidates,
-        performance: data.performance,
-        historySnapshotCount: data.historySnapshotCount,
-        warnings: data.warnings,
-    };
-};
 
 const riskTone = (risk: DiscoveryResult['risk'], theme: ResearchThemeV6) => {
     if (risk === 'low') return theme === 'light' ? 'text-emerald-700' : 'text-emerald-300';
@@ -121,12 +53,14 @@ const CandidateRows = ({ candidates, rankStart, rankFor, view, theme, savedSymbo
                 <span className={'font-mono text-sm font-semibold ' + styles.textSecondary}>{candidate.qualityScore ?? '--'}</span>
                 <span className={'text-xs font-semibold capitalize ' + riskTone(candidate.risk, theme)}>{candidate.risk}</span>
                 <span className={'hidden font-mono text-xs min-[900px]:block ' + styles.textSecondary}>{candidate.trendScore}</span>
-                <span className={'hidden text-[11px] leading-4 min-[900px]:block ' + styles.textSecondary}>
-                    <strong className="capitalize">{view === 'early' ? candidate.earlyTrendStage : candidate.category}</strong>
-                    {contenderReason ? ` · ${contenderReason}` : ''} · {candidate.sector} · {candidate.sectorRelativeStrengthPercent >= 0 ? '+' : ''}{candidate.sectorRelativeStrengthPercent.toFixed(1)}% vs sector · <span className="capitalize">{candidate.valuation.guardrail} valuation</span>{candidate.valuation.priceEarnings !== null ? ` · P/E ${candidate.valuation.priceEarnings.toFixed(1)}` : ''}{candidate.catalyst ? ` · Earnings ${new Date(candidate.catalyst.date + 'T00:00:00').toLocaleDateString()}` : ''} · {[...candidate.qualityReasons, ...candidate.reasons].slice(0, 1).join(' · ')}
-                </span>
+                <div className={'hidden text-[11px] leading-4 min-[900px]:block ' + styles.textSecondary}>
+                    <p><strong className="capitalize">{view === 'early' ? candidate.earlyTrendStage : candidate.category}</strong>
+                        {contenderReason ? ` · ${contenderReason}` : ''} · {candidate.sector} · {candidate.sectorRelativeStrengthPercent >= 0 ? '+' : ''}{candidate.sectorRelativeStrengthPercent.toFixed(1)}% vs sector · <span className="capitalize">{candidate.valuation.guardrail} valuation</span>{candidate.valuation.priceEarnings !== null ? ` · P/E ${candidate.valuation.priceEarnings.toFixed(1)}` : ''}{candidate.catalyst ? ` · Earnings ${new Date(candidate.catalyst.date + 'T00:00:00').toLocaleDateString()}` : ''} · {[...candidate.qualityReasons, ...candidate.reasons].slice(0, 1).join(' · ')}</p>
+                    <DiscoveryOwnershipEvidenceV6 ownership={candidate.ownership} theme={theme} />
+                </div>
                 <button type="button" disabled={saved || adding} onClick={() => void onAdd(candidate)} className={'hidden min-h-10 rounded border px-2 text-xs font-semibold disabled:opacity-50 min-[900px]:block ' + styles.row}>{saved ? 'In research' : 'Add'}</button>
                 <p className={'col-span-4 col-start-2 text-[11px] capitalize min-[900px]:hidden ' + styles.textMuted}>{view === 'early' ? candidate.earlyTrendStage : candidate.category}{contenderReason ? ` · ${contenderReason}` : ''} · {candidate.sector} · {candidate.valuation.guardrail} valuation{candidate.catalyst ? ` · Earnings ${new Date(candidate.catalyst.date + 'T00:00:00').toLocaleDateString()}` : ''}</p>
+                <DiscoveryOwnershipEvidenceV6 ownership={candidate.ownership} theme={theme} className="col-span-4 col-start-2 min-[900px]:hidden" />
                 <button type="button" disabled={saved || adding} onClick={() => void onAdd(candidate)} className={'col-span-4 col-start-2 min-h-10 rounded border px-2 text-xs font-semibold disabled:opacity-50 min-[900px]:hidden ' + styles.row}>{saved ? 'In research' : 'Add to research'}</button>
             </li>
         );
@@ -148,7 +82,7 @@ export const TrendDiscoveryV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                 const response = await fetch('/api/research/discovery');
                 const payload: unknown = await response.json();
                 if (!response.ok && isRecord(payload) && typeof payload.error === 'string') throw new Error(payload.error);
-                const parsed = parseResponse(payload);
+                const parsed = parseDiscoveryResponseV6(payload);
                 if (active) setData(parsed);
             } catch (caught) {
                 if (active) setError(caught instanceof Error ? caught.message : 'Trend discovery is unavailable.');
@@ -182,8 +116,8 @@ export const TrendDiscoveryV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                     <p className={'text-[11px] ' + styles.textMuted}>{data.scannedCount} scanned · {new Date(data.generatedAt).toLocaleString()}</p>
                 </div>
                 <div className={'mt-4 inline-flex rounded-md border p-1 ' + styles.divider}>
-                    <button type="button" onClick={() => setView('leaders')} className={'rounded px-3 py-1.5 text-xs font-semibold ' + (view === 'leaders' ? styles.selectedRow : styles.textMuted)}>Leaders</button>
-                    <button type="button" onClick={() => setView('early')} className={'rounded px-3 py-1.5 text-xs font-semibold ' + (view === 'early' ? styles.selectedRow : styles.textMuted)}>Early trends</button>
+                    <button type="button" onClick={() => setView('leaders')} className={'min-h-10 rounded px-3 text-xs font-semibold ' + (view === 'leaders' ? styles.selectedRow : styles.textMuted)}>Leaders</button>
+                    <button type="button" onClick={() => setView('early')} className={'min-h-10 rounded px-3 text-xs font-semibold ' + (view === 'early' ? styles.selectedRow : styles.textMuted)}>Early trends</button>
                 </div>
             </header>
             <div className={'flex flex-wrap items-center gap-x-6 gap-y-2 border-b px-2 py-3 ' + styles.divider}>

@@ -1,4 +1,13 @@
-import type { InvestmentChecklist, ResearchCreateInput, ResearchRecord, ResearchUpdateInput } from '../types/research';
+import type {
+    InvestmentChecklist,
+    ResearchCreateInput,
+    ResearchRecord,
+    ResearchReviewSnapshot,
+    ResearchUpdateInput,
+} from '../types/research';
+import { defaultResearchMonitoringRules } from '../types/research';
+
+const reviewHistoryLimit = 25;
 
 export const emptyChecklist: InvestmentChecklist = {
     understandBusiness: false,
@@ -28,6 +37,9 @@ export const createResearchRecord = (input: ResearchCreateInput): ResearchRecord
     thesisBreak: '',
     notes: '',
     checklist: emptyChecklist,
+    monitoringRules: defaultResearchMonitoringRules,
+    acceptedEvidence: [],
+    reviewHistory: [],
     lastReviewedAt: new Date().toISOString().slice(0, 10),
 });
 
@@ -48,4 +60,66 @@ export const applyResearchUpdate = (current: ResearchRecord, update: ResearchUpd
     thesisBreak: update.thesisBreak ?? current.thesisBreak,
     notes: update.notes ?? current.notes,
     checklist: { ...current.checklist, ...update.checklist },
+    monitoringRules: update.monitoringRules ?? current.monitoringRules,
+    acceptedEvidence: update.acceptedEvidence ?? current.acceptedEvidence,
 });
+
+export const appendResearchReview = (record: ResearchRecord, reviewedAt = new Date().toISOString()): ResearchRecord => {
+    const snapshot: ResearchReviewSnapshot = {
+        id: reviewedAt,
+        reviewedAt,
+        positionState: record.positionState,
+        inBuyZone: record.inBuyZone,
+        status: record.status,
+        targetBuyZone: record.targetBuyZone,
+        valuationState: record.valuationState,
+        thesisStrength: record.thesisStrength,
+        whyInterested: record.whyInterested,
+        bullCase: record.bullCase,
+        bearCase: record.bearCase,
+        buyTrigger: record.buyTrigger,
+        sellTrigger: record.sellTrigger,
+        thesisBreak: record.thesisBreak,
+        notes: record.notes,
+        checklist: { ...record.checklist },
+        acceptedEvidence: record.acceptedEvidence.map((item) => ({
+            ...item,
+            sources: item.sources.map((source) => ({ ...source })),
+        })),
+    };
+    return {
+        ...record,
+        lastReviewedAt: reviewedAt.slice(0, 10),
+        reviewHistory: [snapshot, ...record.reviewHistory].slice(0, reviewHistoryLimit),
+    };
+};
+
+const reviewFields = [
+    ['positionState', 'Ownership'], ['inBuyZone', 'Buy-zone state'], ['status', 'Status'],
+    ['targetBuyZone', 'Target buy zone'], ['valuationState', 'Valuation'], ['thesisStrength', 'Thesis strength'],
+    ['whyInterested', 'Why interested'], ['bullCase', 'Bull case'], ['bearCase', 'Bear case'],
+    ['buyTrigger', 'Buy trigger'], ['sellTrigger', 'Sell trigger'], ['thesisBreak', 'Thesis invalidation'],
+    ['notes', 'Review notes'],
+] as const satisfies readonly (readonly [keyof ResearchReviewSnapshot, string])[];
+
+export const describeReviewChanges = (current: ResearchReviewSnapshot | undefined, previous: ResearchReviewSnapshot | undefined): readonly string[] => {
+    if (!current) return [];
+    if (!previous) return ['Initial saved review'];
+    const changed: string[] = [];
+    for (const [key, label] of reviewFields) {
+        if (current[key] !== previous[key]) changed.push(label);
+    }
+    if (JSON.stringify(current.checklist) !== JSON.stringify(previous.checklist)) changed.push('Checklist');
+    if (JSON.stringify(current.acceptedEvidence) !== JSON.stringify(previous.acceptedEvidence)) changed.push('Evidence');
+    return changed.length > 0 ? changed : ['No material changes'];
+};
+
+export const latestReviewChanges = (record: ResearchRecord): readonly string[] =>
+    describeReviewChanges(record.reviewHistory[0], record.reviewHistory[1]);
+
+export const appendQuickReviewNote = (current: string, note: string, reviewedOn: string): string => {
+    const trimmed = note.trim();
+    if (!trimmed) return current;
+    const entry = `${reviewedOn} · ${trimmed}`;
+    return current.trim() ? `${current.trim()}\n\n${entry}` : entry;
+};

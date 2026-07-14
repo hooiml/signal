@@ -12,6 +12,28 @@ export type DiscoveryCatalyst = {
     readonly source: 'Nasdaq earnings calendar';
 };
 
+export type InstitutionalOwnershipBuyer = {
+    readonly name: string;
+    readonly reportDate: string;
+    readonly sharesHeld: number;
+    readonly sharesAdded: number;
+    readonly positionChangePercent: number | null;
+    readonly newPosition: boolean;
+    readonly marketValueThousands: number | null;
+    readonly sourceUrl: string | null;
+};
+
+export type InstitutionalOwnershipEvidence = {
+    readonly activity: 'increases-led' | 'mixed' | 'decreases-led';
+    readonly institutionalOwnershipPercent: number | null;
+    readonly increasedShares: number | null;
+    readonly decreasedShares: number | null;
+    readonly reportPeriod: string | null;
+    readonly buyers: readonly InstitutionalOwnershipBuyer[];
+    readonly source: 'Nasdaq institutional holdings';
+    readonly sourceUrl: string;
+};
+
 export type DiscoveryCandidate = {
     readonly symbol: string;
     readonly name: string;
@@ -55,6 +77,7 @@ export type QualityDiscoveryResult = DiscoveryResult & {
         readonly freeCashFlowYieldPercent: number | null;
     };
     readonly catalyst: DiscoveryCatalyst | null;
+    readonly ownership: InstitutionalOwnershipEvidence | null;
 };
 
 export type DiscoveryContender = QualityDiscoveryResult & {

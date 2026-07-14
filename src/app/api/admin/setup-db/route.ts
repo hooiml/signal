@@ -73,10 +73,20 @@ export async function GET(request: Request) {
                 bear_case TEXT NOT NULL DEFAULT '', buy_trigger TEXT NOT NULL DEFAULT '',
                 sell_trigger TEXT NOT NULL DEFAULT '', thesis_break TEXT NOT NULL DEFAULT '',
                 notes TEXT NOT NULL DEFAULT '', checklist JSONB NOT NULL DEFAULT '{}'::jsonb,
+                monitoring_rules JSONB NOT NULL DEFAULT '{}'::jsonb,
+                accepted_evidence JSONB NOT NULL DEFAULT '[]'::jsonb,
+                review_history JSONB NOT NULL DEFAULT '[]'::jsonb,
                 last_reviewed_at DATE NOT NULL DEFAULT CURRENT_DATE,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 PRIMARY KEY (user_id, symbol, market_type)
             )
+        `;
+
+        await sql`
+            ALTER TABLE research_records
+                ADD COLUMN IF NOT EXISTS accepted_evidence JSONB NOT NULL DEFAULT '[]'::jsonb,
+                ADD COLUMN IF NOT EXISTS review_history JSONB NOT NULL DEFAULT '[]'::jsonb,
+                ADD COLUMN IF NOT EXISTS monitoring_rules JSONB NOT NULL DEFAULT '{}'::jsonb
         `;
 
         await sql`

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { parseResearchUpdateInput, ResearchInputError } from '@/lib/research/input';
+import { parseResearchUpdateInput, parseResearchUpdateMode, ResearchInputError } from '@/lib/research/input';
 import { deleteStoredResearchRecord, updateStoredResearchRecord } from '@/lib/research/store';
 
 type RouteContext = { readonly params: Promise<{ readonly symbol: string }> };
@@ -13,7 +13,8 @@ const parseSymbol = (value: string) => {
 export const PATCH = async (request: Request, context: RouteContext) => {
     try {
         const symbol = parseSymbol((await context.params).symbol);
-        const record = await updateStoredResearchRecord(symbol, parseResearchUpdateInput(await request.json()));
+        const payload: unknown = await request.json();
+        const record = await updateStoredResearchRecord(symbol, parseResearchUpdateInput(payload), parseResearchUpdateMode(payload));
         if (!record) return NextResponse.json({ success: false, error: 'Research record not found.' }, { status: 404 });
         return NextResponse.json({ success: true, data: record });
     } catch (error) {

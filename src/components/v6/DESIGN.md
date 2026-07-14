@@ -43,6 +43,9 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 - The watchlist rail and research detail share one themed workspace shell with 12-16px internal padding.
 - A responsive divider separates the watchlist from the detail, while the watchlist heading keeps 16px separation before the ticker list.
 - Mobile turns the watchlist into a horizontal strip above the document.
+- On narrow screens the Research command header keeps ticker search visible, places market and decision filters behind one explicit disclosure, and keeps snapshot, result count, and theme controls in a compact utility row.
+- Discovery, Compare, and Alerts do not repeat Research-only ticker filters; they retain a compact theme control so the active workspace begins near the top of the viewport.
+- Research opens with a compact Today inbox above the watchlist-detail shell. The inbox owns one vertical list, keeps the page as the only vertical scroll container, and collapses its summary and filters into a single readable column on narrow screens.
 - The V2 Light/Dark segmented control sits beside the watchlist heading.
 - Overview uses a thesis and decision split followed by a full-width snapshot.
 
@@ -53,12 +56,24 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 - Status language remains Ready, DCA, Wait for price, Watch, and Avoid.
 - Compare is a peer workspace, not a nested card: users select up to three watchlist companies and scan one evidence table with explicit unavailable states.
 - The research journal exposes both sides of the thesis plus buy, sell, and invalidation triggers already owned by the persisted research record.
+- Assisted journal findings form a review queue above the editable fields. Every finding links to its supporting Yahoo or SEC fact, labels AI synthesis separately from deterministic evidence, and requires an explicit Add or Dismiss action. Accepted text appends to rather than overwrites existing notes, while a separate accepted-evidence list preserves its source metadata and permits provenance removal before save; checklist and decision state remain manual.
+- Review history is an expandable, newest-first timeline below the editor. Each explicit save creates a server-owned snapshot, identifies fields changed from the preceding review, and keeps the evidence links that supported that historical decision state.
+- The Today inbox combines deterministic risk and opportunity conditions, upcoming US earnings catalysts, and research reviews older than 30 days. Every item names its source and uses review language rather than trade instructions.
+- Inbox filters cover All, Action needed, Upcoming, and the recoverable Snoozed queue. Filter counts remain visible, empty states explain whether monitoring is clear or catalyst coverage is absent, and opening an item returns the user to that ticker's Research document.
+- Inbox seen state, snooze timing, and the prior-check snapshot persist in the browser only. A changed condition becomes unread again, snoozed items leave the active queue until due, and these controls do not imply background notifications.
+- Every inbox item names its deterministic distance from the saved trigger or event. What changed compares the current item signature with the preceding browser-local check; it is orientation for review, not historical market data or trading advice.
+- Inbox management closes the review loop without forcing navigation: Reviewed today creates the same server-owned review snapshot as a full journal save, while an optional quick note appends to existing notes and never overwrites them.
+- Thesis change context compares only the two latest saved review snapshots and names materially changed journal fields. It must remain visually distinct from live price-condition changes and must say when no prior comparison exists.
+- Per-ticker monitoring rules persist with the research record. Users can monitor buy-zone entry, an MA200 break, configurable RSI bounds, earnings proximity, and review age; rules evaluate on Inbox refresh and do not imply background delivery.
 - Trend Discovery keeps Leaders capped at ten and places ranks 11-20 behind one full-width Contenders disclosure. Expanded contender rows reuse leader anatomy and state why they missed the lead tier.
 - Discovery filters form one compact control band above the evidence table. Sector, risk, trend stage, and valuation selections update the current scan without changing original ranks; active filters expose a match count and Reset command.
+- Discovery ownership stays inside the category-and-evidence cell as a compact disclosure. It shows the raw disclosed increase/decrease balance plus up to five dated institutional increases, keeps unavailable coverage explicit on mobile and desktop, and must not alter ranking scores or claim that a disclosed position represents current buying or caused a price move.
 - Theme preference uses the same local-storage key as Research V2.
 - Market V6 reuses the V2 command header and places four scan targets below the decision posture: score, regime, alignment, and combined data quality.
 - Market evidence is sorted by absolute contribution. Conflicting indicators are flagged inline instead of repeated in a separate panel.
 - Market change attribution compares each driver with the prior daily snapshot and surfaces the three largest contribution shifts beneath What changed.
+- Market alerts persist browser-local score, agreement, tier, freshness, and daily-move conditions scoped to the active market, interpretation mode, and social-source setting. They are evaluated on briefing refresh and must not imply background push delivery.
+- The market command header exposes one manual briefing refresh command, reports the last successful check time, disables duplicate refreshes while a request is active, and prevents stale responses from replacing a newer market configuration.
 - Score history is the dominant chart. Supporting context is compact and explicitly separated from weighted evidence.
 - Detailed trust, limitations, and methodology live in disclosure panels below the primary briefing.
 
@@ -66,17 +81,22 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 
 - Body copy never drops below 12px; primary research text is 14px or larger.
 - Controls maintain a minimum 40px touch target.
+- Collapsed filters expose their state in the disclosure label so users do not need to reopen the panel to remember whether filtering is active.
 - Tabs and the mobile watchlist scroll horizontally without widening the page.
+- Horizontal research strips use one slim, theme-aware scrollbar treatment; dense comparison tables also name the scroll action on narrow screens.
 - Positive, waiting, and risk states use text plus color.
 - The theme switch exposes an accessible mode-change label.
 - Market tables collapse to readable stacked rows on narrow screens with no required horizontal scrolling.
 - Charts include textual summaries and do not rely on color alone.
 - Visible decision language describes market conditions and conviction; it must not instruct position sizing or claim forecast accuracy.
+- Inbox urgency never relies on color alone: category text, title, detail, source, and the explicit Open research action remain visible to keyboard, touch, and screen-reader users.
+- Inbox review and rule controls live behind the existing Manage disclosure, retain 40px targets, expose saving/error/success feedback, and keep a recoverable Cancel path for unsaved edits.
 
 ## 6. Accepted Debt
 
 - Watchlist seed symbols and posture values still come from the existing static fixture; Compare evidence is fetched from live research snapshots.
-- Saved research reviews persist thesis, bear case, triggers, notes, valuation state, ownership state, and checklist changes.
+- Saved research reviews persist thesis, bear case, triggers, notes, valuation state, ownership state, checklist changes, accepted source provenance, and the latest 25 review snapshots.
+- Monitoring rules are evaluated only while the Research page is open or refreshed; push notifications and scheduled background checks remain out of scope.
 - Comparison is point-in-time evidence and does not yet preserve historical comparison snapshots.
 - Market scenario statements are deterministic interpretations of current signal fields, not forecasts or personalized recommendations.
 

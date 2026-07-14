@@ -1,6 +1,7 @@
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import type { ResearchRecord } from '@/lib/types/research';
 import { ResearchEditorV6 } from './ResearchEditorV6';
+import { ResearchHistoryV6 } from './ResearchHistoryV6';
 import {
     checklistLabelsV6,
     getActionToneV6,
@@ -87,7 +88,8 @@ export const OverviewPanelV6 = ({ ticker, action, theme, record, saving, saveErr
                     <SnapshotMetric label="FCF" value={ticker.freeCashFlowTrend} themeClasses={themeClasses} />
                 </dl>
             </section>
-            <ResearchEditorV6 key={record.lastReviewedAt + record.symbol} initial={record} theme={theme} saving={saving} error={saveError} onSave={onSave} />
+            <ResearchEditorV6 key={(record.reviewHistory[0]?.id ?? record.lastReviewedAt) + record.symbol} initial={record} theme={theme} saving={saving} error={saveError} onSave={onSave} />
+            <ResearchHistoryV6 record={record} theme={theme} />
         </div>
     );
 };

@@ -81,7 +81,7 @@ export const ResearchComparisonV6 = ({ items, theme, onOpen }: {
                 <span aria-live="polite" className={'text-xs ' + styles.textMuted}>{selectedItems.length}/3 selected</span>
             </div>
 
-            <div className="mt-4 flex gap-2 overflow-x-auto pb-2" aria-label="Companies to compare">
+            <div className="research-scrollbar mt-4 flex gap-2 overflow-x-auto pb-2" aria-label="Companies to compare">
                 {items.map((item) => {
                     const selected = selectedItems.some((candidate) => candidate.symbol === item.symbol);
                     const disabled = !selected && selectedItems.length >= 3;
@@ -99,7 +99,9 @@ export const ResearchComparisonV6 = ({ items, theme, onOpen }: {
                     <p className={'text-sm font-semibold ' + styles.textSecondary}>Select at least one company to begin.</p>
                 </div>
             ) : (
-                <div className="mt-3 overflow-x-auto">
+                <div>
+                    <p className={'mt-3 text-xs font-semibold min-[700px]:hidden ' + styles.textMuted}>Scroll horizontally to compare {selectedItems.length} companies</p>
+                    <div className="research-scrollbar mt-2 overflow-x-auto min-[700px]:mt-3">
                     <table className={'w-full min-w-[680px] border-separate border-spacing-0 overflow-hidden rounded-lg border text-sm ' + styles.divider}>
                         <thead>
                             <tr>
@@ -108,7 +110,7 @@ export const ResearchComparisonV6 = ({ items, theme, onOpen }: {
                                     const action = getResearchActionV6(item);
                                     return (
                                         <th key={item.symbol} className={'border-b p-3 text-left ' + styles.divider}>
-                                            <button type="button" onClick={() => onOpen(item.symbol)} className={'min-h-10 font-mono text-base font-bold ' + styles.textPrimary}>{item.symbol}</button>
+                                            <button type="button" onClick={() => onOpen(item.symbol)} className={'min-h-10 min-w-10 font-mono text-base font-bold ' + styles.textPrimary}>{item.symbol}</button>
                                             <p className={'mt-1 text-xs font-medium ' + getActionToneV6(action, theme)}>{action}</p>
                                             {results.find((result) => result.symbol === item.symbol)?.state === 'error'
                                                 ? <p className={'mt-1 text-[11px] font-medium ' + styles.risk}>Live data unavailable</p> : null}
@@ -131,6 +133,7 @@ export const ResearchComparisonV6 = ({ items, theme, onOpen }: {
                             ))}
                         </tbody>
                     </table>
+                    </div>
                 </div>
             )}
             <p className={'mt-3 text-xs leading-5 ' + styles.textMuted}>Comparison uses the same free Yahoo Finance and SEC EDGAR snapshots as the research view. It is evidence for review, not a recommendation.</p>

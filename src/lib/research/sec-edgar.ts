@@ -1,3 +1,5 @@
+import { unstable_cache } from 'next/cache';
+
 type SecFundamentals = {
     readonly revenueGrowthPercent: number | null;
     readonly grossMarginPercent: number | null;
@@ -107,14 +109,20 @@ const secHeaders = () => ({
     'User-Agent': process.env.SEC_USER_AGENT?.trim() || 'Signal research dashboard research@example.invalid',
 });
 
-export const fetchSecFundamentals = async (symbol: string): Promise<SecFundamentals> => {
+const fetchAndNormalizeSecFundamentals = async (symbol: string): Promise<SecFundamentals> => {
     const tickersResponse = await fetch('https://www.sec.gov/files/company_tickers.json', { headers: secHeaders(), next: { revalidate: 86400 } });
     if (!tickersResponse.ok) throw new Error(`SEC ticker lookup failed (${tickersResponse.status}).`);
     const tickers = objectValue(await tickersResponse.json());
     const match = Object.values(tickers ?? {}).map(objectValue).find((item) => typeof item?.ticker === 'string' && item.ticker.toUpperCase() === symbol);
     if (!match || typeof match.cik_str !== 'number') throw new Error(`SEC has no CIK mapping for ${symbol}.`);
     const cik = Math.trunc(match.cik_str).toString().padStart(10, '0');
-    const factsResponse = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`, { headers: secHeaders(), next: { revalidate: 21600 } });
+    const factsResponse = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`, { headers: secHeaders(), cache: 'no-store' });
     if (!factsResponse.ok) throw new Error(`SEC company facts request failed (${factsResponse.status}).`);
     return parseSecCompanyFacts(await factsResponse.json());
 };
+
+export const fetchSecFundamentals = unstable_cache(
+    fetchAndNormalizeSecFundamentals,
+    ['sec-fundamentals-v1'],
+    { revalidate: 21600 },
+);

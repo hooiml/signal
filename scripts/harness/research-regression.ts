@@ -1,11 +1,13 @@
 import { getResearchAction } from '../../src/lib/research/decision';
-import { parseResearchCreateInput, parseResearchRecord, parseResearchUpdateInput } from '../../src/lib/research/input';
-import { applyResearchUpdate, createResearchRecord } from '../../src/lib/research/records';
+import { parseResearchCreateInput, parseResearchRecord, parseResearchUpdateInput, parseResearchUpdateMode } from '../../src/lib/research/input';
+import { appendQuickReviewNote, appendResearchReview, applyResearchUpdate, createResearchRecord, describeReviewChanges, latestReviewChanges } from '../../src/lib/research/records';
+import { defaultResearchMonitoringRules } from '../../src/lib/types/research';
 import { calculateTechnicals } from '../../src/lib/research/technicals';
 import { parseYahooResearchChart, toYahooSymbol } from '../../src/lib/research/yahoo-research';
 import { calculateValuation } from '../../src/lib/research/valuation';
 import { scoreDiscoveryCandidate } from '../../src/lib/research/discovery-score';
 import { evaluateResearchAlerts, parseBuyZone } from '../../src/lib/research/alerts';
+import { evaluateMarketAlert, getMarketAlertRulesForBriefing, parseMarketAlertRules, type MarketAlertRule } from '../../src/lib/market-alerts';
 import { scoreDiscoveryQuality } from '../../src/lib/research/discovery-quality';
 import { parseSecCompanyFacts } from '../../src/lib/research/sec-edgar';
 import { calculateCohortPerformance, calculateHistorySignals } from '../../src/lib/research/discovery-history';
@@ -13,9 +15,15 @@ import { sectorRelativeStrength } from '../../src/lib/research/discovery-sectors
 import { classifyEarlyTrend, classifyValuation } from '../../src/lib/research/discovery-opportunity';
 import { describeContender, rankDiscoveryTiers } from '../../src/lib/research/discovery-ranking';
 import { filterDiscoveryCandidates } from '../../src/lib/research/discovery-filters';
+import { parseNasdaqInstitutionalHoldings } from '../../src/lib/research/institutional-ownership';
 import { buildComparisonMetrics } from '../../src/lib/research/comparison';
 import type { ResearchSnapshot } from '../../src/lib/types/research-snapshot';
 import { parseResearchSnapshotResponse } from '../../src/lib/research/snapshot-input';
+import { buildEvidenceFindings, buildResearchEvidence } from '../../src/lib/research/assistant';
+import { parseResearchAssistantResponse } from '../../src/lib/research/assistant-input';
+import { buildResearchInboxItems } from '../../src/lib/research/inbox';
+import { parseResearchInboxResponse } from '../../src/lib/research/inbox-input';
+import { inboxItemChange, inboxItemSignature, parseInboxState, snapshotInboxItems } from '../../src/lib/research/inbox-state';
 
 const assertEqual = <T>(actual: T, expected: T, label: string) => {
     if (actual !== expected) throw new Error(`${label}: expected ${expected}, got ${actual}`);
@@ -41,12 +49,49 @@ const runInputTests = () => {
     const updated = parseResearchUpdateInput({ thesisStrength: 'high', inBuyZone: true, checklist: { valuationReasonable: true } });
     assertEqual(updated.thesisStrength, 'high', 'update accepts thesis strength');
     assertEqual(updated.checklist?.valuationReasonable, true, 'update accepts checklist patch');
+    assertEqual(updated.monitoringRules?.rsiBelow, undefined, 'update leaves monitoring rules unchanged when omitted');
+    const monitoringUpdate = parseResearchUpdateInput({ monitoringRules: { ...defaultResearchMonitoringRules, rsiBelow: 35, earningsWithinDays: 10 } });
+    assertEqual(monitoringUpdate.monitoringRules?.rsiBelow, 35, 'update accepts typed monitoring thresholds');
+    assertThrows(() => parseResearchUpdateInput({ monitoringRules: { ...defaultResearchMonitoringRules, rsiBelow: 80 } }), 'update rejects an invalid lower RSI threshold');
+    assertEqual(parseResearchUpdateMode({ mode: 'settings' }), 'settings', 'settings updates do not masquerade as reviews');
+    assertEqual(parseResearchUpdateMode({}), 'review', 'legacy updates retain review behavior');
+    assertThrows(() => parseResearchUpdateMode({ mode: 'silent' }), 'update rejects unknown persistence modes');
     assertThrows(() => parseResearchUpdateInput({ thesisStrength: 'excellent' }), 'update rejects unknown thesis strength');
+    assertEqual(Object.hasOwn(parseResearchUpdateInput({ reviewHistory: [{ id: 'forged' }] }), 'reviewHistory'), false, 'update ignores client-supplied review history');
 
     const merged = applyResearchUpdate(createResearchRecord(created), parseResearchUpdateInput({}));
     const record = parseResearchRecord({ ...merged, lastReviewedAt: '2026-07-11' });
     assertEqual(record.companyName, 'Microsoft', 'record parser preserves required identity');
     assertEqual(record.notes, '', 'record parser preserves defaults for omitted optional fields');
+    assertEqual(record.acceptedEvidence.length, 0, 'record parser defaults persisted evidence for legacy records');
+    assertEqual(record.reviewHistory.length, 0, 'record parser defaults review history for legacy records');
+    assertEqual(record.monitoringRules.reviewAgeDays, 30, 'record parser defaults legacy monitoring rules');
+    assertEqual(parseResearchUpdateInput({ monitoringRules: { rsiAbove: null } }).monitoringRules?.rsiAbove, null, 'explicitly disabled monitoring rules stay disabled');
+
+    const acceptedEvidence = [{
+        id: 'MSFT-bullCase-growth', title: 'Revenue growth', summary: 'Revenue grew 14%.',
+        target: 'bullCase', tone: 'positive', mode: 'evidence', acceptedAt: '2026-07-14T10:00:00.000Z',
+        sources: [{ id: 'revenue-growth', label: 'Revenue growth', value: '14%', source: 'SEC EDGAR', sourceUrl: 'https://www.sec.gov/edgar', reportingPeriod: '2025-06-30' }],
+    }] as const;
+    const evidenceUpdate = parseResearchUpdateInput({ acceptedEvidence });
+    assertEqual(evidenceUpdate.acceptedEvidence?.[0]?.sources[0]?.source, 'SEC EDGAR', 'update parser preserves accepted source provenance');
+    assertThrows(() => parseResearchUpdateInput({ acceptedEvidence: [{ ...acceptedEvidence[0], sources: [{ ...acceptedEvidence[0].sources[0], sourceUrl: 'javascript:alert(1)' }] }] }), 'update rejects unsafe evidence links');
+
+    const firstReview = appendResearchReview(applyResearchUpdate(record, evidenceUpdate), '2026-07-14T10:30:00.000Z');
+    assertEqual(firstReview.reviewHistory.length, 1, 'saved review appends a history snapshot');
+    assertEqual(firstReview.reviewHistory[0]?.acceptedEvidence[0]?.sources[0]?.source, 'SEC EDGAR', 'review snapshot freezes source provenance');
+    const secondReview = appendResearchReview({ ...firstReview, bullCase: 'Revenue grew and margins expanded.' }, '2026-07-15T11:00:00.000Z');
+    assertEqual(describeReviewChanges(secondReview.reviewHistory[0], secondReview.reviewHistory[1]).includes('Bull case'), true, 'review history describes changed thesis fields');
+    assertEqual(latestReviewChanges(secondReview).includes('Bull case'), true, 'latest review changes compare the two newest saved reviews');
+    const quickNote = appendQuickReviewNote('Existing note', 'Checked margins', '2026-07-15');
+    assertEqual(quickNote.startsWith('Existing note'), true, 'quick review preserves existing notes');
+    assertEqual(quickNote.includes('Checked margins'), true, 'quick review appends the new note');
+    assertEqual(parseResearchRecord(secondReview).reviewHistory[0]?.acceptedEvidence[0]?.sources[0]?.sourceUrl, 'https://www.sec.gov/edgar', 'record boundary preserves historical source links');
+    const boundedHistory = Array.from({ length: 30 }, (_, index) => index).reduce(
+        (current, index) => appendResearchReview(current, `2026-07-${String(index + 1).padStart(2, '0')}T12:00:00.000Z`),
+        record,
+    );
+    assertEqual(boundedHistory.reviewHistory.length, 25, 'review history stays bounded');
 };
 
 const runDecisionTests = () => {
@@ -146,6 +191,73 @@ const runAlertTests = () => {
     assertEqual(alerts.some((alert) => alert.title === 'Large daily move'), true, 'large daily move alerts');
     assertEqual(alerts.some((alert) => alert.title === 'Oversold review'), true, 'low RSI alerts without claiming a buy');
     assertEqual(alerts.some((alert) => alert.title === 'Below 50-day average'), true, 'medium trend weakness alerts');
+};
+
+const runInboxTests = () => {
+    const inputs = [
+        { symbol: 'MSFT', market: 'US' as const, targetBuyZone: '$390 - $405', lastReviewedAt: '2026-05-10', monitoringRules: defaultResearchMonitoringRules },
+        { symbol: '1155', market: 'MY' as const, targetBuyZone: 'RM 110 - RM 115', lastReviewedAt: '2026-07-10', monitoringRules: { ...defaultResearchMonitoringRules, rsiBelow: 40 } },
+    ];
+    const evaluations = [
+        { input: inputs[0], state: { price: 380, dailyChangePercent: -2, ma50: 400, ma200: 400, rsi14: 42 }, failed: false, alerts: [
+            { symbol: 'MSFT', severity: 'risk' as const, title: 'Below 200-day average', detail: 'Long-term trend weakness needs review.' },
+        ] },
+        { input: inputs[1], state: { price: 116, dailyChangePercent: 1, ma50: 120, ma200: 100, rsi14: 35 }, failed: false, alerts: [] },
+    ];
+    const catalysts = new Map([['MSFT', {
+        date: '2026-07-22', type: 'earnings' as const, timing: 'after-hours' as const,
+        fiscalQuarterEnding: 'Jun/2026', epsForecast: '3.12', source: 'Nasdaq earnings calendar' as const,
+    }]]);
+    const items = buildResearchInboxItems({ inputs, evaluations, catalysts, now: new Date('2026-07-15T12:00:00.000Z') });
+    assertEqual(items.some((item) => item.kind === 'risk' && item.urgency === 'action'), true, 'inbox preserves actionable risk conditions');
+    assertEqual(items.some((item) => item.kind === 'catalyst' && item.eventDate === '2026-07-22'), true, 'inbox includes dated earnings catalysts');
+    assertEqual(items.some((item) => item.kind === 'stale' && item.symbol === 'MSFT'), true, 'inbox flags reviews older than thirty days');
+    assertEqual(items.some((item) => item.title === 'Below 50-day average'), false, 'inbox excludes low-priority watch noise');
+    assertEqual(items.some((item) => item.symbol === '1155' && item.title === 'RSI below 40'), true, 'inbox evaluates a custom RSI threshold');
+    assertEqual(items.find((item) => item.title === 'Below 200-day average')?.proximity, '5.0% below MA200', 'inbox quantifies distance to technical trigger');
+    assertEqual(items.find((item) => item.kind === 'catalyst')?.proximity, '7 days away', 'inbox quantifies time to catalyst');
+    assertEqual(items.findIndex((item) => item.kind === 'stale') < items.findIndex((item) => item.kind === 'catalyst'), true, 'inbox keeps action-needed reviews ahead of upcoming catalysts');
+    const response = { success: true, data: { generatedAt: '2026-07-15T12:00:00.000Z', monitoredCount: 2, items, warnings: [] } };
+    assertEqual(parseResearchInboxResponse(response).items.length, items.length, 'inbox boundary accepts typed items');
+    assertThrows(() => parseResearchInboxResponse({ ...response, data: { ...response.data, items: [{ ...items[0], urgency: 'urgent' }] } }), 'inbox boundary rejects unknown urgency');
+    assertThrows(() => parseResearchInboxResponse({ ...response, data: { ...response.data, items: [{ ...items[0], proximity: 4 }] } }), 'inbox boundary rejects invalid proximity');
+
+    const snapshot = snapshotInboxItems(items);
+    assertEqual(inboxItemChange(items[0], snapshot, true), null, 'unchanged inbox item stays quiet');
+    assertEqual(inboxItemChange({ ...items[0], proximity: '4.0% below MA200' }, snapshot, true), '5.0% below MA200 → 4.0% below MA200', 'inbox explains changed trigger distance');
+    assertEqual(inboxItemChange(items[0], {}, false), null, 'first browser check establishes a quiet baseline');
+    assertEqual(inboxItemChange(items[0], {}, true), 'New since last check', 'later unseen item is called out as new');
+    const parsedState = parseInboxState({ seen: { [items[0].id]: inboxItemSignature(items[0]), bad: 2 }, snoozed: { [items[0].id]: '2026-07-16T00:00:00.000Z' }, snapshot, checkedAt: '2026-07-15T12:00:00.000Z' });
+    assertEqual(Object.keys(parsedState.seen).length, 1, 'inbox local state drops malformed seen entries');
+};
+
+const runMarketAlertTests = () => {
+    const scoreRule: MarketAlertRule = {
+        id: 'score-rule', market: 'US', mode: 'standard', enableSocial: true, condition: 'score-above', threshold: 70, baselineTier: null, createdAt: '2026-07-13T00:00:00.000Z',
+    };
+    const signal = {
+        composite_score: 72,
+        tier: 'buy',
+        mode: 'standard',
+        confidence: { agreement_pct: 64 },
+        metadata: { market: 'US', signal_quality: { freshness: 'fresh' }, score_delta: { delta: 4 } },
+    };
+    const parsed = parseMarketAlertRules([
+        scoreRule,
+        { id: 2 },
+        { ...scoreRule, id: 'invalid-daily', condition: 'daily-move', threshold: 0 },
+        { ...scoreRule, id: 'missing-tier-baseline', condition: 'tier-change', threshold: null, baselineTier: null },
+    ]);
+    assertEqual(parsed.length, 1, 'market alert parser drops invalid stored rules');
+    assertEqual(evaluateMarketAlert(scoreRule, signal as Parameters<typeof evaluateMarketAlert>[1]).triggered, true, 'score threshold alert triggers at the boundary');
+    assertEqual(evaluateMarketAlert({ ...scoreRule, condition: 'daily-move', threshold: 5 }, signal as Parameters<typeof evaluateMarketAlert>[1]).triggered, false, 'daily move alert remains monitoring below threshold');
+    const scopedRules = getMarketAlertRulesForBriefing([
+        scoreRule,
+        { ...scoreRule, id: 'contrarian', mode: 'contrarian' },
+        { ...scoreRule, id: 'social-off', enableSocial: false },
+        { ...scoreRule, id: 'malaysia', market: 'MY' },
+    ], signal as Parameters<typeof evaluateMarketAlert>[1], true);
+    assertEqual(scopedRules.map((rule) => rule.id).join(','), 'score-rule', 'market alerts remain scoped to the briefing configuration that created them');
 };
 
 const runDiscoveryQualityTests = () => {
@@ -254,6 +366,53 @@ const runDiscoveryFilterTests = () => {
     assertEqual(filterDiscoveryCandidates(candidates, { sector: 'all', risk: 'all', stage: 'all', valuation: 'all' }).length, 3, 'all filters preserve the full candidate list');
 };
 
+const runInstitutionalOwnershipTests = () => {
+    const payload = { data: {
+        ownershipSummary: { SharesOutstandingPCT: { value: '72.4%' } },
+        activePositions: { rows: [
+            { positions: 'Increased Positions', shares: '18,000,000' },
+            { positions: 'Decreased Positions', shares: '6,000,000' },
+        ] },
+        holdingsTransactions: { table: { rows: [
+            { ownerName: 'Berkshire Hathaway Inc', date: '3/31/2026', sharesHeld: '25,000,000', sharesChange: '5,000,000', sharesChangePCT: '25%', marketValue: '$4,500,000', url: '/market-activity/institutional-portfolio/berkshire-hathaway-inc-1' },
+            { ownerName: 'New Fund LP', date: '3/31/2026', sharesHeld: '2,000,000', sharesChange: '2,000,000', sharesChangePCT: 'New', marketValue: '$360,000', url: '/market-activity/institutional-portfolio/new-fund-lp-2' },
+        ] } },
+    } };
+    const parsed = parseNasdaqInstitutionalHoldings(payload, 'AAPL');
+    assertEqual(parsed.activity, 'increases-led', 'ownership activity compares disclosed increases with decreases');
+    assertEqual(parsed.institutionalOwnershipPercent, 72.4, 'ownership parser normalizes percentage values');
+    assertEqual(parsed.reportPeriod, '2026-03-31', 'ownership evidence exposes the latest reporting period');
+    assertEqual(parsed.buyers[0]?.sharesAdded, 5_000_000, 'ownership evidence preserves disclosed share additions');
+    assertEqual(parsed.buyers[1]?.positionChangePercent, null, 'new positions do not invent a percentage change');
+    assertEqual(parseNasdaqInstitutionalHoldings({
+        data: { ...payload.data, ownershipSummary: { SharesOutstandingPCT: { value: '109.3%' } } },
+    }, 'AAPL').institutionalOwnershipPercent, null, 'ownership percentages above 100 remain unavailable');
+    assertEqual(parseNasdaqInstitutionalHoldings({ data: {
+        ...payload.data,
+        activePositions: { rows: [
+            { positions: 'Increased Positions', shares: '4,000,000' },
+            { positions: 'Decreased Positions', shares: '4,800,000' },
+        ] },
+    } }, 'AAPL').activity, 'mixed', 'ownership balance stays mixed when neither side leads by more than 25 percent');
+    const decreasesLed = parseNasdaqInstitutionalHoldings({ data: {
+        ...payload.data,
+        activePositions: { rows: [
+            { positions: 'Increased Positions', shares: '1,000,000' },
+            { positions: 'Decreased Positions', shares: '5,000,000' },
+        ] },
+        holdingsTransactions: { table: { rows: [] } },
+    } }, 'AAPL');
+    assertEqual(decreasesLed.activity, 'decreases-led', 'ownership balance preserves valid decrease-led aggregate evidence');
+    assertEqual(decreasesLed.buyers.length, 0, 'ownership evidence permits snapshots with no increased-position holders');
+    const aggregateOnly = parseNasdaqInstitutionalHoldings({ data: {
+        ownershipSummary: { SharesOutstandingPCT: { value: '63.2%' } },
+        activePositions: payload.data.activePositions,
+    } }, 'AAPL');
+    assertEqual(aggregateOnly.institutionalOwnershipPercent, 63.2, 'ownership evidence accepts an omitted transaction table when aggregate data is valid');
+    assertEqual(aggregateOnly.buyers.length, 0, 'aggregate-only ownership evidence does not invent buyer rows');
+    assertThrows(() => parseNasdaqInstitutionalHoldings({ data: null }, 'AAPL'), 'ownership boundary rejects malformed provider data');
+};
+
 const runComparisonTests = () => {
     const snapshot: ResearchSnapshot = {
         symbol: 'MSFT', market: 'US', fetchedAt: '2026-07-12T00:00:00.000Z',
@@ -288,17 +447,58 @@ const runComparisonTests = () => {
     }), 'snapshot boundary rejects malformed comparison metrics');
 };
 
+const runResearchAssistantTests = () => {
+    const snapshot: ResearchSnapshot = {
+        symbol: 'MSFT', market: 'US', fetchedAt: '2026-07-14T00:00:00.000Z',
+        quote: { name: 'Microsoft', currency: 'USD', price: 420, dailyChangePercent: 1.2 },
+        fundamentals: {
+            revenueGrowthPercent: 14, grossMarginPercent: 68, operatingMarginPercent: 44,
+            freeCashFlow: 70_000_000_000, debt: 40_000_000_000, cash: 80_000_000_000,
+            shares: 7_400_000_000, annualRevenue: 250_000_000_000, annualNetIncome: 90_000_000_000,
+            reportingPeriod: '2025-06-30', shareChangePercent: 2.2,
+        },
+        valuation: {
+            marketCap: 3_100_000_000_000, priceEarnings: 34.4, priceSales: 12.4,
+            freeCashFlowYieldPercent: 2.3, netCash: 40_000_000_000,
+            reportingPeriod: '2025-06-30', source: 'Yahoo Finance + SEC EDGAR',
+        },
+        technicals: {
+            ma50: 400, ma200: 360, rsi14: 58, macd: 3.5, low52Week: 330,
+            high52Week: 450, averageVolume20: 20_000_000, support: 395, resistance: 450,
+        },
+        sources: ['Yahoo Finance', 'SEC EDGAR'], warnings: [],
+    };
+    const evidence = buildResearchEvidence(snapshot);
+    const findings = buildEvidenceFindings(snapshot, evidence);
+    assertEqual(evidence.some((item) => item.id === 'revenue-growth' && item.source === 'SEC EDGAR'), true, 'assistant preserves filing provenance');
+    assertEqual(findings.some((item) => item.target === 'bullCase' && item.evidenceIds.includes('revenue-growth')), true, 'assistant maps positive growth to a supported draft');
+    assertEqual(findings.some((item) => item.target === 'bearCase' && item.evidenceIds.includes('share-change')), true, 'assistant flags material share-count growth for review');
+    const response = { success: true, data: {
+        symbol: snapshot.symbol, market: snapshot.market, generatedAt: snapshot.fetchedAt,
+        mode: 'evidence', findings, evidence, warnings: [],
+    } };
+    assertEqual(parseResearchAssistantResponse(response).findings.length, findings.length, 'assistant boundary accepts sourced findings');
+    assertThrows(() => parseResearchAssistantResponse({
+        ...response,
+        data: { ...response.data, findings: [{ ...findings[0], evidenceIds: ['invented-source'] }] },
+    }), 'assistant boundary rejects unsupported finding provenance');
+};
+
 runInputTests();
 runDecisionTests();
 runTechnicalTests();
 runValuationTests();
 runDiscoveryTests();
 runAlertTests();
+runInboxTests();
+runMarketAlertTests();
 runDiscoveryQualityTests();
 runSecCompanyFactsTests();
 runDiscoveryHistoryTests();
 runDiscoveryOpportunityTests();
 runDiscoveryRankingTests();
 runDiscoveryFilterTests();
+runInstitutionalOwnershipTests();
 runComparisonTests();
+runResearchAssistantTests();
 console.log('Research regression tests passed.');

@@ -8,6 +8,7 @@ import { classifyEarlyTrend, classifyValuation } from './discovery-opportunity';
 import { describeContender, rankDiscoveryTiers } from './discovery-ranking';
 import { calculateValuation } from './valuation';
 import { fetchUpcomingCatalysts } from './catalysts';
+import { fetchInstitutionalOwnership } from './institutional-ownership';
 import { discoveryUniverse } from './discovery-universe';
 import { fetchSecFundamentals } from './sec-edgar';
 import { fetchYahooResearch, type YahooResearchResult } from './yahoo-research';
@@ -152,6 +153,21 @@ export const getTrendDiscovery = async (): Promise<DiscoveryResponse> => {
         return [];
     });
     const catalystSymbols = [...new Set([...ranked.leaders, ...ranked.contenders, ...earlyShortlist].map((candidate) => candidate.symbol))];
+    const ownershipResults = new Map<string, QualityDiscoveryResult['ownership']>();
+    let ownershipUnavailableCount = 0;
+    const ownershipCandidates = catalystSymbols.slice(0, 28);
+    const ownershipBatch = await Promise.all(ownershipCandidates.map(async (symbol) => {
+            try {
+                return { symbol, ownership: await fetchInstitutionalOwnership(symbol) };
+            } catch (error) {
+                if (!(error instanceof Error)) throw error;
+                return { symbol, ownership: null };
+            }
+    }));
+    for (const result of ownershipBatch) {
+        ownershipResults.set(result.symbol, result.ownership);
+        if (result.ownership === null) ownershipUnavailableCount += 1;
+    }
     let catalysts: ReadonlyMap<string, DiscoveryCatalyst> = new Map<string, DiscoveryCatalyst>();
     let catalystWarning: string | null = null;
     try {
@@ -164,11 +180,13 @@ export const getTrendDiscovery = async (): Promise<DiscoveryResponse> => {
         ...candidate,
         ...calculateHistorySignals(candidate.symbol, candidate.discoveryScore, index + 1, generatedAt, history),
         catalyst: catalysts.get(candidate.symbol) ?? null,
+        ownership: ownershipResults.get(candidate.symbol) ?? null,
     }));
     const contenders: DiscoveryContender[] = ranked.contenders.map((candidate, index) => ({
         ...candidate,
         ...calculateHistorySignals(candidate.symbol, candidate.discoveryScore, candidates.length + index + 1, generatedAt, history),
         catalyst: catalysts.get(candidate.symbol) ?? null,
+        ownership: ownershipResults.get(candidate.symbol) ?? null,
         contenderReason: describeContender(candidate),
     }));
     const emergingCandidates: QualityDiscoveryResult[] = enriched
@@ -181,6 +199,7 @@ export const getTrendDiscovery = async (): Promise<DiscoveryResponse> => {
             ...candidate,
             ...calculateHistorySignals(candidate.symbol, candidate.discoveryScore, index + 1, generatedAt, history),
             catalyst: catalysts.get(candidate.symbol) ?? null,
+            ownership: ownershipResults.get(candidate.symbol) ?? null,
         }));
     const currentPrices = new Map(scanned.map((candidate) => [candidate.symbol, candidate.price]));
     const performance = [
@@ -210,6 +229,7 @@ export const getTrendDiscovery = async (): Promise<DiscoveryResponse> => {
             unconfirmedCount > 0 ? `${unconfirmedCount} shortlisted symbols could not be confirmed with SEC fundamentals.` : null,
             historyWarning,
             catalystWarning,
+            ownershipUnavailableCount > 0 ? `${ownershipUnavailableCount} candidates have no current institutional-ownership coverage.` : null,
         ].filter((warning): warning is string => warning !== null),
     };
 };

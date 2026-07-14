@@ -29,3 +29,10 @@ export type ResearchAlertsResponse = {
     readonly alerts: readonly ResearchAlert[];
     readonly warnings: readonly string[];
 };
+
+export type ResearchAlertEvaluation = {
+    readonly input: AlertTickerInput;
+    readonly state: AlertMarketState | null;
+    readonly alerts: readonly ResearchAlert[];
+    readonly failed: boolean;
+};

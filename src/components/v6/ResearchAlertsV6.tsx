@@ -85,7 +85,7 @@ export const ResearchAlertsV6 = ({ items, theme, onOpen }: ResearchAlertsV6Props
                 <ol>
                     {data.alerts.map((alert) => (
                         <li key={`${alert.symbol}-${alert.title}`} className={'grid grid-cols-[80px_minmax(0,1fr)] gap-3 border-b py-4 min-[700px]:grid-cols-[90px_120px_minmax(0,1fr)] ' + styles.divider}>
-                            <button type="button" onClick={() => onOpen(alert.symbol)} className={'font-mono text-sm font-bold text-left ' + styles.textPrimary}>{alert.symbol}</button>
+                            <button type="button" onClick={() => onOpen(alert.symbol)} className={'flex min-h-10 items-start rounded pt-0.5 text-left font-mono text-sm font-bold leading-5 ' + styles.textPrimary}>{alert.symbol}</button>
                             <span className={'text-xs font-semibold ' + tone(alert.severity)}>{severityLabel(alert.severity)}</span>
                             <div className="col-span-2 min-w-0 min-[700px]:col-span-1">
                                 <p className={'text-sm font-semibold ' + styles.textPrimary}>{alert.title}</p>
