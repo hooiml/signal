@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSignalConfig } from '@/hooks/use-signal-config';
 import type { MarketSignal } from '@/lib/types/signal-v2';
-import { DashboardHeaderV2 } from '@/components/v2/DashboardHeaderV2';
 import { AppNavV6 } from './AppNavV6';
 import { MarketBriefingV6 } from './MarketBriefingV6';
+import { MarketCommandBarV6 } from './MarketCommandBarV6';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import { useThemeV6 } from './ThemeProviderV6';
 
@@ -77,9 +77,8 @@ export const MarketDashboardV6 = () => {
             <div className={'pointer-events-none absolute inset-0 transition-opacity duration-300 ' + atmosphere} />
             <div className={'pointer-events-none absolute inset-0 bg-[size:44px_44px] transition-opacity duration-300 ' + grid} />
             <div className="relative z-10">
-                <AppNavV6 active="market" theme={theme} />
-                <div className="mx-auto w-full max-w-[1280px] px-4 pb-16 pt-5 min-[700px]:px-5">
-                    <DashboardHeaderV2
+                <AppNavV6 active="market" theme={theme} onThemeToggle={toggleTheme}>
+                    <MarketCommandBarV6
                         market={config.market}
                         mode={config.mode}
                         enableSocial={config.enableSocial}
@@ -93,9 +92,9 @@ export const MarketDashboardV6 = () => {
                         snapshotDate={signal?.metadata.score_delta?.snapshot_date ?? null}
                         sourceToggleImpact={signal?.metadata.counterfactuals?.source_toggle}
                         theme={theme}
-                        onThemeToggle={toggleTheme}
                     />
-
+                </AppNavV6>
+                <div className="mx-auto w-full max-w-[1280px] px-4 pb-16 pt-5 min-[700px]:px-5">
                     {!signal && loading ? <MarketSkeletonV6 theme={theme} /> : null}
 
                     {!signal && !loading ? (

@@ -20,3 +20,5 @@ This file is the map, not the manual. Keep it short so agents can quickly find t
 - Do not add dependencies unless the existing stack cannot solve the problem.
 - Update docs when behavior, commands, architecture, or operating rules change.
 - Run the verification commands in `docs/TESTING.md` before claiming completion.
+- Use the LIGHT lane for docs, scripts, package scripts, and harness-only changes; use UI-LIGHT for isolated non-shared UI changes, and escalate to Standard when shared components, routes, responsive behavior, API state, or visual-reference fidelity are affected.
+- For UI changes involving screenshots, alignment, spacing, or visual polish, follow the Visual QA Contract in `docs/TESTING.md`; do not claim completion from lint, typecheck, or build alone.

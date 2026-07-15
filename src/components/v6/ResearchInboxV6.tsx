@@ -33,6 +33,7 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props
     const [error, setError] = useState<string | null>(null);
     const [filter, setFilter] = useState<InboxFilter>('all');
     const [expanded, setExpanded] = useState(false);
+    const [collapsed, setCollapsed] = useState(false);
     const [menuId, setMenuId] = useState<string | null>(null);
     const [local, setLocal] = useState(emptyInboxState);
     const [previousSnapshot, setPreviousSnapshot] = useState(emptyInboxState().snapshot);
@@ -96,31 +97,44 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props
     const visibleItems = filter === 'snoozed' ? snoozedItems : activeItems.filter((item) => filter === 'all' || item.urgency === filter);
     const counts = { all: activeItems.length, action: activeItems.filter((item) => item.urgency === 'action').length, upcoming: activeItems.filter((item) => item.urgency === 'upcoming').length, snoozed: snoozedItems.length };
     const unreadCount = activeItems.filter((item) => local.seen[item.id] !== inboxItemSignature(item)).length;
-    const displayed = expanded ? visibleItems : visibleItems.slice(0, 4);
+    const displayed = expanded ? visibleItems : visibleItems.slice(0, 2);
     const empty = filter === 'snoozed' ? 'No items are snoozed.' : filter === 'upcoming' ? 'No US earnings catalysts are scheduled in the next 21 days.' : filter === 'action' ? 'No risk, opportunity, or stale-review items need action.' : 'Nothing needs review right now. Monitoring remains current.';
     const updateSeen = (ids: readonly string[]) => setLocal((current) => ({ ...current, seen: { ...current.seen, ...Object.fromEntries((data?.items ?? []).filter((item) => ids.includes(item.id)).map((item) => [item.id, inboxItemSignature(item)])) } }));
     const snooze = (id: string, days: number) => { const until = new Date(Date.now() + days * 86_400_000).toISOString(); setClock(Date.now()); setLocal((current) => ({ ...current, snoozed: { ...current.snoozed, [id]: until } })); setMenuId(null); };
     const wake = (id: string) => setLocal((current) => { const snoozed = { ...current.snoozed }; delete snoozed[id]; return { ...current, snoozed }; });
+    const openItem = (symbol: string) => {
+        setCollapsed(true);
+        setMenuId(null);
+        onOpen(symbol);
+        window.setTimeout(() => {
+            const detail = document.getElementById('research-detail');
+            if (!detail) return;
+            detail.scrollIntoView({ behavior: 'auto', block: 'start' });
+            detail.focus({ preventScroll: true });
+        }, 0);
+    };
 
     return <section aria-labelledby="research-inbox-title" className={'mb-4 rounded-[10px] border p-3 backdrop-blur min-[700px]:p-4 ' + styles.panel}>
         <header className="flex flex-col gap-3 min-[700px]:flex-row min-[700px]:items-end min-[700px]:justify-between">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 min-[700px]:block">
-                <div><p className={'text-xs font-bold uppercase tracking-[0.14em] ' + styles.positive}>Daily attention</p><h1 id="research-inbox-title" className={'mt-1 text-lg font-bold ' + styles.textPrimary}>Today</h1></div>
-                {unreadCount > 0 && <button type="button" onClick={() => updateSeen(activeItems.map((item) => item.id))} className={'min-h-10 rounded px-3 text-xs font-semibold min-[700px]:hidden ' + styles.textSecondary}>Mark all seen</button>}
+                <div><p className={'text-xs font-bold uppercase tracking-[0.14em] ' + styles.positive}>Daily attention</p><h2 id="research-inbox-title" className={'mt-1 text-lg font-bold ' + styles.textPrimary}>Today</h2></div>
                 <p className={'col-span-2 mt-1 text-xs leading-5 ' + styles.textMuted}>{unreadCount} unread · {counts.action} need review · {counts.upcoming} upcoming · {data?.monitoredCount ?? items.length} monitored</p>
             </div>
             <div className="flex flex-col gap-2 min-[700px]:items-end">
-                {unreadCount > 0 && <button type="button" onClick={() => updateSeen(activeItems.map((item) => item.id))} className={'hidden min-h-10 rounded px-3 text-xs font-semibold min-[700px]:block ' + styles.textSecondary}>Mark all seen</button>}
+                <div className="flex flex-wrap justify-end gap-1">
+                    {unreadCount > 0 && <button type="button" onClick={() => updateSeen(activeItems.map((item) => item.id))} className={'min-h-10 rounded px-3 text-xs font-semibold ' + styles.textSecondary}>Mark all seen</button>}
+                    <button type="button" aria-expanded={!collapsed} onClick={() => setCollapsed((current) => !current)} className={'min-h-10 rounded px-3 text-xs font-semibold ' + styles.textSecondary}>{collapsed ? 'Show details' : 'Collapse'}</button>
+                </div>
                 <div role="group" aria-label="Filter research inbox" className={'research-scrollbar flex max-w-full gap-1 overflow-x-auto rounded border p-1 ' + styles.row}>{filters.map((id) => <button key={id} type="button" aria-pressed={filter === id} onClick={() => { setFilter(id); setExpanded(false); setMenuId(null); }} className={'min-h-10 shrink-0 rounded px-3 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + (filter === id ? styles.selectedRow : styles.textMuted)}>{labels[id]} · {counts[id]}</button>)}</div>
             </div>
         </header>
-        {items.length === 0 ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>Add a ticker to begin daily monitoring.</p> : error ? <p role="alert" className={'mt-4 border-t pt-4 text-sm ' + styles.risk}>{error}</p> : !data ? <p role="status" className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>Checking watchlist conditions and upcoming catalysts...</p> : visibleItems.length === 0 ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>{empty}</p> : <><ol className={'mt-4 border-t ' + styles.divider}>{displayed.map((item) => {
+        {collapsed ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>Daily attention is collapsed. {unreadCount} unread item{unreadCount === 1 ? '' : 's'} remain{unreadCount === 1 ? 's' : ''} in this inbox.</p> : items.length === 0 ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>Add a ticker to begin daily monitoring.</p> : error ? <p role="alert" className={'mt-4 border-t pt-4 text-sm ' + styles.risk}>{error}</p> : !data ? <p role="status" className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>Checking watchlist conditions and upcoming catalysts...</p> : visibleItems.length === 0 ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>{empty}</p> : <><ol className={'mt-4 border-t ' + styles.divider}>{displayed.map((item) => {
             const record = recordBySymbol.get(item.symbol);
             const thesisChanges = record
                 ? record.reviewHistory.length >= 2 ? latestReviewChanges(record) : ['No prior review comparison']
                 : [];
-            return <ResearchInboxRowV6 key={item.id} item={item} theme={theme} unread={local.seen[item.id] !== inboxItemSignature(item)} change={inboxItemChange(item, previousSnapshot, hadPriorCheck)} thesisChanges={thesisChanges} snoozed={snoozedIds.has(item.id)} menuOpen={menuId === item.id} onOpen={() => onOpen(item.symbol)} onToggleMenu={() => setMenuId((current) => current === item.id ? null : item.id)} onMarkSeen={() => updateSeen([item.id])} onSnooze={(days) => snooze(item.id, days)} onWake={() => wake(item.id)} workflow={record ? <ResearchInboxWorkflowV6 key={`${record.symbol}-${JSON.stringify(record.monitoringRules)}`} record={record} theme={theme} onSave={onSave} /> : null} />;
-        })}</ol>{visibleItems.length > 4 && <button type="button" aria-expanded={expanded} onClick={() => setExpanded((current) => !current)} className={'mt-2 min-h-10 rounded px-3 text-xs font-semibold ' + styles.textSecondary}>{expanded ? 'Show less' : `Show ${visibleItems.length - displayed.length} more`}</button>}</>}
+            return <ResearchInboxRowV6 key={item.id} item={item} theme={theme} unread={local.seen[item.id] !== inboxItemSignature(item)} change={inboxItemChange(item, previousSnapshot, hadPriorCheck)} thesisChanges={thesisChanges} snoozed={snoozedIds.has(item.id)} menuOpen={menuId === item.id} onOpen={() => openItem(item.symbol)} onToggleMenu={() => setMenuId((current) => current === item.id ? null : item.id)} onMarkSeen={() => updateSeen([item.id])} onSnooze={(days) => snooze(item.id, days)} onWake={() => wake(item.id)} workflow={record ? <ResearchInboxWorkflowV6 key={`${record.symbol}-${JSON.stringify(record.monitoringRules)}`} record={record} theme={theme} onSave={onSave} /> : null} />;
+        })}</ol>{visibleItems.length > 2 && <button type="button" aria-expanded={expanded} onClick={() => setExpanded((current) => !current)} className={'mt-2 min-h-10 rounded px-3 text-xs font-semibold ' + styles.textSecondary}>{expanded ? 'Show less' : `Show ${visibleItems.length - displayed.length} more`}</button>}</>}
         {data?.warnings.map((warning) => <p key={warning} role="status" className={'mt-2 text-xs ' + styles.textMuted}>{warning}</p>)}
     </section>;
 };

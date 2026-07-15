@@ -1,9 +1,27 @@
 import type { ResearchMarket } from './research';
 
+export const researchBenchmarkStatuses = ['outperformed', 'lagged', 'in-line', 'unavailable', 'not-applicable'] as const;
+export const researchBenchmarkReturnBases = ['adjusted close', 'close'] as const;
+
+export type ResearchBenchmarkStatus = typeof researchBenchmarkStatuses[number];
+export type ResearchBenchmarkReturnBasis = typeof researchBenchmarkReturnBases[number];
+
+export type ResearchBenchmark = {
+    readonly baselineSymbol: 'VOO';
+    readonly baselineName: 'Vanguard S&P 500 ETF';
+    readonly period: '1Y';
+    readonly candidateReturnPercent: number | null;
+    readonly baselineReturnPercent: number | null;
+    readonly relativeReturnPercent: number | null;
+    readonly returnBasis: ResearchBenchmarkReturnBasis | null;
+    readonly status: ResearchBenchmarkStatus;
+};
+
 export type ResearchSnapshot = {
     readonly symbol: string;
     readonly market: ResearchMarket;
     readonly fetchedAt: string;
+    readonly benchmark: ResearchBenchmark;
     readonly quote: {
         readonly name: string | null;
         readonly currency: string | null;

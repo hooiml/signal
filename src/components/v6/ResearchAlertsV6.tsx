@@ -73,10 +73,10 @@ export const ResearchAlertsV6 = ({ items, theme, onOpen }: ResearchAlertsV6Props
             <header className={'border-b pb-4 ' + styles.divider}>
                 <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
-                        <h1 className={'text-lg font-bold ' + styles.textPrimary}>Alerts</h1>
+                        <h1 className={'text-xl font-bold ' + styles.textPrimary}>Alerts</h1>
                         <p className={'mt-1 text-xs ' + styles.textMuted}>{data.monitoredCount} tickers monitored · {counts.risk} risk · {counts.opportunity} opportunity · {counts.watch} watch</p>
                     </div>
-                    <p className={'text-[11px] ' + styles.textMuted}>Updated {new Date(data.generatedAt).toLocaleString()}</p>
+                    <p className={'text-xs ' + styles.textMuted}>Updated {new Date(data.generatedAt).toLocaleString()}</p>
                 </div>
             </header>
             {data.alerts.length === 0 ? (
@@ -95,7 +95,7 @@ export const ResearchAlertsV6 = ({ items, theme, onOpen }: ResearchAlertsV6Props
                     ))}
                 </ol>
             )}
-            {data.warnings.map((warning) => <p key={warning} className={'mt-3 text-[11px] ' + styles.textMuted}>{warning}</p>)}
+            {data.warnings.map((warning) => <p key={warning} className={'mt-3 text-xs ' + styles.textMuted}>{warning}</p>)}
         </section>
     );
 };

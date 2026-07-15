@@ -105,7 +105,7 @@ export const ResearchComparisonV6 = ({ items, theme, onOpen }: {
                     <table className={'w-full min-w-[680px] border-separate border-spacing-0 overflow-hidden rounded-lg border text-sm ' + styles.divider}>
                         <thead>
                             <tr>
-                                <th className={'w-44 border-b p-3 text-left text-xs font-semibold ' + styles.divider + ' ' + styles.textMuted}>Metric</th>
+                                <th className={'sticky left-0 z-20 w-44 border-b p-3 text-left text-xs font-semibold shadow-[6px_0_10px_-8px_rgba(15,23,42,0.35)] ' + styles.divider + ' ' + styles.cell + ' ' + styles.textMuted}>Metric</th>
                                 {selectedItems.map((item) => {
                                     const action = getResearchActionV6(item);
                                     return (
@@ -122,7 +122,7 @@ export const ResearchComparisonV6 = ({ items, theme, onOpen }: {
                         <tbody>
                             {metricRows.map((row) => (
                                 <tr key={row.key}>
-                                    <th className={'border-b p-3 text-left text-xs font-medium ' + styles.divider + ' ' + styles.textMuted}>{row.label}</th>
+                                    <th className={'sticky left-0 z-10 border-b p-3 text-left text-xs font-medium shadow-[6px_0_10px_-8px_rgba(15,23,42,0.35)] ' + styles.divider + ' ' + styles.cell + ' ' + styles.textMuted}>{row.label}</th>
                                     {selectedItems.map((item) => {
                                         const result = results.find((candidate) => candidate.symbol === item.symbol);
                                         const value = result?.state === 'ready' ? result.metrics[row.key]

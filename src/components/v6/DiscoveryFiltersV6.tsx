@@ -24,23 +24,23 @@ export const DiscoveryFiltersV6 = ({ filters, sectors, resultCount, active, them
 
     return (
         <div className={'flex flex-wrap items-end gap-2 border-b px-2 py-3 ' + styles.divider}>
-            <label className={'grid gap-1 text-[10px] font-semibold uppercase ' + styles.textMuted}>Sector
+            <label className={'grid gap-1 text-xs font-semibold uppercase ' + styles.textMuted}>Sector
                 <select aria-label="Filter by sector" value={filters.sector} onChange={(event) => onChange({ ...filters, sector: event.target.value })} className={fieldClass}>
                     <option value="all">All sectors</option>
                     {sectors.map((sector) => <option key={sector} value={sector}>{sector}</option>)}
                 </select>
             </label>
-            <label className={'grid gap-1 text-[10px] font-semibold uppercase ' + styles.textMuted}>Risk
+            <label className={'grid gap-1 text-xs font-semibold uppercase ' + styles.textMuted}>Risk
                 <select aria-label="Filter by risk" value={filters.risk} onChange={updateRisk} className={fieldClass}>
                     <option value="all">All risks</option><option value="low">Low</option><option value="moderate">Moderate</option>
                 </select>
             </label>
-            <label className={'grid gap-1 text-[10px] font-semibold uppercase ' + styles.textMuted}>Trend stage
+            <label className={'grid gap-1 text-xs font-semibold uppercase ' + styles.textMuted}>Trend stage
                 <select aria-label="Filter by trend stage" value={filters.stage} onChange={updateStage} className={fieldClass}>
                     <option value="all">All stages</option><option value="emerging">Emerging</option><option value="confirmed">Confirmed</option><option value="extended">Extended</option><option value="not ready">Not ready</option>
                 </select>
             </label>
-            <label className={'grid gap-1 text-[10px] font-semibold uppercase ' + styles.textMuted}>Valuation
+            <label className={'grid gap-1 text-xs font-semibold uppercase ' + styles.textMuted}>Valuation
                 <select aria-label="Filter by valuation" value={filters.valuation} onChange={updateValuation} className={fieldClass}>
                     <option value="all">All valuations</option><option value="attractive">Attractive</option><option value="fair">Fair</option><option value="expensive">Expensive</option><option value="extreme">Extreme</option><option value="unavailable">Unavailable</option>
                 </select>

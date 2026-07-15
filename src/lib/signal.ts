@@ -8,8 +8,10 @@ import { calculateCompositeScoreV2 } from './sentiment-calculator-v2';
 import { IndicatorData, MarketSignal, SignalTier } from './types/signal-v2';
 import { getLatestInstitutionalData } from './institutional-service';
 import { BuffettIndicatorData, fetchBuffettIndicator, fetchCboePutCallRatio, fetchNaaimExposure, normalizeNaaimExposure, normalizePutCallRatio, NaaimExposureData, PutCallRatioData } from './market-indicators';
+import { fetchMarketContext } from './market-context';
 import { getIndicatorDisplayName } from './indicator-registry';
 import { calculateDriverChanges, parseStoredComponentContributions, parseStoredDriverContributions } from './signal-change';
+import type { MarketContextData } from './types/market-context';
 
 interface AggregateMarketData {
     vixData: { price: number; change: number };
@@ -22,6 +24,7 @@ interface AggregateMarketData {
     putCallRatio: PutCallRatioData | null;
     naaimExposure: NaaimExposureData | null;
     buffettIndicator: BuffettIndicatorData | null;
+    marketContext: MarketContextData;
     combinedSentiment: number;
     redditSentiment: number;
     stockTwitsSentiment: number;
@@ -135,14 +138,15 @@ export const fetchCoreMarketData = async (market: MarketType) => {
 
     // Fetch VIX + Priority (with sparklines) + Deferred (batch) in parallel
     // For MY, we also fetch currency volatility as a local proxy
-    const [vixData, priorityQuotes, deferredQuotes, myrVol, putCallRatio, naaimExposure, buffettIndicator] = await Promise.all([
+    const [vixData, priorityQuotes, deferredQuotes, myrVol, putCallRatio, naaimExposure, buffettIndicator, marketContext] = await Promise.all([
         fetchVIX(),
         fetchIndicesWithChart(prioritySymbols),  // Full chart data
         fetchQuotes(deferredSymbols),            // Fast batch (no sparklines)
         market === 'MY' ? fetchHistoricalCurrencyVol('USDMYR=X') : Promise.resolve(null),
         market === 'US' ? fetchCboePutCallRatio() : Promise.resolve(null),
         market === 'US' ? fetchNaaimExposure() : Promise.resolve(null),
-        market === 'US' ? fetchBuffettIndicator() : Promise.resolve(null)
+        market === 'US' ? fetchBuffettIndicator() : Promise.resolve(null),
+        fetchMarketContext(market)
     ]);
 
     // Combine and categorize
@@ -151,7 +155,7 @@ export const fetchCoreMarketData = async (market: MarketType) => {
     const popularData = allQuotes.filter((q: YahooMarketData) => config.popular.includes(q.symbol));
     const activeData = allQuotes.filter((q: YahooMarketData) => config.active.includes(q.symbol));
 
-    return { vixData, indicesData, popularData, activeData, config, myrVol, putCallRatio, naaimExposure, buffettIndicator };
+    return { vixData, indicesData, popularData, activeData, config, myrVol, putCallRatio, naaimExposure, buffettIndicator, marketContext };
 };
 
 /**
@@ -193,7 +197,7 @@ export const fetchRawMarketData = async (
             : Promise.resolve({ redditPosts: [], newsItems: [], stockTwits: [] })
     ]);
 
-    const { vixData, indicesData, popularData, activeData, myrVol, putCallRatio, naaimExposure, buffettIndicator } = coreData;
+    const { vixData, indicesData, popularData, activeData, myrVol, putCallRatio, naaimExposure, buffettIndicator, marketContext } = coreData;
     const { redditPosts, newsItems, stockTwits } = socialData;
 
     // Calculate sentiment scores
@@ -248,6 +252,7 @@ export const fetchRawMarketData = async (
         putCallRatio,
         naaimExposure,
         buffettIndicator,
+        marketContext,
         combinedSentiment,
         redditSentiment,
         stockTwitsSentiment,
@@ -335,6 +340,7 @@ async function persistSignalSnapshot(
             article_feed_role: signal.metadata.interpretation_context?.article_feed_role,
             counterfactuals: signal.metadata.counterfactuals,
             valuation_backdrop: signal.metadata.valuation_backdrop,
+            market_context: signal.metadata.market_context,
         };
 
         await sql`
@@ -669,6 +675,7 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                 source_url: marketData.buffettIndicator.sourceUrl,
             };
         }
+        v2Signal.metadata.market_context = marketData.marketContext;
 
         // Populate article data from news and reddit
         const oneMonthAgo = Date.now() - (30 * 24 * 60 * 60 * 1000); // 30 days in milliseconds

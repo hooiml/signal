@@ -65,19 +65,30 @@ export type ResearchThemeClassesV6 = ReturnType<typeof getThemeV6>;
 export const getActionToneV6 = (action: ResearchActionV6, theme: ResearchThemeV6) => {
     const lightTones: Record<ResearchActionV6, string> = {
         Ready: 'text-emerald-700',
-        DCA: 'text-blue-700',
+        DCA: 'text-emerald-700',
         'Wait for price': 'text-amber-700',
-        Watch: 'text-sky-700',
+        Watch: 'text-slate-600',
         Avoid: 'text-rose-600',
     };
     const darkTones: Record<ResearchActionV6, string> = {
         Ready: 'text-emerald-300',
-        DCA: 'text-blue-300',
+        DCA: 'text-emerald-300',
         'Wait for price': 'text-amber-300',
-        Watch: 'text-sky-300',
+        Watch: 'text-[#c8d2dd]',
         Avoid: 'text-rose-300',
     };
     return theme === 'light' ? lightTones[action] : darkTones[action];
+};
+
+export const getActionReasonV6 = (action: ResearchActionV6) => {
+    const reasons: Record<ResearchActionV6, string> = {
+        Ready: 'Most checks pass and the price is inside the saved buy zone.',
+        DCA: 'The thesis is strong and an owned position is inside the buy zone.',
+        'Wait for price': 'The thesis is intact, but price or valuation still needs to improve.',
+        Watch: 'Research is incomplete, so keep monitoring before deciding.',
+        Avoid: 'A thesis or downside check is not acceptable for the current posture.',
+    };
+    return reasons[action];
 };
 
 export const getChecklistCountV6 = (item: ResearchWatchlistItem) =>

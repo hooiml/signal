@@ -1,4 +1,4 @@
-import type { ResearchSnapshot } from '../types/research-snapshot';
+import { researchBenchmarkReturnBases, researchBenchmarkStatuses, type ResearchSnapshot } from '../types/research-snapshot';
 
 export class ResearchSnapshotInputError extends Error {
     constructor(message: string) {
@@ -15,15 +15,31 @@ const isNullableNumber = (value: unknown) =>
 
 const isNullableString = (value: unknown) => value === null || typeof value === 'string';
 
+const isResearchQuote = (value: unknown): value is ResearchSnapshot['quote'] => {
+    if (!isRecord(value)) return false;
+    return isNullableString(value.name)
+        && isNullableString(value.currency)
+        && hasNullableNumbers(value, ['price', 'dailyChangePercent']);
+};
+
+const isBenchmarkStatus = (value: unknown) => typeof value === 'string' && researchBenchmarkStatuses.some((status) => status === value);
+const isBenchmarkReturnBasis = (value: unknown) => typeof value === 'string' && researchBenchmarkReturnBases.some((basis) => basis === value);
+
 const hasNullableNumbers = (value: Record<string, unknown>, keys: readonly string[]) =>
     keys.every((key) => isNullableNumber(value[key]));
 
 const isResearchSnapshot = (value: unknown): value is ResearchSnapshot => {
-    if (!isRecord(value) || !isRecord(value.quote) || !isRecord(value.fundamentals)
+    if (!isRecord(value) || !isRecord(value.benchmark) || !isRecord(value.quote) || !isRecord(value.fundamentals)
         || !isRecord(value.valuation) || !isRecord(value.technicals)) return false;
     return typeof value.symbol === 'string'
         && (value.market === 'US' || value.market === 'MY')
         && typeof value.fetchedAt === 'string'
+        && value.benchmark.baselineSymbol === 'VOO'
+        && value.benchmark.baselineName === 'Vanguard S&P 500 ETF'
+        && value.benchmark.period === '1Y'
+        && hasNullableNumbers(value.benchmark, ['candidateReturnPercent', 'baselineReturnPercent', 'relativeReturnPercent'])
+        && (value.benchmark.returnBasis === null || isBenchmarkReturnBasis(value.benchmark.returnBasis))
+        && isBenchmarkStatus(value.benchmark.status)
         && isNullableString(value.quote.name)
         && isNullableString(value.quote.currency)
         && hasNullableNumbers(value.quote, ['price', 'dailyChangePercent'])
@@ -51,4 +67,11 @@ export const parseResearchSnapshotResponse = (payload: unknown): ResearchSnapsho
         throw new ResearchSnapshotInputError(typeof payload.error === 'string' ? payload.error : 'Unable to load free-source data.');
     }
     return payload.data;
+};
+
+export const parseResearchQuoteResponse = (payload: unknown): ResearchSnapshot['quote'] => {
+    if (!isRecord(payload) || !isRecord(payload.data) || !isResearchQuote(payload.data.quote)) {
+        throw new ResearchSnapshotInputError(isRecord(payload) && typeof payload.error === 'string' ? payload.error : 'Unable to load live quote.');
+    }
+    return payload.data.quote;
 };

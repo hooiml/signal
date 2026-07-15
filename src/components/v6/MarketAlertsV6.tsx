@@ -112,6 +112,23 @@ export const MarketAlertsV6 = ({ signal, enableSocial, theme }: { readonly signa
     };
 
     const thresholdSuffix = condition === 'agreement-below' ? '%' : condition === 'daily-move' ? 'points' : 'score';
+    const alertForm = (
+        <div className={'mt-4 grid gap-3 border-y py-4 min-[700px]:grid-cols-[minmax(220px,1fr)_minmax(150px,0.55fr)_auto] ' + styles.divider}>
+            <label className="min-w-0">
+                <span className={'block text-xs font-semibold ' + styles.textMuted}>Condition</span>
+                <select value={condition} onChange={(event) => changeCondition(event.target.value as MarketAlertCondition)} className={'mt-1 min-h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-emerald-500 ' + field}>
+                    {CONDITIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+            </label>
+            {needsThreshold ? (
+                <label>
+                    <span className={'block text-xs font-semibold ' + styles.textMuted}>Threshold ({thresholdSuffix})</span>
+                    <input type="number" min={minimumThreshold} max="100" step={condition === 'daily-move' ? 0.5 : 1} value={threshold} onChange={(event) => setThreshold(Number(event.target.value))} aria-invalid={!thresholdValid} className={'mt-1 min-h-10 w-full rounded-md border px-3 text-sm tabular-nums outline-none focus:border-emerald-500 ' + field} />
+                </label>
+            ) : <div className="hidden min-[700px]:block" />}
+            <button type="button" onClick={addRule} disabled={!loaded || !thresholdValid || storageError !== null} className="min-h-10 self-end rounded-md bg-emerald-600 px-4 text-sm font-bold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-45">Add alert</button>
+        </div>
+    );
 
     return (
         <section className={'rounded-lg border p-5 backdrop-blur-md sm:p-6 ' + styles.panel} aria-labelledby="market-alerts-title">
@@ -128,30 +145,23 @@ export const MarketAlertsV6 = ({ signal, enableSocial, theme }: { readonly signa
                 ) : null}
             </div>
 
-            <div className={'mt-4 grid gap-3 border-y py-4 min-[700px]:grid-cols-[minmax(220px,1fr)_minmax(150px,0.55fr)_auto] ' + styles.divider}>
-                <label className="min-w-0">
-                    <span className={'block text-xs font-semibold ' + styles.textMuted}>Condition</span>
-                    <select value={condition} onChange={(event) => changeCondition(event.target.value as MarketAlertCondition)} className={'mt-1 min-h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-emerald-500 ' + field}>
-                        {CONDITIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                </label>
-                {needsThreshold ? (
-                    <label>
-                        <span className={'block text-xs font-semibold ' + styles.textMuted}>Threshold ({thresholdSuffix})</span>
-                        <input type="number" min={minimumThreshold} max="100" step={condition === 'daily-move' ? 0.5 : 1} value={threshold} onChange={(event) => setThreshold(Number(event.target.value))} aria-invalid={!thresholdValid} className={'mt-1 min-h-10 w-full rounded-md border px-3 text-sm tabular-nums outline-none focus:border-emerald-500 ' + field} />
-                    </label>
-                ) : <div className="hidden min-[700px]:block" />}
-                <button type="button" onClick={addRule} disabled={!loaded || !thresholdValid || storageError !== null} className="min-h-10 self-end rounded-md bg-emerald-600 px-4 text-sm font-bold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-45">Add alert</button>
-            </div>
+            {!loaded ? <p className={'mt-4 py-4 text-sm ' + styles.textMuted}>Loading saved alerts...</p> : marketRules.length === 0 ? (
+                <details className={'group mt-4 rounded-md border ' + styles.divider}>
+                    <summary className={'flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 ' + styles.textPrimary}>
+                        <span className="min-w-0">
+                            <span className="block text-sm font-semibold">Set an alert</span>
+                            <span className={'mt-1 block text-xs font-normal ' + styles.textMuted}>Choose a condition to monitor this briefing.</span>
+                        </span>
+                        <span aria-hidden="true" className={'text-xl leading-none transition-transform group-open:rotate-45 ' + styles.textMuted}>+</span>
+                    </summary>
+                    {alertForm}
+                </details>
+            ) : alertForm}
 
             <div aria-live="polite">{message ? <p className={'mt-3 text-xs ' + styles.textSecondary}>{message}</p> : null}</div>
             {storageError ? <p role="status" className={'mt-3 text-xs ' + styles.risk}>{storageError}</p> : null}
 
-            {!loaded ? (
-                <p className={'py-6 text-sm ' + styles.textMuted}>Loading saved alerts...</p>
-            ) : marketRules.length === 0 ? (
-                <p className={'py-6 text-sm ' + styles.textMuted}>No market alerts yet. Add a condition to monitor this briefing.</p>
-            ) : (
+            {loaded && marketRules.length > 0 ? (
                 <ol className="divide-y">
                     {marketRules.map((rule) => {
                         const evaluation = evaluateMarketAlert(rule, signal);
@@ -170,7 +180,7 @@ export const MarketAlertsV6 = ({ signal, enableSocial, theme }: { readonly signa
                         );
                     })}
                 </ol>
-            )}
+            ) : null}
         </section>
     );
 };

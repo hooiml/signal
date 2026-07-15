@@ -13,6 +13,16 @@ npm run test:research
 
 For docs-only or harness-metadata changes, `npm run harness` is the minimum proof. Run the full standard set when TypeScript, routes, shared contracts, or runtime behavior changed.
 
+## QA Lane Selection
+
+Use the smallest lane that proves the change:
+
+- `LIGHT`: docs, scripts, package scripts, harness metadata, or other tooling-only changes. Inspect the diff, run the relevant syntax/lint check, execute the targeted command, and run `npm run harness` when repo guidance or harness files change. Skip the full build and visual reviewer unless application behavior changed.
+- `UI-LIGHT`: isolated non-shared UI changes. Run one browser session at a representative desktop and mobile width, including overflow, the changed interaction, and console/request checks. Use the targeted header command for shared-header assertions.
+- `STANDARD`: shared components, multiple routes, responsive layout, API or async state, persistence, or visual-reference work. Run the complete affected browser matrix and the standard verification set.
+
+After a failure, rerun the failed scenario plus one smoke check. Rerun the complete affected matrix only when shared behavior or the verification tooling itself changed. Escalate rather than weakening checks when authentication, authorization, security, payments, persistence, or external contracts are involved.
+
 ## Build Verification
 
 Run this before completing framework, route, dependency, or deployment-related changes:
@@ -37,6 +47,36 @@ Then open `http://localhost:3000` and check:
 - social toggle still affects the signal request
 - desktop and mobile layouts do not overlap text or controls
 
+### Targeted Header QA
+
+For shared header or responsive navigation changes, use the deterministic one-session check instead of rebuilding an ad hoc browser probe:
+
+```powershell
+npm run qa:header
+```
+
+The command checks `/` and `/research` at 1280px, 768px, and 375px. It waits for the header and navigation to be visible after `domcontentloaded`, so it does not wait for unrelated upstream API requests. It measures the shared inner width, bottom hairline, navigation clipping, document overflow, and toggle behavior, and writes a fresh report plus header captures under `.tmp/signal-header-qa/<timestamp>/`.
+
+Set `SIGNAL_QA_URL` or pass `--base-url` when the local server uses another port.
+
+When a failure identifies one affected surface, rerun only that scenario:
+
+```powershell
+npm run qa:header -- --route /research --viewport 375
+```
+
+Use `--no-screenshots` for a fast assertion-only pass. Same-origin console errors, page errors, failed requests, and HTTP responses remain blocking; aborted cleanup requests and external upstream failures are recorded as non-blocking evidence.
+
+### Visual QA Contract
+
+Treat any UI request involving a screenshot, alignment, spacing, layout, visual polish, or “looks off” feedback as standard visual verification rather than a compile-only check.
+
+For those changes, use a real Chromium browser and verify the affected surface at 1280px, 768px, and 375px widths. Inspect a fresh screenshot after the change and measure both the parent containers and the nested elements that establish the visual relationship. For aligned controls, compare the actual label and input/button/select top positions, heights, gaps, and shared baselines with a small pixel tolerance; do not verify only the outer panel rectangles.
+
+Also verify the relevant interaction state, document-level overflow, overlap, console errors, and failed network requests. A visual change is not complete until the geometry assertions and browser checks pass. Report the result as a short scenario ledger with the tested widths and any skipped state named explicitly.
+
+For Market V6, when the US payload includes `valuation_backdrop`, confirm the Buffett Indicator disclosure starts collapsed, opens by click and keyboard, is visibly labeled non-scored, and shows its report date and source links when expanded; Malaysia mode must not leave an empty valuation placeholder. When `market_context` is present, confirm its disclosure also starts collapsed and US shows the 10Y–3M, NFCI, and breadth cards without changing the score, while MY shows BNM-native MGS/OPR/MYOR context and no US proxy cards.
+
 ## API Smoke Checks
 
 Use these when touching API routes or signal services:
@@ -50,7 +90,7 @@ Invalid request parameters should return a structured error instead of falling i
 
 Research journal API smoke checks should cover list, create, patch, invalid input, and delete through `/api/research/watchlist`.
 
-Free-source research smoke checks should cover a US symbol with derived valuation, a Malaysia symbol with unavailable valuation, and an invalid market through `/api/research/symbol/[symbol]`. Configure `SEC_USER_AGENT` with an app name and contact email before testing SEC EDGAR.
+Free-source research smoke checks should cover a US symbol with derived valuation and a one-year VOO Index Test, a Malaysia symbol with unavailable valuation and a not-applicable US benchmark, and an invalid market through `/api/research/symbol/[symbol]`. For the US response, verify candidate return, VOO return, relative return, and adjusted-close basis when both provider series expose it. Configure `SEC_USER_AGENT` with an app name and contact email before testing SEC EDGAR.
 
 For a large SEC filer such as MSFT, call the symbol route twice and confirm both responses retain SEC fundamentals without a `Failed to set Next.js data cache` terminal error. Raw Company Facts responses must remain uncached; the normalized fundamentals cache owns the six-hour reuse window.
 
@@ -62,9 +102,9 @@ Research inbox smoke checks should POST valid watchlist inputs with per-ticker m
 
 Market alert smoke checks should add a threshold condition, persist it across a reload, show whether it is monitoring or currently triggered, manually refresh the briefing and update the last-checked time, remove the condition, and keep rules separated by market, interpretation mode, and social-source setting. Rapid configuration changes must not allow an older response to replace the latest selection. These alerts are browser-local and are evaluated when the briefing refreshes; they do not imply background push delivery.
 
-Research comparison smoke checks should select one, two, and three watchlist securities; disable a fourth selection; render live metrics and explicit unavailable states; open a compared ticker back in Research; and keep the table inside its own scroller without document-level overflow at desktop and mobile widths. The research journal should expose the persisted bear case plus buy and sell triggers.
+Research comparison smoke checks should select one, two, and three watchlist securities; disable a fourth selection; render live metrics and explicit unavailable states; open a compared ticker back in Research; and keep the table inside its own scroller without document-level overflow at desktop and mobile widths. The research journal should open as read-only details exposing the persisted bear case plus buy and sell triggers; Submit review should reveal editable fields, and Cancel should discard unsaved changes.
 
-Assisted research smoke checks should generate findings for a US symbol, show whether synthesis is AI-assisted or evidence-based, retain source links and reporting periods, accept one finding into its intended journal field without overwriting existing text, dismiss another finding, refresh the queue, and save the accepted draft. After reload, the accepted-evidence section must retain the finding and source links, while Review history must show a new timestamped snapshot and identify fields changed from the preceding review. Removing evidence before save must remove its provenance without silently deleting the journal text. With `KIMI_API_KEY` unavailable, the evidence-based fallback must remain usable. Malformed or source-less findings, unsafe source URLs, oversized evidence collections, and client-supplied review-history rewrites must be rejected or ignored at the boundary.
+Assisted research smoke checks should generate findings for a US symbol, show whether synthesis is AI-assisted or evidence-based, retain source links and reporting periods, accept one finding into its intended journal field without overwriting existing text, dismiss another finding, refresh the queue, and save the accepted draft. After reload, the accepted-evidence section must retain the finding and source links, while Review history must show a new timestamped snapshot and identify fields changed from the preceding review. Removing evidence before save must remove its provenance without silently deleting the journal text. With `KIMI_API_KEY` unavailable, the evidence-based fallback must remain usable. Malformed or source-less findings, unsafe source URLs, oversized evidence collections, and client-supplied review-history rewrites must be rejected or ignored at the boundary. The Index Test should remain evidence-only and must not automatically toggle the persisted `betterThanCashOrIndex` checklist field.
 
 ## Current Test Gap
 

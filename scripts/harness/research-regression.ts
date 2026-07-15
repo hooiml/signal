@@ -17,6 +17,7 @@ import { describeContender, rankDiscoveryTiers } from '../../src/lib/research/di
 import { filterDiscoveryCandidates } from '../../src/lib/research/discovery-filters';
 import { parseNasdaqInstitutionalHoldings } from '../../src/lib/research/institutional-ownership';
 import { buildComparisonMetrics } from '../../src/lib/research/comparison';
+import { buildResearchBenchmark, notApplicableResearchBenchmark } from '../../src/lib/research/benchmark';
 import type { ResearchSnapshot } from '../../src/lib/types/research-snapshot';
 import { parseResearchSnapshotResponse } from '../../src/lib/research/snapshot-input';
 import { buildEvidenceFindings, buildResearchEvidence } from '../../src/lib/research/assistant';
@@ -130,10 +131,28 @@ const runTechnicalTests = () => {
     assertEqual(snapshot.averageVolume20, 21050, '20-day average volume');
     const chart = parseYahooResearchChart({ chart: { result: [{
         meta: { symbol: 'MSFT', currency: 'USD', regularMarketPrice: 101, chartPreviousClose: 80 },
-        indicators: { quote: [{ close: [99, 100, 101], volume: [10, 20, 30] }] },
+        indicators: {
+            quote: [{ close: [99, 100, 101], volume: [10, 20, 30] }],
+            adjclose: [{ adjclose: [98, 99, 100] }],
+        },
     }] } });
     assertEqual(chart.dailyChangePercent, 1, 'daily change uses the prior session, not the range baseline');
+    assertEqual(Object.hasOwn(chart.history, 'adjustedCloses'), true, 'Yahoo chart preserves adjusted closes for return comparisons');
+    assertEqual(chart.history.adjustedCloses.join(','), '98,99,100', 'Yahoo chart preserves adjusted-close values');
     assertEqual(toYahooSymbol('1155', 'MY'), '1155.KL', 'Malaysia ticker uses Yahoo KL suffix');
+};
+
+const runBenchmarkTests = () => {
+    const candidate = { history: { closes: [100, 130], adjustedCloses: [100, 130], volumes: [] } };
+    const baseline = { history: { closes: [100, 120], adjustedCloses: [100, 120], volumes: [] } };
+    const benchmark = buildResearchBenchmark(candidate, baseline);
+    assertEqual(benchmark.candidateReturnPercent, 30, 'benchmark calculates candidate return from adjusted closes');
+    assertEqual(benchmark.baselineReturnPercent, 20, 'benchmark calculates passive baseline return from adjusted closes');
+    assertEqual(benchmark.relativeReturnPercent, 10, 'benchmark calculates relative return');
+    assertEqual(benchmark.returnBasis, 'adjusted close', 'benchmark labels adjusted-close comparisons');
+    assertEqual(benchmark.status, 'outperformed', 'benchmark identifies outperformance');
+    assertEqual(buildResearchBenchmark(candidate, null).status, 'unavailable', 'benchmark degrades when passive data is unavailable');
+    assertEqual(notApplicableResearchBenchmark.status, 'not-applicable', 'Malaysia keeps the US benchmark out of scope');
 };
 
 const runValuationTests = () => {
@@ -416,6 +435,11 @@ const runInstitutionalOwnershipTests = () => {
 const runComparisonTests = () => {
     const snapshot: ResearchSnapshot = {
         symbol: 'MSFT', market: 'US', fetchedAt: '2026-07-12T00:00:00.000Z',
+        benchmark: {
+            baselineSymbol: 'VOO', baselineName: 'Vanguard S&P 500 ETF', period: '1Y',
+            candidateReturnPercent: 30, baselineReturnPercent: 20, relativeReturnPercent: 10,
+            returnBasis: 'adjusted close', status: 'outperformed',
+        },
         quote: { name: 'Microsoft', currency: 'USD', price: 420.5, dailyChangePercent: 1.2 },
         fundamentals: {
             revenueGrowthPercent: 14.2, grossMarginPercent: 68.5, operatingMarginPercent: 44.1,
@@ -450,6 +474,11 @@ const runComparisonTests = () => {
 const runResearchAssistantTests = () => {
     const snapshot: ResearchSnapshot = {
         symbol: 'MSFT', market: 'US', fetchedAt: '2026-07-14T00:00:00.000Z',
+        benchmark: {
+            baselineSymbol: 'VOO', baselineName: 'Vanguard S&P 500 ETF', period: '1Y',
+            candidateReturnPercent: 30, baselineReturnPercent: 20, relativeReturnPercent: 10,
+            returnBasis: 'adjusted close', status: 'outperformed',
+        },
         quote: { name: 'Microsoft', currency: 'USD', price: 420, dailyChangePercent: 1.2 },
         fundamentals: {
             revenueGrowthPercent: 14, grossMarginPercent: 68, operatingMarginPercent: 44,
@@ -487,6 +516,7 @@ const runResearchAssistantTests = () => {
 runInputTests();
 runDecisionTests();
 runTechnicalTests();
+runBenchmarkTests();
 runValuationTests();
 runDiscoveryTests();
 runAlertTests();

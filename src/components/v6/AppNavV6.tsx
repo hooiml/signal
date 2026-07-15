@@ -1,40 +1,71 @@
 import Link from 'next/link';
+import type { CSSProperties, ReactNode } from 'react';
+import { ThemeModeSwitchV2 } from '@/components/ThemeModeSwitchV2';
 import type { ResearchThemeV6 } from './research-v6';
 
 type AppNavV6Props = {
-    active: 'market' | 'research';
+    active: 'market' | 'research' | 'analytics';
     theme: ResearchThemeV6;
+    onThemeToggle: () => void;
+    children?: ReactNode;
 };
 
-export const AppNavV6 = ({ active, theme }: AppNavV6Props) => {
-    const isLight = theme === 'light';
+export const AppNavV6 = ({ active, theme, onThemeToggle, children }: AppNavV6Props) => {
+    const headerVars = {
+        '--border': theme === 'light' ? 'rgba(15, 23, 42, 0.12)' : 'rgba(148, 163, 184, 0.22)',
+        '--fill-success': theme === 'light' ? '#059669' : '#6ee7b7',
+        '--on-success': theme === 'light' ? '#ffffff' : '#0f172a',
+        '--text-primary': theme === 'light' ? '#0f172a' : '#eef2f7',
+        '--text-secondary': theme === 'light' ? '#475569' : '#c8d2dd',
+        '--text-muted': theme === 'light' ? '#64748b' : '#9aa8b8',
+        '--radius': '8px',
+    } as CSSProperties;
     const items = [
         { key: 'market', label: 'Market', href: '/' },
         { key: 'research', label: 'Research', href: '/research' },
+        { key: 'analytics', label: 'Analytics', href: '/research?workspace=discovery' },
     ] as const;
-    const brandClass = 'text-sm font-bold uppercase tracking-[0.18em] ' + (isLight ? 'text-slate-950' : 'text-[#eef2f7]');
-    const navClass = 'flex items-center gap-1 rounded-lg border p-1 ' + (isLight ? 'border-slate-300 bg-white/90' : 'border-[#2a3948] bg-[#111a23]/90');
 
     return (
-        <nav className="mx-auto flex w-full max-w-[1280px] items-center justify-between gap-4 px-4 pt-4 min-[700px]:px-5" aria-label="Primary">
-            <Link href="/" className={brandClass}>Signal</Link>
-            <div className={navClass}>
-                {items.map((item) => {
-                    const selected = item.key === active;
-                    const selectedClass = isLight ? 'bg-slate-950 text-white' : 'bg-emerald-300 text-slate-950';
-                    const idleClass = isLight ? 'text-slate-500 hover:bg-slate-100 hover:text-slate-950' : 'text-[#9aa8b8] hover:bg-slate-800/50 hover:text-[#eef2f7]';
-                    return (
-                        <Link
-                            key={item.key}
-                            href={item.href}
-                            aria-current={selected ? 'page' : undefined}
-                            className={'rounded-md px-3 py-2 text-sm font-semibold transition-colors ' + (selected ? selectedClass : idleClass)}
-                        >
-                            {item.label}
-                        </Link>
-                    );
-                })}
+        <header
+            className="relative z-20 w-full border-b-[0.5px] border-[var(--border)] bg-transparent px-6 py-[0.85rem]"
+            aria-label="Signal application header"
+            style={headerVars}
+        >
+            <div className="mx-auto w-full max-w-[1280px]">
+                <div className="flex min-w-0 items-center justify-between gap-3 min-[700px]:gap-5">
+                    <Link
+                        href="/"
+                        className="shrink-0 text-[13px] font-medium uppercase tracking-[0.05em] text-[var(--text-primary)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+                    >
+                        SIGNAL
+                    </Link>
+                    <div className="flex min-w-0 items-center gap-3 min-[700px]:gap-5">
+                        <nav className="research-scrollbar flex min-w-0 items-center gap-3 overflow-x-auto min-[700px]:gap-5" aria-label="Primary">
+                            {items.map((item) => {
+                                const selected = item.key === active;
+                                return (
+                                    <Link
+                                        key={item.key}
+                                        href={item.href}
+                                        aria-current={selected ? 'page' : undefined}
+                                        className={
+                                            'min-h-10 shrink-0 border-b-2 px-0 text-[13px] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 min-[700px]:px-1 min-[700px]:text-sm '
+                                            + (selected
+                                                ? 'border-[var(--fill-success)] text-[var(--text-primary)]'
+                                                : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]')
+                                        }
+                                    >
+                                        {item.label}
+                                    </Link>
+                                );
+                            })}
+                        </nav>
+                        <ThemeModeSwitchV2 theme={theme} tone={theme} onToggle={onThemeToggle} variant="header" className="shrink-0" />
+                    </div>
+                </div>
+                {children ? <div className="mt-3">{children}</div> : null}
             </div>
-        </nav>
+        </header>
     );
 };

@@ -93,6 +93,19 @@ The Buffett Indicator is exposed as a non-scored valuation backdrop. It compares
 
 It is intentionally not part of the daily composite score because valuation moves slowly and should not override tactical evidence by itself.
 
+## Main-page Macro Context
+
+The Main page may show additional context that is deliberately excluded from the composite score:
+
+- US 10Y–3M Treasury spread: daily medium-term curve context with an inversion state. It is not a standalone recession predictor.
+- Chicago Fed NFCI: weekly financial-conditions context. Positive values are tighter than average; negative values are looser than average.
+- Equal-weight versus cap-weight S&P 500 returns: a one-year breadth/concentration comparison, shown as relative return context rather than a score input.
+- Malaysia native rates: BNM MGS 3Y/10Y curve, OPR, MYOR, and short-term bill readings. US curve and NFCI proxies are not applied to the MY view.
+
+These cards must remain visibly labeled as context-only and include their report or refresh date and source links.
+
+The US Research Index Test is also non-scored context. It compares a research ticker's one-year return with VOO using adjusted closes when available; it informs the manual `betterThanCashOrIndex` review question but does not alter signal scores or automatic research decisions.
+
 ## Signal Alignment Meaning
 
 Signal alignment means indicator agreement only. It is not a probability that the read will be correct.

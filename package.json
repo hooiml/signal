@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "qa:header": "node scripts/header-qa.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:scoring": "powershell -ExecutionPolicy Bypass -File scripts/harness/check-scoring.ps1",

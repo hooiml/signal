@@ -2,6 +2,8 @@
 // Phase 1: Core Type Definitions for Signal v2.0 DSS
 // ==================================================
 
+import type { MarketContextData } from './market-context';
+
 /**
  * Normalized Indicator Data Structure
  * Standardizes inputs from VIX, Social, AAII, etc. into a common format
@@ -134,6 +136,7 @@ export interface MarketSignal {
             detail: string;
             source_url: string;
         };
+        market_context?: MarketContextData;
         score_delta?: {
             previous_score: number | null;
             delta: number | null;

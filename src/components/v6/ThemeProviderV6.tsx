@@ -49,5 +49,13 @@ export const useThemeV6 = (): ThemeContextValue => {
 export const ResearchLoadingV6 = () => {
     const { theme } = useThemeV6();
     const styles = getThemeV6(theme);
-    return <div className={'min-h-[100dvh] p-6 text-sm ' + styles.page}>Loading research...</div>;
+    return (
+        <div className={'min-h-[100dvh] p-6 ' + styles.page}>
+            <div role="status" className={'mx-auto max-w-[1280px] rounded-lg border p-5 ' + styles.panel}>
+                <div className="h-5 w-32 animate-pulse rounded bg-emerald-400/35" />
+                <div className="mt-4 h-3 w-56 animate-pulse rounded bg-emerald-400/20" />
+                <span className="sr-only">Loading research workspace...</span>
+            </div>
+        </div>
+    );
 };

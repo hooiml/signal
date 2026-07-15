@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { watchlist } from '@/components/research/ResearchDashboardV2';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import { parseResearchRecord, ResearchInputError } from '@/lib/research/input';
+import { parseResearchQuoteResponse } from '@/lib/research/snapshot-input';
 import type { ResearchCreateInput, ResearchRecord, ResearchUpdateMode } from '@/lib/types/research';
 import { ResearchDetailV6 } from './ResearchDetailV6';
 import {
@@ -19,6 +20,8 @@ import { ResearchComparisonV6 } from './ResearchComparisonV6';
 import { ResearchInboxV6 } from './ResearchInboxV6';
 import { ResearchWorkspaceTabsV6, type ResearchWorkspaceV6 } from './ResearchWorkspaceTabsV6';
 import { applyResearchRecordV6, createWatchlistItemV6, toResearchRecordV6 } from './research-records-v6';
+import { applyResearchQuoteV6, applyResearchSnapshotV6 } from './research-snapshot-v6';
+import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import {
     getResearchActionV6,
     getThemeV6,
@@ -35,6 +38,7 @@ const formatSnapshotLabel = (date: string) => new Intl.DateTimeFormat('en-US', {
 export const ResearchDashboardV6 = () => {
     const searchParams = useSearchParams();
     const requestedSymbol = searchParams.get('ticker')?.toUpperCase();
+    const requestedWorkspace = searchParams.get('workspace');
     const initialSymbol = requestedSymbol ?? 'MSFT';
     const [selectedSymbol, setSelectedSymbol] = useState(initialSymbol);
     const { theme, toggleTheme } = useThemeV6();
@@ -46,7 +50,15 @@ export const ResearchDashboardV6 = () => {
     const [saving, setSaving] = useState(false);
     const [adding, setAdding] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
-    const [workspace, setWorkspace] = useState<ResearchWorkspaceV6>('research');
+    const [workspace, setWorkspace] = useState<ResearchWorkspaceV6>(requestedWorkspace === 'discovery' ? 'discovery' : 'research');
+    const liveSnapshots = useRef(new Map<string, ResearchSnapshot>());
+    const liveQuotes = useRef(new Map<string, ResearchSnapshot['quote']>());
+    const quoteItems = useRef(items);
+
+    useEffect(() => {
+        if (requestedWorkspace === 'discovery') setWorkspace('discovery');
+    }, [requestedWorkspace]);
+
     const filteredItems = useMemo(() => {
         const normalizedQuery = query.trim().toLowerCase();
         return items.filter((item) => {
@@ -62,7 +74,7 @@ export const ResearchDashboardV6 = () => {
         () => filteredItems.find((item) => item.symbol === selectedSymbol) ?? filteredItems[0] ?? null,
         [filteredItems, selectedSymbol],
     );
-    const latestSnapshot = useMemo(
+    const latestReviewedAt = useMemo(
         () => [...items].sort((left, right) => right.lastReviewedAt.localeCompare(left.lastReviewedAt))[0]?.lastReviewedAt ?? new Date().toISOString().slice(0, 10),
         [items],
     );
@@ -74,6 +86,16 @@ export const ResearchDashboardV6 = () => {
         [items, records],
     );
     const themeClasses = getThemeV6(theme);
+
+    const updateLiveSnapshot = useCallback((symbol: string, snapshot: ResearchSnapshot) => {
+        liveSnapshots.current.set(symbol, snapshot);
+        const liveQuote = liveQuotes.current.get(symbol);
+        setItems((current) => current.map((item) => {
+            if (item.symbol !== symbol) return item;
+            const withSnapshot = applyResearchSnapshotV6(item, snapshot);
+            return liveQuote ? applyResearchQuoteV6(withSnapshot, liveQuote) : withSnapshot;
+        }));
+    }, []);
 
     useEffect(() => {
         let active = true;
@@ -96,7 +118,12 @@ export const ResearchDashboardV6 = () => {
                     .filter((record) => !watchlist.some((item) => item.symbol === record.symbol))
                     .map((record, index) => createWatchlistItemV6(record, 100 + index));
                 setRecords(stored);
-                setItems([...seeded, ...additions]);
+                setItems([...seeded, ...additions].map((item) => {
+                    const snapshot = liveSnapshots.current.get(item.symbol);
+                    const withSnapshot = snapshot ? applyResearchSnapshotV6(item, snapshot) : item;
+                    const quote = liveQuotes.current.get(item.symbol);
+                    return quote ? applyResearchQuoteV6(withSnapshot, quote) : withSnapshot;
+                }));
             } catch (error) {
                 if (active) setSaveError(error instanceof Error ? error.message : 'Unable to load saved research.');
             }
@@ -105,12 +132,51 @@ export const ResearchDashboardV6 = () => {
         return () => { active = false; };
     }, []);
 
-    const selectTicker = (symbol: string) => {
+    useEffect(() => {
+        const itemsToQuote = quoteItems.current;
+        if (itemsToQuote.length === 0) return;
+        const controller = new AbortController();
+        const loadQuotes = async () => {
+            const results = await Promise.allSettled(itemsToQuote.map(async (item) => {
+                const response = await fetch(`/api/research/quote/${encodeURIComponent(item.symbol)}?market=${item.market}`, { signal: controller.signal });
+                const payload: unknown = await response.json();
+                if (!response.ok) throw new ResearchInputError('Live quote unavailable.');
+                return { symbol: item.symbol, quote: parseResearchQuoteResponse(payload) };
+            }));
+            if (controller.signal.aborted) return;
+            const quotes = new Map<string, ResearchSnapshot['quote']>();
+            for (const result of results) {
+                if (result.status === 'fulfilled') {
+                    quotes.set(result.value.symbol, result.value.quote);
+                    liveQuotes.current.set(result.value.symbol, result.value.quote);
+                }
+            }
+            if (quotes.size === 0) return;
+            setItems((current) => current.map((item) => {
+                const quote = quotes.get(item.symbol);
+                return quote ? applyResearchQuoteV6(item, quote) : item;
+            }));
+        };
+        void loadQuotes();
+        return () => controller.abort();
+    }, []);
+
+    const selectTicker = (symbol: string, focusDetail = false) => {
         setWorkspace('research');
         setSelectedSymbol(symbol);
         const nextUrl = window.location.pathname + '?ticker=' + symbol;
         window.history.replaceState({ ...window.history.state, as: nextUrl, url: nextUrl }, '', nextUrl);
+        if (focusDetail) {
+            window.setTimeout(() => {
+                const detail = document.getElementById('research-detail');
+                if (!detail) return;
+                detail.scrollIntoView({ behavior: 'auto', block: 'start' });
+                detail.focus({ preventScroll: true });
+            }, 0);
+        }
     };
+
+    const openResearch = (symbol: string) => selectTicker(symbol, true);
 
     const addDiscoveryCandidate = async (candidate: { readonly symbol: string; readonly name: string }) => {
         await addRecord({ symbol: candidate.symbol, market: 'US', companyName: candidate.name });
@@ -184,7 +250,7 @@ export const ResearchDashboardV6 = () => {
     };
 
     const atmosphere = theme === 'light'
-        ? 'bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.11),_transparent_28%),radial-gradient(circle_at_80%_10%,_rgba(14,165,233,0.08),_transparent_20%)]'
+        ? 'bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.11),_transparent_28%),radial-gradient(circle_at_80%_10%,_rgba(100,116,139,0.1),_transparent_20%)]'
         : 'bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.12),_transparent_24%),radial-gradient(circle_at_80%_10%,_rgba(52,211,153,0.1),_transparent_18%)]';
     const grid = theme === 'light'
         ? 'bg-[linear-gradient(rgba(16,185,129,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.06)_1px,transparent_1px)] opacity-45'
@@ -196,10 +262,11 @@ export const ResearchDashboardV6 = () => {
             <div className={'pointer-events-none absolute inset-0 bg-[size:44px_44px] transition-opacity duration-300 ' + grid} />
             <ResearchHeaderV6
                 theme={theme}
+                active={workspace === 'discovery' ? 'analytics' : 'research'}
                 query={query}
                 market={market}
                 action={action}
-                snapshotLabel={formatSnapshotLabel(latestSnapshot)}
+                reviewedLabel={formatSnapshotLabel(latestReviewedAt)}
                 resultCount={filteredItems.length}
                 showResearchControls={workspace === 'research'}
                 onQueryChange={setQuery}
@@ -209,14 +276,17 @@ export const ResearchDashboardV6 = () => {
             />
             <div className="relative z-10 mx-auto w-full max-w-[1280px] px-4 pb-5 pt-4 min-[700px]:px-5">
                 <ResearchWorkspaceTabsV6 active={workspace} theme={theme} onChange={setWorkspace} />
-                {workspace === 'research' && <ResearchInboxV6 items={items} records={inboxRecords} theme={theme} onOpen={selectTicker} onSave={saveRecord} />}
-                <main className={'flex flex-col gap-4 rounded-[10px] border p-3 backdrop-blur min-[700px]:flex-row min-[700px]:p-4 ' + themeClasses.panel}>
+                {workspace === 'research' ? <>
+                    <h1 className="sr-only">Research workspace</h1>
+                    <ResearchInboxV6 items={items} records={inboxRecords} theme={theme} onOpen={selectTicker} onSave={saveRecord} />
+                </> : null}
+                <main id={`research-workspace-${workspace}`} className={'flex flex-col gap-4 rounded-[10px] border p-3 backdrop-blur min-[700px]:flex-row min-[700px]:p-4 ' + themeClasses.panel}>
                     {workspace === 'alerts' ? (
-                        <ResearchAlertsV6 items={items} theme={theme} onOpen={selectTicker} />
+                        <ResearchAlertsV6 items={items} theme={theme} onOpen={openResearch} />
                     ) : workspace === 'compare' ? (
-                        <ResearchComparisonV6 items={items} theme={theme} onOpen={selectTicker} />
+                        <ResearchComparisonV6 items={items} theme={theme} onOpen={openResearch} />
                     ) : workspace === 'discovery' ? (
-                        <TrendDiscoveryV6 theme={theme} savedSymbols={items.map((item) => item.symbol)} adding={adding} onAdd={addDiscoveryCandidate} onOpen={selectTicker} />
+                        <TrendDiscoveryV6 theme={theme} savedSymbols={items.map((item) => item.symbol)} adding={adding} onAdd={addDiscoveryCandidate} onOpen={openResearch} />
                     ) : (<>
                     <ResearchWatchlistV6
                         items={filteredItems}
@@ -227,11 +297,11 @@ export const ResearchDashboardV6 = () => {
                         adding={adding}
                     />
                     {selected && selectedRecord ? (
-                        <ResearchDetailV6 key={selected.symbol} ticker={selected} theme={theme} record={selectedRecord} saving={saving} saveError={saveError} onSave={async (record) => { await saveRecord(record); }} onDelete={deleteRecord} />
+                        <ResearchDetailV6 key={selected.symbol} ticker={selected} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} saving={saving} saveError={saveError} onSave={saveRecord} onSnapshot={updateLiveSnapshot} onDelete={deleteRecord} />
                     ) : (
                         <section className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
                             <div>
-                                <h1 className={'text-lg font-bold ' + themeClasses.textPrimary}>No research matches</h1>
+                                <h2 className={'text-lg font-bold ' + themeClasses.textPrimary}>No research matches</h2>
                                 <p className={'mt-2 text-sm ' + themeClasses.textMuted}>Adjust the ticker, market, or decision filter.</p>
                             </div>
                         </section>

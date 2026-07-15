@@ -2,6 +2,7 @@ import { calculateCompositeScoreV2 } from '../../src/lib/sentiment-calculator-v2
 import { calculateDriverChanges, parseStoredComponentContributions, parseStoredDriverContributions } from '../../src/lib/signal-change';
 import { IndicatorData } from '../../src/lib/types/signal-v2';
 import { buildBuffettIndicator, normalizeNaaimExposure, normalizePutCallRatio, parseCboePutCallRatio, parseFredLatestObservation, parseNaaimExposure } from '../../src/lib/market-indicators';
+import { buildBreadthContext, buildFinancialConditionsContext, buildYieldCurveContext, parseFredSeriesObservation, parseMalaysiaBenchmarkPage } from '../../src/lib/market-context';
 
 function indicator(overrides: Partial<IndicatorData> & Pick<IndicatorData, 'name' | 'score' | 'value'>): IndicatorData {
     return {
@@ -142,6 +143,55 @@ function runBuffettTests() {
     assertEqual(buffett.label, 'Elevated valuation backdrop', 'Buffett Indicator label');
 }
 
+function runMarketContextTests() {
+    const yieldCurveObservation = parseFredSeriesObservation(
+        '2026-07-14:&nbsp; <span class="series-meta-observation-value">0.74</span>'
+    );
+    const nfciObservation = parseFredSeriesObservation(
+        '2026-07-03: <span class="series-meta-observation-value">-0.515</span>'
+    );
+
+    assertTrue(yieldCurveObservation !== null, 'FRED daily series parser returns yield-curve data');
+    assertTrue(nfciObservation !== null, 'FRED daily series parser returns NFCI data');
+    if (!yieldCurveObservation || !nfciObservation) throw new Error('FRED context parser unexpectedly returned null');
+
+    assertEqual(buildYieldCurveContext(yieldCurveObservation).state, 'normal', 'positive curve spread is normal');
+    assertEqual(buildFinancialConditionsContext(nfciObservation).stance, 'looser', 'negative NFCI is looser than average');
+
+    const malaysia = parseMalaysiaBenchmarkPage(`
+        OVERNIGHT POLICY RATE 2.75% as at 07 May 2026
+        MGS 10 YEAR YIELD 3.64% as at 14 Jul 2026
+        MYOR 2.75% as at 14 Jul 2026
+        Trading Date: 14 Jul 2026
+        Malaysian Government Securities (MGS) - Conventional
+        MGS Benchmarks Trading Yields Total Volume (MYR mil) Daily change (bps)
+        Tenor Maturity Coupon (%) Low (%) High (%) Close (%)
+        10Y July 2035 3.48 3.64 3.66 3.64 453.80 2
+        3Y March 2029 3.24 3.26 3.28 3.28 114.75 2
+        Malaysian Government Investment Issues (MGII)
+        Short-Term Bills Type of Bills Up to 3-mth abv. 3 to 6-mth abv. 6 to 12-mth
+        BNM Monetary Notes 2.93 2.97 3.01
+        For specific enquiries on:
+    `);
+
+    assertTrue(malaysia !== null, 'BNM benchmark parser returns Malaysia rates');
+    if (!malaysia) throw new Error('BNM benchmark parser unexpectedly returned null');
+    assertEqual(malaysia.mgs_3y_pct, 3.28, 'BNM MGS 3Y close');
+    assertEqual(malaysia.mgs_10y_pct, 3.64, 'BNM MGS 10Y close');
+    assertEqual(malaysia.curve_spread_pct, 0.36, 'BNM MGS curve spread');
+    assertEqual(malaysia.opr_report_date, '2026-05-07', 'BNM OPR report date');
+    assertEqual(malaysia.short_term_bill_3m_pct, 2.93, 'BNM short-term bill 3M rate');
+
+    const breadth = buildBreadthContext(
+        { history: { closes: [], adjustedCloses: [100, 110], volumes: [] } },
+        { history: { closes: [], adjustedCloses: [100, 105], volumes: [] } },
+        '2026-07-15'
+    );
+    assertTrue(breadth !== null, 'breadth builder returns equal-weight context');
+    assertEqual(breadth?.relative_return_pct, 5, 'equal-weight relative return');
+    assertEqual(breadth?.period_label, '1Y', 'breadth period label');
+}
+
 function runDriverChangeTests() {
     const current = [
         { key: 'vix', name: 'Volatility Index', contribution: 24 },
@@ -193,6 +243,7 @@ function main() {
     runPutCallTests();
     runNaaimTests();
     runBuffettTests();
+    runMarketContextTests();
     runDriverChangeTests();
     assertTrue(true, 'scoring regression tests reached completion');
     console.log('Scoring regression tests passed.');

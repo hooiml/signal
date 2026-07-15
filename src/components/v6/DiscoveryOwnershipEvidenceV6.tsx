@@ -12,18 +12,22 @@ export const DiscoveryOwnershipEvidenceV6 = ({ ownership, theme, className = '' 
     readonly className?: string;
 }) => {
     const styles = getThemeV6(theme);
-    if (ownership === null) return <p className={'text-[11px] ' + styles.textMuted + ' ' + className}>Ownership unavailable</p>;
+    if (ownership === null) return <p className={'text-xs ' + styles.textMuted + ' ' + className}>Ownership unavailable</p>;
     const tone = ownership.activity === 'increases-led' ? styles.positive
         : ownership.activity === 'decreases-led' ? styles.risk : styles.textSecondary;
     const activityLabel = ownership.activity === 'increases-led' ? 'increases led'
         : ownership.activity === 'decreases-led' ? 'decreases led' : 'mixed';
     return (
-        <details className={className}>
-            <summary className={'flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 py-1 text-[11px] font-semibold focus-visible:outline-2 focus-visible:outline-emerald-500 ' + tone}>
+        <details className={'group ' + className}>
+            <summary title="Toggle ownership disclosure details" className={'flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 py-1 text-xs font-semibold marker:content-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + tone}>
                 <span>Disclosed share changes: {activityLabel} | {ownership.buyers.length} buyers</span>
-                <span className={styles.textMuted}>Details</span>
+                <span aria-hidden="true" className={'inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded border ' + styles.row + ' ' + styles.textMuted}>
+                    <svg className="h-4 w-4 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m6 9 6 6 6-6" />
+                    </svg>
+                </span>
             </summary>
-            <div className={'border-t py-2 text-[11px] ' + styles.divider}>
+            <div className={'border-t py-2 text-xs ' + styles.divider}>
                 <p className={styles.textMuted}>{ownership.reportPeriod ? `Latest listed buyer report ${dateLabel(ownership.reportPeriod)}` : 'Latest listed buyer report unavailable'}</p>
                 <p className={'mt-1 ' + styles.textMuted}>{ownership.institutionalOwnershipPercent === null
                     ? 'Reported institutional ownership unavailable'

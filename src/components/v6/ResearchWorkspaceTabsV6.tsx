@@ -14,9 +14,20 @@ export const ResearchWorkspaceTabsV6 = ({ active, theme, onChange }: {
     ];
     return (
         <div className="research-scrollbar mb-3 max-w-full overflow-x-auto">
-            <div role="group" aria-label="Research workspace" className={'flex w-fit rounded border p-1 ' + styles.panel}>
+            <div role="tablist" aria-label="Research workspace" className={'flex w-fit rounded border p-1 ' + styles.panel}>
                 {tabs.map((tab) => (
-                    <button key={tab.id} aria-pressed={active === tab.id} type="button" onClick={() => onChange(tab.id)} className={'min-h-10 rounded px-3 text-xs font-semibold ' + (active === tab.id ? styles.selectedRow : styles.textMuted)}>{tab.label}</button>
+                    <button
+                        key={tab.id}
+                        id={`research-workspace-tab-${tab.id}`}
+                        role="tab"
+                        aria-selected={active === tab.id}
+                        aria-controls={`research-workspace-${tab.id}`}
+                        type="button"
+                        onClick={() => onChange(tab.id)}
+                        className={'min-h-10 rounded px-3 text-xs font-semibold ' + (active === tab.id ? styles.selectedRow : styles.textMuted)}
+                    >
+                        {tab.label}
+                    </button>
                 ))}
             </div>
         </div>

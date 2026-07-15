@@ -14,6 +14,7 @@ import {
 import { ScoreHistoryV6 } from './ScoreHistoryV6';
 import { ChangeAttributionV6 } from './ChangeAttributionV6';
 import { MarketAlertsV6 } from './MarketAlertsV6';
+import { MarketContextV6 } from './MarketContextV6';
 import {
     formatCompactDateV6,
     formatSignedV6,
@@ -53,6 +54,9 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
     const storyHeadline = getStoryHeadlineV6(signal);
     const hasLinkedContext = contextItems.some((item) => item.affected.label !== 'Context');
     const panel = 'rounded-lg border backdrop-blur-md ' + t.panel;
+    const quickReadContent = <QuickReadContentV6 signal={signal} posture={posture} quality={quality} delta={delta} scoreClass={tierTone.text} theme={theme} />;
+    const valuationBackdrop = signal.metadata.valuation_backdrop;
+    const marketContext = signal.metadata.market_context;
 
     return (
         <div className="mt-4 space-y-4" aria-busy={updating}>
@@ -62,7 +66,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                 </div>
             ) : null}
 
-            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+            <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
                 <section className={panel + ' min-w-0 overflow-hidden'} aria-labelledby="market-story-title">
                     <div className={'h-1 bg-gradient-to-r ' + tierTone.rail} />
                     <div className="p-5 sm:p-7">
@@ -70,9 +74,13 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                             <p className={'text-xs font-semibold uppercase tracking-[0.12em] ' + t.textMuted}>Today&apos;s market story</p>
                             {updating ? <span className={'text-xs ' + t.textMuted}>Refreshing data...</span> : null}
                         </div>
-                        <h1 id="market-story-title" className={'mt-3 max-w-3xl text-2xl font-bold leading-tight sm:text-3xl ' + t.textPrimary}>{storyHeadline}</h1>
-                        <p className={'mt-3 max-w-4xl text-sm leading-6 sm:text-base ' + t.textSecondary}>{posture.summary}</p>
+                        <h1 id="market-story-title" className={'mt-3 max-w-3xl text-3xl font-bold leading-tight sm:text-4xl ' + t.textPrimary}>{storyHeadline}</h1>
+                        <p className={'mt-3 max-w-4xl text-base leading-7 sm:text-lg ' + t.textSecondary}>{posture.summary}</p>
                         {caveat ? <p className={'mt-3 text-sm font-medium ' + (theme === 'light' ? 'text-amber-800' : 'text-amber-200')}>{caveat}</p> : null}
+
+                        <section className={'mt-6 border-t pt-5 xl:hidden ' + t.divider} aria-label="Quick read">
+                            {quickReadContent}
+                        </section>
 
                         <div className={'mt-6 border-t pt-5 ' + t.divider}>
                             <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>How the evidence builds</p>
@@ -86,15 +94,8 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                     </div>
                 </section>
 
-                <aside className={panel + ' p-5'} aria-label="Quick read">
-                    <p className={'text-xs font-semibold uppercase tracking-[0.12em] ' + t.textMuted}>Quick read</p>
-                    <div className="mt-4 space-y-4">
-                        <QuickReadItemV6 label="Market view" value={posture.headline} detail={signal.mode === 'contrarian' ? 'Contrarian interpretation' : 'Standard interpretation'} theme={theme} />
-                        <QuickReadItemV6 label="Evidence agreement" value={Math.round(signal.confidence.agreement_pct) + '%'} detail={signal.confidence.level + ' agreement, not forecast probability'} theme={theme} />
-                        <QuickReadItemV6 label="Data freshness" value={capitalize(quality?.freshness ?? 'unavailable')} detail={getActiveSourceSummary(signal)} valueClass={getFreshnessTone(capitalize(quality?.freshness ?? 'stale'), theme)} theme={theme} />
-                        <QuickReadItemV6 label="Composite score" value={Math.round(signal.composite_score) + ' / 100'} detail={(typeof delta === 'number' ? formatSignedV6(delta) + ' since the prior snapshot' : 'No prior comparison')} valueClass={tierTone.text} theme={theme} />
-                    </div>
-                    <p className={'mt-5 border-t pt-4 text-xs leading-5 ' + t.divider + ' ' + t.textMuted}>Snapshot {formatCompactDateV6(signal.metadata.score_delta?.snapshot_date)}. Decision support only.</p>
+                <aside className={panel + ' hidden p-5 xl:block'} aria-label="Quick read">
+                    {quickReadContent}
                 </aside>
             </div>
 
@@ -124,7 +125,10 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                 />
             </section>
 
-            <section className={panel + ' p-5 sm:p-6'} aria-labelledby="terms-title">
+            {valuationBackdrop ? <ValuationBackdropV6 backdrop={valuationBackdrop} theme={theme} /> : null}
+            {marketContext ? <MarketContextV6 context={marketContext} theme={theme} /> : null}
+
+            <section className={panel + ' p-5 sm:p-6'} aria-label="Supporting context">
                 <div className="grid gap-5 lg:grid-cols-[220px_1fr] lg:items-start">
                     <div>
                         <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Plain-language guide</p>
@@ -136,9 +140,35 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                         <GlossaryItemV6 term="Freshness" definition="How recently the underlying sources were updated." theme={theme} />
                     </dl>
                 </div>
+
+                <div className={'mt-6 grid items-start gap-8 border-t pt-5 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.18fr)] lg:gap-0 ' + t.divider}>
+                    <section className="min-w-0 lg:pr-8" aria-labelledby="scenarios-title">
+                        <SectionHeadingV6 eyebrow="Watch next" title="What could change the story" id="scenarios-title" theme={theme} />
+                        <div className="mt-4 space-y-4">
+                            {scenarios.map((scenario) => (
+                                <div key={scenario.title} className={'border-l-2 pl-3 ' + scenarioBorder(scenario.tone, theme)}>
+                                    <h3 className={'text-sm font-bold ' + t.textPrimary}>{scenario.title}</h3>
+                                    <p className={'mt-1 text-sm leading-5 ' + t.textSecondary}>{scenario.detail}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    <section className={'min-w-0 lg:border-l lg:pl-8 ' + t.divider} aria-labelledby="context-title">
+                        <SectionHeadingV6 eyebrow={hasLinkedContext ? 'Signal-linked context' : 'Market background'} title="Developments behind the story" id="context-title" theme={theme} />
+                        <div className="mt-4 space-y-4">
+                            {contextItems.map(({ article, affected }) => {
+                                const contextLabel = affected.label === 'Context' ? 'background' : 'affects ' + affected.label;
+                                const content = <><span className={'text-sm font-semibold leading-5 ' + t.textPrimary}>{article.title}</span><span className={'mt-1 block text-xs ' + t.textMuted}>{article.source}{article.pubDate ? ' - ' + formatCompactDateV6(article.pubDate) : ''} - {contextLabel}</span></>;
+                                return article.url ? <a key={article.title} href={article.url} target="_blank" rel="noreferrer" className={'block border-b pb-3 transition-colors last:border-0 last:pb-0 ' + t.divider + (theme === 'light' ? ' hover:text-emerald-700' : ' hover:text-emerald-200')} title={affected.detail}>{content}</a> : <div key={article.title} className={'border-b pb-3 last:border-0 last:pb-0 ' + t.divider} title={affected.detail}>{content}</div>;
+                            })}
+                            {contextItems.length === 0 ? <p className={'text-sm ' + t.textMuted}>No contextual headlines are available for this snapshot.</p> : null}
+                        </div>
+                    </section>
+                </div>
             </section>
 
-            <DisclosureV6 title="Explore charts and weighted evidence" theme={theme} defaultOpen>
+            <DisclosureV6 title="Explore charts and weighted evidence" theme={theme}>
                 <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(440px,0.92fr)]">
                     <section className="min-w-0">
                         <ScoreHistoryV6 signal={signal} theme={theme} />
@@ -160,32 +190,6 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                     </section>
                 </div>
             </DisclosureV6>
-
-            <div className="grid items-start gap-4 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.18fr)]">
-                <section className={panel + ' p-5 sm:p-6'} aria-labelledby="scenarios-title">
-                    <SectionHeadingV6 eyebrow="Watch next" title="What could change the story" id="scenarios-title" theme={theme} />
-                    <div className="mt-4 space-y-4">
-                        {scenarios.map((scenario) => (
-                            <div key={scenario.title} className={'border-l-2 pl-3 ' + scenarioBorder(scenario.tone, theme)}>
-                                <h3 className={'text-sm font-bold ' + t.textPrimary}>{scenario.title}</h3>
-                                <p className={'mt-1 text-sm leading-5 ' + t.textSecondary}>{scenario.detail}</p>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-
-                <section className={panel + ' p-5 sm:p-6'} aria-labelledby="context-title">
-                    <SectionHeadingV6 eyebrow={hasLinkedContext ? 'Signal-linked context' : 'Market background'} title="Developments behind the story" id="context-title" theme={theme} />
-                    <div className="mt-4 space-y-4">
-                        {contextItems.map(({ article, affected }) => {
-                            const contextLabel = affected.label === 'Context' ? 'background' : 'affects ' + affected.label;
-                            const content = <><span className={'text-sm font-semibold leading-5 ' + t.textPrimary}>{article.title}</span><span className={'mt-1 block text-xs ' + t.textMuted}>{article.source}{article.pubDate ? ' - ' + formatCompactDateV6(article.pubDate) : ''} - {contextLabel}</span></>;
-                            return article.url ? <a key={article.title} href={article.url} target="_blank" rel="noreferrer" className={'block border-b pb-3 transition-colors last:border-0 last:pb-0 ' + t.divider + (theme === 'light' ? ' hover:text-emerald-700' : ' hover:text-emerald-200')} title={affected.detail}>{content}</a> : <div key={article.title} className={'border-b pb-3 last:border-0 last:pb-0 ' + t.divider} title={affected.detail}>{content}</div>;
-                        })}
-                        {contextItems.length === 0 ? <p className={'text-sm ' + t.textMuted}>No contextual headlines are available for this snapshot.</p> : null}
-                    </div>
-                </section>
-            </div>
 
             <MarketAlertsV6 signal={signal} enableSocial={enableSocial} theme={theme} />
 
@@ -224,6 +228,78 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
     );
 };
 
+const ValuationBackdropV6 = ({ backdrop, theme }: {
+    backdrop: NonNullable<MarketSignal['metadata']['valuation_backdrop']>;
+    theme: ResearchThemeV6;
+}) => {
+    const t = getThemeV6(theme);
+    const sourceLinks = getValuationSourceLinksV6(backdrop.source_url);
+    const ratioLabel = `${backdrop.name}: ${backdrop.ratio_pct.toFixed(1)} percent`;
+
+    return (
+        <details className={'group overflow-hidden rounded-lg border backdrop-blur-md ' + t.panel} aria-labelledby="valuation-backdrop-title" data-testid="valuation-backdrop">
+            <summary className={'flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:content-none ' + t.textPrimary}>
+                <span className="min-w-0">
+                    <span className={'block text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Non-scored context</span>
+                    <span id="valuation-backdrop-title" className={'mt-1 block text-base font-bold sm:text-lg ' + t.textPrimary}>{backdrop.name}</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-3">
+                    <span className={'hidden rounded border px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.06em] sm:inline-flex ' + t.divider + ' ' + t.textMuted}>Not scored</span>
+                    <span aria-hidden="true" className={'text-lg transition-transform group-open:rotate-45 ' + t.textMuted}>+</span>
+                </span>
+            </summary>
+
+            <div className={'border-t ' + t.divider}>
+                <div className="grid gap-px lg:grid-cols-[220px_minmax(0,1fr)]">
+                    <div className={'p-5 ' + t.cell}>
+                        <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Long-horizon lens</p>
+                        <p className={'mt-2 text-sm leading-5 ' + t.textSecondary}>A valuation backdrop for the US market, shown for context rather than as a timing signal.</p>
+                    </div>
+
+                    <div className={'grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(190px,0.78fr)_minmax(0,1.22fr)] ' + t.cell}>
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+                                <p aria-label={ratioLabel} className={'text-3xl font-bold tabular-nums ' + t.textPrimary}>{backdrop.ratio_pct.toFixed(1)}%</p>
+                                <span className={'rounded border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ' + (theme === 'light' ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-sky-400/40 bg-sky-500/10 text-sky-200')}>Valuation context</span>
+                            </div>
+                            <p className={'mt-3 text-sm font-semibold ' + t.textPrimary}>{backdrop.label}</p>
+                            <p className={'mt-2 text-sm leading-5 ' + t.textSecondary}>{backdrop.detail}</p>
+                        </div>
+
+                        <dl className={'grid gap-4 border-t pt-4 sm:grid-cols-3 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0 ' + t.divider}>
+                            <CompactFactV6 label="Market value" value={formatBillionsV6(backdrop.market_value_billions)} theme={theme} />
+                            <CompactFactV6 label="Latest GDP" value={formatBillionsV6(backdrop.gdp_billions)} theme={theme} />
+                            <CompactFactV6 label="Report date" value={formatCompactDateV6(backdrop.report_date)} theme={theme} />
+                        </dl>
+                    </div>
+                </div>
+
+                <div className={'flex flex-col gap-3 border-t px-5 py-4 sm:flex-row sm:items-center sm:justify-between ' + t.divider + ' ' + t.cell}>
+                    <div>
+                        <p className={'text-xs font-semibold ' + t.textSecondary}>Not included in the composite score.</p>
+                        <p className={'mt-1 text-xs ' + t.textMuted}>Use it as slow-moving strategic context, not a standalone decision.</p>
+                    </div>
+                    {sourceLinks.length > 0 ? (
+                        <div className="flex flex-wrap gap-2" aria-label="Buffett Indicator source links">
+                            {sourceLinks.map((source) => (
+                                <a
+                                    key={source.url}
+                                    href={source.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className={'inline-flex min-h-10 items-center rounded-md border px-3 text-xs font-semibold transition-colors ' + t.divider + ' ' + t.textSecondary + (theme === 'light' ? ' hover:border-sky-400 hover:text-sky-700' : ' hover:border-sky-300 hover:text-sky-200')}
+                                >
+                                    {source.label}
+                                </a>
+                            ))}
+                        </div>
+                    ) : null}
+                </div>
+            </div>
+        </details>
+    );
+};
+
 const getStoryHeadlineV6 = (signal: MarketSignal) => {
     if (signal.tier === 'strong-buy') return 'Markets are moving with broad positive support.';
     if (signal.tier === 'buy') return 'Markets are cautiously optimistic.';
@@ -249,7 +325,7 @@ const StoryChapterV6 = ({ driver, index, signal, theme }: { driver: DriverV6; in
             <p className={'text-xs font-semibold uppercase tracking-[0.08em] ' + (driver.conflict ? t.risk : t.textMuted)}>{driver.conflict ? 'Conflicting evidence' : 'Evidence chapter'}</p>
             <h2 className={'mt-1 text-base font-bold ' + t.textPrimary}>{component?.display_name ?? driver.name}</h2>
             <p className={'mt-2 text-sm leading-5 ' + t.textSecondary}>{relationship}</p>
-            <div className={'mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs ' + t.textMuted}>
+            <div className={'mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px] ' + t.textMuted}>
                 <span>{driver.contribution.toFixed(1)} weighted points</span>
                 <span>{driver.freshness}</span>
             </div>
@@ -257,13 +333,36 @@ const StoryChapterV6 = ({ driver, index, signal, theme }: { driver: DriverV6; in
     );
 };
 
+const QuickReadContentV6 = ({ signal, posture, quality, delta, scoreClass, theme }: {
+    signal: MarketSignal;
+    posture: ReturnType<typeof getDecisionPostureV6>;
+    quality: MarketSignal['metadata']['signal_quality'];
+    delta: number | null | undefined;
+    scoreClass: string;
+    theme: ResearchThemeV6;
+}) => {
+    const t = getThemeV6(theme);
+    return (
+        <>
+            <p className={'text-xs font-semibold uppercase tracking-[0.12em] ' + t.textMuted}>Quick read</p>
+            <div className="mt-4 space-y-4">
+                <QuickReadItemV6 label="Market view" value={posture.headline} detail={signal.mode === 'contrarian' ? 'Contrarian interpretation' : 'Standard interpretation'} theme={theme} />
+                <QuickReadItemV6 label="Evidence agreement" value={Math.round(signal.confidence.agreement_pct) + '%'} detail={signal.confidence.level + ' agreement, not forecast probability'} theme={theme} />
+                <QuickReadItemV6 label="Data freshness" value={capitalize(quality?.freshness ?? 'unavailable')} detail={getActiveSourceSummary(signal)} valueClass={getFreshnessTone(capitalize(quality?.freshness ?? 'stale'), theme)} theme={theme} />
+                <QuickReadItemV6 label="Composite score" value={Math.round(signal.composite_score) + ' / 100'} detail={(typeof delta === 'number' ? formatSignedV6(delta) + ' pts since the prior snapshot' : 'No prior comparison')} valueClass={scoreClass} theme={theme} />
+            </div>
+            <p className={'mt-5 border-t pt-4 text-xs leading-5 ' + t.divider + ' ' + t.textMuted}>Snapshot {formatCompactDateV6(signal.metadata.score_delta?.snapshot_date)}. Decision support only.</p>
+        </>
+    );
+};
+
 const QuickReadItemV6 = ({ label, value, detail, valueClass, theme }: { label: string; value: string; detail: string; valueClass?: string; theme: ResearchThemeV6 }) => {
     const t = getThemeV6(theme);
     return (
         <div className={'border-b pb-4 last:border-0 last:pb-0 ' + t.divider}>
-            <p className={'text-xs font-semibold ' + t.textMuted}>{label}</p>
+            <p className={'text-[13px] font-semibold ' + t.textMuted}>{label}</p>
             <p className={'mt-1 text-base font-bold ' + (valueClass ?? t.textPrimary)}>{value}</p>
-            <p className={'mt-1 text-xs leading-5 ' + t.textSecondary}>{detail}</p>
+            <p className={'mt-1 text-[13px] leading-5 ' + t.textSecondary}>{detail}</p>
         </div>
     );
 };
@@ -398,6 +497,20 @@ const DisclosureV6 = ({ title, theme, children, defaultOpen = false }: { title: 
 };
 
 const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
+
+const formatBillionsV6 = (value: number) => {
+    const formatted = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(value >= 1000 ? value / 1000 : value);
+    return '$' + formatted + (value >= 1000 ? 'tn' : 'bn');
+};
+
+const getValuationSourceLinksV6 = (sourceUrl: string) => sourceUrl
+    .split(/\s+and\s+/)
+    .map((url) => url.trim())
+    .filter((url) => /^https?:\/\//i.test(url))
+    .map((url, index) => ({
+        url,
+        label: url.includes('/GDP') ? 'FRED GDP series' : url.includes('BOGZ1') ? 'FRED equity series' : `Source ${index + 1}`,
+    }));
 
 const driverBarToneV6 = (driver: DriverV6) => {
     if (driver.conflict || driver.impact === 'negative') return 'bg-rose-500';

@@ -12,7 +12,7 @@ New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 Push-Location $repoRoot
 try {
     npx tsc `
-        --target ES2020 `
+        --target ES2022 `
         --module CommonJS `
         --moduleResolution node `
         --esModuleInterop `

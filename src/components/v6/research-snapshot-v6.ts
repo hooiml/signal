@@ -46,3 +46,10 @@ export const applyResearchSnapshotV6 = (item: ResearchWatchlistItem, snapshot: R
             ? 'Unavailable' : `${number(snapshot.technicals.support)} / ${number(snapshot.technicals.resistance)}`,
     },
 });
+
+export const applyResearchQuoteV6 = (item: ResearchWatchlistItem, quote: ResearchSnapshot['quote']): ResearchWatchlistItem => ({
+    ...item,
+    name: quote.name ?? item.name,
+    price: quote.price ?? undefined,
+    dailyChange: quote.dailyChangePercent ?? undefined,
+});

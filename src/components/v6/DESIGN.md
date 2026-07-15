@@ -39,6 +39,8 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 ## 3. Layout
 
 - Market and Research share a 1280px maximum workspace shell with 16px mobile and 20px desktop gutters so route changes preserve the same outer alignment.
+- Market and Research share the Signal app header: transparent canvas, a single 0.5px bottom hairline, compact SIGNAL wordmark, primary nav, theme toggle, and route-owned controls in one horizontal command row. Header-only CSS variables map to the V6 border, selection, text, and radius tokens.
+- The shared header theme control is an icon-only sliding toggle: a compact bordered track with one thumb that moves between Light and Dark, while its accessible label states the destination mode.
 - Desktop uses a fixed 220px watchlist rail and flexible research document.
 - The watchlist rail and research detail share one themed workspace shell with 12-16px internal padding.
 - A responsive divider separates the watchlist from the detail, while the watchlist heading keeps 16px separation before the ticker list.
@@ -48,6 +50,7 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 - Research opens with a compact Today inbox above the watchlist-detail shell. The inbox owns one vertical list, keeps the page as the only vertical scroll container, and collapses its summary and filters into a single readable column on narrow screens.
 - The V2 Light/Dark segmented control sits beside the watchlist heading.
 - Overview uses a thesis and decision split followed by a full-width snapshot.
+- US Overview adds a compact Index Test after the thesis and decision split. It compares the selected ticker with VOO over one year, labels the return basis, and remains evidence for review rather than a recommendation or automatic checklist update.
 
 ## 4. Component Rules
 
@@ -56,7 +59,7 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 - Status language remains Ready, DCA, Wait for price, Watch, and Avoid.
 - Compare is a peer workspace, not a nested card: users select up to three watchlist companies and scan one evidence table with explicit unavailable states.
 - The research journal exposes both sides of the thesis plus buy, sell, and invalidation triggers already owned by the persisted research record.
-- Assisted journal findings form a review queue above the editable fields. Every finding links to its supporting Yahoo or SEC fact, labels AI synthesis separately from deterministic evidence, and requires an explicit Add or Dismiss action. Accepted text appends to rather than overwrites existing notes, while a separate accepted-evidence list preserves its source metadata and permits provenance removal before save; checklist and decision state remain manual.
+- The research journal opens as read-only details of the saved thesis, triggers, decision state, and checklist. Submit review reveals the assisted findings queue and editable fields, while Cancel discards unsaved changes and Save review creates the explicit review snapshot. Every finding links to its supporting Yahoo or SEC fact, labels AI synthesis separately from deterministic evidence, and requires an explicit Add or Dismiss action. Accepted text appends to rather than overwrites existing notes, while a separate accepted-evidence list preserves its source metadata and permits provenance removal before save; checklist and decision state remain manual.
 - Review history is an expandable, newest-first timeline below the editor. Each explicit save creates a server-owned snapshot, identifies fields changed from the preceding review, and keeps the evidence links that supported that historical decision state.
 - The Today inbox combines deterministic risk and opportunity conditions, upcoming US earnings catalysts, and research reviews older than 30 days. Every item names its source and uses review language rather than trade instructions.
 - Inbox filters cover All, Action needed, Upcoming, and the recoverable Snoozed queue. Filter counts remain visible, empty states explain whether monitoring is clear or catalyst coverage is absent, and opening an item returns the user to that ticker's Research document.
@@ -71,6 +74,8 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 - Theme preference uses the same local-storage key as Research V2.
 - Market V6 reuses the V2 command header and places four scan targets below the decision posture: score, regime, alignment, and combined data quality.
 - Market evidence is sorted by absolute contribution. Conflicting indicators are flagged inline instead of repeated in a separate panel.
+- US market briefings may show a Buffett Indicator valuation backdrop after What changed. It is collapsed by default as a native disclosure row, labeled as non-scored context, includes its report date and FRED source links when expanded, and never changes the composite score.
+- US market briefings may show a collapsed, non-scored Macro and breadth context disclosure with the 10Y–3M spread, Chicago Fed NFCI, and equal-weight versus cap-weight one-year returns. Malaysia briefings use the same progressive-disclosure pattern for a BNM-native rate panel with MGS 3Y/10Y, OPR, MYOR, and short-term bill context. These cards never change the composite score and must name their update date and source links when expanded.
 - Market change attribution compares each driver with the prior daily snapshot and surfaces the three largest contribution shifts beneath What changed.
 - Market alerts persist browser-local score, agreement, tier, freshness, and daily-move conditions scoped to the active market, interpretation mode, and social-source setting. They are evaluated on briefing refresh and must not imply background push delivery.
 - The market command header exposes one manual briefing refresh command, reports the last successful check time, disables duplicate refreshes while a request is active, and prevents stale responses from replacing a newer market configuration.

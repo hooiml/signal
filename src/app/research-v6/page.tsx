@@ -4,7 +4,7 @@ import { ResearchDashboardV6 } from '@/components/v6/ResearchDashboardV6';
 import { ResearchLoadingV6 } from '@/components/v6/ThemeProviderV6';
 
 export const metadata: Metadata = {
-    title: 'Research V6 | Signal',
+    title: 'Research | Signal',
     description: 'A focused investment research notebook for thesis and valuation review.',
 };
 
