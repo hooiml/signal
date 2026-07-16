@@ -28,9 +28,23 @@ const isBenchmarkReturnBasis = (value: unknown) => typeof value === 'string' && 
 const hasNullableNumbers = (value: Record<string, unknown>, keys: readonly string[]) =>
     keys.every((key) => isNullableNumber(value[key]));
 
+const isChartPoint = (value: unknown) => isRecord(value)
+    && typeof value.time === 'string'
+    && /^\d{4}-\d{2}-\d{2}$/.test(value.time)
+    && ['open', 'high', 'low', 'close'].every((key) => typeof value[key] === 'number' && Number.isFinite(value[key]))
+    && hasNullableNumbers(value, [
+        'volume', 'ma50', 'ma200', 'averageVolume20', 'rsi14',
+        'macd', 'macdSignal', 'macdHistogram', 'atrPercent14',
+    ]);
+
+const isResearchChart = (value: unknown): value is ResearchSnapshot['chart'] => isRecord(value)
+    && value.interval === '1d'
+    && Array.isArray(value.points)
+    && value.points.every(isChartPoint);
+
 const isResearchSnapshot = (value: unknown): value is ResearchSnapshot => {
     if (!isRecord(value) || !isRecord(value.benchmark) || !isRecord(value.quote) || !isRecord(value.fundamentals)
-        || !isRecord(value.valuation) || !isRecord(value.technicals)) return false;
+        || !isRecord(value.valuation) || !isRecord(value.technicals) || !isRecord(value.chart)) return false;
     return typeof value.symbol === 'string'
         && (value.market === 'US' || value.market === 'MY')
         && typeof value.fetchedAt === 'string'
@@ -57,6 +71,7 @@ const isResearchSnapshot = (value: unknown): value is ResearchSnapshot => {
             'ma50', 'ma200', 'rsi14', 'macd', 'low52Week', 'high52Week',
             'averageVolume20', 'support', 'resistance',
         ])
+        && isResearchChart(value.chart)
         && Array.isArray(value.sources) && value.sources.every((source) => typeof source === 'string')
         && Array.isArray(value.warnings) && value.warnings.every((warning) => typeof warning === 'string');
 };
@@ -67,6 +82,13 @@ export const parseResearchSnapshotResponse = (payload: unknown): ResearchSnapsho
         throw new ResearchSnapshotInputError(typeof payload.error === 'string' ? payload.error : 'Unable to load free-source data.');
     }
     return payload.data;
+};
+
+export const parseResearchChartResponse = (payload: unknown): ResearchSnapshot['chart'] => {
+    if (!isRecord(payload) || payload.success !== true || !isRecord(payload.data) || !isResearchChart(payload.data.chart)) {
+        throw new ResearchSnapshotInputError(isRecord(payload) && typeof payload.error === 'string' ? payload.error : 'Unable to load chart history.');
+    }
+    return payload.data.chart;
 };
 
 export const parseResearchQuoteResponse = (payload: unknown): ResearchSnapshot['quote'] => {

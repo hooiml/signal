@@ -61,6 +61,7 @@ export const getResearchSnapshot = async (symbol: string, market: ResearchMarket
             ma50: null, ma200: null, rsi14: null, macd: null, low52Week: null, high52Week: null,
             averageVolume20: null, support: null, resistance: null,
         },
+        chart: yahooData?.chart ?? { interval: '1d', points: [] },
         sources: [yahooData ? 'Yahoo Finance' : null, secData ? 'SEC EDGAR' : null].filter((source): source is string => source !== null),
         warnings,
     };

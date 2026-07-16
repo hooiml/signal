@@ -6,21 +6,29 @@ import { parseResearchInboxResponse } from '@/lib/research/inbox-input';
 import { emptyInboxState, inboxItemChange, inboxItemSignature, parseInboxState, RESEARCH_INBOX_STATE_KEY, snapshotInboxItems } from '@/lib/research/inbox-state';
 import { latestReviewChanges } from '@/lib/research/records';
 import { defaultResearchMonitoringRules, type ResearchRecord, type ResearchUpdateMode } from '@/lib/types/research';
-import type { ResearchInboxResponse, ResearchInboxUrgency } from '@/lib/types/research-inbox';
+import type { ResearchInboxItem, ResearchInboxResponse, ResearchInboxUrgency } from '@/lib/types/research-inbox';
 import { ResearchInboxWorkflowV6 } from './ResearchInboxWorkflowV6';
-import { ResearchInboxRowV6 } from './ResearchInboxRowV6';
-import { getThemeV6, type ResearchThemeV6 } from './research-v6';
+import { ResearchInboxRowV6, researchInboxCategoryLabel } from './ResearchInboxRowV6';
+import { getThemeV6, type ResearchThemeV6, type ResearchTabV6 } from './research-v6';
 
 type InboxFilter = 'all' | 'snoozed' | ResearchInboxUrgency;
 type Props = {
     readonly items: readonly ResearchWatchlistItem[];
     readonly records: readonly ResearchRecord[];
     readonly theme: ResearchThemeV6;
-    readonly onOpen: (symbol: string) => void;
+    readonly onOpen: (symbol: string, tab: ResearchTabV6) => void;
     readonly onSave: (record: ResearchRecord, mode: ResearchUpdateMode) => Promise<boolean>;
 };
+type InboxGroup = { readonly symbol: string; readonly items: readonly ResearchInboxItem[] };
+
 const filters = ['all', 'action', 'upcoming', 'snoozed'] as const;
 const labels: Readonly<Record<InboxFilter, string>> = { all: 'All', action: 'Action needed', upcoming: 'Upcoming', snoozed: 'Snoozed' };
+
+const groupInboxItems = (items: readonly ResearchInboxItem[]): readonly InboxGroup[] => {
+    const groups = new Map<string, ResearchInboxItem[]>();
+    items.forEach((item) => groups.set(item.symbol, [...(groups.get(item.symbol) ?? []), item]));
+    return [...groups].map(([symbol, groupedItems]) => ({ symbol, items: groupedItems }));
+};
 
 const responseError = (payload: unknown): string => {
     if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return 'Research inbox is unavailable.';
@@ -95,17 +103,28 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props
     const activeItems = data?.items.filter((item) => !snoozedIds.has(item.id)) ?? [];
     const snoozedItems = data?.items.filter((item) => snoozedIds.has(item.id)) ?? [];
     const visibleItems = filter === 'snoozed' ? snoozedItems : activeItems.filter((item) => filter === 'all' || item.urgency === filter);
+    const activeGroups = groupInboxItems(activeItems);
+    const visibleGroups = groupInboxItems(visibleItems);
+    const displayedGroups = expanded ? visibleGroups : visibleGroups.slice(0, 2);
     const counts = { all: activeItems.length, action: activeItems.filter((item) => item.urgency === 'action').length, upcoming: activeItems.filter((item) => item.urgency === 'upcoming').length, snoozed: snoozedItems.length };
     const unreadCount = activeItems.filter((item) => local.seen[item.id] !== inboxItemSignature(item)).length;
-    const displayed = expanded ? visibleItems : visibleItems.slice(0, 2);
     const empty = filter === 'snoozed' ? 'No items are snoozed.' : filter === 'upcoming' ? 'No US earnings catalysts are scheduled in the next 21 days.' : filter === 'action' ? 'No risk, opportunity, or stale-review items need action.' : 'Nothing needs review right now. Monitoring remains current.';
     const updateSeen = (ids: readonly string[]) => setLocal((current) => ({ ...current, seen: { ...current.seen, ...Object.fromEntries((data?.items ?? []).filter((item) => ids.includes(item.id)).map((item) => [item.id, inboxItemSignature(item)])) } }));
-    const snooze = (id: string, days: number) => { const until = new Date(Date.now() + days * 86_400_000).toISOString(); setClock(Date.now()); setLocal((current) => ({ ...current, snoozed: { ...current.snoozed, [id]: until } })); setMenuId(null); };
-    const wake = (id: string) => setLocal((current) => { const snoozed = { ...current.snoozed }; delete snoozed[id]; return { ...current, snoozed }; });
-    const openItem = (symbol: string) => {
+    const snooze = (ids: readonly string[], days: number) => {
+        const until = new Date(Date.now() + days * 86_400_000).toISOString();
+        setClock(Date.now());
+        setLocal((current) => ({ ...current, snoozed: { ...current.snoozed, ...Object.fromEntries(ids.map((id) => [id, until])) } }));
+        setMenuId(null);
+    };
+    const wake = (ids: readonly string[]) => setLocal((current) => {
+        const snoozed = { ...current.snoozed };
+        ids.forEach((id) => delete snoozed[id]);
+        return { ...current, snoozed };
+    });
+    const openItem = (symbol: string, tab: ResearchTabV6 = 'overview') => {
         setCollapsed(true);
         setMenuId(null);
-        onOpen(symbol);
+        onOpen(symbol, tab);
         window.setTimeout(() => {
             const detail = document.getElementById('research-detail');
             if (!detail) return;
@@ -118,7 +137,7 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props
         <header className="flex flex-col gap-3 min-[700px]:flex-row min-[700px]:items-end min-[700px]:justify-between">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 min-[700px]:block">
                 <div><p className={'text-xs font-bold uppercase tracking-[0.14em] ' + styles.positive}>Daily attention</p><h2 id="research-inbox-title" className={'mt-1 text-lg font-bold ' + styles.textPrimary}>Today</h2></div>
-                <p className={'col-span-2 mt-1 text-xs leading-5 ' + styles.textMuted}>{unreadCount} unread · {counts.action} need review · {counts.upcoming} upcoming · {data?.monitoredCount ?? items.length} monitored</p>
+                <p className={'col-span-2 mt-1 text-xs leading-5 ' + styles.textMuted}>{unreadCount} unread · {counts.all} attention item{counts.all === 1 ? '' : 's'} across {activeGroups.length} ticker{activeGroups.length === 1 ? '' : 's'} · {data?.monitoredCount ?? items.length} monitored</p>
             </div>
             <div className="flex flex-col gap-2 min-[700px]:items-end">
                 <div className="flex flex-wrap justify-end gap-1">
@@ -128,13 +147,51 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props
                 <div role="group" aria-label="Filter research inbox" className={'research-scrollbar flex max-w-full gap-1 overflow-x-auto rounded border p-1 ' + styles.row}>{filters.map((id) => <button key={id} type="button" aria-pressed={filter === id} onClick={() => { setFilter(id); setExpanded(false); setMenuId(null); }} className={'min-h-10 shrink-0 rounded px-3 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + (filter === id ? styles.selectedRow : styles.textMuted)}>{labels[id]} · {counts[id]}</button>)}</div>
             </div>
         </header>
-        {collapsed ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>Daily attention is collapsed. {unreadCount} unread item{unreadCount === 1 ? '' : 's'} remain{unreadCount === 1 ? 's' : ''} in this inbox.</p> : items.length === 0 ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>Add a ticker to begin daily monitoring.</p> : error ? <p role="alert" className={'mt-4 border-t pt-4 text-sm ' + styles.risk}>{error}</p> : !data ? <p role="status" className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>Checking watchlist conditions and upcoming catalysts...</p> : visibleItems.length === 0 ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>{empty}</p> : <><ol className={'mt-4 border-t ' + styles.divider}>{displayed.map((item) => {
-            const record = recordBySymbol.get(item.symbol);
-            const thesisChanges = record
-                ? record.reviewHistory.length >= 2 ? latestReviewChanges(record) : ['No prior review comparison']
-                : [];
-            return <ResearchInboxRowV6 key={item.id} item={item} theme={theme} unread={local.seen[item.id] !== inboxItemSignature(item)} change={inboxItemChange(item, previousSnapshot, hadPriorCheck)} thesisChanges={thesisChanges} snoozed={snoozedIds.has(item.id)} menuOpen={menuId === item.id} onOpen={() => openItem(item.symbol)} onToggleMenu={() => setMenuId((current) => current === item.id ? null : item.id)} onMarkSeen={() => updateSeen([item.id])} onSnooze={(days) => snooze(item.id, days)} onWake={() => wake(item.id)} workflow={record ? <ResearchInboxWorkflowV6 key={`${record.symbol}-${JSON.stringify(record.monitoringRules)}`} record={record} theme={theme} onSave={onSave} /> : null} />;
-        })}</ol>{visibleItems.length > 2 && <button type="button" aria-expanded={expanded} onClick={() => setExpanded((current) => !current)} className={'mt-2 min-h-10 rounded px-3 text-xs font-semibold ' + styles.textSecondary}>{expanded ? 'Show less' : `Show ${visibleItems.length - displayed.length} more`}</button>}</>}
+        {collapsed ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>Daily attention is collapsed. {unreadCount} unread item{unreadCount === 1 ? '' : 's'} remain{unreadCount === 1 ? 's' : ''} in this inbox.</p> : items.length === 0 ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>Add a ticker to begin daily monitoring.</p> : error ? <p role="alert" className={'mt-4 border-t pt-4 text-sm ' + styles.risk}>{error}</p> : !data ? <p role="status" className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>Checking watchlist conditions and upcoming catalysts...</p> : visibleItems.length === 0 ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>{empty}</p> : <>
+            <ol className={'mt-4 border-t ' + styles.divider}>{displayedGroups.map((group, index) => {
+                const record = recordBySymbol.get(group.symbol);
+                const thesisChanges = record ? record.reviewHistory.length >= 2 ? latestReviewChanges(record) : ['No prior review comparison'] : [];
+                const groupIds = group.items.map((item) => item.id);
+                const groupUnreadCount = group.items.filter((item) => local.seen[item.id] !== inboxItemSignature(item)).length;
+                const groupSnoozed = group.items.every((item) => snoozedIds.has(item.id));
+                const categories = [...new Set(group.items.map(researchInboxCategoryLabel))];
+                return <li key={group.symbol} className={(index === 1 && !expanded ? 'hidden min-[700px]:block ' : '') + 'border-b py-3 ' + styles.divider}>
+                    <article aria-labelledby={`research-inbox-group-${group.symbol}`} className="grid gap-3 min-[700px]:grid-cols-[110px_minmax(0,1fr)_auto] min-[700px]:items-start">
+                            <button type="button" onClick={() => openItem(group.symbol)} className="min-w-0 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 min-[700px]:col-start-1 min-[700px]:row-start-1">
+                                <span className="flex flex-wrap items-center gap-2">
+                                    {groupUnreadCount > 0 && <span aria-label={`${groupUnreadCount} unread`} className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />}
+                                    <span id={`research-inbox-group-${group.symbol}`} className={'font-mono text-sm font-bold ' + styles.textPrimary}>{group.symbol}</span>
+                                    <span className={'text-xs font-semibold min-[700px]:block min-[700px]:w-full ' + styles.textSecondary}>{group.items.length} attention item{group.items.length === 1 ? '' : 's'}</span>
+                                </span>
+                                <span className="mt-1 flex flex-wrap gap-x-2 gap-y-1 min-[700px]:hidden">
+                                    {categories.map((category) => <span key={category} className={'text-xs font-semibold ' + styles.textMuted}>{category}</span>)}
+                                </span>
+                                {thesisChanges.length > 0 && <span className={'mt-1 block line-clamp-2 text-xs leading-5 ' + styles.textSecondary}>Saved thesis · {thesisChanges.join(' · ')}</span>}
+                            </button>
+                            <div className="flex shrink-0 gap-1 min-[700px]:col-start-3 min-[700px]:row-start-1">
+                                <button type="button" aria-label={`Open ${group.symbol} chart`} onClick={() => openItem(group.symbol, 'chart')} className={'min-h-10 rounded border px-3 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + styles.row}>Chart</button>
+                                <button type="button" aria-expanded={menuId === group.symbol} aria-label={`Manage ${group.symbol} attention items`} onClick={() => setMenuId((current) => current === group.symbol ? null : group.symbol)} className={'min-h-10 rounded border px-3 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + styles.row}>Manage</button>
+                            </div>
+                        <ol className="grid gap-2 min-[700px]:col-start-2 min-[700px]:row-start-1 min-[700px]:grid-cols-2 min-[1180px]:grid-cols-4">
+                            {group.items.map((item, itemIndex) => <ResearchInboxRowV6 key={item.id} item={item} theme={theme} unread={local.seen[item.id] !== inboxItemSignature(item)} change={inboxItemChange(item, previousSnapshot, hadPriorCheck)} onOpen={() => openItem(item.symbol)} className={itemIndex >= 2 && !expanded ? 'hidden min-[700px]:block' : ''} />)}
+                        </ol>
+                        {group.items.length > 2 && !expanded && <p className={'text-xs font-semibold min-[700px]:hidden ' + styles.textMuted}>+{group.items.length - 2} more for {group.symbol}</p>}
+                        {menuId === group.symbol && <div className={'rounded border p-3 min-[700px]:col-span-2 min-[700px]:col-start-2 ' + styles.row}>
+                            <div className="flex flex-wrap gap-1">
+                                {groupUnreadCount > 0 && <button type="button" onClick={() => updateSeen(groupIds)} className={'min-h-10 rounded px-3 text-xs font-semibold ' + styles.selectedRow}>Mark {groupUnreadCount === 1 ? 'seen' : `${groupUnreadCount} seen`}</button>}
+                                {groupSnoozed ? <button type="button" onClick={() => wake(groupIds)} className={'min-h-10 rounded px-3 text-xs font-semibold ' + styles.selectedRow}>Wake ticker</button> : <>
+                                    <button type="button" onClick={() => snooze(groupIds, 1)} className={'min-h-10 rounded px-3 text-xs font-semibold ' + styles.textSecondary}>Snooze ticker 1 day</button>
+                                    <button type="button" onClick={() => snooze(groupIds, 7)} className={'min-h-10 rounded px-3 text-xs font-semibold ' + styles.textSecondary}>Snooze ticker 7 days</button>
+                                </>}
+                                <button type="button" onClick={() => openItem(group.symbol)} className={'min-h-10 rounded px-3 text-xs font-semibold ' + styles.textSecondary}>Open research</button>
+                            </div>
+                            {record ? <ResearchInboxWorkflowV6 key={`${record.symbol}-${JSON.stringify(record.monitoringRules)}`} record={record} theme={theme} onSave={onSave} /> : null}
+                        </div>}
+                    </article>
+                </li>;
+            })}</ol>
+            {visibleGroups.length > 1 && <button type="button" aria-expanded={expanded} onClick={() => setExpanded((current) => !current)} className={'mt-2 min-h-10 rounded px-3 text-xs font-semibold ' + styles.textSecondary + (!expanded && visibleGroups.length <= 2 ? ' min-[700px]:hidden' : '')}>{expanded ? 'Show less' : <><span className="min-[700px]:hidden">Show {visibleGroups.length - 1} more ticker{visibleGroups.length - 1 === 1 ? '' : 's'}</span><span className="hidden min-[700px]:inline">Show {visibleGroups.length - 2} more ticker{visibleGroups.length - 2 === 1 ? '' : 's'}</span></>}</button>}
+        </>}
         {data?.warnings.map((warning) => <p key={warning} role="status" className={'mt-2 text-xs ' + styles.textMuted}>{warning}</p>)}
     </section>;
 };

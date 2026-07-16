@@ -9,6 +9,7 @@ import {
     getIndicatorHorizon,
     getPrimaryCaveat,
     getReadLimitations,
+    getSignalAction,
     getTierTone,
 } from '@/components/v2/cockpit-utils';
 import { ScoreHistoryV6 } from './ScoreHistoryV6';
@@ -125,7 +126,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                 />
             </section>
 
-            <section className={panel + ' p-5 sm:p-6'} aria-labelledby="score-evidence-title">
+            <section className={panel + ' relative z-20 p-5 sm:p-6'} aria-labelledby="score-evidence-title">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
                         <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Score explanation</p>
@@ -432,18 +433,41 @@ const DriverTableV6 = ({ drivers, signal, theme }: { drivers: DriverV6[]; signal
                         </tr>
                     </thead>
                     <tbody>
-                        {drivers.map((driver) => <DriverRowV6 key={driver.key} driver={driver} signal={signal} maxContribution={maxContribution} theme={theme} />)}
+                        {drivers.map((driver, index) => <DriverRowV6 key={driver.key} driver={driver} signal={signal} maxContribution={maxContribution} tooltipPlacement={index === drivers.length - 1 ? 'top' : 'bottom'} theme={theme} />)}
                     </tbody>
                 </table>
             </div>
             <div className="mt-4 space-y-3 md:hidden">
-                {drivers.map((driver) => <DriverCardV6 key={driver.key} driver={driver} signal={signal} maxContribution={maxContribution} theme={theme} />)}
+                {drivers.map((driver, index) => <DriverCardV6 key={driver.key} driver={driver} signal={signal} maxContribution={maxContribution} tooltipPlacement={index === drivers.length - 1 ? 'top' : 'bottom'} theme={theme} />)}
             </div>
+            <CoverageAdjustmentV6 signal={signal} theme={theme} />
         </>
     );
 };
 
-const DriverRowV6 = ({ driver, signal, maxContribution, theme }: { driver: DriverV6; signal: MarketSignal; maxContribution: number; theme: ResearchThemeV6 }) => {
+const CoverageAdjustmentV6 = ({ signal, theme }: { signal: MarketSignal; theme: ResearchThemeV6 }) => {
+    const t = getThemeV6(theme);
+    const coverage = signal.metadata.coverage_adjustment;
+    if (!coverage) return null;
+
+    const activePct = Math.round(coverage.active_weight * 100);
+    const missingPct = Math.round(coverage.missing_weight * 100);
+    return (
+        <div className={'mt-4 rounded-md border px-3 py-2.5 text-xs leading-5 ' + t.row} data-testid="coverage-adjustment">
+            <p className={t.textSecondary}>
+                <span className={'font-semibold ' + t.textPrimary}>Score composition: </span>
+                Active drivers ({activePct}% configured weight) contribute {coverage.active_points.toFixed(1)} points
+                {coverage.missing_weight > 0.0001 ? ` + neutral reserve (${missingPct}% × ${coverage.neutral_baseline}) contributes ${coverage.neutral_points.toFixed(1)} points` : ''}
+                {' = '}{signal.composite_score}.
+            </p>
+            {coverage.missing_weight > 0.0001 ? (
+                <p className={'mt-1 ' + t.textMuted}>Unavailable configured weight stays at neutral {coverage.neutral_baseline}; it is not redistributed to the remaining drivers.</p>
+            ) : null}
+        </div>
+    );
+};
+
+const DriverRowV6 = ({ driver, signal, maxContribution, tooltipPlacement, theme }: { driver: DriverV6; signal: MarketSignal; maxContribution: number; tooltipPlacement: 'top' | 'bottom'; theme: ResearchThemeV6 }) => {
     const t = getThemeV6(theme);
     const component = signal.components[driver.key];
     const rowHighlight = driver.conflict ? (theme === 'light' ? 'bg-rose-50/75' : 'bg-rose-500/[0.06]') : '';
@@ -452,20 +476,23 @@ const DriverRowV6 = ({ driver, signal, maxContribution, theme }: { driver: Drive
             <td className="py-3 pr-3">
                 <div className="flex flex-wrap items-center gap-2">
                     <span className={'font-semibold ' + t.textPrimary}>{driver.name}</span>
-                    {driver.conflict ? <span className={'rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] ' + (theme === 'light' ? 'border-rose-300 text-rose-700' : 'border-rose-400/40 text-rose-200')}>Conflicts</span> : null}
+                    {driver.conflict ? <ConflictBadgeV6 driver={driver} signal={signal} placement={tooltipPlacement} theme={theme} /> : null}
                 </div>
                 <div className={'mt-2 h-1.5 overflow-hidden rounded-full ' + (theme === 'light' ? 'bg-slate-200' : 'bg-slate-700')}>
                     <div className={'h-full rounded-full ' + driverBarToneV6(driver)} style={{ width: Math.max(6, (Math.abs(driver.contribution) / maxContribution) * 100) + '%' }} />
                 </div>
             </td>
             <td className={'py-3 pr-3 ' + t.textSecondary}>{component ? formatRawValue(component, signal.metadata.market) : driver.raw_value.toString()}</td>
-            <td className={'py-3 text-right font-bold tabular-nums ' + driverTextToneV6(driver, theme)}>{driver.contribution.toFixed(1)}</td>
+            <td className="py-3 text-right tabular-nums">
+                <span className={'block font-bold ' + driverTextToneV6(driver, theme)}>{driver.contribution.toFixed(1)}</span>
+                <span className={'mt-0.5 block text-[11px] font-medium ' + t.textMuted}>{Math.round(driver.weight * 100)}% configured weight</span>
+            </td>
             <td className={'py-3 text-right text-xs font-semibold ' + getFreshnessTone(driver.freshness, theme)}>{driver.freshness}</td>
         </tr>
     );
 };
 
-const DriverCardV6 = ({ driver, signal, maxContribution, theme }: { driver: DriverV6; signal: MarketSignal; maxContribution: number; theme: ResearchThemeV6 }) => {
+const DriverCardV6 = ({ driver, signal, maxContribution, tooltipPlacement, theme }: { driver: DriverV6; signal: MarketSignal; maxContribution: number; tooltipPlacement: 'top' | 'bottom'; theme: ResearchThemeV6 }) => {
     const t = getThemeV6(theme);
     const component = signal.components[driver.key];
     return (
@@ -477,15 +504,140 @@ const DriverCardV6 = ({ driver, signal, maxContribution, theme }: { driver: Driv
                 </div>
                 <div className="text-right">
                     <p className={'font-bold tabular-nums ' + driverTextToneV6(driver, theme)}>{driver.contribution.toFixed(1)} pts</p>
+                    <p className={'mt-0.5 text-[11px] font-medium ' + t.textMuted}>{Math.round(driver.weight * 100)}% configured weight</p>
                     <p className={'mt-1 text-xs font-semibold ' + getFreshnessTone(driver.freshness, theme)}>{driver.freshness}</p>
                 </div>
             </div>
             <div className={'mt-3 h-1.5 overflow-hidden rounded-full ' + (theme === 'light' ? 'bg-slate-200' : 'bg-slate-700')}>
                 <div className={'h-full rounded-full ' + driverBarToneV6(driver)} style={{ width: Math.max(6, (Math.abs(driver.contribution) / maxContribution) * 100) + '%' }} />
             </div>
-            {driver.conflict ? <p className={'mt-2 text-xs font-semibold ' + t.risk}>Conflicts with the majority read</p> : null}
+            {driver.conflict ? (
+                <div className="mt-2 flex items-center gap-2">
+                    <span className={'text-xs font-semibold ' + t.risk}>Conflicts with the majority read</span>
+                    <ConflictInfoV6 driver={driver} signal={signal} placement={tooltipPlacement} theme={theme} />
+                </div>
+            ) : null}
         </article>
     );
+};
+
+const ConflictBadgeV6 = ({ driver, signal, placement, theme }: { driver: DriverV6; signal: MarketSignal; placement: 'top' | 'bottom'; theme: ResearchThemeV6 }) => (
+    <span className="inline-flex items-center gap-1.5">
+        <span className={'rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] ' + (theme === 'light' ? 'border-rose-300 text-rose-700' : 'border-rose-400/40 text-rose-200')}>Conflicts</span>
+        <ConflictInfoV6 driver={driver} signal={signal} placement={placement} theme={theme} />
+    </span>
+);
+
+const ConflictInfoV6 = ({ driver, signal, placement, theme }: { driver: DriverV6; signal: MarketSignal; placement: 'top' | 'bottom'; theme: ResearchThemeV6 }) => {
+    const explanation = getConflictExplanationV6(driver, signal);
+    return (
+        <details className="group relative z-0 open:z-50" data-testid="conflict-explanation" data-driver={driver.key}>
+            <summary
+                className={'flex size-5 cursor-help list-none items-center justify-center rounded-full border transition-colors marker:content-none focus-visible:outline-2 focus-visible:outline-offset-2 ' + (theme === 'light'
+                    ? 'border-rose-300 bg-white text-rose-700 hover:bg-rose-100 focus-visible:outline-rose-600'
+                    : 'border-rose-400/50 bg-slate-950 text-rose-200 hover:bg-rose-500/15 focus-visible:outline-rose-300')}
+                aria-label={'Explain why ' + driver.name + ' conflicts'}
+            >
+                <svg viewBox="0 0 20 20" className="size-3" fill="none" aria-hidden="true">
+                    <circle cx="10" cy="10" r="7.25" stroke="currentColor" strokeWidth="1.5" />
+                    <path d="M10 8.5v5M10 6.15v.1" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                </svg>
+            </summary>
+            <span
+                role="note"
+                className={'absolute left-1/2 z-40 w-72 max-w-[calc(100vw-3rem)] -translate-x-1/2 rounded-md border p-3 text-left text-xs font-normal normal-case leading-5 tracking-normal shadow-lg md:w-80 ' + (placement === 'top' ? 'bottom-[calc(100%+0.5rem)] ' : 'top-[calc(100%+0.5rem)] ') + (theme === 'light'
+                    ? 'border-slate-300 bg-slate-950 text-slate-50 shadow-slate-900/15'
+                    : 'border-slate-600 bg-slate-100 text-slate-900 shadow-black/35')}
+            >
+                <strong className="block font-semibold">Why this conflicts</strong>
+                <span className="mt-2 block"><span className="font-semibold">Reading:</span> {explanation.reading}</span>
+                <span className="mt-1 block"><span className="font-semibold">Source:</span> {explanation.source}</span>
+                <span className="mt-1 block"><span className="font-semibold">Model conversion:</span> {explanation.scoring}</span>
+                <span className="mt-1 block"><span className="font-semibold">Score contribution:</span> {explanation.contribution}</span>
+                <span className="mt-1 block"><span className="font-semibold">Reason:</span> {explanation.reason}</span>
+            </span>
+        </details>
+    );
+};
+
+const getConflictExplanationV6 = (driver: DriverV6, signal: MarketSignal) => {
+    const component = signal.components[driver.key];
+    const majority = signal.confidence.majority_signal;
+    const majorityDirection = getDirectionLabelV6(majority);
+    const componentAction = component ? getSignalAction(component.signal) : null;
+    const reading = component ? formatRawValue(component, signal.metadata.market) : driver.raw_value.toString();
+    const source = getDriverSourceV6(driver, signal);
+    const scoring = getDriverScoringV6(driver, signal);
+    const contribution = `${(component?.score ?? driver.score).toFixed(0)}/100 × ${Math.round(driver.weight * 100)}% configured weight = ${driver.contribution.toFixed(1)} weighted points.`;
+
+    if ((driver.key === 'social' || driver.key === 'news') && component && Math.abs(component.value) < 0.005) {
+        return {
+            reading,
+            source,
+            scoring,
+            contribution,
+            reason: `The resulting 50/100 category is neutral, so it does not confirm the majority ${majorityDirection} direction. A displayed 0.00 is an active balanced reading, not “off”; an off or unavailable source is excluded entirely.`,
+        };
+    }
+    if (componentAction === 'NEUTRAL' && majority !== 'NEUTRAL') {
+        return {
+            reading,
+            source,
+            scoring,
+            contribution,
+            reason: `${(component?.score ?? driver.score).toFixed(0)}/100 is in the neutral 40–64 band, so it does not confirm the majority ${majorityDirection} direction.`,
+        };
+    }
+    if (componentAction && componentAction !== majority) {
+        return {
+            reading,
+            source,
+            scoring,
+            contribution,
+            reason: `The converted score maps ${getDirectionLabelV6(componentAction)} while the majority points ${majorityDirection}, so it pulls against the overall direction.`,
+        };
+    }
+    if (driver.impact === 'negative') {
+        return { reading, source, scoring, contribution, reason: `Its converted score is interpreted against the overall ${majorityDirection} read, so it reduces agreement with the majority.` };
+    }
+    return { reading, source, scoring, contribution, reason: `The signal engine flags it as not fully confirming the overall ${majorityDirection} read.` };
+};
+
+const getDriverScoringV6 = (driver: DriverV6, signal: MarketSignal) => {
+    const component = signal.components[driver.key];
+    const value = component?.value ?? driver.raw_value;
+    const score = component?.score ?? driver.score;
+    if (driver.key === 'aaii') {
+        return `Model range: 20% bullish → 0; 50% bullish → 100. Current: (${value.toFixed(1)} − 20) ÷ 30 × 100 = ${score.toFixed(0)}/100.`;
+    }
+    if (driver.key === 'put_call') {
+        return `Model range: 0.55 → 100 (call-heavy); 1.25 → 0 (put-heavy). Current: (1.25 − ${value.toFixed(2)}) ÷ 0.70 × 100 = ${score.toFixed(0)}/100.`;
+    }
+    if (driver.key === 'social' || driver.key === 'news') {
+        return `Model range: −1 sentiment → 0; +1 → 100. Current: (${value.toFixed(2)} + 1) × 50 = ${score.toFixed(0)}/100.`;
+    }
+    if (driver.key === 'naaim') {
+        return `Model range: 40% exposure → 0; 90% → 100, capped outside that range. Current result: ${score.toFixed(0)}/100.`;
+    }
+    return `The model converts this indicator’s raw reading to ${score.toFixed(0)}/100 using its configured calibration.`;
+};
+
+const getDriverSourceV6 = (driver: DriverV6, signal: MarketSignal) => {
+    const component = signal.components[driver.key];
+    const date = formatCompactDateV6(component?.last_updated ?? driver.last_updated);
+    if (driver.key === 'aaii') return `AAII Investor Sentiment Survey, weekly reading dated ${date}.`;
+    if (driver.key === 'social') return `Equal blend of current Reddit and StockTwits sentiment inputs, updated ${date}.`;
+    if (driver.key === 'news') return `80% market-news and 20% Bursa-focused Reddit sentiment blend, updated ${date}.`;
+    if (driver.key === 'put_call') return `Cboe, a major US options exchange. Total market put/call ratio, report dated ${date}.`;
+    if (driver.key === 'naaim') return `NAAIM Exposure Index, weekly reading dated ${date}.`;
+    if (driver.key === 'vix') return `${signal.metadata.market === 'MY' ? 'USD/MYR volatility proxy' : 'Cboe VIX market reading'}, updated ${date}.`;
+    return `Stored ${driver.name} reading dated ${date}.`;
+};
+
+const getDirectionLabelV6 = (action: MarketSignal['confidence']['majority_signal']) => {
+    if (action === 'BUY') return 'positive';
+    if (action === 'SELL') return 'negative';
+    return 'mixed';
 };
 
 const SectionHeadingV6 = ({ eyebrow, title, id, theme }: { eyebrow: string; title: string; id: string; theme: ResearchThemeV6 }) => {

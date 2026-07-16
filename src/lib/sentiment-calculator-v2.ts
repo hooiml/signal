@@ -2,7 +2,7 @@ import { IndicatorData, MarketSignal, SignalTier, ConfidenceMetrics, SignalActio
 import { getIndicatorBaseWeights, isScoredIndicator } from './indicator-registry';
 
 /**
- * V2 Calculator: Proportional Redistribution & Soft-Min Logic
+ * V2 Calculator: Coverage-Aware Weighting & Soft-Min Logic
  */
 export function calculateCompositeScoreV2(
     indicators: IndicatorData[],
@@ -24,33 +24,28 @@ export function calculateCompositeScoreV2(
         highVolatilityOverride: market === 'US' && Boolean(vixIndicator && vixIndicator.value > 30)
     });
 
-    // 3. Proportional Redistribution
-    let totalBaseWeight = 0;
-    enabledIndicators.forEach(ind => {
-        if (isScoredIndicator(ind.name, marketWeights)) {
-            totalBaseWeight += (marketWeights[ind.name] || 0);
-        }
-    });
-
-    // Avoid division by zero
-    if (totalBaseWeight === 0) totalBaseWeight = 1;
-
-    // Redistribute weights without mutating the original inputs.
+    // 3. Preserve configured weights. Missing coverage contributes a neutral
+    // baseline instead of amplifying whichever indicators happen to be active.
+    const configuredWeight = Object.values(marketWeights)
+        .filter(weight => weight > 0)
+        .reduce((total, weight) => total + weight, 0) || 1;
     const activeIndicators = enabledIndicators
         .filter(ind => isScoredIndicator(ind.name, marketWeights))
         .map(ind => {
-        const base = marketWeights[ind.name] || 0;
-        return {
-            ...ind,
-            weight: base / totalBaseWeight
-        };
-    });
+            const base = marketWeights[ind.name] || 0;
+            return {
+                ...ind,
+                weight: base / configuredWeight
+            };
+        });
 
     // 4. Calculate Composite Score
-    let compositeScore = 0;
-    activeIndicators.forEach(ind => {
-        compositeScore += (ind.score * ind.weight);
-    });
+    const neutralBaseline = 50;
+    const activeWeight = activeIndicators.reduce((total, indicator) => total + indicator.weight, 0);
+    const missingWeight = Math.max(0, 1 - activeWeight);
+    const activePoints = activeIndicators.reduce((total, indicator) => total + (indicator.score * indicator.weight), 0);
+    const neutralPoints = missingWeight * neutralBaseline;
+    let compositeScore = activePoints + neutralPoints;
 
     // Clamp result
     compositeScore = Math.max(0, Math.min(100, Math.round(compositeScore)));
@@ -100,6 +95,13 @@ export function calculateCompositeScoreV2(
             market,
             data_freshness: scoredIndicators.reduce((acc, curr) => ({ ...acc, [curr.name]: curr.last_updated }), {}),
             weight_distribution: scoredIndicators.reduce((acc, curr) => ({ ...acc, [curr.name]: curr.weight }), {}),
+            coverage_adjustment: {
+                active_weight: activeWeight,
+                missing_weight: missingWeight,
+                neutral_baseline: neutralBaseline,
+                active_points: activePoints,
+                neutral_points: neutralPoints,
+            },
             stocks: [] // Will be populated by the API layer
         }
     };

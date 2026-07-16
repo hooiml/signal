@@ -17,6 +17,23 @@ export type ResearchBenchmark = {
     readonly status: ResearchBenchmarkStatus;
 };
 
+export type ResearchChartPoint = {
+    readonly time: string;
+    readonly open: number;
+    readonly high: number;
+    readonly low: number;
+    readonly close: number;
+    readonly volume: number | null;
+    readonly ma50: number | null;
+    readonly ma200: number | null;
+    readonly averageVolume20: number | null;
+    readonly rsi14: number | null;
+    readonly macd: number | null;
+    readonly macdSignal: number | null;
+    readonly macdHistogram: number | null;
+    readonly atrPercent14: number | null;
+};
+
 export type ResearchSnapshot = {
     readonly symbol: string;
     readonly market: ResearchMarket;
@@ -60,6 +77,10 @@ export type ResearchSnapshot = {
         readonly averageVolume20: number | null;
         readonly support: number | null;
         readonly resistance: number | null;
+    };
+    readonly chart: {
+        readonly interval: '1d';
+        readonly points: readonly ResearchChartPoint[];
     };
     readonly sources: readonly string[];
     readonly warnings: readonly string[];

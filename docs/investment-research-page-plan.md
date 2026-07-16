@@ -377,6 +377,7 @@ Components:
 ## Data Source Rules
 
 - Do not depend on TradingView as a data-export source.
+- Use TradingView Lightweight Charts only as the client-side renderer for normalized provider data; keep the provider adapter replaceable.
 - Use supported data sources or APIs.
 - Store source URLs and update timestamps for every external data point where possible.
 - Show `Unknown` instead of guessing when data is missing.

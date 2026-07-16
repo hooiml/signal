@@ -30,6 +30,8 @@ export const ResearchPanelsV6 = ({ ticker, tab, theme }: {
         <DataPointV6 label={label} value={value} wide={wide} themeClasses={themeClasses} />
     );
 
+    if (tab === 'chart') return null;
+
     if (tab === 'fundamentals') return (
         <DataGridV6 themeClasses={themeClasses}>
             {point('Sector', ticker.sector)}

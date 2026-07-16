@@ -36,6 +36,7 @@ export const formatCompactDateV6 = (value: string | null | undefined) => {
 export const getRankedDriversV6 = (signal: MarketSignal): DriverV6[] => {
     const conflicts = new Set(signal.confidence.conflicting_indicators.map((name) => name.toLowerCase()));
     return [...(signal.metadata.score_drivers ?? [])]
+        .filter((driver) => signal.components[driver.key]?.enabled === true)
         .map((driver) => {
             const component = signal.components[driver.key];
             const support = component ? getSupportState(component, signal.tier) : 'neutral';

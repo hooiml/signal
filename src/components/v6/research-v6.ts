@@ -1,7 +1,7 @@
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 
 export type ResearchActionV6 = 'Ready' | 'DCA' | 'Wait for price' | 'Watch' | 'Avoid';
-export type ResearchTabV6 = 'overview' | 'fundamentals' | 'valuation' | 'events' | 'technical';
+export type ResearchTabV6 = 'overview' | 'fundamentals' | 'valuation' | 'events' | 'chart' | 'technical';
 export type ResearchThemeV6 = 'light' | 'dark';
 
 export const RESEARCH_THEME_STORAGE_KEY_V6 = 'signal-dashboard-theme-v2';
@@ -11,8 +11,12 @@ export const researchTabsV6: Array<{ id: ResearchTabV6; label: string }> = [
     { id: 'fundamentals', label: 'Fundamentals' },
     { id: 'valuation', label: 'Valuation' },
     { id: 'events', label: 'Events' },
+    { id: 'chart', label: 'Chart' },
     { id: 'technical', label: 'Technical' },
 ];
+
+export const isResearchTabV6 = (value: string | null): value is ResearchTabV6 =>
+    researchTabsV6.some((tab) => tab.id === value);
 
 export const checklistLabelsV6: Record<string, string> = {
     understandBusiness: 'Understand the business',

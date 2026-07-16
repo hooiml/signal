@@ -3,6 +3,8 @@ import { parseResearchCreateInput, parseResearchRecord, parseResearchUpdateInput
 import { appendQuickReviewNote, appendResearchReview, applyResearchUpdate, createResearchRecord, describeReviewChanges, latestReviewChanges } from '../../src/lib/research/records';
 import { defaultResearchMonitoringRules } from '../../src/lib/types/research';
 import { calculateTechnicals } from '../../src/lib/research/technicals';
+import { buildTechnicalOutlook } from '../../src/lib/research/technical-outlook';
+import { calculateTechnicalSeries } from '../../src/lib/research/technical-series';
 import { parseYahooResearchChart, toYahooSymbol } from '../../src/lib/research/yahoo-research';
 import { calculateValuation } from '../../src/lib/research/valuation';
 import { scoreDiscoveryCandidate } from '../../src/lib/research/discovery-score';
@@ -19,7 +21,7 @@ import { parseNasdaqInstitutionalHoldings } from '../../src/lib/research/institu
 import { buildComparisonMetrics } from '../../src/lib/research/comparison';
 import { buildResearchBenchmark, notApplicableResearchBenchmark } from '../../src/lib/research/benchmark';
 import type { ResearchSnapshot } from '../../src/lib/types/research-snapshot';
-import { parseResearchSnapshotResponse } from '../../src/lib/research/snapshot-input';
+import { parseResearchChartResponse, parseResearchSnapshotResponse } from '../../src/lib/research/snapshot-input';
 import { buildEvidenceFindings, buildResearchEvidence } from '../../src/lib/research/assistant';
 import { parseResearchAssistantResponse } from '../../src/lib/research/assistant-input';
 import { buildResearchInboxItems } from '../../src/lib/research/inbox';
@@ -131,14 +133,27 @@ const runTechnicalTests = () => {
     assertEqual(snapshot.averageVolume20, 21050, '20-day average volume');
     const chart = parseYahooResearchChart({ chart: { result: [{
         meta: { symbol: 'MSFT', currency: 'USD', regularMarketPrice: 101, chartPreviousClose: 80 },
+        timestamp: [1704067200, 1704153600, 1704240000],
         indicators: {
-            quote: [{ close: [99, 100, 101], volume: [10, 20, 30] }],
+            quote: [{
+                open: [98, null, 100], high: [100, null, 102], low: [97, null, 99],
+                close: [99, 100, 101], volume: [10, 20, 30],
+            }],
             adjclose: [{ adjclose: [98, 99, 100] }],
         },
     }] } });
     assertEqual(chart.dailyChangePercent, 1, 'daily change uses the prior session, not the range baseline');
     assertEqual(Object.hasOwn(chart.history, 'adjustedCloses'), true, 'Yahoo chart preserves adjusted closes for return comparisons');
     assertEqual(chart.history.adjustedCloses.join(','), '98,99,100', 'Yahoo chart preserves adjusted-close values');
+    assertEqual(chart.chart.points.length, 2, 'Yahoo chart drops incomplete candles without shifting adjacent fields');
+    assertEqual(chart.chart.points[1]?.time, '2024-01-03', 'Yahoo chart preserves timestamp alignment');
+    assertEqual(chart.chart.points[1]?.volume, 30, 'Yahoo chart preserves volume alignment');
+    const series = calculateTechnicalSeries(closes.map((close) => ({ high: close + 2, low: close - 2, close, volume: close * 100 })));
+    assertEqual(series.at(-1)?.rsi14, 100, 'technical series exposes aligned RSI history');
+    assertEqual(series.at(-1)?.averageVolume20, 21050, 'technical series exposes aligned average volume');
+    assertEqual(series.at(-1)?.atrPercent14 !== null, true, 'technical series exposes ATR percentage');
+    assertEqual(series.at(-1)?.macdSignal !== null, true, 'technical series exposes MACD signal history');
+    assertEqual(series.at(-1)?.macdHistogram !== null, true, 'technical series exposes MACD histogram history');
     assertEqual(toYahooSymbol('1155', 'MY'), '1155.KL', 'Malaysia ticker uses Yahoo KL suffix');
 };
 
@@ -455,6 +470,11 @@ const runComparisonTests = () => {
             ma50: 400, ma200: 360, rsi14: 58.2, macd: 3.5, low52Week: 330,
             high52Week: 450, averageVolume20: 20_000_000, support: 395, resistance: 450,
         },
+        chart: { interval: '1d', points: [{
+            time: '2026-07-11', open: 415, high: 423, low: 414, close: 420.5,
+            volume: 28_000_000, ma50: 400, ma200: 360, averageVolume20: 20_000_000,
+            rsi14: 58.2, macd: 3.5, macdSignal: 2.8, macdHistogram: 0.7, atrPercent14: 2.1,
+        }] },
         sources: ['Yahoo Finance', 'SEC EDGAR'], warnings: [],
     };
     const metrics = buildComparisonMetrics(snapshot);
@@ -463,12 +483,19 @@ const runComparisonTests = () => {
     assertEqual(metrics.priceEarnings, '34.4x', 'comparison formats earnings multiple');
     assertEqual(metrics.rsi, '58.2', 'comparison formats RSI');
     assertEqual(buildComparisonMetrics({ ...snapshot, valuation: { ...snapshot.valuation, priceEarnings: null } }).priceEarnings, 'Unavailable', 'comparison preserves missing data');
+    assertEqual(buildTechnicalOutlook(snapshot).overall.label, 'Constructive', 'technical outlook requires aligned positive evidence');
     const response = { success: true, data: snapshot };
     assertEqual(parseResearchSnapshotResponse(response).symbol, 'MSFT', 'snapshot boundary accepts complete comparison data');
+    assertEqual(parseResearchChartResponse({ success: true, data: { chart: snapshot.chart } }).points.length, 1, 'chart boundary accepts aligned history');
+    assertThrows(() => parseResearchChartResponse({ success: true, data: { chart: { interval: '1d', points: [{ time: 'bad-date' }] } } }), 'chart boundary rejects malformed history');
     assertThrows(() => parseResearchSnapshotResponse({
         ...response,
         data: { ...snapshot, technicals: { ...snapshot.technicals, rsi14: 'hot' } },
     }), 'snapshot boundary rejects malformed comparison metrics');
+    assertThrows(() => parseResearchSnapshotResponse({
+        ...response,
+        data: { ...snapshot, chart: { interval: '1d', points: [{ ...snapshot.chart.points[0], close: null }] } },
+    }), 'snapshot boundary rejects malformed chart candles');
 };
 
 const runResearchAssistantTests = () => {
@@ -495,6 +522,7 @@ const runResearchAssistantTests = () => {
             ma50: 400, ma200: 360, rsi14: 58, macd: 3.5, low52Week: 330,
             high52Week: 450, averageVolume20: 20_000_000, support: 395, resistance: 450,
         },
+        chart: { interval: '1d', points: [] },
         sources: ['Yahoo Finance', 'SEC EDGAR'], warnings: [],
     };
     const evidence = buildResearchEvidence(snapshot);

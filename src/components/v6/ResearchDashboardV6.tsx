@@ -25,6 +25,8 @@ import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import {
     getResearchActionV6,
     getThemeV6,
+    isResearchTabV6,
+    type ResearchTabV6,
 } from './research-v6';
 import { useThemeV6 } from './ThemeProviderV6';
 
@@ -39,8 +41,11 @@ export const ResearchDashboardV6 = () => {
     const searchParams = useSearchParams();
     const requestedSymbol = searchParams.get('ticker')?.toUpperCase();
     const requestedWorkspace = searchParams.get('workspace');
+    const requestedDetailTab = searchParams.get('tab');
     const initialSymbol = requestedSymbol ?? 'MSFT';
+    const initialTab: ResearchTabV6 = isResearchTabV6(requestedDetailTab) ? requestedDetailTab : 'overview';
     const [selectedSymbol, setSelectedSymbol] = useState(initialSymbol);
+    const [activeDetailTab, setActiveDetailTab] = useState<ResearchTabV6>(initialTab);
     const { theme, toggleTheme } = useThemeV6();
     const [query, setQuery] = useState('');
     const [market, setMarket] = useState<ResearchMarketFilterV6>('ALL');
@@ -161,10 +166,11 @@ export const ResearchDashboardV6 = () => {
         return () => controller.abort();
     }, []);
 
-    const selectTicker = (symbol: string, focusDetail = false) => {
+    const selectTicker = (symbol: string, focusDetail = false, tab: ResearchTabV6 = 'overview') => {
         setWorkspace('research');
         setSelectedSymbol(symbol);
-        const nextUrl = window.location.pathname + '?ticker=' + symbol;
+        setActiveDetailTab(tab);
+        const nextUrl = window.location.pathname + '?ticker=' + encodeURIComponent(symbol) + (tab === 'overview' ? '' : '&tab=' + tab);
         window.history.replaceState({ ...window.history.state, as: nextUrl, url: nextUrl }, '', nextUrl);
         if (focusDetail) {
             window.setTimeout(() => {
@@ -177,6 +183,13 @@ export const ResearchDashboardV6 = () => {
     };
 
     const openResearch = (symbol: string) => selectTicker(symbol, true);
+
+    const changeDetailTab = (tab: ResearchTabV6) => {
+        setActiveDetailTab(tab);
+        if (!selected) return;
+        const nextUrl = window.location.pathname + '?ticker=' + encodeURIComponent(selected.symbol) + (tab === 'overview' ? '' : '&tab=' + tab);
+        window.history.replaceState({ ...window.history.state, as: nextUrl, url: nextUrl }, '', nextUrl);
+    };
 
     const addDiscoveryCandidate = async (candidate: { readonly symbol: string; readonly name: string }) => {
         await addRecord({ symbol: candidate.symbol, market: 'US', companyName: candidate.name });
@@ -278,7 +291,7 @@ export const ResearchDashboardV6 = () => {
                 <ResearchWorkspaceTabsV6 active={workspace} theme={theme} onChange={setWorkspace} />
                 {workspace === 'research' ? <>
                     <h1 className="sr-only">Research workspace</h1>
-                    <ResearchInboxV6 items={items} records={inboxRecords} theme={theme} onOpen={selectTicker} onSave={saveRecord} />
+                    <ResearchInboxV6 items={items} records={inboxRecords} theme={theme} onOpen={(symbol, tab) => selectTicker(symbol, false, tab)} onSave={saveRecord} />
                 </> : null}
                 <main id={`research-workspace-${workspace}`} className={'flex flex-col gap-4 rounded-[10px] border p-3 backdrop-blur min-[700px]:flex-row min-[700px]:p-4 ' + themeClasses.panel}>
                     {workspace === 'alerts' ? (
@@ -297,7 +310,7 @@ export const ResearchDashboardV6 = () => {
                         adding={adding}
                     />
                     {selected && selectedRecord ? (
-                        <ResearchDetailV6 key={selected.symbol} ticker={selected} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} saving={saving} saveError={saveError} onSave={saveRecord} onSnapshot={updateLiveSnapshot} onDelete={deleteRecord} />
+                        <ResearchDetailV6 key={selected.symbol} ticker={selected} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} activeTab={activeDetailTab} saving={saving} saveError={saveError} onTabChange={changeDetailTab} onSave={saveRecord} onSnapshot={updateLiveSnapshot} onDelete={deleteRecord} />
                     ) : (
                         <section className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
                             <div>

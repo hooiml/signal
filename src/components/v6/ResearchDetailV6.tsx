@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import type { ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
+import { parseResearchChartResponse } from '@/lib/research/snapshot-input';
 import { OverviewPanelV6 } from './OverviewPanelV6';
 import { ResearchPanelsV6 } from './ResearchPanelsV6';
+import { ResearchChartV6 } from './ResearchChartV6';
 import {
     formatPriceV6,
     getActionToneV6,
@@ -22,19 +24,27 @@ const formatProviderTimestampV6 = (timestamp: string) => new Intl.DateTimeFormat
     minute: '2-digit',
 }).format(new Date(timestamp));
 
-export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, saving, saveError, onSave, onSnapshot, onDelete }: {
+export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, saving, saveError, onTabChange, onSave, onSnapshot, onDelete }: {
     ticker: ResearchWatchlistItem;
     theme: ResearchThemeV6;
     record: ResearchRecord;
     liveQuote: ResearchSnapshot['quote'] | null;
+    activeTab: ResearchTabV6;
     saving: boolean;
     saveError: string | null;
+    onTabChange: (tab: ResearchTabV6) => void;
     onSave: (record: ResearchRecord) => Promise<boolean>;
     onSnapshot: (symbol: string, snapshot: ResearchSnapshot) => void;
     onDelete: () => Promise<void>;
 }) => {
-    const [activeTab, setActiveTab] = useState<ResearchTabV6>('overview');
     const [snapshot, setSnapshot] = useState<ResearchSnapshot | null>(null);
+    const [chartHistory, setChartHistory] = useState<ResearchSnapshot['chart'] | null>(null);
+    const [chartHistoryState, setChartHistoryState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+    const [chartHistoryKey, setChartHistoryKey] = useState(0);
+    const [compareBenchmark, setCompareBenchmark] = useState(false);
+    const [benchmarkChart, setBenchmarkChart] = useState<ResearchSnapshot['chart'] | null>(null);
+    const [benchmarkState, setBenchmarkState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+    const [benchmarkKey, setBenchmarkKey] = useState(0);
     const [providerState, setProviderState] = useState<'loading' | 'ready' | 'error'>('loading');
     const [providerError, setProviderError] = useState<string | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
@@ -75,6 +85,47 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, saving, sav
         void loadSnapshot();
         return () => { active = false; };
     }, [onSnapshot, refreshKey, ticker.market, ticker.symbol]);
+
+    useEffect(() => {
+        if (activeTab !== 'chart' || !snapshot || chartHistory) return;
+        const controller = new AbortController();
+        const loadChartHistory = async () => {
+            setChartHistoryState('loading');
+            try {
+                const response = await fetch(`/api/research/chart/${encodeURIComponent(ticker.symbol)}?market=${ticker.market}`, { signal: controller.signal });
+                const payload: unknown = await response.json();
+                if (!response.ok) throw new Error(typeof payload === 'object' && payload !== null && !Array.isArray(payload) && typeof Object.fromEntries(Object.entries(payload)).error === 'string'
+                    ? String(Object.fromEntries(Object.entries(payload)).error) : 'Unable to load chart history.');
+                setChartHistory(parseResearchChartResponse(payload));
+                setChartHistoryState('ready');
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') return;
+                setChartHistoryState('error');
+            }
+        };
+        void loadChartHistory();
+        return () => controller.abort();
+    }, [activeTab, chartHistory, chartHistoryKey, snapshot, ticker.market, ticker.symbol]);
+
+    useEffect(() => {
+        if (!compareBenchmark || ticker.market !== 'US' || ticker.symbol === 'VOO' || benchmarkChart) return;
+        const controller = new AbortController();
+        const loadBenchmark = async () => {
+            setBenchmarkState('loading');
+            try {
+                const response = await fetch('/api/research/chart/VOO?market=US', { signal: controller.signal });
+                const payload: unknown = await response.json();
+                if (!response.ok) throw new Error('Unable to load VOO history.');
+                setBenchmarkChart(parseResearchChartResponse(payload));
+                setBenchmarkState('ready');
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') return;
+                setBenchmarkState('error');
+            }
+        };
+        void loadBenchmark();
+        return () => controller.abort();
+    }, [benchmarkChart, benchmarkKey, compareBenchmark, ticker.market, ticker.symbol]);
 
     return (
         <article id="research-detail" tabIndex={-1} className="min-w-0 flex-1 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-500">
@@ -123,7 +174,7 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, saving, sav
                                 aria-selected={activeTab === tab.id}
                                 aria-controls={`research-panel-${tab.id}`}
                                 type="button"
-                                onClick={() => setActiveTab(tab.id)}
+                                onClick={() => onTabChange(tab.id)}
                                 className={'min-h-10 border-b-2 px-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald-500 ' + tabClass}
                             >
                                 {tab.label}
@@ -136,6 +187,19 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, saving, sav
             <div id={`research-panel-${activeTab}`} role="tabpanel" aria-labelledby={`research-tab-${activeTab}`} tabIndex={0} className="mt-5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-500">
                 {activeTab === 'overview'
                     ? <OverviewPanelV6 ticker={liveTicker} action={action} theme={theme} record={record} benchmark={snapshot?.benchmark ?? null} saving={saving} saveError={saveError} onSave={onSave} />
+                    : activeTab === 'chart'
+                        ? snapshot ? <ResearchChartV6
+                            snapshot={snapshot}
+                            chart={chartHistory ?? snapshot.chart}
+                            historyState={chartHistoryState === 'idle' ? 'loading' : chartHistoryState}
+                            benchmarkChart={benchmarkChart}
+                            benchmarkState={benchmarkState}
+                            compareBenchmark={compareBenchmark}
+                            onToggleBenchmark={() => setCompareBenchmark((current) => !current)}
+                            onRetryBenchmark={() => { setBenchmarkState('idle'); setBenchmarkKey((current) => current + 1); }}
+                            onRetryHistory={() => { setChartHistoryState('idle'); setChartHistoryKey((current) => current + 1); }}
+                            theme={theme}
+                        /> : <div role="status" className={'rounded-lg border p-5 text-sm ' + themeClasses.row + ' ' + themeClasses.textMuted}>Loading chart data...</div>
                     : <ResearchPanelsV6 ticker={liveTicker} tab={activeTab} theme={theme} />}
             </div>
 

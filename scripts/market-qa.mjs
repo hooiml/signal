@@ -37,6 +37,7 @@ const viewports = requestedWidths.map((width) => VIEWPORTS.get(width) || {
 const timeoutMs = Number(getArg('--timeout') || process.env.SIGNAL_QA_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
 const requestedBaseUrl = getArg('--base-url') || process.env.SIGNAL_QA_URL || null;
 const requestedPort = Number(getArg('--port') || DEFAULT_PORT);
+const requestedTheme = getArg('--theme') || null;
 const useLiveData = args.includes('--live');
 const captureScreenshots = !args.includes('--no-screenshots') && process.env.SIGNAL_QA_SCREENSHOTS !== '0';
 const captureFullPage = args.includes('--full-page');
@@ -52,6 +53,7 @@ const report = {
     useLiveData,
     captureScreenshots,
     captureFullPage,
+    requestedTheme,
     baseUrl: null,
     server: { owned: false, port: null, stdout: null, stderr: null },
     scenarios: [],
@@ -171,27 +173,40 @@ const buildFixtureSignal = (requestUrl) => {
     const sourceLabel = market === 'MY' ? 'News Sentiment' : 'Social Sentiment';
     const updatedAt = '2026-07-16T08:00:00.000Z';
     const snapshotDate = '2026-07-16T00:00:00.000Z';
-    const baseScore = market === 'US' ? 65 : 61;
-    const modeAdjustment = mode === 'contrarian' ? -6 : 0;
-    const sourceAdjustment = enableSocial ? 0 : -3;
-    const compositeScore = baseScore + modeAdjustment + sourceAdjustment;
-    const tier = compositeScore >= 65 ? 'buy' : compositeScore >= 40 ? 'neutral' : 'sell';
-    const sourceContribution = enableSocial ? (market === 'US' ? 10.5 : 8.2) : 0;
     const components = {
-        vix: fixtureComponent({ name: 'vix', displayName: market === 'US' ? 'VIX Index' : 'Global volatility', value: 16.2, score: 79, weight: 0.45, signal: 'buy', updatedAt }),
-        positioning: fixtureComponent({ name: 'positioning', displayName: market === 'US' ? 'AAII' : 'Fund positioning', value: 36.3, score: 58, weight: 0.3, signal: 'neutral', updatedAt }),
+        vix: fixtureComponent({ name: 'vix', displayName: market === 'US' ? 'VIX Index' : 'Global volatility', value: 16.2, score: 79, weight: market === 'US' ? 0.35 : 0.25, signal: 'buy', updatedAt }),
+        aaii: fixtureComponent({ name: 'aaii', displayName: 'AAII', value: 36.3, score: 54, weight: market === 'US' ? 0.2 : 0.1, signal: 'neutral', updatedAt }),
     };
+    if (market === 'US') {
+        components.put_call = fixtureComponent({ name: 'put_call', displayName: 'Put/call ratio', value: 0.93, score: 46, weight: 0.1, signal: 'neutral', updatedAt });
+        components.naaim = fixtureComponent({ name: 'naaim', displayName: 'Manager exposure (NAAIM)', value: 95.6, score: 100, weight: 0.1, signal: 'buy', updatedAt });
+    }
     if (enableSocial) {
-        components[sourceKey] = fixtureComponent({ name: sourceKey, displayName: sourceLabel, value: market === 'US' ? 0.18 : 0.32, score: 62, weight: 0.25, signal: 'buy', updatedAt });
+        components[sourceKey] = fixtureComponent({ name: sourceKey, displayName: sourceLabel, value: market === 'US' ? 0 : 0.32, score: market === 'US' ? 50 : 62, weight: market === 'US' ? 0.2 : 0.65, signal: market === 'US' ? 'neutral' : 'buy', updatedAt });
     }
 
+    const activeWeight = Object.values(components).reduce((sum, component) => sum + component.weight, 0);
+    const missingWeight = Math.max(0, 1 - activeWeight);
+    const activePoints = Object.values(components).reduce((sum, component) => sum + component.score * component.weight, 0);
+    const neutralPoints = missingWeight * 50;
+    const compositeScore = Math.round(activePoints + neutralPoints);
+    const standardTier = compositeScore >= 85 ? 'strong-buy' : compositeScore >= 65 ? 'buy' : compositeScore >= 40 ? 'neutral' : compositeScore >= 20 ? 'sell' : 'strong-sell';
+    const contrarianTiers = { 'strong-buy': 'strong-sell', buy: 'sell', neutral: 'neutral', sell: 'buy', 'strong-sell': 'strong-buy' };
+    const tier = mode === 'contrarian' ? contrarianTiers[standardTier] : standardTier;
+
     const scoreDrivers = [
-        { key: 'vix', name: components.vix.display_name, impact: 'positive', contribution: 28.9, score: 79, weight: 0.45, raw_value: 16.2, last_updated: updatedAt, detail: 'Low volatility supports the current read.' },
-        { key: 'positioning', name: components.positioning.display_name, impact: 'negative', contribution: 11.4, score: 58, weight: 0.3, raw_value: 36.3, last_updated: updatedAt, detail: 'Positioning does not fully confirm the majority read.' },
+        { key: 'vix', name: components.vix.display_name, impact: 'positive', contribution: components.vix.score * components.vix.weight, score: components.vix.score, weight: components.vix.weight, raw_value: components.vix.value, last_updated: updatedAt, detail: 'Low volatility supports the current read.' },
+        { key: 'aaii', name: components.aaii.display_name, impact: 'negative', contribution: components.aaii.score * components.aaii.weight, score: components.aaii.score, weight: components.aaii.weight, raw_value: components.aaii.value, last_updated: updatedAt, detail: 'AAII does not fully confirm the majority read.' },
     ];
     if (enableSocial) {
-        scoreDrivers.push({ key: sourceKey, name: sourceLabel, impact: 'negative', contribution: sourceContribution, score: 62, weight: 0.25, raw_value: components[sourceKey].value, last_updated: updatedAt, detail: 'Sentiment is a secondary, conflicting input.' });
+        scoreDrivers.push({ key: sourceKey, name: sourceLabel, impact: market === 'US' ? 'negative' : 'positive', contribution: components[sourceKey].score * components[sourceKey].weight, score: components[sourceKey].score, weight: components[sourceKey].weight, raw_value: components[sourceKey].value, last_updated: updatedAt, detail: 'Sentiment is a secondary market input.' });
     }
+    if (market === 'US') {
+        scoreDrivers.push({ key: 'naaim', name: components.naaim.display_name, impact: 'positive', contribution: components.naaim.score * components.naaim.weight, score: components.naaim.score, weight: components.naaim.weight, raw_value: components.naaim.value, last_updated: updatedAt, detail: 'Manager exposure supports the current read.' });
+        scoreDrivers.push({ key: 'put_call', name: 'Put/call ratio', impact: 'neutral', contribution: components.put_call.score * components.put_call.weight, score: components.put_call.score, weight: components.put_call.weight, raw_value: components.put_call.value, last_updated: updatedAt, detail: 'Options positioning does not confirm the majority read.' });
+    }
+
+    const conflictingIndicators = ['aaii', ...(market === 'US' && enableSocial ? ['social'] : []), ...(market === 'US' ? ['put_call'] : [])];
 
     const marketContext = market === 'US'
         ? {
@@ -209,19 +224,20 @@ const buildFixtureSignal = (requestUrl) => {
         composite_score: compositeScore,
         tier,
         mode,
-        interpretation: { action: tier === 'buy' ? 'Cautiously positive' : 'Balanced', reasoning: 'Deterministic QA fixture.', color: '#10b981', emoji: '' },
+        interpretation: { action: tier.includes('buy') ? 'Cautiously positive' : tier.includes('sell') ? 'Cautiously negative' : 'Balanced', reasoning: 'Deterministic QA fixture.', color: '#10b981', emoji: '' },
         components,
         confidence: {
             agreement_pct: enableSocial ? 67 : 75,
             level: 'moderate',
-            majority_signal: tier === 'sell' ? 'SELL' : tier === 'buy' ? 'BUY' : 'NEUTRAL',
-            conflicting_indicators: ['positioning', ...(enableSocial ? [sourceKey] : [])],
+            majority_signal: tier.includes('sell') ? 'SELL' : tier.includes('buy') ? 'BUY' : 'NEUTRAL',
+            conflicting_indicators: conflictingIndicators,
             source_count: Object.keys(components).length,
         },
         metadata: {
             market,
             data_freshness: Object.fromEntries(Object.keys(components).map((key) => [key, updatedAt])),
             weight_distribution: Object.fromEntries(Object.entries(components).map(([key, component]) => [key, component.weight])),
+            coverage_adjustment: { active_weight: activeWeight, missing_weight: missingWeight, neutral_baseline: 50, active_points: activePoints, neutral_points: neutralPoints },
             signal_quality: { freshness: 'fresh', source_coverage: 'strong', noise_level: 'moderate', market_regime: 'constructive', warnings: [] },
             score_drivers: scoreDrivers,
             index_trend: [
@@ -235,7 +251,7 @@ const buildFixtureSignal = (requestUrl) => {
             interpretation_context: {
                 regime: 'Constructive',
                 agreeing_signals: ['vix'],
-                conflicting_signals: ['positioning', ...(enableSocial ? [sourceKey] : [])],
+                conflicting_signals: conflictingIndicators,
                 limitation: 'Fixture data proves rendering and interaction, not live market accuracy.',
                 mode_note: mode === 'contrarian' ? 'Contrarian fixture interpretation.' : 'Momentum fixture interpretation.',
                 article_feed_role: 'Fixture articles provide context only.',
@@ -260,10 +276,10 @@ const buildFixtureSignal = (requestUrl) => {
                     source_label: sourceLabel,
                     active: enableSocial,
                     current_score: compositeScore,
-                    with_source_score: baseScore + modeAdjustment,
-                    without_source_score: baseScore + modeAdjustment - 3,
-                    delta_without_source: -3,
-                    summary: `${sourceLabel} changes the fixture score by 3 points.`,
+                    with_source_score: market === 'US' ? 66 : 65,
+                    without_source_score: market === 'US' ? 66 : 58,
+                    delta_without_source: market === 'US' ? 0 : -7,
+                    summary: market === 'US' ? `${sourceLabel} is neutral and does not change the fixture score.` : `${sourceLabel} raises the fixture score by 7 points.`,
                 },
             },
         },
@@ -284,6 +300,7 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
     const scoreSection = document.querySelector('section[aria-labelledby="score-evidence-title"]');
     const valuation = document.querySelector('[data-testid="valuation-backdrop"]');
     const marketContext = document.querySelector('[data-testid="market-context"]');
+    const coverageAdjustment = document.querySelector('[data-testid="coverage-adjustment"]');
     return {
         orderIsCorrect,
         scoreBridgeConnected: visibleQuickReads.some((element) => element.textContent?.includes('Largest influence:')),
@@ -292,12 +309,15 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
         oldDisclosureAbsent: !document.body.textContent?.includes('Explore charts and weighted evidence'),
         valuationCollapsed: valuation ? !valuation.hasAttribute('open') : null,
         marketContextCollapsed: marketContext ? !marketContext.hasAttribute('open') : null,
+        coverageText: coverageAdjustment?.textContent || '',
+        driverTableText: document.querySelector('section[aria-labelledby="drivers-title"]')?.textContent || '',
         documentOverflow: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0) - window.innerWidth,
     };
 });
 
 const main = async () => {
     if (!VALID_SCENARIOS.has(requestedScenario)) throw new Error(`Unknown --scenario ${requestedScenario}. Use all, score-evidence, controls, or smoke.`);
+    if (requestedTheme !== null && requestedTheme !== 'light' && requestedTheme !== 'dark') throw new Error('Theme must be light or dark.');
     if (viewports.length === 0) throw new Error('No valid viewport widths were provided.');
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('Timeout must be a positive number.');
     if (!Number.isInteger(requestedPort) || requestedPort < 1 || requestedPort > 65_535) throw new Error('Port must be an integer from 1 to 65535.');
@@ -325,6 +345,9 @@ const main = async () => {
 
         browser = await chromium.launch({ headless: !args.includes('--headed') });
         const context = await browser.newContext();
+        if (requestedTheme) {
+            await context.addInitScript((theme) => window.localStorage.setItem('signal-dashboard-theme-v2', theme), requestedTheme);
+        }
         context.setDefaultTimeout(timeoutMs);
         const page = await context.newPage();
         const signalRequests = [];
@@ -372,8 +395,75 @@ const main = async () => {
                     runCheck(scenario.checks, 'section order', details.orderIsCorrect, JSON.stringify(details));
                     runCheck(scenario.checks, 'score bridge connected', details.scoreBridgeConnected, JSON.stringify(details));
                     runCheck(scenario.checks, 'score evidence visible', details.scoreSectionVisible && details.driverHeadingVisible && details.oldDisclosureAbsent, JSON.stringify(details));
+                    runCheck(scenario.checks, 'coverage adjustment explains neutral reserve', details.coverageText.includes('95% configured weight') && details.coverageText.includes('neutral reserve (5% × 50)') && details.coverageText.includes('not redistributed'), details.coverageText);
+                    runCheck(scenario.checks, 'driver weights are visible', details.driverTableText.includes('35% configured weight') && details.driverTableText.includes('20% configured weight') && details.driverTableText.includes('10% configured weight'), details.driverTableText);
                     runCheck(scenario.checks, 'document has no horizontal overflow', details.documentOverflow <= 1, `${details.documentOverflow}px overflow`);
                     runCheck(scenario.checks, 'secondary context starts collapsed', details.valuationCollapsed !== false && details.marketContextCollapsed !== false, JSON.stringify(details));
+
+                    const conflictDisclosure = page.locator('[data-testid="conflict-explanation"][data-driver="aaii"]:visible').first();
+                    runCheck(scenario.checks, 'conflict explanation control visible', await conflictDisclosure.count() > 0, 'expected a visible conflict info control');
+                    if (await conflictDisclosure.count() > 0) {
+                        await conflictDisclosure.locator('summary').click();
+                        const conflictNote = conflictDisclosure.locator('[role="note"]');
+                        const conflictNoteBox = await conflictNote.boundingBox();
+                        const conflictNoteText = await conflictNote.textContent();
+                        runCheck(scenario.checks, 'conflict explanation opens', await conflictDisclosure.evaluate((element) => element.hasAttribute('open')), conflictNoteText || 'no explanation text');
+                        runCheck(scenario.checks, 'AAII explanation shows source, conversion, and majority relationship', Boolean(conflictNoteText?.includes('36.3% bullish') && conflictNoteText.includes('AAII Investor Sentiment Survey') && conflictNoteText.includes('(36.3 − 20) ÷ 30 × 100 = 54/100') && conflictNoteText.includes('neutral 40–64 band') && conflictNoteText.includes('majority')), conflictNoteText || 'no explanation text');
+                        runCheck(scenario.checks, 'AAII explanation shows weighted contribution', Boolean(conflictNoteText?.includes('54/100 × 20% configured weight = 10.8 weighted points')), conflictNoteText || 'no explanation text');
+                        const stacking = await conflictNote.evaluate((note) => {
+                            const noteBox = note.getBoundingClientRect();
+                            const coveredControls = [...document.querySelectorAll('[data-testid="conflict-explanation"]:not([open]) > summary')]
+                                .map((control) => control.getBoundingClientRect())
+                                .map((controlBox) => ({
+                                    left: Math.max(noteBox.left, controlBox.left),
+                                    right: Math.min(noteBox.right, controlBox.right),
+                                    top: Math.max(noteBox.top, controlBox.top),
+                                    bottom: Math.min(noteBox.bottom, controlBox.bottom),
+                                }))
+                                .filter((overlap) => overlap.right > overlap.left && overlap.bottom > overlap.top);
+                            const allCovered = coveredControls.every((overlap) => {
+                                const topElement = document.elementFromPoint((overlap.left + overlap.right) / 2, (overlap.top + overlap.bottom) / 2);
+                                return Boolean(topElement && note.contains(topElement));
+                            });
+                            return { overlapCount: coveredControls.length, allCovered };
+                        });
+                        runCheck(scenario.checks, 'open explanation covers underlying info controls', stacking.overlapCount > 0 && stacking.allCovered, JSON.stringify(stacking));
+                        runCheck(
+                            scenario.checks,
+                            'conflict explanation stays within viewport',
+                            Boolean(conflictNoteBox && conflictNoteBox.x >= 0 && conflictNoteBox.x + conflictNoteBox.width <= viewport.width),
+                            conflictNoteBox ? JSON.stringify(conflictNoteBox) : 'explanation is not visible',
+                        );
+                        await conflictDisclosure.locator('summary').click();
+                    }
+
+                    const socialConflict = page.locator('[data-testid="conflict-explanation"][data-driver="social"]:visible').first();
+                    if (await socialConflict.count() > 0) {
+                        await socialConflict.locator('summary').click();
+                        const socialText = await socialConflict.locator('[role="note"]').textContent();
+                        runCheck(scenario.checks, 'zero social reading is distinguished from source off', Boolean(socialText?.includes('(0.00 + 1) × 50 = 50/100') && socialText.includes('active balanced reading, not “off”') && socialText.includes('Reddit and StockTwits')), socialText || 'no social explanation text');
+                        await socialConflict.locator('summary').click();
+                    }
+
+                    const putCallConflict = page.locator('[data-testid="conflict-explanation"][data-driver="put_call"]:visible').first();
+                    if (await putCallConflict.count() > 0) {
+                        await putCallConflict.locator('summary').click();
+                        const putCallNote = putCallConflict.locator('[role="note"]');
+                        const putCallNoteBox = await putCallNote.boundingBox();
+                        const putCallControlBox = await putCallConflict.locator('summary').boundingBox();
+                        const putCallText = await putCallNote.textContent();
+                        runCheck(scenario.checks, 'put-call explanation shows source and inverse conversion', Boolean(putCallText?.includes('0.93 put/call') && putCallText.includes('Cboe, a major US options exchange') && putCallText.includes('Total market put/call ratio') && putCallText.includes('(1.25 − 0.93) ÷ 0.70 × 100 = 46/100') && putCallText.includes('neutral 40–64 band')), putCallText || 'no put-call explanation text');
+                        runCheck(scenario.checks, 'put-call explanation shows weighted contribution', Boolean(putCallText?.includes('46/100 × 10% configured weight = 4.6 weighted points')), putCallText || 'no put-call explanation text');
+                        runCheck(
+                            scenario.checks,
+                            'last-row explanation opens above its control',
+                            Boolean(putCallNoteBox && putCallControlBox && putCallNoteBox.y + putCallNoteBox.height <= putCallControlBox.y),
+                            JSON.stringify({ note: putCallNoteBox, control: putCallControlBox }),
+                        );
+                        await putCallConflict.locator('summary').click();
+                    }
+
+                    await conflictDisclosure.locator('summary').click();
 
                     if (captureScreenshots) {
                         const screenshotPath = path.join(evidenceDir, `score-evidence-${viewport.name}-${viewport.width}x${viewport.height}.png`);
@@ -428,8 +518,12 @@ const main = async () => {
                 requestIndex = signalRequests.length;
                 await sourceGroup.locator('label').click();
                 await waitForRecordedSignal(`enableSocial=${!before}`, requestIndex);
+                await page.waitForFunction(() => !document.querySelector('section[aria-labelledby="drivers-title"]')?.textContent?.includes('News Sentiment'), undefined, { timeout: timeoutMs });
                 const quickReadText = await page.locator('[aria-label="Quick read"]:visible').textContent();
                 runCheck(scenario.checks, 'source toggle changes request state', await sourceCheckbox.isChecked() === !before, `${before} -> ${await sourceCheckbox.isChecked()}`);
+                runCheck(scenario.checks, 'disabled source is absent from score drivers', !await page.locator('section[aria-labelledby="drivers-title"]').textContent().then((text) => text?.includes('News Sentiment')), 'News Sentiment should be excluded when its source is off');
+                const coverageText = await page.locator('[data-testid="coverage-adjustment"]').textContent();
+                runCheck(scenario.checks, 'disabled source becomes neutral reserve instead of reweighting', Boolean(coverageText?.includes('35% configured weight') && coverageText.includes('neutral reserve (65% × 50)') && coverageText.includes('not redistributed')), coverageText || 'coverage explanation is missing');
                 runCheck(scenario.checks, 'score bridge remains connected after controls', quickReadText.includes('Largest influence:'), shorten(quickReadText));
                 scenario.status = 'passed';
             } catch (error) {

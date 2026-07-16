@@ -76,6 +76,13 @@ export interface MarketSignal {
         market: 'US' | 'MY';
         data_freshness: Record<string, string>; // { vix: '2026-02-15T...', social: '...' }
         weight_distribution: Record<string, number>; // { vix: 0.65, social: 0.35 }
+        coverage_adjustment?: {
+            active_weight: number;
+            missing_weight: number;
+            neutral_baseline: number;
+            active_points: number;
+            neutral_points: number;
+        };
         stocks?: Array<{
             symbol: string;
             price: number;

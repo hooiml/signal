@@ -27,7 +27,7 @@ export const INDICATOR_REGISTRY: Record<string, IndicatorDefinition> = {
         category: 'sentiment',
         frequency: 'daily',
         staleAfterDays: 1,
-        baseWeights: { US: 0.20, MY: 0.15 },
+        baseWeights: { US: 0.20 },
     },
     put_call: {
         key: 'put_call',
@@ -43,7 +43,7 @@ export const INDICATOR_REGISTRY: Record<string, IndicatorDefinition> = {
         category: 'sentiment',
         frequency: 'daily',
         staleAfterDays: 1,
-        baseWeights: { MY: 0.50 },
+        baseWeights: { MY: 0.65 },
     },
     aaii: {
         key: 'aaii',

@@ -12,6 +12,7 @@ import { fetchMarketContext } from './market-context';
 import { getIndicatorDisplayName } from './indicator-registry';
 import { calculateDriverChanges, parseStoredComponentContributions, parseStoredDriverContributions } from './signal-change';
 import type { MarketContextData } from './types/market-context';
+import { getSourceIndicatorCount, shouldEnableSourceIndicator } from './source-indicator';
 
 interface AggregateMarketData {
     vixData: { price: number; change: number };
@@ -28,6 +29,7 @@ interface AggregateMarketData {
     combinedSentiment: number;
     redditSentiment: number;
     stockTwitsSentiment: number;
+    newsSentiment: number;
     sentimentOutput: SentimentOutput;
 }
 
@@ -256,6 +258,7 @@ export const fetchRawMarketData = async (
         combinedSentiment,
         redditSentiment,
         stockTwitsSentiment,
+        newsSentiment,
         sentimentOutput,
     };
 };
@@ -589,15 +592,31 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             last_updated: new Date().toISOString()
         };
 
+        const sourceName = market === 'MY' ? 'news' as const : 'social' as const;
+        const sourceCounts = {
+            reddit: marketData.redditPosts.length,
+            stockTwits: marketData.stockTwits.length,
+            news: marketData.newsItems.length,
+        };
         const socialIndicator: IndicatorData = {
-            name: market === 'MY' ? 'news' : 'social', // Map to correct V2 key
+            name: sourceName,
             display_name: market === 'MY' ? 'News Sentiment' : 'Social Sentiment',
             value: marketData.combinedSentiment, // -1 to +1
             score: marketData.sentimentOutput.components.socialScore,
             weight: 0, // Will be calculated by V2
             signal: getSignalFromScore(marketData.sentimentOutput.components.socialScore),
-            enabled: enableSocial, // Use parameter to control enabled state
-            last_updated: new Date().toISOString()
+            enabled: shouldEnableSourceIndicator(enableSocial, sourceName, sourceCounts),
+            last_updated: new Date().toISOString(),
+            metadata: {
+                source_breakdown: market === 'MY'
+                    ? { news: marketData.newsSentiment, reddit: marketData.redditSentiment }
+                    : { reddit: marketData.redditSentiment, stocktwits: marketData.stockTwitsSentiment },
+                cadence: 'Daily / tactical',
+                horizon: '1-5 trading days',
+                mode_note: market === 'MY'
+                    ? 'News sentiment blends market news at 80% with Bursa-focused Reddit sentiment at 20%.'
+                    : 'Social sentiment blends Reddit and StockTwits sentiment equally.'
+            }
         };
         const putCallIndicator: IndicatorData | null = market === 'US' && marketData.putCallRatio
             ? {
@@ -644,7 +663,6 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             ...instIndicators
         ];
         const v2Signal = calculateCompositeScoreV2(signalInputs, { market, mode });
-        const sourceName = socialIndicator.name as 'social' | 'news';
         v2Signal.metadata.counterfactuals = {
             source_toggle: buildSourceToggleCounterfactual(signalInputs, sourceName, socialIndicator.display_name, { market, mode }, enableSocial, marketData)
         };
@@ -934,9 +952,11 @@ function buildSourceToggleCounterfactual(
     active: boolean,
     marketData: AggregateMarketData
 ): NonNullable<MarketSignal['metadata']['counterfactuals']>['source_toggle'] {
-    const socialDataCount = sourceName === 'news'
-        ? marketData.newsItems.length + marketData.redditPosts.length
-        : marketData.redditPosts.length + marketData.stockTwits.length;
+    const socialDataCount = getSourceIndicatorCount(sourceName, {
+        reddit: marketData.redditPosts.length,
+        stockTwits: marketData.stockTwits.length,
+        news: marketData.newsItems.length,
+    });
 
     if (socialDataCount === 0) {
         return {

@@ -26,6 +26,7 @@ try {
         src/lib/sentiment-calculator-v2.ts `
         src/lib/indicator-registry.ts `
         src/lib/signal-change.ts `
+        src/lib/source-indicator.ts `
         src/lib/types/signal-v2.ts
 
     if ($LASTEXITCODE -ne 0) {

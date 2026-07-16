@@ -3,6 +3,7 @@ import { calculateDriverChanges, parseStoredComponentContributions, parseStoredD
 import { IndicatorData } from '../../src/lib/types/signal-v2';
 import { buildBuffettIndicator, normalizeNaaimExposure, normalizePutCallRatio, parseCboePutCallRatio, parseFredLatestObservation, parseNaaimExposure } from '../../src/lib/market-indicators';
 import { buildBreadthContext, buildFinancialConditionsContext, buildYieldCurveContext, parseFredSeriesObservation, parseMalaysiaBenchmarkPage } from '../../src/lib/market-context';
+import { getSourceIndicatorCount, shouldEnableSourceIndicator } from '../../src/lib/source-indicator';
 
 function indicator(overrides: Partial<IndicatorData> & Pick<IndicatorData, 'name' | 'score' | 'value'>): IndicatorData {
     return {
@@ -40,18 +41,21 @@ function runCoreScoringTests() {
         indicator({ name: 'put_call', display_name: 'Put/call ratio', value: 0.74, score: 73 }),
     ], { market: 'US', mode: 'standard' });
 
-    assertEqual(standardUs.composite_score, 57, 'US VIX/social/put-call score');
-    assertNear(standardUs.metadata.weight_distribution.vix, 0.538, 0.001, 'US VIX redistributed weight');
-    assertNear(standardUs.metadata.weight_distribution.social, 0.308, 0.001, 'US social redistributed weight');
-    assertNear(standardUs.metadata.weight_distribution.put_call, 0.154, 0.001, 'US put/call redistributed weight');
+    assertEqual(standardUs.composite_score, 54, 'US score shrinks toward neutral when configured sources are missing');
+    assertNear(standardUs.metadata.weight_distribution.vix, 0.35, 0.001, 'US VIX keeps its configured weight');
+    assertNear(standardUs.metadata.weight_distribution.social, 0.20, 0.001, 'US social keeps its configured weight');
+    assertNear(standardUs.metadata.weight_distribution.put_call, 0.10, 0.001, 'US put/call keeps its configured weight');
+    assertNear(standardUs.metadata.coverage_adjustment?.active_weight ?? 0, 0.65, 0.001, 'US active weight coverage');
+    assertNear(standardUs.metadata.coverage_adjustment?.neutral_points ?? 0, 17.5, 0.001, 'US missing weight contributes neutral reserve');
     assertEqual(standardUs.confidence.level, 'moderate', 'three-source mixed agreement stays moderate');
 
     const vixOnly = calculateCompositeScoreV2([
         indicator({ name: 'vix', value: 22, score: 40 }),
     ], { market: 'US', mode: 'standard' });
 
-    assertEqual(vixOnly.composite_score, 40, 'VIX-only score');
-    assertNear(vixOnly.metadata.weight_distribution.vix, 1, 0, 'VIX-only weight');
+    assertEqual(vixOnly.composite_score, 47, 'VIX-only score shrinks toward neutral');
+    assertNear(vixOnly.metadata.weight_distribution.vix, 0.35, 0, 'VIX-only keeps configured weight');
+    assertNear(vixOnly.metadata.coverage_adjustment?.missing_weight ?? 0, 0.65, 0.001, 'VIX-only missing coverage');
     assertEqual(vixOnly.confidence.level, 'low', 'single-source confidence');
 
     const highVol = calculateCompositeScoreV2([
@@ -71,8 +75,9 @@ function runCoreScoringTests() {
         indicator({ name: 'aaii', display_name: 'AAII Sentiment', value: 45, score: 80 }),
     ], { market: 'MY', mode: 'standard' });
 
-    assertEqual(malaysia.composite_score, 74, 'MY score');
-    assertNear(malaysia.metadata.weight_distribution.news, 0.588, 0.001, 'MY news redistributed weight');
+    assertEqual(malaysia.composite_score, 75, 'MY score uses complete configured coverage');
+    assertNear(malaysia.metadata.weight_distribution.news, 0.65, 0.001, 'MY news uses consolidated sentiment weight');
+    assertNear(malaysia.metadata.coverage_adjustment?.active_weight ?? 0, 1, 0.001, 'MY configured sources provide full coverage');
 
     const unknownIndicator = calculateCompositeScoreV2([
         indicator({ name: 'vix', value: 18, score: 50 }),
@@ -82,6 +87,16 @@ function runCoreScoringTests() {
     assertEqual(unknownIndicator.composite_score, 50, 'unknown indicator does not alter score');
     assertEqual(unknownIndicator.components.unknown_positioning, undefined, 'unknown indicator excluded from scored components');
     assertEqual(unknownIndicator.confidence.source_count, 1, 'unknown indicator excluded from confidence source count');
+}
+
+function runSourceIndicatorTests() {
+    const populated = { reddit: 4, stockTwits: 6, news: 8 };
+    const empty = { reddit: 0, stockTwits: 0, news: 0 };
+    assertEqual(getSourceIndicatorCount('social', populated), 10, 'US social source count');
+    assertEqual(getSourceIndicatorCount('news', populated), 12, 'MY news source count');
+    assertEqual(shouldEnableSourceIndicator(true, 'social', populated), true, 'requested populated social source is enabled');
+    assertEqual(shouldEnableSourceIndicator(false, 'social', populated), false, 'disabled social source stays excluded');
+    assertEqual(shouldEnableSourceIndicator(true, 'social', empty), false, 'empty social source stays excluded');
 }
 
 function runPutCallTests() {
@@ -117,8 +132,23 @@ function runNaaimTests() {
         indicator({ name: 'naaim', value: 96.67, score: 100 }),
     ], { market: 'US', mode: 'standard' });
 
-    assertEqual(withNaaim.composite_score, 62, 'NAAIM participates in US score');
-    assertNear(withNaaim.metadata.weight_distribution.naaim, 0.133, 0.001, 'NAAIM redistributed weight');
+    assertEqual(withNaaim.composite_score, 59, 'NAAIM participates without amplifying missing sources');
+    assertNear(withNaaim.metadata.weight_distribution.naaim, 0.10, 0.001, 'NAAIM keeps configured weight');
+}
+
+function runCoverageAdjustmentTests() {
+    const reducedCoverage = calculateCompositeScoreV2([
+        indicator({ name: 'vix', value: 16.3, score: 78 }),
+        indicator({ name: 'aaii', value: 36.3, score: 54 }),
+        indicator({ name: 'put_call', value: 0.93, score: 46 }),
+        indicator({ name: 'naaim', value: 95.6, score: 100 }),
+    ], { market: 'US', mode: 'standard' });
+
+    assertEqual(reducedCoverage.composite_score, 65, '75% source coverage shrinks active score toward neutral');
+    assertNear(reducedCoverage.metadata.coverage_adjustment?.active_weight ?? 0, 0.75, 0.001, 'active coverage is preserved');
+    assertNear(reducedCoverage.metadata.coverage_adjustment?.missing_weight ?? 0, 0.25, 0.001, 'missing coverage is explicit');
+    assertNear(reducedCoverage.metadata.coverage_adjustment?.active_points ?? 0, 52.7, 0.001, 'active driver points use base weights');
+    assertNear(reducedCoverage.metadata.coverage_adjustment?.neutral_points ?? 0, 12.5, 0.001, 'missing coverage adds neutral points');
 }
 
 function runBuffettTests() {
@@ -240,8 +270,10 @@ function runDriverChangeTests() {
 
 function main() {
     runCoreScoringTests();
+    runSourceIndicatorTests();
     runPutCallTests();
     runNaaimTests();
+    runCoverageAdjustmentTests();
     runBuffettTests();
     runMarketContextTests();
     runDriverChangeTests();
