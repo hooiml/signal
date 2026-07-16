@@ -19,6 +19,14 @@ npm run harness
 
 Run `npm run build` for route, framework, dependency, or deployment changes.
 
+For Market V6 hierarchy, score-evidence, responsive layout, or control changes, run the reusable browser check instead of creating a task-specific Playwright script:
+
+```powershell
+npm run qa:market
+```
+
+Use `--scenario`, `--viewport`, and `--no-screenshots` for focused reruns. See `docs/TESTING.md` for the fixture/live split and evidence contract.
+
 ## Updating Generated Repo Knowledge
 
 When files, scripts, or route structure change, refresh the generated map:

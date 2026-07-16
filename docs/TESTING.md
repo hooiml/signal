@@ -8,8 +8,9 @@ Run the smallest verification set that proves the change, then expand when share
 npm run lint
 npm run typecheck
 npm run harness
-npm run test:research
 ```
+
+`npm run harness` already runs the research regression suite. Use `npm run test:research` separately only for focused research iteration; do not add it after `npm run harness` or run both against the same task in parallel. Research compilation uses a unique `.tmp/research-tests/<run-id>/` directory so separately invoked runs cannot remove each other's artifacts.
 
 For docs-only or harness-metadata changes, `npm run harness` is the minimum proof. Run the full standard set when TypeScript, routes, shared contracts, or runtime behavior changed.
 
@@ -46,6 +47,25 @@ Then open `http://localhost:3000` and check:
 - mode toggle still changes interpretation
 - social toggle still affects the signal request
 - desktop and mobile layouts do not overlap text or controls
+
+### Targeted Market QA
+
+For Market V6 hierarchy, score-evidence, responsive layout, or control wiring, use the deterministic one-session check:
+
+```powershell
+npm run qa:market
+```
+
+By default the command intercepts `/api/signals/v2` with deterministic US and Malaysia fixtures, checks the score-evidence hierarchy at 1280px, 768px, and 375px, exercises market/mode/source controls once, captures the affected score section, and writes a unique report under `.tmp/signal-market-qa/<timestamp>-<pid>/`. It reuses `SIGNAL_QA_URL`, an explicit `--base-url`, or an available local port 3000 server; otherwise it starts port 3107 and stops only that owned process in cleanup.
+
+Use focused scenarios after a failure or for proportionate verification:
+
+```powershell
+npm run qa:market -- --scenario score-evidence --viewport 375 --no-screenshots
+npm run qa:market -- --scenario controls --no-screenshots
+```
+
+Available scenarios are `all`, `score-evidence`, `controls`, and `smoke`. Pass `--full-page` only when the overall page shell is the subject; section captures are the default to avoid full-page stitching artifacts. Pass `--live` for a separate live-data smoke instead of coupling visual assertions to external Reddit, StockTwits, or provider availability.
 
 ### Targeted Header QA
 

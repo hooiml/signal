@@ -54,7 +54,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
     const storyHeadline = getStoryHeadlineV6(signal);
     const hasLinkedContext = contextItems.some((item) => item.affected.label !== 'Context');
     const panel = 'rounded-lg border backdrop-blur-md ' + t.panel;
-    const quickReadContent = <QuickReadContentV6 signal={signal} posture={posture} quality={quality} delta={delta} scoreClass={tierTone.text} theme={theme} />;
+    const quickReadContent = <QuickReadContentV6 signal={signal} posture={posture} quality={quality} delta={delta} drivers={drivers} scoreClass={tierTone.text} theme={theme} />;
     const valuationBackdrop = signal.metadata.valuation_backdrop;
     const marketContext = signal.metadata.market_context;
 
@@ -125,23 +125,38 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                 />
             </section>
 
-            {valuationBackdrop ? <ValuationBackdropV6 backdrop={valuationBackdrop} theme={theme} /> : null}
-            {marketContext ? <MarketContextV6 context={marketContext} theme={theme} /> : null}
-
-            <section className={panel + ' p-5 sm:p-6'} aria-label="Supporting context">
-                <div className="grid gap-5 lg:grid-cols-[220px_1fr] lg:items-start">
+            <section className={panel + ' p-5 sm:p-6'} aria-labelledby="score-evidence-title">
+                <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
-                        <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Plain-language guide</p>
-                        <h2 id="terms-title" className={'mt-1 text-lg font-bold ' + t.textPrimary}>Terms in this briefing</h2>
+                        <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Score explanation</p>
+                        <h2 id="score-evidence-title" className={'mt-1 text-xl font-bold ' + t.textPrimary}>Why this score</h2>
                     </div>
-                    <dl className="grid gap-4 sm:grid-cols-3">
-                        <GlossaryItemV6 term="Momentum" definition="How consistently prices and market participation are moving." theme={theme} />
-                        <GlossaryItemV6 term="Agreement" definition="How many indicators point in the same direction. It is not a prediction." theme={theme} />
-                        <GlossaryItemV6 term="Freshness" definition="How recently the underlying sources were updated." theme={theme} />
-                    </dl>
+                    <p className={'max-w-xl text-xs leading-5 ' + t.textMuted}>History shows where the score sits; weighted evidence shows what produced it.</p>
                 </div>
+                <div className="mt-5 grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(440px,0.92fr)]">
+                    <div className="min-w-0">
+                        <ScoreHistoryV6 signal={signal} theme={theme} />
+                        <div className={'mt-4 grid gap-3 border-t pt-4 sm:grid-cols-3 ' + t.divider}>
+                            <CompactFactV6 label="Trend" value={signal.metadata.trend_context?.score_trend ?? 'Not available'} theme={theme} />
+                            <CompactFactV6 label="Last signal change" value={signal.metadata.trend_context?.last_signal_change ?? 'Not available'} theme={theme} />
+                            <CompactFactV6 label="Snapshot" value={formatCompactDateV6(signal.metadata.score_delta?.snapshot_date)} theme={theme} />
+                        </div>
+                    </div>
+                    <section className="min-w-0" aria-labelledby="drivers-title">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <p className={'text-xs font-semibold ' + t.textMuted}>Contribution-ranked evidence</p>
+                                <h3 id="drivers-title" className={'mt-0.5 text-lg font-bold ' + t.textPrimary}>What is driving the score</h3>
+                            </div>
+                            <p className={'text-xs ' + t.textMuted}>Largest absolute movers first</p>
+                        </div>
+                        <DriverTableV6 drivers={drivers} signal={signal} theme={theme} />
+                    </section>
+                </div>
+            </section>
 
-                <div className={'mt-6 grid items-start gap-8 border-t pt-5 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.18fr)] lg:gap-0 ' + t.divider}>
+            <section className={panel + ' p-5 sm:p-6'} aria-label="Forward scenarios and market developments">
+                <div className="grid items-start gap-8 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.18fr)] lg:gap-0">
                     <section className="min-w-0 lg:pr-8" aria-labelledby="scenarios-title">
                         <SectionHeadingV6 eyebrow="Watch next" title="What could change the story" id="scenarios-title" theme={theme} />
                         <div className="mt-4 space-y-4">
@@ -168,30 +183,24 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                 </div>
             </section>
 
-            <DisclosureV6 title="Explore charts and weighted evidence" theme={theme}>
-                <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(440px,0.92fr)]">
-                    <section className="min-w-0">
-                        <ScoreHistoryV6 signal={signal} theme={theme} />
-                        <div className={'mt-4 grid gap-3 border-t pt-4 sm:grid-cols-3 ' + t.divider}>
-                            <CompactFactV6 label="Trend" value={signal.metadata.trend_context?.score_trend ?? 'Not available'} theme={theme} />
-                            <CompactFactV6 label="Last signal change" value={signal.metadata.trend_context?.last_signal_change ?? 'Not available'} theme={theme} />
-                            <CompactFactV6 label="Snapshot" value={formatCompactDateV6(signal.metadata.score_delta?.snapshot_date)} theme={theme} />
-                        </div>
-                    </section>
-                    <section className="min-w-0" aria-labelledby="drivers-title">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                                <p className={'text-xs font-semibold ' + t.textMuted}>Contribution-ranked evidence</p>
-                                <h2 id="drivers-title" className={'mt-0.5 text-lg font-bold ' + t.textPrimary}>What is driving the score</h2>
-                            </div>
-                            <p className={'text-xs ' + t.textMuted}>Largest absolute movers first</p>
-                        </div>
-                        <DriverTableV6 drivers={drivers} signal={signal} theme={theme} />
-                    </section>
-                </div>
-            </DisclosureV6>
+            {valuationBackdrop ? <ValuationBackdropV6 backdrop={valuationBackdrop} theme={theme} /> : null}
+            {marketContext ? <MarketContextV6 context={marketContext} theme={theme} /> : null}
 
             <MarketAlertsV6 signal={signal} enableSocial={enableSocial} theme={theme} />
+
+            <section className={panel + ' p-5 sm:p-6'} aria-labelledby="terms-title">
+                <div className="grid gap-5 lg:grid-cols-[220px_1fr] lg:items-start">
+                    <div>
+                        <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Plain-language guide</p>
+                        <h2 id="terms-title" className={'mt-1 text-lg font-bold ' + t.textPrimary}>Terms in this briefing</h2>
+                    </div>
+                    <dl className="grid gap-4 sm:grid-cols-3">
+                        <GlossaryItemV6 term="Momentum" definition="How consistently prices and market participation are moving." theme={theme} />
+                        <GlossaryItemV6 term="Agreement" definition="How many indicators point in the same direction. It is not a prediction." theme={theme} />
+                        <GlossaryItemV6 term="Freshness" definition="How recently the underlying sources were updated." theme={theme} />
+                    </dl>
+                </div>
+            </section>
 
             <div className="grid gap-4 lg:grid-cols-2">
                 <DisclosureV6 title="Trust and limitations" theme={theme}>
@@ -333,15 +342,21 @@ const StoryChapterV6 = ({ driver, index, signal, theme }: { driver: DriverV6; in
     );
 };
 
-const QuickReadContentV6 = ({ signal, posture, quality, delta, scoreClass, theme }: {
+const QuickReadContentV6 = ({ signal, posture, quality, delta, drivers, scoreClass, theme }: {
     signal: MarketSignal;
     posture: ReturnType<typeof getDecisionPostureV6>;
     quality: MarketSignal['metadata']['signal_quality'];
     delta: number | null | undefined;
+    drivers: DriverV6[];
     scoreClass: string;
     theme: ResearchThemeV6;
 }) => {
     const t = getThemeV6(theme);
+    const primaryDriver = drivers[0];
+    const scoreChange = typeof delta === 'number' ? formatSignedV6(delta) + ' pts since the prior snapshot' : 'No prior comparison';
+    const scoreDetail = primaryDriver
+        ? scoreChange + '. Largest influence: ' + primaryDriver.name + ' at ' + formatSignedV6(primaryDriver.contribution, 1) + ' weighted points.'
+        : scoreChange + '. Weighted driver detail is unavailable.';
     return (
         <>
             <p className={'text-xs font-semibold uppercase tracking-[0.12em] ' + t.textMuted}>Quick read</p>
@@ -349,7 +364,7 @@ const QuickReadContentV6 = ({ signal, posture, quality, delta, scoreClass, theme
                 <QuickReadItemV6 label="Market view" value={posture.headline} detail={signal.mode === 'contrarian' ? 'Contrarian interpretation' : 'Standard interpretation'} theme={theme} />
                 <QuickReadItemV6 label="Evidence agreement" value={Math.round(signal.confidence.agreement_pct) + '%'} detail={signal.confidence.level + ' agreement, not forecast probability'} theme={theme} />
                 <QuickReadItemV6 label="Data freshness" value={capitalize(quality?.freshness ?? 'unavailable')} detail={getActiveSourceSummary(signal)} valueClass={getFreshnessTone(capitalize(quality?.freshness ?? 'stale'), theme)} theme={theme} />
-                <QuickReadItemV6 label="Composite score" value={Math.round(signal.composite_score) + ' / 100'} detail={(typeof delta === 'number' ? formatSignedV6(delta) + ' pts since the prior snapshot' : 'No prior comparison')} valueClass={scoreClass} theme={theme} />
+                <QuickReadItemV6 label="Composite score" value={Math.round(signal.composite_score) + ' / 100'} detail={scoreDetail} valueClass={scoreClass} theme={theme} />
             </div>
             <p className={'mt-5 border-t pt-4 text-xs leading-5 ' + t.divider + ' ' + t.textMuted}>Snapshot {formatCompactDateV6(signal.metadata.score_delta?.snapshot_date)}. Decision support only.</p>
         </>

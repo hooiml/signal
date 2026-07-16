@@ -79,7 +79,8 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 - Market change attribution compares each driver with the prior daily snapshot and surfaces the three largest contribution shifts beneath What changed.
 - Market alerts persist browser-local score, agreement, tier, freshness, and daily-move conditions scoped to the active market, interpretation mode, and social-source setting. They are evaluated on briefing refresh and must not imply background push delivery.
 - The market command header exposes one manual briefing refresh command, reports the last successful check time, disables duplicate refreshes while a request is active, and prevents stale responses from replacing a newer market configuration.
-- Score history is the dominant chart. Supporting context is compact and explicitly separated from weighted evidence.
+- The Quick Read composite score names its largest weighted influence. A visible Why this score section follows What changed and keeps score history beside contribution-ranked weighted evidence.
+- Score history is the dominant chart. Forward scenarios follow scored evidence, while valuation, macro/breadth, articles, alerts, glossary, trust, and methodology remain explicitly separated according to whether they affect the score.
 - Detailed trust, limitations, and methodology live in disclosure panels below the primary briefing.
 
 ## 5. Responsive And Accessibility Constraints
@@ -107,10 +108,10 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 
 ## 7. Story First Market Briefing
 
-- The market screen opens as a short daily briefing rather than a scorecard. Its fixed reading order is: story headline, three evidence chapters, quick read, what changed, then detailed evidence.
+- The market screen opens as a short daily briefing rather than a scorecard. Its fixed reading order is: story headline, three evidence chapters, quick read, what changed, Why this score, forward scenarios, non-scored market context, alerts, then terms, trust, and methodology.
 - The headline translates the current tier into plain market language. It must retain the existing deterministic posture summary and surface the primary caveat beside it.
 - Chapters are generated from the strongest contribution-ranked drivers. Every chapter shows its source name, directional relationship to the majority view, freshness, and a short explanation; conflicting evidence remains visually explicit.
 - The Quick Read rail keeps agreement, source coverage, freshness, score, and snapshot time visible without presenting agreement as forecast probability.
-- Detailed score history, weighted contributions, market context, limitations, and methodology remain available below the narrative layer. Progressive disclosure may reduce initial density but must not remove evidence.
-- On narrow screens the reading order becomes headline, Quick Read, chapters, change comparison, glossary, and details. No narrative panel may require horizontal scrolling.
+- Detailed score history and weighted contributions remain visible as primary evidence below the narrative layer. Progressive disclosure is reserved for non-scored context, limitations, and methodology.
+- On narrow screens the reading order becomes headline, Quick Read, chapters, change comparison, Why this score, scenarios, context, alerts, terms, and details. No narrative panel may require horizontal scrolling.
 - Story First uses existing V6 theme tokens and small-radius bordered surfaces. Numbered chapter markers and connecting rules create the narrative sequence; decorative illustrations, financial-terminal density, and new color tokens are not introduced.
