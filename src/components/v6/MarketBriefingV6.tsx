@@ -7,7 +7,6 @@ import {
     getFreshnessTone,
     getIndicatorCadence,
     getIndicatorHorizon,
-    getPrimaryCaveat,
     getReadLimitations,
     getSignalAction,
     getTierTone,
@@ -16,6 +15,8 @@ import { ScoreHistoryV6 } from './ScoreHistoryV6';
 import { ChangeAttributionV6 } from './ChangeAttributionV6';
 import { MarketAlertsV6 } from './MarketAlertsV6';
 import { MarketContextV6 } from './MarketContextV6';
+import { MarketToResearchLinkV6 } from './MarketResearchHandoffV6';
+import { MarketCalibrationV6 } from './MarketCalibrationV6';
 import {
     formatCompactDateV6,
     formatSignedV6,
@@ -43,7 +44,6 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
     const quality = signal.metadata.signal_quality;
     const breadth = getBroadMarketValidation(signal);
     const concentration = getEvidenceConcentrationDetails(signal);
-    const caveat = getPrimaryCaveat(signal);
     const scenarios = getScenariosV6(signal);
     const limitations = getReadLimitations(signal);
     const delta = signal.metadata.score_delta?.delta;
@@ -77,20 +77,24 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                         </div>
                         <h1 id="market-story-title" className={'mt-3 max-w-3xl text-3xl font-bold leading-tight sm:text-4xl ' + t.textPrimary}>{storyHeadline}</h1>
                         <p className={'mt-3 max-w-4xl text-base leading-7 sm:text-lg ' + t.textSecondary}>{posture.summary}</p>
-                        {caveat ? <p className={'mt-3 text-sm font-medium ' + (theme === 'light' ? 'text-amber-800' : 'text-amber-200')}>{caveat}</p> : null}
 
-                        <section className={'mt-6 border-t pt-5 xl:hidden ' + t.divider} aria-label="Quick read">
-                            {quickReadContent}
-                        </section>
+                        <dl className={'mt-5 grid overflow-hidden rounded-md border sm:grid-cols-2 lg:grid-cols-4 ' + t.divider} data-testid="market-story-trust">
+                            <StoryTrustItemV6 label="Composite score" value={Math.round(signal.composite_score) + ' / 100'} theme={theme} />
+                            <StoryTrustItemV6 label="Indicator agreement" value={Math.round(signal.confidence.agreement_pct) + '%'} theme={theme} />
+                            <StoryTrustItemV6 label="Data freshness" value={capitalize(quality?.freshness ?? 'unavailable')} valueClass={getFreshnessTone(capitalize(quality?.freshness ?? 'stale'), theme)} theme={theme} />
+                            <StoryTrustItemV6 label="Snapshot" value={formatCompactDateV6(signal.metadata.score_delta?.snapshot_date)} theme={theme} />
+                        </dl>
 
                         <div className={'mt-6 border-t pt-5 ' + t.divider}>
-                            <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>How the evidence builds</p>
-                            <div className="mt-4 grid gap-0 lg:grid-cols-3">
+                            <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>What is driving the story</p>
+                            <p className={'mt-2 max-w-3xl text-sm leading-6 ' + t.textSecondary}>Each actual reading is converted to a 0–100 score, then multiplied by its configured weight to produce weighted points.</p>
+                            <div className="mt-4 grid gap-3 lg:grid-cols-3" data-testid="market-story-evidence">
                                 {storyDrivers.map((driver, index) => (
                                     <StoryChapterV6 key={driver.key} driver={driver} index={index} signal={signal} theme={theme} />
                                 ))}
-                                {storyDrivers.length === 0 ? <p className={'text-sm ' + t.textMuted}>Evidence chapters are unavailable for this snapshot.</p> : null}
+                                {storyDrivers.length === 0 ? <p className={'text-sm ' + t.textMuted}>Ranked evidence is unavailable for this snapshot.</p> : null}
                             </div>
+                            {drivers.length > storyDrivers.length ? <p className={'mt-3 text-xs leading-5 ' + t.textMuted}>Showing the {storyDrivers.length} largest score contributions. All {drivers.length} active indicators appear in the weighted evidence section below.</p> : null}
                         </div>
                     </div>
                 </section>
@@ -156,6 +160,8 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                 </div>
             </section>
 
+            <MarketCalibrationV6 signal={signal} theme={theme} />
+
             <section className={panel + ' p-5 sm:p-6'} aria-label="Forward scenarios and market developments">
                 <div className="grid items-start gap-8 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.18fr)] lg:gap-0">
                     <section className="min-w-0 lg:pr-8" aria-labelledby="scenarios-title">
@@ -188,6 +194,8 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
             {marketContext ? <MarketContextV6 context={marketContext} theme={theme} /> : null}
 
             <MarketAlertsV6 signal={signal} enableSocial={enableSocial} theme={theme} />
+
+            <MarketToResearchLinkV6 signal={signal} theme={theme} />
 
             <section className={panel + ' p-5 sm:p-6'} aria-labelledby="terms-title">
                 <div className="grid gap-5 lg:grid-cols-[220px_1fr] lg:items-start">
@@ -321,25 +329,63 @@ const getStoryHeadlineV6 = (signal: MarketSignal) => {
 const StoryChapterV6 = ({ driver, index, signal, theme }: { driver: DriverV6; index: number; signal: MarketSignal; theme: ResearchThemeV6 }) => {
     const t = getThemeV6(theme);
     const component = signal.components[driver.key];
-    const relationship = driver.conflict
-        ? 'This indicator disagrees with the majority view and reduces conviction.'
-        : driver.impact === 'positive'
-            ? 'This indicator is adding positive support to the current market view.'
-            : driver.impact === 'negative'
-                ? 'This indicator is adding caution to the current market view.'
-                : 'This indicator is providing context without a strong directional push.';
+    const reading = component ? formatRawValue(component, signal.metadata.market) : driver.raw_value.toString();
+    const score = component?.score ?? driver.score;
+    const updated = formatCompactDateV6(component?.last_updated ?? driver.last_updated);
+    const role = getStoryDriverRoleV6(driver, index);
+    const roleTone = driver.conflict ? t.risk : driver.impact === 'negative' ? (theme === 'light' ? 'text-amber-800' : 'text-amber-200') : t.positive;
+    const surface = driver.conflict
+        ? theme === 'light' ? 'border-rose-200 bg-rose-50/65' : 'border-rose-400/25 bg-rose-500/[0.06]'
+        : t.row;
 
     return (
-        <article className={'relative min-w-0 border-l pl-5 pb-5 last:pb-0 lg:border-l-0 lg:border-t lg:px-5 lg:pb-0 lg:pt-6 first:lg:pl-0 last:lg:pr-0 ' + t.divider}>
-            <span className={'absolute -left-3 top-0 flex size-6 items-center justify-center rounded-full border text-xs font-bold lg:-top-3 lg:left-5 first:lg:left-0 ' + (driver.conflict ? (theme === 'light' ? 'border-rose-300 bg-rose-50 text-rose-700' : 'border-rose-400/50 bg-[#111a23] text-rose-200') : (theme === 'light' ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-emerald-400/50 bg-[#111a23] text-emerald-200'))}>{index + 1}</span>
-            <p className={'text-xs font-semibold uppercase tracking-[0.08em] ' + (driver.conflict ? t.risk : t.textMuted)}>{driver.conflict ? 'Conflicting evidence' : 'Evidence chapter'}</p>
+        <article className={'flex h-full min-w-0 flex-col rounded-md border p-4 ' + surface}>
+            <p className={'text-xs font-semibold uppercase tracking-[0.08em] ' + roleTone}>{role}</p>
             <h2 className={'mt-1 text-base font-bold ' + t.textPrimary}>{component?.display_name ?? driver.name}</h2>
-            <p className={'mt-2 text-sm leading-5 ' + t.textSecondary}>{relationship}</p>
-            <div className={'mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px] ' + t.textMuted}>
-                <span>{driver.contribution.toFixed(1)} weighted points</span>
-                <span>{driver.freshness}</span>
+            <div className="mt-4">
+                <p className={'text-xs font-semibold ' + t.textMuted}>Actual reading</p>
+                <p className={'mt-1 text-xl font-bold tabular-nums ' + t.textPrimary}>{reading}</p>
+            </div>
+            <p className={'mt-3 text-sm leading-5 ' + t.textSecondary}>{getStoryRelationshipV6(driver)}</p>
+            <div className="mt-auto pt-4" data-testid="market-story-card-footer">
+                <div className={'rounded-md border px-3 py-2.5 ' + t.divider + ' ' + t.cell}>
+                    <p className={'text-xs font-semibold ' + t.textMuted}>Score contribution</p>
+                    <p className={'mt-1 text-sm font-semibold tabular-nums ' + t.textPrimary}>{score.toFixed(0)}/100 × {Math.round(driver.weight * 100)}% weight = {driver.contribution.toFixed(1)} points</p>
+                </div>
+                <p className={'mt-3 text-xs font-semibold ' + getFreshnessTone(driver.freshness, theme)}>Updated {updated} · {driver.freshness}</p>
             </div>
         </article>
+    );
+};
+
+const getStoryDriverRoleV6 = (driver: DriverV6, index: number) => {
+    if (driver.conflict) return index === 0 ? 'Main conflict' : 'Conflicting signal';
+    if (index === 0) return 'Strongest influence';
+    if (driver.impact === 'negative') return 'Additional caution';
+    if (driver.impact === 'positive') return 'Additional support';
+    return 'Additional context';
+};
+
+const getStoryRelationshipV6 = (driver: DriverV6) => {
+    if (driver.conflict) return 'This reading points away from the majority view and reduces indicator agreement.';
+    if (driver.key === 'vix') return driver.impact === 'positive'
+        ? 'Current volatility supports the positive market view.'
+        : 'Current volatility adds caution to the market view.';
+    if (driver.key === 'aaii') return 'Individual-investor sentiment supports the current interpretation.';
+    if (driver.key === 'naaim') return 'Active-manager exposure supports the current interpretation.';
+    if (driver.key === 'put_call') return 'Options positioning supports the current interpretation.';
+    if (driver.impact === 'positive') return 'This reading adds support to the current market view.';
+    if (driver.impact === 'negative') return 'This reading adds caution to the current market view.';
+    return 'This reading provides context without a strong directional push.';
+};
+
+const StoryTrustItemV6 = ({ label, value, valueClass, theme }: { label: string; value: string; valueClass?: string; theme: ResearchThemeV6 }) => {
+    const t = getThemeV6(theme);
+    return (
+        <div className={'min-w-0 border-b p-3 last:border-b-0 sm:[&:nth-child(odd)]:border-r sm:[&:nth-last-child(-n+2)]:border-b-0 lg:border-b-0 lg:border-r lg:last:border-r-0 ' + t.divider + ' ' + t.cell}>
+            <dt className={'text-[11px] font-semibold uppercase tracking-[0.08em] ' + t.textMuted}>{label}</dt>
+            <dd className={'mt-1 break-words text-sm font-bold ' + (valueClass ?? t.textPrimary)}>{value}</dd>
+        </div>
     );
 };
 
@@ -423,13 +469,13 @@ const DriverTableV6 = ({ drivers, signal, theme }: { drivers: DriverV6[]; signal
     return (
         <>
             <div className="mt-4 hidden md:block">
-                <table className="w-full table-fixed border-collapse text-left text-sm">
+                <table className="w-full table-fixed border-separate border-spacing-y-1 text-left text-sm">
                     <thead>
-                        <tr className={'border-b text-xs uppercase tracking-[0.08em] ' + t.divider + ' ' + t.textMuted}>
-                            <th className="w-[42%] pb-3 font-semibold">Driver</th>
-                            <th className="w-[20%] pb-3 font-semibold">Reading</th>
-                            <th className="w-[18%] pb-3 text-right font-semibold">Weighted points</th>
-                            <th className="w-[20%] pb-3 text-right font-semibold">Freshness</th>
+                        <tr className={'text-xs uppercase tracking-[0.08em] ' + t.textMuted}>
+                            <th className={'w-[42%] border-b pb-3 pl-3 font-semibold ' + t.divider}>Driver</th>
+                            <th className={'w-[20%] border-b pb-3 font-semibold ' + t.divider}>Reading</th>
+                            <th className={'w-[18%] border-b pb-3 text-right font-semibold ' + t.divider}>Weighted points</th>
+                            <th className={'w-[20%] border-b pb-3 pr-3 text-right font-semibold ' + t.divider}>Freshness</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -470,10 +516,18 @@ const CoverageAdjustmentV6 = ({ signal, theme }: { signal: MarketSignal; theme: 
 const DriverRowV6 = ({ driver, signal, maxContribution, tooltipPlacement, theme }: { driver: DriverV6; signal: MarketSignal; maxContribution: number; tooltipPlacement: 'top' | 'bottom'; theme: ResearchThemeV6 }) => {
     const t = getThemeV6(theme);
     const component = signal.components[driver.key];
-    const rowHighlight = driver.conflict ? (theme === 'light' ? 'bg-rose-50/75' : 'bg-rose-500/[0.06]') : '';
+    const cellSurface = driver.conflict
+        ? theme === 'light' ? 'border-y border-rose-200 bg-rose-50/75' : 'border-y border-rose-400/25 bg-rose-500/[0.06]'
+        : 'border-b ' + t.divider;
+    const firstCellSurface = driver.conflict
+        ? theme === 'light' ? 'rounded-l-md border-l border-rose-200 shadow-[inset_3px_0_0_#e11d48]' : 'rounded-l-md border-l border-rose-400/25 shadow-[inset_3px_0_0_#fb7185]'
+        : '';
+    const lastCellSurface = driver.conflict
+        ? theme === 'light' ? 'rounded-r-md border-r border-rose-200' : 'rounded-r-md border-r border-rose-400/25'
+        : '';
     return (
-        <tr className={'border-b align-top last:border-0 ' + t.divider + ' ' + rowHighlight}>
-            <td className="py-3 pr-3">
+        <tr className="align-top">
+            <td className={'py-3 pl-3 pr-3 ' + cellSurface + ' ' + firstCellSurface}>
                 <div className="flex flex-wrap items-center gap-2">
                     <span className={'font-semibold ' + t.textPrimary}>{driver.name}</span>
                     {driver.conflict ? <ConflictBadgeV6 driver={driver} signal={signal} placement={tooltipPlacement} theme={theme} /> : null}
@@ -482,12 +536,12 @@ const DriverRowV6 = ({ driver, signal, maxContribution, tooltipPlacement, theme 
                     <div className={'h-full rounded-full ' + driverBarToneV6(driver)} style={{ width: Math.max(6, (Math.abs(driver.contribution) / maxContribution) * 100) + '%' }} />
                 </div>
             </td>
-            <td className={'py-3 pr-3 ' + t.textSecondary}>{component ? formatRawValue(component, signal.metadata.market) : driver.raw_value.toString()}</td>
-            <td className="py-3 text-right tabular-nums">
+            <td className={'py-3 pr-3 ' + cellSurface + ' ' + t.textSecondary}>{component ? formatRawValue(component, signal.metadata.market) : driver.raw_value.toString()}</td>
+            <td className={'py-3 text-right tabular-nums ' + cellSurface}>
                 <span className={'block font-bold ' + driverTextToneV6(driver, theme)}>{driver.contribution.toFixed(1)}</span>
                 <span className={'mt-0.5 block text-[11px] font-medium ' + t.textMuted}>{Math.round(driver.weight * 100)}% configured weight</span>
             </td>
-            <td className={'py-3 text-right text-xs font-semibold ' + getFreshnessTone(driver.freshness, theme)}>{driver.freshness}</td>
+            <td className={'py-3 pr-3 text-right text-xs font-semibold ' + cellSurface + ' ' + lastCellSurface + ' ' + getFreshnessTone(driver.freshness, theme)}>{driver.freshness}</td>
         </tr>
     );
 };

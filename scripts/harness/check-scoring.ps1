@@ -23,6 +23,7 @@ try {
         --noEmit false `
         scripts/harness/scoring-regression.ts `
         src/lib/market-indicators.ts `
+        src/lib/market-calibration.ts `
         src/lib/sentiment-calculator-v2.ts `
         src/lib/indicator-registry.ts `
         src/lib/signal-change.ts `

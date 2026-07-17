@@ -1,4 +1,5 @@
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
+import { calculateResearchDecision } from '@/lib/research/records';
 
 export type ResearchActionV6 = 'Ready' | 'DCA' | 'Wait for price' | 'Watch' | 'Avoid';
 export type ResearchTabV6 = 'overview' | 'fundamentals' | 'valuation' | 'events' | 'chart' | 'technical';
@@ -98,28 +99,7 @@ export const getActionReasonV6 = (action: ResearchActionV6) => {
 export const getChecklistCountV6 = (item: ResearchWatchlistItem) =>
     Object.values(item.checklist).filter(Boolean).length;
 
-export const getResearchActionV6 = (item: ResearchWatchlistItem): ResearchActionV6 => {
-    const count = getChecklistCountV6(item);
-    const qualityPassed = item.checklist.understandBusiness
-        && item.checklist.revenueGrowingOrStable
-        && item.checklist.marginsHealthyOrImproving
-        && item.checklist.debtManageable
-        && item.checklist.freeCashFlowPositiveOrImproving
-        && item.checklist.downsideAcceptable;
-
-    if (count === 0) return 'Watch';
-    if (item.thesisStrength === 'low'
-        || !item.checklist.downsideAcceptable
-        || (item.valuationState === 'expensive' && item.thesisStrength !== 'high')) return 'Avoid';
-    if (item.positionState === 'owned' && item.thesisStrength === 'high' && qualityPassed
-        && item.valuationState !== 'expensive' && item.inBuyZone
-        && item.checklist.valuationReasonable) return 'DCA';
-    if (count >= 8 && item.inBuyZone && item.checklist.valuationReasonable
-        && item.checklist.downsideAcceptable) return 'Ready';
-    if ((item.thesisStrength === 'high' || item.thesisStrength === 'medium')
-        && count >= 6 && (item.valuationState === 'expensive' || !item.inBuyZone)) return 'Wait for price';
-    return 'Watch';
-};
+export const getResearchActionV6 = (item: ResearchWatchlistItem): ResearchActionV6 => calculateResearchDecision(item);
 
 export const formatPriceV6 = (item: ResearchWatchlistItem) => {
     if (item.price === undefined) return '--';

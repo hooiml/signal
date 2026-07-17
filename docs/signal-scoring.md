@@ -106,6 +106,14 @@ These cards must remain visibly labeled as context-only and include their report
 
 The US Research Index Test is also non-scored context. It compares a research ticker's one-year return with VOO using adjusted closes when available; it informs the manual `betterThanCashOrIndex` review question but does not alter signal scores or automatic research decisions.
 
+## Historical calibration
+
+Persisted daily score snapshots are compared with subsequent VOO returns for US mode and FBM KLCI closes for Malaysia mode at approximately 7 and 30 calendar days. Results remain separated by market, Momentum or Contrarian mode, social-source setting, and the documented score zones. Directional alignment follows the tier saved for that mode; mixed snapshots have no directional hit-rate claim.
+
+Calibration uses the newest 1,000 snapshots within the benchmark's five-year window and an explicitly revalidated one-hour cache. This keeps the interactive signal response bounded while allowing completed forward-return observations to advance.
+
+The UI withholds return and alignment percentages until a zone has at least five eligible observations. These are overlapping historical observations without transaction costs, not a backtest or forecast, and the limitation must remain visible wherever the calibration is rendered.
+
 ## Signal Alignment Meaning
 
 Signal alignment means indicator agreement only. It is not a probability that the read will be correct.

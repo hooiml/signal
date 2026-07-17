@@ -19,15 +19,22 @@ export const researchInboxCategoryLabel = (item: ResearchInboxItem): string => {
 
 export const ResearchInboxRowV6 = ({ item, theme, unread, change, onOpen, className = '' }: ResearchInboxRowV6Props) => {
     const styles = getThemeV6(theme);
-    const tone = item.kind === 'risk' ? styles.risk : item.kind === 'opportunity' ? styles.positive : styles.textSecondary;
+    const tone = item.kind === 'risk'
+        ? styles.risk
+        : item.kind === 'opportunity'
+            ? styles.positive
+            : item.kind === 'catalyst'
+                ? theme === 'light' ? 'text-amber-700' : 'text-amber-300'
+                : styles.textMuted;
     return (
         <li className={'rounded border px-3 py-2 ' + styles.divider + ' ' + className}>
             <button type="button" onClick={onOpen} aria-label={`Open ${item.symbol} research: ${item.title}`} className="min-h-10 w-full min-w-0 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500">
                 <span className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
                     <span className={'text-sm font-semibold ' + styles.textPrimary}>{item.title}</span>
                     <span className={'inline-flex items-center gap-1.5 text-xs font-semibold ' + tone}>
-                        {unread && <span aria-label="Unread" className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />}
+                        <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-current" />
                         {researchInboxCategoryLabel(item)}
+                        {unread && <span className={'rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ' + styles.statusSurface + ' ' + styles.textMuted}>New</span>}
                     </span>
                 </span>
                 <span className="mt-1 flex flex-wrap items-center gap-x-2">

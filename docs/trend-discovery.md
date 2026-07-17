@@ -51,6 +51,8 @@ Up to the first ten eligible candidates form the high-conviction `Leaders` list.
 
 The Discovery workspace filters the current scan instantly by sector, risk, trend stage, and valuation guardrail. Filters use AND semantics, retain each ticker's original scan rank, apply to both Leaders and Contenders, and can be reset without fetching the upstream providers again.
 
+Up to five named filter views and the most recent ranked visit are stored in the browser. A return visit compares the current Leaders and Contenders with that snapshot and surfaces new entrants, moves of at least three ranks, and changed risk, valuation, or earnings-catalyst state. This comparison is personal workspace state and does not trigger another provider scan.
+
 Revenue jumps above 100% are flagged as potentially non-comparable periods. SEC concept-name changes are resolved by selecting the newest annual filing across the supported revenue tags.
 
 The combined discovery score is 65% trend and 35% business quality. Trend, quality, risk, category, and evidence remain visible separately so the combined score is auditable.

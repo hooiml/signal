@@ -4,6 +4,7 @@ import type {
     ResearchRecord,
     ResearchReviewSnapshot,
     ResearchUpdateInput,
+    ResearchUpdateMode,
 } from '../types/research';
 import { defaultResearchMonitoringRules } from '../types/research';
 
@@ -19,6 +20,25 @@ export const emptyChecklist: InvestmentChecklist = {
     catalystOrCompoundingReason: false,
     downsideAcceptable: false,
     betterThanCashOrIndex: false,
+};
+
+export const emptyDecisionJournal: ResearchRecord['decisionJournal'] = {
+    decision: 'Watch',
+    confidence: 'medium',
+    observedPrice: null,
+    benchmarkLabel: null,
+    benchmarkReturnPercent: null,
+    nextReviewAt: null,
+    priorReviewId: null,
+    priorOutcome: 'unresolved',
+    outcomeNote: '',
+};
+
+export const emptyPositionPlan: ResearchRecord['positionPlan'] = {
+    plannedAllocationPercent: null,
+    averageCost: null,
+    plannedEntryPrice: null,
+    invalidationPrice: null,
 };
 
 export const createResearchRecord = (input: ResearchCreateInput): ResearchRecord => ({
@@ -39,9 +59,34 @@ export const createResearchRecord = (input: ResearchCreateInput): ResearchRecord
     checklist: emptyChecklist,
     monitoringRules: defaultResearchMonitoringRules,
     acceptedEvidence: [],
+    decisionJournal: emptyDecisionJournal,
+    positionPlan: emptyPositionPlan,
     reviewHistory: [],
     lastReviewedAt: new Date().toISOString().slice(0, 10),
+    updatedAt: new Date().toISOString(),
+    revision: 0,
 });
+
+type ResearchDecisionInput = Pick<ResearchRecord, 'checklist' | 'thesisStrength' | 'valuationState' | 'positionState' | 'inBuyZone'>;
+
+export const calculateResearchDecision = (record: ResearchDecisionInput): ResearchRecord['decisionJournal']['decision'] => {
+    const count = Object.values(record.checklist).filter(Boolean).length;
+    const qualityPassed = record.checklist.understandBusiness
+        && record.checklist.revenueGrowingOrStable
+        && record.checklist.marginsHealthyOrImproving
+        && record.checklist.debtManageable
+        && record.checklist.freeCashFlowPositiveOrImproving
+        && record.checklist.downsideAcceptable;
+    if (count === 0) return 'Watch';
+    if (record.thesisStrength === 'low' || !record.checklist.downsideAcceptable
+        || (record.valuationState === 'expensive' && record.thesisStrength !== 'high')) return 'Avoid';
+    if (record.positionState === 'owned' && record.thesisStrength === 'high' && qualityPassed
+        && record.valuationState !== 'expensive' && record.inBuyZone && record.checklist.valuationReasonable) return 'DCA';
+    if (count >= 8 && record.inBuyZone && record.checklist.valuationReasonable && record.checklist.downsideAcceptable) return 'Ready';
+    if ((record.thesisStrength === 'high' || record.thesisStrength === 'medium')
+        && count >= 6 && (record.valuationState === 'expensive' || !record.inBuyZone)) return 'Wait for price';
+    return 'Watch';
+};
 
 export const applyResearchUpdate = (current: ResearchRecord, update: ResearchUpdateInput): ResearchRecord => ({
     ...current,
@@ -62,6 +107,8 @@ export const applyResearchUpdate = (current: ResearchRecord, update: ResearchUpd
     checklist: { ...current.checklist, ...update.checklist },
     monitoringRules: update.monitoringRules ?? current.monitoringRules,
     acceptedEvidence: update.acceptedEvidence ?? current.acceptedEvidence,
+    decisionJournal: update.decisionJournal ?? current.decisionJournal,
+    positionPlan: update.positionPlan ?? current.positionPlan,
 });
 
 export const appendResearchReview = (record: ResearchRecord, reviewedAt = new Date().toISOString()): ResearchRecord => {
@@ -86,12 +133,32 @@ export const appendResearchReview = (record: ResearchRecord, reviewedAt = new Da
             ...item,
             sources: item.sources.map((source) => ({ ...source })),
         })),
+        decisionJournal: { ...record.decisionJournal },
+        positionPlan: { ...record.positionPlan },
     };
     return {
         ...record,
         lastReviewedAt: reviewedAt.slice(0, 10),
         reviewHistory: [snapshot, ...record.reviewHistory].slice(0, reviewHistoryLimit),
     };
+};
+
+export const prepareStoredResearchRecord = (current: ResearchRecord, input: ResearchUpdateInput, mode: ResearchUpdateMode): ResearchRecord => {
+    const modeInput: ResearchUpdateInput = mode === 'settings' ? { monitoringRules: input.monitoringRules } : input;
+    let updated = applyResearchUpdate(current, modeInput);
+    if (mode !== 'review') return updated;
+    const priorReviewId = current.reviewHistory[0]?.id ?? null;
+    updated = {
+        ...updated,
+        decisionJournal: {
+            ...updated.decisionJournal,
+            decision: calculateResearchDecision(updated),
+            priorReviewId,
+            priorOutcome: priorReviewId ? updated.decisionJournal.priorOutcome : 'unresolved',
+            outcomeNote: priorReviewId ? updated.decisionJournal.outcomeNote : '',
+        },
+    };
+    return appendResearchReview(updated);
 };
 
 const reviewFields = [
@@ -111,6 +178,8 @@ export const describeReviewChanges = (current: ResearchReviewSnapshot | undefine
     }
     if (JSON.stringify(current.checklist) !== JSON.stringify(previous.checklist)) changed.push('Checklist');
     if (JSON.stringify(current.acceptedEvidence) !== JSON.stringify(previous.acceptedEvidence)) changed.push('Evidence');
+    if (JSON.stringify(current.decisionJournal) !== JSON.stringify(previous.decisionJournal)) changed.push('Decision journal');
+    if (JSON.stringify(current.positionPlan) !== JSON.stringify(previous.positionPlan)) changed.push('Position plan');
     return changed.length > 0 ? changed : ['No material changes'];
 };
 

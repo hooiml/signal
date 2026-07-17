@@ -169,6 +169,24 @@ export interface MarketSignal {
             last_signal_change: string;
             note: string;
         };
+        historical_validation?: {
+            benchmark_symbol: string;
+            benchmark_name: string;
+            mode: 'standard' | 'contrarian';
+            snapshot_count: number;
+            minimum_sample_size: number;
+            horizons: Array<{
+                days: 7 | 30;
+                cohorts: Array<{
+                    zone: 'negative' | 'mixed' | 'positive' | 'strong-positive';
+                    label: string;
+                    sample_count: number;
+                    average_forward_return_pct: number | null;
+                    alignment_rate_pct: number | null;
+                }>;
+            }>;
+            limitation: string;
+        };
         counterfactuals?: {
             source_toggle?: {
                 source: 'social' | 'news';

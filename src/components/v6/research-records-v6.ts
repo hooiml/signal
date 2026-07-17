@@ -1,5 +1,6 @@
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import { defaultResearchMonitoringRules, type ResearchRecord } from '@/lib/types/research';
+import { emptyDecisionJournal, emptyPositionPlan } from '@/lib/research/records';
 
 export const applyResearchRecordV6 = (item: ResearchWatchlistItem, record: ResearchRecord): ResearchWatchlistItem => ({
     ...item,
@@ -87,6 +88,10 @@ export const toResearchRecordV6 = (item: ResearchWatchlistItem, notes = ''): Res
     checklist: item.checklist,
     monitoringRules: defaultResearchMonitoringRules,
     acceptedEvidence: [],
+    decisionJournal: { ...emptyDecisionJournal },
+    positionPlan: { ...emptyPositionPlan },
     reviewHistory: [],
     lastReviewedAt: item.lastReviewedAt,
+    updatedAt: new Date().toISOString(),
+    revision: 0,
 });

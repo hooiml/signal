@@ -270,6 +270,18 @@ const buildFixtureSignal = (requestUrl) => {
             driver_changes_available: true,
             driver_changes: scoreDrivers.slice(0, 2).map((driver, index) => ({ key: driver.key, name: driver.name, current_contribution: driver.contribution, previous_contribution: driver.contribution - (index === 0 ? 0.8 : -0.4), delta: index === 0 ? 0.8 : -0.4 })),
             trend_context: { score_trend: 'Improving', last_signal_change: 'Compared with 2026-07-15', note: 'Deterministic fixture trend.' },
+            historical_validation: {
+                benchmark_symbol: market === 'US' ? 'VOO' : 'FBM KLCI',
+                benchmark_name: market === 'US' ? 'Vanguard S&P 500 ETF' : 'FTSE Bursa Malaysia KLCI',
+                mode, snapshot_count: 18, minimum_sample_size: 5,
+                horizons: [7, 30].map((days) => ({ days, cohorts: [
+                    { zone: 'negative', label: '0–39', sample_count: 2, average_forward_return_pct: -1.2, alignment_rate_pct: 50 },
+                    { zone: 'mixed', label: '40–64', sample_count: 4, average_forward_return_pct: 0.4, alignment_rate_pct: null },
+                    { zone: 'positive', label: '65–84', sample_count: 7, average_forward_return_pct: days === 7 ? 1.8 : 3.2, alignment_rate_pct: 71 },
+                    { zone: 'strong-positive', label: '85–100', sample_count: 5, average_forward_return_pct: 2.4, alignment_rate_pct: 80 },
+                ] })),
+                limitation: 'Historical forward returns are overlapping observations without transaction costs. They calibrate prior signal interpretation and do not predict future returns.',
+            },
             counterfactuals: {
                 source_toggle: {
                     source: sourceKey,
@@ -286,8 +298,37 @@ const buildFixtureSignal = (requestUrl) => {
     };
 };
 
+const discoveryCandidateFixture = (overrides) => ({
+    symbol: 'MSFT', name: 'Microsoft', price: 425, momentum3MonthPercent: 18, momentum6MonthPercent: 28,
+    distanceFromMa50Percent: 7, averageDollarVolume: 1_000_000_000, volumeSpikeRatio: 1.2,
+    maxDailyMovePercent: 4, annualizedVolatilityPercent: 24, aboveMa50: true, aboveMa200: true,
+    trendScore: 86, riskScore: 18, risk: 'moderate', reasons: ['Sustained trend'], flags: [],
+    qualityScore: 88, discoveryScore: 87, category: 'quality compounder', qualityReasons: ['Positive free cash flow'],
+    sector: 'Technology', sectorRelativeStrengthPercent: 5.2, scoreChange1Day: 2, scoreChange1Week: 4,
+    scoreChange1Month: null, rankChange1Week: 4, firstSeenAt: '2026-07-01T00:00:00.000Z', earlyTrendStage: 'confirmed',
+    valuation: { guardrail: 'expensive', priceEarnings: 31, priceSales: 10, freeCashFlowYieldPercent: 2.8 },
+    catalyst: { date: '2026-07-28', type: 'earnings', timing: 'after-hours', fiscalQuarterEnding: 'Jun/2026', epsForecast: '3.12', source: 'Nasdaq earnings calendar' },
+    ownership: null,
+    ...overrides,
+});
+
+const buildDiscoveryFixture = () => ({ success: true, data: {
+    generatedAt: '2026-07-17T08:00:00.000Z', universeSize: 40, scannedCount: 40,
+    candidates: [
+        discoveryCandidateFixture({}),
+        discoveryCandidateFixture({ symbol: 'AMD', name: 'Advanced Micro Devices', price: 180, discoveryScore: 82, risk: 'low', riskScore: 8, valuation: { guardrail: 'fair', priceEarnings: 25, priceSales: 8, freeCashFlowYieldPercent: 3.2 }, catalyst: null }),
+    ],
+    contenders: [], emergingCandidates: [],
+    performance: [
+        { period: '1D', averageReturnPercent: 1.2, trackedCount: 2, winnerCount: 2 },
+        { period: '1W', averageReturnPercent: null, trackedCount: 0, winnerCount: 0 },
+        { period: '1M', averageReturnPercent: null, trackedCount: 0, winnerCount: 0 },
+    ],
+    historySnapshotCount: 5, warnings: [],
+} });
+
 const inspectScoreEvidence = async (page) => page.evaluate(() => {
-    const ids = ['changed-title', 'score-evidence-title', 'scenarios-title', 'context-title', 'market-alerts-title', 'terms-title'];
+    const ids = ['changed-title', 'score-evidence-title', 'market-calibration-title', 'scenarios-title', 'context-title', 'market-alerts-title', 'terms-title'];
     const elements = ids.map((id) => document.getElementById(id));
     const orderIsCorrect = elements.every(Boolean) && elements.every((element, index) => (
         index === elements.length - 1
@@ -301,9 +342,19 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
     const valuation = document.querySelector('[data-testid="valuation-backdrop"]');
     const marketContext = document.querySelector('[data-testid="market-context"]');
     const coverageAdjustment = document.querySelector('[data-testid="coverage-adjustment"]');
+    const handoff = document.querySelector('[data-testid="market-research-handoff"]');
+    const handoffLink = handoff?.querySelector('a');
+    const calibration = document.querySelector('[data-testid="market-calibration"]');
+    const storyTrust = document.querySelector('[data-testid="market-story-trust"]');
+    const storyEvidence = document.querySelector('[data-testid="market-story-evidence"]');
+    const storyCards = storyEvidence ? [...storyEvidence.querySelectorAll('article')] : [];
+    const storyFooters = storyEvidence ? [...storyEvidence.querySelectorAll('[data-testid="market-story-card-footer"]')] : [];
+    const evidenceBounds = storyEvidence?.getBoundingClientRect();
+    const footerTops = storyFooters.map((footer) => footer.getBoundingClientRect().top);
     return {
         orderIsCorrect,
-        scoreBridgeConnected: visibleQuickReads.some((element) => element.textContent?.includes('Largest influence:')),
+        scoreBridgeConnected: visibleQuickReads.some((element) => element.textContent?.includes('Largest influence:'))
+            || Boolean(storyTrust?.textContent?.includes('Composite score') && storyEvidence?.textContent?.includes('Score contribution')),
         scoreSectionVisible: Boolean(scoreSection && scoreSection.getBoundingClientRect().height > 0),
         driverHeadingVisible: Boolean(document.getElementById('drivers-title')?.getBoundingClientRect().height),
         oldDisclosureAbsent: !document.body.textContent?.includes('Explore charts and weighted evidence'),
@@ -311,6 +362,18 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
         marketContextCollapsed: marketContext ? !marketContext.hasAttribute('open') : null,
         coverageText: coverageAdjustment?.textContent || '',
         driverTableText: document.querySelector('section[aria-labelledby="drivers-title"]')?.textContent || '',
+        handoffText: handoff?.textContent || '',
+        handoffHref: handoffLink?.getAttribute('href') || '',
+        calibrationText: calibration?.textContent || '',
+        storyTrustText: storyTrust?.textContent || '',
+        storyEvidenceText: storyEvidence?.textContent || '',
+        storyTrustOverflow: storyTrust ? storyTrust.scrollWidth - storyTrust.clientWidth : null,
+        storyEvidenceOverflow: storyEvidence ? storyEvidence.scrollWidth - storyEvidence.clientWidth : null,
+        storyCardsContained: Boolean(evidenceBounds && storyCards.length === 3 && storyCards.every((card) => {
+            const bounds = card.getBoundingClientRect();
+            return bounds.left >= evidenceBounds.left - 1 && bounds.right <= evidenceBounds.right + 1 && bounds.width > 0 && bounds.height > 0;
+        })),
+        storyFootersAligned: window.innerWidth < 1024 || (footerTops.length === 3 && Math.max(...footerTops) - Math.min(...footerTops) <= 1),
         documentOverflow: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0) - window.innerWidth,
     };
 });
@@ -357,6 +420,22 @@ const main = async () => {
                 const signal = buildFixtureSignal(route.request().url());
                 await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: signal }) });
             });
+            await page.route('**/api/research/**', async (route) => {
+                const url = new URL(route.request().url());
+                if (url.pathname === '/api/research/watchlist' && route.request().method() === 'GET') {
+                    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], archivedSymbols: [] }) });
+                    return;
+                }
+                if (url.pathname === '/api/research/inbox') {
+                    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { generatedAt: '2026-07-17T08:00:00.000Z', monitoredCount: 0, items: [], warnings: [] } }) });
+                    return;
+                }
+                if (url.pathname === '/api/research/discovery') {
+                    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(buildDiscoveryFixture()) });
+                    return;
+                }
+                await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: false, error: 'Deterministic QA route: live research data omitted.' }) });
+            });
         }
 
         page.on('request', (request) => {
@@ -397,8 +476,16 @@ const main = async () => {
                     runCheck(scenario.checks, 'score evidence visible', details.scoreSectionVisible && details.driverHeadingVisible && details.oldDisclosureAbsent, JSON.stringify(details));
                     runCheck(scenario.checks, 'coverage adjustment explains neutral reserve', details.coverageText.includes('95% configured weight') && details.coverageText.includes('neutral reserve (5% × 50)') && details.coverageText.includes('not redistributed'), details.coverageText);
                     runCheck(scenario.checks, 'driver weights are visible', details.driverTableText.includes('35% configured weight') && details.driverTableText.includes('20% configured weight') && details.driverTableText.includes('10% configured weight'), details.driverTableText);
+                    runCheck(scenario.checks, 'market story exposes trust context', details.storyTrustText.includes('Composite score') && details.storyTrustText.includes('Indicator agreement') && details.storyTrustText.includes('Data freshness') && details.storyTrustText.includes('Snapshot'), details.storyTrustText);
+                    runCheck(scenario.checks, 'market story shows readings and contribution math', details.storyEvidenceText.includes('16.20') && details.storyEvidenceText.includes('36.3% bullish') && details.storyEvidenceText.includes('0.00 sentiment') && details.storyEvidenceText.includes('79/100 × 35% weight = 27.6 points'), details.storyEvidenceText);
+                    runCheck(scenario.checks, 'market story uses ranked evidence roles', details.storyEvidenceText.includes('Strongest influence') && details.storyEvidenceText.includes('Conflicting signal') && !details.storyEvidenceText.includes('Evidence chapter'), details.storyEvidenceText);
+                    runCheck(scenario.checks, 'market story cards fit their container', details.storyCardsContained && details.storyTrustOverflow <= 1 && details.storyEvidenceOverflow <= 1, JSON.stringify({ storyCardsContained: details.storyCardsContained, storyTrustOverflow: details.storyTrustOverflow, storyEvidenceOverflow: details.storyEvidenceOverflow }));
+                    runCheck(scenario.checks, 'market story card footers align', details.storyFootersAligned, JSON.stringify({ storyFootersAligned: details.storyFootersAligned }));
                     runCheck(scenario.checks, 'document has no horizontal overflow', details.documentOverflow <= 1, `${details.documentOverflow}px overflow`);
                     runCheck(scenario.checks, 'secondary context starts collapsed', details.valuationCollapsed !== false && details.marketContextCollapsed !== false, JSON.stringify(details));
+                    runCheck(scenario.checks, 'market-to-research handoff is evidence-only', details.handoffText.includes('Carry this market context into Research') && details.handoffText.includes('does not change any ticker decision'), details.handoffText);
+                    runCheck(scenario.checks, 'market-to-research handoff carries validated context', details.handoffHref.includes('/research?') && details.handoffHref.includes('contextMarket=US') && details.handoffHref.includes('contextScore='), details.handoffHref);
+                    runCheck(scenario.checks, 'historical calibration shows samples and non-predictive limits', details.calibrationText.includes('What followed earlier score zones') && details.calibrationText.includes('n=7') && details.calibrationText.includes('Direction aligned') && details.calibrationText.includes('do not predict future returns'), shorten(details.calibrationText));
 
                     const conflictDisclosure = page.locator('[data-testid="conflict-explanation"][data-driver="aaii"]:visible').first();
                     runCheck(scenario.checks, 'conflict explanation control visible', await conflictDisclosure.count() > 0, 'expected a visible conflict info control');
@@ -470,7 +557,70 @@ const main = async () => {
                         if (captureFullPage) await page.screenshot({ path: screenshotPath, fullPage: true });
                         else await page.locator('section[aria-labelledby="score-evidence-title"]').screenshot({ path: screenshotPath });
                         scenario.screenshot = screenshotPath;
+                        const storyScreenshotPath = path.join(evidenceDir, `market-story-${viewport.name}-${viewport.width}x${viewport.height}.png`);
+                        await page.locator('section[aria-labelledby="market-story-title"]').screenshot({ path: storyScreenshotPath });
+                        scenario.storyScreenshot = storyScreenshotPath;
                     }
+
+                    await page.locator('[data-testid="market-research-handoff"] a').click();
+                    await page.locator('[data-testid="research-market-context"]').waitFor({ state: 'visible', timeout: timeoutMs });
+                    const researchHandoff = await page.locator('[data-testid="research-market-context"]').evaluate((element) => ({
+                        text: element.textContent || '',
+                        overflow: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0) - window.innerWidth,
+                    }));
+                    runCheck(scenario.checks, 'research receives visible market context', page.url().includes('/research?') && researchHandoff.text.includes('Market context · evidence only') && researchHandoff.text.includes('score '), shorten(researchHandoff.text));
+                    runCheck(scenario.checks, 'research context keeps security decisions independent', researchHandoff.text.includes('independent') || researchHandoff.text.includes('evidence only'), shorten(researchHandoff.text));
+                    runCheck(scenario.checks, 'research handoff has no horizontal overflow', researchHandoff.overflow <= 1, `${researchHandoff.overflow}px overflow`);
+                    if (captureScreenshots) {
+                        const handoffScreenshotPath = path.join(evidenceDir, `market-research-handoff-${viewport.name}-${viewport.width}x${viewport.height}.png`);
+                        await page.locator('[data-testid="research-market-context"]').screenshot({ path: handoffScreenshotPath });
+                        scenario.handoffScreenshot = handoffScreenshotPath;
+                    }
+
+                    await page.locator('[data-testid="research-market-context"] button').click();
+                    const journal = page.locator('[data-testid="research-decision-journal"]');
+                    await journal.getByRole('button', { name: 'Submit review' }).click();
+                    const decisionRecord = journal.getByRole('group', { name: 'Decision record' });
+                    await decisionRecord.waitFor({ state: 'visible', timeout: timeoutMs });
+                    const decisionText = await decisionRecord.textContent();
+                    runCheck(scenario.checks, 'decision journal captures review context', Boolean(decisionText?.includes('Calculated decision') && decisionText.includes('Confidence') && decisionText.includes('Observed price') && decisionText.includes('Next review date')), shorten(decisionText));
+                    await decisionRecord.getByLabel('Confidence').selectOption('high');
+                    await decisionRecord.getByLabel('Next review date').fill('2026-08-15');
+                    runCheck(scenario.checks, 'decision journal accepts confidence and review date', await decisionRecord.getByLabel('Confidence').inputValue() === 'high' && await decisionRecord.getByLabel('Next review date').inputValue() === '2026-08-15', 'expected high confidence and 2026-08-15');
+                    const positionPlan = journal.getByRole('group', { name: 'Position plan' });
+                    await positionPlan.getByLabel('Planned allocation %').fill('10');
+                    await positionPlan.getByLabel('Planned entry price').fill('100');
+                    await positionPlan.getByLabel('Invalidation price').fill('90');
+                    const positionPlanText = await positionPlan.textContent();
+                    runCheck(scenario.checks, 'position plan calculates bounded portfolio risk', Boolean(positionPlanText?.includes('10.0% downside') && positionPlanText.includes('1.00% of portfolio at risk')), shorten(positionPlanText));
+                    const overviewText = await page.locator('[data-testid="position-plan-overview"]').textContent();
+                    runCheck(scenario.checks, 'position overview stays explicitly planning-only', Boolean(overviewText?.includes('Position plan overview') && overviewText.includes('No brokerage balances, transactions, or automatic orders')), shorten(overviewText));
+                    const journalOverflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0) - window.innerWidth);
+                    runCheck(scenario.checks, 'decision journal has no horizontal overflow', journalOverflow <= 1, `${journalOverflow}px overflow`);
+                    await journal.getByRole('button', { name: 'Cancel' }).click();
+
+                    await page.evaluate(() => localStorage.setItem('signal-discovery-visit-v1', JSON.stringify({
+                        version: 1,
+                        capturedAt: '2026-07-16T08:00:00.000Z',
+                        candidates: [{ symbol: 'MSFT', rank: 5, score: 70, risk: 'low', valuation: 'fair', catalystDate: null }],
+                    })));
+                    await page.goto(new URL('/research?workspace=discovery', baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+                    const changeFeed = page.locator('[data-testid="discovery-change-feed"]');
+                    await changeFeed.waitFor({ state: 'visible', timeout: timeoutMs });
+                    const changeText = await changeFeed.textContent();
+                    runCheck(scenario.checks, 'Discovery explains changes since last visit', Boolean(changeText?.includes('AMD') && changeText.includes('Entered the ranked list') && changeText.includes('MSFT') && changeText.includes('Moved up 4 places')), shorten(changeText));
+                    await page.getByLabel('Filter by risk').selectOption('low');
+                    await page.getByLabel('Discovery view name').fill('Low risk');
+                    await page.getByRole('button', { name: 'Save current' }).click();
+                    await page.reload({ waitUntil: 'domcontentloaded', timeout: timeoutMs });
+                    await page.getByLabel('Apply saved Discovery view').waitFor({ state: 'visible', timeout: timeoutMs });
+                    runCheck(scenario.checks, 'Discovery saved view survives reload', await page.getByLabel('Apply saved Discovery view').locator('option', { hasText: 'Low risk' }).count() === 1, 'expected Low risk saved option');
+                    await page.getByLabel('Apply saved Discovery view').selectOption('low-risk');
+                    runCheck(scenario.checks, 'Discovery saved view restores filters', await page.getByLabel('Filter by risk').inputValue() === 'low', await page.getByLabel('Filter by risk').inputValue());
+                    await page.getByRole('button', { name: 'Delete saved view Low risk' }).click();
+                    runCheck(scenario.checks, 'Discovery saved view can be removed', await page.getByLabel('Apply saved Discovery view').locator('option', { hasText: 'Low risk' }).count() === 0, 'Low risk option should be absent');
+                    const discoveryOverflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0) - window.innerWidth);
+                    runCheck(scenario.checks, 'Discovery change feed and saved views have no horizontal overflow', discoveryOverflow <= 1, `${discoveryOverflow}px overflow`);
                     scenario.status = 'passed';
                 } catch (error) {
                     scenario.error = shorten(error instanceof Error ? error.message : error);

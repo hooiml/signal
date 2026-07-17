@@ -7,6 +7,10 @@
         {
             "path": "/api/admin/institutional/refresh",
             "schedule": "0 15 * * 4"
+        },
+        {
+            "path": "/api/research/notifications/deliver",
+            "schedule": "0 0 * * *"
         }
     ],
     "framework": "nextjs"

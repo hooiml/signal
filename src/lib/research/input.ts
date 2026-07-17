@@ -7,6 +7,8 @@ import {
     researchStatuses,
     researchSynthesisModes,
     researchUpdateModes,
+    researchDecisionConfidences,
+    researchDecisionOutcomes,
     thesisStrengths,
     valuationStates,
     type AcceptedResearchEvidence,
@@ -18,8 +20,10 @@ import {
     type ResearchUpdateMode,
     type ResearchRecord,
     type ResearchReviewSnapshot,
+    type ResearchDecisionJournal,
+    type ResearchPositionPlan,
 } from '../types/research';
-import { createResearchRecord, emptyChecklist } from './records';
+import { createResearchRecord, emptyChecklist, emptyDecisionJournal, emptyPositionPlan } from './records';
 
 const checklistKeys = [
     'understandBusiness', 'revenueGrowingOrStable', 'marginsHealthyOrImproving',
@@ -146,6 +150,56 @@ const thresholdValue = (value: unknown, label: string, minimum: number, maximum:
     return value;
 };
 
+const nullableNumberValue = (value: unknown, label: string, minimum: number, maximum: number): number | null => {
+    if (value === null) return null;
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < minimum || value > maximum) {
+        throw new ResearchInputError(`${label} must be null or a number from ${minimum}-${maximum}.`);
+    }
+    return value;
+};
+
+const nullableStringValue = (value: unknown, label: string, maxLength: number): string | null => {
+    if (value === null) return null;
+    return boundedString(value, label, maxLength) || null;
+};
+
+const nullableDateValue = (value: unknown, label: string): string | null => {
+    const date = nullableStringValue(value, label, 10);
+    if (date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new ResearchInputError(`${label} must use YYYY-MM-DD.`);
+    if (date !== null) {
+        const parsed = new Date(`${date}T00:00:00Z`);
+        if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) throw new ResearchInputError(`${label} must be a valid calendar date.`);
+    }
+    return date;
+};
+
+const researchActions = ['Ready', 'DCA', 'Wait for price', 'Watch', 'Avoid'] as const;
+
+const parseDecisionJournal = (value: unknown, label: string): ResearchDecisionJournal => {
+    const journal = objectValue(value, label);
+    return {
+        decision: journal.decision === undefined ? emptyDecisionJournal.decision : optionValue(journal.decision, researchActions, `${label}.decision`),
+        confidence: journal.confidence === undefined ? emptyDecisionJournal.confidence : optionValue(journal.confidence, researchDecisionConfidences, `${label}.confidence`),
+        observedPrice: journal.observedPrice === undefined ? null : nullableNumberValue(journal.observedPrice, `${label}.observedPrice`, 0, 1_000_000_000),
+        benchmarkLabel: journal.benchmarkLabel === undefined ? null : nullableStringValue(journal.benchmarkLabel, `${label}.benchmarkLabel`, 120),
+        benchmarkReturnPercent: journal.benchmarkReturnPercent === undefined ? null : nullableNumberValue(journal.benchmarkReturnPercent, `${label}.benchmarkReturnPercent`, -100, 100_000),
+        nextReviewAt: journal.nextReviewAt === undefined ? null : nullableDateValue(journal.nextReviewAt, `${label}.nextReviewAt`),
+        priorReviewId: journal.priorReviewId === undefined ? null : nullableStringValue(journal.priorReviewId, `${label}.priorReviewId`, 80),
+        priorOutcome: journal.priorOutcome === undefined ? emptyDecisionJournal.priorOutcome : optionValue(journal.priorOutcome, researchDecisionOutcomes, `${label}.priorOutcome`),
+        outcomeNote: journal.outcomeNote === undefined ? '' : boundedString(journal.outcomeNote, `${label}.outcomeNote`, 1000),
+    };
+};
+
+const parsePositionPlan = (value: unknown, label: string): ResearchPositionPlan => {
+    const plan = objectValue(value, label);
+    return {
+        plannedAllocationPercent: plan.plannedAllocationPercent === undefined ? null : nullableNumberValue(plan.plannedAllocationPercent, `${label}.plannedAllocationPercent`, 0, 100),
+        averageCost: plan.averageCost === undefined ? null : nullableNumberValue(plan.averageCost, `${label}.averageCost`, 0, 1_000_000_000),
+        plannedEntryPrice: plan.plannedEntryPrice === undefined ? null : nullableNumberValue(plan.plannedEntryPrice, `${label}.plannedEntryPrice`, 0, 1_000_000_000),
+        invalidationPrice: plan.invalidationPrice === undefined ? null : nullableNumberValue(plan.invalidationPrice, `${label}.invalidationPrice`, 0, 1_000_000_000),
+    };
+};
+
 export const parseResearchMonitoringRules = (value: unknown): ResearchMonitoringRules => {
     const rules = objectValue(value, 'monitoringRules');
     const buyZone = rules.buyZone ?? defaultResearchMonitoringRules.buyZone;
@@ -187,6 +241,8 @@ const parseReviewHistory = (value: unknown): readonly ResearchReviewSnapshot[] =
             notes: boundedString(review.notes, `${label}.notes`, 5000),
             checklist: { ...emptyChecklist, ...parseChecklist(review.checklist, `${label}.checklist`) },
             acceptedEvidence: parseAcceptedEvidence(review.acceptedEvidence, `${label}.acceptedEvidence`),
+            decisionJournal: review.decisionJournal === undefined ? { ...emptyDecisionJournal } : parseDecisionJournal(review.decisionJournal, `${label}.decisionJournal`),
+            positionPlan: review.positionPlan === undefined ? { ...emptyPositionPlan } : parsePositionPlan(review.positionPlan, `${label}.positionPlan`),
         };
     });
 };
@@ -228,6 +284,8 @@ export const parseResearchUpdateInput = (value: unknown): ResearchUpdateInput =>
         checklist,
         monitoringRules: body.monitoringRules === undefined ? undefined : parseResearchMonitoringRules(body.monitoringRules),
         acceptedEvidence: body.acceptedEvidence === undefined ? undefined : parseAcceptedEvidence(body.acceptedEvidence, 'acceptedEvidence'),
+        decisionJournal: body.decisionJournal === undefined ? undefined : parseDecisionJournal(body.decisionJournal, 'decisionJournal'),
+        positionPlan: body.positionPlan === undefined ? undefined : parsePositionPlan(body.positionPlan, 'positionPlan'),
     };
 };
 
@@ -243,9 +301,20 @@ export const parseResearchRecord = (value: unknown): ResearchRecord => {
         checklist: { ...emptyChecklist, ...update.checklist },
         monitoringRules: update.monitoringRules ?? defaultResearchMonitoringRules,
         acceptedEvidence: update.acceptedEvidence ?? [],
+        decisionJournal: update.decisionJournal ?? { ...emptyDecisionJournal },
+        positionPlan: update.positionPlan ?? { ...emptyPositionPlan },
         reviewHistory: body.reviewHistory === undefined ? [] : parseReviewHistory(body.reviewHistory),
         lastReviewedAt,
+        updatedAt: body.updatedAt === undefined ? new Date().toISOString() : timestampValue(body.updatedAt, 'updatedAt'),
+        revision: body.revision === undefined ? 0 : thresholdValue(body.revision, 'revision', 0, 2_147_483_647) ?? 0,
     };
+};
+
+export const parseResearchExpectedRevision = (value: unknown): number => {
+    const body = objectValue(value, 'Request body');
+    const revision = thresholdValue(body.revision, 'revision', 1, 2_147_483_647);
+    if (revision === null) throw new ResearchInputError('revision must be an integer from 1-2147483647.');
+    return revision;
 };
 
 export const parseResearchUpdateMode = (value: unknown): ResearchUpdateMode => {

@@ -97,7 +97,7 @@ export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, savi
                     <SnapshotMetric label="FCF" value={ticker.freeCashFlowTrend} themeClasses={themeClasses} />
                 </dl>
             </section>
-            <ResearchEditorV6 key={(record.reviewHistory[0]?.id ?? record.lastReviewedAt) + record.symbol} initial={record} theme={theme} saving={saving} error={saveError} onSave={onSave} />
+            <ResearchEditorV6 key={(record.reviewHistory[0]?.id ?? record.lastReviewedAt) + record.symbol} initial={record} theme={theme} saving={saving} error={saveError} onSave={onSave} decision={action} observedPrice={ticker.price ?? null} benchmark={benchmark} />
             <ResearchHistoryV6 record={record} theme={theme} />
         </div>
     );

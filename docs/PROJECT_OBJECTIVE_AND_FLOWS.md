@@ -280,7 +280,7 @@ Recommended relationship:
 4. The selected security is evaluated independently on thesis, quality, valuation, and price.
 5. Market context may adjust urgency or position sizing, but it does not overwrite the security-level decision rules.
 
-A future implementation may pass market context into research as a visible reference, but should not silently merge market and security scores.
+The Market Briefing can pass a bounded, validated context reference into Research. That handoff remains visibly labeled evidence-only and never silently merges the market score with security decisions or checklist state.
 
 ## Scoring Semantics
 
@@ -360,6 +360,8 @@ A research record should include:
 - thesis strength, valuation state, and ownership state;
 - checklist answers;
 - calculated decision;
+- decision confidence, observed price and benchmark context, next-review date, and the later outcome assessment linked to a prior review;
+- a narrow position plan covering allocation, cost or planned entry, and invalidation price;
 - last-reviewed timestamp.
 
 ## Required Application States

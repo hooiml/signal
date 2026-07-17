@@ -2,9 +2,11 @@
 
 import { useMemo, useState, type ComponentProps } from 'react';
 import type { ResearchRecord } from '@/lib/types/research';
+import type { ResearchBenchmark } from '@/lib/types/research-snapshot';
+import { calculatePositionPlanRisk } from '@/lib/research/position-plan';
 import type { ResearchFindingTarget } from '@/lib/types/research-assistant';
 import { ResearchAssistantV6 } from './ResearchAssistantV6';
-import { checklistLabelsV6, getThemeV6, type ResearchThemeV6 } from './research-v6';
+import { checklistLabelsV6, getThemeV6, type ResearchActionV6, type ResearchThemeV6 } from './research-v6';
 
 const checklistKeys = [
     'understandBusiness', 'revenueGrowingOrStable', 'marginsHealthyOrImproving',
@@ -27,15 +29,19 @@ type ResearchEditorV6Props = {
     readonly saving: boolean;
     readonly error: string | null;
     readonly onSave: (record: ResearchRecord) => Promise<boolean>;
+    readonly decision: ResearchActionV6;
+    readonly observedPrice: number | null;
+    readonly benchmark: ResearchBenchmark | null;
 };
 
-export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave }: ResearchEditorV6Props) => {
+export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decision, observedPrice, benchmark }: ResearchEditorV6Props) => {
     const [draft, setDraft] = useState(initial);
     const [isEditing, setIsEditing] = useState(false);
     const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
     const styles = getThemeV6(theme);
     const isDirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(initial), [draft, initial]);
     const completedChecklist = checklistKeys.filter((key) => draft.checklist[key]).length;
+    const positionRisk = calculatePositionPlanRisk(draft.positionPlan, observedPrice);
     const field = 'w-full rounded-md border px-3 py-2 text-sm outline-none focus:border-emerald-500 ' + (theme === 'light' ? 'border-slate-300 bg-white text-slate-950' : 'border-[#334354] bg-[#0b1118] text-[#eef2f7]');
     const updateText = (key: 'whyInterested' | 'bullCase' | 'bearCase' | 'buyTrigger' | 'sellTrigger' | 'thesisBreak' | 'targetBuyZone' | 'notes', value: string) => setDraft((current) => ({ ...current, [key]: value }));
     const applyFinding: ComponentProps<typeof ResearchAssistantV6>['onApply'] = ({ finding, sources, mode }) => setDraft((current) => {
@@ -70,6 +76,22 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave }: Rese
         setLastSavedAt(null);
         setIsEditing(false);
     };
+    const beginReview = () => {
+        setDraft((current) => ({
+            ...current,
+            decisionJournal: {
+                ...current.decisionJournal,
+                decision,
+                observedPrice,
+                benchmarkLabel: benchmark?.baselineReturnPercent !== null && benchmark?.baselineReturnPercent !== undefined ? benchmark.baselineName : null,
+                benchmarkReturnPercent: benchmark?.baselineReturnPercent ?? null,
+                priorReviewId: initial.reviewHistory[0]?.id ?? null,
+                priorOutcome: 'unresolved',
+                outcomeNote: '',
+            },
+        }));
+        setIsEditing(true);
+    };
     const renderDetail = (label: string, value: string, className = '') => (
         <div className={className}>
             <dt className={'text-xs font-medium ' + styles.textMuted}>{label}</dt>
@@ -78,14 +100,14 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave }: Rese
     );
 
     return (
-        <section className={'rounded-lg border p-4 ' + styles.panel}>
+        <section data-testid="research-decision-journal" className={'rounded-lg border p-4 ' + styles.panel}>
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h2 className={'text-sm font-semibold ' + styles.textSecondary}>Research journal</h2>
                     <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>{isEditing ? 'Update the saved thesis and decision checklist, then save the review.' : 'Review the saved details before submitting a new review.'}</p>
                 </div>
                 {!isEditing ? (
-                    <button type="button" onClick={() => setIsEditing(true)} className={'min-h-10 rounded-md border px-3 text-xs font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + styles.row}>
+                    <button type="button" onClick={beginReview} className={'min-h-10 rounded-md border px-3 text-xs font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + styles.row}>
                         Submit review
                     </button>
                 ) : null}
@@ -102,13 +124,31 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave }: Rese
                         {renderDetail('Sell trigger', detailText(draft.sellTrigger))}
                         {renderDetail('Review notes', detailText(draft.notes), 'min-[900px]:col-span-2')}
                     </dl>
-                    <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                    <dl className={'mt-5 grid gap-3 border-t pt-4 sm:grid-cols-2 xl:grid-cols-5 ' + styles.divider}>
                         {renderDetail('Thesis strength', detailChoice(draft.thesisStrength))}
                         {renderDetail('Valuation', detailChoice(draft.valuationState))}
                         {renderDetail('Target buy zone', detailText(draft.targetBuyZone))}
                         {renderDetail('Position', detailChoice(draft.positionState))}
                         {renderDetail('Price in buy zone', draft.inBuyZone ? 'Yes' : 'No')}
                     </dl>
+                    <dl className={'mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 xl:grid-cols-5 ' + styles.divider}>
+                        {renderDetail('Saved decision', draft.decisionJournal.decision)}
+                        {renderDetail('Decision confidence', detailChoice(draft.decisionJournal.confidence))}
+                        {renderDetail('Observed price', draft.decisionJournal.observedPrice === null ? 'Not recorded' : String(draft.decisionJournal.observedPrice))}
+                        {renderDetail('Next review', draft.decisionJournal.nextReviewAt ?? 'Not scheduled')}
+                        {draft.decisionJournal.priorReviewId ? renderDetail('Prior decision outcome', detailChoice(draft.decisionJournal.priorOutcome)) : null}
+                        {draft.decisionJournal.outcomeNote ? renderDetail('Outcome note', draft.decisionJournal.outcomeNote, 'sm:col-span-2 xl:col-span-5') : null}
+                    </dl>
+                    <section className={'mt-4 border-t pt-4 ' + styles.divider} aria-labelledby="position-plan-title">
+                        <div className="flex flex-wrap items-center justify-between gap-2"><h3 id="position-plan-title" className={'text-sm font-semibold ' + styles.textSecondary}>Position plan</h3><span className={'text-xs ' + styles.textMuted}>Planning only · no transaction tracking</span></div>
+                        <dl className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                            {renderDetail('Planned allocation', draft.positionPlan.plannedAllocationPercent === null ? 'Not set' : `${draft.positionPlan.plannedAllocationPercent}%`)}
+                            {renderDetail('Average cost', draft.positionPlan.averageCost === null ? 'Not set' : String(draft.positionPlan.averageCost))}
+                            {renderDetail('Planned entry', draft.positionPlan.plannedEntryPrice === null ? 'Not set' : String(draft.positionPlan.plannedEntryPrice))}
+                            {renderDetail('Invalidation price', draft.positionPlan.invalidationPrice === null ? 'Not set' : String(draft.positionPlan.invalidationPrice))}
+                            {renderDetail('Portfolio at risk', positionRisk ? `${positionRisk.portfolioRiskPercent}%` : 'Needs allocation, reference, and lower invalidation')}
+                        </dl>
+                    </section>
                     <section className={'mt-4 border-t pt-4 ' + styles.divider} aria-labelledby="investment-checklist-title">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                             <h3 id="investment-checklist-title" className={'text-sm font-semibold ' + styles.textSecondary}>Investment checklist</h3>
@@ -202,6 +242,45 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave }: Rese
                     <label className={'flex min-h-10 items-center gap-2 text-xs font-medium ' + styles.textSecondary}><input type="checkbox" checked={draft.inBuyZone} onChange={(event) => setDraft((current) => ({ ...current, inBuyZone: event.target.checked }))} />Price is in buy zone</label>
                 </div>
             </div>
+            <fieldset className={'mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 xl:grid-cols-5 ' + styles.divider}>
+                <legend className={'mb-2 text-xs font-semibold ' + styles.textMuted}>Decision record</legend>
+                <label className={'text-xs font-medium ' + styles.textMuted}>Calculated decision
+                    <input value={draft.decisionJournal.decision} readOnly className={'mt-1 ' + field} />
+                </label>
+                <label className={'text-xs font-medium ' + styles.textMuted}>Confidence
+                    <select value={draft.decisionJournal.confidence} onChange={(event) => setDraft((current) => ({ ...current, decisionJournal: { ...current.decisionJournal, confidence: event.target.value === 'high' ? 'high' : event.target.value === 'low' ? 'low' : 'medium' } }))} className={'mt-1 ' + field}>
+                        <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+                    </select>
+                </label>
+                <label className={'text-xs font-medium ' + styles.textMuted}>Observed price
+                    <input value={draft.decisionJournal.observedPrice ?? ''} readOnly className={'mt-1 ' + field} />
+                </label>
+                <label className={'text-xs font-medium ' + styles.textMuted}>Next review date
+                    <input type="date" value={draft.decisionJournal.nextReviewAt ?? ''} onChange={(event) => setDraft((current) => ({ ...current, decisionJournal: { ...current.decisionJournal, nextReviewAt: event.target.value || null } }))} className={'mt-1 ' + field} />
+                </label>
+                {draft.decisionJournal.priorReviewId ? <>
+                    <label className={'text-xs font-medium ' + styles.textMuted}>Prior decision outcome
+                        <select value={draft.decisionJournal.priorOutcome} onChange={(event) => setDraft((current) => ({ ...current, decisionJournal: { ...current.decisionJournal, priorOutcome: event.target.value === 'correct' ? 'correct' : event.target.value === 'mixed' ? 'mixed' : event.target.value === 'incorrect' ? 'incorrect' : 'unresolved' } }))} className={'mt-1 ' + field}>
+                            <option value="unresolved">Unresolved</option><option value="correct">Correct</option><option value="mixed">Mixed</option><option value="incorrect">Incorrect</option>
+                        </select>
+                    </label>
+                    <label className={'text-xs font-medium sm:col-span-1 xl:col-span-5 ' + styles.textMuted}>Outcome note
+                        <input value={draft.decisionJournal.outcomeNote} maxLength={1000} onChange={(event) => setDraft((current) => ({ ...current, decisionJournal: { ...current.decisionJournal, outcomeNote: event.target.value } }))} className={'mt-1 ' + field} />
+                    </label>
+                </> : <p className={'self-end text-xs leading-5 sm:col-span-2 xl:col-span-5 ' + styles.textMuted}>Save the first decision before evaluating an outcome. Later reviews will link their assessment to this snapshot.</p>}
+            </fieldset>
+            <fieldset className={'mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 xl:grid-cols-5 ' + styles.divider}>
+                <legend className={'mb-2 text-xs font-semibold ' + styles.textMuted}>Position plan</legend>
+                {([
+                    ['plannedAllocationPercent', 'Planned allocation %', 100],
+                    ['averageCost', 'Average cost', 1_000_000_000],
+                    ['plannedEntryPrice', 'Planned entry price', 1_000_000_000],
+                    ['invalidationPrice', 'Invalidation price', 1_000_000_000],
+                ] as const).map(([key, label, max]) => <label key={key} className={'text-xs font-medium ' + styles.textMuted}>{label}
+                    <input type="number" min="0" max={max} step="0.01" value={draft.positionPlan[key] ?? ''} onChange={(event) => setDraft((current) => ({ ...current, positionPlan: { ...current.positionPlan, [key]: event.target.value === '' ? null : Number(event.target.value) } }))} className={'mt-1 ' + field} />
+                </label>)}
+                <p className={'text-xs leading-5 sm:col-span-2 xl:col-span-5 ' + styles.textMuted}>{positionRisk ? `${positionRisk.downsidePercent.toFixed(1)}% downside from ${positionRisk.referencePrice.toFixed(2)} implies approximately ${positionRisk.portfolioRiskPercent.toFixed(2)}% of portfolio at risk.` : 'Portfolio-at-risk appears when allocation, an average cost or planned entry, and a lower invalidation price are set.'}</p>
+            </fieldset>
             <fieldset className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 <legend className={'mb-2 text-xs font-semibold ' + styles.textMuted}>Investment checklist</legend>
                 {checklistKeys.map((key) => (

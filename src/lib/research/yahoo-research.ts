@@ -113,7 +113,7 @@ export const parseYahooResearchChart = (payload: unknown): YahooResearchResult =
 const fetchYahooChart = async (providerSymbol: string, range: '5d' | '1y' | '5y') => {
     const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(providerSymbol)}?interval=1d&range=${range}`, {
         headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 Signal research dashboard' },
-        cache: 'force-cache',
+        cache: 'no-store',
     });
     if (!response.ok) throw new Error(`Yahoo Finance request failed (${response.status}).`);
     return response.json();

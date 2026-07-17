@@ -9,6 +9,8 @@ export const researchFindingTargets = [
 export const researchFindingTones = ['positive', 'risk', 'neutral'] as const;
 export const researchSynthesisModes = ['ai', 'evidence'] as const;
 export const researchUpdateModes = ['review', 'settings'] as const;
+export const researchDecisionConfidences = ['low', 'medium', 'high'] as const;
+export const researchDecisionOutcomes = ['unresolved', 'correct', 'mixed', 'incorrect'] as const;
 
 export type ResearchMonitoringRules = {
     readonly buyZone: boolean;
@@ -37,6 +39,28 @@ export type ResearchFindingTarget = typeof researchFindingTargets[number];
 export type ResearchFindingTone = typeof researchFindingTones[number];
 export type ResearchSynthesisMode = typeof researchSynthesisModes[number];
 export type ResearchUpdateMode = typeof researchUpdateModes[number];
+export type ResearchDecisionConfidence = typeof researchDecisionConfidences[number];
+export type ResearchDecisionOutcome = typeof researchDecisionOutcomes[number];
+export type ResearchAction = 'Ready' | 'DCA' | 'Wait for price' | 'Watch' | 'Avoid';
+
+export type ResearchDecisionJournal = {
+    readonly decision: ResearchAction;
+    readonly confidence: ResearchDecisionConfidence;
+    readonly observedPrice: number | null;
+    readonly benchmarkLabel: string | null;
+    readonly benchmarkReturnPercent: number | null;
+    readonly nextReviewAt: string | null;
+    readonly priorReviewId: string | null;
+    readonly priorOutcome: ResearchDecisionOutcome;
+    readonly outcomeNote: string;
+};
+
+export type ResearchPositionPlan = {
+    readonly plannedAllocationPercent: number | null;
+    readonly averageCost: number | null;
+    readonly plannedEntryPrice: number | null;
+    readonly invalidationPrice: number | null;
+};
 
 export type ResearchEvidence = {
     readonly id: string;
@@ -88,6 +112,8 @@ export type ResearchReviewSnapshot = {
     readonly notes: string;
     readonly checklist: InvestmentChecklist;
     readonly acceptedEvidence: readonly AcceptedResearchEvidence[];
+    readonly decisionJournal: ResearchDecisionJournal;
+    readonly positionPlan: ResearchPositionPlan;
 };
 
 export type ResearchRecord = {
@@ -110,14 +136,16 @@ export type ResearchRecord = {
     readonly checklist: InvestmentChecklist;
     readonly monitoringRules: ResearchMonitoringRules;
     readonly acceptedEvidence: readonly AcceptedResearchEvidence[];
+    readonly decisionJournal: ResearchDecisionJournal;
+    readonly positionPlan: ResearchPositionPlan;
     readonly reviewHistory: readonly ResearchReviewSnapshot[];
     readonly lastReviewedAt: string;
+    readonly updatedAt: string;
+    readonly revision: number;
 };
 
 export type ResearchCreateInput = Pick<ResearchRecord, 'symbol' | 'market' | 'companyName'>;
-export type ResearchUpdateInput = Partial<Omit<ResearchRecord, 'symbol' | 'market' | 'companyName' | 'lastReviewedAt' | 'checklist' | 'reviewHistory'>> & {
+export type ResearchUpdateInput = Partial<Omit<ResearchRecord, 'symbol' | 'market' | 'companyName' | 'lastReviewedAt' | 'updatedAt' | 'revision' | 'checklist' | 'reviewHistory'>> & {
     readonly companyName?: string;
     readonly checklist?: Partial<InvestmentChecklist>;
 };
-
-export type ResearchAction = 'Ready' | 'DCA' | 'Wait for price' | 'Watch' | 'Avoid';

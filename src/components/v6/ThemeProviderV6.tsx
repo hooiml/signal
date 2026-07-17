@@ -33,6 +33,7 @@ export const ThemeProviderV6 = ({ children }: { readonly children: React.ReactNo
     useEffect(() => {
         if (!ready) return;
         document.documentElement.setAttribute('data-cockpit-theme', theme);
+        document.documentElement.setAttribute('data-theme-ready', 'true');
         window.localStorage.setItem(RESEARCH_THEME_STORAGE_KEY_V6, theme);
     }, [ready, theme]);
 

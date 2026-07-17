@@ -1,6 +1,6 @@
 import { getResearchAction } from '../../src/lib/research/decision';
-import { parseResearchCreateInput, parseResearchRecord, parseResearchUpdateInput, parseResearchUpdateMode } from '../../src/lib/research/input';
-import { appendQuickReviewNote, appendResearchReview, applyResearchUpdate, createResearchRecord, describeReviewChanges, latestReviewChanges } from '../../src/lib/research/records';
+import { parseResearchCreateInput, parseResearchExpectedRevision, parseResearchRecord, parseResearchUpdateInput, parseResearchUpdateMode } from '../../src/lib/research/input';
+import { appendQuickReviewNote, appendResearchReview, applyResearchUpdate, calculateResearchDecision, createResearchRecord, describeReviewChanges, latestReviewChanges, prepareStoredResearchRecord } from '../../src/lib/research/records';
 import { defaultResearchMonitoringRules } from '../../src/lib/types/research';
 import { calculateTechnicals } from '../../src/lib/research/technicals';
 import { buildTechnicalOutlook } from '../../src/lib/research/technical-outlook';
@@ -28,6 +28,10 @@ import { parseResearchAssistantResponse } from '../../src/lib/research/assistant
 import { buildResearchInboxItems } from '../../src/lib/research/inbox';
 import { parseResearchInboxResponse } from '../../src/lib/research/inbox-input';
 import { inboxItemChange, inboxItemSignature, parseInboxState, snapshotInboxItems } from '../../src/lib/research/inbox-state';
+import { buildResearchHandoffHref, getMarketResearchEmphasis, parseMarketResearchHandoff, type MarketResearchHandoff } from '../../src/lib/market-research-handoff';
+import { buildResearchNotificationDigest, deliverResearchNotification, executeResearchNotificationDelivery, researchNotificationDigestKey, signResearchNotification, validateNotificationEndpoint } from '../../src/lib/research/notification-delivery';
+import { compareDiscoveryVisits, parseSavedDiscoveryViews, removeSavedDiscoveryView, upsertSavedDiscoveryView, type DiscoveryVisitSnapshot } from '../../src/lib/research/discovery-workspace';
+import { calculatePositionPlanRisk, calculateSectorConcentration } from '../../src/lib/research/position-plan';
 
 const assertEqual = <T>(actual: T, expected: T, label: string) => {
     if (actual !== expected) throw new Error(`${label}: expected ${expected}, got ${actual}`);
@@ -41,6 +45,109 @@ const assertThrows = (callback: () => void, label: string) => {
         throw error;
     }
     throw new Error(`${label}: expected an error`);
+};
+
+const runMarketResearchHandoffTests = () => {
+    const handoff: MarketResearchHandoff = {
+        market: 'US', mode: 'standard', score: 68, tier: 'buy', freshness: 'mixed', coverage: 'strong',
+        conflicts: ['Put/Call Ratio'], snapshotAt: new Date().toISOString(),
+    };
+    const href = buildResearchHandoffHref(handoff);
+    const parsed = parseMarketResearchHandoff(new URL('https://signal.test' + href).searchParams);
+    assertEqual(parsed?.market, 'US', 'market handoff preserves market');
+    assertEqual(parsed?.score, 68, 'market handoff preserves score');
+    assertEqual(parsed?.conflicts[0], 'Put/Call Ratio', 'market handoff preserves conflicts');
+    assertEqual(getMarketResearchEmphasis(handoff).includes('independent'), true, 'market handoff keeps research decisions independent');
+    assertEqual(getMarketResearchEmphasis({ ...handoff, snapshotAt: null, freshness: 'fresh' }).includes('provisional'), true, 'missing handoff timestamp is treated as provisional');
+    assertEqual(getMarketResearchEmphasis({ ...handoff, snapshotAt: '2099-01-01T00:00:00.000Z', freshness: 'fresh' }).includes('provisional'), true, 'future handoff timestamp is treated as provisional');
+    assertEqual(parseMarketResearchHandoff(new URLSearchParams('contextMarket=US&contextScore=150')), null, 'market handoff rejects invalid context');
+};
+
+const runResearchNotificationTests = async () => {
+    const inbox = {
+        generatedAt: '2026-07-17T08:00:00.000Z', monitoredCount: 1, warnings: [],
+        items: [{ id: 'MSFT-risk', symbol: 'MSFT', kind: 'risk' as const, urgency: 'action' as const, title: 'Below 200-day average', detail: 'Review trend weakness.', proximity: '2.0% below MA200', source: 'Yahoo Finance' as const, eventDate: null }],
+    };
+    const digest = buildResearchNotificationDigest(inbox, 'https://signal.example/research?workspace=alerts');
+    assertEqual(digest.summary.action, 1, 'notification digest counts actionable items');
+    assertEqual(digest.summary.tickerCount, 1, 'notification digest counts distinct tickers');
+    assertEqual(digest.summary.omitted, 0, 'notification digest reports omitted items');
+    const crowdedDigest = buildResearchNotificationDigest({
+        ...inbox,
+        items: [
+            ...Array.from({ length: 50 }, (_, index) => ({ ...inbox.items[0]!, id: `upcoming-${index}`, symbol: `U${index}`, kind: 'catalyst' as const, urgency: 'upcoming' as const })),
+            { ...inbox.items[0]!, id: 'late-batch-risk', symbol: 'RISK', kind: 'risk' as const, urgency: 'action' as const },
+        ],
+    }, 'https://signal.example/research?workspace=alerts');
+    assertEqual(crowdedDigest.items[0]?.id, 'late-batch-risk', 'full-watchlist digest globally prioritizes action risk before truncation');
+    assertEqual(crowdedDigest.summary.totalAvailable, 51, 'digest reports attention items across batches');
+    assertEqual(crowdedDigest.summary.omitted, 31, 'digest reports items omitted by the delivery bound');
+    assertEqual(researchNotificationDigestKey(digest).length, 64, 'notification digest uses a SHA-256 deduplication key');
+    assertEqual(researchNotificationDigestKey({ ...digest, generatedAt: '2026-07-17T18:00:00.000Z' }), researchNotificationDigestKey(digest), 'unchanged conditions deduplicate within the same day');
+    assertEqual(researchNotificationDigestKey({ ...digest, generatedAt: '2026-07-18T08:00:00.000Z' }) === researchNotificationDigestKey(digest), false, 'daily digest can remind again on a later day');
+    assertEqual(signResearchNotification(JSON.stringify(digest), '0123456789abcdef').startsWith('sha256='), true, 'notification delivery signs its payload');
+    assertEqual(validateNotificationEndpoint('https://hooks.example.test/signal').hostname, 'hooks.example.test', 'notification endpoint accepts HTTPS');
+    assertThrows(() => validateNotificationEndpoint('http://hooks.example.test/signal'), 'notification endpoint rejects plaintext HTTP');
+    assertThrows(() => validateNotificationEndpoint('https://user:pass@hooks.example.test/signal'), 'notification endpoint rejects URL credentials');
+    let deliveryId = '';
+    await deliverResearchNotification({
+        endpoint: 'https://hooks.example.test/signal', secret: '0123456789abcdef', digest,
+        fetcher: async (_url, init) => {
+            deliveryId = new Headers(init?.headers).get('Idempotency-Key') ?? '';
+            return new Response(null, { status: 204 });
+        },
+    });
+    assertEqual(deliveryId, researchNotificationDigestKey(digest), 'notification receiver gets the stable delivery id');
+    const calls: string[] = [];
+    assertEqual(await executeResearchNotificationDelivery({
+        digest, digestKey: deliveryId,
+        reserve: async () => true,
+        deliver: async () => { calls.push('deliver'); },
+        markDelivered: async () => { calls.push('mark'); },
+        release: async () => { calls.push('release'); },
+    }), 'delivered', 'notification lifecycle marks a successful delivery');
+    assertEqual(calls.join(','), 'deliver,mark', 'successful delivery does not release its reservation');
+    assertEqual(await executeResearchNotificationDelivery({
+        digest, digestKey: deliveryId,
+        reserve: async () => false,
+        deliver: async () => { throw new Error('must not deliver'); },
+        markDelivered: async () => undefined,
+        release: async () => undefined,
+    }), 'duplicate', 'active or delivered reservation suppresses a duplicate');
+    let released = false;
+    try {
+        await executeResearchNotificationDelivery({
+            digest, digestKey: deliveryId,
+            reserve: async () => true,
+            deliver: async () => { throw new Error('webhook failed'); },
+            markDelivered: async () => undefined,
+            release: async () => { released = true; },
+        });
+    } catch {
+        // Expected delivery failure.
+    }
+    assertEqual(released, true, 'failed delivery releases its reservation for retry');
+};
+
+const runDiscoveryWorkspaceTests = () => {
+    const previous: DiscoveryVisitSnapshot = { version: 1, capturedAt: '2026-07-16T08:00:00.000Z', candidates: [
+        { symbol: 'MSFT', rank: 5, score: 70, risk: 'low', valuation: 'fair', catalystDate: null },
+        { symbol: 'NVDA', rank: 1, score: 90, risk: 'low', valuation: 'expensive', catalystDate: null },
+    ] };
+    const current: DiscoveryVisitSnapshot = { version: 1, capturedAt: '2026-07-17T08:00:00.000Z', candidates: [
+        { symbol: 'MSFT', rank: 1, score: 82, risk: 'moderate', valuation: 'expensive', catalystDate: '2026-07-28' },
+        { symbol: 'AMD', rank: 2, score: 80, risk: 'low', valuation: 'fair', catalystDate: null },
+    ] };
+    const changes = compareDiscoveryVisits(previous, current);
+    assertEqual(changes.some((change) => change.symbol === 'AMD' && change.kind === 'new'), true, 'Discovery visit detects new ranked entrants');
+    assertEqual(changes.some((change) => change.symbol === 'MSFT' && change.kind === 'rank'), true, 'Discovery visit detects material rank moves');
+    assertEqual(changes.some((change) => change.symbol === 'MSFT' && change.kind === 'risk'), true, 'Discovery visit detects changed risk');
+    assertEqual(changes.some((change) => change.symbol === 'MSFT' && change.kind === 'catalyst'), true, 'Discovery visit detects changed catalysts');
+    const filters = { sector: 'Technology', risk: 'low' as const, stage: 'confirmed' as const, valuation: 'fair' as const };
+    const saved = upsertSavedDiscoveryView([], 'Quality tech', filters);
+    assertEqual(parseSavedDiscoveryViews(saved)[0]?.filters.sector, 'Technology', 'Discovery saved view preserves filters');
+    assertEqual(upsertSavedDiscoveryView(saved, 'Quality tech', { ...filters, risk: 'moderate' })[0]?.filters.risk, 'moderate', 'Discovery saved view updates a matching name');
+    assertEqual(removeSavedDiscoveryView(saved, saved[0]!.id).length, 0, 'Discovery saved view can be removed');
 };
 
 const runInputTests = () => {
@@ -60,6 +167,8 @@ const runInputTests = () => {
     assertEqual(parseResearchUpdateMode({ mode: 'settings' }), 'settings', 'settings updates do not masquerade as reviews');
     assertEqual(parseResearchUpdateMode({}), 'review', 'legacy updates retain review behavior');
     assertThrows(() => parseResearchUpdateMode({ mode: 'silent' }), 'update rejects unknown persistence modes');
+    assertEqual(parseResearchExpectedRevision({ revision: 3 }), 3, 'updates require an optimistic row revision');
+    assertThrows(() => parseResearchExpectedRevision({}), 'updates reject a missing row revision');
     assertThrows(() => parseResearchUpdateInput({ thesisStrength: 'excellent' }), 'update rejects unknown thesis strength');
     assertEqual(Object.hasOwn(parseResearchUpdateInput({ reviewHistory: [{ id: 'forged' }] }), 'reviewHistory'), false, 'update ignores client-supplied review history');
 
@@ -70,6 +179,9 @@ const runInputTests = () => {
     assertEqual(record.acceptedEvidence.length, 0, 'record parser defaults persisted evidence for legacy records');
     assertEqual(record.reviewHistory.length, 0, 'record parser defaults review history for legacy records');
     assertEqual(record.monitoringRules.reviewAgeDays, 30, 'record parser defaults legacy monitoring rules');
+    assertEqual(record.decisionJournal.decision, 'Watch', 'record parser defaults the decision journal for legacy records');
+    assertEqual(record.positionPlan.plannedAllocationPercent, null, 'record parser defaults the position plan for legacy records');
+    assertEqual(calculateResearchDecision(record), 'Watch', 'server decision calculation owns the saved decision');
     assertEqual(parseResearchUpdateInput({ monitoringRules: { rsiAbove: null } }).monitoringRules?.rsiAbove, null, 'explicitly disabled monitoring rules stay disabled');
 
     const acceptedEvidence = [{
@@ -81,9 +193,38 @@ const runInputTests = () => {
     assertEqual(evidenceUpdate.acceptedEvidence?.[0]?.sources[0]?.source, 'SEC EDGAR', 'update parser preserves accepted source provenance');
     assertThrows(() => parseResearchUpdateInput({ acceptedEvidence: [{ ...acceptedEvidence[0], sources: [{ ...acceptedEvidence[0].sources[0], sourceUrl: 'javascript:alert(1)' }] }] }), 'update rejects unsafe evidence links');
 
-    const firstReview = appendResearchReview(applyResearchUpdate(record, evidenceUpdate), '2026-07-14T10:30:00.000Z');
+    const decisionJournal = {
+        decision: 'Ready', confidence: 'high', observedPrice: 425.5,
+        benchmarkLabel: 'Vanguard S&P 500 ETF', benchmarkReturnPercent: 12.4,
+        nextReviewAt: '2026-08-15', priorReviewId: null, priorOutcome: 'unresolved', outcomeNote: '',
+    } as const;
+    const journalUpdate = parseResearchUpdateInput({ decisionJournal });
+    assertEqual(journalUpdate.decisionJournal?.observedPrice, 425.5, 'decision journal preserves observed price');
+    assertEqual(journalUpdate.decisionJournal?.nextReviewAt, '2026-08-15', 'decision journal preserves next review date');
+    assertThrows(() => parseResearchUpdateInput({ decisionJournal: { ...decisionJournal, nextReviewAt: '15/08/2026' } }), 'decision journal rejects malformed review dates');
+    const canonicalFirstReview = prepareStoredResearchRecord(record, journalUpdate, 'review');
+    assertEqual(canonicalFirstReview.decisionJournal.decision, 'Watch', 'server replaces a client-authored calculated decision');
+    assertEqual(canonicalFirstReview.decisionJournal.priorReviewId, null, 'first review has no fabricated prior review link');
+    const canonicalSecondReview = prepareStoredResearchRecord(canonicalFirstReview, parseResearchUpdateInput({ decisionJournal: { ...decisionJournal, priorReviewId: 'forged', priorOutcome: 'correct' } }), 'review');
+    assertEqual(canonicalSecondReview.decisionJournal.priorReviewId, canonicalFirstReview.reviewHistory[0]?.id ?? null, 'server links outcome to the actual preceding review');
+    const settingsOnly = prepareStoredResearchRecord(canonicalSecondReview, parseResearchUpdateInput({ monitoringRules: { ...defaultResearchMonitoringRules, rsiBelow: 35 }, decisionJournal: { ...decisionJournal, decision: 'Ready' } }), 'settings');
+    assertEqual(settingsOnly.decisionJournal.decision, canonicalSecondReview.decisionJournal.decision, 'settings updates cannot rewrite journal evidence');
+    assertEqual(settingsOnly.reviewHistory.length, canonicalSecondReview.reviewHistory.length, 'settings updates do not append review history');
+    assertThrows(() => parseResearchUpdateInput({ decisionJournal: { ...decisionJournal, nextReviewAt: '2026-02-31' } }), 'decision journal rejects impossible calendar dates');
+    assertEqual(parseResearchUpdateInput({ decisionJournal: {} }).decisionJournal?.decision, 'Watch', 'empty migrated decision journal receives safe defaults');
+    const positionPlan = { plannedAllocationPercent: 10, averageCost: 100, plannedEntryPrice: null, invalidationPrice: 90 };
+    const planUpdate = parseResearchUpdateInput({ positionPlan });
+    assertEqual(planUpdate.positionPlan?.plannedAllocationPercent, 10, 'position plan preserves allocation');
+    assertThrows(() => parseResearchUpdateInput({ positionPlan: { ...positionPlan, plannedAllocationPercent: 120 } }), 'position plan rejects allocation above 100%');
+    assertEqual(parseResearchUpdateInput({ positionPlan: {} }).positionPlan?.averageCost, null, 'empty migrated position plan receives safe defaults');
+    assertEqual(calculatePositionPlanRisk(positionPlan, null)?.portfolioRiskPercent, 1, 'position plan calculates portfolio-at-risk from allocation and invalidation');
+    assertEqual(calculatePositionPlanRisk({ ...positionPlan, invalidationPrice: 110 }, null), null, 'position plan rejects invalidation above its reference price');
+
+    const firstReview = appendResearchReview(applyResearchUpdate(applyResearchUpdate(record, evidenceUpdate), journalUpdate), '2026-07-14T10:30:00.000Z');
     assertEqual(firstReview.reviewHistory.length, 1, 'saved review appends a history snapshot');
     assertEqual(firstReview.reviewHistory[0]?.acceptedEvidence[0]?.sources[0]?.source, 'SEC EDGAR', 'review snapshot freezes source provenance');
+    assertEqual(firstReview.reviewHistory[0]?.decisionJournal.decision, 'Ready', 'review snapshot freezes the calculated decision');
+    assertEqual(firstReview.reviewHistory[0]?.decisionJournal.benchmarkReturnPercent, 12.4, 'review snapshot freezes benchmark context');
     const secondReview = appendResearchReview({ ...firstReview, bullCase: 'Revenue grew and margins expanded.' }, '2026-07-15T11:00:00.000Z');
     assertEqual(describeReviewChanges(secondReview.reviewHistory[0], secondReview.reviewHistory[1]).includes('Bull case'), true, 'review history describes changed thesis fields');
     assertEqual(latestReviewChanges(secondReview).includes('Bull case'), true, 'latest review changes compare the two newest saved reviews');
@@ -96,6 +237,9 @@ const runInputTests = () => {
         record,
     );
     assertEqual(boundedHistory.reviewHistory.length, 25, 'review history stays bounded');
+    const ownedWithPlan = { ...record, positionState: 'owned' as const, positionPlan };
+    const sectorConcentration = calculateSectorConcentration([ownedWithPlan, { ...ownedWithPlan, symbol: 'AMD', positionPlan: { ...positionPlan, plannedAllocationPercent: 5 } }], new Map([['MSFT', 'Technology'], ['AMD', 'Technology']]));
+    assertEqual(sectorConcentration[0]?.allocationPercent, 15, 'position plan aggregates owned-sector concentration');
 };
 
 const runDecisionTests = () => {
@@ -298,6 +442,9 @@ const runInboxTests = () => {
     assertEqual(items.some((item) => item.title === 'Below 50-day average'), false, 'inbox excludes low-priority watch noise');
     assertEqual(items.some((item) => item.symbol === '1155' && item.title === 'RSI below 40'), true, 'inbox evaluates a custom RSI threshold');
     assertEqual(items.find((item) => item.title === 'Below 200-day average')?.proximity, '5.0% below MA200', 'inbox quantifies distance to technical trigger');
+    assertEqual(items.find((item) => item.kind === 'stale')?.proximity, '66 days since review', 'inbox derives review age from the saved review date');
+    const nextDayItems = buildResearchInboxItems({ inputs, evaluations, catalysts, now: new Date('2026-07-16T12:00:00.000Z') });
+    assertEqual(nextDayItems.find((item) => item.kind === 'stale')?.proximity, '67 days since review', 'inbox review age advances automatically with the generated date');
     assertEqual(items.find((item) => item.kind === 'catalyst')?.proximity, '7 days away', 'inbox quantifies time to catalyst');
     assertEqual(items.findIndex((item) => item.kind === 'stale') < items.findIndex((item) => item.kind === 'catalyst'), true, 'inbox keeps action-needed reviews ahead of upcoming catalysts');
     const response = { success: true, data: { generatedAt: '2026-07-15T12:00:00.000Z', monitoredCount: 2, items, warnings: [] } };
@@ -600,22 +747,29 @@ const runResearchAssistantTests = () => {
     }), 'assistant boundary rejects unsupported finding provenance');
 };
 
-runInputTests();
-runDecisionTests();
-runTechnicalTests();
-runBenchmarkTests();
-runValuationTests();
-runDiscoveryTests();
-runAlertTests();
-runInboxTests();
-runMarketAlertTests();
-runDiscoveryQualityTests();
-runSecCompanyFactsTests();
-runDiscoveryHistoryTests();
-runDiscoveryOpportunityTests();
-runDiscoveryRankingTests();
-runDiscoveryFilterTests();
-runInstitutionalOwnershipTests();
-runComparisonTests();
-runResearchAssistantTests();
-console.log('Research regression tests passed.');
+const main = async () => {
+    runInputTests();
+    runMarketResearchHandoffTests();
+    await runResearchNotificationTests();
+    runDiscoveryWorkspaceTests();
+    runDecisionTests();
+    runTechnicalTests();
+    runBenchmarkTests();
+    runValuationTests();
+    runDiscoveryTests();
+    runAlertTests();
+    runInboxTests();
+    runMarketAlertTests();
+    runDiscoveryQualityTests();
+    runSecCompanyFactsTests();
+    runDiscoveryHistoryTests();
+    runDiscoveryOpportunityTests();
+    runDiscoveryRankingTests();
+    runDiscoveryFilterTests();
+    runInstitutionalOwnershipTests();
+    runComparisonTests();
+    runResearchAssistantTests();
+    console.log('Research regression tests passed.');
+};
+
+void main();

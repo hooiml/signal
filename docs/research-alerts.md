@@ -1,6 +1,14 @@
 # Research Alerts
 
-The Alerts workspace evaluates current conditions for tickers already shown in the research watchlist. It is an on-site monitor, not a notification delivery service or an automatic trading system.
+The Alerts workspace evaluates current conditions for tickers already shown in the research watchlist. It remains the source-of-truth review surface and is not an automatic trading system.
+
+## Background delivery
+
+`GET /api/research/notifications/deliver` runs daily through Vercel Cron and can send the current attention digest to an operator-configured HTTPS webhook. Configure `RESEARCH_NOTIFICATION_WEBHOOK_URL`, `RESEARCH_NOTIFICATION_WEBHOOK_SECRET` (at least 16 characters), and `CRON_SECRET`; `APP_URL` optionally controls the deep link in the payload. If webhook configuration is absent, the job exits successfully with `reason: not-configured` and sends nothing.
+
+The JSON event type is `signal.research.digest.v1`. Deliveries include no credentials and are signed with `X-Signal-Signature: sha256=<hmac>`. The date-scoped SHA-256 key is sent as both `Idempotency-Key` and `X-Signal-Delivery-ID`; receivers must deduplicate that key because delivery is at least once. A pending reservation can be reclaimed after a 15-minute lease, a successful request is marked delivered, a failed request is released for retry, and records older than 90 days are removed. The job evaluates the full watchlist in 50-name provider batches; the payload sends at most 20 attention items and reports total available and omitted counts. Use authenticated `?dryRun=true` mode to inspect the exact payload without reserving or sending it.
+
+This is an opt-in integration surface for email automation, chat tools, or a private notification relay. The receiving endpoint owns recipient consent, quiet hours, and final channel delivery.
 
 ## Conditions
 

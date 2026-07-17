@@ -4,6 +4,7 @@ import { IndicatorData } from '../../src/lib/types/signal-v2';
 import { buildBuffettIndicator, normalizeNaaimExposure, normalizePutCallRatio, parseCboePutCallRatio, parseFredLatestObservation, parseNaaimExposure } from '../../src/lib/market-indicators';
 import { buildBreadthContext, buildFinancialConditionsContext, buildYieldCurveContext, parseFredSeriesObservation, parseMalaysiaBenchmarkPage } from '../../src/lib/market-context';
 import { getSourceIndicatorCount, shouldEnableSourceIndicator } from '../../src/lib/source-indicator';
+import { calculateMarketCalibration } from '../../src/lib/market-calibration';
 
 function indicator(overrides: Partial<IndicatorData> & Pick<IndicatorData, 'name' | 'score' | 'value'>): IndicatorData {
     return {
@@ -268,6 +269,27 @@ function runDriverChangeTests() {
     assertNear(storedComponents?.[0]?.contribution ?? 0, 14.175, 0.001, 'stored components reconstruct exact prior contribution');
 }
 
+function runMarketCalibrationTests() {
+    const calibration = calculateMarketCalibration({
+        mode: 'standard', benchmarkSymbol: 'VOO', benchmarkName: 'Vanguard S&P 500 ETF',
+        snapshots: [
+            { date: '2026-01-01', score: 70, tier: 'buy' },
+            { date: '2026-01-02', score: 30, tier: 'sell' },
+        ],
+        prices: [
+            { date: '2026-01-02', close: 100 },
+            { date: '2026-01-09', close: 110 },
+            { date: '2026-02-02', close: 120 },
+        ],
+    });
+    const week = calibration.horizons.find((horizon) => horizon.days === 7)!;
+    assertEqual(week.cohorts.find((cohort) => cohort.zone === 'positive')?.sample_count, 1, 'calibration groups positive-zone snapshots');
+    assertEqual(week.cohorts.find((cohort) => cohort.zone === 'positive')?.average_forward_return_pct, 10, 'calibration calculates one-week forward return');
+    assertEqual(week.cohorts.find((cohort) => cohort.zone === 'positive')?.alignment_rate_pct, 100, 'calibration measures directional alignment');
+    assertEqual(week.cohorts.find((cohort) => cohort.zone === 'negative')?.alignment_rate_pct, 0, 'calibration identifies a directionally wrong prior read');
+    assertEqual(calibration.minimum_sample_size, 5, 'calibration exposes its minimum display sample');
+}
+
 function main() {
     runCoreScoringTests();
     runSourceIndicatorTests();
@@ -277,6 +299,7 @@ function main() {
     runBuffettTests();
     runMarketContextTests();
     runDriverChangeTests();
+    runMarketCalibrationTests();
     assertTrue(true, 'scoring regression tests reached completion');
     console.log('Scoring regression tests passed.');
 }

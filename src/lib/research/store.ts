@@ -1,6 +1,6 @@
 import { sql } from '@/lib/db';
 import { parseResearchCreateInput, parseResearchRecord, parseResearchUpdateInput } from './input';
-import { appendResearchReview, applyResearchUpdate, createResearchRecord } from './records';
+import { applyResearchUpdate, createResearchRecord, prepareStoredResearchRecord } from './records';
 import type { ResearchRecord, ResearchUpdateInput, ResearchUpdateMode } from '../types/research';
 
 const ensureResearchTable = async () => {
@@ -26,10 +26,13 @@ const ensureResearchTable = async () => {
             checklist JSONB NOT NULL DEFAULT '{}'::jsonb,
             monitoring_rules JSONB NOT NULL DEFAULT '{}'::jsonb,
             accepted_evidence JSONB NOT NULL DEFAULT '[]'::jsonb,
+            decision_journal JSONB NOT NULL DEFAULT '{}'::jsonb,
+            position_plan JSONB NOT NULL DEFAULT '{}'::jsonb,
             review_history JSONB NOT NULL DEFAULT '[]'::jsonb,
             last_reviewed_at DATE NOT NULL DEFAULT CURRENT_DATE,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
             PRIMARY KEY (user_id, symbol, market_type)
         )
     `;
@@ -37,8 +40,11 @@ const ensureResearchTable = async () => {
         ALTER TABLE research_records
             ADD COLUMN IF NOT EXISTS accepted_evidence JSONB NOT NULL DEFAULT '[]'::jsonb,
             ADD COLUMN IF NOT EXISTS review_history JSONB NOT NULL DEFAULT '[]'::jsonb,
-            ADD COLUMN IF NOT EXISTS monitoring_rules JSONB NOT NULL DEFAULT '{}'::jsonb
+            ADD COLUMN IF NOT EXISTS monitoring_rules JSONB NOT NULL DEFAULT '{}'::jsonb,
+            ADD COLUMN IF NOT EXISTS decision_journal JSONB NOT NULL DEFAULT '{}'::jsonb,
+            ADD COLUMN IF NOT EXISTS position_plan JSONB NOT NULL DEFAULT '{}'::jsonb
     `;
+    await sql`ALTER TABLE research_records ADD COLUMN IF NOT EXISTS revision INTEGER NOT NULL DEFAULT 1`;
     await sql`
         CREATE TABLE IF NOT EXISTS research_archived_symbols (
             user_id VARCHAR(255) NOT NULL DEFAULT 'default',
@@ -56,6 +62,13 @@ export class ResearchConflictError extends Error {
     }
 }
 
+export class ResearchStaleWriteError extends Error {
+    constructor(symbol: string) {
+        super(`${symbol} changed in another session. Reload it before saving again.`);
+        this.name = 'ResearchStaleWriteError';
+    }
+}
+
 const readString = (row: Record<string, unknown>, key: string) => typeof row[key] === 'string' ? row[key] : '';
 const readBoolean = (row: Record<string, unknown>, key: string) => row[key] === true;
 const readDate = (row: Record<string, unknown>, key: string) => {
@@ -67,6 +80,12 @@ const readDate = (row: Record<string, unknown>, key: string) => {
         const day = String(value.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     }
+    throw new Error(`Invalid ${key} returned by database.`);
+};
+const readTimestamp = (row: Record<string, unknown>, key: string) => {
+    const value = row[key];
+    if (typeof value === 'string' && !Number.isNaN(Date.parse(value))) return new Date(value).toISOString();
+    if (value instanceof Date) return value.toISOString();
     throw new Error(`Invalid ${key} returned by database.`);
 };
 
@@ -95,11 +114,15 @@ const mapRow = (raw: unknown): ResearchRecord => {
         checklist: row.checklist,
         monitoringRules: row.monitoring_rules,
         acceptedEvidence: row.accepted_evidence,
+        decisionJournal: row.decision_journal,
+        positionPlan: row.position_plan,
     });
     return parseResearchRecord({
         ...applyResearchUpdate(createResearchRecord(identity), update),
         reviewHistory: row.review_history,
         lastReviewedAt: readDate(row, 'last_reviewed_at'),
+        updatedAt: readTimestamp(row, 'updated_at'),
+        revision: Number.isInteger(Number(row.revision)) && Number(row.revision) > 0 ? Number(row.revision) : 1,
     });
 };
 
@@ -109,7 +132,7 @@ const saveRecord = async (record: ResearchRecord): Promise<ResearchRecord> => {
             user_id, symbol, market_type, company_name, position_state, in_buy_zone,
             research_status, target_buy_zone, valuation_state, thesis_strength,
             why_interested, bull_case, bear_case, buy_trigger, sell_trigger,
-            thesis_break, notes, checklist, monitoring_rules, accepted_evidence, review_history, last_reviewed_at
+            thesis_break, notes, checklist, monitoring_rules, accepted_evidence, decision_journal, position_plan, review_history, last_reviewed_at
         ) VALUES (
             'default', ${record.symbol}, ${record.market}, ${record.companyName},
             ${record.positionState}, ${record.inBuyZone}, ${record.status}, ${record.targetBuyZone},
@@ -117,7 +140,7 @@ const saveRecord = async (record: ResearchRecord): Promise<ResearchRecord> => {
             ${record.bullCase}, ${record.bearCase}, ${record.buyTrigger}, ${record.sellTrigger},
             ${record.thesisBreak}, ${record.notes}, ${JSON.stringify(record.checklist)},
             ${JSON.stringify(record.monitoringRules)}, ${JSON.stringify(record.acceptedEvidence)},
-            ${JSON.stringify(record.reviewHistory)}, ${record.lastReviewedAt}
+            ${JSON.stringify(record.decisionJournal)}, ${JSON.stringify(record.positionPlan)}, ${JSON.stringify(record.reviewHistory)}, ${record.lastReviewedAt}
         )
         ON CONFLICT (user_id, symbol, market_type) DO UPDATE SET
             company_name = EXCLUDED.company_name,
@@ -137,12 +160,35 @@ const saveRecord = async (record: ResearchRecord): Promise<ResearchRecord> => {
             checklist = EXCLUDED.checklist,
             monitoring_rules = EXCLUDED.monitoring_rules,
             accepted_evidence = EXCLUDED.accepted_evidence,
+            decision_journal = EXCLUDED.decision_journal,
+            position_plan = EXCLUDED.position_plan,
             review_history = EXCLUDED.review_history,
             last_reviewed_at = EXCLUDED.last_reviewed_at,
             updated_at = NOW()
         RETURNING *
     `;
     return mapRow(rows[0]);
+};
+
+const updateRecord = async (record: ResearchRecord, expectedRevision: number): Promise<ResearchRecord | null> => {
+    const rows = await sql`
+        UPDATE research_records SET
+            company_name = ${record.companyName}, position_state = ${record.positionState},
+            in_buy_zone = ${record.inBuyZone}, research_status = ${record.status},
+            target_buy_zone = ${record.targetBuyZone}, valuation_state = ${record.valuationState},
+            thesis_strength = ${record.thesisStrength}, why_interested = ${record.whyInterested},
+            bull_case = ${record.bullCase}, bear_case = ${record.bearCase},
+            buy_trigger = ${record.buyTrigger}, sell_trigger = ${record.sellTrigger},
+            thesis_break = ${record.thesisBreak}, notes = ${record.notes},
+            checklist = ${JSON.stringify(record.checklist)}, monitoring_rules = ${JSON.stringify(record.monitoringRules)},
+            accepted_evidence = ${JSON.stringify(record.acceptedEvidence)}, decision_journal = ${JSON.stringify(record.decisionJournal)},
+            position_plan = ${JSON.stringify(record.positionPlan)}, review_history = ${JSON.stringify(record.reviewHistory)},
+            last_reviewed_at = ${record.lastReviewedAt}, updated_at = NOW(), revision = revision + 1
+        WHERE user_id = 'default' AND symbol = ${record.symbol} AND market_type = ${record.market}
+            AND revision = ${expectedRevision}
+        RETURNING *
+    `;
+    return rows[0] ? mapRow(rows[0]) : null;
 };
 
 export const listResearchState = async (): Promise<{ readonly records: ResearchRecord[]; readonly archivedSymbols: string[] }> => {
@@ -168,13 +214,18 @@ export const createStoredResearchRecord = async (input: unknown): Promise<Resear
     return saveRecord(record);
 };
 
-export const updateStoredResearchRecord = async (symbol: string, input: ResearchUpdateInput, mode: ResearchUpdateMode): Promise<ResearchRecord | null> => {
+export const updateStoredResearchRecord = async (symbol: string, input: ResearchUpdateInput, mode: ResearchUpdateMode, expectedRevision: number): Promise<ResearchRecord | null> => {
     await ensureResearchTable();
     const rows = await sql`SELECT * FROM research_records WHERE user_id = 'default' AND symbol = ${symbol} LIMIT 1`;
     if (!rows[0]) return null;
     const current = mapRow(rows[0]);
-    const updated = applyResearchUpdate(current, input);
-    return saveRecord(mode === 'review' ? appendResearchReview(updated) : updated);
+    const updated = prepareStoredResearchRecord(current, input, mode);
+    const saved = await updateRecord(updated, expectedRevision);
+    if (!saved) {
+        const exists = await sql`SELECT 1 FROM research_records WHERE user_id = 'default' AND symbol = ${symbol} LIMIT 1`;
+        if (exists[0]) throw new ResearchStaleWriteError(symbol);
+    }
+    return saved;
 };
 
 export const deleteStoredResearchRecord = async (symbol: string): Promise<boolean> => {

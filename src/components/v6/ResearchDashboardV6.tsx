@@ -19,6 +19,7 @@ import { ResearchAlertsV6 } from './ResearchAlertsV6';
 import { ResearchComparisonV6 } from './ResearchComparisonV6';
 import { ResearchInboxV6 } from './ResearchInboxV6';
 import { ResearchWorkspaceTabsV6, type ResearchWorkspaceV6 } from './ResearchWorkspaceTabsV6';
+import { ResearchMarketContextV6 } from './MarketResearchHandoffV6';
 import { applyResearchRecordV6, createWatchlistItemV6, toResearchRecordV6 } from './research-records-v6';
 import { applyResearchQuoteV6, applyResearchSnapshotV6 } from './research-snapshot-v6';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
@@ -29,6 +30,8 @@ import {
     type ResearchTabV6,
 } from './research-v6';
 import { useThemeV6 } from './ThemeProviderV6';
+import { parseMarketResearchHandoff } from '@/lib/market-research-handoff';
+import { PositionPlanOverviewV6 } from './PositionPlanOverviewV6';
 
 const formatSnapshotLabel = (date: string) => new Intl.DateTimeFormat('en-US', {
     month: 'short',
@@ -42,6 +45,7 @@ export const ResearchDashboardV6 = () => {
     const requestedSymbol = searchParams.get('ticker')?.toUpperCase();
     const requestedWorkspace = searchParams.get('workspace');
     const requestedDetailTab = searchParams.get('tab');
+    const marketHandoff = useMemo(() => parseMarketResearchHandoff(searchParams), [searchParams]);
     const initialSymbol = requestedSymbol ?? 'MSFT';
     const initialTab: ResearchTabV6 = isResearchTabV6(requestedDetailTab) ? requestedDetailTab : 'overview';
     const [selectedSymbol, setSelectedSymbol] = useState(initialSymbol);
@@ -208,14 +212,16 @@ export const ResearchDashboardV6 = () => {
         setSaving(true);
         setSaveError(null);
         try {
+            let expectedRevision = record.revision;
             if (!records.some((item) => item.symbol === record.symbol)) {
-                await readRecordResponse(await fetch('/api/research/watchlist', {
+                const created = await readRecordResponse(await fetch('/api/research/watchlist', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ symbol: record.symbol, market: record.market, companyName: record.companyName }),
                 }));
+                expectedRevision = created.revision;
             }
             const saved = await readRecordResponse(await fetch('/api/research/watchlist/' + encodeURIComponent(record.symbol), {
-                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...record, mode }),
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...record, revision: expectedRevision, mode }),
             }));
             setRecords((current) => [...current.filter((item) => item.symbol !== saved.symbol), saved]);
             setItems((current) => current.map((item) => item.symbol === saved.symbol ? applyResearchRecordV6(item, saved) : item));
@@ -289,9 +295,11 @@ export const ResearchDashboardV6 = () => {
             />
             <div className="relative z-10 mx-auto w-full max-w-[1280px] px-4 pb-5 pt-4 min-[700px]:px-5">
                 <ResearchWorkspaceTabsV6 active={workspace} theme={theme} onChange={setWorkspace} />
+                {marketHandoff ? <ResearchMarketContextV6 handoff={marketHandoff} items={items} theme={theme} onOpen={openResearch} /> : null}
                 {workspace === 'research' ? <>
                     <h1 className="sr-only">Research workspace</h1>
                     <ResearchInboxV6 items={items} records={inboxRecords} theme={theme} onOpen={(symbol, tab) => selectTicker(symbol, false, tab)} onSave={saveRecord} />
+                    <PositionPlanOverviewV6 records={records} items={items} theme={theme} />
                 </> : null}
                 <main id={`research-workspace-${workspace}`} className={'flex flex-col gap-4 rounded-[10px] border p-3 backdrop-blur min-[700px]:flex-row min-[700px]:p-4 ' + themeClasses.panel}>
                     {workspace === 'alerts' ? (

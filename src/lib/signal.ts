@@ -13,6 +13,7 @@ import { getIndicatorDisplayName } from './indicator-registry';
 import { calculateDriverChanges, parseStoredComponentContributions, parseStoredDriverContributions } from './signal-change';
 import type { MarketContextData } from './types/market-context';
 import { getSourceIndicatorCount, shouldEnableSourceIndicator } from './source-indicator';
+import { getMarketCalibration } from './market-calibration-service';
 
 interface AggregateMarketData {
     vixData: { price: number; change: number };
@@ -877,6 +878,11 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                     ? `${snapshotState.history.length} daily snapshots are available for this market/mode.`
                     : 'Daily snapshot logging has started. Trend context will become more useful as history accumulates.'
             };
+            try {
+                v2Signal.metadata.historical_validation = await getMarketCalibration({ market, mode, enableSocial });
+            } catch (error) {
+                console.warn('Market calibration is temporarily unavailable:', error instanceof Error ? error.message : String(error));
+            }
         }
 
         return {

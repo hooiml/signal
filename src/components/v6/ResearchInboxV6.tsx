@@ -161,7 +161,6 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props
         return { ...current, snoozed };
     });
     const openItem = (symbol: string, tab: ResearchTabV6 = 'overview') => {
-        setCollapsed(true);
         setMenuId(null);
         onOpen(symbol, tab);
         window.setTimeout(() => {
@@ -198,7 +197,7 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props
                     <article aria-labelledby={`research-inbox-group-${group.symbol}`} className="grid gap-3 min-[700px]:grid-cols-[110px_minmax(0,1fr)_auto] min-[700px]:items-start">
                             <button type="button" onClick={() => openItem(group.symbol)} className="min-w-0 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 min-[700px]:col-start-1 min-[700px]:row-start-1">
                                 <span className="flex flex-wrap items-center gap-2">
-                                    {groupUnreadCount > 0 && <span aria-label={`${groupUnreadCount} unread`} className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />}
+                                    {groupUnreadCount > 0 && <span className={'rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ' + styles.statusSurface + ' ' + styles.textMuted}>{groupUnreadCount} new</span>}
                                     <span id={`research-inbox-group-${group.symbol}`} className={'font-mono text-sm font-bold ' + styles.textPrimary}>{group.symbol}</span>
                                     <span className={'text-xs font-semibold min-[700px]:block min-[700px]:w-full ' + styles.textSecondary}>{group.items.length} attention item{group.items.length === 1 ? '' : 's'}</span>
                                 </span>

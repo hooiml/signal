@@ -75,9 +75,12 @@ export async function GET(request: Request) {
                 notes TEXT NOT NULL DEFAULT '', checklist JSONB NOT NULL DEFAULT '{}'::jsonb,
                 monitoring_rules JSONB NOT NULL DEFAULT '{}'::jsonb,
                 accepted_evidence JSONB NOT NULL DEFAULT '[]'::jsonb,
+                decision_journal JSONB NOT NULL DEFAULT '{}'::jsonb,
+                position_plan JSONB NOT NULL DEFAULT '{}'::jsonb,
                 review_history JSONB NOT NULL DEFAULT '[]'::jsonb,
                 last_reviewed_at DATE NOT NULL DEFAULT CURRENT_DATE,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
                 PRIMARY KEY (user_id, symbol, market_type)
             )
         `;
@@ -86,8 +89,11 @@ export async function GET(request: Request) {
             ALTER TABLE research_records
                 ADD COLUMN IF NOT EXISTS accepted_evidence JSONB NOT NULL DEFAULT '[]'::jsonb,
                 ADD COLUMN IF NOT EXISTS review_history JSONB NOT NULL DEFAULT '[]'::jsonb,
-                ADD COLUMN IF NOT EXISTS monitoring_rules JSONB NOT NULL DEFAULT '{}'::jsonb
+                ADD COLUMN IF NOT EXISTS monitoring_rules JSONB NOT NULL DEFAULT '{}'::jsonb,
+                ADD COLUMN IF NOT EXISTS decision_journal JSONB NOT NULL DEFAULT '{}'::jsonb,
+                ADD COLUMN IF NOT EXISTS position_plan JSONB NOT NULL DEFAULT '{}'::jsonb
         `;
+        await sql`ALTER TABLE research_records ADD COLUMN IF NOT EXISTS revision INTEGER NOT NULL DEFAULT 1`;
 
         await sql`
             CREATE TABLE IF NOT EXISTS research_archived_symbols (
@@ -95,6 +101,15 @@ export async function GET(request: Request) {
                 symbol VARCHAR(20) NOT NULL,
                 archived_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 PRIMARY KEY (user_id, symbol)
+            )
+        `;
+
+        await sql`
+            CREATE TABLE IF NOT EXISTS research_notification_deliveries (
+                digest_key CHAR(64) PRIMARY KEY,
+                item_count INTEGER NOT NULL CHECK (item_count > 0),
+                reserved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                delivered_at TIMESTAMPTZ
             )
         `;
 

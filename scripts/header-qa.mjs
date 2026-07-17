@@ -234,6 +234,11 @@ const main = async () => {
                     runCheck(scenario.checks, `${expectedSurface} surface present`, Boolean(expectedSurface === 'market' ? details.command : details.researchControls), expectedSurface === 'market' ? 'market briefing controls' : 'research controls');
 
                     const toggle = header.locator('button[aria-label^="Switch to"]');
+                    await page.waitForFunction(
+                        () => document.documentElement.getAttribute('data-theme-ready') === 'true',
+                        undefined,
+                        { timeout: timeoutMs },
+                    );
                     const initialPressed = await toggle.getAttribute('aria-pressed');
                     runCheck(scenario.checks, 'theme toggle exposes state', initialPressed === 'true' || initialPressed === 'false', initialPressed || 'missing aria-pressed');
                     await toggle.click();

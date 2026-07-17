@@ -64,7 +64,7 @@ export const getDecisionPostureV6 = (signal: MarketSignal) => {
     const quality = signal.metadata.signal_quality;
     const cautionParts: string[] = [];
 
-    if (conflicts.length > 0) cautionParts.push(conflicts.join(' and ') + ' do not confirm the majority read');
+    if (conflicts.length > 0) cautionParts.push(formatNameListV6(conflicts) + ' do not confirm the majority read');
     if (quality?.freshness === 'mixed') cautionParts.push('source freshness is mixed');
     if (quality?.freshness === 'stale') cautionParts.push('important sources are stale');
     if (quality?.source_coverage === 'limited') cautionParts.push('source coverage is limited');
@@ -76,6 +76,12 @@ export const getDecisionPostureV6 = (signal: MarketSignal) => {
         summary: (lead && Math.abs(lead.directionalInfluence) > 0.01 ? lead.name + ' has the strongest directional influence. ' : '')
             + caution.charAt(0).toUpperCase() + caution.slice(1),
     };
+};
+
+const formatNameListV6 = (names: string[]) => {
+    if (names.length < 2) return names[0] ?? '';
+    if (names.length === 2) return names.join(' and ');
+    return names.slice(0, -1).join(', ') + ', and ' + names.at(-1);
 };
 
 const findComponent = (signal: MarketSignal, name: IndicatorData['name']) =>

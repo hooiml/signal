@@ -2,6 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { defaultDiscoveryFilters, filterDiscoveryCandidates, hasDiscoveryFilters } from '@/lib/research/discovery-filters';
+import {
+    buildDiscoveryVisitSnapshot,
+    compareDiscoveryVisits,
+    DISCOVERY_SAVED_VIEWS_STORAGE_KEY,
+    DISCOVERY_VISIT_STORAGE_KEY,
+    parseDiscoveryVisitSnapshot,
+    parseSavedDiscoveryViews,
+    removeSavedDiscoveryView,
+    upsertSavedDiscoveryView,
+    type DiscoveryVisitChange,
+    type DiscoveryVisitSnapshot,
+    type SavedDiscoveryView,
+} from '@/lib/research/discovery-workspace';
 import type { DiscoveryContender, DiscoveryResponse, DiscoveryResult, QualityDiscoveryResult } from '@/lib/types/research-discovery';
 import { DiscoveryFiltersV6 } from './DiscoveryFiltersV6';
 import { DiscoveryOwnershipEvidenceV6 } from './DiscoveryOwnershipEvidenceV6';
@@ -102,12 +115,32 @@ const CandidateRows = ({ candidates, rankStart, rankFor, view, theme, savedSymbo
     });
 };
 
+const DiscoveryChangeFeedV6 = ({ previous, changes, theme }: {
+    readonly previous: DiscoveryVisitSnapshot | null;
+    readonly changes: readonly DiscoveryVisitChange[];
+    readonly theme: ResearchThemeV6;
+}) => {
+    const styles = getThemeV6(theme);
+    return <section data-testid="discovery-change-feed" aria-labelledby="discovery-change-feed-title" className={'border-b px-2 py-4 ' + styles.divider}>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="discovery-change-feed-title" className={'text-sm font-bold ' + styles.textPrimary}>Since your last visit</h2>
+            <span className={'text-xs ' + styles.textMuted}>{previous ? `Compared with ${new Date(previous.capturedAt).toLocaleString()}` : 'Baseline saved now'}</span>
+        </div>
+        {!previous ? <p className={'mt-2 text-xs leading-5 ' + styles.textMuted}>Return after a later scan to see new entrants, material rank moves, and changed risk, valuation, or earnings catalysts.</p>
+            : changes.length === 0 ? <p className={'mt-2 text-xs leading-5 ' + styles.textMuted}>No material ranked-list changes since the saved visit.</p>
+                : <ul className="mt-3 grid gap-2 min-[700px]:grid-cols-2">{changes.map((change) => <li key={`${change.symbol}-${change.kind}`} className={'rounded border px-3 py-2 text-xs leading-5 ' + styles.row}><strong className={'font-mono ' + styles.textPrimary}>{change.symbol}</strong><span className={'ml-2 ' + styles.textSecondary}>{change.detail}</span></li>)}</ul>}
+    </section>;
+};
+
 export const TrendDiscoveryV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }: TrendDiscoveryV6Props) => {
     const [data, setData] = useState<DiscoveryResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [view, setView] = useState<'leaders' | 'early'>('leaders');
     const [showContenders, setShowContenders] = useState(false);
     const [filters, setFilters] = useState(defaultDiscoveryFilters);
+    const [previousVisit, setPreviousVisit] = useState<DiscoveryVisitSnapshot | null | undefined>(undefined);
+    const [visitChanges, setVisitChanges] = useState<readonly DiscoveryVisitChange[]>([]);
+    const [savedViews, setSavedViews] = useState<readonly SavedDiscoveryView[]>([]);
     const styles = getThemeV6(theme);
 
     useEffect(() => {
@@ -126,6 +159,38 @@ export const TrendDiscoveryV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
         void load();
         return () => { active = false; };
     }, []);
+
+    useEffect(() => {
+        try {
+            const visitRaw = localStorage.getItem(DISCOVERY_VISIT_STORAGE_KEY);
+            const viewsRaw = localStorage.getItem(DISCOVERY_SAVED_VIEWS_STORAGE_KEY);
+            setPreviousVisit(visitRaw ? parseDiscoveryVisitSnapshot(JSON.parse(visitRaw) as unknown) : null);
+            setSavedViews(viewsRaw ? parseSavedDiscoveryViews(JSON.parse(viewsRaw) as unknown) : []);
+        } catch {
+            setPreviousVisit(null);
+            setSavedViews([]);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!data || previousVisit === undefined) return;
+        const current = buildDiscoveryVisitSnapshot(data.candidates, data.contenders, data.generatedAt);
+        setVisitChanges(compareDiscoveryVisits(previousVisit, current));
+        try {
+            localStorage.setItem(DISCOVERY_VISIT_STORAGE_KEY, JSON.stringify(current));
+        } catch {
+            // Browser storage is optional; keep the live discovery workspace usable without it.
+        }
+    }, [data, previousVisit]);
+
+    const persistSavedViews = (views: readonly SavedDiscoveryView[]) => {
+        setSavedViews(views);
+        try {
+            localStorage.setItem(DISCOVERY_SAVED_VIEWS_STORAGE_KEY, JSON.stringify(views));
+        } catch {
+            // Keep the in-memory saved view when privacy settings disable persistence.
+        }
+    };
 
     if (error) return <section className={'min-h-72 flex-1 p-4 text-sm ' + styles.risk}>{error}</section>;
     if (!data) return <section className={'min-h-72 flex-1 p-4 text-sm ' + styles.textMuted}>Scanning liquid trend candidates...</section>;
@@ -168,7 +233,20 @@ export const TrendDiscoveryV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                 ))}
                 <span className={'ml-auto text-xs ' + styles.textMuted}>{data.historySnapshotCount} hourly snapshots</span>
             </div>
-            <DiscoveryFiltersV6 filters={filters} sectors={sectors} resultCount={resultCount} active={hasDiscoveryFilters(filters)} theme={theme} onChange={setFilters} onReset={() => setFilters(defaultDiscoveryFilters)} />
+            {previousVisit !== undefined ? <DiscoveryChangeFeedV6 previous={previousVisit} changes={visitChanges} theme={theme} /> : null}
+            <DiscoveryFiltersV6
+                filters={filters}
+                sectors={sectors}
+                resultCount={resultCount}
+                active={hasDiscoveryFilters(filters)}
+                savedViews={savedViews}
+                theme={theme}
+                onChange={setFilters}
+                onReset={() => setFilters(defaultDiscoveryFilters)}
+                onSaveView={(name) => persistSavedViews(upsertSavedDiscoveryView(savedViews, name, filters))}
+                onApplyView={(saved) => setFilters(saved.filters)}
+                onDeleteView={(id) => persistSavedViews(removeSavedDiscoveryView(savedViews, id))}
+            />
             <div className={'grid grid-cols-[36px_minmax(0,1fr)] gap-2 border-b px-2 py-2 text-xs font-semibold uppercase min-[900px]:hidden ' + styles.divider + ' ' + styles.textMuted}>
                 <span>Rank</span><span>Candidate scan</span>
             </div>
