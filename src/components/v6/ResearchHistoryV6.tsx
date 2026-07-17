@@ -15,7 +15,7 @@ export const ResearchHistoryV6 = ({ record, theme }: {
     if (record.reviewHistory.length === 0) return null;
 
     return (
-        <section className={'rounded-lg border p-4 ' + styles.panel} aria-labelledby="review-history-title">
+        <section className={'rounded-lg border p-4 ' + styles.panelUtility} aria-labelledby="review-history-title" data-surface-tier="utility">
             <div className="flex items-center justify-between gap-3">
                 <h2 id="review-history-title" className={'text-sm font-semibold ' + styles.textSecondary}>Review history</h2>
                 <span className={'text-xs ' + styles.textMuted}>{record.reviewHistory.length} saved review{record.reviewHistory.length === 1 ? '' : 's'}</span>

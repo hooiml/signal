@@ -110,9 +110,11 @@ The US Research Index Test is also non-scored context. It compares a research ti
 
 Persisted daily score snapshots are compared with subsequent VOO returns for US mode and FBM KLCI closes for Malaysia mode at approximately 7 and 30 calendar days. Results remain separated by market, Momentum or Contrarian mode, social-source setting, and the documented score zones. Directional alignment follows the tier saved for that mode; mixed snapshots have no directional hit-rate claim.
 
+For US dates before complete snapshot logging began, the calibration reconstructs current-model scores from stored VIX and social-sentiment readings. These partial reconstructions preserve the current model's neutral contribution for unavailable put/call and weekly institutional inputs. They are identified separately from observed snapshots, never replace an observed score on an overlapping date, and must retain their coverage note in the UI. Malaysia calibration currently uses observed snapshots only because the legacy rows do not contain the native historical inputs needed for a defensible reconstruction.
+
 Calibration uses the newest 1,000 snapshots within the benchmark's five-year window and an explicitly revalidated one-hour cache. This keeps the interactive signal response bounded while allowing completed forward-return observations to advance.
 
-The UI withholds return and alignment percentages until a zone has at least five eligible observations. These are overlapping historical observations without transaction costs, not a backtest or forecast, and the limitation must remain visible wherever the calibration is rendered.
+The UI withholds outcome statistics until a zone has at least five eligible observations. A directional sample is not labelled established until it has at least 20 eligible outcomes including at least five observed scores; reconstruction-only evidence remains preliminary regardless of its row count. The UI leads with the current score zone and shows median return, positive-period frequency, observed range, sample size, and observed-versus-reconstructed provenance. These are overlapping historical observations without transaction costs, not a backtest or forecast, and the limitation must remain visible wherever the calibration is rendered.
 
 ## Signal Alignment Meaning
 

@@ -24,12 +24,13 @@ const formatProviderTimestampV6 = (timestamp: string) => new Intl.DateTimeFormat
     minute: '2-digit',
 }).format(new Date(timestamp));
 
-export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, saving, saveError, onTabChange, onSave, onSnapshot, onDelete }: {
+export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, startReview, saving, saveError, onTabChange, onSave, onSnapshot, onDelete }: {
     ticker: ResearchWatchlistItem;
     theme: ResearchThemeV6;
     record: ResearchRecord;
     liveQuote: ResearchSnapshot['quote'] | null;
     activeTab: ResearchTabV6;
+    startReview: boolean;
     saving: boolean;
     saveError: string | null;
     onTabChange: (tab: ResearchTabV6) => void;
@@ -142,7 +143,7 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
                     <p className={'mt-1 font-mono text-sm font-semibold tabular-nums ' + (change >= 0 ? themeClasses.positive : themeClasses.risk)}>
                         {change >= 0 ? '+' : ''}{change.toFixed(2)}%
                     </p>
-                    <button type="button" onClick={() => void onDelete()} className={'mt-1 min-h-10 rounded px-2 text-xs font-semibold ' + themeClasses.risk}>Remove</button>
+                    <button type="button" onClick={() => void onDelete()} data-testid="research-remove-ticker" className={'mt-1 min-h-10 rounded px-2 text-xs font-medium transition-colors hover:text-rose-500 ' + themeClasses.textMuted}>Remove</button>
                 </div>
             </header>
 
@@ -187,9 +188,17 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
                 </div>
             </nav>
 
-            <div id={`research-panel-${activeTab}`} role="tabpanel" aria-labelledby={`research-tab-${activeTab}`} tabIndex={0} className="mt-5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-500">
+            <div
+                key={activeTab}
+                id={`research-panel-${activeTab}`}
+                data-testid="research-tab-panel"
+                role="tabpanel"
+                aria-labelledby={`research-tab-${activeTab}`}
+                tabIndex={0}
+                className="research-scrollbar mt-5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-500 min-[700px]:h-[680px] min-[700px]:overflow-y-auto min-[700px]:overscroll-contain min-[700px]:pr-2 min-[700px]:[scrollbar-gutter:stable]"
+            >
                 {activeTab === 'overview'
-                    ? <OverviewPanelV6 ticker={liveTicker} action={action} theme={theme} record={record} benchmark={snapshot?.benchmark ?? null} saving={saving} saveError={saveError} onSave={onSave} />
+                    ? <OverviewPanelV6 ticker={liveTicker} action={action} theme={theme} record={record} benchmark={snapshot?.benchmark ?? null} startReview={startReview} saving={saving} saveError={saveError} onSave={onSave} />
                     : activeTab === 'chart'
                         ? snapshot ? <ResearchChartV6
                             snapshot={snapshot}
@@ -204,7 +213,7 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
                             onRetryHistory={() => { setChartHistoryState('idle'); setChartHistoryKey((current) => current + 1); }}
                             theme={theme}
                         /> : <div role="status" className={'rounded-lg border p-5 text-sm ' + themeClasses.row + ' ' + themeClasses.textMuted}>Loading chart data...</div>
-                    : <ResearchPanelsV6 ticker={liveTicker} tab={activeTab} theme={theme} />}
+                    : <ResearchPanelsV6 ticker={liveTicker} tab={activeTab} theme={theme} snapshot={snapshot} />}
             </div>
 
             <footer className={'mt-4 flex flex-wrap items-center justify-between gap-2 text-xs ' + themeClasses.textMuted}>

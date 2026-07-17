@@ -1,6 +1,9 @@
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 
-export type ResearchWorkspaceV6 = 'research' | 'compare' | 'discovery' | 'alerts';
+export type ResearchWorkspaceV6 = 'research' | 'compare' | 'discovery' | 'calendar' | 'alerts';
+
+export const isResearchWorkspaceV6 = (value: string | null): value is ResearchWorkspaceV6 =>
+    value === 'research' || value === 'discovery' || value === 'compare' || value === 'calendar' || value === 'alerts';
 
 export const ResearchWorkspaceTabsV6 = ({ active, theme, onChange }: {
     readonly active: ResearchWorkspaceV6;
@@ -10,11 +13,11 @@ export const ResearchWorkspaceTabsV6 = ({ active, theme, onChange }: {
     const styles = getThemeV6(theme);
     const tabs: readonly { readonly id: ResearchWorkspaceV6; readonly label: string }[] = [
         { id: 'research', label: 'Research' }, { id: 'discovery', label: 'Discovery' },
-        { id: 'compare', label: 'Compare' }, { id: 'alerts', label: 'Alerts' },
+        { id: 'compare', label: 'Compare' }, { id: 'calendar', label: 'Calendar' }, { id: 'alerts', label: 'Alerts' },
     ];
     return (
         <div className="research-scrollbar mb-3 max-w-full overflow-x-auto">
-            <div role="tablist" aria-label="Research workspace" className={'flex w-fit rounded border p-1 ' + styles.panel}>
+            <div role="tablist" aria-label="Research workspace" data-surface-tier="utility" className={'flex w-fit rounded border p-1 ' + styles.panelUtility}>
                 {tabs.map((tab) => (
                     <button
                         key={tab.id}

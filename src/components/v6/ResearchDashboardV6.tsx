@@ -18,7 +18,7 @@ import { TrendDiscoveryV6 } from './TrendDiscoveryV6';
 import { ResearchAlertsV6 } from './ResearchAlertsV6';
 import { ResearchComparisonV6 } from './ResearchComparisonV6';
 import { ResearchInboxV6 } from './ResearchInboxV6';
-import { ResearchWorkspaceTabsV6, type ResearchWorkspaceV6 } from './ResearchWorkspaceTabsV6';
+import { isResearchWorkspaceV6, ResearchWorkspaceTabsV6, type ResearchWorkspaceV6 } from './ResearchWorkspaceTabsV6';
 import { ResearchMarketContextV6 } from './MarketResearchHandoffV6';
 import { applyResearchRecordV6, createWatchlistItemV6, toResearchRecordV6 } from './research-records-v6';
 import { applyResearchQuoteV6, applyResearchSnapshotV6 } from './research-snapshot-v6';
@@ -32,6 +32,7 @@ import {
 import { useThemeV6 } from './ThemeProviderV6';
 import { parseMarketResearchHandoff } from '@/lib/market-research-handoff';
 import { PositionPlanOverviewV6 } from './PositionPlanOverviewV6';
+import { ResearchCalendarV6 } from './ResearchCalendarV6';
 
 const formatSnapshotLabel = (date: string) => new Intl.DateTimeFormat('en-US', {
     month: 'short',
@@ -45,6 +46,7 @@ export const ResearchDashboardV6 = () => {
     const requestedSymbol = searchParams.get('ticker')?.toUpperCase();
     const requestedWorkspace = searchParams.get('workspace');
     const requestedDetailTab = searchParams.get('tab');
+    const requestedReview = searchParams.get('review');
     const marketHandoff = useMemo(() => parseMarketResearchHandoff(searchParams), [searchParams]);
     const initialSymbol = requestedSymbol ?? 'MSFT';
     const initialTab: ResearchTabV6 = isResearchTabV6(requestedDetailTab) ? requestedDetailTab : 'overview';
@@ -59,13 +61,14 @@ export const ResearchDashboardV6 = () => {
     const [saving, setSaving] = useState(false);
     const [adding, setAdding] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
-    const [workspace, setWorkspace] = useState<ResearchWorkspaceV6>(requestedWorkspace === 'discovery' ? 'discovery' : 'research');
+    const [workspace, setWorkspace] = useState<ResearchWorkspaceV6>(isResearchWorkspaceV6(requestedWorkspace) ? requestedWorkspace : 'research');
+    const [reviewRequested, setReviewRequested] = useState(requestedReview === 'edit');
     const liveSnapshots = useRef(new Map<string, ResearchSnapshot>());
     const liveQuotes = useRef(new Map<string, ResearchSnapshot['quote']>());
     const quoteItems = useRef(items);
 
     useEffect(() => {
-        if (requestedWorkspace === 'discovery') setWorkspace('discovery');
+        if (isResearchWorkspaceV6(requestedWorkspace)) setWorkspace(requestedWorkspace);
     }, [requestedWorkspace]);
 
     const filteredItems = useMemo(() => {
@@ -170,11 +173,17 @@ export const ResearchDashboardV6 = () => {
         return () => controller.abort();
     }, []);
 
-    const selectTicker = (symbol: string, focusDetail = false, tab: ResearchTabV6 = 'overview') => {
+    const selectTicker = (symbol: string, focusDetail = false, tab: ResearchTabV6 = 'overview', startReview = false) => {
+        if (focusDetail) {
+            setQuery('');
+            setMarket('ALL');
+            setAction('ALL');
+        }
         setWorkspace('research');
         setSelectedSymbol(symbol);
         setActiveDetailTab(tab);
-        const nextUrl = window.location.pathname + '?ticker=' + encodeURIComponent(symbol) + (tab === 'overview' ? '' : '&tab=' + tab);
+        setReviewRequested(startReview);
+        const nextUrl = window.location.pathname + '?ticker=' + encodeURIComponent(symbol) + (tab === 'overview' ? '' : '&tab=' + tab) + (startReview ? '&review=edit' : '');
         window.history.replaceState({ ...window.history.state, as: nextUrl, url: nextUrl }, '', nextUrl);
         if (focusDetail) {
             window.setTimeout(() => {
@@ -190,9 +199,18 @@ export const ResearchDashboardV6 = () => {
 
     const changeDetailTab = (tab: ResearchTabV6) => {
         setActiveDetailTab(tab);
+        setReviewRequested(false);
         if (!selected) return;
         const nextUrl = window.location.pathname + '?ticker=' + encodeURIComponent(selected.symbol) + (tab === 'overview' ? '' : '&tab=' + tab);
         window.history.replaceState({ ...window.history.state, as: nextUrl, url: nextUrl }, '', nextUrl);
+    };
+
+    const openCalendarTarget = (targetHref: string) => {
+        const target = new URL(targetHref, window.location.origin);
+        const symbol = target.searchParams.get('ticker');
+        const tab = target.searchParams.get('tab');
+        if (!symbol || !isResearchTabV6(tab)) return;
+        selectTicker(symbol, true, tab, target.searchParams.get('review') === 'edit');
     };
 
     const addDiscoveryCandidate = async (candidate: { readonly symbol: string; readonly name: string }) => {
@@ -301,9 +319,11 @@ export const ResearchDashboardV6 = () => {
                     <ResearchInboxV6 items={items} records={inboxRecords} theme={theme} onOpen={(symbol, tab) => selectTicker(symbol, false, tab)} onSave={saveRecord} />
                     <PositionPlanOverviewV6 records={records} items={items} theme={theme} />
                 </> : null}
-                <main id={`research-workspace-${workspace}`} className={'flex flex-col gap-4 rounded-[10px] border p-3 backdrop-blur min-[700px]:flex-row min-[700px]:p-4 ' + themeClasses.panel}>
+                <main id={`research-workspace-${workspace}`} data-surface-tier="primary" className={'flex flex-col gap-4 rounded-[10px] border p-3 backdrop-blur min-[700px]:flex-row min-[700px]:p-4 ' + themeClasses.panelPrimary}>
                     {workspace === 'alerts' ? (
                         <ResearchAlertsV6 items={items} theme={theme} onOpen={openResearch} />
+                    ) : workspace === 'calendar' ? (
+                        <ResearchCalendarV6 records={inboxRecords} theme={theme} onOpen={openCalendarTarget} />
                     ) : workspace === 'compare' ? (
                         <ResearchComparisonV6 items={items} theme={theme} onOpen={openResearch} />
                     ) : workspace === 'discovery' ? (
@@ -318,7 +338,7 @@ export const ResearchDashboardV6 = () => {
                         adding={adding}
                     />
                     {selected && selectedRecord ? (
-                        <ResearchDetailV6 key={selected.symbol} ticker={selected} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} activeTab={activeDetailTab} saving={saving} saveError={saveError} onTabChange={changeDetailTab} onSave={saveRecord} onSnapshot={updateLiveSnapshot} onDelete={deleteRecord} />
+                        <ResearchDetailV6 key={selected.symbol} ticker={selected} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} activeTab={activeDetailTab} startReview={reviewRequested} saving={saving} saveError={saveError} onTabChange={changeDetailTab} onSave={saveRecord} onSnapshot={updateLiveSnapshot} onDelete={deleteRecord} />
                     ) : (
                         <section className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
                             <div>

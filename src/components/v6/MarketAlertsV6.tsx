@@ -131,7 +131,7 @@ export const MarketAlertsV6 = ({ signal, enableSocial, theme }: { readonly signa
     );
 
     return (
-        <section className={'rounded-lg border p-5 backdrop-blur-md sm:p-6 ' + styles.panel} aria-labelledby="market-alerts-title">
+        <section className={'rounded-lg border p-5 backdrop-blur-sm sm:p-6 ' + styles.panelSecondary} aria-labelledby="market-alerts-title" data-surface-tier="secondary">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + styles.textMuted}>Keep watching</p>

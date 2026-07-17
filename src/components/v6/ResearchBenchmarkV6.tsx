@@ -26,7 +26,7 @@ export const ResearchBenchmarkV6 = ({ benchmark, theme }: { readonly benchmark: 
             : 'Return comparison is unavailable.';
 
     return (
-        <section data-testid="index-test" className={'rounded-lg border px-5 py-4 backdrop-blur-md transition-colors duration-300 ' + styles.panel} aria-labelledby="index-test-title">
+        <section data-testid="index-test" data-surface-tier="utility" className={'rounded-lg border px-5 py-4 backdrop-blur-sm transition-colors duration-300 ' + styles.panelUtility} aria-labelledby="index-test-title">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <p className={'text-[10px] font-semibold uppercase tracking-[0.12em] ' + styles.positive}>Market comparison</p>

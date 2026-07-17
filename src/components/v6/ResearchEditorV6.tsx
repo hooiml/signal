@@ -32,11 +32,27 @@ type ResearchEditorV6Props = {
     readonly decision: ResearchActionV6;
     readonly observedPrice: number | null;
     readonly benchmark: ResearchBenchmark | null;
+    readonly startEditing?: boolean;
 };
 
-export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decision, observedPrice, benchmark }: ResearchEditorV6Props) => {
-    const [draft, setDraft] = useState(initial);
-    const [isEditing, setIsEditing] = useState(false);
+const prepareReviewDraft = (initial: ResearchRecord, decision: ResearchActionV6, observedPrice: number | null, benchmark: ResearchBenchmark | null): ResearchRecord => ({
+    ...initial,
+    decisionJournal: {
+        ...initial.decisionJournal,
+        decision,
+        observedPrice,
+        benchmarkLabel: benchmark?.baselineReturnPercent !== null && benchmark?.baselineReturnPercent !== undefined ? benchmark.baselineName : null,
+        benchmarkReturnPercent: benchmark?.baselineReturnPercent ?? null,
+        priorReviewId: initial.reviewHistory[0]?.id ?? null,
+        priorOutcome: 'unresolved',
+        outcomeNote: '',
+    },
+});
+
+export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decision, observedPrice, benchmark, startEditing = false }: ResearchEditorV6Props) => {
+    const [draft, setDraft] = useState(() => startEditing ? prepareReviewDraft(initial, decision, observedPrice, benchmark) : initial);
+    const [isEditing, setIsEditing] = useState(startEditing);
+    const [isExpanded, setIsExpanded] = useState(startEditing);
     const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
     const styles = getThemeV6(theme);
     const isDirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(initial), [draft, initial]);
@@ -69,28 +85,19 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
         if (saved) {
             setLastSavedAt(new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date()));
             setIsEditing(false);
+            setIsExpanded(false);
         }
     };
     const handleCancel = () => {
         setDraft(initial);
         setLastSavedAt(null);
         setIsEditing(false);
+        setIsExpanded(false);
     };
     const beginReview = () => {
-        setDraft((current) => ({
-            ...current,
-            decisionJournal: {
-                ...current.decisionJournal,
-                decision,
-                observedPrice,
-                benchmarkLabel: benchmark?.baselineReturnPercent !== null && benchmark?.baselineReturnPercent !== undefined ? benchmark.baselineName : null,
-                benchmarkReturnPercent: benchmark?.baselineReturnPercent ?? null,
-                priorReviewId: initial.reviewHistory[0]?.id ?? null,
-                priorOutcome: 'unresolved',
-                outcomeNote: '',
-            },
-        }));
+        setDraft(prepareReviewDraft(initial, decision, observedPrice, benchmark));
         setIsEditing(true);
+        setIsExpanded(true);
     };
     const renderDetail = (label: string, value: string, className = '') => (
         <div className={className}>
@@ -100,45 +107,73 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
     );
 
     return (
-        <section data-testid="research-decision-journal" className={'rounded-lg border p-4 ' + styles.panel}>
+        <section data-testid="research-decision-journal" data-surface-tier="secondary" className={'rounded-lg border p-4 ' + styles.panelSecondary}>
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h2 className={'text-sm font-semibold ' + styles.textSecondary}>Research journal</h2>
-                    <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>{isEditing ? 'Update the saved thesis and decision checklist, then save the review.' : 'Review the saved details before submitting a new review.'}</p>
+                    {isEditing ? (
+                        <h2 className={'text-base font-bold ' + styles.textPrimary}>Research journal</h2>
+                    ) : (
+                        <button
+                            type="button"
+                            data-testid="research-journal-toggle"
+                            aria-expanded={isExpanded}
+                            aria-controls="research-journal-details"
+                            onClick={() => setIsExpanded((current) => !current)}
+                            className={'flex min-h-10 items-center gap-2 rounded text-left text-base font-bold transition-colors hover:text-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + styles.textPrimary}
+                        >
+                            <span>Research journal</span>
+                            <svg aria-hidden="true" viewBox="0 0 20 20" className={'size-4 transition-transform duration-200 ' + (isExpanded ? 'rotate-180' : '')} fill="none" stroke="currentColor" strokeWidth="1.75">
+                                <path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </button>
+                    )}
+                    <p className={'text-xs leading-5 ' + styles.textMuted}>{isEditing
+                        ? 'Update the saved thesis and decision checklist, then save the review.'
+                        : `${detailChoice(draft.decisionJournal.decision)} · ${completedChecklist}/${checklistKeys.length} checks · reviewed ${draft.lastReviewedAt}`}</p>
                 </div>
                 {!isEditing ? (
-                    <button type="button" onClick={beginReview} className={'min-h-10 rounded-md border px-3 text-xs font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + styles.row}>
+                    <button type="button" onClick={beginReview} data-testid="submit-research-review" className="min-h-10 rounded-md bg-emerald-600 px-4 text-xs font-bold text-white transition-colors hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500">
                         Submit review
                     </button>
                 ) : null}
             </div>
 
-            {!isEditing ? (
+            {!isEditing && isExpanded ? (
                 <>
-                    <dl className="mt-4 grid gap-4 min-[900px]:grid-cols-2">
-                        {renderDetail('Why interested', detailText(draft.whyInterested))}
-                        {renderDetail('Bull case', detailText(draft.bullCase))}
-                        {renderDetail('Bear case', detailText(draft.bearCase))}
-                        {renderDetail('Thesis invalidation', detailText(draft.thesisBreak))}
-                        {renderDetail('Buy trigger', detailText(draft.buyTrigger))}
-                        {renderDetail('Sell trigger', detailText(draft.sellTrigger))}
-                        {renderDetail('Review notes', detailText(draft.notes), 'min-[900px]:col-span-2')}
-                    </dl>
-                    <dl className={'mt-5 grid gap-3 border-t pt-4 sm:grid-cols-2 xl:grid-cols-5 ' + styles.divider}>
-                        {renderDetail('Thesis strength', detailChoice(draft.thesisStrength))}
-                        {renderDetail('Valuation', detailChoice(draft.valuationState))}
-                        {renderDetail('Target buy zone', detailText(draft.targetBuyZone))}
-                        {renderDetail('Position', detailChoice(draft.positionState))}
-                        {renderDetail('Price in buy zone', draft.inBuyZone ? 'Yes' : 'No')}
-                    </dl>
-                    <dl className={'mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 xl:grid-cols-5 ' + styles.divider}>
-                        {renderDetail('Saved decision', draft.decisionJournal.decision)}
-                        {renderDetail('Decision confidence', detailChoice(draft.decisionJournal.confidence))}
-                        {renderDetail('Observed price', draft.decisionJournal.observedPrice === null ? 'Not recorded' : String(draft.decisionJournal.observedPrice))}
-                        {renderDetail('Next review', draft.decisionJournal.nextReviewAt ?? 'Not scheduled')}
-                        {draft.decisionJournal.priorReviewId ? renderDetail('Prior decision outcome', detailChoice(draft.decisionJournal.priorOutcome)) : null}
-                        {draft.decisionJournal.outcomeNote ? renderDetail('Outcome note', draft.decisionJournal.outcomeNote, 'sm:col-span-2 xl:col-span-5') : null}
-                    </dl>
+                    <div id="research-journal-details">
+                    <section className={'mt-5 border-t pt-4 ' + styles.divider} aria-labelledby="thesis-triggers-title">
+                        <h3 id="thesis-triggers-title" className={'text-sm font-semibold ' + styles.textSecondary}>Thesis and triggers</h3>
+                        <dl className="mt-3 grid gap-4 min-[900px]:grid-cols-2">
+                            {renderDetail('Why interested', detailText(draft.whyInterested))}
+                            {renderDetail('Bull case', detailText(draft.bullCase))}
+                            {renderDetail('Bear case', detailText(draft.bearCase))}
+                            {renderDetail('Thesis invalidation', detailText(draft.thesisBreak))}
+                            {renderDetail('Buy trigger', detailText(draft.buyTrigger))}
+                            {renderDetail('Sell trigger', detailText(draft.sellTrigger))}
+                            {renderDetail('Review notes', detailText(draft.notes), 'min-[900px]:col-span-2')}
+                        </dl>
+                    </section>
+                    <section className={'mt-4 border-t pt-4 ' + styles.divider} aria-labelledby="research-state-title">
+                        <h3 id="research-state-title" className={'text-sm font-semibold ' + styles.textSecondary}>Research state</h3>
+                        <dl className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                            {renderDetail('Thesis strength', detailChoice(draft.thesisStrength))}
+                            {renderDetail('Valuation', detailChoice(draft.valuationState))}
+                            {renderDetail('Target buy zone', detailText(draft.targetBuyZone))}
+                            {renderDetail('Position', detailChoice(draft.positionState))}
+                            {renderDetail('Price in buy zone', draft.inBuyZone ? 'Yes' : 'No')}
+                        </dl>
+                    </section>
+                    <section className={'mt-4 border-t pt-4 ' + styles.divider} aria-labelledby="saved-decision-title">
+                        <h3 id="saved-decision-title" className={'text-sm font-semibold ' + styles.textSecondary}>Saved decision</h3>
+                        <dl className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                            {renderDetail('Saved decision', draft.decisionJournal.decision)}
+                            {renderDetail('Decision confidence', detailChoice(draft.decisionJournal.confidence))}
+                            {renderDetail('Observed price', draft.decisionJournal.observedPrice === null ? 'Not recorded' : String(draft.decisionJournal.observedPrice))}
+                            {renderDetail('Next review', draft.decisionJournal.nextReviewAt ?? 'Not scheduled')}
+                            {draft.decisionJournal.priorReviewId ? renderDetail('Prior decision outcome', detailChoice(draft.decisionJournal.priorOutcome)) : null}
+                            {draft.decisionJournal.outcomeNote ? renderDetail('Outcome note', draft.decisionJournal.outcomeNote, 'sm:col-span-2 xl:col-span-5') : null}
+                        </dl>
+                    </section>
                     <section className={'mt-4 border-t pt-4 ' + styles.divider} aria-labelledby="position-plan-title">
                         <div className="flex flex-wrap items-center justify-between gap-2"><h3 id="position-plan-title" className={'text-sm font-semibold ' + styles.textSecondary}>Position plan</h3><span className={'text-xs ' + styles.textMuted}>Planning only · no transaction tracking</span></div>
                         <dl className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -164,14 +199,15 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                         </ul>
                     </section>
                     {error ? <p role="alert" className={'mt-4 text-xs ' + styles.risk}>{error}</p> : null}
+                    </div>
                 </>
             ) : (
-                <div className="mt-4">
+                isEditing ? <div className="mt-4">
                     <ResearchAssistantV6 symbol={draft.symbol} market={draft.market} theme={theme} onApply={applyFinding} />
-                </div>
+                </div> : null
             )}
 
-            {draft.acceptedEvidence.length > 0 ? (
+            {draft.acceptedEvidence.length > 0 && (isEditing || isExpanded) ? (
                 <section className={'mt-4 border-b pb-4 ' + styles.divider} aria-labelledby="accepted-evidence-title">
                     <div className="flex items-center justify-between gap-3">
                         <h3 id="accepted-evidence-title" className={'text-sm font-semibold ' + styles.textSecondary}>Accepted evidence</h3>

@@ -16,7 +16,7 @@ export const MarketToResearchLinkV6 = ({ signal, theme }: {
     const styles = getThemeV6(theme);
     const handoff = createMarketResearchHandoff(signal);
 
-    return <section data-testid="market-research-handoff" aria-labelledby="market-research-handoff-title" className={'rounded-lg border p-5 backdrop-blur-md sm:p-6 ' + styles.panel}>
+    return <section data-testid="market-research-handoff" aria-labelledby="market-research-handoff-title" data-surface-tier="action" className={'rounded-lg border p-5 backdrop-blur-sm sm:p-6 ' + styles.panelAction}>
         <div className="grid gap-4 min-[700px]:grid-cols-[minmax(0,1fr)_auto] min-[700px]:items-center">
             <div>
                 <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + styles.positive}>Continue the decision</p>
@@ -52,7 +52,7 @@ export const ResearchMarketContextV6 = ({ handoff, items, theme, onOpen }: {
         .sort((left, right) => Number(right.positionState === 'owned') - Number(left.positionState === 'owned') || left.lastReviewedAt.localeCompare(right.lastReviewedAt));
     const next = reviewQueue[0] ?? matching[0];
 
-    return <section data-testid="research-market-context" aria-labelledby="research-market-context-title" className={'mb-4 rounded-[10px] border p-4 backdrop-blur min-[700px]:p-5 ' + styles.panel}>
+    return <section data-testid="research-market-context" aria-labelledby="research-market-context-title" data-surface-tier="utility" className={'mb-4 rounded-[10px] border p-4 backdrop-blur min-[700px]:p-5 ' + styles.panelUtility}>
         <div className="grid gap-4 min-[900px]:grid-cols-[minmax(0,1fr)_auto] min-[900px]:items-center">
             <div>
                 <div className="flex flex-wrap items-center gap-2">

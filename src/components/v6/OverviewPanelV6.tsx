@@ -21,6 +21,7 @@ type OverviewPanelV6Props = {
     theme: ResearchThemeV6;
     record: ResearchRecord;
     benchmark: ResearchBenchmark | null;
+    startReview: boolean;
     saving: boolean;
     saveError: string | null;
     onSave: (record: ResearchRecord) => Promise<boolean>;
@@ -37,7 +38,7 @@ const SnapshotMetric = ({ label, value, themeClasses }: {
     </div>
 );
 
-export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, saving, saveError, onSave }: OverviewPanelV6Props) => {
+export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, startReview, saving, saveError, onSave }: OverviewPanelV6Props) => {
     const checkedCount = getChecklistCountV6(ticker);
     const nextCheck = Object.entries(ticker.checklist).find(([, passed]) => !passed)?.[0];
     const progress = String((checkedCount / 9) * 360) + 'deg';
@@ -47,7 +48,7 @@ export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, savi
     return (
         <div className="space-y-3">
             <div className="grid gap-3 min-[700px]:grid-cols-[minmax(0,1.35fr)_minmax(190px,0.85fr)]">
-                <section className={'rounded-lg border p-5 backdrop-blur-md transition-colors duration-300 ' + themeClasses.panel}>
+                <section data-surface-tier="secondary" className={'rounded-lg border p-5 backdrop-blur-sm transition-colors duration-300 ' + themeClasses.panelSecondary}>
                     <h2 className={'text-sm font-semibold ' + themeClasses.textSecondary}>Thesis</h2>
                     <dl className="mt-3 space-y-3">
                         <div>
@@ -65,7 +66,7 @@ export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, savi
                     </dl>
                 </section>
 
-                <section className={'flex min-h-[230px] flex-col items-center justify-center rounded-lg border p-5 text-center backdrop-blur-md transition-colors duration-300 ' + themeClasses.panel}>
+                <section data-surface-tier="secondary" className={'flex min-h-[230px] flex-col items-center justify-center rounded-lg border p-5 text-center backdrop-blur-sm transition-colors duration-300 ' + themeClasses.panelSecondary}>
                     <div
                         className="grid size-[92px] place-items-center rounded-full"
                         style={{ background: 'conic-gradient(#10b981 ' + progress + ', ' + themeClasses.ringTrackColor + ' 0deg)' }}
@@ -87,7 +88,7 @@ export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, savi
 
             {benchmark ? <ResearchBenchmarkV6 benchmark={benchmark} theme={theme} /> : null}
 
-            <section className={'rounded-lg border px-5 py-4 backdrop-blur-md transition-colors duration-300 ' + themeClasses.panel}>
+            <section data-surface-tier="utility" className={'rounded-lg border px-5 py-4 backdrop-blur-sm transition-colors duration-300 ' + themeClasses.panelUtility}>
                 <h2 className={'text-sm font-semibold ' + themeClasses.textSecondary}>Fundamentals snapshot</h2>
                 <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-3 min-[700px]:grid-cols-3 xl:grid-cols-5">
                     <SnapshotMetric label="Market cap" value={ticker.marketCap} themeClasses={themeClasses} />
@@ -97,7 +98,7 @@ export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, savi
                     <SnapshotMetric label="FCF" value={ticker.freeCashFlowTrend} themeClasses={themeClasses} />
                 </dl>
             </section>
-            <ResearchEditorV6 key={(record.reviewHistory[0]?.id ?? record.lastReviewedAt) + record.symbol} initial={record} theme={theme} saving={saving} error={saveError} onSave={onSave} decision={action} observedPrice={ticker.price ?? null} benchmark={benchmark} />
+            <ResearchEditorV6 key={(record.reviewHistory[0]?.id ?? record.lastReviewedAt) + record.symbol} initial={record} theme={theme} startEditing={startReview} saving={saving} error={saveError} onSave={onSave} decision={action} observedPrice={ticker.price ?? null} benchmark={benchmark} />
             <ResearchHistoryV6 record={record} theme={theme} />
         </div>
     );

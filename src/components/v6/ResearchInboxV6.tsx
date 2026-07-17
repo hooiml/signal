@@ -171,7 +171,7 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props
         }, 0);
     };
 
-    return <section aria-labelledby="research-inbox-title" aria-busy={items.length > 0 && (loading || (!data && !error))} className={'mb-4 rounded-[10px] border p-3 backdrop-blur min-[700px]:p-4 ' + styles.panel}>
+    return <section aria-labelledby="research-inbox-title" aria-busy={items.length > 0 && (loading || (!data && !error))} data-surface-tier="secondary" className={'mb-4 rounded-[10px] border p-3 backdrop-blur min-[700px]:p-4 ' + styles.panelSecondary}>
         <header className="flex flex-col gap-3 min-[700px]:flex-row min-[700px]:items-end min-[700px]:justify-between">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 min-[700px]:block">
                 <div><p className={'text-xs font-bold uppercase tracking-[0.14em] ' + styles.positive}>Daily attention</p><h2 id="research-inbox-title" className={'mt-1 text-lg font-bold ' + styles.textPrimary}>Today</h2></div>

@@ -273,13 +273,24 @@ const buildFixtureSignal = (requestUrl) => {
             historical_validation: {
                 benchmark_symbol: market === 'US' ? 'VOO' : 'FBM KLCI',
                 benchmark_name: market === 'US' ? 'Vanguard S&P 500 ETF' : 'FTSE Bursa Malaysia KLCI',
-                mode, snapshot_count: 18, minimum_sample_size: 5,
+                mode, snapshot_count: 18, observed_snapshot_count: 12, reconstructed_snapshot_count: 6,
+                minimum_sample_size: 5, directional_sample_size: 20,
+                reconstruction_note: 'Earlier scores are reconstructed with the current model from stored VIX and social sentiment.',
                 horizons: [7, 30].map((days) => ({ days, cohorts: [
                     { zone: 'negative', label: '0–39', sample_count: 2, average_forward_return_pct: -1.2, alignment_rate_pct: 50 },
                     { zone: 'mixed', label: '40–64', sample_count: 4, average_forward_return_pct: 0.4, alignment_rate_pct: null },
                     { zone: 'positive', label: '65–84', sample_count: 7, average_forward_return_pct: days === 7 ? 1.8 : 3.2, alignment_rate_pct: 71 },
                     { zone: 'strong-positive', label: '85–100', sample_count: 5, average_forward_return_pct: 2.4, alignment_rate_pct: 80 },
-                ] })),
+                ].map((cohort) => ({
+                    ...cohort,
+                    observed_count: Math.max(0, cohort.sample_count - 2),
+                    reconstructed_count: Math.min(2, cohort.sample_count),
+                    median_forward_return_pct: cohort.average_forward_return_pct,
+                    positive_return_rate_pct: cohort.alignment_rate_pct ?? 50,
+                    worst_forward_return_pct: (cohort.average_forward_return_pct ?? 0) - 1.5,
+                    best_forward_return_pct: (cohort.average_forward_return_pct ?? 0) + 2.5,
+                    evidence_level: cohort.sample_count < 5 ? 'insufficient' : cohort.sample_count < 20 ? 'preliminary' : 'established',
+                })) })),
                 limitation: 'Historical forward returns are overlapping observations without transaction costs. They calibrate prior signal interpretation and do not predict future returns.',
             },
             counterfactuals: {
@@ -349,6 +360,17 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
     const storyEvidence = document.querySelector('[data-testid="market-story-evidence"]');
     const storyCards = storyEvidence ? [...storyEvidence.querySelectorAll('article')] : [];
     const storyFooters = storyEvidence ? [...storyEvidence.querySelectorAll('[data-testid="market-story-card-footer"]')] : [];
+    const contributionLabels = storyEvidence ? [...storyEvidence.querySelectorAll('[data-testid="market-story-contribution-label"]')] : [];
+    const contributionFormulas = storyEvidence ? [...storyEvidence.querySelectorAll('[data-testid="market-story-contribution-formula"]')] : [];
+    const relationships = storyEvidence ? [...storyEvidence.querySelectorAll('[data-testid="market-story-relationship"]')] : [];
+    const updatedLabels = storyEvidence ? [...storyEvidence.querySelectorAll('[data-testid="market-story-updated"]')] : [];
+    const freshnessLabels = storyEvidence ? [...storyEvidence.querySelectorAll('[data-testid="market-story-freshness"]')] : [];
+    const primarySurfaces = [...document.querySelectorAll('[data-surface-tier="primary"]')];
+    const secondarySurfaces = [...document.querySelectorAll('[data-surface-tier="secondary"]')];
+    const utilitySurfaces = [...document.querySelectorAll('[data-surface-tier="utility"]')];
+    const actionSurfaces = [...document.querySelectorAll('[data-surface-tier="action"]')];
+    const changeSummaryLabels = [...document.querySelectorAll('[data-testid="change-summary-label"]')];
+    const changeSummaryValues = [...document.querySelectorAll('[data-testid="change-summary-value"]')];
     const evidenceBounds = storyEvidence?.getBoundingClientRect();
     const footerTops = storyFooters.map((footer) => footer.getBoundingClientRect().top);
     return {
@@ -374,6 +396,60 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
             return bounds.left >= evidenceBounds.left - 1 && bounds.right <= evidenceBounds.right + 1 && bounds.width > 0 && bounds.height > 0;
         })),
         storyFootersAligned: window.innerWidth < 1024 || (footerTops.length === 3 && Math.max(...footerTops) - Math.min(...footerTops) <= 1),
+        storyContributionPresentation: contributionLabels.length === 3
+            && contributionFormulas.length === 3
+            && contributionLabels.every((label) => getComputedStyle(label).fontStyle === 'italic')
+            && contributionFormulas.every((formula) => getComputedStyle(formula).fontSize === '12px'
+                && getComputedStyle(formula).fontWeight === '400'
+                && !formula.parentElement?.classList.contains('border')),
+        storyMetadataSeparated: storyFooters.length === 3
+            && storyFooters.every((footer) => getComputedStyle(footer).borderTopStyle === 'solid'
+                && Number.parseFloat(getComputedStyle(footer).borderTopWidth) === 1
+                && Number.parseFloat(getComputedStyle(footer).paddingTop) === 12)
+            && relationships.every((relationship) => Number.parseFloat(getComputedStyle(relationship).marginBottom) === 16),
+        storyTextHierarchy: storyCards.length === 3
+            && relationships.length === 3
+            && updatedLabels.length === 3
+            && freshnessLabels.length === 3
+            && storyCards.every((card, index) => {
+                const primaryColor = getComputedStyle(card.querySelector('h2')).color;
+                return getComputedStyle(relationships[index]).color !== primaryColor
+                    && getComputedStyle(contributionFormulas[index]).color !== primaryColor
+                    && getComputedStyle(updatedLabels[index]).color !== primaryColor
+                    && getComputedStyle(updatedLabels[index]).color !== getComputedStyle(freshnessLabels[index]).color;
+            }),
+        pageSurfaceHierarchy: primarySurfaces.length === 2
+            && secondarySurfaces.length >= 5
+            && utilitySurfaces.length >= 5
+            && actionSurfaces.length === 1
+            && getComputedStyle(primarySurfaces[0]).backgroundColor !== getComputedStyle(secondarySurfaces[0]).backgroundColor
+            && getComputedStyle(secondarySurfaces[0]).backgroundColor !== getComputedStyle(utilitySurfaces[0]).backgroundColor
+            && getComputedStyle(primarySurfaces[0]).boxShadow !== 'none'
+            && getComputedStyle(primarySurfaces[0]).boxShadow !== getComputedStyle(utilitySurfaces[0]).boxShadow
+            && utilitySurfaces[0].classList.contains('shadow-none')
+            && getComputedStyle(actionSurfaces[0]).borderColor !== getComputedStyle(secondarySurfaces[0]).borderColor,
+        pageSurfaceCounts: {
+            primary: primarySurfaces.length,
+            secondary: secondarySurfaces.length,
+            utility: utilitySurfaces.length,
+            action: actionSurfaces.length,
+        },
+        pageSurfaceStyles: Object.fromEntries([
+            ['primary', primarySurfaces[0]],
+            ['secondary', secondarySurfaces[0]],
+            ['utility', utilitySurfaces[0]],
+            ['action', actionSurfaces[0]],
+        ].map(([tier, element]) => [tier, element ? {
+            backgroundColor: getComputedStyle(element).backgroundColor,
+            borderColor: getComputedStyle(element).borderColor,
+            boxShadow: getComputedStyle(element).boxShadow,
+        } : null])),
+        changeSummaryAligned: window.innerWidth < 1024 || (
+            changeSummaryLabels.length === 4
+            && changeSummaryValues.length === 4
+            && Math.max(...changeSummaryLabels.map((element) => element.getBoundingClientRect().top)) - Math.min(...changeSummaryLabels.map((element) => element.getBoundingClientRect().top)) <= 1
+            && Math.max(...changeSummaryValues.map((element) => element.getBoundingClientRect().top)) - Math.min(...changeSummaryValues.map((element) => element.getBoundingClientRect().top)) <= 1
+        ),
         documentOverflow: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0) - window.innerWidth,
     };
 });
@@ -481,11 +557,16 @@ const main = async () => {
                     runCheck(scenario.checks, 'market story uses ranked evidence roles', details.storyEvidenceText.includes('Strongest influence') && details.storyEvidenceText.includes('Conflicting signal') && !details.storyEvidenceText.includes('Evidence chapter'), details.storyEvidenceText);
                     runCheck(scenario.checks, 'market story cards fit their container', details.storyCardsContained && details.storyTrustOverflow <= 1 && details.storyEvidenceOverflow <= 1, JSON.stringify({ storyCardsContained: details.storyCardsContained, storyTrustOverflow: details.storyTrustOverflow, storyEvidenceOverflow: details.storyEvidenceOverflow }));
                     runCheck(scenario.checks, 'market story card footers align', details.storyFootersAligned, JSON.stringify({ storyFootersAligned: details.storyFootersAligned }));
+                    runCheck(scenario.checks, 'market story contribution uses compact unboxed treatment', details.storyContributionPresentation, JSON.stringify({ storyContributionPresentation: details.storyContributionPresentation }));
+                    runCheck(scenario.checks, 'market story metadata is visibly separated', details.storyMetadataSeparated, JSON.stringify({ storyMetadataSeparated: details.storyMetadataSeparated }));
+                    runCheck(scenario.checks, 'market story separates primary, secondary, and semantic text', details.storyTextHierarchy, JSON.stringify({ storyTextHierarchy: details.storyTextHierarchy }));
+                    runCheck(scenario.checks, 'main page uses distinct primary, secondary, utility, and action surfaces', details.pageSurfaceHierarchy, JSON.stringify({ counts: details.pageSurfaceCounts, styles: details.pageSurfaceStyles }));
+                    runCheck(scenario.checks, 'what changed summary labels and values align', details.changeSummaryAligned, JSON.stringify({ changeSummaryAligned: details.changeSummaryAligned }));
                     runCheck(scenario.checks, 'document has no horizontal overflow', details.documentOverflow <= 1, `${details.documentOverflow}px overflow`);
                     runCheck(scenario.checks, 'secondary context starts collapsed', details.valuationCollapsed !== false && details.marketContextCollapsed !== false, JSON.stringify(details));
                     runCheck(scenario.checks, 'market-to-research handoff is evidence-only', details.handoffText.includes('Carry this market context into Research') && details.handoffText.includes('does not change any ticker decision'), details.handoffText);
                     runCheck(scenario.checks, 'market-to-research handoff carries validated context', details.handoffHref.includes('/research?') && details.handoffHref.includes('contextMarket=US') && details.handoffHref.includes('contextScore='), details.handoffHref);
-                    runCheck(scenario.checks, 'historical calibration shows samples and non-predictive limits', details.calibrationText.includes('What followed earlier score zones') && details.calibrationText.includes('n=7') && details.calibrationText.includes('Direction aligned') && details.calibrationText.includes('do not predict future returns'), shorten(details.calibrationText));
+                    runCheck(scenario.checks, 'historical calibration shows current-zone outcomes, provenance, and non-predictive limits', details.calibrationText.includes('What followed similar scores') && details.calibrationText.includes('Median return') && details.calibrationText.includes('Positive periods') && details.calibrationText.includes('5 observed') && details.calibrationText.includes('2 reconstructed') && details.calibrationText.includes('do not predict future returns'), shorten(details.calibrationText));
 
                     const conflictDisclosure = page.locator('[data-testid="conflict-explanation"][data-driver="aaii"]:visible').first();
                     runCheck(scenario.checks, 'conflict explanation control visible', await conflictDisclosure.count() > 0, 'expected a visible conflict info control');
@@ -553,6 +634,7 @@ const main = async () => {
                     await conflictDisclosure.locator('summary').click();
 
                     if (captureScreenshots) {
+                        await page.locator('[data-testid="conflict-explanation"][open]').evaluateAll((elements) => elements.forEach((element) => element.removeAttribute('open')));
                         const screenshotPath = path.join(evidenceDir, `score-evidence-${viewport.name}-${viewport.width}x${viewport.height}.png`);
                         if (captureFullPage) await page.screenshot({ path: screenshotPath, fullPage: true });
                         else await page.locator('section[aria-labelledby="score-evidence-title"]').screenshot({ path: screenshotPath });
@@ -579,6 +661,11 @@ const main = async () => {
 
                     await page.locator('[data-testid="research-market-context"] button').click();
                     const journal = page.locator('[data-testid="research-decision-journal"]');
+                    const journalToggle = journal.getByTestId('research-journal-toggle');
+                    runCheck(scenario.checks, 'research journal starts collapsed', await journalToggle.getAttribute('aria-expanded') === 'false' && await journal.getByRole('heading', { name: 'Thesis and triggers' }).count() === 0, 'expected collapsed read-only details');
+                    await journalToggle.click();
+                    await journal.getByRole('heading', { name: 'Thesis and triggers' }).waitFor({ state: 'visible', timeout: timeoutMs });
+                    runCheck(scenario.checks, 'research journal disclosure expands', await journalToggle.getAttribute('aria-expanded') === 'true', 'expected expanded read-only details');
                     await journal.getByRole('button', { name: 'Submit review' }).click();
                     const decisionRecord = journal.getByRole('group', { name: 'Decision record' });
                     await decisionRecord.waitFor({ state: 'visible', timeout: timeoutMs });
@@ -598,6 +685,21 @@ const main = async () => {
                     const journalOverflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0) - window.innerWidth);
                     runCheck(scenario.checks, 'decision journal has no horizontal overflow', journalOverflow <= 1, `${journalOverflow}px overflow`);
                     await journal.getByRole('button', { name: 'Cancel' }).click();
+                    runCheck(scenario.checks, 'cancel returns journal to collapsed summary', await journal.getByTestId('research-journal-toggle').getAttribute('aria-expanded') === 'false', 'expected collapsed summary after cancel');
+
+                    const overviewPanel = page.getByTestId('research-tab-panel');
+                    const overviewPanelHeight = (await overviewPanel.boundingBox())?.height ?? 0;
+                    await page.getByRole('tab', { name: 'Fundamentals' }).click();
+                    const fundamentalsPanel = page.getByTestId('research-tab-panel');
+                    await fundamentalsPanel.waitFor({ state: 'visible', timeout: timeoutMs });
+                    const fundamentalsPanelHeight = (await fundamentalsPanel.boundingBox())?.height ?? 0;
+                    if (viewport.width >= 700) {
+                        runCheck(scenario.checks, 'research tabs keep a stable viewport height', Math.abs(overviewPanelHeight - fundamentalsPanelHeight) <= 1 && overviewPanelHeight === 680, `${overviewPanelHeight}px overview; ${fundamentalsPanelHeight}px fundamentals`);
+                    } else {
+                        const mobileOverflow = await fundamentalsPanel.evaluate((element) => getComputedStyle(element).overflowY);
+                        runCheck(scenario.checks, 'research tabs retain natural mobile document flow', mobileOverflow === 'visible', `overflow-y: ${mobileOverflow}`);
+                    }
+                    await page.getByRole('tab', { name: 'Overview' }).click();
 
                     await page.evaluate(() => localStorage.setItem('signal-discovery-visit-v1', JSON.stringify({
                         version: 1,

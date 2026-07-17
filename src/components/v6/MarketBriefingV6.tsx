@@ -54,13 +54,15 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
     const storyDrivers = drivers.slice(0, 3);
     const storyHeadline = getStoryHeadlineV6(signal);
     const hasLinkedContext = contextItems.some((item) => item.affected.label !== 'Context');
-    const panel = 'rounded-lg border backdrop-blur-md ' + t.panel;
+    const primaryPanel = 'rounded-lg border backdrop-blur-md ' + t.panelPrimary;
+    const secondaryPanel = 'rounded-lg border backdrop-blur-sm ' + t.panelSecondary;
+    const utilityPanel = 'rounded-lg border backdrop-blur-sm ' + t.panelUtility;
     const quickReadContent = <QuickReadContentV6 signal={signal} posture={posture} quality={quality} delta={delta} drivers={drivers} scoreClass={tierTone.text} theme={theme} />;
     const valuationBackdrop = signal.metadata.valuation_backdrop;
     const marketContext = signal.metadata.market_context;
 
     return (
-        <div className="mt-4 space-y-4" aria-busy={updating}>
+        <div className="mt-4 space-y-5" aria-busy={updating}>
             {refreshError ? (
                 <div role="status" className={'rounded-md border px-4 py-3 text-sm ' + (theme === 'light' ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-amber-400/35 bg-amber-500/10 text-amber-100')}>
                     Showing the previous briefing while the latest refresh is unavailable: {refreshError}
@@ -68,7 +70,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
             ) : null}
 
             <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
-                <section className={panel + ' min-w-0 overflow-hidden'} aria-labelledby="market-story-title">
+                <section className={primaryPanel + ' min-w-0 overflow-hidden'} aria-labelledby="market-story-title" data-surface-tier="primary">
                     <div className={'h-1 bg-gradient-to-r ' + tierTone.rail} />
                     <div className="p-5 sm:p-7">
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -99,16 +101,16 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                     </div>
                 </section>
 
-                <aside className={panel + ' hidden p-5 xl:block'} aria-label="Quick read">
+                <aside className={secondaryPanel + ' hidden p-5 xl:block'} aria-label="Quick read" data-surface-tier="secondary">
                     {quickReadContent}
                 </aside>
             </div>
 
-            <section className={panel + ' overflow-hidden'} aria-labelledby="changed-title">
+            <section className={secondaryPanel + ' overflow-hidden'} aria-labelledby="changed-title" data-surface-tier="secondary">
                 <div className="grid gap-px sm:grid-cols-2 lg:grid-cols-[220px_repeat(3,minmax(0,1fr))]">
-                    <div className={'p-5 ' + t.cell}>
-                        <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Since the prior snapshot</p>
-                        <h2 id="changed-title" className={'mt-2 text-lg font-bold ' + t.textPrimary}>What changed</h2>
+                    <div className={'p-3.5 sm:p-4 ' + t.cell} data-testid="change-summary-cell">
+                        <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted} data-testid="change-summary-label">Since the prior snapshot</p>
+                        <h2 id="changed-title" className={'mt-2 break-words text-lg font-bold sm:text-xl ' + t.textPrimary} data-testid="change-summary-value">What changed</h2>
                     </div>
                     <SummaryMetricV6
                         label="Overall score"
@@ -130,7 +132,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                 />
             </section>
 
-            <section className={panel + ' relative z-20 p-5 sm:p-6'} aria-labelledby="score-evidence-title">
+            <section className={primaryPanel + ' relative z-20 p-5 sm:p-6'} aria-labelledby="score-evidence-title" data-surface-tier="primary">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
                         <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Score explanation</p>
@@ -162,7 +164,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
 
             <MarketCalibrationV6 signal={signal} theme={theme} />
 
-            <section className={panel + ' p-5 sm:p-6'} aria-label="Forward scenarios and market developments">
+            <section className={secondaryPanel + ' p-5 sm:p-6'} aria-label="Forward scenarios and market developments" data-surface-tier="secondary">
                 <div className="grid items-start gap-8 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.18fr)] lg:gap-0">
                     <section className="min-w-0 lg:pr-8" aria-labelledby="scenarios-title">
                         <SectionHeadingV6 eyebrow="Watch next" title="What could change the story" id="scenarios-title" theme={theme} />
@@ -197,7 +199,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
 
             <MarketToResearchLinkV6 signal={signal} theme={theme} />
 
-            <section className={panel + ' p-5 sm:p-6'} aria-labelledby="terms-title">
+            <section className={utilityPanel + ' p-5 sm:p-6'} aria-labelledby="terms-title" data-surface-tier="utility">
                 <div className="grid gap-5 lg:grid-cols-[220px_1fr] lg:items-start">
                     <div>
                         <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Plain-language guide</p>
@@ -255,7 +257,7 @@ const ValuationBackdropV6 = ({ backdrop, theme }: {
     const ratioLabel = `${backdrop.name}: ${backdrop.ratio_pct.toFixed(1)} percent`;
 
     return (
-        <details className={'group overflow-hidden rounded-lg border backdrop-blur-md ' + t.panel} aria-labelledby="valuation-backdrop-title" data-testid="valuation-backdrop">
+        <details className={'group overflow-hidden rounded-lg border backdrop-blur-sm ' + t.panelUtility} aria-labelledby="valuation-backdrop-title" data-testid="valuation-backdrop" data-surface-tier="utility">
             <summary className={'flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:content-none ' + t.textPrimary}>
                 <span className="min-w-0">
                     <span className={'block text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Non-scored context</span>
@@ -334,6 +336,8 @@ const StoryChapterV6 = ({ driver, index, signal, theme }: { driver: DriverV6; in
     const updated = formatCompactDateV6(component?.last_updated ?? driver.last_updated);
     const role = getStoryDriverRoleV6(driver, index);
     const roleTone = driver.conflict ? t.risk : driver.impact === 'negative' ? (theme === 'light' ? 'text-amber-800' : 'text-amber-200') : t.positive;
+    const explanationTone = theme === 'light' ? 'text-slate-500' : 'text-[#9aa8b8]';
+    const calculationTone = theme === 'light' ? 'text-slate-600' : 'text-[#a5b2c0]';
     const surface = driver.conflict
         ? theme === 'light' ? 'border-rose-200 bg-rose-50/65' : 'border-rose-400/25 bg-rose-500/[0.06]'
         : t.row;
@@ -346,13 +350,11 @@ const StoryChapterV6 = ({ driver, index, signal, theme }: { driver: DriverV6; in
                 <p className={'text-xs font-semibold ' + t.textMuted}>Actual reading</p>
                 <p className={'mt-1 text-xl font-bold tabular-nums ' + t.textPrimary}>{reading}</p>
             </div>
-            <p className={'mt-3 text-sm leading-5 ' + t.textSecondary}>{getStoryRelationshipV6(driver)}</p>
-            <div className="mt-auto pt-4" data-testid="market-story-card-footer">
-                <div className={'rounded-md border px-3 py-2.5 ' + t.divider + ' ' + t.cell}>
-                    <p className={'text-xs font-semibold ' + t.textMuted}>Score contribution</p>
-                    <p className={'mt-1 text-sm font-semibold tabular-nums ' + t.textPrimary}>{score.toFixed(0)}/100 × {Math.round(driver.weight * 100)}% weight = {driver.contribution.toFixed(1)} points</p>
-                </div>
-                <p className={'mt-3 text-xs font-semibold ' + getFreshnessTone(driver.freshness, theme)}>Updated {updated} · {driver.freshness}</p>
+            <p className={'mb-4 mt-3 text-sm leading-5 ' + explanationTone} data-testid="market-story-relationship">{getStoryRelationshipV6(driver)}</p>
+            <div className={'mt-auto border-t pt-3 ' + t.divider} data-testid="market-story-card-footer">
+                <p className={'text-[11px] italic ' + t.textMuted} data-testid="market-story-contribution-label">Score contribution</p>
+                <p className={'mt-1 text-xs font-normal tabular-nums ' + calculationTone} data-testid="market-story-contribution-formula">{score.toFixed(0)}/100 × {Math.round(driver.weight * 100)}% weight = {driver.contribution.toFixed(1)} points</p>
+                <p className={'mt-2 text-[11px] font-normal ' + t.textMuted} data-testid="market-story-updated">Updated {updated} · <span className={'font-semibold ' + getFreshnessTone(driver.freshness, theme)} data-testid="market-story-freshness">{driver.freshness}</span></p>
             </div>
         </article>
     );
@@ -442,9 +444,9 @@ const GlossaryItemV6 = ({ term, definition, theme }: { term: string; definition:
 const SummaryMetricV6 = ({ label, value, detail, valueClass, theme }: { label: string; value: string; detail: string; valueClass?: string; theme: ResearchThemeV6 }) => {
     const t = getThemeV6(theme);
     return (
-        <article className={'min-w-0 p-3.5 sm:p-4 ' + t.cell}>
-            <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>{label}</p>
-            <p className={'mt-2 break-words text-lg font-bold sm:text-xl ' + (valueClass ?? t.textPrimary)}>{value}</p>
+        <article className={'min-w-0 p-3.5 sm:p-4 ' + t.cell} data-testid="change-summary-cell">
+            <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted} data-testid="change-summary-label">{label}</p>
+            <p className={'mt-2 break-words text-lg font-bold sm:text-xl ' + (valueClass ?? t.textPrimary)} data-testid="change-summary-value">{value}</p>
             <p className={'mt-1 text-xs leading-5 ' + t.textSecondary}>{detail}</p>
         </article>
     );
@@ -707,7 +709,7 @@ const SectionHeadingV6 = ({ eyebrow, title, id, theme }: { eyebrow: string; titl
 const DisclosureV6 = ({ title, theme, children, defaultOpen = false }: { title: string; theme: ResearchThemeV6; children: React.ReactNode; defaultOpen?: boolean }) => {
     const t = getThemeV6(theme);
     return (
-        <details open={defaultOpen} className={'group rounded-lg border backdrop-blur-md ' + t.panel}>
+        <details open={defaultOpen} className={'group rounded-lg border backdrop-blur-sm ' + t.panelUtility} data-surface-tier="utility">
             <summary className={'flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-bold marker:content-none ' + t.textPrimary}>
                 {title}
                 <span aria-hidden="true" className={'text-lg transition-transform group-open:rotate-45 ' + t.textMuted}>+</span>

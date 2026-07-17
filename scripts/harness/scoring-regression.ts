@@ -5,6 +5,7 @@ import { buildBuffettIndicator, normalizeNaaimExposure, normalizePutCallRatio, p
 import { buildBreadthContext, buildFinancialConditionsContext, buildYieldCurveContext, parseFredSeriesObservation, parseMalaysiaBenchmarkPage } from '../../src/lib/market-context';
 import { getSourceIndicatorCount, shouldEnableSourceIndicator } from '../../src/lib/source-indicator';
 import { calculateMarketCalibration } from '../../src/lib/market-calibration';
+import { reconstructUsMarketScores } from '../../src/lib/market-score-reconstruction';
 
 function indicator(overrides: Partial<IndicatorData> & Pick<IndicatorData, 'name' | 'score' | 'value'>): IndicatorData {
     return {
@@ -273,8 +274,8 @@ function runMarketCalibrationTests() {
     const calibration = calculateMarketCalibration({
         mode: 'standard', benchmarkSymbol: 'VOO', benchmarkName: 'Vanguard S&P 500 ETF',
         snapshots: [
-            { date: '2026-01-01', score: 70, tier: 'buy' },
-            { date: '2026-01-02', score: 30, tier: 'sell' },
+            { date: '2026-01-01', score: 70, tier: 'buy', origin: 'observed' },
+            { date: '2026-01-02', score: 30, tier: 'sell', origin: 'reconstructed' },
         ],
         prices: [
             { date: '2026-01-02', close: 100 },
@@ -285,9 +286,40 @@ function runMarketCalibrationTests() {
     const week = calibration.horizons.find((horizon) => horizon.days === 7)!;
     assertEqual(week.cohorts.find((cohort) => cohort.zone === 'positive')?.sample_count, 1, 'calibration groups positive-zone snapshots');
     assertEqual(week.cohorts.find((cohort) => cohort.zone === 'positive')?.average_forward_return_pct, 10, 'calibration calculates one-week forward return');
+    assertEqual(week.cohorts.find((cohort) => cohort.zone === 'positive')?.median_forward_return_pct, 10, 'calibration calculates median forward return');
+    assertEqual(week.cohorts.find((cohort) => cohort.zone === 'positive')?.positive_return_rate_pct, 100, 'calibration calculates positive-return frequency');
+    assertEqual(week.cohorts.find((cohort) => cohort.zone === 'negative')?.reconstructed_count, 1, 'calibration exposes reconstructed provenance');
     assertEqual(week.cohorts.find((cohort) => cohort.zone === 'positive')?.alignment_rate_pct, 100, 'calibration measures directional alignment');
     assertEqual(week.cohorts.find((cohort) => cohort.zone === 'negative')?.alignment_rate_pct, 0, 'calibration identifies a directionally wrong prior read');
     assertEqual(calibration.minimum_sample_size, 5, 'calibration exposes its minimum display sample');
+    assertEqual(calibration.directional_sample_size, 20, 'calibration requires a larger sample for an established directional read');
+    assertEqual(calibration.observed_snapshot_count, 1, 'calibration counts observed snapshots');
+    assertEqual(calibration.reconstructed_snapshot_count, 1, 'calibration counts reconstructed snapshots');
+
+    const reconstructionOnly = calculateMarketCalibration({
+        mode: 'standard', benchmarkSymbol: 'VOO', benchmarkName: 'Vanguard S&P 500 ETF',
+        snapshots: Array.from({ length: 20 }, (_, index) => ({ date: `2026-01-${String(index + 1).padStart(2, '0')}`, score: 60, tier: 'neutral' as const, origin: 'reconstructed' as const })),
+        prices: Array.from({ length: 60 }, (_, index) => ({ date: `2026-${index < 31 ? '01' : '02'}-${String((index % 31) + 1).padStart(2, '0')}`, close: 100 + index })),
+    });
+    assertEqual(reconstructionOnly.horizons[0].cohorts.find((cohort) => cohort.zone === 'mixed')?.evidence_level, 'preliminary', 'reconstruction-only history cannot claim an established edge');
+}
+
+function runMarketReconstructionTests() {
+    const rows = [
+        { date: '2026-01-01', vix: 15, social: 0.8 },
+        { date: '2026-01-02', vix: 16, social: 0.6 },
+        { date: 'invalid', vix: 0, social: 0.5 },
+    ];
+    const momentum = reconstructUsMarketScores({ rows, mode: 'standard', enableSocial: true });
+    const contrarian = reconstructUsMarketScores({ rows, mode: 'contrarian', enableSocial: true });
+    const withoutSocial = reconstructUsMarketScores({ rows, mode: 'standard', enableSocial: false });
+
+    assertEqual(momentum.length, 2, 'reconstruction excludes invalid stored inputs');
+    assertEqual(momentum[0]?.origin, 'reconstructed', 'reconstruction marks score provenance');
+    assertEqual(momentum[0]?.score, contrarian[0]?.score, 'interpretation mode does not rewrite the underlying score');
+    assertTrue(momentum[0]?.tier === 'buy' || momentum[0]?.tier === 'strong-buy', 'high reconstructed momentum score maps to a positive tier');
+    assertTrue(contrarian[0]?.tier === 'sell' || contrarian[0]?.tier === 'strong-sell', 'the same reconstructed score maps to contrarian crowding risk');
+    assertTrue(momentum[0]?.score !== withoutSocial[0]?.score, 'source toggle changes reconstructed score coverage');
 }
 
 function main() {
@@ -300,6 +332,7 @@ function main() {
     runMarketContextTests();
     runDriverChangeTests();
     runMarketCalibrationTests();
+    runMarketReconstructionTests();
     assertTrue(true, 'scoring regression tests reached completion');
     console.log('Scoring regression tests passed.');
 }

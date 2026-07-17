@@ -24,7 +24,7 @@ export const MarketContextV6 = ({ context, theme }: { context: MarketContext; th
     if (cards.length === 0) return null;
 
     return (
-        <details className={'group overflow-hidden rounded-lg border backdrop-blur-md ' + t.panel} aria-labelledby="market-context-title" data-testid="market-context">
+        <details className={'group overflow-hidden rounded-lg border backdrop-blur-sm ' + t.panelUtility} aria-labelledby="market-context-title" data-testid="market-context" data-surface-tier="utility">
             <summary className={'flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:content-none ' + t.textPrimary}>
                 <span className="min-w-0">
                     <span className={'block text-xs font-semibold uppercase tracking-[0.12em] ' + t.textMuted}>Context only</span>

@@ -174,15 +174,26 @@ export interface MarketSignal {
             benchmark_name: string;
             mode: 'standard' | 'contrarian';
             snapshot_count: number;
+            observed_snapshot_count: number;
+            reconstructed_snapshot_count: number;
             minimum_sample_size: number;
+            directional_sample_size: number;
+            reconstruction_note: string | null;
             horizons: Array<{
                 days: 7 | 30;
                 cohorts: Array<{
                     zone: 'negative' | 'mixed' | 'positive' | 'strong-positive';
                     label: string;
                     sample_count: number;
+                    observed_count: number;
+                    reconstructed_count: number;
                     average_forward_return_pct: number | null;
+                    median_forward_return_pct: number | null;
+                    positive_return_rate_pct: number | null;
+                    worst_forward_return_pct: number | null;
+                    best_forward_return_pct: number | null;
                     alignment_rate_pct: number | null;
+                    evidence_level: 'insufficient' | 'preliminary' | 'established';
                 }>;
             }>;
             limitation: string;

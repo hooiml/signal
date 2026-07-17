@@ -248,15 +248,24 @@ These states should come from domain rules rather than manual UI coloring.
    - Explicit unavailable states when a free source does not cover a metric.
    - A maximum of three securities so the evidence remains scannable.
 
+9. **Catalyst and review calendar**
+   - A 30-day or 90-day chronological view of scheduled research reviews, stale-review deadlines, and monitored US earnings.
+   - List and compact calendar presentations over the same typed event contract.
+   - Market, ticker, and event-type filters that operate without changing a saved record.
+   - UTC source dates plus browser-local generated-time context.
+   - Changed-date, loading, empty, partial-provider, error, and retry states.
+   - Direct navigation to the editable review workflow or the ticker Events tab.
+
 ### Investment Research flow
 
 ```mermaid
 flowchart TD
     A[Open Investment Research] --> B[Load saved theme and optional ticker URL]
-    B --> C[Search or filter the watchlist]
-    C --> D{Any matching securities?}
-    D -- No --> E[Show empty state and explain how to broaden filters]
-    D -- Yes --> F[Select a security]
+    B --> C[Open Today, Calendar, or search and filter the watchlist]
+    C --> D{Calendar event or matching security?}
+    D -- No --> E[Show empty state and explain how to broaden the range or filters]
+    D -- Calendar event --> F[Open the ticker review workflow or Events tab]
+    D -- Security --> F[Select a security]
     F --> G[Review identity, price, and current decision]
     G --> H[Read thesis and invalidation]
     H --> I[Check research completeness]

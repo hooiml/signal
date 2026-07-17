@@ -37,15 +37,16 @@
 - Color: Use semantic color for posture, support, conflict, freshness, and warnings; never rely on color alone.
 - Typography: Strong plain-language headlines, compact uppercase metadata, and readable explanatory body copy.
 - Spacing/layout rhythm: Bounded panels, consistent internal spacing, and linear mobile flow.
-- Shape/radius/elevation: Restrained rounded borders and subtle surfaces; avoid ornamental elevation.
+- Shape/radius/elevation: Restrained rounded borders with explicit surface tiers: primary decision panels carry the strongest elevation, secondary evidence panels are flatter, utility/reference panels are quiet, and action panels use restrained semantic emphasis. Avoid ornamental elevation.
 - Motion: Minimal and functional, respecting reduced-motion preferences.
 - Imagery/iconography: Use icons only when they clarify status or interaction.
 
 ## Components
 - Existing components to reuse: V6 theme helpers, raw-value formatters, freshness helpers, ranked-driver helpers, evidence tables, and disclosure patterns.
 - New/changed components: Market-story evidence cards may expose actual readings, role, score contribution formula, and update date.
+- Research hierarchy: The selected security workspace is primary; daily attention and thesis workflow panels are secondary; portfolio summaries, comparisons, fundamentals, history, and workspace navigation use utility surfaces; submit/save controls carry action emphasis. Keep the read-only journal collapsed by default with a useful summary, and stabilize detail-tab height with an internally scrolling viewport from tablet upward while preserving natural document flow on mobile.
 - Variants and states: Support, conflict, caution, neutral, stale, missing, loading, and refresh-error states.
-- Token/component ownership: Reuse `getThemeV6` and existing Tailwind conventions; do not create a parallel token layer.
+- Token/component ownership: Reuse `getThemeV6` and its primary, secondary, utility, and action panel tiers; do not create a parallel token layer.
 
 ## Accessibility
 - Target standard: WCAG 2.1 AA where practicable.

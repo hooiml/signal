@@ -87,6 +87,24 @@ npm run qa:header -- --route /research --viewport 375
 
 Use `--no-screenshots` for a fast assertion-only pass. Same-origin console errors, page errors, failed requests, and HTTP responses remain blocking; aborted cleanup requests and external upstream failures are recorded as non-blocking evidence.
 
+### Targeted Research Calendar QA
+
+For the Calendar workspace, run the deterministic consolidated check against a local Signal server:
+
+```powershell
+npm run qa:research-calendar -- --base-url http://127.0.0.1:3000
+```
+
+The command covers direct `/research?workspace=calendar` restoration, 30-day and 90-day range changes, list and compact-calendar presentations, market and event-type empty states, explicit request failure and retry, degraded earnings coverage, review-workflow and Events-tab destinations, keyboard-operable controls, document overflow, and blocking console/page/request failures at 1280px, 768px, and 375px.
+
+Pass `--theme light` or `--theme dark` for a targeted theme-specific visual run. Use `--screenshot-dir <path>` to keep that run's captures separate from the default temporary screenshot directory.
+
+Use a focused viewport only while iterating on a failure:
+
+```powershell
+npm run qa:research-calendar -- --base-url http://127.0.0.1:3000 --viewport 375 --no-screenshots
+```
+
 ### Visual QA Contract
 
 Treat any UI request involving a screenshot, alignment, spacing, layout, visual polish, or “looks off” feedback as standard visual verification rather than a compile-only check.
@@ -124,6 +142,8 @@ Background notification checks should authenticate `/api/research/notifications/
 
 Research inbox smoke checks should POST valid watchlist inputs with per-ticker monitoring rules, reject malformed review dates and out-of-range thresholds, group repeated conditions under one ticker-level summary and Manage workflow, and render deterministic risk/opportunity, upcoming US earnings, stale reviews, and a distance-to-trigger label for every item. The default preview should show one ticker on mobile and two at wider widths, while Show more reveals every ticker group. Preserve provider warnings without blocking Research; switch between All, Action needed, Upcoming, and Snoozed without another request; and open the selected ticker from every visible item at desktop and mobile widths. Mark one ticker's conditions seen, snooze them, reload to prove the browser-local states persist, wake the snoozed ticker, and verify a changed condition becomes unread with a prior-to-current comparison while the first check establishes a quiet baseline. From Manage, save an optional quick note with Reviewed today and verify it appends a server-owned snapshot, advances the review date, and removes the stale item. Change and restore monitoring thresholds with `mode: settings`, then verify the values persist without changing review history or `lastReviewedAt`. After two saved reviews, verify Saved thesis names the materially changed fields; before that, it must state that no prior comparison exists.
 
+Research calendar smoke checks should POST one to fifty validated record summaries to `/api/research/calendar`, default to an inclusive 30-day UTC window, accept the 90-day window, and reject unknown ranges, markets, tickers, event types, malformed dates, duplicate symbols, and unsafe destinations. Verify stable event IDs, chronological ordering, provider deduplication, exact day-30/day-90 inclusion, and exclusion beyond the boundary. A Nasdaq failure must retain scheduled and stale-review events with one warning. In the browser, verify list and compact calendar views, all client-side filters, changed-date disclosure from browser-local prior state, explicit UTC source dates, local generated time, loading/empty/error/retry states, direct URL restoration, deep links to Events and the editable review workflow, and no saved-record mutation from opening an event.
+
 Market alert smoke checks should add a threshold condition, persist it across a reload, show whether it is monitoring or currently triggered, manually refresh the briefing and update the last-checked time, remove the condition, and keep rules separated by market, interpretation mode, and social-source setting. Rapid configuration changes must not allow an older response to replace the latest selection. These alerts are browser-local and are evaluated when the briefing refreshes; they do not imply background push delivery.
 
 Research comparison smoke checks should select one, two, and three watchlist securities; disable a fourth selection; render live metrics and explicit unavailable states; open a compared ticker back in Research; and keep the table inside its own scroller without document-level overflow at desktop and mobile widths. The research journal should open as read-only details exposing the persisted bear case plus buy and sell triggers; Submit review should reveal editable fields, and Cancel should discard unsaved changes.
@@ -132,7 +152,7 @@ Decision-journal smoke checks should capture the server-calculated decision plus
 
 Discovery workspace checks should seed a prior visit, verify new entrants plus material rank/risk/valuation/catalyst changes, save a named filtered view, reload and restore it without another provider request, remove it, and preserve no-overflow behavior at 1280px, 768px, and 375px.
 
-Market calibration checks should cover 7-day and 30-day forward returns, Momentum and Contrarian directional alignment, all four score zones, missing future outcomes, and the five-observation disclosure threshold. Browser assertions must keep the overlapping-observation and non-prediction limitation visible.
+Market calibration checks should cover 7-day and 30-day average and median forward returns, positive-period frequency, observed range, Momentum and Contrarian directional alignment, all four score zones, missing future outcomes, and the five-observation disclosure threshold. US reconstruction checks must prove that stored VIX/social inputs use the current scorer, source-toggle and mode semantics are preserved, invalid rows are excluded, observed dates take precedence, and partial provenance remains visible. Browser assertions must lead with the current score zone, distinguish observed from reconstructed samples, keep reconstruction-only or sub-20 samples preliminary, and keep the overlapping-observation and non-prediction limitation visible.
 
 Assisted research smoke checks should generate findings for a US symbol, show whether synthesis is AI-assisted or evidence-based, retain source links and reporting periods, accept one finding into its intended journal field without overwriting existing text, dismiss another finding, refresh the queue, and save the accepted draft. After reload, the accepted-evidence section must retain the finding and source links, while Review history must show a new timestamped snapshot and identify fields changed from the preceding review. Removing evidence before save must remove its provenance without silently deleting the journal text. With `KIMI_API_KEY` unavailable, the evidence-based fallback must remain usable. Malformed or source-less findings, unsafe source URLs, oversized evidence collections, and client-supplied review-history rewrites must be rejected or ignored at the boundary. The Index Test should remain evidence-only and must not automatically toggle the persisted `betterThanCashOrIndex` checklist field.
 

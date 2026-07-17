@@ -14,6 +14,12 @@
 /coverage
 /.tmp/
 
+# local visual QA captures belong under .tmp, not the repository root
+/*-desktop.png
+/*-mobile.png
+/*-tablet.png
+/*-compare.png
+
 # next.js
 /.next/
 /out/

@@ -34,6 +34,10 @@ export const checklistLabelsV6: Record<string, string> = {
 export const getThemeV6 = (theme: ResearchThemeV6) => theme === 'light' ? {
     page: 'bg-[#f8fafc] text-slate-950 selection:bg-emerald-200 selection:text-slate-950',
     panel: 'border-slate-200/80 bg-white/75 shadow-[0_18px_45px_rgba(15,23,42,0.05)]',
+    panelPrimary: 'border-slate-200/90 bg-white/85 shadow-[0_20px_50px_rgba(15,23,42,0.07)]',
+    panelSecondary: 'border-slate-200/75 bg-white/55 shadow-[0_10px_30px_rgba(15,23,42,0.035)]',
+    panelUtility: 'border-slate-200/70 bg-slate-50/65 shadow-none',
+    panelAction: 'border-emerald-300/80 bg-emerald-50/70 shadow-[0_12px_32px_rgba(5,150,105,0.07)]',
     row: 'border-slate-200/80 bg-white/55 hover:border-slate-300 hover:bg-white',
     selectedRow: 'border-emerald-600 bg-emerald-50/70 shadow-sm',
     textPrimary: 'text-slate-950',
@@ -50,6 +54,10 @@ export const getThemeV6 = (theme: ResearchThemeV6) => theme === 'light' ? {
 } : {
     page: 'bg-[#0b1118] text-[#eef2f7] selection:bg-emerald-300 selection:text-slate-950',
     panel: 'border-[#2a3948] bg-[#111a23]/70 shadow-[0_18px_45px_rgba(0,0,0,0.22)]',
+    panelPrimary: 'border-[#314252] bg-[#111a23]/82 shadow-[0_20px_50px_rgba(0,0,0,0.28)]',
+    panelSecondary: 'border-[#263442] bg-[#0f1720]/62 shadow-[0_10px_30px_rgba(0,0,0,0.14)]',
+    panelUtility: 'border-[#22303d] bg-[#0d151d]/62 shadow-none',
+    panelAction: 'border-emerald-400/30 bg-emerald-400/[0.06] shadow-[0_12px_32px_rgba(0,0,0,0.16)]',
     row: 'border-[#2a3948] bg-[#111a23]/40 hover:border-[#3a4b5c] hover:bg-[#16202a]',
     selectedRow: 'border-emerald-400 bg-emerald-400/8 shadow-[inset_0_1px_0_rgba(167,243,208,0.06)]',
     textPrimary: 'text-[#eef2f7]',

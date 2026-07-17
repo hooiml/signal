@@ -8,6 +8,7 @@
     "start": "next start",
     "qa:header": "node scripts/header-qa.mjs",
     "qa:market": "node scripts/market-qa.mjs",
+    "qa:research-calendar": "node scripts/research-calendar-qa.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:scoring": "powershell -ExecutionPolicy Bypass -File scripts/harness/check-scoring.ps1",

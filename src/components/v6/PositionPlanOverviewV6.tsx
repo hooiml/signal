@@ -17,7 +17,7 @@ export const PositionPlanOverviewV6 = ({ records, items, theme }: {
     const totalRisk = planned.reduce((sum, record) => sum + (calculatePositionPlanRisk(record.positionPlan, itemBySymbol.get(record.symbol)?.price ?? null)?.portfolioRiskPercent ?? 0), 0);
     const topSector = concentration[0];
 
-    return <section data-testid="position-plan-overview" aria-labelledby="position-plan-overview-title" className={'mb-4 rounded-[10px] border p-4 backdrop-blur min-[700px]:p-5 ' + styles.panel}>
+    return <section data-testid="position-plan-overview" aria-labelledby="position-plan-overview-title" data-surface-tier="utility" className={'mb-4 rounded-[10px] border p-4 backdrop-blur min-[700px]:p-5 ' + styles.panelUtility}>
         <div className="flex flex-wrap items-start justify-between gap-3">
             <div><p className={'text-xs font-bold uppercase tracking-[0.14em] ' + styles.positive}>Portfolio guardrails</p><h2 id="position-plan-overview-title" className={'mt-1 text-lg font-bold ' + styles.textPrimary}>Position plan overview</h2></div>
             <p className={'max-w-xl text-xs leading-5 ' + styles.textMuted}>Planning estimates only. No brokerage balances, transactions, or automatic orders are stored.</p>
