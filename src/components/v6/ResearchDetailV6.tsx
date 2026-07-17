@@ -24,7 +24,7 @@ const formatProviderTimestampV6 = (timestamp: string) => new Intl.DateTimeFormat
     minute: '2-digit',
 }).format(new Date(timestamp));
 
-export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, startReview, saving, saveError, onTabChange, onSave, onSnapshot, onDelete }: {
+export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, startReview, saving, saveError, onTabChange, onSave, onReviewChange, onSnapshot, onDelete }: {
     ticker: ResearchWatchlistItem;
     theme: ResearchThemeV6;
     record: ResearchRecord;
@@ -35,6 +35,7 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
     saveError: string | null;
     onTabChange: (tab: ResearchTabV6) => void;
     onSave: (record: ResearchRecord) => Promise<boolean>;
+    onReviewChange: (editing: boolean) => void;
     onSnapshot: (symbol: string, snapshot: ResearchSnapshot) => void;
     onDelete: () => Promise<void>;
 }) => {
@@ -198,7 +199,7 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
                 className="research-scrollbar mt-5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-500 min-[700px]:h-[680px] min-[700px]:overflow-y-auto min-[700px]:overscroll-contain min-[700px]:pr-2 min-[700px]:[scrollbar-gutter:stable]"
             >
                 {activeTab === 'overview'
-                    ? <OverviewPanelV6 ticker={liveTicker} action={action} theme={theme} record={record} benchmark={snapshot?.benchmark ?? null} startReview={startReview} saving={saving} saveError={saveError} onSave={onSave} />
+                    ? <OverviewPanelV6 ticker={liveTicker} action={action} theme={theme} record={record} benchmark={snapshot?.benchmark ?? null} startReview={startReview} saving={saving} saveError={saveError} onSave={onSave} onReviewChange={onReviewChange} />
                     : activeTab === 'chart'
                         ? snapshot ? <ResearchChartV6
                             snapshot={snapshot}

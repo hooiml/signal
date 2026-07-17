@@ -130,13 +130,9 @@ export const ResearchHeaderV6 = ({
                     </label>
                 </div> : null}
 
-                <div className="mt-2 flex items-stretch gap-2">
-                    <div className={'min-w-0 flex-1 border-t px-3 py-2 ' + headerDivider}>
-                        <div className={'truncate text-xs font-semibold uppercase tracking-[0.12em] ' + textSubtle}>Research reviewed</div>
-                        <div className={'mt-0.5 truncate text-xs font-semibold ' + textSecondary}>{reviewedLabel} (UTC)</div>
-                        <div className={'mt-0.5 text-xs font-semibold uppercase tracking-[0.12em] ' + textSubtle}>{resultCount} ticker{resultCount === 1 ? '' : 's'}</div>
-                    </div>
-                </div>
+                <p className={'mt-2 border-t px-1 pt-2 text-xs font-semibold ' + headerDivider + ' ' + textSubtle}>
+                    {resultCount} ticker{resultCount === 1 ? '' : 's'} · Last reviewed {reviewedLabel} UTC
+                </p>
             </div>
 
             <div className="hidden min-[1024px]:block">
@@ -181,15 +177,10 @@ export const ResearchHeaderV6 = ({
                         </select>
                     </label>
 
-                    <div className={'flex min-h-16 shrink-0 items-center gap-5 px-3 py-2 ' + commandDivider}>
-                        <div className="min-w-[112px]">
-                            <div className={'text-xs font-semibold uppercase tracking-[0.16em] ' + textSubtle}>Research reviewed</div>
-                            <div className={'mt-1 text-sm font-semibold ' + textSecondary}>{reviewedLabel} (UTC)</div>
-                        </div>
-                        <div className="min-w-[68px]">
-                            <div className={'text-xs font-semibold uppercase tracking-[0.16em] ' + textSubtle}>Results</div>
-                            <div className={'mt-1 text-sm font-semibold ' + textSecondary}>{resultCount} ticker{resultCount === 1 ? '' : 's'}</div>
-                        </div>
+                    <div className={'flex min-h-16 shrink-0 items-center px-3 py-2 ' + commandDivider}>
+                        <p className={'whitespace-nowrap text-xs font-semibold ' + textSecondary}>
+                            {resultCount} ticker{resultCount === 1 ? '' : 's'} · Last reviewed {reviewedLabel} UTC
+                        </p>
                     </div>
                 </div>
             </div>

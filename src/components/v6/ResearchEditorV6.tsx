@@ -33,6 +33,7 @@ type ResearchEditorV6Props = {
     readonly observedPrice: number | null;
     readonly benchmark: ResearchBenchmark | null;
     readonly startEditing?: boolean;
+    readonly onEditingChange: (editing: boolean) => void;
 };
 
 const prepareReviewDraft = (initial: ResearchRecord, decision: ResearchActionV6, observedPrice: number | null, benchmark: ResearchBenchmark | null): ResearchRecord => ({
@@ -49,7 +50,7 @@ const prepareReviewDraft = (initial: ResearchRecord, decision: ResearchActionV6,
     },
 });
 
-export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decision, observedPrice, benchmark, startEditing = false }: ResearchEditorV6Props) => {
+export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decision, observedPrice, benchmark, startEditing = false, onEditingChange }: ResearchEditorV6Props) => {
     const [draft, setDraft] = useState(() => startEditing ? prepareReviewDraft(initial, decision, observedPrice, benchmark) : initial);
     const [isEditing, setIsEditing] = useState(startEditing);
     const [isExpanded, setIsExpanded] = useState(startEditing);
@@ -86,6 +87,7 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
             setLastSavedAt(new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date()));
             setIsEditing(false);
             setIsExpanded(false);
+            onEditingChange(false);
         }
     };
     const handleCancel = () => {
@@ -93,11 +95,13 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
         setLastSavedAt(null);
         setIsEditing(false);
         setIsExpanded(false);
+        onEditingChange(false);
     };
     const beginReview = () => {
         setDraft(prepareReviewDraft(initial, decision, observedPrice, benchmark));
         setIsEditing(true);
         setIsExpanded(true);
+        onEditingChange(true);
     };
     const renderDetail = (label: string, value: string, className = '') => (
         <div className={className}>

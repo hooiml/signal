@@ -184,8 +184,9 @@ The user can:
 - filter by market;
 - filter by current decision;
 - select a security from the watchlist;
+- switch between Watchlist, Discovery, Compare, Calendar, and Alerts through desktop tabs or the narrow-screen workspace selector;
 - compare live quality, valuation, and technical evidence for up to three watchlist securities;
-- share or restore a selected security through a `ticker` URL parameter;
+- share or restore workspace, ticker, detail-tab, and review state through URL parameters without discarding market-handoff or unknown query context;
 - switch between light and dark themes.
 
 ### Research decision states
@@ -199,6 +200,8 @@ The user can:
 These states should come from domain rules rather than manual UI coloring.
 
 ### Reading order
+
+Daily attention and portfolio guardrails remain available from the collapsed Research overview disclosure, while the watchlist and selected-security detail stay visible as the primary workspace.
 
 1. **Watchlist**
    - Ticker.
@@ -260,8 +263,8 @@ These states should come from domain rules rather than manual UI coloring.
 
 ```mermaid
 flowchart TD
-    A[Open Investment Research] --> B[Load saved theme and optional ticker URL]
-    B --> C[Open Today, Calendar, or search and filter the watchlist]
+    A[Open Investment Research] --> B[Restore saved theme and workspace, ticker, detail-tab, and review URL state]
+    B --> C[Search and filter the watchlist or open Research overview, Calendar, and other workspaces]
     C --> D{Calendar event or matching security?}
     D -- No --> E[Show empty state and explain how to broaden the range or filters]
     D -- Calendar event --> F[Open the ticker review workflow or Events tab]

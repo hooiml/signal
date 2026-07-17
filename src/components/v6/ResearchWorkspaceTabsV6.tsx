@@ -16,8 +16,19 @@ export const ResearchWorkspaceTabsV6 = ({ active, theme, onChange }: {
         { id: 'compare', label: 'Compare' }, { id: 'calendar', label: 'Calendar' }, { id: 'alerts', label: 'Alerts' },
     ];
     return (
-        <div className="research-scrollbar mb-3 max-w-full overflow-x-auto">
-            <div role="tablist" aria-label="Research workspace" data-surface-tier="utility" className={'flex w-fit rounded border p-1 ' + styles.panelUtility}>
+        <div className="mb-3 max-w-full">
+            <label className="block min-[700px]:hidden">
+                <span className="sr-only">Research workspace</span>
+                <select
+                    aria-label="Research workspace"
+                    value={active}
+                    onChange={(event) => onChange(event.target.value as ResearchWorkspaceV6)}
+                    className={'h-11 w-full rounded border px-3 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ' + styles.panelUtility + ' ' + styles.textPrimary}
+                >
+                    {tabs.map((tab) => <option key={tab.id} value={tab.id}>{tab.label}</option>)}
+                </select>
+            </label>
+            <div role="tablist" aria-label="Research workspace" data-surface-tier="utility" className={'hidden w-fit rounded border p-1 min-[700px]:flex ' + styles.panelUtility}>
                 {tabs.map((tab) => (
                     <button
                         key={tab.id}

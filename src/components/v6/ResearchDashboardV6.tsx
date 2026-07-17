@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { watchlist } from '@/components/research/ResearchDashboardV2';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import { parseResearchRecord, ResearchInputError } from '@/lib/research/input';
@@ -33,6 +33,7 @@ import { useThemeV6 } from './ThemeProviderV6';
 import { parseMarketResearchHandoff } from '@/lib/market-research-handoff';
 import { PositionPlanOverviewV6 } from './PositionPlanOverviewV6';
 import { ResearchCalendarV6 } from './ResearchCalendarV6';
+import { buildResearchRelativeUrl, mergeResearchSearchParams, type ResearchUrlChanges } from '@/lib/research/url-state';
 
 const formatSnapshotLabel = (date: string) => new Intl.DateTimeFormat('en-US', {
     month: 'short',
@@ -42,13 +43,15 @@ const formatSnapshotLabel = (date: string) => new Intl.DateTimeFormat('en-US', {
 }).format(new Date(date + 'T00:00:00Z'));
 
 export const ResearchDashboardV6 = () => {
+    const router = useRouter();
     const searchParams = useSearchParams();
-    const requestedSymbol = searchParams.get('ticker')?.toUpperCase();
+    const requestedTicker = searchParams.get('ticker')?.trim().toUpperCase();
+    const requestedSymbol = requestedTicker && /^[A-Z0-9.-]{1,20}$/.test(requestedTicker) ? requestedTicker : 'MSFT';
     const requestedWorkspace = searchParams.get('workspace');
     const requestedDetailTab = searchParams.get('tab');
     const requestedReview = searchParams.get('review');
     const marketHandoff = useMemo(() => parseMarketResearchHandoff(searchParams), [searchParams]);
-    const initialSymbol = requestedSymbol ?? 'MSFT';
+    const initialSymbol = requestedSymbol;
     const initialTab: ResearchTabV6 = isResearchTabV6(requestedDetailTab) ? requestedDetailTab : 'overview';
     const [selectedSymbol, setSelectedSymbol] = useState(initialSymbol);
     const [activeDetailTab, setActiveDetailTab] = useState<ResearchTabV6>(initialTab);
@@ -66,17 +69,45 @@ export const ResearchDashboardV6 = () => {
     const liveSnapshots = useRef(new Map<string, ResearchSnapshot>());
     const liveQuotes = useRef(new Map<string, ResearchSnapshot['quote']>());
     const quoteItems = useRef(items);
+    const urlSearchRef = useRef(searchParams.toString());
+
+    const updateUrl = useCallback((changes: ResearchUrlChanges, mode: 'push' | 'replace' = 'replace') => {
+        const nextSearchParams = mergeResearchSearchParams(new URLSearchParams(urlSearchRef.current), changes);
+        const nextPath = buildResearchRelativeUrl(window.location.pathname, nextSearchParams, window.location.hash);
+        const currentPath = window.location.pathname + window.location.search + window.location.hash;
+        if (nextPath === currentPath) return;
+        urlSearchRef.current = nextSearchParams.toString();
+        if (mode === 'push') router.push(nextPath, { scroll: false });
+        else router.replace(nextPath, { scroll: false });
+    }, [router]);
+
+    const normalizedWorkspace: ResearchWorkspaceV6 = isResearchWorkspaceV6(requestedWorkspace) ? requestedWorkspace : 'research';
+    const normalizedDetailTab: ResearchTabV6 = isResearchTabV6(requestedDetailTab) ? requestedDetailTab : 'overview';
+    const normalizedReview = requestedReview === 'edit';
 
     useEffect(() => {
-        if (isResearchWorkspaceV6(requestedWorkspace)) setWorkspace(requestedWorkspace);
-    }, [requestedWorkspace]);
+        urlSearchRef.current = searchParams.toString();
+    }, [searchParams]);
+
+    useEffect(() => {
+        setWorkspace((current) => current === normalizedWorkspace ? current : normalizedWorkspace);
+    }, [normalizedWorkspace]);
+
+    useEffect(() => {
+        setSelectedSymbol((current) => current === requestedSymbol ? current : requestedSymbol);
+    }, [requestedSymbol]);
+
+    useEffect(() => {
+        setActiveDetailTab((current) => current === normalizedDetailTab ? current : normalizedDetailTab);
+    }, [normalizedDetailTab]);
+
+    useEffect(() => {
+        setReviewRequested((current) => current === normalizedReview ? current : normalizedReview);
+    }, [normalizedReview]);
 
     const changeWorkspace = (nextWorkspace: ResearchWorkspaceV6) => {
         setWorkspace(nextWorkspace);
-        const nextUrl = new URL(window.location.href);
-        nextUrl.searchParams.set('workspace', nextWorkspace);
-        const nextPath = nextUrl.pathname + nextUrl.search + nextUrl.hash;
-        window.history.replaceState({ ...window.history.state, as: nextPath, url: nextPath }, '', nextPath);
+        updateUrl({ workspace: nextWorkspace }, 'push');
     };
 
     const filteredItems = useMemo(() => {
@@ -181,7 +212,7 @@ export const ResearchDashboardV6 = () => {
         return () => controller.abort();
     }, []);
 
-    const selectTicker = (symbol: string, focusDetail = false, tab: ResearchTabV6 = 'overview', startReview = false) => {
+    const selectTicker = (symbol: string, focusDetail = false, tab: ResearchTabV6 = 'overview', startReview = false, historyMode: 'push' | 'replace' = 'replace') => {
         if (focusDetail) {
             setQuery('');
             setMarket('ALL');
@@ -191,8 +222,12 @@ export const ResearchDashboardV6 = () => {
         setSelectedSymbol(symbol);
         setActiveDetailTab(tab);
         setReviewRequested(startReview);
-        const nextUrl = window.location.pathname + '?ticker=' + encodeURIComponent(symbol) + (tab === 'overview' ? '' : '&tab=' + tab) + (startReview ? '&review=edit' : '');
-        window.history.replaceState({ ...window.history.state, as: nextUrl, url: nextUrl }, '', nextUrl);
+        updateUrl({
+            workspace: 'research',
+            ticker: symbol,
+            tab: tab === 'overview' ? null : tab,
+            review: startReview ? 'edit' : null,
+        }, historyMode);
         if (focusDetail) {
             window.setTimeout(() => {
                 const detail = document.getElementById('research-detail');
@@ -203,14 +238,18 @@ export const ResearchDashboardV6 = () => {
         }
     };
 
-    const openResearch = (symbol: string) => selectTicker(symbol, true);
+    const openResearch = (symbol: string) => selectTicker(symbol, true, 'overview', false, 'push');
 
     const changeDetailTab = (tab: ResearchTabV6) => {
         setActiveDetailTab(tab);
         setReviewRequested(false);
         if (!selected) return;
-        const nextUrl = window.location.pathname + '?ticker=' + encodeURIComponent(selected.symbol) + (tab === 'overview' ? '' : '&tab=' + tab);
-        window.history.replaceState({ ...window.history.state, as: nextUrl, url: nextUrl }, '', nextUrl);
+        updateUrl({ ticker: selected.symbol, tab: tab === 'overview' ? null : tab, review: null });
+    };
+
+    const changeReviewMode = (editing: boolean) => {
+        setReviewRequested(editing);
+        updateUrl({ review: editing ? 'edit' : null });
     };
 
     const openCalendarTarget = (targetHref: string) => {
@@ -218,7 +257,7 @@ export const ResearchDashboardV6 = () => {
         const symbol = target.searchParams.get('ticker');
         const tab = target.searchParams.get('tab');
         if (!symbol || !isResearchTabV6(tab)) return;
-        selectTicker(symbol, true, tab, target.searchParams.get('review') === 'edit');
+        selectTicker(symbol, true, tab, target.searchParams.get('review') === 'edit', 'push');
     };
 
     const addDiscoveryCandidate = async (candidate: { readonly symbol: string; readonly name: string }) => {
@@ -323,8 +362,19 @@ export const ResearchDashboardV6 = () => {
                 {marketHandoff ? <ResearchMarketContextV6 handoff={marketHandoff} items={items} theme={theme} onOpen={openResearch} /> : null}
                 {workspace === 'research' ? <>
                     <h1 className="sr-only">Research workspace</h1>
-                    <ResearchInboxV6 items={items} records={inboxRecords} theme={theme} onOpen={(symbol, tab) => selectTicker(symbol, false, tab)} onSave={saveRecord} />
-                    <PositionPlanOverviewV6 records={records} items={items} theme={theme} />
+                    <details data-testid="research-overview" data-surface-tier="utility" className={'group mb-3 rounded-[10px] border backdrop-blur ' + themeClasses.panelUtility}>
+                        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-[10px] px-4 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 [&::-webkit-details-marker]:hidden">
+                            <span>
+                                <span className={'block text-sm font-bold ' + themeClasses.textPrimary}>Research overview</span>
+                                <span className={'block text-xs ' + themeClasses.textMuted}>Daily attention and portfolio guardrails</span>
+                            </span>
+                            <span aria-hidden="true" className={'text-lg transition-transform group-open:rotate-180 ' + themeClasses.textMuted}>⌄</span>
+                        </summary>
+                        <div className={'border-t p-3 min-[700px]:p-4 ' + themeClasses.divider}>
+                            <ResearchInboxV6 items={items} records={inboxRecords} theme={theme} onOpen={(symbol, tab) => selectTicker(symbol, false, tab)} onSave={saveRecord} />
+                            <PositionPlanOverviewV6 records={records} items={items} theme={theme} />
+                        </div>
+                    </details>
                 </> : null}
                 <main id={`research-workspace-${workspace}`} data-surface-tier="primary" className={'flex flex-col gap-4 rounded-[10px] border p-3 backdrop-blur min-[700px]:flex-row min-[700px]:p-4 ' + themeClasses.panelPrimary}>
                     {workspace === 'alerts' ? (
@@ -345,7 +395,7 @@ export const ResearchDashboardV6 = () => {
                         adding={adding}
                     />
                     {selected && selectedRecord ? (
-                        <ResearchDetailV6 key={selected.symbol} ticker={selected} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} activeTab={activeDetailTab} startReview={reviewRequested} saving={saving} saveError={saveError} onTabChange={changeDetailTab} onSave={saveRecord} onSnapshot={updateLiveSnapshot} onDelete={deleteRecord} />
+                        <ResearchDetailV6 key={selected.symbol} ticker={selected} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} activeTab={activeDetailTab} startReview={reviewRequested} saving={saving} saveError={saveError} onTabChange={changeDetailTab} onSave={saveRecord} onReviewChange={changeReviewMode} onSnapshot={updateLiveSnapshot} onDelete={deleteRecord} />
                     ) : (
                         <section className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
                             <div>

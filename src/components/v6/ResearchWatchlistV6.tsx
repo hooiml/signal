@@ -33,7 +33,7 @@ export const ResearchWatchlistV6 = ({
     }, [selectedSymbol]);
 
     return (
-        <aside className={'min-w-0 border-b pb-4 min-[700px]:w-[220px] min-[700px]:shrink-0 min-[700px]:border-b-0 min-[700px]:border-r min-[700px]:pb-0 min-[700px]:pr-4 ' + themeClasses.divider}>
+        <aside className={'min-w-0 border-b pb-4 min-[700px]:w-64 min-[700px]:shrink-0 min-[700px]:border-b-0 min-[700px]:border-r min-[700px]:pb-0 min-[700px]:pr-4 ' + themeClasses.divider}>
             <div className={'mb-4 flex items-center justify-between gap-3 border-b px-1 pb-3 ' + themeClasses.divider}>
                 <h2 className={'text-sm font-semibold ' + themeClasses.textMuted}>Watchlist</h2>
                 <button type="button" onClick={() => setShowAdd((current) => !current)} className={'min-h-10 rounded px-3 text-xs font-bold ' + themeClasses.positive}>{showAdd ? 'Close' : '+ Add'}</button>

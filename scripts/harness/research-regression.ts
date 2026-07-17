@@ -36,6 +36,7 @@ import { buildResearchCalendar, filterResearchCalendarEvents, getResearchCalenda
 import { parseResearchCalendarInputs, parseResearchCalendarQuery } from '../../src/lib/research/calendar-input';
 import { parseResearchCalendarResponse } from '../../src/lib/research/calendar-response';
 import { calendarDateChanges, mergeResearchCalendarDateState, parseResearchCalendarDateState, snapshotResearchCalendarDates } from '../../src/lib/research/calendar-state';
+import { buildResearchRelativeUrl, mergeResearchSearchParams } from '../../src/lib/research/url-state';
 
 const assertEqual = <T>(actual: T, expected: T, label: string) => {
     if (actual !== expected) throw new Error(`${label}: expected ${expected}, got ${actual}`);
@@ -49,6 +50,26 @@ const assertThrows = (callback: () => void, label: string) => {
         throw error;
     }
     throw new Error(`${label}: expected an error`);
+};
+
+const runResearchUrlStateTests = () => {
+    const initial = new URLSearchParams('workspace=discovery&ticker=MSFT&tab=chart&review=edit&market=US&source=briefing&future=value');
+    const workspace = mergeResearchSearchParams(initial, { workspace: 'calendar' });
+    assertEqual(workspace.get('workspace'), 'calendar', 'workspace navigation updates its owned parameter');
+    assertEqual(workspace.get('ticker'), 'MSFT', 'workspace navigation preserves ticker');
+    assertEqual(workspace.get('tab'), 'chart', 'workspace navigation preserves detail tab');
+    assertEqual(workspace.get('review'), 'edit', 'workspace navigation preserves review mode');
+    assertEqual(workspace.get('market'), 'US', 'workspace navigation preserves handoff context');
+    assertEqual(workspace.get('future'), 'value', 'workspace navigation preserves unknown parameters');
+
+    const ticker = mergeResearchSearchParams(workspace, { workspace: 'research', ticker: 'NVDA', tab: null, review: null });
+    assertEqual(ticker.get('workspace'), 'research', 'opening a ticker restores the research workspace');
+    assertEqual(ticker.get('ticker'), 'NVDA', 'opening a ticker updates the selected ticker');
+    assertEqual(ticker.has('tab'), false, 'opening the overview removes stale detail tab state');
+    assertEqual(ticker.has('review'), false, 'opening a ticker removes stale review state');
+    assertEqual(ticker.get('source'), 'briefing', 'opening a ticker preserves unrelated source context');
+    assertEqual(buildResearchRelativeUrl('/research', ticker, '#detail').startsWith('/research?'), true, 'research URL builder includes non-empty query state');
+    assertEqual(buildResearchRelativeUrl('/research', new URLSearchParams(), ''), '/research', 'research URL builder omits an empty query marker');
 };
 
 const runMarketResearchHandoffTests = () => {
@@ -840,6 +861,7 @@ const runResearchAssistantTests = () => {
 
 const main = async () => {
     runInputTests();
+    runResearchUrlStateTests();
     runMarketResearchHandoffTests();
     await runResearchNotificationTests();
     runDiscoveryWorkspaceTests();
