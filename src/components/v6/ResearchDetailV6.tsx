@@ -48,6 +48,9 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
     const [providerState, setProviderState] = useState<'loading' | 'ready' | 'error'>('loading');
     const [providerError, setProviderError] = useState<string | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
+    const chartBenchmark = ticker.market === 'US'
+        ? { symbol: 'VOO', label: 'S&P 500 (VOO)', market: 'US' as const }
+        : { symbol: 'KLCI', label: 'FBM KLCI', market: 'MY' as const };
     const snapshotTicker = snapshot ? applyResearchSnapshotV6(ticker, snapshot) : ticker;
     const liveTicker = liveQuote ? {
         ...snapshotTicker,
@@ -108,14 +111,14 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
     }, [activeTab, chartHistory, chartHistoryKey, snapshot, ticker.market, ticker.symbol]);
 
     useEffect(() => {
-        if (!compareBenchmark || ticker.market !== 'US' || ticker.symbol === 'VOO' || benchmarkChart) return;
+        if (!compareBenchmark || ticker.symbol === chartBenchmark.symbol || benchmarkChart) return;
         const controller = new AbortController();
         const loadBenchmark = async () => {
             setBenchmarkState('loading');
             try {
-                const response = await fetch('/api/research/chart/VOO?market=US', { signal: controller.signal });
+                const response = await fetch(`/api/research/chart/${chartBenchmark.symbol}?market=${chartBenchmark.market}`, { signal: controller.signal });
                 const payload: unknown = await response.json();
-                if (!response.ok) throw new Error('Unable to load VOO history.');
+                if (!response.ok) throw new Error(`Unable to load ${chartBenchmark.label} history.`);
                 setBenchmarkChart(parseResearchChartResponse(payload));
                 setBenchmarkState('ready');
             } catch (error) {
@@ -125,7 +128,7 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
         };
         void loadBenchmark();
         return () => controller.abort();
-    }, [benchmarkChart, benchmarkKey, compareBenchmark, ticker.market, ticker.symbol]);
+    }, [benchmarkChart, benchmarkKey, chartBenchmark.label, chartBenchmark.market, chartBenchmark.symbol, compareBenchmark, ticker.symbol]);
 
     return (
         <article id="research-detail" tabIndex={-1} className="min-w-0 flex-1 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-500">
@@ -193,6 +196,7 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
                             chart={chartHistory ?? snapshot.chart}
                             historyState={chartHistoryState === 'idle' ? 'loading' : chartHistoryState}
                             benchmarkChart={benchmarkChart}
+                            benchmarkLabel={chartBenchmark.label}
                             benchmarkState={benchmarkState}
                             compareBenchmark={compareBenchmark}
                             onToggleBenchmark={() => setCompareBenchmark((current) => !current)}

@@ -20,6 +20,7 @@ type Props = {
     readonly onSave: (record: ResearchRecord, mode: ResearchUpdateMode) => Promise<boolean>;
 };
 type InboxGroup = { readonly symbol: string; readonly items: readonly ResearchInboxItem[] };
+type SkeletonProps = { readonly groupCount: number; readonly theme: ResearchThemeV6 };
 
 const filters = ['all', 'action', 'upcoming', 'snoozed'] as const;
 const labels: Readonly<Record<InboxFilter, string>> = { all: 'All', action: 'Action needed', upcoming: 'Upcoming', snoozed: 'Snoozed' };
@@ -36,9 +37,44 @@ const responseError = (payload: unknown): string => {
     return typeof error === 'string' ? error : 'Research inbox is unavailable.';
 };
 
+const ResearchInboxSkeletonV6 = ({ groupCount, theme }: SkeletonProps) => {
+    const styles = getThemeV6(theme);
+    const fill = theme === 'light' ? 'bg-slate-200/75' : 'bg-slate-700/70';
+    const groups = Array.from({ length: Math.min(Math.max(groupCount, 1), 2) });
+
+    return <div role="status" aria-live="polite" className={'mt-4 border-t ' + styles.divider}>
+        <span className="sr-only">Checking watchlist conditions and upcoming catalysts...</span>
+        <ol aria-hidden="true" className="motion-safe:animate-pulse">
+            {groups.map((_, index) => <li key={index} className={(index === 1 ? 'hidden min-[700px]:block ' : '') + 'border-b py-3 ' + styles.divider}>
+                <div className="grid gap-3 min-[700px]:grid-cols-[110px_minmax(0,1fr)_auto] min-[700px]:items-start">
+                    <div className="space-y-2">
+                        <div className={'h-4 w-16 rounded ' + fill} />
+                        <div className={'h-3 w-24 rounded ' + fill} />
+                        <div className={'h-3 w-20 rounded ' + fill} />
+                    </div>
+                    <div className="flex gap-1 min-[700px]:col-start-3 min-[700px]:row-start-1">
+                        <div className={'h-10 w-14 rounded ' + fill} />
+                        <div className={'h-10 w-[72px] rounded ' + fill} />
+                    </div>
+                    <div className="grid gap-2 min-[700px]:col-start-2 min-[700px]:row-start-1 min-[700px]:grid-cols-2 min-[1180px]:grid-cols-4">
+                        {Array.from({ length: 2 }).map((__, itemIndex) => <div key={itemIndex} className={'min-h-24 rounded border p-3 min-[700px]:min-h-[153px] ' + styles.row}>
+                            <div className={'h-3 w-16 rounded ' + fill} />
+                            <div className={'mt-3 h-4 w-4/5 rounded ' + fill} />
+                            <div className={'mt-2 h-3 w-full rounded ' + fill} />
+                            <div className={'mt-2 h-3 w-2/3 rounded ' + fill} />
+                        </div>)}
+                    </div>
+                </div>
+            </li>)}
+        </ol>
+        {groupCount > 1 ? <div aria-hidden="true" className={(groupCount <= 2 ? 'min-[700px]:hidden ' : '') + 'mt-2 h-10 w-32 rounded motion-safe:animate-pulse ' + fill} /> : null}
+    </div>;
+};
+
 export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props) => {
     const [data, setData] = useState<ResearchInboxResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
     const [filter, setFilter] = useState<InboxFilter>('all');
     const [expanded, setExpanded] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
@@ -50,6 +86,13 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props
     const [clock, setClock] = useState(() => Date.now());
     const styles = getThemeV6(theme);
     const recordBySymbol = useMemo(() => new Map(records.map((record) => [record.symbol, record])), [records]);
+    const inboxRequest = JSON.stringify(items.map(({ symbol, market, targetBuyZone, lastReviewedAt }) => ({
+        symbol,
+        market,
+        targetBuyZone,
+        lastReviewedAt,
+        monitoringRules: recordBySymbol.get(symbol)?.monitoringRules ?? defaultResearchMonitoringRules,
+    })));
 
     useEffect(() => {
         try {
@@ -66,21 +109,15 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props
     }, [hydrated, local]);
 
     useEffect(() => {
-        if (items.length === 0) return;
+        if (inboxRequest === '[]') return;
         const controller = new AbortController();
         const load = async () => {
             try {
-                setError(null); setData(null);
+                setError(null); setLoading(true);
                 const response = await fetch('/api/research/inbox', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(items.map(({ symbol, market, targetBuyZone, lastReviewedAt }) => ({
-                        symbol,
-                        market,
-                        targetBuyZone,
-                        lastReviewedAt,
-                        monitoringRules: recordBySymbol.get(symbol)?.monitoringRules ?? defaultResearchMonitoringRules,
-                    }))),
+                    body: inboxRequest,
                     signal: controller.signal,
                 });
                 const payload: unknown = await response.json();
@@ -89,10 +126,12 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props
             } catch (caught) {
                 if (caught instanceof DOMException && caught.name === 'AbortError') return;
                 setError(caught instanceof Error ? caught.message : 'Research inbox is unavailable.');
+            } finally {
+                if (!controller.signal.aborted) setLoading(false);
             }
         };
         void load(); return () => controller.abort();
-    }, [items, recordBySymbol]);
+    }, [inboxRequest]);
 
     useEffect(() => {
         if (!data || !hydrated) return;
@@ -133,7 +172,7 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props
         }, 0);
     };
 
-    return <section aria-labelledby="research-inbox-title" className={'mb-4 rounded-[10px] border p-3 backdrop-blur min-[700px]:p-4 ' + styles.panel}>
+    return <section aria-labelledby="research-inbox-title" aria-busy={items.length > 0 && (loading || (!data && !error))} className={'mb-4 rounded-[10px] border p-3 backdrop-blur min-[700px]:p-4 ' + styles.panel}>
         <header className="flex flex-col gap-3 min-[700px]:flex-row min-[700px]:items-end min-[700px]:justify-between">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 min-[700px]:block">
                 <div><p className={'text-xs font-bold uppercase tracking-[0.14em] ' + styles.positive}>Daily attention</p><h2 id="research-inbox-title" className={'mt-1 text-lg font-bold ' + styles.textPrimary}>Today</h2></div>
@@ -147,7 +186,7 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props
                 <div role="group" aria-label="Filter research inbox" className={'research-scrollbar flex max-w-full gap-1 overflow-x-auto rounded border p-1 ' + styles.row}>{filters.map((id) => <button key={id} type="button" aria-pressed={filter === id} onClick={() => { setFilter(id); setExpanded(false); setMenuId(null); }} className={'min-h-10 shrink-0 rounded px-3 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + (filter === id ? styles.selectedRow : styles.textMuted)}>{labels[id]} · {counts[id]}</button>)}</div>
             </div>
         </header>
-        {collapsed ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>Daily attention is collapsed. {unreadCount} unread item{unreadCount === 1 ? '' : 's'} remain{unreadCount === 1 ? 's' : ''} in this inbox.</p> : items.length === 0 ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>Add a ticker to begin daily monitoring.</p> : error ? <p role="alert" className={'mt-4 border-t pt-4 text-sm ' + styles.risk}>{error}</p> : !data ? <p role="status" className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>Checking watchlist conditions and upcoming catalysts...</p> : visibleItems.length === 0 ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>{empty}</p> : <>
+        {collapsed ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>Daily attention is collapsed. {unreadCount} unread item{unreadCount === 1 ? '' : 's'} remain{unreadCount === 1 ? 's' : ''} in this inbox.</p> : items.length === 0 ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>Add a ticker to begin daily monitoring.</p> : error && !data ? <p role="alert" className={'mt-4 border-t pt-4 text-sm ' + styles.risk}>{error}</p> : !data ? <ResearchInboxSkeletonV6 groupCount={items.length} theme={theme} /> : visibleItems.length === 0 ? <p className={'mt-4 border-t pt-4 text-sm ' + styles.textMuted}>{empty}</p> : <>
             <ol className={'mt-4 border-t ' + styles.divider}>{displayedGroups.map((group, index) => {
                 const record = recordBySymbol.get(group.symbol);
                 const thesisChanges = record ? record.reviewHistory.length >= 2 ? latestReviewChanges(record) : ['No prior review comparison'] : [];
@@ -192,6 +231,7 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props
             })}</ol>
             {visibleGroups.length > 1 && <button type="button" aria-expanded={expanded} onClick={() => setExpanded((current) => !current)} className={'mt-2 min-h-10 rounded px-3 text-xs font-semibold ' + styles.textSecondary + (!expanded && visibleGroups.length <= 2 ? ' min-[700px]:hidden' : '')}>{expanded ? 'Show less' : <><span className="min-[700px]:hidden">Show {visibleGroups.length - 1} more ticker{visibleGroups.length - 1 === 1 ? '' : 's'}</span><span className="hidden min-[700px]:inline">Show {visibleGroups.length - 2} more ticker{visibleGroups.length - 2 === 1 ? '' : 's'}</span></>}</button>}
         </>}
+        {error && data ? <p role="alert" className={'mt-2 text-xs ' + styles.risk}>Daily attention could not refresh. Showing the previous check.</p> : null}
         {data?.warnings.map((warning) => <p key={warning} role="status" className={'mt-2 text-xs ' + styles.textMuted}>{warning}</p>)}
     </section>;
 };

@@ -62,6 +62,7 @@ const chartPoints = (result: Record<string, unknown>, quote: Record<string, unkn
 
 const malaysiaYahooAliases: Readonly<Record<string, string>> = {
     MAYBANK: '1155.KL',
+    KLCI: '^KLSE',
 };
 
 export const toYahooSymbol = (symbol: string, market: ResearchMarket) => {

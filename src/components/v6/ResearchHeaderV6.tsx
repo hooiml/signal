@@ -61,6 +61,7 @@ export const ResearchHeaderV6 = ({
     const fieldClass = isLight
         ? 'border-slate-300 bg-slate-50 text-slate-950 placeholder:text-slate-400 focus:border-emerald-500'
         : 'border-[#334354] bg-[#0b1118] text-[#eef2f7] placeholder:text-[#718096] focus:border-emerald-400';
+    const focusClass = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500';
 
     const segmentClass = (active: boolean) => {
         if (active) {
@@ -72,6 +73,7 @@ export const ResearchHeaderV6 = ({
             ? 'border-transparent text-slate-500 hover:bg-emerald-50/70 hover:text-slate-900'
             : 'border-transparent text-slate-400 hover:bg-emerald-900/20 hover:text-slate-200';
     };
+    const regionSegmentClass = (active: boolean) => `min-h-8 rounded-[6px] px-3 text-sm font-semibold transition-colors active:scale-[0.98] ${focusClass} ${active ? 'bg-[var(--fill-success)] text-[var(--on-success)]' : 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--border)] hover:text-[var(--text-primary)]'}`;
 
     return (
         <AppNavV6 active={active} theme={theme} onThemeToggle={onThemeToggle}>
@@ -101,15 +103,15 @@ export const ResearchHeaderV6 = ({
 
                 {mobileFiltersOpen ? <div id="research-mobile-filters" className={'mt-2 grid gap-2 rounded-xl border p-3 ' + headerDivider + ' ' + filterPanel}>
                     <div>
-                        <div className={'text-xs font-semibold uppercase tracking-[0.16em] ' + textSubtle}>Market</div>
-                        <div className="mt-2 flex gap-1">
+                        <div className={'text-xs font-semibold uppercase tracking-[0.16em] ' + textSubtle}>Region</div>
+                        <div className="mt-2 flex min-h-9 w-fit items-center rounded-[var(--radius)] border-[0.5px] border-[var(--border)] p-0.5" role="group" aria-label="Region">
                             {(['ALL', 'US', 'MY'] as const).map((option) => (
                                 <button
                                     key={option}
                                     type="button"
                                     onClick={() => onMarketChange(option)}
                                     aria-pressed={market === option}
-                                    className={'min-h-10 rounded-xl border px-3 text-xs font-bold uppercase tracking-[0.12em] transition-all active:scale-95 ' + segmentClass(market === option)}
+                                    className={regionSegmentClass(market === option)}
                                 >
                                     {option === 'ALL' ? 'All' : option}
                                 </button>
@@ -133,7 +135,7 @@ export const ResearchHeaderV6 = ({
                 <div className="mt-2 flex items-stretch gap-2">
                     <div className={'min-w-0 flex-1 border-t px-3 py-2 ' + headerDivider}>
                         <div className={'truncate text-xs font-semibold uppercase tracking-[0.12em] ' + textSubtle}>Research reviewed</div>
-                        <div className={'mt-0.5 truncate text-xs font-semibold ' + textSecondary}>{reviewedLabel}</div>
+                        <div className={'mt-0.5 truncate text-xs font-semibold ' + textSecondary}>{reviewedLabel} (UTC)</div>
                         <div className={'mt-0.5 text-xs font-semibold uppercase tracking-[0.12em] ' + textSubtle}>{resultCount} ticker{resultCount === 1 ? '' : 's'}</div>
                     </div>
                 </div>
@@ -152,15 +154,15 @@ export const ResearchHeaderV6 = ({
                             />
                     </label>
                     <div className={'min-h-16 shrink-0 px-3 py-1.5 ' + commandDivider}>
-                        <div className={'px-1 text-xs font-semibold uppercase tracking-[0.16em] ' + textSubtle}>Market</div>
-                        <div className="mt-1.5 flex items-center gap-1">
+                        <div className={'px-1 text-xs font-semibold uppercase tracking-[0.16em] ' + textSubtle}>Region</div>
+                        <div className="mt-1.5 flex min-h-9 items-center rounded-[var(--radius)] border-[0.5px] border-[var(--border)] p-0.5" role="group" aria-label="Region">
                             {(['ALL', 'US', 'MY'] as const).map((option) => (
                                 <button
                                     key={option}
                                     type="button"
                                     onClick={() => onMarketChange(option)}
                                     aria-pressed={market === option}
-                                    className={'min-h-10 rounded-xl border px-3 text-xs font-bold uppercase tracking-[0.12em] transition-all active:scale-95 ' + segmentClass(market === option)}
+                                    className={regionSegmentClass(market === option)}
                                 >
                                     {option === 'ALL' ? 'All' : option}
                                 </button>
@@ -184,7 +186,7 @@ export const ResearchHeaderV6 = ({
                     <div className={'flex min-h-16 shrink-0 items-center gap-5 px-3 py-2 ' + commandDivider}>
                         <div className="min-w-[112px]">
                             <div className={'text-xs font-semibold uppercase tracking-[0.16em] ' + textSubtle}>Research reviewed</div>
-                            <div className={'mt-1 text-sm font-semibold ' + textSecondary}>{reviewedLabel}</div>
+                            <div className={'mt-1 text-sm font-semibold ' + textSecondary}>{reviewedLabel} (UTC)</div>
                         </div>
                         <div className="min-w-[68px]">
                             <div className={'text-xs font-semibold uppercase tracking-[0.16em] ' + textSubtle}>Results</div>

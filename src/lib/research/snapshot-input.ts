@@ -33,14 +33,17 @@ const isChartPoint = (value: unknown) => isRecord(value)
     && /^\d{4}-\d{2}-\d{2}$/.test(value.time)
     && ['open', 'high', 'low', 'close'].every((key) => typeof value[key] === 'number' && Number.isFinite(value[key]))
     && hasNullableNumbers(value, [
-        'volume', 'ma50', 'ma200', 'averageVolume20', 'rsi14',
-        'macd', 'macdSignal', 'macdHistogram', 'atrPercent14',
+        'volume', 'ma50', 'ma200', 'ema20', 'ema50', 'sma200', 'averageVolume20', 'rsi14',
+        'macd', 'macdSignal', 'macdHistogram', 'atr14', 'atrPercent14', 'anchoredVwap',
+        'adx14', 'plusDi14', 'minusDi14', 'supertrend',
     ]);
+
+const isSupertrendDirection = (value: unknown): value is 1 | -1 | null => value === null || value === 1 || value === -1;
 
 const isResearchChart = (value: unknown): value is ResearchSnapshot['chart'] => isRecord(value)
     && value.interval === '1d'
     && Array.isArray(value.points)
-    && value.points.every(isChartPoint);
+    && value.points.every((point) => isChartPoint(point) && isSupertrendDirection(point.supertrendDirection));
 
 const isResearchSnapshot = (value: unknown): value is ResearchSnapshot => {
     if (!isRecord(value) || !isRecord(value.benchmark) || !isRecord(value.quote) || !isRecord(value.fundamentals)

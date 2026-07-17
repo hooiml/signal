@@ -5,6 +5,7 @@ import { defaultResearchMonitoringRules } from '../../src/lib/types/research';
 import { calculateTechnicals } from '../../src/lib/research/technicals';
 import { buildTechnicalOutlook } from '../../src/lib/research/technical-outlook';
 import { calculateTechnicalSeries } from '../../src/lib/research/technical-series';
+import { anchoredVwap, relativeStrengthSeries, volumeProfile } from '../../src/lib/research/chart-analysis';
 import { parseYahooResearchChart, toYahooSymbol } from '../../src/lib/research/yahoo-research';
 import { calculateValuation } from '../../src/lib/research/valuation';
 import { scoreDiscoveryCandidate } from '../../src/lib/research/discovery-score';
@@ -151,10 +152,58 @@ const runTechnicalTests = () => {
     const series = calculateTechnicalSeries(closes.map((close) => ({ high: close + 2, low: close - 2, close, volume: close * 100 })));
     assertEqual(series.at(-1)?.rsi14, 100, 'technical series exposes aligned RSI history');
     assertEqual(series.at(-1)?.averageVolume20, 21050, 'technical series exposes aligned average volume');
+    assertEqual(series[18]?.ema20, null, 'EMA20 remains null during warmup');
+    assertEqual(series[49]?.ema20 !== null && series[49]?.ema50 !== null, true, 'EMA series becomes available after its warmup');
+    assertEqual(series[199]?.sma200 !== null && series[199]?.ma200 === series[199]?.sma200, true, 'SMA200 exposes a compatible MA200 alias');
+    assertEqual(series[12]?.atr14, null, 'ATR14 remains null during warmup');
     assertEqual(series.at(-1)?.atrPercent14 !== null, true, 'technical series exposes ATR percentage');
+    assertEqual(series.at(-1)?.atr14, 4, 'technical series exposes ATR14');
+    assertEqual(series.at(-1)?.plusDi14 !== null && series.at(-1)?.minusDi14 !== null, true, 'technical series exposes directional indicators');
+    assertEqual(series.at(-1)?.adx14, 100, 'rising series converges to ADX 100');
+    assertEqual(series[25]?.adx14, null, 'ADX14 remains null until its second warmup window');
+    assertEqual(series.at(-1)?.supertrendDirection, 1, 'rising series stays in a positive supertrend');
+    assertEqual(series[8]?.supertrend, null, 'Supertrend remains null during its configured warmup');
+    assertEqual(series.at(-1)?.anchoredVwap !== null, true, 'technical series exposes range-start anchored VWAP');
+    const flatPoints = Array.from({ length: 30 }, () => ({ high: 10, low: 10, close: 10, volume: 100 }));
+    const flatSeries = calculateTechnicalSeries(flatPoints, { supertrendPeriod: 5, supertrendMultiplier: 2 });
+    assertEqual(flatSeries.at(-1)?.adx14, 0, 'flat series has zero ADX');
+    assertEqual(flatSeries.at(-1)?.plusDi14, 0, 'flat series has zero positive directional movement');
+    assertEqual(flatSeries.at(-1)?.minusDi14, 0, 'flat series has zero negative directional movement');
+    assertEqual(flatSeries.at(-1)?.anchoredVwap, 10, 'flat series anchored VWAP equals its constant price');
+    assertEqual(flatSeries[3]?.supertrend, null, 'configured Supertrend period controls warmup');
+    assertEqual(flatSeries[4]?.supertrend, 10, 'configured Supertrend multiplier is applied to flat data');
+    const reversalPoints = [
+        ...Array.from({ length: 30 }, (_, index) => index + 10),
+        ...Array.from({ length: 30 }, (_, index) => 39 - index * 1.5),
+    ].map((close) => ({ high: close + 1, low: close - 1, close, volume: 100 }));
+    const reversalSeries = calculateTechnicalSeries(reversalPoints, { supertrendPeriod: 5, supertrendMultiplier: 2 });
+    assertEqual(reversalSeries.at(-1)?.supertrendDirection, -1, 'Supertrend reverses after a sustained downside break');
+    const configuredTrend = calculateTechnicalSeries(closes.slice(0, 10).map((close) => ({ high: close + 2, low: close - 2, close, volume: 100 })), { supertrendPeriod: 5, supertrendMultiplier: 2 });
+    assertEqual(configuredTrend[4]?.supertrend, -3, 'configured Supertrend multiplier changes the band');
     assertEqual(series.at(-1)?.macdSignal !== null, true, 'technical series exposes MACD signal history');
     assertEqual(series.at(-1)?.macdHistogram !== null, true, 'technical series exposes MACD histogram history');
+    const chartPoints = series.map((technical, index) => ({
+        time: `2025-${String(Math.floor(index / 28) + 1).padStart(2, '0')}-${String((index % 28) + 1).padStart(2, '0')}`,
+        open: closes[index] - 1, high: closes[index] + 2, low: closes[index] - 2, close: closes[index],
+        volume: closes[index] * 100,
+        ...technical,
+    }));
+    const rangeVwap = anchoredVwap(chartPoints.slice(-3), 'range-start');
+    assertEqual(rangeVwap.length, 3, 'visible-range anchored VWAP includes its anchor bar');
+    assertEqual(rangeVwap[0]?.value, 218, 'visible-range anchored VWAP starts from typical price');
+    const profile = volumeProfile(chartPoints.slice(-20), 5);
+    assertEqual(profile.reduce((sum, bin) => sum + bin.volume, 0), chartPoints.slice(-20).reduce((sum, point) => sum + (point.volume ?? 0), 0), 'volume profile conserves visible volume');
+    assertEqual(profile.filter((bin) => bin.isPointOfControl).length, 1, 'volume profile selects one deterministic POC');
+    const noVolume = chartPoints.slice(-3).map((point, index) => ({ ...point, volume: index === 0 ? null : 0 }));
+    assertEqual(anchoredVwap(noVolume, 'range-start').length, 0, 'anchored VWAP stays unavailable without valid volume');
+    assertEqual(volumeProfile(noVolume).length, 0, 'volume profile stays unavailable without valid volume');
+    const relative = relativeStrengthSeries(chartPoints.slice(-3), chartPoints.slice(-3).map((point) => ({ ...point, close: point.close / 2 })));
+    assertEqual(relative[0]?.value, 100, 'relative strength rebases at the visible range start');
+    assertEqual(relative.at(-1)?.value, 100, 'constant candidate-to-benchmark ratio stays at 100');
+    assertEqual(relativeStrengthSeries(chartPoints.slice(-3), [chartPoints.at(-3)!, chartPoints.at(-1)!]).length, 2, 'relative strength intersects unequal trading dates');
+    assertEqual(relativeStrengthSeries(chartPoints.slice(-3), [{ ...chartPoints.at(-3)!, close: 0 }]).length, 0, 'relative strength rejects a zero benchmark baseline');
     assertEqual(toYahooSymbol('1155', 'MY'), '1155.KL', 'Malaysia ticker uses Yahoo KL suffix');
+    assertEqual(toYahooSymbol('KLCI', 'MY'), '^KLSE', 'KLCI comparative index uses Yahoo KLSE symbol');
 };
 
 const runBenchmarkTests = () => {
@@ -473,7 +522,9 @@ const runComparisonTests = () => {
         chart: { interval: '1d', points: [{
             time: '2026-07-11', open: 415, high: 423, low: 414, close: 420.5,
             volume: 28_000_000, ma50: 400, ma200: 360, averageVolume20: 20_000_000,
-            rsi14: 58.2, macd: 3.5, macdSignal: 2.8, macdHistogram: 0.7, atrPercent14: 2.1,
+            ema20: 405, ema50: 398, sma200: 360, rsi14: 58.2, macd: 3.5, macdSignal: 2.8, macdHistogram: 0.7,
+            atr14: 8.4, atrPercent14: 2.1, anchoredVwap: 410, adx14: 22, plusDi14: 24, minusDi14: 18,
+            supertrend: 405, supertrendDirection: 1,
         }] },
         sources: ['Yahoo Finance', 'SEC EDGAR'], warnings: [],
     };
@@ -496,6 +547,14 @@ const runComparisonTests = () => {
         ...response,
         data: { ...snapshot, chart: { interval: '1d', points: [{ ...snapshot.chart.points[0], close: null }] } },
     }), 'snapshot boundary rejects malformed chart candles');
+    assertThrows(() => parseResearchChartResponse({
+        success: true,
+        data: { chart: { interval: '1d', points: [{ ...snapshot.chart.points[0], supertrendDirection: 0 }] } },
+    }), 'chart boundary rejects an invalid Supertrend direction');
+    assertThrows(() => parseResearchChartResponse({
+        success: true,
+        data: { chart: { interval: '1d', points: [{ ...snapshot.chart.points[0], ema20: 'fast' }] } },
+    }), 'chart boundary rejects malformed indicator values');
 };
 
 const runResearchAssistantTests = () => {

@@ -26,12 +26,22 @@ export type ResearchChartPoint = {
     readonly volume: number | null;
     readonly ma50: number | null;
     readonly ma200: number | null;
+    readonly ema20: number | null;
+    readonly ema50: number | null;
+    readonly sma200: number | null;
     readonly averageVolume20: number | null;
     readonly rsi14: number | null;
     readonly macd: number | null;
     readonly macdSignal: number | null;
     readonly macdHistogram: number | null;
+    readonly atr14: number | null;
     readonly atrPercent14: number | null;
+    readonly anchoredVwap: number | null;
+    readonly adx14: number | null;
+    readonly plusDi14: number | null;
+    readonly minusDi14: number | null;
+    readonly supertrend: number | null;
+    readonly supertrendDirection: 1 | -1 | null;
 };
 
 export type ResearchSnapshot = {

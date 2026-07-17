@@ -11,15 +11,17 @@ export type TechnicalOutlook = {
 
 type Technicals = ResearchSnapshot['technicals'];
 
-const trendContext = (price: number | null, technicals: Technicals): TechnicalOutlook['trend'] => {
-    if (price === null || technicals.ma50 === null || technicals.ma200 === null) {
+const trendContext = (price: number | null, technicals: Technicals, latest: ResearchChartPoint | undefined): TechnicalOutlook['trend'] => {
+    const mediumTrend = latest?.ema50 ?? technicals.ma50;
+    const longTermTrend = latest?.sma200 ?? technicals.ma200;
+    if (price === null || mediumTrend === null || longTermTrend === null) {
         return { label: 'Unavailable', detail: 'Not enough price history for both moving averages.', tone: 'unavailable' };
     }
-    if (price > technicals.ma50 && technicals.ma50 > technicals.ma200) {
-        return { label: 'Positive structure', detail: 'Price is above the 50-day and 200-day averages.', tone: 'positive' };
+    if (price > mediumTrend && mediumTrend > longTermTrend) {
+        return { label: 'Positive structure', detail: 'Price is above EMA50, and EMA50 is above SMA200.', tone: 'positive' };
     }
-    if (price < technicals.ma50 && technicals.ma50 < technicals.ma200) {
-        return { label: 'Negative structure', detail: 'Price is below the 50-day and 200-day averages.', tone: 'negative' };
+    if (price < mediumTrend && mediumTrend < longTermTrend) {
+        return { label: 'Negative structure', detail: 'Price is below EMA50, and EMA50 is below SMA200.', tone: 'negative' };
     }
     return { label: 'Mixed structure', detail: 'Price and moving averages are not aligned in one direction.', tone: 'neutral' };
 };
@@ -62,7 +64,7 @@ const volumeContext = (
 };
 
 export const buildTechnicalOutlook = (snapshot: ResearchSnapshot): TechnicalOutlook => {
-    const trend = trendContext(snapshot.quote.price, snapshot.technicals);
+    const trend = trendContext(snapshot.quote.price, snapshot.technicals, snapshot.chart.points.at(-1));
     const momentum = momentumContext(snapshot.technicals);
     const volume = volumeContext(snapshot.chart.points.at(-1), snapshot.technicals.averageVolume20, snapshot.quote.dailyChangePercent);
     const directional = [trend.tone, momentum.tone, volume.tone];
