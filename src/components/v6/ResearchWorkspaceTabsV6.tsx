@@ -12,7 +12,7 @@ export const ResearchWorkspaceTabsV6 = ({ active, theme, onChange }: {
 }) => {
     const styles = getThemeV6(theme);
     const tabs: readonly { readonly id: ResearchWorkspaceV6; readonly label: string }[] = [
-        { id: 'research', label: 'Research' }, { id: 'discovery', label: 'Discovery' },
+        { id: 'research', label: 'Watchlist' }, { id: 'discovery', label: 'Discovery' },
         { id: 'compare', label: 'Compare' }, { id: 'calendar', label: 'Calendar' }, { id: 'alerts', label: 'Alerts' },
     ];
     return (

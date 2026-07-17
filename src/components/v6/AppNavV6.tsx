@@ -4,7 +4,7 @@ import { ThemeModeSwitchV2 } from '@/components/ThemeModeSwitchV2';
 import type { ResearchThemeV6 } from './research-v6';
 
 type AppNavV6Props = {
-    active: 'market' | 'research' | 'analytics';
+    active: 'market' | 'research';
     theme: ResearchThemeV6;
     onThemeToggle: () => void;
     children?: ReactNode;
@@ -23,7 +23,6 @@ export const AppNavV6 = ({ active, theme, onThemeToggle, children }: AppNavV6Pro
     const items = [
         { key: 'market', label: 'Market', href: '/' },
         { key: 'research', label: 'Research', href: '/research' },
-        { key: 'analytics', label: 'Analytics', href: '/research?workspace=discovery' },
     ] as const;
 
     return (

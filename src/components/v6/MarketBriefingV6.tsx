@@ -1,7 +1,6 @@
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import {
     formatRawValue,
-    getActiveSourceSummary,
     getBroadMarketValidation,
     getEvidenceConcentrationDetails,
     getFreshnessTone,
@@ -56,8 +55,6 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
     const hasLinkedContext = contextItems.some((item) => item.affected.label !== 'Context');
     const primaryPanel = 'rounded-lg border backdrop-blur-md ' + t.panelPrimary;
     const secondaryPanel = 'rounded-lg border backdrop-blur-sm ' + t.panelSecondary;
-    const utilityPanel = 'rounded-lg border backdrop-blur-sm ' + t.panelUtility;
-    const quickReadContent = <QuickReadContentV6 signal={signal} posture={posture} quality={quality} delta={delta} drivers={drivers} scoreClass={tierTone.text} theme={theme} />;
     const valuationBackdrop = signal.metadata.valuation_backdrop;
     const marketContext = signal.metadata.market_context;
 
@@ -69,7 +66,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                 </div>
             ) : null}
 
-            <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+            <div className="min-w-0">
                 <section className={primaryPanel + ' min-w-0 overflow-hidden'} aria-labelledby="market-story-title" data-surface-tier="primary">
                     <div className={'h-1 bg-gradient-to-r ' + tierTone.rail} />
                     <div className="p-5 sm:p-7">
@@ -80,17 +77,17 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                         <h1 id="market-story-title" className={'mt-3 max-w-3xl text-3xl font-bold leading-tight sm:text-4xl ' + t.textPrimary}>{storyHeadline}</h1>
                         <p className={'mt-3 max-w-4xl text-base leading-7 sm:text-lg ' + t.textSecondary}>{posture.summary}</p>
 
-                        <dl className={'mt-5 grid overflow-hidden rounded-md border sm:grid-cols-2 lg:grid-cols-4 ' + t.divider} data-testid="market-story-trust">
+                        <dl className={'mt-5 grid border-y sm:grid-cols-2 lg:grid-cols-4 ' + t.divider} data-testid="market-story-trust">
                             <StoryTrustItemV6 label="Composite score" value={Math.round(signal.composite_score) + ' / 100'} theme={theme} />
                             <StoryTrustItemV6 label="Indicator agreement" value={Math.round(signal.confidence.agreement_pct) + '%'} theme={theme} />
                             <StoryTrustItemV6 label="Data freshness" value={capitalize(quality?.freshness ?? 'unavailable')} valueClass={getFreshnessTone(capitalize(quality?.freshness ?? 'stale'), theme)} theme={theme} />
-                            <StoryTrustItemV6 label="Snapshot" value={formatCompactDateV6(signal.metadata.score_delta?.snapshot_date)} theme={theme} />
+                            <StoryTrustItemV6 label="Briefing as of" value={formatCompactDateV6(signal.metadata.score_delta?.snapshot_date)} theme={theme} />
                         </dl>
 
                         <div className={'mt-6 border-t pt-5 ' + t.divider}>
                             <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>What is driving the story</p>
-                            <p className={'mt-2 max-w-3xl text-sm leading-6 ' + t.textSecondary}>Each actual reading is converted to a 0–100 score, then multiplied by its configured weight to produce weighted points.</p>
-                            <div className="mt-4 grid gap-3 lg:grid-cols-3" data-testid="market-story-evidence">
+                            <p className={'mt-2 max-w-3xl text-sm leading-6 ' + t.textSecondary}>The strongest readings explain the current interpretation. Complete score calculations remain in Why this score.</p>
+                            <div className="mt-4 grid lg:grid-cols-3" data-testid="market-story-evidence">
                                 {storyDrivers.map((driver, index) => (
                                     <StoryChapterV6 key={driver.key} driver={driver} index={index} signal={signal} theme={theme} />
                                 ))}
@@ -101,9 +98,6 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                     </div>
                 </section>
 
-                <aside className={secondaryPanel + ' hidden p-5 xl:block'} aria-label="Quick read" data-surface-tier="secondary">
-                    {quickReadContent}
-                </aside>
             </div>
 
             <section className={secondaryPanel + ' overflow-hidden'} aria-labelledby="changed-title" data-surface-tier="secondary">
@@ -143,10 +137,9 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                 <div className="mt-5 grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(440px,0.92fr)]">
                     <div className="min-w-0">
                         <ScoreHistoryV6 signal={signal} theme={theme} />
-                        <div className={'mt-4 grid gap-3 border-t pt-4 sm:grid-cols-3 ' + t.divider}>
+                        <div className={'mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 ' + t.divider}>
                             <CompactFactV6 label="Trend" value={signal.metadata.trend_context?.score_trend ?? 'Not available'} theme={theme} />
                             <CompactFactV6 label="Last signal change" value={signal.metadata.trend_context?.last_signal_change ?? 'Not available'} theme={theme} />
-                            <CompactFactV6 label="Snapshot" value={formatCompactDateV6(signal.metadata.score_delta?.snapshot_date)} theme={theme} />
                         </div>
                     </div>
                     <section className="min-w-0" aria-labelledby="drivers-title">
@@ -164,7 +157,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
 
             <MarketCalibrationV6 signal={signal} theme={theme} />
 
-            <section className={secondaryPanel + ' p-5 sm:p-6'} aria-label="Forward scenarios and market developments" data-surface-tier="secondary">
+            <section className={'border-y py-5 sm:py-6 ' + t.divider} aria-label="Forward scenarios and market developments" data-surface-tier="secondary">
                 <div className="grid items-start gap-8 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.18fr)] lg:gap-0">
                     <section className="min-w-0 lg:pr-8" aria-labelledby="scenarios-title">
                         <SectionHeadingV6 eyebrow="Watch next" title="What could change the story" id="scenarios-title" theme={theme} />
@@ -199,7 +192,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
 
             <MarketToResearchLinkV6 signal={signal} theme={theme} />
 
-            <section className={utilityPanel + ' p-5 sm:p-6'} aria-labelledby="terms-title" data-surface-tier="utility">
+            <section className={'border-t pt-5 sm:pt-6 ' + t.divider} aria-labelledby="terms-title" data-surface-tier="utility">
                 <div className="grid gap-5 lg:grid-cols-[220px_1fr] lg:items-start">
                     <div>
                         <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Plain-language guide</p>
@@ -332,30 +325,28 @@ const StoryChapterV6 = ({ driver, index, signal, theme }: { driver: DriverV6; in
     const t = getThemeV6(theme);
     const component = signal.components[driver.key];
     const reading = component ? formatRawValue(component, signal.metadata.market) : driver.raw_value.toString();
-    const score = component?.score ?? driver.score;
-    const updated = formatCompactDateV6(component?.last_updated ?? driver.last_updated);
     const role = getStoryDriverRoleV6(driver, index);
     const roleTone = driver.conflict ? t.risk : driver.impact === 'negative' ? (theme === 'light' ? 'text-amber-800' : 'text-amber-200') : t.positive;
     const explanationTone = theme === 'light' ? 'text-slate-500' : 'text-[#9aa8b8]';
-    const calculationTone = theme === 'light' ? 'text-slate-600' : 'text-[#a5b2c0]';
-    const surface = driver.conflict
-        ? theme === 'light' ? 'border-rose-200 bg-rose-50/65' : 'border-rose-400/25 bg-rose-500/[0.06]'
-        : t.row;
+    const freshnessWarning = driver.freshness.toLowerCase() !== 'fresh';
+    const divider = driver.conflict
+        ? theme === 'light' ? 'border-rose-300' : 'border-rose-400/45'
+        : t.divider;
 
     return (
-        <article className={'flex h-full min-w-0 flex-col rounded-md border p-4 ' + surface}>
+        <article className={'flex min-w-0 flex-col border-t py-4 first:border-t-0 first:pt-0 lg:border-l lg:border-t-0 lg:px-4 lg:py-0 lg:first:border-l-0 lg:first:pl-0 lg:last:pr-0 ' + divider}>
             <p className={'text-xs font-semibold uppercase tracking-[0.08em] ' + roleTone}>{role}</p>
             <h2 className={'mt-1 text-base font-bold ' + t.textPrimary}>{component?.display_name ?? driver.name}</h2>
             <div className="mt-4">
                 <p className={'text-xs font-semibold ' + t.textMuted}>Actual reading</p>
                 <p className={'mt-1 text-xl font-bold tabular-nums ' + t.textPrimary}>{reading}</p>
             </div>
-            <p className={'mb-4 mt-3 text-sm leading-5 ' + explanationTone} data-testid="market-story-relationship">{getStoryRelationshipV6(driver)}</p>
-            <div className={'mt-auto border-t pt-3 ' + t.divider} data-testid="market-story-card-footer">
-                <p className={'text-[11px] italic ' + t.textMuted} data-testid="market-story-contribution-label">Score contribution</p>
-                <p className={'mt-1 text-xs font-normal tabular-nums ' + calculationTone} data-testid="market-story-contribution-formula">{score.toFixed(0)}/100 × {Math.round(driver.weight * 100)}% weight = {driver.contribution.toFixed(1)} points</p>
-                <p className={'mt-2 text-[11px] font-normal ' + t.textMuted} data-testid="market-story-updated">Updated {updated} · <span className={'font-semibold ' + getFreshnessTone(driver.freshness, theme)} data-testid="market-story-freshness">{driver.freshness}</span></p>
-            </div>
+            <p className={'mt-3 text-sm leading-5 ' + explanationTone} data-testid="market-story-relationship">{getStoryRelationshipV6(driver)}</p>
+            {freshnessWarning ? (
+                <p className={'mt-4 border-l-2 pl-2 text-xs font-semibold ' + divider + ' ' + getFreshnessTone(driver.freshness, theme)} data-testid="market-story-freshness-warning">
+                    Freshness: {driver.freshness}
+                </p>
+            ) : null}
         </article>
     );
 };
@@ -387,46 +378,6 @@ const StoryTrustItemV6 = ({ label, value, valueClass, theme }: { label: string; 
         <div className={'min-w-0 border-b p-3 last:border-b-0 sm:[&:nth-child(odd)]:border-r sm:[&:nth-last-child(-n+2)]:border-b-0 lg:border-b-0 lg:border-r lg:last:border-r-0 ' + t.divider + ' ' + t.cell}>
             <dt className={'text-[11px] font-semibold uppercase tracking-[0.08em] ' + t.textMuted}>{label}</dt>
             <dd className={'mt-1 break-words text-sm font-bold ' + (valueClass ?? t.textPrimary)}>{value}</dd>
-        </div>
-    );
-};
-
-const QuickReadContentV6 = ({ signal, posture, quality, delta, drivers, scoreClass, theme }: {
-    signal: MarketSignal;
-    posture: ReturnType<typeof getDecisionPostureV6>;
-    quality: MarketSignal['metadata']['signal_quality'];
-    delta: number | null | undefined;
-    drivers: DriverV6[];
-    scoreClass: string;
-    theme: ResearchThemeV6;
-}) => {
-    const t = getThemeV6(theme);
-    const primaryDriver = drivers[0];
-    const scoreChange = typeof delta === 'number' ? formatSignedV6(delta) + ' pts since the prior snapshot' : 'No prior comparison';
-    const scoreDetail = primaryDriver
-        ? scoreChange + '. Largest influence: ' + primaryDriver.name + ' at ' + formatSignedV6(primaryDriver.contribution, 1) + ' weighted points.'
-        : scoreChange + '. Weighted driver detail is unavailable.';
-    return (
-        <>
-            <p className={'text-xs font-semibold uppercase tracking-[0.12em] ' + t.textMuted}>Quick read</p>
-            <div className="mt-4 space-y-4">
-                <QuickReadItemV6 label="Market view" value={posture.headline} detail={signal.mode === 'contrarian' ? 'Contrarian interpretation' : 'Standard interpretation'} theme={theme} />
-                <QuickReadItemV6 label="Evidence agreement" value={Math.round(signal.confidence.agreement_pct) + '%'} detail={signal.confidence.level + ' agreement, not forecast probability'} theme={theme} />
-                <QuickReadItemV6 label="Data freshness" value={capitalize(quality?.freshness ?? 'unavailable')} detail={getActiveSourceSummary(signal)} valueClass={getFreshnessTone(capitalize(quality?.freshness ?? 'stale'), theme)} theme={theme} />
-                <QuickReadItemV6 label="Composite score" value={Math.round(signal.composite_score) + ' / 100'} detail={scoreDetail} valueClass={scoreClass} theme={theme} />
-            </div>
-            <p className={'mt-5 border-t pt-4 text-xs leading-5 ' + t.divider + ' ' + t.textMuted}>Snapshot {formatCompactDateV6(signal.metadata.score_delta?.snapshot_date)}. Decision support only.</p>
-        </>
-    );
-};
-
-const QuickReadItemV6 = ({ label, value, detail, valueClass, theme }: { label: string; value: string; detail: string; valueClass?: string; theme: ResearchThemeV6 }) => {
-    const t = getThemeV6(theme);
-    return (
-        <div className={'border-b pb-4 last:border-0 last:pb-0 ' + t.divider}>
-            <p className={'text-[13px] font-semibold ' + t.textMuted}>{label}</p>
-            <p className={'mt-1 text-base font-bold ' + (valueClass ?? t.textPrimary)}>{value}</p>
-            <p className={'mt-1 text-[13px] leading-5 ' + t.textSecondary}>{detail}</p>
         </div>
     );
 };

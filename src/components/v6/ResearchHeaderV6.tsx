@@ -10,7 +10,6 @@ export type ResearchActionFilterV6 = 'ALL' | ResearchActionV6;
 
 type ResearchHeaderV6Props = {
     theme: ResearchThemeV6;
-    active?: 'research' | 'analytics';
     query: string;
     market: ResearchMarketFilterV6;
     action: ResearchActionFilterV6;
@@ -34,7 +33,6 @@ const actionOptions: Array<{ value: ResearchActionFilterV6; label: string }> = [
 
 export const ResearchHeaderV6 = ({
     theme,
-    active = 'research',
     query,
     market,
     action,
@@ -76,7 +74,7 @@ export const ResearchHeaderV6 = ({
     const regionSegmentClass = (active: boolean) => `min-h-8 rounded-[6px] px-3 text-sm font-semibold transition-colors active:scale-[0.98] ${focusClass} ${active ? 'bg-[var(--fill-success)] text-[var(--on-success)]' : 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--border)] hover:text-[var(--text-primary)]'}`;
 
     return (
-        <AppNavV6 active={active} theme={theme} onThemeToggle={onThemeToggle}>
+        <AppNavV6 active="research" theme={theme} onThemeToggle={onThemeToggle}>
             {showResearchControls ? <div aria-label="Research controls">
             <div className="min-[1024px]:hidden">
                 <div className="flex gap-2">

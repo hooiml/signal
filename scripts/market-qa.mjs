@@ -175,7 +175,7 @@ const buildFixtureSignal = (requestUrl) => {
     const snapshotDate = '2026-07-16T00:00:00.000Z';
     const components = {
         vix: fixtureComponent({ name: 'vix', displayName: market === 'US' ? 'VIX Index' : 'Global volatility', value: 16.2, score: 79, weight: market === 'US' ? 0.35 : 0.25, signal: 'buy', updatedAt }),
-        aaii: fixtureComponent({ name: 'aaii', displayName: 'AAII', value: 36.3, score: 54, weight: market === 'US' ? 0.2 : 0.1, signal: 'neutral', updatedAt }),
+        aaii: fixtureComponent({ name: 'aaii', displayName: 'AAII', value: 36.3, score: 54, weight: market === 'US' ? 0.2 : 0.1, signal: 'neutral', updatedAt: '2026-06-01T08:00:00.000Z' }),
     };
     if (market === 'US') {
         components.put_call = fixtureComponent({ name: 'put_call', displayName: 'Put/call ratio', value: 0.93, score: 46, weight: 0.1, signal: 'neutral', updatedAt });
@@ -196,7 +196,7 @@ const buildFixtureSignal = (requestUrl) => {
 
     const scoreDrivers = [
         { key: 'vix', name: components.vix.display_name, impact: 'positive', contribution: components.vix.score * components.vix.weight, score: components.vix.score, weight: components.vix.weight, raw_value: components.vix.value, last_updated: updatedAt, detail: 'Low volatility supports the current read.' },
-        { key: 'aaii', name: components.aaii.display_name, impact: 'negative', contribution: components.aaii.score * components.aaii.weight, score: components.aaii.score, weight: components.aaii.weight, raw_value: components.aaii.value, last_updated: updatedAt, detail: 'AAII does not fully confirm the majority read.' },
+        { key: 'aaii', name: components.aaii.display_name, impact: 'negative', contribution: components.aaii.score * components.aaii.weight, score: components.aaii.score, weight: components.aaii.weight, raw_value: components.aaii.value, last_updated: components.aaii.last_updated, detail: 'AAII does not fully confirm the majority read.' },
     ];
     if (enableSocial) {
         scoreDrivers.push({ key: sourceKey, name: sourceLabel, impact: market === 'US' ? 'negative' : 'positive', contribution: components[sourceKey].score * components[sourceKey].weight, score: components[sourceKey].score, weight: components[sourceKey].weight, raw_value: components[sourceKey].value, last_updated: updatedAt, detail: 'Sentiment is a secondary market input.' });
@@ -238,7 +238,7 @@ const buildFixtureSignal = (requestUrl) => {
             data_freshness: Object.fromEntries(Object.keys(components).map((key) => [key, updatedAt])),
             weight_distribution: Object.fromEntries(Object.entries(components).map(([key, component]) => [key, component.weight])),
             coverage_adjustment: { active_weight: activeWeight, missing_weight: missingWeight, neutral_baseline: 50, active_points: activePoints, neutral_points: neutralPoints },
-            signal_quality: { freshness: 'fresh', source_coverage: 'strong', noise_level: 'moderate', market_regime: 'constructive', warnings: [] },
+            signal_quality: { freshness: 'mixed', source_coverage: 'strong', noise_level: 'moderate', market_regime: 'constructive', warnings: ['AAII data is stale.'] },
             score_drivers: scoreDrivers,
             index_trend: [
                 { symbol: market === 'US' ? 'SPY' : 'FBMKLCI', price: 100, changePercent: 1.2, trend: 'positive' },
@@ -345,10 +345,6 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
         index === elements.length - 1
         || Boolean(element.compareDocumentPosition(elements[index + 1]) & Node.DOCUMENT_POSITION_FOLLOWING)
     ));
-    const visibleQuickReads = [...document.querySelectorAll('[aria-label="Quick read"]')].filter((element) => {
-        const style = getComputedStyle(element);
-        return style.display !== 'none' && style.visibility !== 'hidden' && element.getBoundingClientRect().height > 0;
-    });
     const scoreSection = document.querySelector('section[aria-labelledby="score-evidence-title"]');
     const valuation = document.querySelector('[data-testid="valuation-backdrop"]');
     const marketContext = document.querySelector('[data-testid="market-context"]');
@@ -359,24 +355,23 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
     const storyTrust = document.querySelector('[data-testid="market-story-trust"]');
     const storyEvidence = document.querySelector('[data-testid="market-story-evidence"]');
     const storyCards = storyEvidence ? [...storyEvidence.querySelectorAll('article')] : [];
-    const storyFooters = storyEvidence ? [...storyEvidence.querySelectorAll('[data-testid="market-story-card-footer"]')] : [];
-    const contributionLabels = storyEvidence ? [...storyEvidence.querySelectorAll('[data-testid="market-story-contribution-label"]')] : [];
     const contributionFormulas = storyEvidence ? [...storyEvidence.querySelectorAll('[data-testid="market-story-contribution-formula"]')] : [];
     const relationships = storyEvidence ? [...storyEvidence.querySelectorAll('[data-testid="market-story-relationship"]')] : [];
-    const updatedLabels = storyEvidence ? [...storyEvidence.querySelectorAll('[data-testid="market-story-updated"]')] : [];
-    const freshnessLabels = storyEvidence ? [...storyEvidence.querySelectorAll('[data-testid="market-story-freshness"]')] : [];
+    const freshnessWarnings = storyEvidence ? [...storyEvidence.querySelectorAll('[data-testid="market-story-freshness-warning"]')] : [];
     const primarySurfaces = [...document.querySelectorAll('[data-surface-tier="primary"]')];
     const secondarySurfaces = [...document.querySelectorAll('[data-surface-tier="secondary"]')];
     const utilitySurfaces = [...document.querySelectorAll('[data-surface-tier="utility"]')];
     const actionSurfaces = [...document.querySelectorAll('[data-surface-tier="action"]')];
     const changeSummaryLabels = [...document.querySelectorAll('[data-testid="change-summary-label"]')];
     const changeSummaryValues = [...document.querySelectorAll('[data-testid="change-summary-value"]')];
+    const supportingSection = document.querySelector('[aria-label="Forward scenarios and market developments"]');
+    const termsSection = document.querySelector('section[aria-labelledby="terms-title"]');
+    const commandText = document.querySelector('[aria-label="Market briefing controls"]')?.textContent || '';
     const evidenceBounds = storyEvidence?.getBoundingClientRect();
-    const footerTops = storyFooters.map((footer) => footer.getBoundingClientRect().top);
     return {
         orderIsCorrect,
-        scoreBridgeConnected: visibleQuickReads.some((element) => element.textContent?.includes('Largest influence:'))
-            || Boolean(storyTrust?.textContent?.includes('Composite score') && storyEvidence?.textContent?.includes('Score contribution')),
+        scoreBridgeConnected: Boolean(storyTrust?.textContent?.includes('Composite score') && storyEvidence?.textContent?.includes('Strongest influence')),
+        quickReadAbsent: !document.body.textContent?.includes('Quick read'),
         scoreSectionVisible: Boolean(scoreSection && scoreSection.getBoundingClientRect().height > 0),
         driverHeadingVisible: Boolean(document.getElementById('drivers-title')?.getBoundingClientRect().height),
         oldDisclosureAbsent: !document.body.textContent?.includes('Explore charts and weighted evidence'),
@@ -395,31 +390,22 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
             const bounds = card.getBoundingClientRect();
             return bounds.left >= evidenceBounds.left - 1 && bounds.right <= evidenceBounds.right + 1 && bounds.width > 0 && bounds.height > 0;
         })),
-        storyFootersAligned: window.innerWidth < 1024 || (footerTops.length === 3 && Math.max(...footerTops) - Math.min(...footerTops) <= 1),
-        storyContributionPresentation: contributionLabels.length === 3
-            && contributionFormulas.length === 3
-            && contributionLabels.every((label) => getComputedStyle(label).fontStyle === 'italic')
-            && contributionFormulas.every((formula) => getComputedStyle(formula).fontSize === '12px'
-                && getComputedStyle(formula).fontWeight === '400'
-                && !formula.parentElement?.classList.contains('border')),
-        storyMetadataSeparated: storyFooters.length === 3
-            && storyFooters.every((footer) => getComputedStyle(footer).borderTopStyle === 'solid'
-                && Number.parseFloat(getComputedStyle(footer).borderTopWidth) === 1
-                && Number.parseFloat(getComputedStyle(footer).paddingTop) === 12)
-            && relationships.every((relationship) => Number.parseFloat(getComputedStyle(relationship).marginBottom) === 16),
+        storyAuditMathAbsent: contributionFormulas.length === 0 && !storyEvidence?.textContent?.includes('configured weight'),
+        storyCardsFlattened: storyCards.length === 3 && storyCards.every((card) => Number.parseFloat(getComputedStyle(card).borderRadius) === 0),
         storyTextHierarchy: storyCards.length === 3
             && relationships.length === 3
-            && updatedLabels.length === 3
-            && freshnessLabels.length === 3
+            && freshnessWarnings.length === 1
+            && freshnessWarnings[0]?.textContent?.includes('Freshness: Stale')
             && storyCards.every((card, index) => {
                 const primaryColor = getComputedStyle(card.querySelector('h2')).color;
-                return getComputedStyle(relationships[index]).color !== primaryColor
-                    && getComputedStyle(contributionFormulas[index]).color !== primaryColor
-                    && getComputedStyle(updatedLabels[index]).color !== primaryColor
-                    && getComputedStyle(updatedLabels[index]).color !== getComputedStyle(freshnessLabels[index]).color;
+                return getComputedStyle(relationships[index]).color !== primaryColor;
             }),
+        supportingSectionsFlattened: Boolean(supportingSection && termsSection)
+            && Number.parseFloat(getComputedStyle(supportingSection).borderRadius) === 0
+            && Number.parseFloat(getComputedStyle(termsSection).borderRadius) === 0,
+        commandText,
         pageSurfaceHierarchy: primarySurfaces.length === 2
-            && secondarySurfaces.length >= 5
+            && secondarySurfaces.length >= 4
             && utilitySurfaces.length >= 5
             && actionSurfaces.length === 1
             && getComputedStyle(primarySurfaces[0]).backgroundColor !== getComputedStyle(secondarySurfaces[0]).backgroundColor
@@ -490,9 +476,14 @@ const main = async () => {
         context.setDefaultTimeout(timeoutMs);
         const page = await context.newPage();
         const signalRequests = [];
+        let signalResponseMode = 'success';
 
         if (!useLiveData) {
             await page.route('**/api/signals/v2?**', async (route) => {
+                if (signalResponseMode === 'failure') {
+                    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: false, error: 'Deterministic refresh failure.' }) });
+                    return;
+                }
                 const signal = buildFixtureSignal(route.request().url());
                 await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: signal }) });
             });
@@ -552,14 +543,15 @@ const main = async () => {
                     runCheck(scenario.checks, 'score evidence visible', details.scoreSectionVisible && details.driverHeadingVisible && details.oldDisclosureAbsent, JSON.stringify(details));
                     runCheck(scenario.checks, 'coverage adjustment explains neutral reserve', details.coverageText.includes('95% configured weight') && details.coverageText.includes('neutral reserve (5% × 50)') && details.coverageText.includes('not redistributed'), details.coverageText);
                     runCheck(scenario.checks, 'driver weights are visible', details.driverTableText.includes('35% configured weight') && details.driverTableText.includes('20% configured weight') && details.driverTableText.includes('10% configured weight'), details.driverTableText);
-                    runCheck(scenario.checks, 'market story exposes trust context', details.storyTrustText.includes('Composite score') && details.storyTrustText.includes('Indicator agreement') && details.storyTrustText.includes('Data freshness') && details.storyTrustText.includes('Snapshot'), details.storyTrustText);
-                    runCheck(scenario.checks, 'market story shows readings and contribution math', details.storyEvidenceText.includes('16.20') && details.storyEvidenceText.includes('36.3% bullish') && details.storyEvidenceText.includes('0.00 sentiment') && details.storyEvidenceText.includes('79/100 × 35% weight = 27.6 points'), details.storyEvidenceText);
+                    runCheck(scenario.checks, 'desktop Quick Read duplication is removed', details.quickReadAbsent, JSON.stringify(details));
+                    runCheck(scenario.checks, 'market story exposes trust context', details.storyTrustText.includes('Composite score') && details.storyTrustText.includes('Indicator agreement') && details.storyTrustText.includes('Data freshness') && details.storyTrustText.includes('Briefing as of'), details.storyTrustText);
+                    runCheck(scenario.checks, 'market story keeps readings without audit math', details.storyEvidenceText.includes('16.20') && details.storyEvidenceText.includes('36.3% bullish') && details.storyEvidenceText.includes('0.00 sentiment') && details.storyAuditMathAbsent, details.storyEvidenceText);
                     runCheck(scenario.checks, 'market story uses ranked evidence roles', details.storyEvidenceText.includes('Strongest influence') && details.storyEvidenceText.includes('Conflicting signal') && !details.storyEvidenceText.includes('Evidence chapter'), details.storyEvidenceText);
                     runCheck(scenario.checks, 'market story cards fit their container', details.storyCardsContained && details.storyTrustOverflow <= 1 && details.storyEvidenceOverflow <= 1, JSON.stringify({ storyCardsContained: details.storyCardsContained, storyTrustOverflow: details.storyTrustOverflow, storyEvidenceOverflow: details.storyEvidenceOverflow }));
-                    runCheck(scenario.checks, 'market story card footers align', details.storyFootersAligned, JSON.stringify({ storyFootersAligned: details.storyFootersAligned }));
-                    runCheck(scenario.checks, 'market story contribution uses compact unboxed treatment', details.storyContributionPresentation, JSON.stringify({ storyContributionPresentation: details.storyContributionPresentation }));
-                    runCheck(scenario.checks, 'market story metadata is visibly separated', details.storyMetadataSeparated, JSON.stringify({ storyMetadataSeparated: details.storyMetadataSeparated }));
-                    runCheck(scenario.checks, 'market story separates primary, secondary, and semantic text', details.storyTextHierarchy, JSON.stringify({ storyTextHierarchy: details.storyTextHierarchy }));
+                    runCheck(scenario.checks, 'market story uses divider-led driver groups', details.storyCardsFlattened, JSON.stringify({ storyCardsFlattened: details.storyCardsFlattened }));
+                    runCheck(scenario.checks, 'market story freshness warning is visible text', details.storyTextHierarchy, JSON.stringify({ storyTextHierarchy: details.storyTextHierarchy }));
+                    runCheck(scenario.checks, 'lower-priority supporting sections are unboxed', details.supportingSectionsFlattened, JSON.stringify({ supportingSectionsFlattened: details.supportingSectionsFlattened }));
+                    runCheck(scenario.checks, 'briefing header separates briefing date and availability', details.commandText.includes('Briefing as of') && details.commandText.includes('Briefing available'), details.commandText);
                     runCheck(scenario.checks, 'main page uses distinct primary, secondary, utility, and action surfaces', details.pageSurfaceHierarchy, JSON.stringify({ counts: details.pageSurfaceCounts, styles: details.pageSurfaceStyles }));
                     runCheck(scenario.checks, 'what changed summary labels and values align', details.changeSummaryAligned, JSON.stringify({ changeSummaryAligned: details.changeSummaryAligned }));
                     runCheck(scenario.checks, 'document has no horizontal overflow', details.documentOverflow <= 1, `${details.documentOverflow}px overflow`);
@@ -721,6 +713,17 @@ const main = async () => {
                     runCheck(scenario.checks, 'Discovery saved view restores filters', await page.getByLabel('Filter by risk').inputValue() === 'low', await page.getByLabel('Filter by risk').inputValue());
                     await page.getByRole('button', { name: 'Delete saved view Low risk' }).click();
                     runCheck(scenario.checks, 'Discovery saved view can be removed', await page.getByLabel('Apply saved Discovery view').locator('option', { hasText: 'Low risk' }).count() === 0, 'Low risk option should be absent');
+                    await page.evaluate(() => {
+                        const nextUrl = new URL(window.location.href);
+                        nextUrl.searchParams.set('qa', 'preserve');
+                        window.history.replaceState({ ...window.history.state, as: nextUrl.pathname + nextUrl.search, url: nextUrl.pathname + nextUrl.search }, '', nextUrl.pathname + nextUrl.search);
+                    });
+                    await page.getByRole('tab', { name: 'Watchlist', exact: true }).click();
+                    await page.waitForURL(/workspace=research/, { timeout: timeoutMs });
+                    const watchlistUrl = new URL(page.url());
+                    runCheck(scenario.checks, 'workspace navigation preserves query context', watchlistUrl.searchParams.get('workspace') === 'research' && watchlistUrl.searchParams.get('qa') === 'preserve', watchlistUrl.toString());
+                    await page.getByRole('tab', { name: 'Discovery', exact: true }).click();
+                    await page.waitForURL(/workspace=discovery/, { timeout: timeoutMs });
                     const discoveryOverflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0) - window.innerWidth);
                     runCheck(scenario.checks, 'Discovery change feed and saved views have no horizontal overflow', discoveryOverflow <= 1, `${discoveryOverflow}px overflow`);
                     scenario.status = 'passed';
@@ -771,12 +774,19 @@ const main = async () => {
                 await sourceGroup.locator('label').click();
                 await waitForRecordedSignal(`enableSocial=${!before}`, requestIndex);
                 await page.waitForFunction(() => !document.querySelector('section[aria-labelledby="drivers-title"]')?.textContent?.includes('News Sentiment'), undefined, { timeout: timeoutMs });
-                const quickReadText = await page.locator('[aria-label="Quick read"]:visible').textContent();
                 runCheck(scenario.checks, 'source toggle changes request state', await sourceCheckbox.isChecked() === !before, `${before} -> ${await sourceCheckbox.isChecked()}`);
                 runCheck(scenario.checks, 'disabled source is absent from score drivers', !await page.locator('section[aria-labelledby="drivers-title"]').textContent().then((text) => text?.includes('News Sentiment')), 'News Sentiment should be excluded when its source is off');
                 const coverageText = await page.locator('[data-testid="coverage-adjustment"]').textContent();
                 runCheck(scenario.checks, 'disabled source becomes neutral reserve instead of reweighting', Boolean(coverageText?.includes('35% configured weight') && coverageText.includes('neutral reserve (65% × 50)') && coverageText.includes('not redistributed')), coverageText || 'coverage explanation is missing');
-                runCheck(scenario.checks, 'score bridge remains connected after controls', quickReadText.includes('Largest influence:'), shorten(quickReadText));
+                const scoreBridgeText = `${await page.locator('[data-testid="market-story-trust"]').textContent()} ${await page.locator('section[aria-labelledby="drivers-title"]').textContent()}`;
+                runCheck(scenario.checks, 'score bridge remains connected after controls', scoreBridgeText.includes('Composite score') && scoreBridgeText.includes('configured weight'), shorten(scoreBridgeText));
+
+                signalResponseMode = 'failure';
+                await page.getByRole('button', { name: /Refresh market briefing/ }).click();
+                await page.waitForFunction(() => document.querySelector('[aria-label="Market briefing controls"]')?.textContent?.includes('Refresh failed'), undefined, { timeout: timeoutMs });
+                const failedStatusText = await page.locator('[aria-label="Market briefing controls"]').textContent();
+                runCheck(scenario.checks, 'failed refresh retains the previous briefing', Boolean(failedStatusText?.includes('Refresh failed') && failedStatusText.includes('Previous briefing retained') && failedStatusText.includes('Attempted') && await page.locator('#market-story-title').isVisible()), shorten(failedStatusText));
+                signalResponseMode = 'success';
                 scenario.status = 'passed';
             } catch (error) {
                 scenario.error = shorten(error instanceof Error ? error.message : error);

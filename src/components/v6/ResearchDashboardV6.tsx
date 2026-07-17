@@ -71,6 +71,14 @@ export const ResearchDashboardV6 = () => {
         if (isResearchWorkspaceV6(requestedWorkspace)) setWorkspace(requestedWorkspace);
     }, [requestedWorkspace]);
 
+    const changeWorkspace = (nextWorkspace: ResearchWorkspaceV6) => {
+        setWorkspace(nextWorkspace);
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set('workspace', nextWorkspace);
+        const nextPath = nextUrl.pathname + nextUrl.search + nextUrl.hash;
+        window.history.replaceState({ ...window.history.state, as: nextPath, url: nextPath }, '', nextPath);
+    };
+
     const filteredItems = useMemo(() => {
         const normalizedQuery = query.trim().toLowerCase();
         return items.filter((item) => {
@@ -299,7 +307,6 @@ export const ResearchDashboardV6 = () => {
             <div className={'pointer-events-none absolute inset-0 bg-[size:44px_44px] transition-opacity duration-300 ' + grid} />
             <ResearchHeaderV6
                 theme={theme}
-                active={workspace === 'discovery' ? 'analytics' : 'research'}
                 query={query}
                 market={market}
                 action={action}
@@ -312,7 +319,7 @@ export const ResearchDashboardV6 = () => {
                 onThemeToggle={toggleTheme}
             />
             <div className="relative z-10 mx-auto w-full max-w-[1280px] px-4 pb-5 pt-4 min-[700px]:px-5">
-                <ResearchWorkspaceTabsV6 active={workspace} theme={theme} onChange={setWorkspace} />
+                <ResearchWorkspaceTabsV6 active={workspace} theme={theme} onChange={changeWorkspace} />
                 {marketHandoff ? <ResearchMarketContextV6 handoff={marketHandoff} items={items} theme={theme} onOpen={openResearch} /> : null}
                 {workspace === 'research' ? <>
                     <h1 className="sr-only">Research workspace</h1>

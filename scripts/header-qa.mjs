@@ -99,6 +99,7 @@ const inspectHeader = async (page, routePath, viewport) => page.evaluate(({ rout
     const navLinks = nav
         ? [...nav.querySelectorAll('a')].map((link) => ({
             label: link.textContent?.trim() || '',
+            ariaCurrent: link.getAttribute('aria-current'),
             rect: rect(link),
             clientWidth: link.clientWidth,
             scrollWidth: link.scrollWidth,
@@ -206,12 +207,12 @@ const main = async () => {
 
                     const header = page.locator('header[aria-label="Signal application header"]');
                     await header.waitFor({ state: 'visible', timeout: timeoutMs });
-                    await page.locator('nav[aria-label="Primary"] a').nth(2).waitFor({ state: 'visible', timeout: timeoutMs });
+                    await page.locator('nav[aria-label="Primary"] a').nth(1).waitFor({ state: 'visible', timeout: timeoutMs });
                     const details = await inspectHeader(page, routePath, viewport);
                     const expectedSurface = routePath.startsWith('/research') ? 'research' : 'market';
                     const linkLabels = details.navLinks.map((link) => link.label);
                     const navBounds = details.nav;
-                    const linksVisible = Boolean(navBounds) && details.navLinks.length === 3 && details.navLinks.every((link) => (
+                    const linksVisible = Boolean(navBounds) && details.navLinks.length === 2 && details.navLinks.every((link) => (
                         Boolean(link.rect)
                         && link.rect.width > 0
                         && link.rect.left >= navBounds.left - 1
@@ -227,7 +228,9 @@ const main = async () => {
                     runCheck(scenario.checks, 'shared header visible', Boolean(details.header), 'header[aria-label="Signal application header"] is visible');
                     runCheck(scenario.checks, 'header content width', innerWidthDelta <= 2, `inner width ${details.inner?.width ?? 'missing'}; expected ${details.expectedInnerWidth}`);
                     runCheck(scenario.checks, 'bottom hairline', details.borderBottomStyle === 'solid' && details.borderBottomWidth > 0 && details.borderBottomWidth <= 1, `${details.borderBottomStyle} ${details.borderBottomWidth}px`);
-                    runCheck(scenario.checks, 'primary navigation labels', linkLabels.join('|') === 'Market|Research|Analytics', linkLabels.join('|') || 'no links');
+                    runCheck(scenario.checks, 'primary navigation labels', linkLabels.join('|') === 'Market|Research', linkLabels.join('|') || 'no links');
+                    const selectedLabel = details.navLinks.find((link) => link.ariaCurrent === 'page')?.label;
+                    runCheck(scenario.checks, 'primary navigation selected state', selectedLabel === (expectedSurface === 'market' ? 'Market' : 'Research'), selectedLabel || 'no selected link');
                     runCheck(scenario.checks, 'primary navigation fully visible', linksVisible, `nav ${navBounds ? `${navBounds.width}px` : 'missing'}`);
                     runCheck(scenario.checks, 'document has no horizontal overflow', documentOverflow <= 1, `${details.documentWidth}px document width on ${details.viewportWidth}px viewport`);
                     runCheck(scenario.checks, 'theme toggle dimensions', toggleSize, details.toggle ? `${details.toggle.width}x${details.toggle.height}` : 'toggle missing');

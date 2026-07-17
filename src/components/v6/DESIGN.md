@@ -39,7 +39,7 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 ## 3. Layout
 
 - Market and Research share a 1280px maximum workspace shell with 16px mobile and 20px desktop gutters so route changes preserve the same outer alignment.
-- Market and Research share the Signal app header: transparent canvas, a single 0.5px bottom hairline, compact SIGNAL wordmark, primary nav, theme toggle, and route-owned controls in one horizontal command row. Header-only CSS variables map to the V6 border, selection, text, and radius tokens.
+- Market and Research share the Signal app header: transparent canvas, a single 0.5px bottom hairline, compact SIGNAL wordmark, a two-item `Market | Research` primary nav, theme toggle, and route-owned controls in one horizontal command row. Header-only CSS variables map to the V6 border, selection, text, and radius tokens.
 - The shared header theme control is an icon-only sliding toggle: a compact bordered track with one thumb that moves between Light and Dark, while its accessible label states the destination mode.
 - Desktop uses a fixed 220px watchlist rail and flexible research document.
 - The watchlist rail and research detail share one themed workspace shell with 12-16px internal padding.
@@ -74,14 +74,14 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 - Discovery filters form one compact control band above the evidence table. Sector, risk, trend stage, and valuation selections update the current scan without changing original ranks; active filters expose a match count and Reset command.
 - Discovery ownership stays inside the category-and-evidence cell as a compact disclosure. It shows the raw disclosed increase/decrease balance plus up to five dated institutional increases, keeps unavailable coverage explicit on mobile and desktop, and must not alter ranking scores or claim that a disclosed position represents current buying or caused a price move.
 - Theme preference uses the same local-storage key as Research V2.
-- Market V6 reuses the V2 command header and places four scan targets below the decision posture: score, regime, alignment, and combined data quality.
+- Market V6 reuses the V2 command header and places four scan targets below the decision posture: score, regime, alignment, and combined data quality. Header status describes the briefing state (`Loading briefing`, `Updating`, `Briefing available`, `Refresh failed`, or `Briefing unavailable`) rather than implying whole-system health. The briefing date remains separate from request-attempt and successful-retrieval timestamps.
 - Market evidence is sorted by absolute contribution. Conflicting indicators are flagged inline instead of repeated in a separate panel.
 - US market briefings may show a Buffett Indicator valuation backdrop after What changed. It is collapsed by default as a native disclosure row, labeled as non-scored context, includes its report date and FRED source links when expanded, and never changes the composite score.
 - US market briefings may show a collapsed, non-scored Macro and breadth context disclosure with the 10Y–3M spread, Chicago Fed NFCI, and equal-weight versus cap-weight one-year returns. Malaysia briefings use the same progressive-disclosure pattern for a BNM-native rate panel with MGS 3Y/10Y, OPR, MYOR, and short-term bill context. These cards never change the composite score and must name their update date and source links when expanded.
 - Market change attribution compares each driver with the prior daily snapshot and surfaces the three largest contribution shifts beneath What changed.
 - Market alerts persist browser-local score, agreement, tier, freshness, and daily-move conditions scoped to the active market, interpretation mode, and social-source setting. They are evaluated on briefing refresh and must not imply background push delivery.
 - The market command header exposes one manual briefing refresh command, reports the last successful check time, disables duplicate refreshes while a request is active, and prevents stale responses from replacing a newer market configuration.
-- The Quick Read composite score names its largest weighted influence. A visible Why this score section follows What changed and keeps score history beside contribution-ranked weighted evidence.
+- The story trust strip is the single compact orientation summary. A visible Why this score section follows What changed and keeps score history beside contribution-ranked weighted evidence.
 - Score history is the dominant chart. Forward scenarios follow scored evidence, while valuation, macro/breadth, articles, alerts, glossary, trust, and methodology remain explicitly separated according to whether they affect the score.
 - Detailed trust, limitations, and methodology live in disclosure panels below the primary briefing.
 
@@ -110,10 +110,11 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 
 ## 7. Story First Market Briefing
 
-- The market screen opens as a short daily briefing rather than a scorecard. Its fixed reading order is: story headline, three evidence chapters, quick read, what changed, Why this score, forward scenarios, non-scored market context, alerts, then terms, trust, and methodology.
+- The market screen opens as a short daily briefing rather than a scorecard. Its fixed reading order is: story headline and trust strip, three evidence chapters, what changed, Why this score, forward scenarios, non-scored market context, alerts, then terms, trust, and methodology.
 - The headline translates the current tier into plain market language. It must retain the existing deterministic posture summary and surface the primary caveat beside it.
 - Chapters are generated from the strongest contribution-ranked drivers. Every chapter shows its source name, directional relationship to the majority view, freshness, and a short explanation; conflicting evidence remains visually explicit.
-- The Quick Read rail keeps agreement, source coverage, freshness, score, and snapshot time visible without presenting agreement as forecast probability.
+- The story trust strip keeps agreement, overall freshness, score, and briefing date visible without presenting agreement as forecast probability. The desktop-only Quick Read rail is intentionally removed because it repeated the same orientation facts.
 - Detailed score history and weighted contributions remain visible as primary evidence below the narrative layer. Progressive disclosure is reserved for non-scored context, limitations, and methodology.
-- On narrow screens the reading order becomes headline, Quick Read, chapters, change comparison, Why this score, scenarios, context, alerts, terms, and details. No narrative panel may require horizontal scrolling.
+- On narrow screens the reading order remains headline and trust strip, chapters, change comparison, Why this score, scenarios, context, alerts, terms, and details. No narrative panel may require horizontal scrolling.
+- Research uses `Watchlist | Discovery | Compare | Calendar | Alerts` as display labels while retaining the existing internal `research`, `discovery`, `compare`, `calendar`, and `alerts` workspace identifiers. Workspace changes update the query string without discarding unrelated deep-link context.
 - Story First uses existing V6 theme tokens and small-radius bordered surfaces. Numbered chapter markers and connecting rules create the narrative sequence; decorative illustrations, financial-terminal density, and new color tokens are not introduced.

@@ -5,7 +5,7 @@ import { useSignalConfig } from '@/hooks/use-signal-config';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import { AppNavV6 } from './AppNavV6';
 import { MarketBriefingV6 } from './MarketBriefingV6';
-import { MarketCommandBarV6 } from './MarketCommandBarV6';
+import { MarketCommandBarV6, type BriefingStatus } from './MarketCommandBarV6';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import { useThemeV6 } from './ThemeProviderV6';
 
@@ -15,7 +15,8 @@ export const MarketDashboardV6 = () => {
     const [signalEnableSocial, setSignalEnableSocial] = useState(true);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
+    const [lastAttemptedAt, setLastAttemptedAt] = useState<Date | null>(null);
+    const [lastSuccessfulAt, setLastSuccessfulAt] = useState<Date | null>(null);
     const requestSequence = useRef(0);
     const activeRequest = useRef<AbortController | null>(null);
     const { theme, toggleTheme } = useThemeV6();
@@ -43,12 +44,13 @@ export const MarketDashboardV6 = () => {
             if (requestId !== requestSequence.current) return;
             setSignal(body.data);
             setSignalEnableSocial(config.enableSocial);
-            setLastCheckedAt(new Date());
+            setLastSuccessfulAt(new Date());
         } catch (requestError) {
             if (controller.signal.aborted || requestId !== requestSequence.current) return;
             setError(requestError instanceof Error ? requestError.message : 'Connection error. Please try again.');
         } finally {
             if (requestId === requestSequence.current) {
+                setLastAttemptedAt(new Date());
                 setLoading(false);
                 activeRequest.current = null;
             }
@@ -71,6 +73,15 @@ export const MarketDashboardV6 = () => {
         ? 'bg-[linear-gradient(rgba(16,185,129,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.06)_1px,transparent_1px)] opacity-45'
         : 'bg-[linear-gradient(rgba(16,185,129,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.035)_1px,transparent_1px)] opacity-55';
     const updating = loading && signal !== null;
+    const briefingStatus: BriefingStatus = !signal && loading
+        ? 'loading'
+        : signal && loading
+            ? 'updating'
+            : signal && error
+                ? 'refresh-failed'
+                : signal
+                    ? 'available'
+                    : 'unavailable';
 
     return (
         <main className={'relative min-h-[100dvh] overflow-x-hidden transition-colors duration-300 ' + themeClasses.page}>
@@ -86,8 +97,9 @@ export const MarketDashboardV6 = () => {
                         onModeChange={(mode) => updateConfig({ mode })}
                         onSocialToggle={(enableSocial) => updateConfig({ enableSocial })}
                         isLoaded={isLoaded}
-                        isUpdating={loading}
-                        lastCheckedAt={lastCheckedAt}
+                        status={briefingStatus}
+                        lastAttemptedAt={lastAttemptedAt}
+                        lastSuccessfulAt={lastSuccessfulAt}
                         onRefresh={() => void fetchSignal()}
                         snapshotDate={signal?.metadata.score_delta?.snapshot_date ?? null}
                         sourceToggleImpact={signal?.metadata.counterfactuals?.source_toggle}

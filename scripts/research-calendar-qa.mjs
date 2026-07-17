@@ -172,7 +172,7 @@ try {
             const documentWidth = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth));
             check(documentWidth <= width + 1, `${width}: document horizontally overflows (${documentWidth}px)`);
 
-            await page.getByRole('tab', { name: 'Research', exact: true }).click();
+            await page.getByRole('tab', { name: 'Watchlist', exact: true }).click();
             await page.getByRole('searchbox').fill('NVDA');
             await page.getByRole('tab', { name: 'Calendar', exact: true }).click();
             await page.waitForFunction(() => document.querySelectorAll('[data-calendar-event]').length === 3, undefined, { timeout });
@@ -186,7 +186,7 @@ try {
             await page.waitForFunction(() => document.querySelectorAll('[data-calendar-event]').length === 3, undefined, { timeout });
             await page.getByRole('button', { name: /Open MSFT earnings/i }).click();
             await page.waitForURL(/ticker=MSFT.*tab=events/, { timeout });
-            check(await page.getByRole('tab', { name: 'Research', exact: true }).getAttribute('aria-selected') === 'true', `${width}: event did not return to Research workspace`);
+            check(await page.getByRole('tab', { name: 'Watchlist', exact: true }).getAttribute('aria-selected') === 'true', `${width}: event did not return to Watchlist workspace`);
             await page.getByRole('tab', { name: 'Events', exact: true }).waitFor({ state: 'visible', timeout });
             check(await page.getByRole('tab', { name: 'Events', exact: true }).getAttribute('aria-selected') === 'true', `${width}: earnings destination did not open Events`);
             check(researchMutations.length === 0, `${width}: opening calendar events mutated research state (${researchMutations.join(', ')})`);
