@@ -115,11 +115,11 @@ Changing market, mode, or source inclusion refreshes the conditions view while p
    - Plain-language headline.
    - Short synthesis of supporting and conflicting evidence.
    - Composite score and current score zone.
+   - Previous score, exact snapshot date, and directional change attached to the current score.
    - Important caveat when freshness, coverage, or noise limits the result.
 
 2. **At-a-glance summary**
    - Market regime.
-   - Change from the previous snapshot.
    - Signal alignment.
    - Data quality summary.
 
@@ -134,6 +134,7 @@ Changing market, mode, or source inclusion refreshes the conditions view while p
    - Normalized score.
    - Effective weight.
    - Weighted contribution.
+   - Previous weighted contribution, exact snapshot date, and directional change shown beside the current contribution.
    - Freshness.
    - Conflict with the majority interpretation.
    - Strongest directional influence should be surfaced first.
@@ -217,6 +218,7 @@ Daily attention and portfolio guardrails remain available from the collapsed Res
 3. **Overview**
    - Why the security is interesting.
    - Bull case.
+   - An automatically prepared, source-linked assisted review that users can selectively accept and extend with their own analysis.
    - Bear case.
    - Buy and sell triggers.
    - Thesis invalidation.

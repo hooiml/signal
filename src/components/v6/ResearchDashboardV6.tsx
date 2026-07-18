@@ -388,7 +388,7 @@ export const ResearchDashboardV6 = () => {
                 {marketHandoff ? <ResearchMarketContextV6 handoff={marketHandoff} items={items} theme={theme} onOpen={openResearch} /> : null}
                 {workspace === 'research' ? <>
                     <h1 className="sr-only">Research workspace</h1>
-                    <details data-testid="research-overview" data-surface-tier="utility" className={'group mb-3 rounded-[10px] border backdrop-blur ' + themeClasses.panelUtility}>
+                    <details data-testid="research-overview" data-surface-tier="utility" className={'group mb-3 rounded-[10px] border ' + themeClasses.panelSolid}>
                         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-[10px] px-4 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 [&::-webkit-details-marker]:hidden">
                             <span>
                                 <span className={'block text-sm font-bold ' + themeClasses.textPrimary}>Research overview</span>

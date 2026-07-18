@@ -1,7 +1,6 @@
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import {
     formatRawValue,
-    getBroadMarketValidation,
     getEvidenceConcentrationDetails,
     getFreshnessTone,
     getIndicatorCadence,
@@ -11,7 +10,6 @@ import {
     getTierTone,
 } from '@/components/v2/cockpit-utils';
 import { ScoreHistoryV6 } from './ScoreHistoryV6';
-import { ChangeAttributionV6 } from './ChangeAttributionV6';
 import { MarketAlertsV6 } from './MarketAlertsV6';
 import { MarketContextV6 } from './MarketContextV6';
 import { MarketToResearchLinkV6 } from './MarketResearchHandoffV6';
@@ -35,17 +33,28 @@ type MarketBriefingV6Props = {
     refreshError: string | null;
 };
 
+type DriverChangeV6 = NonNullable<MarketSignal['metadata']['driver_changes']>[number];
+
+type SnapshotComparisonV6 = {
+    previous: string;
+    delta: number;
+    date: string;
+    digits: number;
+};
+
 export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refreshError }: MarketBriefingV6Props) => {
     const t = getThemeV6(theme);
     const tierTone = getTierTone(signal.tier, theme);
     const posture = getDecisionPostureV6(signal);
     const drivers = getRankedDriversV6(signal);
     const quality = signal.metadata.signal_quality;
-    const breadth = getBroadMarketValidation(signal);
     const concentration = getEvidenceConcentrationDetails(signal);
     const scenarios = getScenariosV6(signal);
     const limitations = getReadLimitations(signal);
     const delta = signal.metadata.score_delta?.delta;
+    const previousScore = signal.metadata.score_delta?.previous_score;
+    const previousDate = signal.metadata.score_delta?.previous_date ?? null;
+    const driverChanges = new Map((signal.metadata.driver_changes ?? []).map((change) => [change.key, change]));
     const contextItems = (signal.metadata.articles ?? []).slice(0, 3).map((article) => ({
         article,
         affected: getArticleDriverV6(article.title, signal),
@@ -54,7 +63,6 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
     const storyHeadline = getStoryHeadlineV6(signal);
     const hasLinkedContext = contextItems.some((item) => item.affected.label !== 'Context');
     const primaryPanel = 'rounded-lg border backdrop-blur-md ' + t.panelPrimary;
-    const secondaryPanel = 'rounded-lg border backdrop-blur-sm ' + t.panelSecondary;
     const valuationBackdrop = signal.metadata.valuation_backdrop;
     const marketContext = signal.metadata.market_context;
 
@@ -78,7 +86,14 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                         <p className={'mt-3 max-w-4xl text-base leading-7 sm:text-lg ' + t.textSecondary}>{posture.summary}</p>
 
                         <dl className={'mt-5 grid border-y sm:grid-cols-2 lg:grid-cols-4 ' + t.divider} data-testid="market-story-trust">
-                            <StoryTrustItemV6 label="Composite score" value={Math.round(signal.composite_score) + ' / 100'} theme={theme} />
+                            <StoryTrustItemV6
+                                label="Composite score"
+                                value={Math.round(signal.composite_score) + ' / 100'}
+                                comparison={typeof previousScore === 'number' && typeof delta === 'number' && previousDate
+                                    ? { previous: Math.round(previousScore).toString(), delta, date: previousDate, digits: 0 }
+                                    : undefined}
+                                theme={theme}
+                            />
                             <StoryTrustItemV6 label="Indicator agreement" value={Math.round(signal.confidence.agreement_pct) + '%'} theme={theme} />
                             <StoryTrustItemV6 label="Data freshness" value={capitalize(quality?.freshness ?? 'unavailable')} valueClass={getFreshnessTone(capitalize(quality?.freshness ?? 'stale'), theme)} theme={theme} />
                             <StoryTrustItemV6 label="Conditions as of" value={formatCompactDateV6(signal.metadata.score_delta?.snapshot_date)} theme={theme} />
@@ -99,32 +114,6 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                 </section>
 
             </div>
-
-            <section className={secondaryPanel + ' overflow-hidden'} aria-labelledby="changed-title" data-surface-tier="secondary">
-                <div className="grid gap-px sm:grid-cols-2 lg:grid-cols-[220px_repeat(3,minmax(0,1fr))]">
-                    <div className={'p-3.5 sm:p-4 ' + t.cell} data-testid="change-summary-cell">
-                        <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted} data-testid="change-summary-label">Since the prior snapshot</p>
-                        <h2 id="changed-title" className={'mt-2 break-words text-lg font-bold sm:text-xl ' + t.textPrimary} data-testid="change-summary-value">What changed</h2>
-                    </div>
-                    <SummaryMetricV6
-                        label="Overall score"
-                        value={typeof delta === 'number' ? formatSignedV6(delta) + ' pts' : 'No comparison'}
-                        detail={signal.metadata.score_delta?.previous_score !== null && signal.metadata.score_delta?.previous_score !== undefined
-                            ? signal.metadata.score_delta.previous_score + ' previously, now ' + Math.round(signal.composite_score)
-                            : 'A previous snapshot is not available'}
-                        valueClass={typeof delta === 'number' && delta < 0 ? t.risk : typeof delta === 'number' && delta > 0 ? t.positive : t.textPrimary}
-                        theme={theme}
-                    />
-                    <SummaryMetricV6 label="Trend" value={signal.metadata.trend_context?.score_trend ?? 'Not available'} detail={signal.metadata.trend_context?.last_signal_change ?? 'No signal change recorded'} theme={theme} />
-                    <SummaryMetricV6 label="Breadth check" value={breadth.total > 0 ? breadth.aligned + ' of ' + breadth.total + ' aligned' : 'Unavailable'} detail={breadth.summary} theme={theme} />
-                </div>
-                <ChangeAttributionV6
-                    changes={signal.metadata.driver_changes ?? []}
-                    previousDate={signal.metadata.score_delta?.previous_date ?? null}
-                    available={signal.metadata.driver_changes_available ?? false}
-                    theme={theme}
-                />
-            </section>
 
             <section className={primaryPanel + ' relative z-20 p-5 sm:p-6'} aria-labelledby="score-evidence-title" data-surface-tier="primary">
                 <div className="flex flex-wrap items-end justify-between gap-3">
@@ -148,9 +137,21 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                                 <p className={'text-xs font-semibold ' + t.textMuted}>Contribution-ranked evidence</p>
                                 <h3 id="drivers-title" className={'mt-0.5 text-lg font-bold ' + t.textPrimary}>What is driving the score</h3>
                             </div>
-                            <p className={'text-xs ' + t.textMuted}>Largest absolute movers first</p>
+                            <div className={'text-right text-xs leading-5 ' + t.textMuted}>
+                                <p>Largest absolute movers first</p>
+                                {previousDate && (signal.metadata.driver_changes_available ?? false)
+                                    ? <p data-testid="driver-comparison-date">Compared with {formatCompactDateV6(previousDate)}</p>
+                                    : null}
+                            </div>
                         </div>
-                        <DriverTableV6 drivers={drivers} signal={signal} theme={theme} />
+                        <DriverTableV6
+                            drivers={drivers}
+                            signal={signal}
+                            driverChanges={driverChanges}
+                            previousDate={previousDate}
+                            comparisonAvailable={signal.metadata.driver_changes_available ?? false}
+                            theme={theme}
+                        />
                     </section>
                 </div>
             </section>
@@ -372,12 +373,13 @@ const getStoryRelationshipV6 = (driver: DriverV6) => {
     return 'This reading provides context without a strong directional push.';
 };
 
-const StoryTrustItemV6 = ({ label, value, valueClass, theme }: { label: string; value: string; valueClass?: string; theme: ResearchThemeV6 }) => {
+const StoryTrustItemV6 = ({ label, value, valueClass, comparison, theme }: { label: string; value: string; valueClass?: string; comparison?: SnapshotComparisonV6; theme: ResearchThemeV6 }) => {
     const t = getThemeV6(theme);
     return (
         <div className={'min-w-0 border-b p-3 last:border-b-0 sm:[&:nth-child(odd)]:border-r sm:[&:nth-last-child(-n+2)]:border-b-0 lg:border-b-0 lg:border-r lg:last:border-r-0 ' + t.divider + ' ' + t.cell}>
             <dt className={'text-[11px] font-semibold uppercase tracking-[0.08em] ' + t.textMuted}>{label}</dt>
             <dd className={'mt-1 break-words text-sm font-bold ' + (valueClass ?? t.textPrimary)}>{value}</dd>
+            {comparison ? <SnapshotComparisonV6 comparison={comparison} theme={theme} testId="score-snapshot-comparison" /> : null}
         </div>
     );
 };
@@ -392,14 +394,20 @@ const GlossaryItemV6 = ({ term, definition, theme }: { term: string; definition:
     );
 };
 
-const SummaryMetricV6 = ({ label, value, detail, valueClass, theme }: { label: string; value: string; detail: string; valueClass?: string; theme: ResearchThemeV6 }) => {
+const SnapshotComparisonV6 = ({ comparison, theme, testId = 'driver-snapshot-comparison', showDate = true }: { comparison: SnapshotComparisonV6; theme: ResearchThemeV6; testId?: string; showDate?: boolean }) => {
     const t = getThemeV6(theme);
+    const date = formatCompactDateV6(comparison.date);
+    const change = comparison.delta === 0
+        ? 'No change' + (showDate ? ' vs ' + date : '')
+        : (comparison.delta > 0 ? '↑ ' : '↓ ') + formatSignedV6(comparison.delta, comparison.digits) + (showDate ? ' vs ' + date : '');
+    const tone = comparison.delta > 0 ? t.positive : comparison.delta < 0 ? t.risk : t.textMuted;
+
     return (
-        <article className={'min-w-0 p-3.5 sm:p-4 ' + t.cell} data-testid="change-summary-cell">
-            <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted} data-testid="change-summary-label">{label}</p>
-            <p className={'mt-2 break-words text-lg font-bold sm:text-xl ' + (valueClass ?? t.textPrimary)} data-testid="change-summary-value">{value}</p>
-            <p className={'mt-1 text-xs leading-5 ' + t.textSecondary}>{detail}</p>
-        </article>
+        <p className={'mt-1 text-[11px] font-semibold leading-4 tabular-nums ' + tone} data-testid={testId}>
+            <span>{comparison.previous} previous</span>
+            <span aria-hidden="true"> · </span>
+            <span>{change}</span>
+        </p>
     );
 };
 
@@ -413,7 +421,7 @@ const CompactFactV6 = ({ label, value, valueClass, theme }: { label: string; val
     );
 };
 
-const DriverTableV6 = ({ drivers, signal, theme }: { drivers: DriverV6[]; signal: MarketSignal; theme: ResearchThemeV6 }) => {
+const DriverTableV6 = ({ drivers, signal, driverChanges, previousDate, comparisonAvailable, theme }: { drivers: DriverV6[]; signal: MarketSignal; driverChanges: Map<string, DriverChangeV6>; previousDate: string | null; comparisonAvailable: boolean; theme: ResearchThemeV6 }) => {
     const t = getThemeV6(theme);
     const maxContribution = Math.max(...drivers.map((driver) => Math.abs(driver.contribution)), 1);
 
@@ -425,23 +433,34 @@ const DriverTableV6 = ({ drivers, signal, theme }: { drivers: DriverV6[]; signal
                 <table className="w-full table-fixed border-separate border-spacing-y-1 text-left text-sm">
                     <thead>
                         <tr className={'text-xs uppercase tracking-[0.08em] ' + t.textMuted}>
-                            <th className={'w-[42%] border-b pb-3 pl-3 font-semibold ' + t.divider}>Driver</th>
+                            <th className={'w-[40%] border-b pb-3 pl-3 font-semibold ' + t.divider}>Driver</th>
                             <th className={'w-[20%] border-b pb-3 font-semibold ' + t.divider}>Reading</th>
-                            <th className={'w-[18%] border-b pb-3 text-right font-semibold ' + t.divider}>Weighted points</th>
+                            <th className={'w-[20%] border-b pb-3 text-right font-semibold ' + t.divider}>Weighted points</th>
                             <th className={'w-[20%] border-b pb-3 pr-3 text-right font-semibold ' + t.divider}>Freshness</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {drivers.map((driver, index) => <DriverRowV6 key={driver.key} driver={driver} signal={signal} maxContribution={maxContribution} tooltipPlacement={index === drivers.length - 1 ? 'top' : 'bottom'} theme={theme} />)}
+                        {drivers.map((driver, index) => <DriverRowV6 key={driver.key} driver={driver} signal={signal} comparison={getDriverSnapshotComparisonV6(driver, driverChanges, previousDate, comparisonAvailable)} maxContribution={maxContribution} tooltipPlacement={index === drivers.length - 1 ? 'top' : 'bottom'} theme={theme} />)}
                     </tbody>
                 </table>
             </div>
             <div className="mt-4 space-y-3 md:hidden">
-                {drivers.map((driver, index) => <DriverCardV6 key={driver.key} driver={driver} signal={signal} maxContribution={maxContribution} tooltipPlacement={index === drivers.length - 1 ? 'top' : 'bottom'} theme={theme} />)}
+                {drivers.map((driver, index) => <DriverCardV6 key={driver.key} driver={driver} signal={signal} comparison={getDriverSnapshotComparisonV6(driver, driverChanges, previousDate, comparisonAvailable)} maxContribution={maxContribution} tooltipPlacement={index === drivers.length - 1 ? 'top' : 'bottom'} theme={theme} />)}
             </div>
             <CoverageAdjustmentV6 signal={signal} theme={theme} />
         </>
     );
+};
+
+const getDriverSnapshotComparisonV6 = (driver: DriverV6, changes: Map<string, DriverChangeV6>, previousDate: string | null, available: boolean): SnapshotComparisonV6 | undefined => {
+    if (!available || !previousDate) return undefined;
+    const change = changes.get(driver.key);
+    return {
+        previous: (change?.previous_contribution ?? driver.contribution).toFixed(1),
+        delta: change?.delta ?? 0,
+        date: previousDate,
+        digits: 1,
+    };
 };
 
 const CoverageAdjustmentV6 = ({ signal, theme }: { signal: MarketSignal; theme: ResearchThemeV6 }) => {
@@ -466,7 +485,7 @@ const CoverageAdjustmentV6 = ({ signal, theme }: { signal: MarketSignal; theme: 
     );
 };
 
-const DriverRowV6 = ({ driver, signal, maxContribution, tooltipPlacement, theme }: { driver: DriverV6; signal: MarketSignal; maxContribution: number; tooltipPlacement: 'top' | 'bottom'; theme: ResearchThemeV6 }) => {
+const DriverRowV6 = ({ driver, signal, comparison, maxContribution, tooltipPlacement, theme }: { driver: DriverV6; signal: MarketSignal; comparison?: SnapshotComparisonV6; maxContribution: number; tooltipPlacement: 'top' | 'bottom'; theme: ResearchThemeV6 }) => {
     const t = getThemeV6(theme);
     const component = signal.components[driver.key];
     const cellSurface = driver.conflict
@@ -492,6 +511,7 @@ const DriverRowV6 = ({ driver, signal, maxContribution, tooltipPlacement, theme 
             <td className={'py-3 pr-3 ' + cellSurface + ' ' + t.textSecondary}>{component ? formatRawValue(component, signal.metadata.market) : driver.raw_value.toString()}</td>
             <td className={'py-3 text-right tabular-nums ' + cellSurface}>
                 <span className={'block font-bold ' + driverTextToneV6(driver, theme)}>{driver.contribution.toFixed(1)}</span>
+                {comparison ? <SnapshotComparisonV6 comparison={comparison} theme={theme} showDate={false} /> : null}
                 <span className={'mt-0.5 block text-[11px] font-medium ' + t.textMuted}>{Math.round(driver.weight * 100)}% configured weight</span>
             </td>
             <td className={'py-3 pr-3 text-right text-xs font-semibold ' + cellSurface + ' ' + lastCellSurface + ' ' + getFreshnessTone(driver.freshness, theme)}>{driver.freshness}</td>
@@ -499,7 +519,7 @@ const DriverRowV6 = ({ driver, signal, maxContribution, tooltipPlacement, theme 
     );
 };
 
-const DriverCardV6 = ({ driver, signal, maxContribution, tooltipPlacement, theme }: { driver: DriverV6; signal: MarketSignal; maxContribution: number; tooltipPlacement: 'top' | 'bottom'; theme: ResearchThemeV6 }) => {
+const DriverCardV6 = ({ driver, signal, comparison, maxContribution, tooltipPlacement, theme }: { driver: DriverV6; signal: MarketSignal; comparison?: SnapshotComparisonV6; maxContribution: number; tooltipPlacement: 'top' | 'bottom'; theme: ResearchThemeV6 }) => {
     const t = getThemeV6(theme);
     const component = signal.components[driver.key];
     return (
@@ -511,6 +531,7 @@ const DriverCardV6 = ({ driver, signal, maxContribution, tooltipPlacement, theme
                 </div>
                 <div className="text-right">
                     <p className={'font-bold tabular-nums ' + driverTextToneV6(driver, theme)}>{driver.contribution.toFixed(1)} pts</p>
+                    {comparison ? <SnapshotComparisonV6 comparison={comparison} theme={theme} showDate={false} /> : null}
                     <p className={'mt-0.5 text-[11px] font-medium ' + t.textMuted}>{Math.round(driver.weight * 100)}% configured weight</p>
                     <p className={'mt-1 text-xs font-semibold ' + getFreshnessTone(driver.freshness, theme)}>{driver.freshness}</p>
                 </div>

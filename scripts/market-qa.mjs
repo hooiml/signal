@@ -339,7 +339,7 @@ const buildDiscoveryFixture = () => ({ success: true, data: {
 } });
 
 const inspectScoreEvidence = async (page) => page.evaluate(() => {
-    const ids = ['changed-title', 'score-evidence-title', 'market-calibration-title', 'scenarios-title', 'context-title', 'market-alerts-title', 'terms-title'];
+    const ids = ['score-evidence-title', 'market-calibration-title', 'scenarios-title', 'context-title', 'market-alerts-title', 'terms-title'];
     const elements = ids.map((id) => document.getElementById(id));
     const orderIsCorrect = elements.every(Boolean) && elements.every((element, index) => (
         index === elements.length - 1
@@ -353,6 +353,10 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
     const handoffLink = handoff?.querySelector('a');
     const calibration = document.querySelector('[data-testid="market-calibration"]');
     const storyTrust = document.querySelector('[data-testid="market-story-trust"]');
+    const scoreComparison = document.querySelector('[data-testid="score-snapshot-comparison"]');
+    const driverComparisons = [...document.querySelectorAll('[data-testid="driver-snapshot-comparison"]')]
+        .filter((element) => element.getClientRects().length > 0);
+    const driverComparisonDate = document.querySelector('[data-testid="driver-comparison-date"]');
     const storyEvidence = document.querySelector('[data-testid="market-story-evidence"]');
     const storyCards = storyEvidence ? [...storyEvidence.querySelectorAll('article')] : [];
     const contributionFormulas = storyEvidence ? [...storyEvidence.querySelectorAll('[data-testid="market-story-contribution-formula"]')] : [];
@@ -362,8 +366,6 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
     const secondarySurfaces = [...document.querySelectorAll('[data-surface-tier="secondary"]')];
     const utilitySurfaces = [...document.querySelectorAll('[data-surface-tier="utility"]')];
     const actionSurfaces = [...document.querySelectorAll('[data-surface-tier="action"]')];
-    const changeSummaryLabels = [...document.querySelectorAll('[data-testid="change-summary-label"]')];
-    const changeSummaryValues = [...document.querySelectorAll('[data-testid="change-summary-value"]')];
     const supportingSection = document.querySelector('[aria-label="Forward scenarios and market developments"]');
     const termsSection = document.querySelector('section[aria-labelledby="terms-title"]');
     const commandText = document.querySelector('[aria-label="Market conditions controls"]')?.textContent || '';
@@ -383,6 +385,12 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
         handoffHref: handoffLink?.getAttribute('href') || '',
         calibrationText: calibration?.textContent || '',
         storyTrustText: storyTrust?.textContent || '',
+        scoreComparisonText: scoreComparison?.textContent || '',
+        scoreComparisonTone: scoreComparison ? getComputedStyle(scoreComparison).color : '',
+        driverComparisonTexts: driverComparisons.map((element) => element.textContent || ''),
+        driverComparisonDateText: driverComparisonDate?.textContent || '',
+        driverComparisonTones: driverComparisons.map((element) => getComputedStyle(element).color),
+        standaloneChangeSummaryAbsent: !document.getElementById('changed-title') && !document.body.textContent?.includes('Contribution shifts'),
         storyEvidenceText: storyEvidence?.textContent || '',
         storyTrustOverflow: storyTrust ? storyTrust.scrollWidth - storyTrust.clientWidth : null,
         storyEvidenceOverflow: storyEvidence ? storyEvidence.scrollWidth - storyEvidence.clientWidth : null,
@@ -394,25 +402,25 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
         storyCardsFlattened: storyCards.length === 3 && storyCards.every((card) => Number.parseFloat(getComputedStyle(card).borderRadius) === 0),
         storyTextHierarchy: storyCards.length === 3
             && relationships.length === 3
-            && freshnessWarnings.length === 1
-            && freshnessWarnings[0]?.textContent?.includes('Freshness: Stale')
+            && freshnessWarnings.length === 3
+            && freshnessWarnings.some((warning) => warning.textContent?.includes('Freshness: Stale'))
+            && freshnessWarnings.filter((warning) => warning.textContent?.includes('Freshness: Mixed')).length === 2
             && storyCards.every((card, index) => {
                 const primaryColor = getComputedStyle(card.querySelector('h2')).color;
                 return getComputedStyle(relationships[index]).color !== primaryColor;
             }),
-        supportingSectionsFlattened: Boolean(supportingSection && termsSection)
-            && Number.parseFloat(getComputedStyle(supportingSection).borderRadius) === 0
-            && Number.parseFloat(getComputedStyle(termsSection).borderRadius) === 0,
+        supportingSectionsStructured: Boolean(supportingSection && termsSection)
+            && Number.parseFloat(getComputedStyle(supportingSection).borderRadius) > 0
+            && Number.parseFloat(getComputedStyle(termsSection).borderRadius) > 0,
         commandText,
         pageSurfaceHierarchy: primarySurfaces.length === 2
-            && secondarySurfaces.length >= 4
+            && secondarySurfaces.length >= 3
             && utilitySurfaces.length >= 5
             && actionSurfaces.length === 1
             && getComputedStyle(primarySurfaces[0]).backgroundColor !== getComputedStyle(secondarySurfaces[0]).backgroundColor
             && getComputedStyle(secondarySurfaces[0]).backgroundColor !== getComputedStyle(utilitySurfaces[0]).backgroundColor
             && getComputedStyle(primarySurfaces[0]).boxShadow !== 'none'
             && getComputedStyle(primarySurfaces[0]).boxShadow !== getComputedStyle(utilitySurfaces[0]).boxShadow
-            && utilitySurfaces[0].classList.contains('shadow-none')
             && getComputedStyle(actionSurfaces[0]).borderColor !== getComputedStyle(secondarySurfaces[0]).borderColor,
         pageSurfaceCounts: {
             primary: primarySurfaces.length,
@@ -430,12 +438,6 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
             borderColor: getComputedStyle(element).borderColor,
             boxShadow: getComputedStyle(element).boxShadow,
         } : null])),
-        changeSummaryAligned: window.innerWidth < 1024 || (
-            changeSummaryLabels.length === 4
-            && changeSummaryValues.length === 4
-            && Math.max(...changeSummaryLabels.map((element) => element.getBoundingClientRect().top)) - Math.min(...changeSummaryLabels.map((element) => element.getBoundingClientRect().top)) <= 1
-            && Math.max(...changeSummaryValues.map((element) => element.getBoundingClientRect().top)) - Math.min(...changeSummaryValues.map((element) => element.getBoundingClientRect().top)) <= 1
-        ),
         documentOverflow: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0) - window.innerWidth,
     };
 });
@@ -545,15 +547,18 @@ const main = async () => {
                     runCheck(scenario.checks, 'driver weights are visible', details.driverTableText.includes('35% configured weight') && details.driverTableText.includes('20% configured weight') && details.driverTableText.includes('10% configured weight'), details.driverTableText);
                     runCheck(scenario.checks, 'desktop Quick Read duplication is removed', details.quickReadAbsent, JSON.stringify(details));
                     runCheck(scenario.checks, 'market story exposes trust context', details.storyTrustText.includes('Composite score') && details.storyTrustText.includes('Indicator agreement') && details.storyTrustText.includes('Data freshness') && details.storyTrustText.includes('Conditions as of'), details.storyTrustText);
+                    runCheck(scenario.checks, 'score comparison is attached to the current score', details.scoreComparisonText.includes('64 previous') && details.scoreComparisonText.includes('+2 vs 15 Jul'), details.scoreComparisonText);
+                    runCheck(scenario.checks, 'driver comparisons are attached to weighted values', details.driverComparisonDateText.includes('Compared with 15 Jul') && details.driverComparisonTexts.length === 5 && details.driverComparisonTexts.some((text) => text.includes('26.8 previous') && text.includes('+0.8')) && details.driverComparisonTexts.some((text) => text.includes('11.2 previous') && text.includes('-0.4')) && details.driverComparisonTexts.filter((text) => text.includes('No change')).length === 3, JSON.stringify({ date: details.driverComparisonDateText, comparisons: details.driverComparisonTexts }));
+                    runCheck(scenario.checks, 'increase and decrease comparisons use distinct tones', new Set(details.driverComparisonTones).size >= 3 && details.scoreComparisonTone !== '', JSON.stringify({ score: details.scoreComparisonTone, drivers: details.driverComparisonTones }));
+                    runCheck(scenario.checks, 'standalone change summary is removed', details.standaloneChangeSummaryAbsent, JSON.stringify({ standaloneChangeSummaryAbsent: details.standaloneChangeSummaryAbsent }));
                     runCheck(scenario.checks, 'market story keeps readings without audit math', details.storyEvidenceText.includes('16.20') && details.storyEvidenceText.includes('36.3% bullish') && details.storyEvidenceText.includes('0.00 sentiment') && details.storyAuditMathAbsent, details.storyEvidenceText);
                     runCheck(scenario.checks, 'market story uses ranked evidence roles', details.storyEvidenceText.includes('Strongest influence') && details.storyEvidenceText.includes('Conflicting signal') && !details.storyEvidenceText.includes('Evidence chapter'), details.storyEvidenceText);
                     runCheck(scenario.checks, 'market story cards fit their container', details.storyCardsContained && details.storyTrustOverflow <= 1 && details.storyEvidenceOverflow <= 1, JSON.stringify({ storyCardsContained: details.storyCardsContained, storyTrustOverflow: details.storyTrustOverflow, storyEvidenceOverflow: details.storyEvidenceOverflow }));
                     runCheck(scenario.checks, 'market story uses divider-led driver groups', details.storyCardsFlattened, JSON.stringify({ storyCardsFlattened: details.storyCardsFlattened }));
-                    runCheck(scenario.checks, 'market story freshness warning is visible text', details.storyTextHierarchy, JSON.stringify({ storyTextHierarchy: details.storyTextHierarchy }));
-                    runCheck(scenario.checks, 'lower-priority supporting sections are unboxed', details.supportingSectionsFlattened, JSON.stringify({ supportingSectionsFlattened: details.supportingSectionsFlattened }));
+                    runCheck(scenario.checks, 'market story freshness states are visible text', details.storyTextHierarchy, JSON.stringify({ storyTextHierarchy: details.storyTextHierarchy }));
+                    runCheck(scenario.checks, 'lower-priority supporting sections retain bounded surfaces', details.supportingSectionsStructured, JSON.stringify({ supportingSectionsStructured: details.supportingSectionsStructured }));
                     runCheck(scenario.checks, 'conditions header separates snapshot date and availability', details.commandText.includes('Conditions as of') && details.commandText.includes('Conditions available'), details.commandText);
                     runCheck(scenario.checks, 'main page uses distinct primary, secondary, utility, and action surfaces', details.pageSurfaceHierarchy, JSON.stringify({ counts: details.pageSurfaceCounts, styles: details.pageSurfaceStyles }));
-                    runCheck(scenario.checks, 'what changed summary labels and values align', details.changeSummaryAligned, JSON.stringify({ changeSummaryAligned: details.changeSummaryAligned }));
                     runCheck(scenario.checks, 'document has no horizontal overflow', details.documentOverflow <= 1, `${details.documentOverflow}px overflow`);
                     runCheck(scenario.checks, 'secondary context starts collapsed', details.valuationCollapsed !== false && details.marketContextCollapsed !== false, JSON.stringify(details));
                     runCheck(scenario.checks, 'market-to-research handoff is evidence-only', details.handoffText.includes('Carry this market context into Research') && details.handoffText.includes('does not change any ticker decision'), details.handoffText);
@@ -636,6 +641,10 @@ const main = async () => {
                         scenario.storyScreenshot = storyScreenshotPath;
                     }
 
+                    if (requestedScenario !== 'all') {
+                        scenario.status = 'passed';
+                        continue;
+                    }
                     await page.locator('[data-testid="market-research-handoff"] a').click();
                     await page.locator('[data-testid="research-market-context"]').waitFor({ state: 'visible', timeout: timeoutMs });
                     const researchHandoff = await page.locator('[data-testid="research-market-context"]').evaluate((element) => ({

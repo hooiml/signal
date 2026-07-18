@@ -62,6 +62,8 @@ interface SnapshotSummaryRow {
     snapshot_date: string;
     composite_score: number;
     tier: SignalTier;
+    origin?: 'observed' | 'reconstructed';
+    coverage_note?: string | null;
     components?: unknown;
     score_drivers?: unknown;
 }
@@ -293,6 +295,9 @@ async function ensureSignalSnapshotsTable() {
         CREATE INDEX IF NOT EXISTS idx_signal_snapshots_lookup
         ON signal_snapshots(market_type, mode, enable_social, snapshot_date DESC)
     `;
+
+    await sql`ALTER TABLE signal_snapshots ADD COLUMN IF NOT EXISTS origin VARCHAR(20) NOT NULL DEFAULT 'observed'`;
+    await sql`ALTER TABLE signal_snapshots ADD COLUMN IF NOT EXISTS coverage_note TEXT`;
 }
 
 async function persistSignalSnapshot(
@@ -315,13 +320,13 @@ async function persistSignalSnapshot(
         ` as SnapshotSummaryRow[];
 
         const historyBefore = await sql`
-            SELECT snapshot_date::text as snapshot_date, composite_score, tier
+            SELECT snapshot_date::text as snapshot_date, composite_score, tier, origin, coverage_note
             FROM signal_snapshots
             WHERE market_type = ${options.market}
               AND mode = ${options.mode}
               AND enable_social = ${options.enableSocial}
             ORDER BY snapshot_date DESC
-            LIMIT 29
+            LIMIT 89
         ` as SnapshotSummaryRow[];
 
         const componentsSnapshot = Object.fromEntries(
@@ -382,6 +387,8 @@ async function persistSignalSnapshot(
                 signal_quality = EXCLUDED.signal_quality,
                 interpretation_context = EXCLUDED.interpretation_context,
                 metadata_snapshot = EXCLUDED.metadata_snapshot,
+                origin = 'observed',
+                coverage_note = NULL,
                 updated_at = NOW()
         `;
 
@@ -398,7 +405,7 @@ async function persistSignalSnapshot(
         const history = [
             { snapshot_date: today, composite_score: signal.composite_score, tier: signal.tier },
             ...historyBefore.filter(row => row.snapshot_date !== today)
-        ].slice(0, 30);
+        ].slice(0, 90);
 
         return {
             scoreDelta: {
@@ -420,6 +427,8 @@ async function persistSignalSnapshot(
                     date: row.snapshot_date,
                     score: Number(row.composite_score),
                     tier: row.tier,
+                    origin: row.origin ?? 'observed',
+                    coverage_note: row.coverage_note ?? null,
                 }))
         };
     } catch (error) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ResearchMarket, ResearchSynthesisMode } from '@/lib/types/research';
 import type { AssistedResearch, ResearchEvidence, ResearchFinding, ResearchFindingTarget } from '@/lib/types/research-assistant';
 import { parseResearchAssistantResponse } from '@/lib/research/assistant-input';
@@ -34,11 +34,11 @@ export const ResearchAssistantV6 = ({ symbol, market, theme, onApply }: {
     const evidenceById = useMemo(() => new Map(research?.evidence.map((item) => [item.id, item]) ?? []), [research]);
     const visibleFindings = research?.findings.filter((finding) => !handled.has(finding.id)) ?? [];
 
-    const generate = async () => {
+    const generate = useCallback(async (signal?: AbortSignal) => {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch(`/api/research/assist/${encodeURIComponent(symbol)}?market=${market}`, { method: 'POST' });
+            const response = await fetch(`/api/research/assist/${encodeURIComponent(symbol)}?market=${market}`, { method: 'POST', signal });
             const payload: unknown = await response.json();
             if (!response.ok) throw new Error(typeof payload === 'object' && payload !== null && !Array.isArray(payload)
                 && typeof Object.fromEntries(Object.entries(payload)).error === 'string'
@@ -46,11 +46,18 @@ export const ResearchAssistantV6 = ({ symbol, market, theme, onApply }: {
             setResearch(parseResearchAssistantResponse(payload));
             setHandled(new Set());
         } catch (caught) {
+            if (caught instanceof DOMException && caught.name === 'AbortError') return;
             setError(caught instanceof Error ? caught.message : 'Unable to generate assisted research.');
         } finally {
-            setLoading(false);
+            if (!signal?.aborted) setLoading(false);
         }
-    };
+    }, [market, symbol]);
+
+    useEffect(() => {
+        const controller = new AbortController();
+        void generate(controller.signal);
+        return () => controller.abort();
+    }, [generate]);
 
     const handle = (id: string) => setHandled((current) => new Set([...current, id]));
 
@@ -58,11 +65,11 @@ export const ResearchAssistantV6 = ({ symbol, market, theme, onApply }: {
         <section className={'border-b pb-4 ' + styles.divider} aria-labelledby="assisted-research-title">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h3 id="assisted-research-title" className={'text-sm font-semibold ' + styles.textSecondary}>Assisted findings</h3>
-                    <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Draft journal entries from current Yahoo and SEC evidence. Nothing is added until you accept it.</p>
+                    <h3 id="assisted-research-title" className={'text-sm font-semibold ' + styles.textSecondary}>Assisted review</h3>
+                    <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Current Yahoo and SEC evidence is prepared as a review draft. Accept useful findings, then add or edit your own analysis below.</p>
                 </div>
                 <button type="button" disabled={loading} onClick={() => void generate()} className={'min-h-10 rounded-md border px-3 text-xs font-bold disabled:opacity-50 ' + styles.row}>
-                    {loading ? 'Researching...' : research ? 'Refresh findings' : 'Research company'}
+                    {loading ? 'Preparing review...' : 'Refresh assisted review'}
                 </button>
             </div>
 

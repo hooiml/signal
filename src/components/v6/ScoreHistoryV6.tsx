@@ -13,6 +13,7 @@ export const ScoreHistoryV6 = ({ signal, theme }: ScoreHistoryV6Props) => {
         ? history
         : [{ date: signal.metadata.score_delta?.snapshot_date ?? new Date().toISOString(), score: signal.composite_score, tier: signal.tier }];
     const bands = getScoreBandsV6(signal.mode);
+    const reconstructedCount = points.filter((point) => point.origin === 'reconstructed').length;
 
     return (
         <section aria-labelledby="score-history-title" className="min-w-0">
@@ -21,12 +22,18 @@ export const ScoreHistoryV6 = ({ signal, theme }: ScoreHistoryV6Props) => {
                     <p className={'text-xs font-semibold ' + (theme === 'light' ? 'text-slate-500' : 'text-[#9aa8b8]')}>Historical context</p>
                     <h2 id="score-history-title" className={'mt-0.5 text-lg font-bold ' + (theme === 'light' ? 'text-slate-950' : 'text-[#eef2f7]')}>Score history</h2>
                 </div>
-                <p className={'text-xs ' + (theme === 'light' ? 'text-slate-500' : 'text-[#9aa8b8]')}>{points.length} snapshots - current {Math.round(signal.composite_score)}</p>
+                <p className={'text-xs ' + (theme === 'light' ? 'text-slate-500' : 'text-[#9aa8b8]')}>{points.length} snapshots{reconstructedCount > 0 ? ` (${reconstructedCount} backfilled)` : ''} - current {Math.round(signal.composite_score)}</p>
             </div>
             <div className="mt-3 overflow-hidden rounded-md">
                 <HistoryChartV6 points={points} currentScore={signal.composite_score} theme={theme} width={340} height={210} compact />
                 <HistoryChartV6 points={points} currentScore={signal.composite_score} theme={theme} width={760} height={260} />
             </div>
+            {reconstructedCount > 0 ? (
+                <p className={'mt-2 flex items-center gap-2 text-[11px] ' + (theme === 'light' ? 'text-slate-600' : 'text-[#9aa8b8]')}>
+                    <span className={'inline-block h-2.5 w-2.5 rounded-full border-2 ' + (theme === 'light' ? 'border-emerald-700 bg-white' : 'border-emerald-300 bg-slate-950')} />
+                    Backfilled points were calculated from historical inputs; unavailable sources use a documented neutral fallback.
+                </p>
+            ) : null}
             <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4" aria-label={signal.mode === 'contrarian' ? 'Contrarian score zones' : 'Momentum score zones'}>
                 {bands.map((band) => (
                     <div key={band.range} className={'flex items-center gap-2 text-[11px] ' + (theme === 'light' ? 'text-slate-600' : 'text-[#9aa8b8]')}>
@@ -93,7 +100,7 @@ const HistoryChartV6 = ({ points, currentScore, theme, width, height, compact = 
             })}
             <polygon points={areaPoints} fill={fill} />
             <polyline points={linePoints} fill="none" stroke={stroke} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
-            {coordinates.map((point) => <circle key={point.date} cx={point.x} cy={point.y} r={compact ? '2.5' : '3'} fill={stroke} />)}
+            {coordinates.map((point) => <circle key={point.date} cx={point.x} cy={point.y} r={compact ? '2.5' : '3'} fill={point.origin === 'reconstructed' ? (theme === 'light' ? '#ffffff' : '#020617') : stroke} stroke={stroke} strokeWidth={point.origin === 'reconstructed' ? '2' : '0'} />)}
             {last ? <circle cx={last.x} cy={last.y} r={compact ? '4' : '5'} fill={stroke} /> : null}
             {last ? <text x={Math.min(last.x + 10, width - 28)} y={last.y + 4} fill={stroke} fontWeight="700" fontSize={compact ? '11' : '14'}>{Math.round(last.score)}</text> : null}
             <text x={left} y={height - 8} fill={text} fontSize={compact ? '9' : '11'}>{formatCompactDateV6(points[0].date)}</text>

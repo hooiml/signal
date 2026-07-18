@@ -155,6 +155,8 @@ export interface MarketSignal {
             date: string;
             score: number;
             tier: SignalTier;
+            origin?: 'observed' | 'reconstructed';
+            coverage_note?: string | null;
         }>;
         driver_changes?: Array<{
             key: string;

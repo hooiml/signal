@@ -46,6 +46,8 @@ export async function GET(request: Request) {
                 signal_quality JSONB NOT NULL,
                 interpretation_context JSONB NOT NULL,
                 metadata_snapshot JSONB NOT NULL,
+                origin VARCHAR(20) NOT NULL DEFAULT 'observed',
+                coverage_note TEXT,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(market_type, mode, enable_social, snapshot_date)
@@ -56,6 +58,8 @@ export async function GET(request: Request) {
             CREATE INDEX IF NOT EXISTS idx_signal_snapshots_lookup
             ON signal_snapshots(market_type, mode, enable_social, snapshot_date DESC)
         `;
+        await sql`ALTER TABLE signal_snapshots ADD COLUMN IF NOT EXISTS origin VARCHAR(20) NOT NULL DEFAULT 'observed'`;
+        await sql`ALTER TABLE signal_snapshots ADD COLUMN IF NOT EXISTS coverage_note TEXT`;
 
         await sql`
             CREATE TABLE IF NOT EXISTS research_records (

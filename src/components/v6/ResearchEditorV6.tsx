@@ -61,6 +61,7 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
     const positionRisk = calculatePositionPlanRisk(draft.positionPlan, observedPrice);
     const field = 'w-full rounded-md border px-3 py-2 text-sm outline-none focus:border-emerald-500 ' + (theme === 'light' ? 'border-slate-300 bg-white text-slate-950' : 'border-[#334354] bg-[#0b1118] text-[#eef2f7]');
     const updateText = (key: 'whyInterested' | 'bullCase' | 'bearCase' | 'buyTrigger' | 'sellTrigger' | 'thesisBreak' | 'targetBuyZone' | 'notes', value: string) => setDraft((current) => ({ ...current, [key]: value }));
+
     const applyFinding: ComponentProps<typeof ResearchAssistantV6>['onApply'] = ({ finding, sources, mode }) => setDraft((current) => {
         const id = `${current.symbol}:${finding.target}:${finding.id}`;
         const alreadyAccepted = current.acceptedEvidence.some((item) => item.id === id);
@@ -98,9 +99,6 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
         onEditingChange(false);
     };
     const beginReview = () => {
-        setDraft(prepareReviewDraft(initial, decision, observedPrice, benchmark));
-        setIsEditing(true);
-        setIsExpanded(true);
         onEditingChange(true);
     };
     const renderDetail = (label: string, value: string, className = '') => (
@@ -132,12 +130,12 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                         </button>
                     )}
                     <p className={'text-xs leading-5 ' + styles.textMuted}>{isEditing
-                        ? 'Update the saved thesis and decision checklist, then save the review.'
+                        ? 'Use the assisted findings as a starting point, add your own analysis, then save the review.'
                         : `${detailChoice(draft.decisionJournal.decision)} · ${completedChecklist}/${checklistKeys.length} checks · reviewed ${draft.lastReviewedAt}`}</p>
                 </div>
                 {!isEditing ? (
                     <button type="button" onClick={beginReview} data-testid="submit-research-review" className="min-h-10 rounded-md bg-emerald-600 px-4 text-xs font-bold text-white transition-colors hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500">
-                        Submit review
+                        Start assisted review
                     </button>
                 ) : null}
             </div>
