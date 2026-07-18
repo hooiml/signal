@@ -9,7 +9,16 @@ export type CalibrationSnapshot = {
 
 export type CalibrationPrice = { readonly date: string; readonly close: number };
 
-type CalibrationResult = NonNullable<MarketSignal['metadata']['historical_validation']>;
+export type CalibrationResult = NonNullable<MarketSignal['metadata']['historical_validation']>;
+export type CalibrationCohort = CalibrationResult['horizons'][number]['cohorts'][number];
+export type SimilarScoreOutcomeState = 'unavailable' | CalibrationCohort['evidence_level'];
+
+export type SimilarScoreOutcome = {
+    readonly days: 7 | 30;
+    readonly state: SimilarScoreOutcomeState;
+    readonly cohort: CalibrationCohort | null;
+    readonly minimumSampleSize: number | null;
+};
 
 const zones = [
     { id: 'negative' as const, label: '0–39', matches: (score: number) => score <= 39 },
@@ -17,6 +26,70 @@ const zones = [
     { id: 'positive' as const, label: '65–84', matches: (score: number) => score >= 65 && score <= 84 },
     { id: 'strong-positive' as const, label: '85–100', matches: (score: number) => score >= 85 },
 ];
+
+export const getCalibrationZone = (score: number): CalibrationCohort['zone'] | null =>
+    Number.isFinite(score) ? zones.find((zone) => zone.matches(score))?.id ?? null : null;
+
+const isCount = (value: unknown) => Number.isInteger(value) && Number(value) >= 0;
+const isFiniteOrNull = (value: unknown) => value === null || (typeof value === 'number' && Number.isFinite(value));
+const isRateOrNull = (value: unknown) => value === null || (typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100);
+
+const isUsableCohort = (cohort: CalibrationCohort, minimumSampleSize: number) => {
+    const evidenceLevels: readonly CalibrationCohort['evidence_level'][] = ['insufficient', 'preliminary', 'established'];
+    const countsAreValid = isCount(cohort.sample_count)
+        && isCount(cohort.observed_count)
+        && isCount(cohort.reconstructed_count)
+        && cohort.observed_count + cohort.reconstructed_count === cohort.sample_count;
+    const statisticsAreFinite = [
+        cohort.average_forward_return_pct,
+        cohort.median_forward_return_pct,
+        cohort.worst_forward_return_pct,
+        cohort.best_forward_return_pct,
+    ].every(isFiniteOrNull);
+    const ratesAreValid = isRateOrNull(cohort.positive_return_rate_pct) && isRateOrNull(cohort.alignment_rate_pct);
+    const rangeIsValid = cohort.worst_forward_return_pct === null
+        || cohort.best_forward_return_pct === null
+        || cohort.worst_forward_return_pct <= cohort.best_forward_return_pct;
+    const evidenceMatchesMinimum = cohort.evidence_level === 'insufficient'
+        ? cohort.sample_count < minimumSampleSize
+        : cohort.sample_count >= minimumSampleSize;
+    const summaryStatisticsExist = cohort.evidence_level === 'insufficient'
+        || (cohort.median_forward_return_pct !== null && cohort.positive_return_rate_pct !== null);
+
+    return countsAreValid
+        && statisticsAreFinite
+        && ratesAreValid
+        && rangeIsValid
+        && evidenceLevels.includes(cohort.evidence_level)
+        && evidenceMatchesMinimum
+        && summaryStatisticsExist;
+};
+
+export const selectSimilarScoreOutcomes = (
+    score: number,
+    calibration: CalibrationResult | null | undefined,
+): readonly SimilarScoreOutcome[] => {
+    const zone = getCalibrationZone(score);
+    const minimumSampleSize = calibration?.minimum_sample_size;
+    const calibrationIsUsable = zone !== null
+        && Array.isArray(calibration?.horizons)
+        && Number.isInteger(minimumSampleSize)
+        && Number(minimumSampleSize) > 0;
+
+    return ([7, 30] as const).map((days) => {
+        if (!calibrationIsUsable || minimumSampleSize === undefined) {
+            return { days, state: 'unavailable', cohort: null, minimumSampleSize: null };
+        }
+        const horizon = calibration.horizons.find((candidate) => candidate.days === days);
+        const cohort = Array.isArray(horizon?.cohorts)
+            ? horizon.cohorts.find((candidate) => candidate?.zone === zone)
+            : undefined;
+        if (!cohort || !isUsableCohort(cohort, minimumSampleSize)) {
+            return { days, state: 'unavailable', cohort: null, minimumSampleSize };
+        }
+        return { days, state: cohort.evidence_level, cohort, minimumSampleSize };
+    });
+};
 
 const returnPercent = (start: number, end: number) => Number((((end - start) / start) * 100).toFixed(2));
 

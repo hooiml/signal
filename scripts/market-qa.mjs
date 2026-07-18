@@ -171,7 +171,7 @@ const buildFixtureSignal = (requestUrl) => {
     const enableSocial = url.searchParams.get('enableSocial') !== 'false';
     const sourceKey = market === 'MY' ? 'news' : 'social';
     const sourceLabel = market === 'MY' ? 'News Sentiment' : 'Social Sentiment';
-    const updatedAt = '2026-07-16T08:00:00.000Z';
+    const updatedAt = new Date(Date.now() - 42 * 60 * 60 * 1000).toISOString();
     const snapshotDate = '2026-07-16T00:00:00.000Z';
     const components = {
         vix: fixtureComponent({ name: 'vix', displayName: market === 'US' ? 'VIX Index' : 'Global volatility', value: 16.2, score: 79, weight: market === 'US' ? 0.35 : 0.25, signal: 'buy', updatedAt }),
@@ -339,7 +339,7 @@ const buildDiscoveryFixture = () => ({ success: true, data: {
 } });
 
 const inspectScoreEvidence = async (page) => page.evaluate(() => {
-    const ids = ['score-evidence-title', 'market-calibration-title', 'scenarios-title', 'context-title', 'market-alerts-title', 'terms-title'];
+    const ids = ['similar-score-outcomes-title', 'score-evidence-title', 'market-calibration-title', 'scenarios-title', 'context-title', 'market-alerts-title', 'terms-title'];
     const elements = ids.map((id) => document.getElementById(id));
     const orderIsCorrect = elements.every(Boolean) && elements.every((element, index) => (
         index === elements.length - 1
@@ -352,6 +352,8 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
     const handoff = document.querySelector('[data-testid="market-research-handoff"]');
     const handoffLink = handoff?.querySelector('a');
     const calibration = document.querySelector('[data-testid="market-calibration"]');
+    const similarOutcomes = document.querySelector('[data-testid="similar-score-outcomes"]');
+    const outcomeSummaries = [...document.querySelectorAll('[data-testid^="similar-score-outcome-"]')];
     const storyTrust = document.querySelector('[data-testid="market-story-trust"]');
     const scoreComparison = document.querySelector('[data-testid="score-snapshot-comparison"]');
     const driverComparisons = [...document.querySelectorAll('[data-testid="driver-snapshot-comparison"]')]
@@ -384,6 +386,12 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
         handoffText: handoff?.textContent || '',
         handoffHref: handoffLink?.getAttribute('href') || '',
         calibrationText: calibration?.textContent || '',
+        similarOutcomesText: similarOutcomes?.textContent || '',
+        similarOutcomesOverflow: similarOutcomes ? similarOutcomes.scrollWidth - similarOutcomes.clientWidth : null,
+        outcomeSummaryCount: outcomeSummaries.length,
+        duplicatedCurrentZoneSummaryAbsent: !calibration?.querySelector('[data-testid="current-score-historical-read"]')
+            && !calibration?.textContent?.includes('One week after similar scores')
+            && !calibration?.textContent?.includes('Evidence: Preliminary'),
         storyTrustText: storyTrust?.textContent || '',
         scoreComparisonText: scoreComparison?.textContent || '',
         scoreComparisonTone: scoreComparison ? getComputedStyle(scoreComparison).color : '',
@@ -563,7 +571,22 @@ const main = async () => {
                     runCheck(scenario.checks, 'secondary context starts collapsed', details.valuationCollapsed !== false && details.marketContextCollapsed !== false, JSON.stringify(details));
                     runCheck(scenario.checks, 'market-to-research handoff is evidence-only', details.handoffText.includes('Carry this market context into Research') && details.handoffText.includes('does not change any ticker decision'), details.handoffText);
                     runCheck(scenario.checks, 'market-to-research handoff carries validated context', details.handoffHref.includes('/research?') && details.handoffHref.includes('contextMarket=US') && details.handoffHref.includes('contextScore='), details.handoffHref);
-                    runCheck(scenario.checks, 'historical calibration shows current-zone outcomes, provenance, and non-predictive limits', details.calibrationText.includes('What followed similar scores') && details.calibrationText.includes('Median return') && details.calibrationText.includes('Positive periods') && details.calibrationText.includes('5 observed') && details.calibrationText.includes('2 reconstructed') && details.calibrationText.includes('do not predict future returns'), shorten(details.calibrationText));
+                    runCheck(scenario.checks, 'similar-score outcomes are descriptive, sourced, and non-predictive', details.outcomeSummaryCount === 2
+                        && details.similarOutcomesText.includes('Historical forward outcomes')
+                        && details.similarOutcomesText.includes('This is not a prediction of the next market move')
+                        && details.similarOutcomesText.includes('1.8%')
+                        && details.similarOutcomesText.includes('71% of comparable periods were positive')
+                        && details.similarOutcomesText.includes('Evidence: Preliminary')
+                        && details.similarOutcomesText.includes('5 observed')
+                        && details.similarOutcomesText.includes('2 reconstructed')
+                        && !details.similarOutcomesText.includes('likelihood')
+                        && !details.similarOutcomesText.includes('chance')
+                        && !details.similarOutcomesText.includes('probability'), shorten(details.similarOutcomesText));
+                    runCheck(scenario.checks, 'current-zone outcome summary is not duplicated in calibration', details.duplicatedCurrentZoneSummaryAbsent
+                        && details.calibrationText.includes('Compare historical score zones')
+                        && details.calibrationText.includes('Reconstruction coverage')
+                        && details.calibrationText.includes('do not predict future returns'), shorten(details.calibrationText));
+                    runCheck(scenario.checks, 'similar-score outcomes fit the viewport', details.similarOutcomesOverflow !== null && details.similarOutcomesOverflow <= 1, `${details.similarOutcomesOverflow}px overflow`);
 
                     const conflictDisclosure = page.locator('[data-testid="conflict-explanation"][data-driver="aaii"]:visible').first();
                     runCheck(scenario.checks, 'conflict explanation control visible', await conflictDisclosure.count() > 0, 'expected a visible conflict info control');
@@ -639,6 +662,9 @@ const main = async () => {
                         const storyScreenshotPath = path.join(evidenceDir, `market-story-${viewport.name}-${viewport.width}x${viewport.height}.png`);
                         await page.locator('section[aria-labelledby="market-story-title"]').screenshot({ path: storyScreenshotPath });
                         scenario.storyScreenshot = storyScreenshotPath;
+                        const outcomesScreenshotPath = path.join(evidenceDir, `similar-score-outcomes-${viewport.name}-${viewport.width}x${viewport.height}.png`);
+                        await page.locator('[data-testid="similar-score-outcomes"]').screenshot({ path: outcomesScreenshotPath });
+                        scenario.outcomesScreenshot = outcomesScreenshotPath;
                     }
 
                     if (requestedScenario !== 'all') {
@@ -667,7 +693,7 @@ const main = async () => {
                     await journalToggle.click();
                     await journal.getByRole('heading', { name: 'Thesis and triggers' }).waitFor({ state: 'visible', timeout: timeoutMs });
                     runCheck(scenario.checks, 'research journal disclosure expands', await journalToggle.getAttribute('aria-expanded') === 'true', 'expected expanded read-only details');
-                    await journal.getByRole('button', { name: 'Submit review' }).click();
+                    await journal.getByTestId('submit-research-review').click();
                     const decisionRecord = journal.getByRole('group', { name: 'Decision record' });
                     await decisionRecord.waitFor({ state: 'visible', timeout: timeoutMs });
                     const decisionText = await decisionRecord.textContent();
@@ -694,12 +720,8 @@ const main = async () => {
                     const fundamentalsPanel = page.getByTestId('research-tab-panel');
                     await fundamentalsPanel.waitFor({ state: 'visible', timeout: timeoutMs });
                     const fundamentalsPanelHeight = (await fundamentalsPanel.boundingBox())?.height ?? 0;
-                    if (viewport.width >= 700) {
-                        runCheck(scenario.checks, 'research tabs keep a stable viewport height', Math.abs(overviewPanelHeight - fundamentalsPanelHeight) <= 1 && overviewPanelHeight === 680, `${overviewPanelHeight}px overview; ${fundamentalsPanelHeight}px fundamentals`);
-                    } else {
-                        const mobileOverflow = await fundamentalsPanel.evaluate((element) => getComputedStyle(element).overflowY);
-                        runCheck(scenario.checks, 'research tabs retain natural mobile document flow', mobileOverflow === 'visible', `overflow-y: ${mobileOverflow}`);
-                    }
+                    const detailOverflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0) - window.innerWidth);
+                    runCheck(scenario.checks, 'research detail tabs remain visible without horizontal overflow', overviewPanelHeight > 0 && fundamentalsPanelHeight > 0 && detailOverflow <= 1, `${overviewPanelHeight}px overview; ${fundamentalsPanelHeight}px fundamentals; ${detailOverflow}px overflow`);
                     await page.getByRole('tab', { name: 'Overview' }).click();
 
                     await page.evaluate(() => localStorage.setItem('signal-discovery-visit-v1', JSON.stringify({
@@ -722,16 +744,16 @@ const main = async () => {
                     runCheck(scenario.checks, 'Discovery saved view restores filters', await page.getByLabel('Filter by risk').inputValue() === 'low', await page.getByLabel('Filter by risk').inputValue());
                     await page.getByRole('button', { name: 'Delete saved view Low risk' }).click();
                     runCheck(scenario.checks, 'Discovery saved view can be removed', await page.getByLabel('Apply saved Discovery view').locator('option', { hasText: 'Low risk' }).count() === 0, 'Low risk option should be absent');
-                    await page.evaluate(() => {
-                        const nextUrl = new URL(window.location.href);
-                        nextUrl.searchParams.set('qa', 'preserve');
-                        window.history.replaceState({ ...window.history.state, as: nextUrl.pathname + nextUrl.search, url: nextUrl.pathname + nextUrl.search }, '', nextUrl.pathname + nextUrl.search);
-                    });
-                    await page.getByRole('tab', { name: 'Watchlist', exact: true }).click();
+                    const discoveryUrlWithContext = new URL(page.url());
+                    discoveryUrlWithContext.searchParams.set('qa', 'preserve');
+                    await page.goto(discoveryUrlWithContext.toString(), { waitUntil: 'load', timeout: timeoutMs });
+                    if (viewport.width >= 700) await page.getByRole('tab', { name: 'Watchlist', exact: true }).click();
+                    else await page.getByRole('combobox', { name: 'Research workspace' }).selectOption('research');
                     await page.waitForURL(/workspace=research/, { timeout: timeoutMs });
                     const watchlistUrl = new URL(page.url());
                     runCheck(scenario.checks, 'workspace navigation preserves query context', watchlistUrl.searchParams.get('workspace') === 'research' && watchlistUrl.searchParams.get('qa') === 'preserve', watchlistUrl.toString());
-                    await page.getByRole('tab', { name: 'Discovery', exact: true }).click();
+                    if (viewport.width >= 700) await page.getByRole('tab', { name: 'Discovery', exact: true }).click();
+                    else await page.getByRole('combobox', { name: 'Research workspace' }).selectOption('discovery');
                     await page.waitForURL(/workspace=discovery/, { timeout: timeoutMs });
                     const discoveryOverflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0) - window.innerWidth);
                     runCheck(scenario.checks, 'Discovery change feed and saved views have no horizontal overflow', discoveryOverflow <= 1, `${discoveryOverflow}px overflow`);

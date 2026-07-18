@@ -4,7 +4,7 @@ import { IndicatorData } from '../../src/lib/types/signal-v2';
 import { buildBuffettIndicator, normalizeNaaimExposure, normalizePutCallRatio, parseCboePutCallRatio, parseFredLatestObservation, parseNaaimExposure } from '../../src/lib/market-indicators';
 import { buildBreadthContext, buildFinancialConditionsContext, buildYieldCurveContext, parseFredSeriesObservation, parseMalaysiaBenchmarkPage } from '../../src/lib/market-context';
 import { getSourceIndicatorCount, shouldEnableSourceIndicator } from '../../src/lib/source-indicator';
-import { calculateMarketCalibration } from '../../src/lib/market-calibration';
+import { calculateMarketCalibration, getCalibrationZone, selectSimilarScoreOutcomes } from '../../src/lib/market-calibration';
 import { reconstructUsMarketScores } from '../../src/lib/market-score-reconstruction';
 
 function indicator(overrides: Partial<IndicatorData> & Pick<IndicatorData, 'name' | 'score' | 'value'>): IndicatorData {
@@ -302,6 +302,41 @@ function runMarketCalibrationTests() {
         prices: Array.from({ length: 60 }, (_, index) => ({ date: `2026-${index < 31 ? '01' : '02'}-${String((index % 31) + 1).padStart(2, '0')}`, close: 100 + index })),
     });
     assertEqual(reconstructionOnly.horizons[0].cohorts.find((cohort) => cohort.zone === 'mixed')?.evidence_level, 'preliminary', 'reconstruction-only history cannot claim an established edge');
+
+    assertEqual(getCalibrationZone(39), 'negative', 'calibration zone includes the negative upper boundary');
+    assertEqual(getCalibrationZone(40), 'mixed', 'calibration zone includes the mixed lower boundary');
+    assertEqual(getCalibrationZone(65), 'positive', 'calibration zone includes the positive lower boundary');
+    assertEqual(getCalibrationZone(85), 'strong-positive', 'calibration zone includes the strong-positive lower boundary');
+    assertEqual(getCalibrationZone(Number.NaN), null, 'non-finite scores do not select a calibration zone');
+
+    const insufficientOutcomes = selectSimilarScoreOutcomes(70, calibration);
+    assertEqual(insufficientOutcomes[0]?.state, 'insufficient', 'valid cohorts below the display minimum remain insufficient');
+    assertEqual(selectSimilarScoreOutcomes(70, null)[0]?.state, 'unavailable', 'missing calibration produces an unavailable outcome');
+
+    const preliminaryOutcomes = selectSimilarScoreOutcomes(60, reconstructionOnly);
+    assertEqual(preliminaryOutcomes[0]?.state, 'preliminary', 'typed preliminary evidence is reused without reclassification');
+
+    const observedDates = Array.from({ length: 20 }, (_, index) => new Date(Date.UTC(2026, 0, index + 1)).toISOString().slice(0, 10));
+    const benchmarkPrices = Array.from({ length: 70 }, (_, index) => ({
+        date: new Date(Date.UTC(2026, 0, index + 1)).toISOString().slice(0, 10),
+        close: 100 + index,
+    }));
+    const establishedCalibration = calculateMarketCalibration({
+        mode: 'standard', benchmarkSymbol: 'VOO', benchmarkName: 'Vanguard S&P 500 ETF',
+        snapshots: observedDates.map((date) => ({ date, score: 70, tier: 'buy' as const, origin: 'observed' as const })),
+        prices: benchmarkPrices,
+    });
+    assertEqual(selectSimilarScoreOutcomes(70, establishedCalibration)[0]?.state, 'established', 'typed established evidence is reused without reclassification');
+
+    const missingMonth = structuredClone(establishedCalibration);
+    missingMonth.horizons = missingMonth.horizons.filter((horizon) => horizon.days !== 30);
+    assertEqual(selectSimilarScoreOutcomes(70, missingMonth)[0]?.state, 'established', 'an available horizon remains usable when the other is missing');
+    assertEqual(selectSimilarScoreOutcomes(70, missingMonth)[1]?.state, 'unavailable', 'a missing horizon is unavailable without hiding the available horizon');
+
+    const malformedCalibration = structuredClone(establishedCalibration);
+    const malformedWeek = malformedCalibration.horizons.find((horizon) => horizon.days === 7)?.cohorts.find((cohort) => cohort.zone === 'positive');
+    if (malformedWeek) malformedWeek.median_forward_return_pct = Number.NaN;
+    assertEqual(selectSimilarScoreOutcomes(70, malformedCalibration)[0]?.state, 'unavailable', 'non-finite calibration statistics produce an unavailable outcome');
 }
 
 function runMarketReconstructionTests() {

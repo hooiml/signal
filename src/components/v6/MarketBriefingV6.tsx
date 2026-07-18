@@ -14,6 +14,7 @@ import { MarketAlertsV6 } from './MarketAlertsV6';
 import { MarketContextV6 } from './MarketContextV6';
 import { MarketToResearchLinkV6 } from './MarketResearchHandoffV6';
 import { MarketCalibrationV6 } from './MarketCalibrationV6';
+import { SimilarScoreOutcomesV6 } from './SimilarScoreOutcomesV6';
 import {
     formatCompactDateV6,
     formatSignedV6,
@@ -114,6 +115,8 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                 </section>
 
             </div>
+
+            <SimilarScoreOutcomesV6 signal={signal} theme={theme} />
 
             <section className={primaryPanel + ' relative z-20 p-5 sm:p-6'} aria-labelledby="score-evidence-title" data-surface-tier="primary">
                 <div className="flex flex-wrap items-end justify-between gap-3">
