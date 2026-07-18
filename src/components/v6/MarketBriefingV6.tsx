@@ -157,7 +157,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
 
             <MarketCalibrationV6 signal={signal} theme={theme} />
 
-            <section className={'border-y py-5 sm:py-6 ' + t.divider} aria-label="Forward scenarios and market developments" data-surface-tier="secondary">
+            <section className={'rounded-lg border p-5 sm:p-6 ' + t.panelSolid} aria-label="Forward scenarios and market developments" data-surface-tier="secondary">
                 <div className="grid items-start gap-8 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.18fr)] lg:gap-0">
                     <section className="min-w-0 lg:pr-8" aria-labelledby="scenarios-title">
                         <SectionHeadingV6 eyebrow="Watch next" title="What could change the story" id="scenarios-title" theme={theme} />
@@ -192,7 +192,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
 
             <MarketToResearchLinkV6 signal={signal} theme={theme} />
 
-            <section className={'border-t pt-5 sm:pt-6 ' + t.divider} aria-labelledby="terms-title" data-surface-tier="utility">
+            <section className={'rounded-lg border p-5 sm:p-6 ' + t.panelSolid} aria-labelledby="terms-title" data-surface-tier="utility">
                 <div className="grid gap-5 lg:grid-cols-[220px_1fr] lg:items-start">
                     <div>
                         <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Plain-language guide</p>
@@ -250,7 +250,7 @@ const ValuationBackdropV6 = ({ backdrop, theme }: {
     const ratioLabel = `${backdrop.name}: ${backdrop.ratio_pct.toFixed(1)} percent`;
 
     return (
-        <details className={'group overflow-hidden rounded-lg border backdrop-blur-sm ' + t.panelUtility} aria-labelledby="valuation-backdrop-title" data-testid="valuation-backdrop" data-surface-tier="utility">
+        <details className={'group overflow-hidden rounded-lg border ' + t.panelSolid} aria-labelledby="valuation-backdrop-title" data-testid="valuation-backdrop" data-surface-tier="utility">
             <summary className={'flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:content-none ' + t.textPrimary}>
                 <span className="min-w-0">
                     <span className={'block text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Non-scored context</span>
@@ -660,7 +660,7 @@ const SectionHeadingV6 = ({ eyebrow, title, id, theme }: { eyebrow: string; titl
 const DisclosureV6 = ({ title, theme, children, defaultOpen = false }: { title: string; theme: ResearchThemeV6; children: React.ReactNode; defaultOpen?: boolean }) => {
     const t = getThemeV6(theme);
     return (
-        <details open={defaultOpen} className={'group rounded-lg border backdrop-blur-sm ' + t.panelUtility} data-surface-tier="utility">
+        <details open={defaultOpen} className={'group rounded-lg border ' + t.panelSolid} data-surface-tier="utility">
             <summary className={'flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-bold marker:content-none ' + t.textPrimary}>
                 {title}
                 <span aria-hidden="true" className={'text-lg transition-transform group-open:rotate-45 ' + t.textMuted}>+</span>
