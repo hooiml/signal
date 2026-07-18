@@ -36,7 +36,8 @@ import { buildResearchCalendar, filterResearchCalendarEvents, getResearchCalenda
 import { parseResearchCalendarInputs, parseResearchCalendarQuery } from '../../src/lib/research/calendar-input';
 import { parseResearchCalendarResponse } from '../../src/lib/research/calendar-response';
 import { calendarDateChanges, mergeResearchCalendarDateState, parseResearchCalendarDateState, snapshotResearchCalendarDates } from '../../src/lib/research/calendar-state';
-import { buildResearchRelativeUrl, mergeResearchSearchParams } from '../../src/lib/research/url-state';
+import { buildResearchRelativeUrl, mergeResearchSearchParams, resolveVisibleResearchSymbol } from '../../src/lib/research/url-state';
+import { nextHorizontalTabIndex } from '../../src/lib/research/tab-navigation';
 
 const assertEqual = <T>(actual: T, expected: T, label: string) => {
     if (actual !== expected) throw new Error(`${label}: expected ${expected}, got ${actual}`);
@@ -70,6 +71,17 @@ const runResearchUrlStateTests = () => {
     assertEqual(ticker.get('source'), 'briefing', 'opening a ticker preserves unrelated source context');
     assertEqual(buildResearchRelativeUrl('/research', ticker, '#detail').startsWith('/research?'), true, 'research URL builder includes non-empty query state');
     assertEqual(buildResearchRelativeUrl('/research', new URLSearchParams(), ''), '/research', 'research URL builder omits an empty query marker');
+
+    const visibleTickers = [{ symbol: 'MSFT' }, { symbol: 'NVDA' }];
+    assertEqual(resolveVisibleResearchSymbol(visibleTickers, 'NVDA'), 'NVDA', 'visible ticker selection preserves the requested symbol');
+    assertEqual(resolveVisibleResearchSymbol(visibleTickers, 'AAPL'), 'MSFT', 'filtered ticker selection falls back to the first visible symbol');
+    assertEqual(resolveVisibleResearchSymbol([], 'MSFT'), null, 'empty filtered ticker selection clears the selected symbol');
+
+    assertEqual(nextHorizontalTabIndex(0, 'ArrowRight', 5), 1, 'right arrow advances the active tab');
+    assertEqual(nextHorizontalTabIndex(0, 'ArrowLeft', 5), 4, 'left arrow wraps to the final tab');
+    assertEqual(nextHorizontalTabIndex(3, 'Home', 5), 0, 'Home moves to the first tab');
+    assertEqual(nextHorizontalTabIndex(1, 'End', 5), 4, 'End moves to the final tab');
+    assertEqual(nextHorizontalTabIndex(1, 'Enter', 5), null, 'unrelated keys do not move tab focus');
 };
 
 const runMarketResearchHandoffTests = () => {

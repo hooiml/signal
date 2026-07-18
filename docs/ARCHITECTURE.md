@@ -4,7 +4,7 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 
 ## User-Facing Routes
 
-- `/`: primary Story First market briefing, implemented by `MarketDashboardV6`.
+- `/`: primary Story First market conditions view, implemented by `MarketDashboardV6`.
 - `/research`: primary research workspace, implemented by `ResearchDashboardV6`.
 - `/main-v6` and `/research-v6`: retained versioned aliases for direct comparison and existing links.
 - `/backup/main` and `/backup/research`: previous market and research experiences retained as rollback references.

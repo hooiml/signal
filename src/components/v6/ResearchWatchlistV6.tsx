@@ -24,33 +24,52 @@ export const ResearchWatchlistV6 = ({
     const [symbol, setSymbol] = useState('');
     const [companyName, setCompanyName] = useState('');
     const [market, setMarket] = useState<ResearchMarket>('US');
+    const [addError, setAddError] = useState<string | null>(null);
     const themeClasses = getThemeV6(theme);
     const itemRefs = useRef(new Map<string, HTMLButtonElement>());
+    const symbolInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (!selectedSymbol) return;
         itemRefs.current.get(selectedSymbol)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     }, [selectedSymbol]);
 
+    useEffect(() => {
+        if (showAdd) symbolInputRef.current?.focus();
+    }, [showAdd]);
+
     return (
         <aside className={'min-w-0 border-b pb-4 min-[700px]:w-64 min-[700px]:shrink-0 min-[700px]:border-b-0 min-[700px]:border-r min-[700px]:pb-0 min-[700px]:pr-4 ' + themeClasses.divider}>
             <div className={'mb-4 flex items-center justify-between gap-3 border-b px-1 pb-3 ' + themeClasses.divider}>
                 <h2 className={'text-sm font-semibold ' + themeClasses.textMuted}>Watchlist</h2>
-                <button type="button" onClick={() => setShowAdd((current) => !current)} className={'min-h-10 rounded px-3 text-xs font-bold ' + themeClasses.positive}>{showAdd ? 'Close' : '+ Add'}</button>
+                <button
+                    type="button"
+                    aria-expanded={showAdd}
+                    aria-controls="research-add-company-form"
+                    onClick={() => {
+                        setAddError(null);
+                        setShowAdd((current) => !current);
+                    }}
+                    className={'min-h-10 rounded px-3 text-xs font-bold ' + themeClasses.positive}
+                >{showAdd ? 'Close' : '+ Add'}</button>
             </div>
             {showAdd ? (
-                <form className={'mb-3 space-y-2 rounded-[7px] border p-2 ' + themeClasses.row} onSubmit={(event) => {
+                <form id="research-add-company-form" className={'mb-3 space-y-2 rounded-[7px] border p-2 ' + themeClasses.row} onSubmit={(event) => {
                     event.preventDefault();
+                    setAddError(null);
                     void onAdd({ symbol, market, companyName }).then(() => {
                         setSymbol(''); setCompanyName(''); setShowAdd(false);
-                    }, () => undefined);
+                    }, (error: unknown) => {
+                        setAddError(error instanceof Error ? error.message : 'Unable to add ticker.');
+                    });
                 }}>
-                    <input aria-label="Ticker symbol" required maxLength={20} placeholder="Ticker" value={symbol} onChange={(event) => setSymbol(event.target.value.toUpperCase())} className={'h-10 w-full rounded border bg-transparent px-2 text-xs ' + themeClasses.textPrimary} />
+                    <input ref={symbolInputRef} aria-label="Ticker symbol" aria-describedby={addError ? 'research-add-company-error' : undefined} required maxLength={20} placeholder="Ticker" value={symbol} onChange={(event) => setSymbol(event.target.value.toUpperCase())} className={'h-10 w-full rounded border bg-transparent px-2 text-xs ' + themeClasses.textPrimary} />
                     <input aria-label="Company name" required maxLength={120} placeholder="Company name" value={companyName} onChange={(event) => setCompanyName(event.target.value)} className={'h-10 w-full rounded border bg-transparent px-2 text-xs ' + themeClasses.textPrimary} />
                     <div className="flex gap-2">
                         <select aria-label="Market" value={market} onChange={(event) => setMarket(event.target.value === 'MY' ? 'MY' : 'US')} className={'h-10 min-w-0 flex-1 rounded border bg-transparent px-2 text-xs ' + themeClasses.textPrimary}><option value="US">US</option><option value="MY">MY</option></select>
-                        <button type="submit" disabled={adding} className="min-h-10 rounded bg-emerald-500 px-3 text-xs font-bold text-slate-950 disabled:opacity-50">{adding ? '...' : 'Add'}</button>
+                        <button type="submit" disabled={adding} className="min-h-10 rounded bg-emerald-500 px-3 text-xs font-bold text-slate-950 disabled:opacity-50">{adding ? 'Adding…' : 'Add'}</button>
                     </div>
+                    {addError ? <p id="research-add-company-error" role="alert" className={'text-xs leading-5 ' + themeClasses.risk}>{addError}</p> : null}
                 </form>
             ) : null}
             {items.length > 0 ? (

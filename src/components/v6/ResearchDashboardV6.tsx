@@ -17,7 +17,7 @@ import { ResearchWatchlistV6 } from './ResearchWatchlistV6';
 import { TrendDiscoveryV6 } from './TrendDiscoveryV6';
 import { ResearchAlertsV6 } from './ResearchAlertsV6';
 import { ResearchComparisonV6 } from './ResearchComparisonV6';
-import { ResearchInboxV6 } from './ResearchInboxV6';
+import { ResearchInboxV6, type ResearchInboxSummaryV6 } from './ResearchInboxV6';
 import { isResearchWorkspaceV6, ResearchWorkspaceTabsV6, type ResearchWorkspaceV6 } from './ResearchWorkspaceTabsV6';
 import { ResearchMarketContextV6 } from './MarketResearchHandoffV6';
 import { applyResearchRecordV6, createWatchlistItemV6, toResearchRecordV6 } from './research-records-v6';
@@ -33,7 +33,7 @@ import { useThemeV6 } from './ThemeProviderV6';
 import { parseMarketResearchHandoff } from '@/lib/market-research-handoff';
 import { PositionPlanOverviewV6 } from './PositionPlanOverviewV6';
 import { ResearchCalendarV6 } from './ResearchCalendarV6';
-import { buildResearchRelativeUrl, mergeResearchSearchParams, type ResearchUrlChanges } from '@/lib/research/url-state';
+import { buildResearchRelativeUrl, mergeResearchSearchParams, resolveVisibleResearchSymbol, type ResearchUrlChanges } from '@/lib/research/url-state';
 
 const formatSnapshotLabel = (date: string) => new Intl.DateTimeFormat('en-US', {
     month: 'short',
@@ -42,11 +42,30 @@ const formatSnapshotLabel = (date: string) => new Intl.DateTimeFormat('en-US', {
     timeZone: 'UTC',
 }).format(new Date(date + 'T00:00:00Z'));
 
+const filterResearchItems = (
+    items: readonly ResearchWatchlistItem[],
+    query: string,
+    market: ResearchMarketFilterV6,
+    action: ResearchActionFilterV6,
+) => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return items.filter((item) => {
+        const matchesQuery = !normalizedQuery
+            || item.symbol.toLowerCase().includes(normalizedQuery)
+            || item.name.toLowerCase().includes(normalizedQuery);
+        const matchesMarket = market === 'ALL' || item.market === market;
+        const matchesAction = action === 'ALL' || getResearchActionV6(item) === action;
+        return matchesQuery && matchesMarket && matchesAction;
+    });
+};
+
 export const ResearchDashboardV6 = () => {
     const router = useRouter();
     const searchParams = useSearchParams();
     const requestedTicker = searchParams.get('ticker')?.trim().toUpperCase();
-    const requestedSymbol = requestedTicker && /^[A-Z0-9.-]{1,20}$/.test(requestedTicker) ? requestedTicker : 'MSFT';
+    const searchString = searchParams.toString();
+    const validRequestedTicker = Boolean(requestedTicker && /^[A-Z0-9.-]{1,20}$/.test(requestedTicker));
+    const requestedSymbol = validRequestedTicker && requestedTicker ? requestedTicker : 'MSFT';
     const requestedWorkspace = searchParams.get('workspace');
     const requestedDetailTab = searchParams.get('tab');
     const requestedReview = searchParams.get('review');
@@ -64,12 +83,13 @@ export const ResearchDashboardV6 = () => {
     const [saving, setSaving] = useState(false);
     const [adding, setAdding] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [inboxSummary, setInboxSummary] = useState<ResearchInboxSummaryV6 | null>(null);
     const [workspace, setWorkspace] = useState<ResearchWorkspaceV6>(isResearchWorkspaceV6(requestedWorkspace) ? requestedWorkspace : 'research');
     const [reviewRequested, setReviewRequested] = useState(requestedReview === 'edit');
     const liveSnapshots = useRef(new Map<string, ResearchSnapshot>());
     const liveQuotes = useRef(new Map<string, ResearchSnapshot['quote']>());
     const quoteItems = useRef(items);
-    const urlSearchRef = useRef(searchParams.toString());
+    const urlSearchRef = useRef(searchString);
 
     const updateUrl = useCallback((changes: ResearchUrlChanges, mode: 'push' | 'replace' = 'replace') => {
         const nextSearchParams = mergeResearchSearchParams(new URLSearchParams(urlSearchRef.current), changes);
@@ -86,16 +106,12 @@ export const ResearchDashboardV6 = () => {
     const normalizedReview = requestedReview === 'edit';
 
     useEffect(() => {
-        urlSearchRef.current = searchParams.toString();
-    }, [searchParams]);
+        urlSearchRef.current = searchString;
+    }, [searchString]);
 
     useEffect(() => {
         setWorkspace((current) => current === normalizedWorkspace ? current : normalizedWorkspace);
     }, [normalizedWorkspace]);
-
-    useEffect(() => {
-        setSelectedSymbol((current) => current === requestedSymbol ? current : requestedSymbol);
-    }, [requestedSymbol]);
 
     useEffect(() => {
         setActiveDetailTab((current) => current === normalizedDetailTab ? current : normalizedDetailTab);
@@ -110,19 +126,19 @@ export const ResearchDashboardV6 = () => {
         updateUrl({ workspace: nextWorkspace }, 'push');
     };
 
-    const filteredItems = useMemo(() => {
-        const normalizedQuery = query.trim().toLowerCase();
-        return items.filter((item) => {
-            const matchesQuery = !normalizedQuery
-                || item.symbol.toLowerCase().includes(normalizedQuery)
-                || item.name.toLowerCase().includes(normalizedQuery);
-            const matchesMarket = market === 'ALL' || item.market === market;
-            const matchesAction = action === 'ALL' || getResearchActionV6(item) === action;
-            return matchesQuery && matchesMarket && matchesAction;
-        });
-    }, [action, items, market, query]);
+    const filteredItems = useMemo(() => filterResearchItems(items, query, market, action), [action, items, market, query]);
+
+    useEffect(() => {
+        if (urlSearchRef.current !== searchString) return;
+        const nextSymbol = resolveVisibleResearchSymbol(filteredItems, requestedSymbol);
+        setSelectedSymbol((current) => current === (nextSymbol ?? '') ? current : nextSymbol ?? '');
+        if (nextSymbol === requestedSymbol && (validRequestedTicker || !requestedTicker)) return;
+        if (nextSymbol) updateUrl({ ticker: nextSymbol });
+        else updateUrl({ ticker: null, tab: null, review: null });
+    }, [filteredItems, requestedSymbol, requestedTicker, searchString, updateUrl, validRequestedTicker]);
+
     const selected = useMemo(
-        () => filteredItems.find((item) => item.symbol === selectedSymbol) ?? filteredItems[0] ?? null,
+        () => filteredItems.find((item) => item.symbol === selectedSymbol) ?? null,
         [filteredItems, selectedSymbol],
     );
     const latestReviewedAt = useMemo(
@@ -137,6 +153,14 @@ export const ResearchDashboardV6 = () => {
         [items, records],
     );
     const themeClasses = getThemeV6(theme);
+    const updateInboxSummary = useCallback((next: ResearchInboxSummaryV6) => {
+        setInboxSummary((current) => current
+            && current.status === next.status
+            && current.attentionCount === next.attentionCount
+            && current.unreadCount === next.unreadCount
+            ? current
+            : next);
+    }, []);
 
     const updateLiveSnapshot = useCallback((symbol: string, snapshot: ResearchSnapshot) => {
         liveSnapshots.current.set(symbol, snapshot);
@@ -311,9 +335,6 @@ export const ResearchDashboardV6 = () => {
                 ? current.map((item) => item.symbol === saved.symbol ? applyResearchRecordV6(item, saved) : item)
                 : [...current, createWatchlistItemV6(saved, 100 + current.length)]);
             selectTicker(saved.symbol);
-        } catch (error) {
-            setSaveError(error instanceof Error ? error.message : 'Unable to add ticker.');
-            throw error;
         } finally {
             setAdding(false);
         }
@@ -326,8 +347,13 @@ export const ResearchDashboardV6 = () => {
             const response = await fetch('/api/research/watchlist/' + encodeURIComponent(selected.symbol), { method: 'DELETE' });
             if (!response.ok) throw new ResearchInputError('Unable to remove saved research.');
             setRecords((current) => current.filter((item) => item.symbol !== selected.symbol));
-            setItems((current) => current.filter((item) => item.symbol !== selected.symbol));
-            setSelectedSymbol('');
+            const remainingItems = items.filter((item) => item.symbol !== selected.symbol);
+            const nextSymbol = resolveVisibleResearchSymbol(filterResearchItems(remainingItems, query, market, action), '');
+            setItems(remainingItems);
+            setSelectedSymbol(nextSymbol ?? '');
+            setActiveDetailTab('overview');
+            setReviewRequested(false);
+            updateUrl({ ticker: nextSymbol, tab: null, review: null });
         } catch (error) {
             setSaveError(error instanceof Error ? error.message : 'Unable to remove saved research.');
         }
@@ -366,12 +392,18 @@ export const ResearchDashboardV6 = () => {
                         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-[10px] px-4 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 [&::-webkit-details-marker]:hidden">
                             <span>
                                 <span className={'block text-sm font-bold ' + themeClasses.textPrimary}>Research overview</span>
-                                <span className={'block text-xs ' + themeClasses.textMuted}>Daily attention and portfolio guardrails</span>
+                                <span className={'block text-xs ' + themeClasses.textMuted}>
+                                    {inboxSummary?.status === 'ready'
+                                        ? `${inboxSummary.attentionCount} attention item${inboxSummary.attentionCount === 1 ? '' : 's'} · ${inboxSummary.unreadCount} unread · Position plan`
+                                        : inboxSummary?.status === 'error'
+                                            ? 'Attention unavailable · Position plan available'
+                                            : 'Checking daily attention · Position plan available'}
+                                </span>
                             </span>
                             <span aria-hidden="true" className={'text-lg transition-transform group-open:rotate-180 ' + themeClasses.textMuted}>⌄</span>
                         </summary>
                         <div className={'border-t p-3 min-[700px]:p-4 ' + themeClasses.divider}>
-                            <ResearchInboxV6 items={items} records={inboxRecords} theme={theme} onOpen={(symbol, tab) => selectTicker(symbol, false, tab)} onSave={saveRecord} />
+                            <ResearchInboxV6 items={items} records={inboxRecords} theme={theme} onOpen={(symbol, tab) => selectTicker(symbol, false, tab)} onSave={saveRecord} onSummaryChange={updateInboxSummary} />
                             <PositionPlanOverviewV6 records={records} items={items} theme={theme} />
                         </div>
                     </details>

@@ -4,7 +4,7 @@
 
 This document records potential additions for Signal's two primary product surfaces:
 
-- **Market Briefing** at `/`
+- **Market Conditions** at `/`
 - **Investment Research** at `/research`
 
 The opportunities are ranked from highest to lowest expected product value. The ranking is based on the current `main` working tree reviewed on 17 July 2026, including a browser walkthrough of both routes and inspection of the owning components, API routes, domain logic, product objective, and test contract.
@@ -29,7 +29,7 @@ The most useful additions should improve at least one of these outcomes:
 
 The following features already exist and should not be rebuilt as new backlog items.
 
-### Market Briefing
+### Market Conditions
 
 - US and Malaysia market selection.
 - Momentum and Contrarian interpretation modes.
@@ -40,7 +40,7 @@ The following features already exist and should not be rebuilt as new backlog it
 - Seven-day and 30-day historical zone calibration.
 - Forward scenarios, market background, macro context, and valuation backdrop.
 - Browser-local market alert rules evaluated on refresh.
-- Evidence-only handoff from the market briefing into Research.
+- Evidence-only handoff from Market Conditions into Research.
 - Loading, retry, partial-data, theme, and responsive behavior.
 
 ### Investment Research
@@ -87,7 +87,7 @@ Priority meanings:
 | 7 | Market score sensitivity simulator | Market | Medium | High | Medium | Lets the user test how specific driver changes could alter the score instead of relying only on prose scenarios. |
 | 8 | Filing, earnings, guidance, and thesis-change inbox | Research | Medium | High | High | Surfaces material evidence changes and maps them to the saved thesis, triggers, and invalidation conditions. |
 | 9 | User-defined discovery universes and ranking policies | Research | Medium | Medium-high | Medium | Extends the fixed discovery scan to the user's actual investable universe and constraints. |
-| 10 | Historical briefing replay and snapshot comparison | Market | Medium | Medium-high | Medium | Makes any historical score point explainable and comparable, not just the latest change. |
+| 10 | Historical conditions replay and snapshot comparison | Market | Medium | Medium-high | Medium | Makes any historical score point explainable and comparable, not just the latest change. |
 | 11 | Research workflow queue and review templates | Research | Medium | Medium | Low-medium | Helps users process incomplete research consistently across different security types. |
 | 12 | Exportable decision packet | Both | Medium | Medium | Low-medium | Creates a portable Markdown/PDF record of the evidence, limitations, decision, and review date. |
 | 13 | Source-health and coverage dashboard | Both | Medium | Medium | Medium | Makes provider gaps, stale feeds, regional coverage, and fallback behavior visible before they affect a decision. |
@@ -150,7 +150,7 @@ Provider dates can move. Events need freshness, last-checked time, and a changed
 
 **Opportunity**
 
-Market rules are browser-local and checked on briefing refresh. Research has an alert view and signed background-digest delivery infrastructure, but there is no single user-facing place to manage persistent rules, delivery destinations, history, quiet hours, and failures.
+Market rules are browser-local and checked when market conditions refresh. Research has an alert view and signed background-digest delivery infrastructure, but there is no single user-facing place to manage persistent rules, delivery destinations, history, quiet hours, and failures.
 
 **Minimum valuable version**
 
@@ -253,7 +253,7 @@ Create a provenance-preserving queue of new material facts. Diff each item again
 
 Allow a user to define markets, sectors, liquidity floor, risk exclusions, and a bounded list of ranking preferences. Preserve the current default methodology and expose how any user policy changes rank or eligibility.
 
-### 10. Historical briefing replay and snapshot comparison
+### 10. Historical conditions replay and snapshot comparison
 
 Make score-history points selectable. Reconstruct the story, drivers, weights, freshness, coverage, and conflicts for that date, then compare any two snapshots without presenting hindsight as a trading backtest.
 
@@ -267,7 +267,7 @@ Export a point-in-time Markdown or PDF packet containing the market context, tic
 
 ### 13. Source-health and coverage dashboard
 
-Summarize source status, last successful fetch, cadence, regional coverage, fallbacks, and affected features. This should complement—not duplicate—the per-briefing trust disclosures.
+Summarize source status, last successful fetch, cadence, regional coverage, fallbacks, and affected features. This should complement—not duplicate—the per-view trust disclosures.
 
 ## Low-priority opportunity notes
 

@@ -62,7 +62,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
         <div className="mt-4 space-y-5" aria-busy={updating}>
             {refreshError ? (
                 <div role="status" className={'rounded-md border px-4 py-3 text-sm ' + (theme === 'light' ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-amber-400/35 bg-amber-500/10 text-amber-100')}>
-                    Showing the previous briefing while the latest refresh is unavailable: {refreshError}
+                    Showing the previous market conditions while the latest refresh is unavailable: {refreshError}
                 </div>
             ) : null}
 
@@ -81,7 +81,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                             <StoryTrustItemV6 label="Composite score" value={Math.round(signal.composite_score) + ' / 100'} theme={theme} />
                             <StoryTrustItemV6 label="Indicator agreement" value={Math.round(signal.confidence.agreement_pct) + '%'} theme={theme} />
                             <StoryTrustItemV6 label="Data freshness" value={capitalize(quality?.freshness ?? 'unavailable')} valueClass={getFreshnessTone(capitalize(quality?.freshness ?? 'stale'), theme)} theme={theme} />
-                            <StoryTrustItemV6 label="Briefing as of" value={formatCompactDateV6(signal.metadata.score_delta?.snapshot_date)} theme={theme} />
+                            <StoryTrustItemV6 label="Conditions as of" value={formatCompactDateV6(signal.metadata.score_delta?.snapshot_date)} theme={theme} />
                         </dl>
 
                         <div className={'mt-6 border-t pt-5 ' + t.divider}>
@@ -196,7 +196,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                 <div className="grid gap-5 lg:grid-cols-[220px_1fr] lg:items-start">
                     <div>
                         <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Plain-language guide</p>
-                        <h2 id="terms-title" className={'mt-1 text-lg font-bold ' + t.textPrimary}>Terms in this briefing</h2>
+                        <h2 id="terms-title" className={'mt-1 text-lg font-bold ' + t.textPrimary}>Terms used here</h2>
                     </div>
                     <dl className="grid gap-4 sm:grid-cols-3">
                         <GlossaryItemV6 term="Momentum" definition="How consistently prices and market participation are moving." theme={theme} />

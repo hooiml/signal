@@ -1,5 +1,12 @@
 export type ResearchUrlChanges = Readonly<Record<string, string | null>>;
 
+export const resolveVisibleResearchSymbol = (
+    items: readonly { readonly symbol: string }[],
+    requestedSymbol: string,
+): string | null => items.some((item) => item.symbol === requestedSymbol)
+    ? requestedSymbol
+    : items[0]?.symbol ?? null;
+
 export const mergeResearchSearchParams = (
     current: URLSearchParams,
     changes: ResearchUrlChanges,

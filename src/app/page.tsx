@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { MarketDashboardV6 } from '@/components/v6/MarketDashboardV6';
 
 export const metadata: Metadata = {
-    title: 'Signal | Market Briefing',
-    description: 'A story-first market briefing with progressive evidence disclosure.',
+    title: 'Signal | Market Conditions',
+    description: 'A story-first view of current market conditions with progressive evidence disclosure.',
 };
 
 export const revalidate = 60;

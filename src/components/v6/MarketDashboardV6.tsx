@@ -112,7 +112,7 @@ export const MarketDashboardV6 = () => {
                     {!signal && !loading ? (
                         <section className={'mt-4 rounded-lg border p-6 backdrop-blur-md ' + themeClasses.panel}>
                             <p className={'text-xs font-semibold uppercase tracking-[0.12em] ' + themeClasses.risk}>Signal unavailable</p>
-                            <h1 className={'mt-2 text-2xl font-bold ' + themeClasses.textPrimary}>No current market briefing is available</h1>
+                            <h1 className={'mt-2 text-2xl font-bold ' + themeClasses.textPrimary}>Current market conditions are unavailable</h1>
                             <p className={'mt-2 max-w-2xl text-sm ' + themeClasses.textSecondary}>{error || 'Try another market, mode, or source configuration.'}</p>
                             <button type="button" onClick={() => void fetchSignal()} className="mt-5 min-h-10 rounded-md border border-emerald-500 px-4 text-sm font-bold text-emerald-600 transition-colors hover:bg-emerald-500/10">Retry</button>
                         </section>
@@ -137,7 +137,7 @@ const MarketSkeletonV6 = ({ theme }: { theme: ResearchThemeV6 }) => {
     const themeClasses = getThemeV6(theme);
     const block = 'animate-pulse rounded-lg border backdrop-blur-md ' + themeClasses.panel;
     return (
-        <div className="mt-4 space-y-4" aria-label="Loading market briefing">
+        <div className="mt-4 space-y-4" aria-label="Loading market conditions">
             <div className={'h-24 ' + block} />
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {[0, 1, 2, 3].map((item) => <div key={item} className={'h-28 ' + block} />)}

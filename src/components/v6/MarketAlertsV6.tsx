@@ -136,7 +136,7 @@ export const MarketAlertsV6 = ({ signal, enableSocial, theme }: { readonly signa
                 <div>
                     <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + styles.textMuted}>Keep watching</p>
                     <h2 id="market-alerts-title" className={'mt-1 text-lg font-bold ' + styles.textPrimary}>Alert me when...</h2>
-                    <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Saved in this browser and checked whenever the briefing refreshes.</p>
+                    <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Saved in this browser and checked whenever market conditions refresh.</p>
                 </div>
                 {marketRules.length > 0 ? (
                     <p className={'text-xs font-semibold ' + (triggeredCount > 0 ? styles.risk : styles.positive)}>
@@ -150,7 +150,7 @@ export const MarketAlertsV6 = ({ signal, enableSocial, theme }: { readonly signa
                     <summary className={'flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 ' + styles.textPrimary}>
                         <span className="min-w-0">
                             <span className="block text-sm font-semibold">Set an alert</span>
-                            <span className={'mt-1 block text-xs font-normal ' + styles.textMuted}>Choose a condition to monitor this briefing.</span>
+                            <span className={'mt-1 block text-xs font-normal ' + styles.textMuted}>Choose a condition to monitor this market view.</span>
                         </span>
                         <span aria-hidden="true" className={'text-xl leading-none transition-transform group-open:rotate-45 ' + styles.textMuted}>+</span>
                     </summary>

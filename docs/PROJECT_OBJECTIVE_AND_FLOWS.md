@@ -6,7 +6,7 @@ This document describes what Signal should accomplish and how users move through
 
 Signal is a personal market decision-support application with two connected workspaces:
 
-1. **Market Briefing** turns market, sentiment, positioning, and volatility inputs into an explainable market-condition score.
+1. **Market Conditions** turns market, sentiment, positioning, and volatility inputs into an explainable market-condition score.
 2. **Investment Research** helps the user evaluate individual securities through a repeatable thesis, valuation, event, technical, and checklist process.
 
 The product should reduce the time required to answer two questions:
@@ -77,7 +77,7 @@ Primary jobs to be done:
 
 ```mermaid
 flowchart LR
-    A[Market Briefing] --> B[Current posture]
+    A[Market Conditions] --> B[Current posture]
     B --> C[Drivers and conflicts]
     C --> D[History and scenarios]
     D --> E[Investment Research]
@@ -89,10 +89,10 @@ flowchart LR
 
 The two workspaces share navigation, theme preference, terminology, and a consistent hierarchy, but each has a different purpose:
 
-- Market Briefing is a **top-down environment assessment**.
+- Market Conditions is a **top-down environment assessment**.
 - Investment Research is a **bottom-up security assessment**.
 
-## Flow 1: Market Briefing
+## Flow 1: Market Conditions
 
 ### User goal
 
@@ -107,7 +107,7 @@ The user can configure:
 - **Sentiment source:** include or exclude the applicable social/news source.
 - **Theme:** light or dark.
 
-Changing market, mode, or source inclusion refreshes the briefing while preserving the previous result until the new result is available.
+Changing market, mode, or source inclusion refreshes the conditions view while preserving the previous result until the new result is available.
 
 ### Reading order
 
@@ -153,11 +153,11 @@ Changing market, mode, or source inclusion refreshes the briefing while preservi
    - Source cadence, horizon, update date, and source link.
    - Methodology and non-advice disclosure.
 
-### Market Briefing flow
+### Market Conditions flow
 
 ```mermaid
 flowchart TD
-    A[Open Market Briefing] --> B[Load saved market, mode, source, and theme]
+    A[Open Market Conditions] --> B[Load saved market, mode, source, and theme]
     B --> C[Request current signal]
     C --> D{Request successful?}
     D -- No --> E[Show error with retry and preserve previous signal when available]
@@ -292,7 +292,7 @@ Recommended relationship:
 4. The selected security is evaluated independently on thesis, quality, valuation, and price.
 5. Market context may adjust urgency or position sizing, but it does not overwrite the security-level decision rules.
 
-The Market Briefing can pass a bounded, validated context reference into Research. That handoff remains visibly labeled evidence-only and never silently merges the market score with security decisions or checklist state.
+Market Conditions can pass a bounded, validated context reference into Research. That handoff remains visibly labeled evidence-only and never silently merges the market score with security decisions or checklist state.
 
 ## Scoring Semantics
 
@@ -325,7 +325,7 @@ flowchart LR
     C --> D[Scoring and weighting engine]
     D --> E[Signal response]
     E --> F[Persisted score snapshot]
-    E --> G[Market Briefing UI]
+    E --> G[Market Conditions UI]
     F --> G
     H[Research records] --> I[Research decision rules]
     I --> J[Investment Research UI]
@@ -422,7 +422,7 @@ The redesign should preserve:
 - Implement scoring and research-decision rules independently of UI.
 - Add fixtures representing US/MY, Momentum/Contrarian, stale data, missing data, and conflicting indicators.
 
-### Phase 2: Market Briefing
+### Phase 2: Market Conditions
 
 - Build market, mode, source, and theme controls.
 - Implement posture, summary, history, drivers, scenarios, context, and methodology.
@@ -466,4 +466,4 @@ A redesign is functionally complete when:
 
 ## One-Sentence Build Brief
 
-Build a design-forward but evidence-transparent investment decision-support application that combines an explainable market-condition briefing with a structured security-research workflow, while keeping scoring, uncertainty, and decision rules visible and independent from the visual design.
+Build a design-forward but evidence-transparent investment decision-support application that combines an explainable market-conditions view with a structured security-research workflow, while keeping scoring, uncertainty, and decision rules visible and independent from the visual design.

@@ -89,7 +89,7 @@ const inspectHeader = async (page, routePath, viewport) => page.evaluate(({ rout
     const inner = header?.firstElementChild;
     const nav = header?.querySelector('nav[aria-label="Primary"]');
     const toggle = header?.querySelector('button[aria-label^="Switch to"]');
-    const command = header?.querySelector('[aria-label="Market briefing controls"]');
+    const command = header?.querySelector('[aria-label="Market conditions controls"]');
     const researchControls = header?.querySelector('[aria-label="Research controls"]');
     const rect = (element) => {
         if (!element) return null;
@@ -234,7 +234,7 @@ const main = async () => {
                     runCheck(scenario.checks, 'primary navigation fully visible', linksVisible, `nav ${navBounds ? `${navBounds.width}px` : 'missing'}`);
                     runCheck(scenario.checks, 'document has no horizontal overflow', documentOverflow <= 1, `${details.documentWidth}px document width on ${details.viewportWidth}px viewport`);
                     runCheck(scenario.checks, 'theme toggle dimensions', toggleSize, details.toggle ? `${details.toggle.width}x${details.toggle.height}` : 'toggle missing');
-                    runCheck(scenario.checks, `${expectedSurface} surface present`, Boolean(expectedSurface === 'market' ? details.command : details.researchControls), expectedSurface === 'market' ? 'market briefing controls' : 'research controls');
+                    runCheck(scenario.checks, `${expectedSurface} surface present`, Boolean(expectedSurface === 'market' ? details.command : details.researchControls), expectedSurface === 'market' ? 'market conditions controls' : 'research controls');
 
                     const toggle = header.locator('button[aria-label^="Switch to"]');
                     await page.waitForFunction(

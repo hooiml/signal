@@ -366,7 +366,7 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
     const changeSummaryValues = [...document.querySelectorAll('[data-testid="change-summary-value"]')];
     const supportingSection = document.querySelector('[aria-label="Forward scenarios and market developments"]');
     const termsSection = document.querySelector('section[aria-labelledby="terms-title"]');
-    const commandText = document.querySelector('[aria-label="Market briefing controls"]')?.textContent || '';
+    const commandText = document.querySelector('[aria-label="Market conditions controls"]')?.textContent || '';
     const evidenceBounds = storyEvidence?.getBoundingClientRect();
     return {
         orderIsCorrect,
@@ -544,14 +544,14 @@ const main = async () => {
                     runCheck(scenario.checks, 'coverage adjustment explains neutral reserve', details.coverageText.includes('95% configured weight') && details.coverageText.includes('neutral reserve (5% × 50)') && details.coverageText.includes('not redistributed'), details.coverageText);
                     runCheck(scenario.checks, 'driver weights are visible', details.driverTableText.includes('35% configured weight') && details.driverTableText.includes('20% configured weight') && details.driverTableText.includes('10% configured weight'), details.driverTableText);
                     runCheck(scenario.checks, 'desktop Quick Read duplication is removed', details.quickReadAbsent, JSON.stringify(details));
-                    runCheck(scenario.checks, 'market story exposes trust context', details.storyTrustText.includes('Composite score') && details.storyTrustText.includes('Indicator agreement') && details.storyTrustText.includes('Data freshness') && details.storyTrustText.includes('Briefing as of'), details.storyTrustText);
+                    runCheck(scenario.checks, 'market story exposes trust context', details.storyTrustText.includes('Composite score') && details.storyTrustText.includes('Indicator agreement') && details.storyTrustText.includes('Data freshness') && details.storyTrustText.includes('Conditions as of'), details.storyTrustText);
                     runCheck(scenario.checks, 'market story keeps readings without audit math', details.storyEvidenceText.includes('16.20') && details.storyEvidenceText.includes('36.3% bullish') && details.storyEvidenceText.includes('0.00 sentiment') && details.storyAuditMathAbsent, details.storyEvidenceText);
                     runCheck(scenario.checks, 'market story uses ranked evidence roles', details.storyEvidenceText.includes('Strongest influence') && details.storyEvidenceText.includes('Conflicting signal') && !details.storyEvidenceText.includes('Evidence chapter'), details.storyEvidenceText);
                     runCheck(scenario.checks, 'market story cards fit their container', details.storyCardsContained && details.storyTrustOverflow <= 1 && details.storyEvidenceOverflow <= 1, JSON.stringify({ storyCardsContained: details.storyCardsContained, storyTrustOverflow: details.storyTrustOverflow, storyEvidenceOverflow: details.storyEvidenceOverflow }));
                     runCheck(scenario.checks, 'market story uses divider-led driver groups', details.storyCardsFlattened, JSON.stringify({ storyCardsFlattened: details.storyCardsFlattened }));
                     runCheck(scenario.checks, 'market story freshness warning is visible text', details.storyTextHierarchy, JSON.stringify({ storyTextHierarchy: details.storyTextHierarchy }));
                     runCheck(scenario.checks, 'lower-priority supporting sections are unboxed', details.supportingSectionsFlattened, JSON.stringify({ supportingSectionsFlattened: details.supportingSectionsFlattened }));
-                    runCheck(scenario.checks, 'briefing header separates briefing date and availability', details.commandText.includes('Briefing as of') && details.commandText.includes('Briefing available'), details.commandText);
+                    runCheck(scenario.checks, 'conditions header separates snapshot date and availability', details.commandText.includes('Conditions as of') && details.commandText.includes('Conditions available'), details.commandText);
                     runCheck(scenario.checks, 'main page uses distinct primary, secondary, utility, and action surfaces', details.pageSurfaceHierarchy, JSON.stringify({ counts: details.pageSurfaceCounts, styles: details.pageSurfaceStyles }));
                     runCheck(scenario.checks, 'what changed summary labels and values align', details.changeSummaryAligned, JSON.stringify({ changeSummaryAligned: details.changeSummaryAligned }));
                     runCheck(scenario.checks, 'document has no horizontal overflow', details.documentOverflow <= 1, `${details.documentOverflow}px overflow`);
@@ -782,10 +782,10 @@ const main = async () => {
                 runCheck(scenario.checks, 'score bridge remains connected after controls', scoreBridgeText.includes('Composite score') && scoreBridgeText.includes('configured weight'), shorten(scoreBridgeText));
 
                 signalResponseMode = 'failure';
-                await page.getByRole('button', { name: /Refresh market briefing/ }).click();
-                await page.waitForFunction(() => document.querySelector('[aria-label="Market briefing controls"]')?.textContent?.includes('Refresh failed'), undefined, { timeout: timeoutMs });
-                const failedStatusText = await page.locator('[aria-label="Market briefing controls"]').textContent();
-                runCheck(scenario.checks, 'failed refresh retains the previous briefing', Boolean(failedStatusText?.includes('Refresh failed') && failedStatusText.includes('Previous briefing retained') && failedStatusText.includes('Attempted') && await page.locator('#market-story-title').isVisible()), shorten(failedStatusText));
+                await page.getByRole('button', { name: /Refresh market conditions/ }).click();
+                await page.waitForFunction(() => document.querySelector('[aria-label="Market conditions controls"]')?.textContent?.includes('Refresh failed'), undefined, { timeout: timeoutMs });
+                const failedStatusText = await page.locator('[aria-label="Market conditions controls"]').textContent();
+                runCheck(scenario.checks, 'failed refresh retains the previous conditions', Boolean(failedStatusText?.includes('Refresh failed') && failedStatusText.includes('Previous conditions retained') && failedStatusText.includes('Attempted') && await page.locator('#market-story-title').isVisible()), shorten(failedStatusText));
                 signalResponseMode = 'success';
                 scenario.status = 'passed';
             } catch (error) {

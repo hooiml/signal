@@ -71,7 +71,7 @@ export const MarketCommandBarV6 = ({
         ? (sourceToggleImpact.with_source_score !== null && sourceToggleImpact.without_source_score !== null
             ? `Without ${sourceToggleImpact.source_label.toLowerCase()}: ${sourceToggleImpact.without_source_score} (${sourceToggleImpact.delta_without_source === null ? 'n/a' : `${sourceToggleImpact.delta_without_source > 0 ? '+' : ''}${sourceToggleImpact.delta_without_source}`})`
             : sourceToggleImpact.summary)
-        : (enableSocial ? `${compactSourceLabel} is included in this briefing.` : `${compactSourceLabel} is excluded from this briefing.`);
+        : (enableSocial ? `${compactSourceLabel} is included in these market conditions.` : `${compactSourceLabel} is excluded from these market conditions.`);
     const sourceImpactLabel = sourceToggleImpact
         ? (sourceToggleImpact.with_source_score !== null && sourceToggleImpact.without_source_score !== null ? sourceImpactText : 'No comparison data')
         : 'No comparison data';
@@ -83,7 +83,7 @@ export const MarketCommandBarV6 = ({
     const segmentClass = (active: boolean) => `min-h-8 rounded-[6px] px-3 text-sm font-semibold transition-colors active:scale-[0.98] ${focusClass} ${active ? 'bg-[var(--fill-success)] text-[var(--on-success)]' : 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--border)] hover:text-[var(--text-primary)]'}`;
 
     return (
-        <div className={`research-scrollbar overflow-x-auto transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-80'}`} aria-label="Market briefing controls">
+        <div className={`research-scrollbar overflow-x-auto transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-80'}`} aria-label="Market conditions controls">
             <div className="flex min-w-max items-center gap-8 whitespace-nowrap min-[1200px]:min-w-0 min-[1200px]:justify-between">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2" role="group" aria-label="Region">
@@ -130,7 +130,7 @@ export const MarketCommandBarV6 = ({
                 <div className="flex items-center gap-4">
                     <SignalHeaderDivider />
 
-                    <MetaItemV6 label="Briefing as of" value={snapshotDate ? `Briefing as of ${formatSnapshotDateUtc(snapshotDate)} (UTC)` : 'Briefing date unavailable'} tone={tone} icon="clock" />
+                    <MetaItemV6 label="Conditions as of" value={snapshotDate ? `Conditions as of ${formatSnapshotDateUtc(snapshotDate)} (UTC)` : 'Conditions date unavailable'} tone={tone} icon="clock" />
 
                     <SignalHeaderDivider />
 
@@ -141,7 +141,7 @@ export const MarketCommandBarV6 = ({
                                 type="button"
                                 onClick={onRefresh}
                                 disabled={!isLoaded || status === 'loading' || status === 'updating'}
-                                aria-label={status === 'loading' || status === 'updating' ? 'Refreshing market briefing' : `Refresh market briefing${successfulLabel ? `, last retrieved ${successfulLabel}` : ''}`}
+                                aria-label={status === 'loading' || status === 'updating' ? 'Refreshing market conditions' : `Refresh market conditions${successfulLabel ? `, last retrieved ${successfulLabel}` : ''}`}
                                 className={`grid h-8 w-8 place-items-center rounded-full border-[0.5px] border-[var(--border)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] ${focusClass} disabled:cursor-not-allowed disabled:opacity-55`}
                             >
                                 <SignalHeaderIcon name="refresh" />
@@ -160,11 +160,11 @@ type CommandTone = {
 };
 
 const getBriefingStatusContent = (status: BriefingStatus, attemptedLabel?: string, successfulLabel?: string) => {
-    if (status === 'loading') return { value: 'Loading briefing', secondary: undefined };
-    if (status === 'updating') return { value: 'Updating', secondary: successfulLabel ? `Previous briefing retained · Retrieved ${successfulLabel}` : 'Retrieving latest briefing' };
-    if (status === 'refresh-failed') return { value: 'Refresh failed', secondary: `Previous briefing retained${attemptedLabel ? ` · Attempted ${attemptedLabel}` : ''}` };
-    if (status === 'available') return { value: 'Briefing available', secondary: successfulLabel ? `Retrieved ${successfulLabel}` : undefined };
-    return { value: 'Briefing unavailable', secondary: attemptedLabel ? `Attempted ${attemptedLabel}` : undefined };
+    if (status === 'loading') return { value: 'Loading conditions', secondary: undefined };
+    if (status === 'updating') return { value: 'Updating', secondary: successfulLabel ? `Previous conditions retained · Retrieved ${successfulLabel}` : 'Retrieving latest market conditions' };
+    if (status === 'refresh-failed') return { value: 'Refresh failed', secondary: `Previous conditions retained${attemptedLabel ? ` · Attempted ${attemptedLabel}` : ''}` };
+    if (status === 'available') return { value: 'Conditions available', secondary: successfulLabel ? `Retrieved ${successfulLabel}` : undefined };
+    return { value: 'Conditions unavailable', secondary: attemptedLabel ? `Attempted ${attemptedLabel}` : undefined };
 };
 
 const MetaItemV6 = ({ label, value, tone, status, icon, secondary }: { label: string; value: string; tone: CommandTone; status?: BriefingStatus; icon?: 'clock'; secondary?: string }) => (

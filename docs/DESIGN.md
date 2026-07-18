@@ -3,7 +3,7 @@
 ## Source of truth
 - Status: Active
 - Last refreshed: 2026-07-17
-- Primary product surfaces: Market Briefing and Investment Research.
+- Primary product surfaces: Market Conditions and Investment Research.
 - Evidence reviewed: `docs/PROJECT_OBJECTIVE_AND_FLOWS.md`, `docs/signal-decision-cockpit-design-brief.md`, `docs/TESTING.md`, `docs/QUALITY.md`, and the V6 components under `src/components/v6`.
 
 ## Brand
@@ -22,8 +22,8 @@
 - Key contexts of use: Quick daily scan, deeper evidence review, mobile monitoring, and periodic research review.
 
 ## Information architecture
-- Primary navigation: Market Briefing and Investment Research.
-- Core routes/screens: `/` and `/main-v6` for Market Briefing; `/research` and `/research-v6` for Investment Research.
+- Primary navigation: Market Conditions and Investment Research.
+- Core routes/screens: `/` and `/main-v6` for Market Conditions; `/research` and `/research-v6` for Investment Research.
 - Content hierarchy: Decision posture -> trust and score summary -> ranked evidence -> change/history -> scenarios/context -> methodology.
 
 ## Design principles
@@ -57,13 +57,13 @@
 
 ## Responsive behavior
 - Supported breakpoints/devices: Desktop, tablet, and narrow mobile, verified at 1280px, 768px, and 375px.
-- Layout adaptations: Multi-column evidence becomes a linear briefing; formulas and timestamps wrap without document overflow.
+- Layout adaptations: Multi-column evidence becomes a linear market-conditions narrative; formulas and timestamps wrap without document overflow.
 - Touch/hover differences: Explanatory content required for comprehension must not be hover-only.
 
 ## Interaction states
-- Loading: Preserve the current briefing with a visible refresh state.
+- Loading: Preserve the current market conditions with a visible refresh state.
 - Empty: State when evidence, history, context, or comparison is unavailable.
-- Error: Explain that the prior briefing remains visible when refresh fails.
+- Error: Explain that the prior market conditions remain visible when refresh fails.
 - Success: Show the refreshed snapshot and its timestamp.
 - Disabled: Excluded sources must be distinguishable from active neutral readings.
 - Offline/slow network, if applicable: Avoid replacing valid prior evidence with an empty shell.

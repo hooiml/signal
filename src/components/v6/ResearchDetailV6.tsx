@@ -3,12 +3,12 @@ import type { ResearchWatchlistItem } from '@/components/research/ResearchDashbo
 import type { ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { parseResearchChartResponse } from '@/lib/research/snapshot-input';
+import { nextHorizontalTabIndex } from '@/lib/research/tab-navigation';
 import { OverviewPanelV6 } from './OverviewPanelV6';
 import { ResearchPanelsV6 } from './ResearchPanelsV6';
 import { ResearchChartV6 } from './ResearchChartV6';
 import {
     formatPriceV6,
-    getActionToneV6,
     getResearchActionV6,
     getThemeV6,
     researchTabsV6,
@@ -155,7 +155,7 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
                 </div>
             ) : providerState === 'error' ? (
                 <div role="alert" className={'mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2 text-xs ' + themeClasses.row + ' ' + themeClasses.risk}>
-                    <span>Live provider data is unavailable. Saved research remains visible.</span>
+                    <span>Live provider data is unavailable. Saved research remains visible.{providerError ? ` ${providerError}` : ''}</span>
                     <button type="button" onClick={() => setRefreshKey((current) => current + 1)} className="min-h-10 rounded border border-current px-3 font-semibold transition-transform active:scale-95">Retry</button>
                 </div>
             ) : snapshot ? (
@@ -167,7 +167,7 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
 
             <nav className={'research-scrollbar mt-5 overflow-x-auto border-b ' + themeClasses.divider} aria-label="Research sections">
                 <div role="tablist" className="flex min-w-max gap-1">
-                    {researchTabsV6.map((tab) => {
+                    {researchTabsV6.map((tab, index) => {
                         const tabClass = activeTab === tab.id
                             ? 'border-emerald-500 ' + themeClasses.textPrimary
                             : 'border-transparent ' + themeClasses.textMuted + ' hover:text-emerald-500';
@@ -178,8 +178,20 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
                                 role="tab"
                                 aria-selected={activeTab === tab.id}
                                 aria-controls={`research-panel-${tab.id}`}
+                                tabIndex={activeTab === tab.id ? 0 : -1}
                                 type="button"
                                 onClick={() => onTabChange(tab.id)}
+                                onKeyDown={(event) => {
+                                    const nextIndex = nextHorizontalTabIndex(index, event.key, researchTabsV6.length);
+                                    if (nextIndex === null) return;
+                                    const nextTab = researchTabsV6[nextIndex];
+                                    if (!nextTab) return;
+                                    event.preventDefault();
+                                    onTabChange(nextTab.id);
+                                    event.currentTarget.parentElement
+                                        ?.querySelector<HTMLButtonElement>(`#research-tab-${nextTab.id}`)
+                                        ?.focus();
+                                }}
                                 className={'min-h-10 border-b-2 px-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald-500 ' + tabClass}
                             >
                                 {tab.label}
@@ -196,7 +208,7 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
                 role="tabpanel"
                 aria-labelledby={`research-tab-${activeTab}`}
                 tabIndex={0}
-                className="research-scrollbar mt-5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-500 min-[700px]:h-[680px] min-[700px]:overflow-y-auto min-[700px]:overscroll-contain min-[700px]:pr-2 min-[700px]:[scrollbar-gutter:stable]"
+                className="mt-5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-500"
             >
                 {activeTab === 'overview'
                     ? <OverviewPanelV6 ticker={liveTicker} action={action} theme={theme} record={record} benchmark={snapshot?.benchmark ?? null} startReview={startReview} saving={saving} saveError={saveError} onSave={onSave} onReviewChange={onReviewChange} />
@@ -217,14 +229,10 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
                     : <ResearchPanelsV6 ticker={liveTicker} tab={activeTab} theme={theme} snapshot={snapshot} />}
             </div>
 
-            <footer className={'mt-4 flex flex-wrap items-center justify-between gap-2 text-xs ' + themeClasses.textMuted}>
-                <span>Research reviewed {ticker.lastReviewedAt}</span>
-                <span>{providerState === 'loading' ? 'Loading free sources'
-                    : providerState === 'error' ? `Live sources unavailable: ${providerError}`
-                        : `${snapshot?.sources.join(' + ') || 'No provider data'} · updated ${snapshot ? formatProviderTimestampV6(snapshot.fetchedAt) : ''}`}</span>
-                {snapshot?.warnings.map((warning) => <span key={warning}>{warning}</span>)}
-                <span className={getActionToneV6(action, theme)}>Current decision: {action}</span>
-            </footer>
+            {snapshot ? <footer className={'mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs ' + themeClasses.textMuted}>
+                <span>Sources: {snapshot.sources.join(' + ') || 'No provider data'}</span>
+                {snapshot.warnings.map((warning) => <span key={warning}>{warning}</span>)}
+            </footer> : null}
         </article>
     );
 };

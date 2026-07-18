@@ -12,12 +12,18 @@ import { ResearchInboxRowV6, researchInboxCategoryLabel } from './ResearchInboxR
 import { getThemeV6, type ResearchThemeV6, type ResearchTabV6 } from './research-v6';
 
 type InboxFilter = 'all' | 'snoozed' | ResearchInboxUrgency;
+export type ResearchInboxSummaryV6 = {
+    readonly status: 'loading' | 'ready' | 'error';
+    readonly attentionCount: number;
+    readonly unreadCount: number;
+};
 type Props = {
     readonly items: readonly ResearchWatchlistItem[];
     readonly records: readonly ResearchRecord[];
     readonly theme: ResearchThemeV6;
     readonly onOpen: (symbol: string, tab: ResearchTabV6) => void;
     readonly onSave: (record: ResearchRecord, mode: ResearchUpdateMode) => Promise<boolean>;
+    readonly onSummaryChange?: (summary: ResearchInboxSummaryV6) => void;
 };
 type InboxGroup = { readonly symbol: string; readonly items: readonly ResearchInboxItem[] };
 type SkeletonProps = { readonly groupCount: number; readonly theme: ResearchThemeV6 };
@@ -71,7 +77,7 @@ const ResearchInboxSkeletonV6 = ({ groupCount, theme }: SkeletonProps) => {
     </div>;
 };
 
-export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props) => {
+export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave, onSummaryChange }: Props) => {
     const [data, setData] = useState<ResearchInboxResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -170,6 +176,14 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave }: Props
             detail.focus({ preventScroll: true });
         }, 0);
     };
+
+    useEffect(() => {
+        onSummaryChange?.({
+            status: error && !data ? 'error' : data ? 'ready' : 'loading',
+            attentionCount: counts.all,
+            unreadCount,
+        });
+    }, [counts.all, data, error, onSummaryChange, unreadCount]);
 
     return <section aria-labelledby="research-inbox-title" aria-busy={items.length > 0 && (loading || (!data && !error))} data-surface-tier="secondary" className={'mb-4 rounded-[10px] border p-3 backdrop-blur min-[700px]:p-4 ' + styles.panelSecondary}>
         <header className="flex flex-col gap-3 min-[700px]:flex-row min-[700px]:items-end min-[700px]:justify-between">

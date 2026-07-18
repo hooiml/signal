@@ -12,7 +12,7 @@
 
 Research V6 keeps the compact research-notebook layout while restoring the calmer V2 atmosphere. It uses the same emerald-lit grid background and translucent panels in both modes.
 
-Market V6 uses the same atmosphere as a progressive-disclosure briefing. The signature is a decision-posture band followed by a wide history-and-evidence workspace: understand the read first, inspect the model second.
+Market V6 uses the same atmosphere as a progressive-disclosure market-conditions view. The signature is a decision-posture band followed by a wide history-and-evidence workspace: understand the read first, inspect the model second.
 
 ## 2. Theme Tokens
 
@@ -74,16 +74,16 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 - Discovery filters form one compact control band above the evidence table. Sector, risk, trend stage, and valuation selections update the current scan without changing original ranks; active filters expose a match count and Reset command.
 - Discovery ownership stays inside the category-and-evidence cell as a compact disclosure. It shows the raw disclosed increase/decrease balance plus up to five dated institutional increases, keeps unavailable coverage explicit on mobile and desktop, and must not alter ranking scores or claim that a disclosed position represents current buying or caused a price move.
 - Theme preference uses the same local-storage key as Research V2.
-- Market V6 reuses the V2 command header and places four scan targets below the decision posture: score, regime, alignment, and combined data quality. Header status describes the briefing state (`Loading briefing`, `Updating`, `Briefing available`, `Refresh failed`, or `Briefing unavailable`) rather than implying whole-system health. The briefing date remains separate from request-attempt and successful-retrieval timestamps.
+- Market V6 reuses the V2 command header and places four scan targets below the decision posture: score, regime, alignment, and combined data quality. Header status describes the conditions state (`Loading conditions`, `Updating`, `Conditions available`, `Refresh failed`, or `Conditions unavailable`) rather than implying whole-system health. The conditions date remains separate from request-attempt and successful-retrieval timestamps.
 - Market evidence is sorted by absolute contribution. Conflicting indicators are flagged inline instead of repeated in a separate panel.
-- US market briefings may show a Buffett Indicator valuation backdrop after What changed. It is collapsed by default as a native disclosure row, labeled as non-scored context, includes its report date and FRED source links when expanded, and never changes the composite score.
-- US market briefings may show a collapsed, non-scored Macro and breadth context disclosure with the 10Y–3M spread, Chicago Fed NFCI, and equal-weight versus cap-weight one-year returns. Malaysia briefings use the same progressive-disclosure pattern for a BNM-native rate panel with MGS 3Y/10Y, OPR, MYOR, and short-term bill context. These cards never change the composite score and must name their update date and source links when expanded.
+- US market conditions may show a Buffett Indicator valuation backdrop after What changed. It is collapsed by default as a native disclosure row, labeled as non-scored context, includes its report date and FRED source links when expanded, and never changes the composite score.
+- US market conditions may show a collapsed, non-scored Macro and breadth context disclosure with the 10Y–3M spread, Chicago Fed NFCI, and equal-weight versus cap-weight one-year returns. Malaysia market conditions use the same progressive-disclosure pattern for a BNM-native rate panel with MGS 3Y/10Y, OPR, MYOR, and short-term bill context. These cards never change the composite score and must name their update date and source links when expanded.
 - Market change attribution compares each driver with the prior daily snapshot and surfaces the three largest contribution shifts beneath What changed.
-- Market alerts persist browser-local score, agreement, tier, freshness, and daily-move conditions scoped to the active market, interpretation mode, and social-source setting. They are evaluated on briefing refresh and must not imply background push delivery.
-- The market command header exposes one manual briefing refresh command, reports the last successful check time, disables duplicate refreshes while a request is active, and prevents stale responses from replacing a newer market configuration.
+- Market alerts persist browser-local score, agreement, tier, freshness, and daily-move conditions scoped to the active market, interpretation mode, and social-source setting. They are evaluated when market conditions refresh and must not imply background push delivery.
+- The market command header exposes one manual market-conditions refresh command, reports the last successful check time, disables duplicate refreshes while a request is active, and prevents stale responses from replacing a newer market configuration.
 - The story trust strip is the single compact orientation summary. A visible Why this score section follows What changed and keeps score history beside contribution-ranked weighted evidence.
 - Score history is the dominant chart. Forward scenarios follow scored evidence, while valuation, macro/breadth, articles, alerts, glossary, trust, and methodology remain explicitly separated according to whether they affect the score.
-- Detailed trust, limitations, and methodology live in disclosure panels below the primary briefing.
+- Detailed trust, limitations, and methodology live in disclosure panels below the primary market conditions.
 
 ## 5. Responsive And Accessibility Constraints
 
@@ -108,12 +108,12 @@ Market V6 uses the same atmosphere as a progressive-disclosure briefing. The sig
 - Comparison is point-in-time evidence and does not yet preserve historical comparison snapshots.
 - Market scenario statements are deterministic interpretations of current signal fields, not forecasts or personalized recommendations.
 
-## 7. Story First Market Briefing
+## 7. Story First Market Conditions
 
-- The market screen opens as a short daily briefing rather than a scorecard. Its fixed reading order is: story headline and trust strip, three evidence chapters, what changed, Why this score, forward scenarios, non-scored market context, alerts, then terms, trust, and methodology.
+- The market screen opens as a concise view of current conditions rather than a scorecard. Its fixed reading order is: story headline and trust strip, three evidence chapters, what changed, Why this score, forward scenarios, non-scored market context, alerts, then terms, trust, and methodology.
 - The headline translates the current tier into plain market language. It must retain the existing deterministic posture summary and surface the primary caveat beside it.
 - Chapters are generated from the strongest contribution-ranked drivers. Every chapter shows its source name, directional relationship to the majority view, freshness, and a short explanation; conflicting evidence remains visually explicit.
-- The story trust strip keeps agreement, overall freshness, score, and briefing date visible without presenting agreement as forecast probability. The desktop-only Quick Read rail is intentionally removed because it repeated the same orientation facts.
+- The story trust strip keeps agreement, overall freshness, score, and conditions date visible without presenting agreement as forecast probability. The desktop-only Quick Read rail is intentionally removed because it repeated the same orientation facts.
 - Detailed score history and weighted contributions remain visible as primary evidence below the narrative layer. Progressive disclosure is reserved for non-scored context, limitations, and methodology.
 - On narrow screens the reading order remains headline and trust strip, chapters, change comparison, Why this score, scenarios, context, alerts, terms, and details. No narrative panel may require horizontal scrolling.
 - Research uses `Watchlist | Discovery | Compare | Calendar | Alerts` as display labels while retaining the existing internal `research`, `discovery`, `compare`, `calendar`, and `alerts` workspace identifiers. Workspace changes update the query string without discarding unrelated deep-link context.
