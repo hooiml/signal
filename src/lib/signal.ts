@@ -3,6 +3,7 @@ import { fetchMultipleSubreddits, RedditPost } from '@/lib/reddit';
 import { fetchMarketNews, NewsItem } from '@/lib/rss-feeds';
 import { fetchTrendingTwits, calculateStockTwitsSentiment, StockTwit } from '@/lib/stocktwits';
 import { calculateSentimentScore, getScoreDescription, SentimentOutput } from '@/lib/sentiment-calculator';
+import { combineAvailableSentiment } from '@/lib/social-sentiment';
 import { sql } from '@/lib/db';
 import { calculateCompositeScoreV2 } from './sentiment-calculator-v2';
 import { IndicatorData, MarketSignal, SignalTier } from './types/signal-v2';
@@ -14,6 +15,7 @@ import { calculateDriverChanges, parseStoredComponentContributions, parseStoredD
 import type { MarketContextData } from './types/market-context';
 import { getSourceIndicatorCount, shouldEnableSourceIndicator } from './source-indicator';
 import { getMarketCalibration } from './market-calibration-service';
+import { MARKET_SCORE_MODEL_VERSION } from './market-calibration';
 
 interface AggregateMarketData {
     vixData: { price: number; change: number };
@@ -215,7 +217,10 @@ export const fetchRawMarketData = async (
 
     if (market === 'US') {
         // US: Tech-heavy, retail-heavy. Balanced Reddit/StockTwits.
-        combinedSentiment = (redditSentiment * 0.5) + (stockTwitsSentiment * 0.5);
+        combinedSentiment = combineAvailableSentiment([
+            { score: redditSentiment, weight: 0.5, available: redditPosts.length > 0 },
+            { score: stockTwitsSentiment, weight: 0.5, available: stockTwits.length > 0 },
+        ]);
     } else {
         // MY: News is the primary driver (earnings, politics, macro).
         // Reddit (BursaBets) is a secondary retail signal.
@@ -343,6 +348,7 @@ async function persistSignalSnapshot(
             ])
         );
         const metadataSnapshot = {
+            scoring_model_version: MARKET_SCORE_MODEL_VERSION,
             data_freshness: signal.metadata.data_freshness,
             weight_distribution: signal.metadata.weight_distribution,
             mode_note: signal.metadata.interpretation_context?.mode_note,

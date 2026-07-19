@@ -175,7 +175,12 @@ export interface MarketSignal {
             benchmark_symbol: string;
             benchmark_name: string;
             mode: 'standard' | 'contrarian';
+            model_version: string;
+            generated_at: string;
+            data_start_date: string | null;
+            data_through_date: string | null;
             snapshot_count: number;
+            timeline_only_snapshot_count: number;
             observed_snapshot_count: number;
             reconstructed_snapshot_count: number;
             minimum_sample_size: number;
@@ -183,6 +188,20 @@ export interface MarketSignal {
             reconstruction_note: string | null;
             horizons: Array<{
                 days: 7 | 30;
+                observations: Array<{
+                    date: string;
+                    score: number;
+                    tier: SignalTier;
+                    forward_return_pct: number;
+                    origin: 'observed' | 'reconstructed';
+                }>;
+                baseline: {
+                    sample_count: number;
+                    observed_count: number;
+                    reconstructed_count: number;
+                    median_forward_return_pct: number | null;
+                    positive_return_rate_pct: number | null;
+                };
                 cohorts: Array<{
                     zone: 'negative' | 'mixed' | 'positive' | 'strong-positive';
                     label: string;
@@ -197,6 +216,15 @@ export interface MarketSignal {
                     alignment_rate_pct: number | null;
                     evidence_level: 'insufficient' | 'preliminary' | 'established';
                 }>;
+            }>;
+            timeline: Array<{
+                date: string;
+                score: number;
+                tier: SignalTier;
+                origin: 'observed' | 'reconstructed';
+                benchmark_rebased: number;
+                model_version: string | null;
+                coverage_note: string | null;
             }>;
             limitation: string;
         };

@@ -273,10 +273,47 @@ const buildFixtureSignal = (requestUrl) => {
             historical_validation: {
                 benchmark_symbol: market === 'US' ? 'VOO' : 'FBM KLCI',
                 benchmark_name: market === 'US' ? 'Vanguard S&P 500 ETF' : 'FTSE Bursa Malaysia KLCI',
-                mode, snapshot_count: 18, observed_snapshot_count: 12, reconstructed_snapshot_count: 6,
+                mode, model_version: '2.0.0', generated_at: '2026-07-18T08:00:00.000Z',
+                data_start_date: '2025-02-01', data_through_date: '2026-07-01',
+                snapshot_count: 18, timeline_only_snapshot_count: 0, observed_snapshot_count: 12, reconstructed_snapshot_count: 6,
                 minimum_sample_size: 5, directional_sample_size: 20,
                 reconstruction_note: 'Earlier scores are reconstructed with the current model from stored VIX and social sentiment.',
-                horizons: [7, 30].map((days) => ({ days, cohorts: [
+                horizons: [7, 30].map((days) => ({ days, observations: [
+                    { score: 25, week: -4, month: -7, origin: 'observed' },
+                    { score: 35, week: -2, month: -4, origin: 'reconstructed' },
+                    { score: 45, week: -1.5, month: -3, origin: 'observed' },
+                    { score: 50, week: -0.5, month: -1, origin: 'observed' },
+                    { score: 55, week: 1.1, month: 2, origin: 'observed' },
+                    { score: 60, week: 1.4, month: 2.5, origin: 'reconstructed' },
+                    { score: 66, week: -1, month: -2, origin: 'observed' },
+                    { score: 68, week: -0.2, month: -0.5, origin: 'observed' },
+                    { score: 70, week: 1, month: 1.5, origin: 'observed' },
+                    { score: 72, week: 1.8, month: 3.2, origin: 'observed' },
+                    { score: 75, week: 2, month: 4, origin: 'observed' },
+                    { score: 78, week: 2.5, month: 4.8, origin: 'reconstructed' },
+                    { score: 82, week: 3, month: 6, origin: 'reconstructed' },
+                    { score: 86, week: -2.5, month: -5, origin: 'observed' },
+                    { score: 88, week: 1.1, month: 2, origin: 'observed' },
+                    { score: 90, week: 3.5, month: 6, origin: 'observed' },
+                    { score: 92, week: 4, month: 7, origin: 'reconstructed' },
+                    { score: 95, week: 5, month: 8, origin: 'reconstructed' },
+                ].map((point, index) => ({
+                    date: `2026-06-${String(index + 1).padStart(2, '0')}`,
+                    score: point.score,
+                    tier: point.score >= 85
+                        ? (mode === 'contrarian' ? 'strong-sell' : 'strong-buy')
+                        : point.score >= 65
+                            ? (mode === 'contrarian' ? 'sell' : 'buy')
+                            : point.score >= 40 ? 'neutral' : (mode === 'contrarian' ? 'buy' : 'sell'),
+                    forward_return_pct: days === 7 ? point.week : point.month,
+                    origin: point.origin,
+                })), baseline: {
+                    sample_count: 18,
+                    observed_count: 12,
+                    reconstructed_count: 6,
+                    median_forward_return_pct: days === 7 ? 1.1 : 2,
+                    positive_return_rate_pct: 61,
+                }, cohorts: [
                     { zone: 'negative', label: '0–39', sample_count: 2, average_forward_return_pct: -1.2, alignment_rate_pct: 50 },
                     { zone: 'mixed', label: '40–64', sample_count: 4, average_forward_return_pct: 0.4, alignment_rate_pct: null },
                     { zone: 'positive', label: '65–84', sample_count: 7, average_forward_return_pct: days === 7 ? 1.8 : 3.2, alignment_rate_pct: 71 },
@@ -291,6 +328,38 @@ const buildFixtureSignal = (requestUrl) => {
                     best_forward_return_pct: (cohort.average_forward_return_pct ?? 0) + 2.5,
                     evidence_level: cohort.sample_count < 5 ? 'insufficient' : cohort.sample_count < 20 ? 'preliminary' : 'established',
                 })) })),
+                timeline: [
+                    { score: 25, benchmark: 100, origin: 'observed' },
+                    { score: 35, benchmark: 98, origin: 'reconstructed' },
+                    { score: 45, benchmark: 99, origin: 'observed' },
+                    { score: 50, benchmark: 101, origin: 'observed' },
+                    { score: 55, benchmark: 102, origin: 'observed' },
+                    { score: 60, benchmark: 104, origin: 'reconstructed' },
+                    { score: 66, benchmark: 103, origin: 'observed' },
+                    { score: 68, benchmark: 104, origin: 'observed' },
+                    { score: 70, benchmark: 105, origin: 'observed' },
+                    { score: 72, benchmark: 106, origin: 'observed' },
+                    { score: 75, benchmark: 108, origin: 'observed' },
+                    { score: 78, benchmark: 109, origin: 'reconstructed' },
+                    { score: 82, benchmark: 111, origin: 'reconstructed' },
+                    { score: 86, benchmark: 108, origin: 'observed' },
+                    { score: 88, benchmark: 110, origin: 'observed' },
+                    { score: 90, benchmark: 112, origin: 'observed' },
+                    { score: 92, benchmark: 114, origin: 'reconstructed' },
+                    { score: 95, benchmark: 116, origin: 'reconstructed' },
+                ].map((point, index) => ({
+                    date: new Date(Date.UTC(2025, index + 1, 1)).toISOString().slice(0, 10),
+                    score: point.score,
+                    tier: point.score >= 85
+                        ? (mode === 'contrarian' ? 'strong-sell' : 'strong-buy')
+                        : point.score >= 65
+                            ? (mode === 'contrarian' ? 'sell' : 'buy')
+                            : point.score >= 40 ? 'neutral' : (mode === 'contrarian' ? 'buy' : 'sell'),
+                    origin: point.origin,
+                    benchmark_rebased: point.benchmark,
+                    model_version: point.origin === 'reconstructed' ? '2.0.0' : null,
+                    coverage_note: point.origin === 'reconstructed' ? 'Fixture neutral fallbacks.' : null,
+                })),
                 limitation: 'Historical forward returns are overlapping observations without transaction costs. They calibrate prior signal interpretation and do not predict future returns.',
             },
             counterfactuals: {
@@ -352,8 +421,12 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
     const handoff = document.querySelector('[data-testid="market-research-handoff"]');
     const handoffLink = handoff?.querySelector('a');
     const calibration = document.querySelector('[data-testid="market-calibration"]');
+    const calibrationTabs = [...document.querySelectorAll('[role="tab"][id^="calibration-tab-"]')];
+    const calibrationTimeline = document.querySelector('[data-testid="historical-calibration-timeline"]');
     const similarOutcomes = document.querySelector('[data-testid="similar-score-outcomes"]');
     const outcomeSummaries = [...document.querySelectorAll('[data-testid^="similar-score-outcome-"]')];
+    const outcomePlots = [...document.querySelectorAll('[data-testid^="historical-outcome-plot-"]')];
+    const outcomePoints = outcomePlots.flatMap((plot) => [...plot.querySelectorAll('circle[data-origin]')]);
     const storyTrust = document.querySelector('[data-testid="market-story-trust"]');
     const scoreComparison = document.querySelector('[data-testid="score-snapshot-comparison"]');
     const driverComparisons = [...document.querySelectorAll('[data-testid="driver-snapshot-comparison"]')]
@@ -386,9 +459,18 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
         handoffText: handoff?.textContent || '',
         handoffHref: handoffLink?.getAttribute('href') || '',
         calibrationText: calibration?.textContent || '',
+        calibrationTabCount: calibrationTabs.length,
+        selectedCalibrationTab: calibrationTabs.find((tab) => tab.getAttribute('aria-selected') === 'true')?.textContent || '',
+        calibrationTimelineVisible: Boolean(calibrationTimeline?.getClientRects().length),
+        calibrationTimelineLabel: calibrationTimeline?.querySelector('svg[role="img"]')?.getAttribute('aria-label') || '',
         similarOutcomesText: similarOutcomes?.textContent || '',
         similarOutcomesOverflow: similarOutcomes ? similarOutcomes.scrollWidth - similarOutcomes.clientWidth : null,
         outcomeSummaryCount: outcomeSummaries.length,
+        outcomePlotCount: outcomePlots.length,
+        outcomePlotLabels: outcomePlots.map((plot) => plot.querySelector('svg[role="img"]')?.getAttribute('aria-label') || ''),
+        outcomePointCount: outcomePoints.length,
+        reconstructedOutcomePointCount: outcomePoints.filter((point) => point.getAttribute('data-origin') === 'reconstructed').length,
+        currentZoneOutcomePointCount: outcomePoints.filter((point) => point.getAttribute('data-current-zone') === 'true').length,
         duplicatedCurrentZoneSummaryAbsent: !calibration?.querySelector('[data-testid="current-score-historical-read"]')
             && !calibration?.textContent?.includes('One week after similar scores')
             && !calibration?.textContent?.includes('Evidence: Preliminary'),
@@ -449,6 +531,51 @@ const inspectScoreEvidence = async (page) => page.evaluate(() => {
         documentOverflow: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0) - window.innerWidth,
     };
 });
+
+const inspectCalibrationViews = async (page) => {
+    const select = async (name, testId) => {
+        await page.getByRole('tab', { name, exact: true }).click();
+        await page.locator(`[data-testid="${testId}"]`).waitFor({ state: 'visible', timeout: timeoutMs });
+    };
+    const timeline = page.locator('[data-testid="historical-calibration-timeline"]');
+    await timeline.getByRole('button', { name: '1M', exact: true }).click();
+    const oneMonthRange = await timeline.evaluate((element) => ({
+        visibleCount: element.querySelector('[data-testid="timeline-visible-count"]')?.textContent || '',
+        selected: element.querySelector('[data-testid="timeline-range-1m"]')?.getAttribute('aria-pressed') || '',
+        pointCount: element.querySelectorAll('circle[data-origin]').length,
+        benchmarkStart: element.getAttribute('data-visible-benchmark-start') || '',
+        overflow: element.scrollWidth - element.clientWidth,
+    }));
+    await timeline.getByRole('button', { name: '3Y', exact: true }).click();
+    const threeYearRange = await timeline.evaluate((element) => ({
+        visibleCount: element.querySelector('[data-testid="timeline-visible-count"]')?.textContent || '',
+        selected: element.querySelector('[data-testid="timeline-range-3y"]')?.getAttribute('aria-pressed') || '',
+        pointCount: element.querySelectorAll('circle[data-origin]').length,
+    }));
+    await timeline.getByRole('button', { name: 'All', exact: true }).click();
+    await select('Forward outcomes', 'calibration-forward-view');
+    const forward = await page.evaluate(() => {
+        const panel = document.querySelector('[data-testid="calibration-forward-view"]');
+        const plots = [...(panel?.querySelectorAll('[data-testid^="historical-outcome-plot-"]') ?? [])];
+        const points = plots.flatMap((plot) => [...plot.querySelectorAll('circle[data-origin]')]);
+        return {
+            text: panel?.textContent || '',
+            plotCount: plots.length,
+            pointCount: points.length,
+            reconstructedPointCount: points.filter((point) => point.getAttribute('data-origin') === 'reconstructed').length,
+            currentZonePointCount: points.filter((point) => point.getAttribute('data-current-zone') === 'true').length,
+            labels: plots.map((plot) => plot.querySelector('svg[role="img"]')?.getAttribute('aria-label') || ''),
+        };
+    });
+    await select('Score zones', 'calibration-zones-view');
+    const zones = await page.locator('[data-testid="calibration-zones-view"]').evaluate((element) => ({ text: element.textContent || '', overflow: element.scrollWidth - element.clientWidth }));
+    await select('Mismatches', 'calibration-mismatches-view');
+    const mismatches = await page.locator('[data-testid="calibration-mismatches-view"]').evaluate((element) => ({ text: element.textContent || '', overflow: element.scrollWidth - element.clientWidth }));
+    await select('Methodology', 'calibration-methodology-view');
+    const methodology = await page.locator('[data-testid="calibration-methodology-view"]').evaluate((element) => ({ text: element.textContent || '', overflow: element.scrollWidth - element.clientWidth }));
+    await select('Timeline', 'historical-calibration-timeline');
+    return { ranges: { oneMonth: oneMonthRange, threeYear: threeYearRange }, forward, zones, mismatches, methodology };
+};
 
 const main = async () => {
     if (!VALID_SCENARIOS.has(requestedScenario)) throw new Error(`Unknown --scenario ${requestedScenario}. Use all, score-evidence, controls, or smoke.`);
@@ -548,6 +675,7 @@ const main = async () => {
                     runCheck(scenario.checks, 'document response', navigationResponse?.ok() === true, navigationResponse ? `HTTP ${navigationResponse.status()}` : 'navigation did not return a response');
                     await page.locator('#score-evidence-title').waitFor({ state: 'visible', timeout: timeoutMs });
                     const details = await inspectScoreEvidence(page);
+                    const validationDetails = await inspectCalibrationViews(page);
                     runCheck(scenario.checks, 'section order', details.orderIsCorrect, JSON.stringify(details));
                     runCheck(scenario.checks, 'score bridge connected', details.scoreBridgeConnected, JSON.stringify(details));
                     runCheck(scenario.checks, 'score evidence visible', details.scoreSectionVisible && details.driverHeadingVisible && details.oldDisclosureAbsent, JSON.stringify(details));
@@ -575,17 +703,69 @@ const main = async () => {
                         && details.similarOutcomesText.includes('Historical forward outcomes')
                         && details.similarOutcomesText.includes('This is not a prediction of the next market move')
                         && details.similarOutcomesText.includes('1.8%')
-                        && details.similarOutcomesText.includes('71% of comparable periods were positive')
+                        && details.similarOutcomesText.includes('All scores')
+                        && details.similarOutcomesText.includes('+0.7 pts')
+                        && details.similarOutcomesText.includes('71%')
+                        && details.similarOutcomesText.includes('61%')
+                        && details.similarOutcomesText.includes('+10 pts')
                         && details.similarOutcomesText.includes('Evidence: Preliminary')
                         && details.similarOutcomesText.includes('5 observed')
                         && details.similarOutcomesText.includes('2 reconstructed')
+                        && details.similarOutcomesText.includes('18 all-score periods')
+                        && details.similarOutcomesText.includes('do not establish predictive edge')
                         && !details.similarOutcomesText.includes('likelihood')
                         && !details.similarOutcomesText.includes('chance')
                         && !details.similarOutcomesText.includes('probability'), shorten(details.similarOutcomesText));
+                    runCheck(scenario.checks, 'historical calibration opens with the synchronized timeline', details.calibrationTabCount === 5
+                        && details.selectedCalibrationTab.includes('Timeline')
+                        && details.calibrationTimelineVisible
+                        && details.calibrationTimelineLabel.includes('Vanguard S&P 500 ETF')
+                        && details.calibrationTimelineLabel.includes('rebased to 100'), JSON.stringify(details));
+                    runCheck(scenario.checks, 'timeline ranges filter visible history and remain contained', validationDetails.ranges.oneMonth.selected === 'true'
+                        && validationDetails.ranges.oneMonth.visibleCount === '2 of 18 snapshots'
+                        && validationDetails.ranges.oneMonth.pointCount === 2
+                        && validationDetails.ranges.oneMonth.benchmarkStart === '100'
+                        && validationDetails.ranges.oneMonth.overflow <= 1
+                        && validationDetails.ranges.threeYear.selected === 'true'
+                        && validationDetails.ranges.threeYear.visibleCount === '18 of 18 snapshots'
+                        && validationDetails.ranges.threeYear.pointCount === 18, JSON.stringify(validationDetails.ranges));
+                    runCheck(scenario.checks, 'score-to-return distributions plot raw observations accessibly', validationDetails.forward.plotCount === 2
+                        && validationDetails.forward.pointCount === 36
+                        && validationDetails.forward.reconstructedPointCount === 12
+                        && validationDetails.forward.currentZonePointCount === 14
+                        && validationDetails.forward.labels.every((label) => label.includes('Vanguard S&P 500 ETF') && label.includes('current 65–84 score zone is highlighted'))
+                        && validationDetails.forward.text.includes('Signal score to one-week return')
+                        && validationDetails.forward.text.includes('Signal score to one-month return')
+                        && validationDetails.forward.text.includes('Observed')
+                        && validationDetails.forward.text.includes('Reconstructed')
+                        && validationDetails.forward.text.includes('Similar-score median')
+                        && validationDetails.forward.text.includes('All-score median'), JSON.stringify({
+                            plots: validationDetails.forward.plotCount,
+                            points: validationDetails.forward.pointCount,
+                            reconstructed: validationDetails.forward.reconstructedPointCount,
+                            currentZone: validationDetails.forward.currentZonePointCount,
+                            labels: validationDetails.forward.labels,
+                        }));
                     runCheck(scenario.checks, 'current-zone outcome summary is not duplicated in calibration', details.duplicatedCurrentZoneSummaryAbsent
-                        && details.calibrationText.includes('Compare historical score zones')
+                        && details.calibrationText.includes('Test the score against what happened next')
                         && details.calibrationText.includes('Reconstruction coverage')
                         && details.calibrationText.includes('do not predict future returns'), shorten(details.calibrationText));
+                    runCheck(scenario.checks, 'zone table retains score boundaries and unconditional baseline', validationDetails.zones.text.includes('0–39')
+                        && validationDetails.zones.text.includes('40–64')
+                        && validationDetails.zones.text.includes('65–84')
+                        && validationDetails.zones.text.includes('85–100')
+                        && validationDetails.zones.text.includes('All periods')
+                        && validationDetails.zones.overflow <= 1, JSON.stringify(validationDetails.zones));
+                    runCheck(scenario.checks, 'validation discloses misses, aligned cases, and neutral sharp moves', validationDetails.mismatches.text.includes('Largest directional misses')
+                        && validationDetails.mismatches.text.includes('Strongest aligned periods')
+                        && validationDetails.mismatches.text.includes('Neutral but market moved sharply')
+                        && validationDetails.mismatches.text.includes('ranked by absolute market move')
+                        && validationDetails.mismatches.overflow <= 1, JSON.stringify(validationDetails.mismatches));
+                    runCheck(scenario.checks, 'methodology separates provenance from out-of-sample validation', validationDetails.methodology.text.includes('Forward benchmark returns')
+                        && validationDetails.methodology.text.includes('Observed provenance does not by itself mean out-of-sample validation')
+                        && validationDetails.methodology.text.includes('Out-of-sample result')
+                        && validationDetails.methodology.text.includes('Not yet available')
+                        && validationDetails.methodology.overflow <= 1, JSON.stringify(validationDetails.methodology));
                     runCheck(scenario.checks, 'similar-score outcomes fit the viewport', details.similarOutcomesOverflow !== null && details.similarOutcomesOverflow <= 1, `${details.similarOutcomesOverflow}px overflow`);
 
                     const conflictDisclosure = page.locator('[data-testid="conflict-explanation"][data-driver="aaii"]:visible').first();
@@ -665,6 +845,9 @@ const main = async () => {
                         const outcomesScreenshotPath = path.join(evidenceDir, `similar-score-outcomes-${viewport.name}-${viewport.width}x${viewport.height}.png`);
                         await page.locator('[data-testid="similar-score-outcomes"]').screenshot({ path: outcomesScreenshotPath });
                         scenario.outcomesScreenshot = outcomesScreenshotPath;
+                        const calibrationScreenshotPath = path.join(evidenceDir, `historical-calibration-${viewport.name}-${viewport.width}x${viewport.height}.png`);
+                        await page.locator('[data-testid="market-calibration"]').screenshot({ path: calibrationScreenshotPath });
+                        scenario.calibrationScreenshot = calibrationScreenshotPath;
                     }
 
                     if (requestedScenario !== 'all') {

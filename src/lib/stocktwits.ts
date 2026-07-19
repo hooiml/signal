@@ -1,3 +1,5 @@
+import { get as httpsGet } from 'node:https';
+
 export interface StockTwit {
     id: number;
     body: string;
@@ -42,6 +44,104 @@ interface StockTwitsApiResponse {
     messages?: StockTwitsApiMessage[];
 }
 
+const STOCKTWITS_REQUEST_TIMEOUT_MS = 10_000;
+const STOCKTWITS_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+const STOCKTWITS_MAX_ATTEMPTS = 3;
+const STOCKTWITS_HEADERS = {
+    'User-Agent': 'Signal/1.0.0',
+    'Accept': 'application/json',
+};
+
+class StockTwitsRequestError extends Error {
+    constructor(message: string, readonly retryable = false) {
+        super(message);
+        this.name = 'StockTwitsRequestError';
+    }
+}
+
+function requestStockTwitsApiOnce(url: string): Promise<StockTwitsApiResponse> {
+    return new Promise((resolve, reject) => {
+        let settled = false;
+
+        const fail = (error: Error) => {
+            if (settled) return;
+            settled = true;
+            reject(error);
+        };
+
+        const request = httpsGet(url, { headers: STOCKTWITS_HEADERS }, response => {
+            const chunks: Buffer[] = [];
+            let responseBytes = 0;
+
+            response.on('data', (chunk: Buffer) => {
+                responseBytes += chunk.length;
+
+                if (responseBytes > STOCKTWITS_MAX_RESPONSE_BYTES) {
+                    response.destroy();
+                    fail(new Error('StockTwits API response exceeded the size limit'));
+                    return;
+                }
+
+                chunks.push(chunk);
+            });
+
+            response.on('end', () => {
+                if (settled) return;
+
+                const status = response.statusCode ?? 0;
+                const body = Buffer.concat(chunks).toString('utf8');
+
+                if (status < 200 || status >= 300) {
+                    const isCloudflareChallenge = status === 403 && (
+                        body.includes('challenges.cloudflare.com') ||
+                        body.includes('<title>Just a moment...</title>')
+                    );
+                    fail(new StockTwitsRequestError(
+                        isCloudflareChallenge
+                            ? 'StockTwits request blocked by a Cloudflare challenge (403)'
+                            : `StockTwits API error: ${status}`,
+                        isCloudflareChallenge
+                    ));
+                    return;
+                }
+
+                try {
+                    const data = JSON.parse(body) as StockTwitsApiResponse;
+                    settled = true;
+                    resolve(data);
+                } catch {
+                    fail(new Error('StockTwits API returned invalid JSON'));
+                }
+            });
+
+            response.on('error', fail);
+        });
+
+        request.setTimeout(STOCKTWITS_REQUEST_TIMEOUT_MS, () => {
+            request.destroy(new Error('StockTwits API request timed out'));
+        });
+        request.on('error', fail);
+    });
+}
+
+async function requestStockTwitsApi(url: string): Promise<StockTwitsApiResponse> {
+    for (let attempt = 1; attempt <= STOCKTWITS_MAX_ATTEMPTS; attempt++) {
+        try {
+            return await requestStockTwitsApiOnce(url);
+        } catch (error) {
+            const shouldRetry = error instanceof StockTwitsRequestError && error.retryable;
+
+            if (!shouldRetry || attempt === STOCKTWITS_MAX_ATTEMPTS) {
+                throw error;
+            }
+
+            await new Promise(resolve => setTimeout(resolve, attempt * 150));
+        }
+    }
+
+    throw new Error('StockTwits API request failed');
+}
+
 const mapStockTwit = (msg: StockTwitsApiMessage): StockTwit => ({
     id: msg.id,
     body: msg.body,
@@ -67,23 +167,7 @@ export const fetchTrendingTwits = async (limit = 10): Promise<StockTwit[]> => {
 
         console.log(`Fetching StockTwits: ${url}`);
 
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'Signal/1.0.0',
-                'Accept': 'application/json',
-            },
-            next: { revalidate: 0 }
-        });
-
-        console.log(`StockTwits response status: ${response.status}`);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`StockTwits API error ${response.status}:`, errorText);
-            throw new Error(`StockTwits API error: ${response.status}`);
-        }
-
-        const data = await response.json() as StockTwitsApiResponse;
+        const data = await requestStockTwitsApi(url);
 
         if (!data?.messages) {
             console.error('Invalid StockTwits response structure');
@@ -106,19 +190,7 @@ export const fetchTickerTwits = async (ticker: string, limit = 10): Promise<Stoc
     try {
         const url = `https://api.stocktwits.com/api/2/streams/symbol/${ticker}.json?limit=${limit}`;
 
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'Signal/1.0.0',
-                'Accept': 'application/json',
-            },
-            next: { revalidate: 0 }
-        });
-
-        if (!response.ok) {
-            throw new Error(`StockTwits API error: ${response.status}`);
-        }
-
-        const data = await response.json() as StockTwitsApiResponse;
+        const data = await requestStockTwitsApi(url);
 
         if (!data?.messages) {
             return [];

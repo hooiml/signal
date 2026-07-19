@@ -4,7 +4,7 @@ import { IndicatorData } from '../../src/lib/types/signal-v2';
 import { buildBuffettIndicator, normalizeNaaimExposure, normalizePutCallRatio, parseCboePutCallRatio, parseFredLatestObservation, parseNaaimExposure } from '../../src/lib/market-indicators';
 import { buildBreadthContext, buildFinancialConditionsContext, buildYieldCurveContext, parseFredSeriesObservation, parseMalaysiaBenchmarkPage } from '../../src/lib/market-context';
 import { getSourceIndicatorCount, shouldEnableSourceIndicator } from '../../src/lib/source-indicator';
-import { calculateMarketCalibration, getCalibrationZone, selectSimilarScoreOutcomes } from '../../src/lib/market-calibration';
+import { calculateMarketCalibration, getCalibrationZone, selectHistoricalValidationCases, selectSimilarScoreOutcomes } from '../../src/lib/market-calibration';
 import { reconstructUsMarketScores } from '../../src/lib/market-score-reconstruction';
 
 function indicator(overrides: Partial<IndicatorData> & Pick<IndicatorData, 'name' | 'score' | 'value'>): IndicatorData {
@@ -274,8 +274,8 @@ function runMarketCalibrationTests() {
     const calibration = calculateMarketCalibration({
         mode: 'standard', benchmarkSymbol: 'VOO', benchmarkName: 'Vanguard S&P 500 ETF',
         snapshots: [
-            { date: '2026-01-01', score: 70, tier: 'buy', origin: 'observed' },
-            { date: '2026-01-02', score: 30, tier: 'sell', origin: 'reconstructed' },
+            { date: '2026-01-01', score: 70, tier: 'buy', origin: 'observed', modelVersion: null },
+            { date: '2026-01-02', score: 30, tier: 'sell', origin: 'reconstructed', modelVersion: '2.0.0', coverageNote: 'Neutral fallbacks used.' },
         ],
         prices: [
             { date: '2026-01-02', close: 100 },
@@ -291,6 +291,56 @@ function runMarketCalibrationTests() {
     assertEqual(week.cohorts.find((cohort) => cohort.zone === 'negative')?.reconstructed_count, 1, 'calibration exposes reconstructed provenance');
     assertEqual(week.cohorts.find((cohort) => cohort.zone === 'positive')?.alignment_rate_pct, 100, 'calibration measures directional alignment');
     assertEqual(week.cohorts.find((cohort) => cohort.zone === 'negative')?.alignment_rate_pct, 0, 'calibration identifies a directionally wrong prior read');
+    assertEqual(week.baseline.sample_count, 2, 'calibration baseline includes every eligible score snapshot');
+    assertEqual(week.baseline.observed_count, 1, 'calibration baseline preserves observed provenance');
+    assertEqual(week.baseline.reconstructed_count, 1, 'calibration baseline preserves reconstructed provenance');
+    assertEqual(week.baseline.median_forward_return_pct, 10, 'calibration baseline calculates its median from underlying outcomes');
+    assertEqual(week.baseline.positive_return_rate_pct, 100, 'calibration baseline calculates all-score positive frequency');
+    assertEqual(week.observations.length, 2, 'calibration exposes every eligible score-to-return observation for plotting');
+    assertEqual(week.observations[0]?.forward_return_pct, 10, 'calibration plot observations retain the raw forward return');
+    assertEqual(week.observations[1]?.origin, 'reconstructed', 'calibration plot observations retain reconstruction provenance');
+    assertEqual(week.observations[0]?.tier, 'buy', 'calibration observations retain the point-in-time tier for alignment cases');
+    assertEqual(calibration.timeline.length, 2, 'calibration exposes synchronized score and benchmark timeline points');
+    assertEqual(calibration.timeline[0]?.benchmark_rebased, 100, 'calibration timeline rebases the benchmark to the first eligible score date');
+    assertEqual(calibration.timeline[1]?.model_version, '2.0.0', 'calibration timeline retains recorded model versions');
+    assertEqual(calibration.timeline[1]?.coverage_note, 'Neutral fallbacks used.', 'calibration timeline retains reconstruction coverage');
+    assertEqual(calibration.data_start_date, '2026-01-01', 'calibration exposes its first eligible score date');
+    assertEqual(calibration.data_through_date, '2026-01-02', 'calibration exposes its latest eligible score date');
+
+    const timelineOnlyHistory = calculateMarketCalibration({
+        mode: 'standard', benchmarkSymbol: 'VOO', benchmarkName: 'Vanguard S&P 500 ETF',
+        snapshots: [
+            { date: '2020-01-03', score: 58, tier: 'neutral', origin: 'reconstructed', validationEligible: false },
+            { date: '2026-01-02', score: 70, tier: 'buy', origin: 'observed' },
+        ],
+        prices: [
+            { date: '2020-01-03', close: 50 },
+            { date: '2026-01-02', close: 100 },
+            { date: '2026-01-09', close: 110 },
+            { date: '2026-02-02', close: 120 },
+        ],
+    });
+    assertEqual(timelineOnlyHistory.timeline.length, 2, 'limited long-range history remains visible on the synchronized timeline');
+    assertEqual(timelineOnlyHistory.timeline_only_snapshot_count, 1, 'calibration reports limited rows that are timeline-only');
+    assertEqual(timelineOnlyHistory.horizons[0].baseline.sample_count, 1, 'timeline-only history is excluded from forward validation statistics');
+
+    const unequalZones = calculateMarketCalibration({
+        mode: 'standard', benchmarkSymbol: 'VOO', benchmarkName: 'Vanguard S&P 500 ETF',
+        snapshots: [
+            { date: '2026-01-01', score: 70, tier: 'buy' },
+            { date: '2026-01-20', score: 70, tier: 'buy' },
+            { date: '2026-02-10', score: 70, tier: 'buy' },
+            { date: '2026-03-01', score: 30, tier: 'sell' },
+        ],
+        prices: [
+            { date: '2026-01-01', close: 100 }, { date: '2026-01-08', close: 110 },
+            { date: '2026-01-20', close: 100 }, { date: '2026-01-27', close: 120 },
+            { date: '2026-02-10', close: 100 }, { date: '2026-02-17', close: 130 },
+            { date: '2026-03-01', close: 100 }, { date: '2026-03-08', close: 50 },
+        ],
+    });
+    assertEqual(unequalZones.horizons[0].baseline.median_forward_return_pct, 15, 'all-score baseline median uses raw outcomes rather than averaging zone medians');
+    assertEqual(unequalZones.horizons[0].baseline.positive_return_rate_pct, 75, 'all-score baseline frequency reflects every eligible outcome');
     assertEqual(calibration.minimum_sample_size, 5, 'calibration exposes its minimum display sample');
     assertEqual(calibration.directional_sample_size, 20, 'calibration requires a larger sample for an established directional read');
     assertEqual(calibration.observed_snapshot_count, 1, 'calibration counts observed snapshots');
@@ -315,6 +365,7 @@ function runMarketCalibrationTests() {
 
     const preliminaryOutcomes = selectSimilarScoreOutcomes(60, reconstructionOnly);
     assertEqual(preliminaryOutcomes[0]?.state, 'preliminary', 'typed preliminary evidence is reused without reclassification');
+    assertTrue(preliminaryOutcomes[0]?.baseline !== null, 'usable all-score baseline is attached to the selected outcome');
 
     const observedDates = Array.from({ length: 20 }, (_, index) => new Date(Date.UTC(2026, 0, index + 1)).toISOString().slice(0, 10));
     const benchmarkPrices = Array.from({ length: 70 }, (_, index) => ({
@@ -337,6 +388,39 @@ function runMarketCalibrationTests() {
     const malformedWeek = malformedCalibration.horizons.find((horizon) => horizon.days === 7)?.cohorts.find((cohort) => cohort.zone === 'positive');
     if (malformedWeek) malformedWeek.median_forward_return_pct = Number.NaN;
     assertEqual(selectSimilarScoreOutcomes(70, malformedCalibration)[0]?.state, 'unavailable', 'non-finite calibration statistics produce an unavailable outcome');
+
+    const malformedBaseline = structuredClone(establishedCalibration);
+    malformedBaseline.horizons[0].baseline.positive_return_rate_pct = Number.NaN;
+    const outcomeWithoutBaseline = selectSimilarScoreOutcomes(70, malformedBaseline)[0];
+    assertEqual(outcomeWithoutBaseline?.state, 'established', 'malformed baseline does not hide a valid current-zone outcome');
+    assertEqual(outcomeWithoutBaseline?.baseline, null, 'malformed baseline is withheld from the selected outcome');
+
+    const malformedObservations = structuredClone(establishedCalibration);
+    malformedObservations.horizons[0].observations[0].score = Number.NaN;
+    const outcomeWithoutPlot = selectSimilarScoreOutcomes(70, malformedObservations)[0];
+    assertEqual(outcomeWithoutPlot?.state, 'established', 'malformed plot data does not hide a valid current-zone outcome');
+    assertEqual(outcomeWithoutPlot?.observations.length, 0, 'malformed plot observations are withheld as one inconsistent distribution');
+
+    const validationCases = calculateMarketCalibration({
+        mode: 'standard', benchmarkSymbol: 'VOO', benchmarkName: 'Vanguard S&P 500 ETF',
+        snapshots: [
+            { date: '2026-01-01', score: 72, tier: 'buy' },
+            { date: '2026-03-01', score: 28, tier: 'sell' },
+            { date: '2026-05-01', score: 55, tier: 'neutral' },
+            { date: '2026-07-01', score: 75, tier: 'buy' },
+        ],
+        prices: [
+            { date: '2026-01-01', close: 100 }, { date: '2026-01-31', close: 90 },
+            { date: '2026-03-01', close: 100 }, { date: '2026-03-31', close: 108 },
+            { date: '2026-05-01', close: 100 }, { date: '2026-05-31', close: 106 },
+            { date: '2026-07-01', close: 100 }, { date: '2026-07-31', close: 104 },
+        ],
+    });
+    const cases = selectHistoricalValidationCases(validationCases);
+    assertEqual(cases.mismatches.length, 2, 'validation cases expose every directional miss before applying the display limit');
+    assertEqual(cases.mismatches[0]?.date, '2026-01-01', 'directional misses are ranked mechanically by absolute return');
+    assertEqual(cases.aligned[0]?.date, '2026-07-01', 'validation cases retain strongest aligned examples');
+    assertEqual(cases.neutral[0]?.date, '2026-05-01', 'neutral moves at or above five percent are disclosed');
 }
 
 function runMarketReconstructionTests() {

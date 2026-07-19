@@ -11,6 +11,7 @@
     "qa:research-calendar": "node scripts/research-calendar-qa.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test:social-sentiment": "powershell -ExecutionPolicy Bypass -File scripts/harness/check-social-sentiment.ps1",
     "test:scoring": "powershell -ExecutionPolicy Bypass -File scripts/harness/check-scoring.ps1",
     "test:research": "powershell -ExecutionPolicy Bypass -File scripts/harness/check-research.ps1",
     "harness": "powershell -ExecutionPolicy Bypass -File scripts/harness/check-all.ps1",

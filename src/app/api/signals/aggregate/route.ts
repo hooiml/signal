@@ -3,6 +3,7 @@ import { sql } from '@/lib/db';
 import { fetchMultipleSubreddits } from '@/lib/reddit';
 import { fetchMarketNews } from '@/lib/rss-feeds';
 import { fetchTrendingTwits, calculateStockTwitsSentiment } from '@/lib/stocktwits';
+import { combineAvailableSentiment } from '@/lib/social-sentiment';
 
 export const runtime = 'nodejs';
 
@@ -70,7 +71,10 @@ export const GET = async (): Promise<NextResponse> => {
         const stockTwitsSentiment = calculateStockTwitsSentiment(stockTwits);
 
         // Combined sentiment (weighted average)
-        const combinedSentiment = (redditSentiment * 0.4 + stockTwitsSentiment * 0.6);
+        const combinedSentiment = combineAvailableSentiment([
+            { score: redditSentiment, weight: 0.4, available: redditPosts.length > 0 },
+            { score: stockTwitsSentiment, weight: 0.6, available: stockTwits.length > 0 },
+        ]);
         const interpretation = interpretSentiment(combinedSentiment);
 
         // 3. Store raw data log

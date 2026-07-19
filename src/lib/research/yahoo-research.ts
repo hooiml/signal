@@ -110,7 +110,7 @@ export const parseYahooResearchChart = (payload: unknown): YahooResearchResult =
     };
 };
 
-const fetchYahooChart = async (providerSymbol: string, range: '5d' | '1y' | '5y') => {
+const fetchYahooChart = async (providerSymbol: string, range: '5d' | '1y' | '5y' | '10y') => {
     const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(providerSymbol)}?interval=1d&range=${range}`, {
         headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 Signal research dashboard' },
         cache: 'no-store',
@@ -124,7 +124,7 @@ export const fetchYahooResearch = async (symbol: string, market: ResearchMarket)
     return parseYahooResearchChart(await fetchYahooChart(providerSymbol, '1y'));
 };
 
-export const fetchYahooResearchChart = async (symbol: string, market: ResearchMarket, range: '1y' | '5y') => {
+export const fetchYahooResearchChart = async (symbol: string, market: ResearchMarket, range: '1y' | '5y' | '10y') => {
     const providerSymbol = toYahooSymbol(symbol, market);
     return parseYahooResearchChart(await fetchYahooChart(providerSymbol, range)).chart;
 };

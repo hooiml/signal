@@ -66,6 +66,22 @@ See `docs/HARNESS.md` for check design, eval artifacts, and completion evidence 
 3. Update `docs/signal-scoring.md` for score semantics, weights, confidence, or freshness rules.
 4. Verify the dashboard still renders limited/degraded coverage clearly.
 
+## Long-Range Market Timeline Backfill
+
+Generate the weekly US timeline-only reconstruction without writing data:
+
+```powershell
+node --env-file=.env.local scripts/backfill-signal-history.mjs --long-range
+```
+
+After reviewing the date range, candidate counts, source coverage, and observed-score validation, apply the tagged rows:
+
+```powershell
+node --env-file=.env.local scripts/backfill-signal-history.mjs --long-range --apply
+```
+
+The long-range profile uses weekly VIX closes, holds unavailable inputs neutral, writes `long_range_reconstruction_version: 1`, and sets `validation_eligible: false`. It must extend the timeline only. The rollback target is restricted to reconstructed US rows whose `metadata_snapshot->>'long_range_reconstruction_version'` equals `1`; never delete by date range alone.
+
 ## Scheduled Refresh
 
 - `vercel.json` runs `/api/signals/refresh` once per day to warm the current V2 dashboard snapshots.

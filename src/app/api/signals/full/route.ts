@@ -5,6 +5,7 @@ import { fetchMultipleSubreddits } from '@/lib/reddit';
 import { requireBearerSecret } from '@/lib/route-auth';
 import { fetchMarketNews } from '@/lib/rss-feeds';
 import { fetchTrendingTwits, calculateStockTwitsSentiment } from '@/lib/stocktwits';
+import { combineAvailableSentiment } from '@/lib/social-sentiment';
 import { fetchVIX } from '@/lib/yahoo-finance';
 
 export const runtime = 'nodejs';
@@ -42,7 +43,10 @@ export const GET = async (request: Request): Promise<NextResponse> => {
         });
         const redditSentiment = Math.max(-1, Math.min(1, redditScore / 20));
         const stockTwitsSentiment = calculateStockTwitsSentiment(stockTwits);
-        const combinedSentiment = (redditSentiment * 0.4 + stockTwitsSentiment * 0.6);
+        const combinedSentiment = combineAvailableSentiment([
+            { score: redditSentiment, weight: 0.4, available: redditPosts.length > 0 },
+            { score: stockTwitsSentiment, weight: 0.6, available: stockTwits.length > 0 },
+        ]);
 
         // 3. Calculate VIX aura level
         const getVixAuraLevel = (vix: number): string => {

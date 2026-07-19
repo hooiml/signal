@@ -1,8 +1,9 @@
 import { neon } from '@neondatabase/serverless';
 
 const apply = process.argv.includes('--apply');
-const startDate = process.argv.find((value) => value.startsWith('--start='))?.split('=')[1] ?? '2026-04-25';
-const endDate = process.argv.find((value) => value.startsWith('--end='))?.split('=')[1] ?? new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+const longRange = process.argv.includes('--long-range');
+const startDate = process.argv.find((value) => value.startsWith('--start='))?.split('=')[1] ?? (longRange ? '2020-01-01' : '2026-04-25');
+const endDate = process.argv.find((value) => value.startsWith('--end='))?.split('=')[1] ?? (longRange ? '2026-02-13' : new Date(Date.now() - 86_400_000).toISOString().slice(0, 10));
 if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
 const sql = neon(process.env.DATABASE_URL);
 
@@ -11,6 +12,12 @@ const dateRange = (start, end) => {
     for (const date = new Date(`${start}T00:00:00Z`); date <= new Date(`${end}T00:00:00Z`); date.setUTCDate(date.getUTCDate() + 1)) values.push(date.toISOString().slice(0, 10));
     return values;
 };
+const weeklyDates = (rows, start, end) => Object.values(rows.filter((row) => row.date >= start && row.date <= end).reduce((weeks, row) => {
+    const monday = new Date(`${row.date}T00:00:00Z`);
+    monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+    weeks[monday.toISOString().slice(0, 10)] = row.date;
+    return weeks;
+}, {})).sort();
 const latest = (rows, date) => rows.filter((row) => row.date <= date).at(-1) ?? null;
 const vixScore = (value) => Math.max(0, Math.min(100, Math.round((100 / (1 + Math.exp((value - 24) / 6))) * 100) / 100));
 const putCallScore = (value) => Math.round(((1.25 - Math.max(0.55, Math.min(1.25, value))) / 0.70) * 100);
@@ -48,7 +55,7 @@ const calculate = ({ date, mode, enableSocial, inputs }) => {
     return { score, tier, majority, agreement, confidence, components, drivers, coverage };
 };
 
-const yahoo = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=1y', { headers: { 'user-agent': 'SignalDashboard/1.0' } }).then(async (response) => {
+const yahoo = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=${longRange ? '10y' : '1y'}`, { headers: { 'user-agent': 'SignalDashboard/1.0' } }).then(async (response) => {
     if (!response.ok) throw new Error(`Yahoo VIX history failed: ${response.status}`);
     return response.json();
 });
@@ -56,7 +63,7 @@ const chart = yahoo.chart?.result?.[0];
 const closes = chart?.indicators?.quote?.[0]?.close ?? [];
 const vixRows = (chart?.timestamp ?? []).flatMap((timestamp, index) => Number.isFinite(closes[index]) ? [{ date: new Date(timestamp * 1000).toISOString().slice(0, 10), value: closes[index] }] : []);
 
-const naaimHtml = await fetch('https://naaim.org/programs/naaim-exposure-index/', { headers: { 'user-agent': 'SignalDashboard/1.0' } }).then((response) => response.text());
+const naaimHtml = longRange ? '' : await fetch('https://naaim.org/programs/naaim-exposure-index/', { headers: { 'user-agent': 'SignalDashboard/1.0' } }).then((response) => response.text());
 const fetchedNaaimRows = [...naaimHtml.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').matchAll(/(\d{2})\/(\d{2})\/(\d{4})\s+([0-9]+(?:\.[0-9]+)?)/g)]
     .map((match) => ({ date: `${match[3]}-${match[1]}-${match[2]}`, value: Number(match[4]) }))
     .filter((row, index, rows) => rows.findIndex((candidate) => candidate.date === row.date) === index)
@@ -74,6 +81,7 @@ const aaiiRows = [...institutional.filter((row) => row.indicator_name === 'aaii'
 const naaimRows = [...fetchedNaaimRows, ...componentSeries('naaim')].sort((left, right) => left.date.localeCompare(right.date));
 const observedKeys = new Set(observed.filter((row) => row.origin === 'observed').map((row) => `${row.mode}:${row.enable_social}:${row.date}`));
 const candidates = [];
+const targetDates = longRange ? weeklyDates(vixRows, startDate, endDate) : dateRange(startDate, endDate);
 
 const observedScoreMismatches = observed.flatMap((row) => {
     const components = Object.values(row.components ?? {});
@@ -82,8 +90,10 @@ const observedScoreMismatches = observed.flatMap((row) => {
     return recalculated === Number(row.composite_score) ? [] : [{ date: row.date, mode: row.mode, enableSocial: row.enable_social, stored: Number(row.composite_score), recalculated }];
 });
 
-for (const date of dateRange(startDate, endDate)) {
-    const inputs = { vix: latest(vixRows, date), social: historicalSocialRows.find((row) => row.date === date) ?? null, putCall: latest(putCallRows, date), aaii: latest(aaiiRows, date), naaim: latest(naaimRows, date) };
+for (const date of targetDates) {
+    const inputs = longRange
+        ? { vix: latest(vixRows, date), social: null, putCall: null, aaii: null, naaim: null }
+        : { vix: latest(vixRows, date), social: historicalSocialRows.find((row) => row.date === date) ?? null, putCall: latest(putCallRows, date), aaii: latest(aaiiRows, date), naaim: latest(naaimRows, date) };
     if (!inputs.vix) continue;
     for (const mode of ['standard', 'contrarian']) for (const enableSocial of [true, false]) {
         if (!observedKeys.has(`${mode}:${enableSocial}:${date}`)) candidates.push({ date, mode, enableSocial, ...calculate({ date, mode, enableSocial, inputs }) });
@@ -98,6 +108,7 @@ const byTarget = Object.values(candidates.reduce((summary, row) => {
 }, {}));
 console.log(JSON.stringify({
     mode: apply ? 'apply' : 'dry-run',
+    profile: longRange ? 'weekly-limited-timeline' : 'daily-backfill',
     range: [startDate, endDate],
     candidateCount: candidates.length,
     byTarget,
@@ -121,7 +132,7 @@ if (apply) {
     await sql`ALTER TABLE signal_snapshots ADD COLUMN IF NOT EXISTS coverage_note TEXT`;
     for (const row of candidates) {
         await sql`INSERT INTO signal_snapshots (market_type, mode, enable_social, snapshot_date, composite_score, tier, confidence_level, agreement_pct, majority_signal, components, score_drivers, index_trend, signal_quality, interpretation_context, metadata_snapshot, origin, coverage_note)
-            VALUES ('US', ${row.mode}, ${row.enableSocial}, ${row.date}, ${row.score}, ${row.tier}, ${row.confidence}, ${row.agreement}, ${row.majority}, ${JSON.stringify(row.components)}, ${JSON.stringify(row.drivers)}, '[]'::jsonb, ${JSON.stringify({ freshness: 'reconstructed', source_coverage: 'partial', warnings: [row.coverage] })}, ${JSON.stringify({ limitation: 'Reconstructed with the current model; not an observed point-in-time snapshot.' })}, ${JSON.stringify({ reconstruction_version: 1 })}, 'reconstructed', ${row.coverage})
+            VALUES ('US', ${row.mode}, ${row.enableSocial}, ${row.date}, ${row.score}, ${row.tier}, ${row.confidence}, ${row.agreement}, ${row.majority}, ${JSON.stringify(row.components)}, ${JSON.stringify(row.drivers)}, '[]'::jsonb, ${JSON.stringify({ freshness: 'reconstructed', source_coverage: 'partial', warnings: [row.coverage] })}, ${JSON.stringify({ limitation: longRange ? 'Weekly long-range context reconstructed from historical VIX with unavailable inputs held neutral; excluded from forward validation.' : 'Reconstructed with the current model; not an observed point-in-time snapshot.' })}, ${JSON.stringify(longRange ? { reconstruction_version: 1, long_range_reconstruction_version: 1, scoring_model_version: '2.0.0', validation_eligible: false, cadence: 'weekly' } : { reconstruction_version: 1, scoring_model_version: '2.0.0', validation_eligible: true })}, 'reconstructed', ${longRange ? `Limited weekly reconstruction; ${row.coverage}` : row.coverage})
             ON CONFLICT (market_type, mode, enable_social, snapshot_date) DO UPDATE SET
                 composite_score = EXCLUDED.composite_score,
                 tier = EXCLUDED.tier,
