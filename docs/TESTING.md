@@ -115,6 +115,18 @@ npm run qa:research-continuity -- --base-url http://127.0.0.1:3000
 
 The deterministic harness covers ciphertext-only push, mounted-page-only secrets, local pull/decryption, add-only import preview, stale-revision conflict handling, explicit notification permission, risk-only filtering, stable deduplication after reload, disable behavior, settings-service degradation, research mutation safety, document overflow, and blocking console/page/request failures at 1280px, 768px, and 375px.
 
+### Targeted Structured Thesis-Trigger QA
+
+For structured rule authoring, revision safety, Alerts coverage, Queue handoff, and privacy boundaries, run:
+
+```powershell
+npm run qa:research-structured-triggers -- --base-url http://127.0.0.1:3000
+```
+
+The deterministic one-session check covers author/save/reload, settings-only payload preservation, stale-revision conflict feedback, matched/unavailable/disabled Alerts states, provider-degraded wording, deterministic per-rule Queue deduplication, browser-analytics privacy, keyboard-reachable controls, blocking console/page/request failures, and document overflow at 1280px, 768px, and 375px.
+
+Use `--viewport 375` only for a focused rerun after a failure.
+
 ### Targeted Portfolio Import QA
 
 For the read-only local portfolio import boundary, run:
@@ -181,6 +193,8 @@ Fundamental-history checks should combine concept-name transitions into distinct
 Research workspace navigation checks should show exactly seven primary sections at desktop widths, expose Picker under Discovery, preserve every direct `workspace` query-string destination, and use separate section and workspace selectors on narrow screens. Exercise primary and secondary keyboard navigation, confirm the active states follow direct links, and verify no horizontal document overflow at 1280px, 768px, and 375px.
 
 Research alert smoke checks should POST valid US and Malaysia ticker inputs, reject an invalid symbol with `400`, and render risk/opportunity/watch conditions at desktop and mobile widths.
+
+Structured thesis-trigger checks should migrate missing legacy extensions to an empty version-1 set, recover malformed persisted extensions without losing the record, reject invalid enums/bounds/operator combinations/duplicates/more than ten rules, and cover every supported match and non-match including equality boundaries. Missing, stale, provider-degraded, disabled, and removed rules must be deterministic. Settings saves must preserve thesis text, decisions, and checklist fields; explicit reviews must freeze the rule set in immutable history. Browser checks must cover successful save/reload, `409` conflict, matched/unavailable/disabled/empty states, explicit Queue creation and per-rule deduplication, digest privacy/idempotency, keyboard use, console/request failures, and overflow at 1280px, 768px, and 375px.
 
 Background notification checks should authenticate `/api/research/notifications/deliver`, verify unauthenticated requests fail, and run `?dryRun=true` to inspect the bounded `signal.research.digest.v1` payload without delivery. Pure regression coverage must reject plaintext or credential-bearing webhook URLs, keep the HMAC signature stable, send the digest key to the receiver, and cover successful, duplicate, and released-on-failure lifecycle paths. A configured database/webhook integration should additionally prove the 15-minute lease, persisted delivered state, and route-level duplicate response.
 

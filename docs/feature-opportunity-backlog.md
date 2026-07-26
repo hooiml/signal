@@ -56,6 +56,7 @@ The following features already exist and should not be rebuilt as new backlog it
 - Trend Discovery with leaders, contenders, early trends, filters, saved views, and change tracking.
 - Comparison of up to three watchlist securities.
 - Research alerts and server-side notification-delivery infrastructure.
+- Versioned structured thesis-trigger monitoring with fixed numeric rules, unavailable coverage, immutable review history, explicit Queue handoff, and digest-safe explanations.
 - Assisted findings with an evidence-based fallback.
 - Catalyst and review calendar with 30-day/90-day ranges, list/calendar views, filters, changed-date disclosure, degraded-provider behavior, and direct review/Events navigation.
 
@@ -383,6 +384,10 @@ Compare cited evidence versions across immutable reviews without inventing acces
 ### 23. Encrypted cross-device transfer
 
 **Delivered:** the Backup workspace can create and copy a versioned AES-GCM transfer package, paste and decrypt it on another device, and preview new or conflicting revisions before an explicit import. It is manual transfer rather than background sync because Signal has no account or synchronization server.
+
+### 24. Structured thesis-trigger monitoring
+
+**Delivered:** research records now retain up to ten version-1 fixed-enum numeric review prompts without parsing thesis prose. The pure evaluator covers current price, RSI, price relative to MA50/MA200, earnings windows, research/evidence age, and a bounded set of period-provenanced current valuation/fundamental metrics. Missing or stale inputs remain unavailable, matches join Alerts and the privacy-safe scheduled digest, Queue handoff is explicit and deduplicated per rule, settings saves preserve optimistic revision safety, and immutable reviews freeze the then-current rule set.
 
 The following should not be prioritized without stronger evidence and data controls:
 

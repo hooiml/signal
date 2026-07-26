@@ -91,6 +91,7 @@ flowchart LR
     F --> G[Security detail]
     G --> H[Decision and checklist]
     H --> I[Review later]
+    I --> J[Monitor explicit structured review prompts]
 ```
 
 The two workspaces share navigation, theme preference, terminology, and a consistent hierarchy, but each has a different purpose:
@@ -200,6 +201,7 @@ The user can:
 - separate local security returns from user-supplied USD/MYR currency effects, dividends, and fees while keeping missing inputs unavailable;
 - compare cited structured filing and earnings evidence across saved review versions without claiming access to unavailable raw management-language diffs;
 - queue a focused New idea, Earnings update, Valuation refresh, Thesis challenge, or Post-event review without weakening the shared decision rules;
+- author up to ten explicit numeric thesis-review triggers separately from prose, inspect matched/unavailable/disabled coverage, and explicitly queue a deduplicated follow-up without changing the saved thesis or checklist;
 - compare live quality, valuation, and technical evidence for up to three watchlist securities;
 - define a bounded US discovery-universe policy while retaining default score, default rank, policy adjustments, and exclusion reasons;
 - share or restore workspace, ticker, detail-tab, and review state through URL parameters without discarding market-handoff or unknown query context;
@@ -319,6 +321,7 @@ flowchart TD
     K -- No --> M[Keep on Watch or Avoid]
     L --> N[Record review date and revisit conditions]
     M --> N
+    N --> O[Evaluate explicit structured review prompts]
 ```
 
 ## Connection Between Workspaces

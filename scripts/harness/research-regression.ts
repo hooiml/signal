@@ -1,5 +1,5 @@
 import { getResearchAction } from '../../src/lib/research/decision';
-import { parseResearchCreateInput, parseResearchExpectedRevision, parseResearchRecord, parseResearchUpdateInput, parseResearchUpdateMode } from '../../src/lib/research/input';
+import { parsePersistedResearchMonitoringRules, parseResearchCreateInput, parseResearchExpectedRevision, parseResearchRecord, parseResearchUpdateInput, parseResearchUpdateMode } from '../../src/lib/research/input';
 import { appendQuickReviewNote, appendResearchReview, applyResearchUpdate, calculateResearchDecision, createResearchRecord, describeReviewChanges, latestReviewChanges, prepareStoredResearchRecord } from '../../src/lib/research/records';
 import { defaultResearchMonitoringRules } from '../../src/lib/types/research';
 import { calculateTechnicals } from '../../src/lib/research/technicals';
@@ -10,6 +10,7 @@ import { parseYahooResearchChart, toYahooSymbol } from '../../src/lib/research/y
 import { calculateValuation } from '../../src/lib/research/valuation';
 import { scoreDiscoveryCandidate } from '../../src/lib/research/discovery-score';
 import { evaluateResearchAlerts, parseBuyZone } from '../../src/lib/research/alerts';
+import { evaluateResearchStructuredTriggers, parseResearchStructuredTriggerSet } from '../../src/lib/research/structured-triggers';
 import { evaluateMarketAlert, getMarketAlertRulesForBriefing, parseMarketAlertRules, type MarketAlertRule } from '../../src/lib/market-alerts';
 import { scoreDiscoveryQuality } from '../../src/lib/research/discovery-quality';
 import { parseSecCompanyFacts } from '../../src/lib/research/sec-edgar';
@@ -467,6 +468,7 @@ const runResearchWorkflowQueueTests = () => {
         symbol: 'MSFT',
         templateId: 'earnings-update',
         source: 'manual',
+        dedupeKey: null,
         dueAt: '2026-07-26',
         createdAt: '2026-07-20T00:00:00.000Z',
         completedAt: null,
@@ -522,6 +524,20 @@ const runResearchWorkflowQueueTests = () => {
         dueAt: '2026-08-01',
     }, '66666666-6666-4666-8666-666666666666', '2026-07-27T00:00:00.000Z');
     assertEqual(afterCompletion.created, true, 'workflow queue allows a new task after the prior connected review is completed');
+    const firstTrigger = enqueueResearchWorkflowTask([], {
+        symbol: 'MSFT', templateId: 'thesis-challenge', source: 'structured-trigger',
+        dedupeKey: 'structured-trigger:MSFT:price-rule', dueAt: '2026-07-28',
+    }, '77777777-7777-4777-8777-777777777777', '2026-07-27T00:00:00.000Z');
+    const repeatedTrigger = enqueueResearchWorkflowTask(firstTrigger.tasks, {
+        symbol: 'MSFT', templateId: 'thesis-challenge', source: 'structured-trigger',
+        dedupeKey: 'structured-trigger:MSFT:price-rule', dueAt: '2026-07-27',
+    }, '88888888-8888-4888-8888-888888888888', '2026-07-27T01:00:00.000Z');
+    assertEqual(repeatedTrigger.created, false, 'workflow queue deterministically deduplicates the same matched structured rule');
+    const secondTrigger = enqueueResearchWorkflowTask(repeatedTrigger.tasks, {
+        symbol: 'MSFT', templateId: 'thesis-challenge', source: 'structured-trigger',
+        dedupeKey: 'structured-trigger:MSFT:rsi-rule', dueAt: '2026-07-27',
+    }, '99999999-9999-4999-8999-999999999999', '2026-07-27T02:00:00.000Z');
+    assertEqual(secondTrigger.tasks.length, 2, 'workflow queue preserves distinct matched rules even when their templates match');
 };
 
 const runEvidenceCoverageTests = () => {
@@ -749,12 +765,25 @@ const runDiscoveryUniversePolicyTests = () => {
 const runResearchNotificationTests = async () => {
     const inbox = {
         generatedAt: '2026-07-17T08:00:00.000Z', monitoredCount: 1, warnings: [],
-        items: [{ id: 'MSFT-risk', symbol: 'MSFT', kind: 'risk' as const, urgency: 'action' as const, title: 'Below 200-day average', detail: 'Review trend weakness.', proximity: '2.0% below MA200', source: 'Yahoo Finance' as const, eventDate: null }],
+        items: [{ id: 'MSFT-risk', symbol: 'MSFT', kind: 'risk' as const, urgency: 'action' as const, title: 'Below 200-day average', detail: 'Review trend weakness.', proximity: '2.0% below MA200', source: 'Yahoo Finance' as const, eventDate: null, structuredTriggerRuleId: null }],
     };
     const digest = buildResearchNotificationDigest(inbox, 'https://signal.example/research?workspace=alerts');
     assertEqual(digest.summary.action, 1, 'notification digest counts actionable items');
     assertEqual(digest.summary.tickerCount, 1, 'notification digest counts distinct tickers');
     assertEqual(digest.summary.omitted, 0, 'notification digest reports omitted items');
+    const structuredDigest = buildResearchNotificationDigest({
+        ...inbox,
+        items: [{
+            ...inbox.items[0]!,
+            id: 'MSFT-structured-price-rule',
+            title: 'Thesis invalidation review',
+            detail: 'Price below 100 USD; observed 95 USD on 2026-07-17 from Yahoo Finance (0 days old).',
+            source: 'Structured trigger' as const,
+            structuredTriggerRuleId: 'price-rule',
+        }],
+    }, 'https://signal.example/research?workspace=alerts');
+    assertEqual(JSON.stringify(structuredDigest).includes('private authored thesis'), false, 'structured trigger digest contains no authored thesis or notes');
+    assertEqual(structuredDigest.items[0]?.source, 'Structured trigger', 'structured trigger digest retains fixed provenance without raw provider payloads');
     assertEqual(filterResearchNotificationItems(inbox.items, 'daily').length, 1, 'daily notification mode retains the digest');
     assertEqual(filterResearchNotificationItems(inbox.items, 'urgent-only').length, 1, 'urgent-only mode retains actionable items');
     assertEqual(filterResearchNotificationItems([{ ...inbox.items[0]!, urgency: 'upcoming' }], 'urgent-only').length, 0, 'urgent-only mode excludes non-action items');
@@ -822,8 +851,8 @@ const runResearchNotificationTests = async () => {
     assertEqual(released, true, 'failed delivery releases its reservation for retry');
 
     const alerts = [
-        { symbol: 'MSFT', title: 'Below 200-day average', detail: 'Review trend weakness.', severity: 'risk' as const },
-        { symbol: 'NVDA', title: 'Near buy zone', detail: 'Price is near the saved range.', severity: 'opportunity' as const },
+        { id: 'MSFT-risk', symbol: 'MSFT', kind: 'market-condition' as const, title: 'Below 200-day average', detail: 'Review trend weakness.', severity: 'risk' as const, structuredTrigger: null },
+        { id: 'NVDA-opportunity', symbol: 'NVDA', kind: 'market-condition' as const, title: 'Near buy zone', detail: 'Price is near the saved range.', severity: 'opportunity' as const, structuredTrigger: null },
     ];
     const nativeSettings = parseResearchNativeNotificationSettings({ enabled: true, mode: 'risk-only' });
     assertEqual(nativeSettings.enabled, true, 'native notification settings preserve explicit opt-in');
@@ -1862,16 +1891,167 @@ const runAlertTests = () => {
     assertEqual(alerts.some((alert) => alert.title === 'Below 50-day average'), true, 'medium trend weakness alerts');
 };
 
+const runStructuredTriggerTests = () => {
+    const rules = [
+        { id: 'price', enabled: true, purpose: 'opportunity-review' as const, metric: 'price' as const, operator: 'above' as const, threshold: 100 },
+        { id: 'rsi', enabled: true, purpose: 'thesis-invalidation' as const, metric: 'rsi14' as const, operator: 'above' as const, threshold: 55 },
+        { id: 'ma50', enabled: true, purpose: 'opportunity-review' as const, metric: 'price-vs-ma50-percent' as const, operator: 'above' as const, threshold: 10 },
+        { id: 'ma200', enabled: true, purpose: 'thesis-invalidation' as const, metric: 'price-vs-ma200-percent' as const, operator: 'above' as const, threshold: 40 },
+        { id: 'earnings', enabled: true, purpose: 'scheduled-evidence-review' as const, metric: 'earnings-within-days' as const, operator: 'within' as const, threshold: 5 },
+        { id: 'research-age', enabled: true, purpose: 'scheduled-evidence-review' as const, metric: 'research-age-days' as const, operator: 'above' as const, threshold: 30 },
+        { id: 'evidence-age', enabled: true, purpose: 'scheduled-evidence-review' as const, metric: 'evidence-age-days' as const, operator: 'above' as const, threshold: 30 },
+        { id: 'pe', enabled: true, purpose: 'thesis-invalidation' as const, metric: 'price-earnings' as const, operator: 'above' as const, threshold: 20 },
+        { id: 'fcf', enabled: true, purpose: 'opportunity-review' as const, metric: 'free-cash-flow-yield-percent' as const, operator: 'above' as const, threshold: 5 },
+        { id: 'growth', enabled: true, purpose: 'opportunity-review' as const, metric: 'revenue-growth-percent' as const, operator: 'above' as const, threshold: 10 },
+    ];
+    const structuredTriggers = parseResearchStructuredTriggerSet({ version: 1, migrationState: 'current', rules });
+    assertEqual(structuredTriggers.rules.length, 10, 'structured trigger parser accepts the bounded maximum');
+    assertThrows(() => parseResearchStructuredTriggerSet({ version: 1, rules: [...rules, { ...rules[0], id: 'eleventh', threshold: 101 }] }), 'structured trigger parser rejects more than ten rules');
+    assertThrows(() => parseResearchStructuredTriggerSet({ version: 1, rules: [{ ...rules[0], id: 'duplicate-a' }, { ...rules[0], id: 'duplicate-b' }] }), 'structured trigger parser rejects duplicate semantic conditions');
+    assertThrows(() => parseResearchStructuredTriggerSet({ version: 1, rules: [{ ...rules[0], operator: 'within' }] }), 'structured trigger parser rejects incompatible metric operators');
+    assertThrows(() => parseResearchStructuredTriggerSet({ version: 1, rules: [{ ...rules[4], threshold: 1.5 }] }), 'structured trigger parser rejects fractional day thresholds');
+    assertThrows(() => parseResearchStructuredTriggerSet({ version: 1, rules: [{ ...rules[0], threshold: Number.NaN }] }), 'structured trigger parser rejects non-finite thresholds');
+
+    const migrated = parsePersistedResearchMonitoringRules({
+        buyZone: true, belowMa200: true, rsiBelow: 30, rsiAbove: null, earningsWithinDays: 21, reviewAgeDays: 30,
+    });
+    assertEqual(migrated.structuredTriggers.migrationState, 'migrated-empty', 'legacy monitoring JSON migrates to an empty versioned rule set');
+    assertEqual(migrated.structuredTriggers.rules.length, 0, 'legacy migration does not infer structured rules');
+    const recovered = parsePersistedResearchMonitoringRules({ structuredTriggers: { version: 9, rules: 'bad' } });
+    assertEqual(recovered.structuredTriggers.migrationState, 'invalid-recovered', 'malformed persisted rules fail closed without corrupting the research record');
+    assertEqual(parseResearchRecord({ ...createResearchRecord({ symbol: 'EMPTY', market: 'US', companyName: 'Empty' }), monitoringRules: undefined }).monitoringRules.structuredTriggers.rules.length, 0, 'records without monitoring JSON default to an empty valid rule set');
+
+    const acceptedEvidence = [{
+        id: 'evidence-1',
+        title: 'Revenue evidence',
+        summary: 'Bounded fixture.',
+        target: 'bullCase' as const,
+        tone: 'positive' as const,
+        mode: 'evidence' as const,
+        acceptedAt: '2026-07-01T00:00:00.000Z',
+        sources: [{
+            id: 'source-1', label: 'Revenue', value: '12%', source: 'SEC EDGAR',
+            sourceUrl: 'https://www.sec.gov/edgar', reportingPeriod: '2026-06-15',
+        }],
+    }];
+    const record = {
+        ...createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' }),
+        lastReviewedAt: '2026-06-01',
+        acceptedEvidence,
+        monitoringRules: { ...defaultResearchMonitoringRules, structuredTriggers },
+    };
+    const snapshot: ResearchSnapshot = {
+        symbol: 'MSFT', market: 'US', fetchedAt: '2026-07-20T12:00:00.000Z',
+        benchmark: {
+            baselineSymbol: 'VOO', baselineName: 'Vanguard S&P 500 ETF', period: '1Y',
+            candidateReturnPercent: null, baselineReturnPercent: null, relativeReturnPercent: null,
+            returnBasis: null, status: 'unavailable',
+        },
+        quote: { name: 'Microsoft', currency: 'USD', price: 120, dailyChangePercent: 1 },
+        fundamentals: {
+            revenueGrowthPercent: 12, grossMarginPercent: null, operatingMarginPercent: null,
+            freeCashFlow: 10, debt: 5, cash: 8, shares: 1, annualRevenue: 100,
+            annualNetIncome: 10, reportingPeriod: '2025-06-30', shareChangePercent: null,
+            source: 'SEC EDGAR', history: [],
+        },
+        valuation: {
+            marketCap: 120, priceEarnings: 25, priceSales: 1.2, freeCashFlowYieldPercent: 6,
+            netCash: 3, reportingPeriod: '2025-06-30', source: 'Yahoo Finance + SEC EDGAR',
+        },
+        technicals: {
+            ma50: 100, ma200: 80, rsi14: 60, macd: null, low52Week: null,
+            high52Week: null, averageVolume20: null, support: null, resistance: null,
+        },
+        chart: { interval: '1d', points: [] },
+        sources: ['Yahoo Finance', 'SEC EDGAR'],
+        warnings: [],
+    };
+    const context = {
+        record,
+        snapshot,
+        snapshotStatus: 'available' as const,
+        catalyst: {
+            date: '2026-07-25', type: 'earnings' as const, timing: 'after-hours' as const,
+            fiscalQuarterEnding: null, epsForecast: null, source: 'Nasdaq earnings calendar' as const,
+        },
+        earningsStatus: 'available' as const,
+        now: new Date('2026-07-21T12:00:00.000Z'),
+    };
+    const evaluations = evaluateResearchStructuredTriggers(context);
+    assertEqual(evaluations.every((evaluation) => evaluation.status === 'matched'), true, 'all supported structured metrics evaluate deterministic matches');
+    assertEqual(evaluations.find((evaluation) => evaluation.rule.id === 'pe')?.detail.includes('annual period 2025-06-30'), true, 'valuation matches retain reporting-period provenance');
+    assertEqual(evaluations.find((evaluation) => evaluation.rule.id === 'price')?.severity, 'opportunity', 'purpose fixes alert severity without changing match semantics');
+
+    const equalityRules = parseResearchStructuredTriggerSet({ version: 1, rules: [
+        { ...rules[0], id: 'price-equal', threshold: 120 },
+        { ...rules[4], id: 'earnings-equal', threshold: 4 },
+        { ...rules[5], id: 'age-equal', threshold: 50 },
+    ] });
+    const equality = evaluateResearchStructuredTriggers({
+        ...context,
+        record: { ...record, monitoringRules: { ...record.monitoringRules, structuredTriggers: equalityRules } },
+    });
+    assertEqual(equality.find((item) => item.rule.id === 'price-equal')?.status, 'not-matched', 'strict above comparison does not match equality');
+    assertEqual(equality.find((item) => item.rule.id === 'earnings-equal')?.status, 'matched', 'within-days comparison includes the configured boundary');
+    assertEqual(equality.find((item) => item.rule.id === 'age-equal')?.status, 'not-matched', 'age beyond comparison does not match equality');
+
+    const disabled = evaluateResearchStructuredTriggers({
+        ...context,
+        record: { ...record, monitoringRules: { ...record.monitoringRules, structuredTriggers: { version: 1, migrationState: 'current', rules: [{ ...rules[0], enabled: false }] } } },
+    });
+    assertEqual(disabled[0]?.status, 'disabled', 'disabled rules never evaluate as matches');
+    const missingSnapshot = evaluateResearchStructuredTriggers({
+        ...context,
+        snapshot: null,
+        snapshotStatus: 'unavailable',
+        record: { ...record, monitoringRules: { ...record.monitoringRules, structuredTriggers: { version: 1, migrationState: 'current', rules: [rules[0]] } } },
+    });
+    assertEqual(missingSnapshot[0]?.status, 'unavailable', 'missing current snapshot produces unavailable coverage');
+    const staleSnapshot = evaluateResearchStructuredTriggers({
+        ...context,
+        snapshot: { ...snapshot, fetchedAt: '2026-07-01T00:00:00.000Z' },
+        record: { ...record, monitoringRules: { ...record.monitoringRules, structuredTriggers: { version: 1, migrationState: 'current', rules: [rules[1]] } } },
+    });
+    assertEqual(staleSnapshot[0]?.status, 'unavailable', 'stale current metrics produce unavailable coverage rather than false non-matches');
+    const noEvidence = evaluateResearchStructuredTriggers({
+        ...context,
+        record: { ...record, acceptedEvidence: [], monitoringRules: { ...record.monitoringRules, structuredTriggers: { version: 1, migrationState: 'current', rules: [rules[6]] } } },
+    });
+    assertEqual(noEvidence[0]?.status, 'unavailable', 'missing dated evidence produces unavailable coverage');
+    const degradedFundamental = evaluateResearchStructuredTriggers({
+        ...context,
+        snapshot: { ...snapshot, fundamentals: { ...snapshot.fundamentals, revenueGrowthPercent: null, source: null }, warnings: ['SEC unavailable'] },
+        snapshotStatus: 'degraded',
+        record: { ...record, monitoringRules: { ...record.monitoringRules, structuredTriggers: { version: 1, migrationState: 'current', rules: [rules[9]] } } },
+    });
+    assertEqual(degradedFundamental[0]?.status, 'unavailable', 'provider-degraded fundamental inputs stay unavailable');
+    assertEqual(parseResearchStructuredTriggerSet({ version: 1, rules: rules.slice(0, 9) }).rules.some((rule) => rule.id === 'growth'), false, 'rule removal is explicit and preserved by the parser');
+
+    const frozen = appendResearchReview(record, '2026-07-21T12:00:00.000Z');
+    const changed = {
+        ...record,
+        monitoringRules: { ...record.monitoringRules, structuredTriggers: { version: 1 as const, migrationState: 'current' as const, rules: [] } },
+    };
+    assertEqual(frozen.reviewHistory[0]?.monitoringRules.structuredTriggers.rules.length, 10, 'immutable review history freezes structured monitoring rules');
+    assertEqual(changed.monitoringRules.structuredTriggers.rules.length, 0, 'later rule removal does not mutate the frozen review');
+    const settingsOnly = prepareStoredResearchRecord(record, parseResearchUpdateInput({
+        monitoringRules: changed.monitoringRules,
+        whyInterested: 'must not save',
+        checklist: { understandBusiness: true },
+    }), 'settings');
+    assertEqual(settingsOnly.whyInterested, record.whyInterested, 'settings-only trigger save cannot write authored thesis text');
+    assertEqual(settingsOnly.checklist.understandBusiness, record.checklist.understandBusiness, 'settings-only trigger save cannot toggle checklist state');
+    assertEqual(settingsOnly.decisionJournal.decision, record.decisionJournal.decision, 'settings-only trigger save cannot change the saved decision');
+};
+
 const runInboxTests = () => {
     const inputs = [
-        { symbol: 'MSFT', market: 'US' as const, targetBuyZone: '$390 - $405', lastReviewedAt: '2026-05-10', monitoringRules: defaultResearchMonitoringRules },
-        { symbol: '1155', market: 'MY' as const, targetBuyZone: 'RM 110 - RM 115', lastReviewedAt: '2026-07-10', monitoringRules: { ...defaultResearchMonitoringRules, rsiBelow: 40 } },
+        { symbol: 'MSFT', market: 'US' as const, targetBuyZone: '$390 - $405', lastReviewedAt: '2026-05-10', acceptedEvidence: [], monitoringRules: defaultResearchMonitoringRules },
+        { symbol: '1155', market: 'MY' as const, targetBuyZone: 'RM 110 - RM 115', lastReviewedAt: '2026-07-10', acceptedEvidence: [], monitoringRules: { ...defaultResearchMonitoringRules, rsiBelow: 40 } },
     ];
     const evaluations = [
-        { input: inputs[0], state: { price: 380, dailyChangePercent: -2, ma50: 400, ma200: 400, rsi14: 42 }, failed: false, alerts: [
-            { symbol: 'MSFT', severity: 'risk' as const, title: 'Below 200-day average', detail: 'Long-term trend weakness needs review.' },
-        ] },
-        { input: inputs[1], state: { price: 116, dailyChangePercent: 1, ma50: 120, ma200: 100, rsi14: 35 }, failed: false, alerts: [] },
+        { input: inputs[0], state: { price: 380, dailyChangePercent: -2, ma50: 400, ma200: 400, rsi14: 42 }, failed: false, alerts: [], structuredTriggers: [], catalyst: null },
+        { input: inputs[1], state: { price: 116, dailyChangePercent: 1, ma50: 120, ma200: 100, rsi14: 35 }, failed: false, alerts: [], structuredTriggers: [], catalyst: null },
     ];
     const catalysts = new Map([['MSFT', {
         date: '2026-07-22', type: 'earnings' as const, timing: 'after-hours' as const,
@@ -2578,6 +2758,7 @@ const main = async () => {
     runValuationTests();
     runDiscoveryTests();
     runAlertTests();
+    runStructuredTriggerTests();
     runInboxTests();
     await runCalendarTests();
     runResearchStrategyTemplateTests();

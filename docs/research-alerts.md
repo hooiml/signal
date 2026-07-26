@@ -16,6 +16,8 @@ The Research Alerts workspace loads `/api/research/notifications/settings` to ma
 
 Research monitoring rules remain persisted with each ticker record. Market-condition rules remain browser-local and are explicitly labeled device-only in the alert center until account-scoped synchronization exists.
 
+Each record can also retain up to ten version-1 structured thesis triggers. These rules use fixed purpose, metric, operator, and numeric-threshold enums; they are evaluated without reading authored thesis prose. Alerts show matched, active, unavailable, disabled, empty, invalid-recovery, and provider-degraded states. The full contract, source coverage, comparison boundaries, and intentionally omitted metrics are documented in [Structured Thesis-Trigger Contract](structured-thesis-triggers.md).
+
 ## This-device native notifications
 
 The Alerts workspace can request the browser's notification permission through an explicit button. Its enabled state and `risk-only` or `all` mode stay in that browser. Signal emits a bounded notification only when the eligible active-alert digest changes, and disabling the setting prevents later alerts from notifying.
@@ -34,8 +36,12 @@ This is an open-app notification surface, not Web Push. It does not install a se
 
 Opportunity alerts identify a condition worth reviewing; they do not recommend a trade. Risk alerts sort before opportunity and watch conditions.
 
+Structured-trigger purpose controls only fixed alert wording, severity, and Queue template. A match does not change a saved thesis, decision, checklist, or evidence item. Queue creation requires an explicit action and deduplicates by symbol plus stable rule id.
+
 ## Boundary And Coverage
 
 `POST /api/research/alerts` accepts between 1 and 50 normalized ticker inputs and scans Yahoo data in batches of six. Invalid symbols and markets return `400`. Provider failures degrade per ticker and appear as a coverage warning.
 
 Buy-zone text must contain exactly two positive numbers. Currency symbols, commas, and reversed bounds are accepted. Other prose is treated as an unset zone rather than guessed.
+
+Structured price and technical observations require a current validated snapshot. Missing or stale inputs are unavailable rather than non-matches. Current valuation and fundamental rules require a validated reporting period and provenance; historical valuation rules remain unsupported.
