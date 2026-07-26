@@ -151,6 +151,18 @@ The deterministic one-session check seeds an accepted holdings snapshot, exercis
 
 Use `--viewport 375` or `--screenshot-dir <path>` only for a focused rerun after a failure.
 
+### Targeted Dividend And Cash-Flow QA
+
+For browser-local dividend/cash planning, official provider discovery, revision safety, and privacy boundaries, run:
+
+```powershell
+npm run qa:dividend-cashflow -- --base-url http://127.0.0.1:3000
+```
+
+The consolidated deterministic check covers loading, empty holdings, exact account/currency separation, successful provider confirmation, unavailable and failed provider symbols, manual entry, edit, removal, reload, illustrative arithmetic, unsupported/unmatched holdings, stale local revision conflicts, Queue deduplication, storage unavailability, holdings/cash immutability, analytics privacy, request privacy, blocking console/page/request failures, and document overflow at 1280px, 768px, and 375px.
+
+Use `--viewport 375` or `--screenshot-dir <path>` only for a focused rerun after a failure. Run `npm run qa:research-calendar` in the same final gate because the dividend surface extends the existing Calendar workspace and must preserve its research, macro, filtering, navigation, and responsive contracts.
+
 ### Visual QA Contract
 
 Treat any UI request involving a screenshot, alignment, spacing, layout, visual polish, or “looks off” feedback as standard visual verification rather than a compile-only check.

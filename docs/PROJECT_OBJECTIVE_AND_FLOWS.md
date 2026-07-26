@@ -277,6 +277,9 @@ Daily attention and portfolio guardrails remain available from the collapsed Res
    - UTC source dates plus browser-local generated-time context.
    - Changed-date, loading, empty, partial-provider, error, and retry states.
    - Direct navigation to the editable review workflow or the ticker Events tab.
+   - Browser-local declared/confirmed dividends and explicit planned cash movements in the same workspace, filtered by one exact account and currency without aggregation or FX conversion.
+   - Official Nasdaq dividend discovery for exact matched US tickers only, with frozen provider provenance before user confirmation; unsupported and unmatched holdings remain manual.
+   - Illustrative gross dividend arithmetic only from a current exact quantity and supplied amount per share, with the snapshot date and non-entitlement/non-forecast limitation.
 10. **Decision outcomes**
    - Explicit correct, mixed, incorrect, and unresolved assessments linked to the prior saved review.
    - Breakdown by saved decision, confidence, and market.
