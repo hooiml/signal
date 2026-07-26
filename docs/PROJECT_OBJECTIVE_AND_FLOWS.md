@@ -282,6 +282,10 @@ Daily attention and portfolio guardrails remain available from the collapsed Res
    - Observed-price change shown only when both linked reviews saved a valid price.
    - Clear separation between process learning, user judgment, and investment performance.
 11. **Portfolio risk cockpit**
+   - A versioned read-only holdings and cash snapshot imported from a bounded canonical CSV into validated browser-local storage.
+   - Complete preview, row-level rejection, duplicate/conflict disclosure, add-only default, and separately acknowledged exact-match replacement.
+   - Exact market+symbol research reconciliation only; unmatched holdings remain visible and missing values remain unavailable.
+   - Actual quantity, cost basis, currency-scoped value/weight, and cash remain visibly separate from planned allocation and scenario inputs.
    - Planned allocation, unallocated capacity, and explicit over-allocation warnings.
    - Sector, market, currency, and single-name concentration.
    - Portfolio-at-risk coverage based only on valid lower invalidation levels.
@@ -291,6 +295,7 @@ Daily attention and portfolio guardrails remain available from the collapsed Res
    - A browser-local paper decision journal that connects act-or-pass choices with later observed-price outcomes without pretending to be a brokerage ledger.
    - An explicit relationship map that connects saved tickers through shared sector and evidence-provider provenance without inferring causality.
    - Manual encrypted device transfer with conflict preview, preserving the local-first model without claiming account-backed background synchronization.
+   - Imported holdings are intentionally excluded from encrypted research transfer and every server API in this release; the CSV, credentials, and broker connections never leave the browser.
 
 ### Investment Research flow
 

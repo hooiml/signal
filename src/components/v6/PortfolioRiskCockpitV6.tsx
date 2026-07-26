@@ -25,6 +25,7 @@ import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { ResearchChartPoint } from '@/lib/types/research-snapshot';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import { trackProductAnalyticsEvent } from '@/lib/product-analytics-client';
+import { PortfolioHoldingsImportV6 } from './PortfolioHoldingsImportV6';
 
 type HistoryState =
     | { readonly status: 'idle'; readonly key: ''; readonly analytics: PortfolioMarketAnalytics }
@@ -183,18 +184,23 @@ export const PortfolioRiskCockpitV6 = ({ records, items, theme, onOpen }: {
                 <div>
                     <p className={'text-xs font-semibold uppercase tracking-[0.12em] ' + styles.positive}>Portfolio guardrails</p>
                     <h1 id="portfolio-cockpit-title" className={'mt-1 text-xl font-bold ' + styles.textPrimary}>Portfolio exposure and risk cockpit</h1>
-                    <p className={'mt-1 max-w-3xl text-sm leading-6 ' + styles.textMuted}>Aggregate saved position plans before acting on another ticker. This is planning data, not a brokerage ledger, and incomplete inputs are excluded rather than treated as zero risk.</p>
+                    <p className={'mt-1 max-w-3xl text-sm leading-6 ' + styles.textMuted}>Compare a local read-only holdings snapshot with saved position plans before acting on another ticker. Actual holdings and planned allocations remain separate, and this workspace never places orders.</p>
                 </div>
                 <span className={'text-xs ' + styles.textMuted}>{summary.holdings.length} planned position{summary.holdings.length === 1 ? '' : 's'}</span>
             </div>
 
+            <PortfolioHoldingsImportV6 records={records} items={items} theme={theme} onOpen={onOpen} />
+
             {summary.holdings.length === 0 ? (
                 <div className={'mt-5 rounded-lg border p-8 text-center ' + styles.panel}>
-                    <h2 className={'text-base font-bold ' + styles.textPrimary}>No portfolio plan yet</h2>
+                    <h2 className={'text-base font-bold ' + styles.textPrimary}>No planned allocation yet</h2>
                     <p className={'mx-auto mt-2 max-w-xl text-sm leading-6 ' + styles.textMuted}>Open a ticker, start a review, and save a planned allocation. Add an entry or average cost plus a lower invalidation price to include that position in portfolio-at-risk.</p>
                 </div>
             ) : (
                 <>
+                    <div className="mt-5">
+                        <p className={'text-xs font-semibold uppercase tracking-[0.12em] ' + styles.textMuted}>Planned allocation · research records</p>
+                    </div>
                     <dl className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                         {[
                             ['Planned allocation', `${summary.totalAllocationPercent.toFixed(1)}%`, summary.overallocatedPercent > 0 ? `${summary.overallocatedPercent.toFixed(1)}% above the portfolio limit` : `${summary.unallocatedPercent.toFixed(1)}% unallocated`],

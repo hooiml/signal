@@ -105,6 +105,10 @@ Research currently captures planned allocation, cost or entry, invalidation, est
 
 **Minimum valuable version**
 
+- A browser-local, versioned read-only holdings snapshot imported through a documented bounded CSV contract.
+- Complete import preview with rejected rows, duplicate/conflict disclosure, add-only default, and separately acknowledged exact replacement.
+- Actual quantities, cost basis, cash, and available currency-scoped weights kept visibly separate from research position plans.
+- Exact market+symbol research reconciliation only, with unmatched holdings and missing values retained as unavailable.
 - One portfolio view built from existing position-plan records.
 - Planned and owned allocation totals with an explicit unallocated amount.
 - Sector, market, currency, and single-name concentration.
@@ -305,7 +309,7 @@ Add saved density/layout preferences, keyboard navigation, and quick ticker/rout
 0. **Workflow analytics — delivered:** privacy-safe browser-local events now measure workspace adoption and guided actions without collecting ticker or research content.
 1. **Calendar foundation — delivered:** unified scheduled reviews, stale-review deadlines, and monitored earnings without adding a new external provider.
 2. **Alert center — delivered:** existing research rules, device-local market rules, delivery preferences, and bounded delivery history now share one observable workflow.
-3. **Portfolio cockpit — delivered:** saved position plans now drive allocation, concentration, defined-risk coverage, market metrics, and bounded scenarios.
+3. **Portfolio cockpit — delivered:** saved position plans drive allocation, concentration, defined-risk coverage, market metrics, and bounded scenarios. A separate versioned local-only CSV snapshot now adds actual holdings, cost basis, cash, exact research reconciliation, and safe add/replace preview without becoming a brokerage ledger or entering research sync.
 4. **Outcome analytics — delivered:** linked review history now produces explicit resolved and unresolved feedback without claiming predictive accuracy.
 5. **Cross-workspace exposure — delivered:** active market drivers now connect to same-market watchlist names through visible sector rules and direct review links.
 6. **Peer benchmarking — delivered:** editable peer sets now expose medians, favorable-direction percentiles, and per-metric coverage.
