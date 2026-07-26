@@ -4,6 +4,7 @@ import { parsePortfolioHoldingsSnapshot } from './holdings';
 import type { PortfolioHoldingsSnapshot } from '../types/portfolio-holdings';
 
 export const PORTFOLIO_HOLDINGS_STORAGE_KEY = 'signal-portfolio-holdings-v1';
+export const PORTFOLIO_HOLDINGS_CHANGE_EVENT = 'signal:portfolio-holdings-change';
 
 export type PortfolioHoldingsLoadResult =
     | { readonly status: 'empty'; readonly snapshot: null }
@@ -39,6 +40,7 @@ export const savePortfolioHoldingsSnapshot = (snapshot: PortfolioHoldingsSnapsho
     const validated = parsePortfolioHoldingsSnapshot(snapshot);
     try {
         window.localStorage.setItem(PORTFOLIO_HOLDINGS_STORAGE_KEY, JSON.stringify(validated));
+        window.dispatchEvent(new CustomEvent(PORTFOLIO_HOLDINGS_CHANGE_EVENT));
     } catch {
         throw new Error('Browser storage is unavailable. The portfolio snapshot was not saved.');
     }

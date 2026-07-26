@@ -26,6 +26,7 @@ import type { ResearchChartPoint } from '@/lib/types/research-snapshot';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import { trackProductAnalyticsEvent } from '@/lib/product-analytics-client';
 import { PortfolioHoldingsImportV6 } from './PortfolioHoldingsImportV6';
+import { PortfolioWhatIfSandboxV6 } from './PortfolioWhatIfSandboxV6';
 
 type HistoryState =
     | { readonly status: 'idle'; readonly key: ''; readonly analytics: PortfolioMarketAnalytics }
@@ -190,6 +191,7 @@ export const PortfolioRiskCockpitV6 = ({ records, items, theme, onOpen }: {
             </div>
 
             <PortfolioHoldingsImportV6 records={records} items={items} theme={theme} onOpen={onOpen} />
+            <PortfolioWhatIfSandboxV6 records={records} items={items} theme={theme} />
 
             {summary.holdings.length === 0 ? (
                 <div className={'mt-5 rounded-lg border p-8 text-center ' + styles.panel}>
