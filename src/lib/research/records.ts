@@ -7,6 +7,10 @@ import type {
     ResearchUpdateMode,
 } from '../types/research';
 import { defaultResearchMonitoringRules } from '../types/research';
+import {
+    defaultResearchDocumentEvidenceSet,
+    parseResearchDocumentEvidenceSet,
+} from './document-evidence';
 
 const reviewHistoryLimit = 25;
 
@@ -59,6 +63,7 @@ export const createResearchRecord = (input: ResearchCreateInput): ResearchRecord
     checklist: emptyChecklist,
     monitoringRules: defaultResearchMonitoringRules,
     acceptedEvidence: [],
+    documentEvidence: defaultResearchDocumentEvidenceSet,
     decisionJournal: emptyDecisionJournal,
     positionPlan: emptyPositionPlan,
     reviewHistory: [],
@@ -107,6 +112,7 @@ export const applyResearchUpdate = (current: ResearchRecord, update: ResearchUpd
     checklist: { ...current.checklist, ...update.checklist },
     monitoringRules: update.monitoringRules ?? current.monitoringRules,
     acceptedEvidence: update.acceptedEvidence ?? current.acceptedEvidence,
+    documentEvidence: update.documentEvidence ?? current.documentEvidence,
     decisionJournal: update.decisionJournal ?? current.decisionJournal,
     positionPlan: update.positionPlan ?? current.positionPlan,
 });
@@ -140,6 +146,11 @@ export const appendResearchReview = (record: ResearchRecord, reviewedAt = new Da
             ...item,
             sources: item.sources.map((source) => ({ ...source })),
         })),
+        documentEvidence: {
+            version: 1,
+            migrationState: 'current',
+            citations: record.documentEvidence.citations.map((citation) => ({ ...citation })),
+        },
         decisionJournal: { ...record.decisionJournal },
         positionPlan: { ...record.positionPlan },
     };
@@ -151,7 +162,15 @@ export const appendResearchReview = (record: ResearchRecord, reviewedAt = new Da
 };
 
 export const prepareStoredResearchRecord = (current: ResearchRecord, input: ResearchUpdateInput, mode: ResearchUpdateMode): ResearchRecord => {
-    const modeInput: ResearchUpdateInput = mode === 'settings' ? { monitoringRules: input.monitoringRules } : input;
+    const validatedDocumentEvidence = input.documentEvidence === undefined
+        ? undefined
+        : parseResearchDocumentEvidenceSet(input.documentEvidence, { market: current.market, symbol: current.symbol });
+    const validatedInput = { ...input, documentEvidence: validatedDocumentEvidence };
+    const modeInput: ResearchUpdateInput = mode === 'settings'
+        ? { monitoringRules: validatedInput.monitoringRules }
+        : mode === 'evidence'
+            ? { documentEvidence: validatedInput.documentEvidence }
+            : validatedInput;
     let updated = applyResearchUpdate(current, modeInput);
     if (mode !== 'review') return updated;
     const priorReviewId = current.reviewHistory[0]?.id ?? null;
@@ -186,6 +205,7 @@ export const describeReviewChanges = (current: ResearchReviewSnapshot | undefine
     if (JSON.stringify(current.checklist) !== JSON.stringify(previous.checklist)) changed.push('Checklist');
     if (JSON.stringify(current.monitoringRules) !== JSON.stringify(previous.monitoringRules)) changed.push('Structured monitoring');
     if (JSON.stringify(current.acceptedEvidence) !== JSON.stringify(previous.acceptedEvidence)) changed.push('Evidence');
+    if (JSON.stringify(current.documentEvidence) !== JSON.stringify(previous.documentEvidence)) changed.push('Document citations');
     if (JSON.stringify(current.decisionJournal) !== JSON.stringify(previous.decisionJournal)) changed.push('Decision journal');
     if (JSON.stringify(current.positionPlan) !== JSON.stringify(previous.positionPlan)) changed.push('Position plan');
     return changed.length > 0 ? changed : ['No material changes'];

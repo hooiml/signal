@@ -162,19 +162,33 @@ export const parseSecCompanyFacts = (payload: unknown): SecFundamentals => {
     };
 };
 
-const secHeaders = () => ({
-    Accept: 'application/json',
-    'User-Agent': process.env.SEC_USER_AGENT?.trim() || 'Signal research dashboard research@example.invalid',
-});
+export const getConfiguredSecHeaders = (): Readonly<Record<string, string>> => {
+    const userAgent = process.env.SEC_USER_AGENT?.trim() ?? '';
+    if (userAgent.length < 8 || userAgent.length > 200 || (!userAgent.includes('@') && !/^https?:\/\//i.test(userAgent))) {
+        throw new Error('SEC discovery is unavailable until SEC_USER_AGENT identifies the operator and contact.');
+    }
+    return { Accept: 'application/json', 'User-Agent': userAgent };
+};
+
+export const parseSecTickerMapping = (payload: unknown, symbol: string): { readonly cik: string; readonly title: string } => {
+    const tickers = objectValue(payload);
+    const match = Object.values(tickers ?? {}).map(objectValue).find((item) =>
+        typeof item?.ticker === 'string' && item.ticker.toUpperCase() === symbol.toUpperCase());
+    if (!match || typeof match.cik_str !== 'number' || !Number.isInteger(match.cik_str) || match.cik_str <= 0) {
+        throw new Error(`SEC has no CIK mapping for ${symbol}.`);
+    }
+    return {
+        cik: Math.trunc(match.cik_str).toString().padStart(10, '0'),
+        title: typeof match.title === 'string' && match.title.trim() ? match.title.trim().slice(0, 200) : symbol.toUpperCase(),
+    };
+};
 
 const fetchAndNormalizeSecFundamentals = async (symbol: string): Promise<SecFundamentals> => {
-    const tickersResponse = await fetch('https://www.sec.gov/files/company_tickers.json', { headers: secHeaders(), next: { revalidate: 86400 } });
+    const headers = getConfiguredSecHeaders();
+    const tickersResponse = await fetch('https://www.sec.gov/files/company_tickers.json', { headers, next: { revalidate: 86400 }, redirect: 'error', signal: AbortSignal.timeout(8_000) });
     if (!tickersResponse.ok) throw new Error(`SEC ticker lookup failed (${tickersResponse.status}).`);
-    const tickers = objectValue(await tickersResponse.json());
-    const match = Object.values(tickers ?? {}).map(objectValue).find((item) => typeof item?.ticker === 'string' && item.ticker.toUpperCase() === symbol);
-    if (!match || typeof match.cik_str !== 'number') throw new Error(`SEC has no CIK mapping for ${symbol}.`);
-    const cik = Math.trunc(match.cik_str).toString().padStart(10, '0');
-    const factsResponse = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`, { headers: secHeaders(), cache: 'no-store' });
+    const { cik } = parseSecTickerMapping(await tickersResponse.json(), symbol);
+    const factsResponse = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`, { headers, cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(8_000) });
     if (!factsResponse.ok) throw new Error(`SEC company facts request failed (${factsResponse.status}).`);
     return parseSecCompanyFacts(await factsResponse.json());
 };

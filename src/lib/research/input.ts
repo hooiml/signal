@@ -22,6 +22,7 @@ import {
     type ResearchReviewSnapshot,
     type ResearchDecisionJournal,
     type ResearchPositionPlan,
+    type ResearchDocumentEvidenceSet,
 } from '../types/research';
 import { createResearchRecord, emptyChecklist, emptyDecisionJournal, emptyPositionPlan } from './records';
 import {
@@ -29,6 +30,12 @@ import {
     parseResearchStructuredTriggerSet,
     ResearchStructuredTriggerError,
 } from './structured-triggers';
+import {
+    defaultResearchDocumentEvidenceSet,
+    migrateResearchDocumentEvidenceSet,
+    parseResearchDocumentEvidenceSet,
+    ResearchDocumentEvidenceError,
+} from './document-evidence';
 
 const checklistKeys = [
     'understandBusiness', 'revenueGrowingOrStable', 'marginsHealthyOrImproving',
@@ -275,6 +282,7 @@ const parseReviewHistory = (value: unknown): readonly ResearchReviewSnapshot[] =
                 ? { ...defaultResearchMonitoringRules, structuredTriggers: { version: 1, migrationState: 'migrated-empty', rules: [] } }
                 : parsePersistedResearchMonitoringRules(review.monitoringRules),
             acceptedEvidence: parseAcceptedEvidence(review.acceptedEvidence, `${label}.acceptedEvidence`),
+            documentEvidence: migrateResearchDocumentEvidenceSet(review.documentEvidence),
             decisionJournal: review.decisionJournal === undefined ? { ...emptyDecisionJournal } : parseDecisionJournal(review.decisionJournal, `${label}.decisionJournal`),
             positionPlan: review.positionPlan === undefined ? { ...emptyPositionPlan } : parsePositionPlan(review.positionPlan, `${label}.positionPlan`),
         };
@@ -300,6 +308,15 @@ export const parseResearchUpdateInput = (value: unknown): ResearchUpdateInput =>
         if (item !== undefined && typeof item !== 'boolean') throw new ResearchInputError(`${key} must be boolean.`);
         return item;
     };
+    let documentEvidence: ResearchDocumentEvidenceSet | undefined;
+    if (body.documentEvidence !== undefined) {
+        try {
+            documentEvidence = parseResearchDocumentEvidenceSet(body.documentEvidence);
+        } catch (error) {
+            if (error instanceof ResearchDocumentEvidenceError) throw new ResearchInputError(error.message);
+            throw error;
+        }
+    }
     return {
         companyName: optionalString(body.companyName, 'companyName', 120),
         positionState: body.positionState === undefined ? undefined : optionValue(body.positionState, positionStates, 'positionState'),
@@ -318,6 +335,7 @@ export const parseResearchUpdateInput = (value: unknown): ResearchUpdateInput =>
         checklist,
         monitoringRules: body.monitoringRules === undefined ? undefined : parseResearchMonitoringRules(body.monitoringRules),
         acceptedEvidence: body.acceptedEvidence === undefined ? undefined : parseAcceptedEvidence(body.acceptedEvidence, 'acceptedEvidence'),
+        documentEvidence,
         decisionJournal: body.decisionJournal === undefined ? undefined : parseDecisionJournal(body.decisionJournal, 'decisionJournal'),
         positionPlan: body.positionPlan === undefined ? undefined : parsePositionPlan(body.positionPlan, 'positionPlan'),
     };
@@ -326,7 +344,7 @@ export const parseResearchUpdateInput = (value: unknown): ResearchUpdateInput =>
 export const parseResearchRecord = (value: unknown): ResearchRecord => {
     const body = objectValue(value, 'Research record');
     const identity = parseResearchCreateInput(body);
-    const update = parseResearchUpdateInput(body);
+    const update = parseResearchUpdateInput({ ...body, documentEvidence: undefined });
     const lastReviewedAt = stringValue(body.lastReviewedAt, 'lastReviewedAt', 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(lastReviewedAt)) throw new ResearchInputError('lastReviewedAt must use YYYY-MM-DD.');
     return {
@@ -335,6 +353,9 @@ export const parseResearchRecord = (value: unknown): ResearchRecord => {
         checklist: { ...emptyChecklist, ...update.checklist },
         monitoringRules: update.monitoringRules ?? defaultResearchMonitoringRules,
         acceptedEvidence: update.acceptedEvidence ?? [],
+        documentEvidence: body.documentEvidence === undefined
+            ? { ...defaultResearchDocumentEvidenceSet, migrationState: 'migrated-empty' }
+            : migrateResearchDocumentEvidenceSet(body.documentEvidence, identity),
         decisionJournal: update.decisionJournal ?? { ...emptyDecisionJournal },
         positionPlan: update.positionPlan ?? { ...emptyPositionPlan },
         reviewHistory: body.reviewHistory === undefined ? [] : parseReviewHistory(body.reviewHistory),

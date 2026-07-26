@@ -8,7 +8,19 @@ export const researchFindingTargets = [
 ] as const;
 export const researchFindingTones = ['positive', 'risk', 'neutral'] as const;
 export const researchSynthesisModes = ['ai', 'evidence'] as const;
-export const researchUpdateModes = ['review', 'settings'] as const;
+export const researchUpdateModes = ['review', 'settings', 'evidence'] as const;
+export const researchDocumentSourceKinds = [
+    '10-K',
+    '10-Q',
+    '8-K',
+    'annual-report',
+    'interim-quarterly-report',
+    'exchange-announcement',
+    'earnings-release',
+    'other-primary',
+] as const;
+export const researchDocumentCaptureMethods = ['sec-official', 'manual-unverified'] as const;
+export const researchDocumentMigrationStates = ['current', 'migrated-empty', 'invalid-recovered'] as const;
 export const researchDecisionConfidences = ['low', 'medium', 'high'] as const;
 export const researchDecisionOutcomes = ['unresolved', 'correct', 'mixed', 'incorrect'] as const;
 export const researchStructuredTriggerPurposes = [
@@ -84,6 +96,9 @@ export type ResearchFindingTarget = typeof researchFindingTargets[number];
 export type ResearchFindingTone = typeof researchFindingTones[number];
 export type ResearchSynthesisMode = typeof researchSynthesisModes[number];
 export type ResearchUpdateMode = typeof researchUpdateModes[number];
+export type ResearchDocumentSourceKind = typeof researchDocumentSourceKinds[number];
+export type ResearchDocumentCaptureMethod = typeof researchDocumentCaptureMethods[number];
+export type ResearchDocumentMigrationState = typeof researchDocumentMigrationStates[number];
 export type ResearchDecisionConfidence = typeof researchDecisionConfidences[number];
 export type ResearchDecisionOutcome = typeof researchDecisionOutcomes[number];
 export type ResearchAction = 'Ready' | 'DCA' | 'Wait for price' | 'Watch' | 'Avoid';
@@ -127,6 +142,29 @@ export type AcceptedResearchEvidence = {
     readonly sources: readonly ResearchEvidence[];
 };
 
+export type ResearchDocumentCitation = {
+    readonly id: string;
+    readonly market: ResearchMarket;
+    readonly symbol: string;
+    readonly sourceKind: ResearchDocumentSourceKind;
+    readonly publicationDate: string;
+    readonly reportingPeriod: string | null;
+    readonly title: string;
+    readonly sourceUrl: string;
+    readonly providerLabel: string;
+    readonly location: string;
+    readonly excerpt: string;
+    readonly capturedAt: string;
+    readonly contentDigest: string;
+    readonly captureMethod: ResearchDocumentCaptureMethod;
+};
+
+export type ResearchDocumentEvidenceSet = {
+    readonly version: 1;
+    readonly migrationState: ResearchDocumentMigrationState;
+    readonly citations: readonly ResearchDocumentCitation[];
+};
+
 export type InvestmentChecklist = {
     readonly understandBusiness: boolean;
     readonly revenueGrowingOrStable: boolean;
@@ -158,6 +196,7 @@ export type ResearchReviewSnapshot = {
     readonly checklist: InvestmentChecklist;
     readonly monitoringRules: ResearchMonitoringRules;
     readonly acceptedEvidence: readonly AcceptedResearchEvidence[];
+    readonly documentEvidence: ResearchDocumentEvidenceSet;
     readonly decisionJournal: ResearchDecisionJournal;
     readonly positionPlan: ResearchPositionPlan;
 };
@@ -182,6 +221,7 @@ export type ResearchRecord = {
     readonly checklist: InvestmentChecklist;
     readonly monitoringRules: ResearchMonitoringRules;
     readonly acceptedEvidence: readonly AcceptedResearchEvidence[];
+    readonly documentEvidence: ResearchDocumentEvidenceSet;
     readonly decisionJournal: ResearchDecisionJournal;
     readonly positionPlan: ResearchPositionPlan;
     readonly reviewHistory: readonly ResearchReviewSnapshot[];

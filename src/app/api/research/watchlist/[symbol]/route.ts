@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { parseResearchExpectedRevision, parseResearchUpdateInput, parseResearchUpdateMode, ResearchInputError } from '@/lib/research/input';
 import { deleteStoredResearchRecord, ResearchStaleWriteError, updateStoredResearchRecord } from '@/lib/research/store';
+import { ResearchDocumentEvidenceError } from '@/lib/research/document-evidence';
 
 type RouteContext = { readonly params: Promise<{ readonly symbol: string }> };
 
@@ -18,7 +19,7 @@ export const PATCH = async (request: Request, context: RouteContext) => {
         if (!record) return NextResponse.json({ success: false, error: 'Research record not found.' }, { status: 404 });
         return NextResponse.json({ success: true, data: record });
     } catch (error) {
-        if (error instanceof ResearchInputError) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+        if (error instanceof ResearchInputError || error instanceof ResearchDocumentEvidenceError) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
         if (error instanceof ResearchStaleWriteError) return NextResponse.json({ success: false, error: error.message }, { status: 409 });
         console.error('[Research API PATCH]', error);
         return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });

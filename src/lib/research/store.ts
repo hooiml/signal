@@ -7,6 +7,11 @@ import {
 } from './input';
 import { applyResearchUpdate, createResearchRecord, prepareStoredResearchRecord } from './records';
 import type { ResearchRecord, ResearchUpdateInput, ResearchUpdateMode } from '../types/research';
+import {
+    buildPersistedResearchEvidenceBundle,
+    migrateResearchDocumentEvidenceSet,
+    splitPersistedResearchEvidence,
+} from './document-evidence';
 
 const ensureResearchTable = async () => {
     await sql`
@@ -102,6 +107,7 @@ const mapRow = (raw: unknown): ResearchRecord => {
         market: row.market_type,
         companyName: row.company_name,
     });
+    const persistedEvidence = splitPersistedResearchEvidence(row.accepted_evidence);
     const update = parseResearchUpdateInput({
         positionState: row.position_state,
         inBuyZone: readBoolean(row, 'in_buy_zone'),
@@ -118,12 +124,13 @@ const mapRow = (raw: unknown): ResearchRecord => {
         notes: readString(row, 'notes'),
         checklist: row.checklist,
         monitoringRules: parsePersistedResearchMonitoringRules(row.monitoring_rules),
-        acceptedEvidence: row.accepted_evidence,
+        acceptedEvidence: persistedEvidence.acceptedEvidence,
         decisionJournal: row.decision_journal,
         positionPlan: row.position_plan,
     });
     return parseResearchRecord({
         ...applyResearchUpdate(createResearchRecord(identity), update),
+        documentEvidence: migrateResearchDocumentEvidenceSet(persistedEvidence.documentEvidence, identity),
         reviewHistory: row.review_history,
         lastReviewedAt: readDate(row, 'last_reviewed_at'),
         updatedAt: readTimestamp(row, 'updated_at'),
@@ -144,7 +151,7 @@ const saveRecord = async (record: ResearchRecord, replaceExisting = false): Prom
             ${record.valuationState}, ${record.thesisStrength}, ${record.whyInterested},
             ${record.bullCase}, ${record.bearCase}, ${record.buyTrigger}, ${record.sellTrigger},
             ${record.thesisBreak}, ${record.notes}, ${JSON.stringify(record.checklist)},
-            ${JSON.stringify(record.monitoringRules)}, ${JSON.stringify(record.acceptedEvidence)},
+            ${JSON.stringify(record.monitoringRules)}, ${JSON.stringify(buildPersistedResearchEvidenceBundle(record.acceptedEvidence, record.documentEvidence))},
             ${JSON.stringify(record.decisionJournal)}, ${JSON.stringify(record.positionPlan)}, ${JSON.stringify(record.reviewHistory)}, ${record.lastReviewedAt}
         )
         ON CONFLICT (user_id, symbol, market_type) DO UPDATE SET
@@ -188,7 +195,7 @@ const updateRecord = async (record: ResearchRecord, expectedRevision: number): P
             buy_trigger = ${record.buyTrigger}, sell_trigger = ${record.sellTrigger},
             thesis_break = ${record.thesisBreak}, notes = ${record.notes},
             checklist = ${JSON.stringify(record.checklist)}, monitoring_rules = ${JSON.stringify(record.monitoringRules)},
-            accepted_evidence = ${JSON.stringify(record.acceptedEvidence)}, decision_journal = ${JSON.stringify(record.decisionJournal)},
+            accepted_evidence = ${JSON.stringify(buildPersistedResearchEvidenceBundle(record.acceptedEvidence, record.documentEvidence))}, decision_journal = ${JSON.stringify(record.decisionJournal)},
             position_plan = ${JSON.stringify(record.positionPlan)}, review_history = ${JSON.stringify(record.reviewHistory)},
             last_reviewed_at = ${record.lastReviewedAt}, updated_at = NOW(), revision = revision + 1
         WHERE user_id = 'default' AND symbol = ${record.symbol} AND market_type = ${record.market}
