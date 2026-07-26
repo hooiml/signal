@@ -296,6 +296,9 @@ Daily attention and portfolio guardrails remain available from the collapsed Res
    - An explicit relationship map that connects saved tickers through shared sector and evidence-provider provenance without inferring causality.
    - Manual encrypted device transfer with conflict preview, preserving the local-first model without claiming account-backed background synchronization.
    - Imported holdings are intentionally excluded from encrypted research transfer and every server API in this release; the CSV, credentials, and broker connections never leave the browser.
+   - A session-only pre-trade sandbox accepts up to twenty explicit buy/sell legs, validates exact account/holding scope, and compares current versus simulated cash, known value, concentration, exact-sector coverage, defined downside, and advisory policy state.
+   - Invalid baskets apply no partial result; cash deficits remain warnings, full sells remove only the simulated position, and buys use deterministic weighted average cost.
+   - Scenario drafts never auto-resume or enter analytics/sync. Formula-safe CSV or Markdown exports state that no orders were sent.
 
 ### Investment Research flow
 

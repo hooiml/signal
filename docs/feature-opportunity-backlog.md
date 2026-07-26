@@ -310,6 +310,7 @@ Add saved density/layout preferences, keyboard navigation, and quick ticker/rout
 1. **Calendar foundation — delivered:** unified scheduled reviews, stale-review deadlines, and monitored earnings without adding a new external provider.
 2. **Alert center — delivered:** existing research rules, device-local market rules, delivery preferences, and bounded delivery history now share one observable workflow.
 3. **Portfolio cockpit — delivered:** saved position plans drive allocation, concentration, defined-risk coverage, market metrics, and bounded scenarios. A separate versioned local-only CSV snapshot now adds actual holdings, cost basis, cash, exact research reconciliation, and safe add/replace preview without becoming a brokerage ledger or entering research sync.
+   - **Pre-trade sandbox delivered:** up to twenty explicit session-only legs produce an atomic before/after illustration by account and currency, including cash deficits, concentration, exact-sector coverage, defined downside, and semantically valid policy checks. It persists nothing, sends no scenario data, and places no orders.
 4. **Outcome analytics — delivered:** linked review history now produces explicit resolved and unresolved feedback without claiming predictive accuracy.
 5. **Cross-workspace exposure — delivered:** active market drivers now connect to same-market watchlist names through visible sector rules and direct review links.
 6. **Peer benchmarking — delivered:** editable peer sets now expose medians, favorable-direction percentiles, and per-metric coverage.

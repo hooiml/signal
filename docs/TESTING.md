@@ -127,6 +127,18 @@ The deterministic one-session check covers empty and restored snapshots, canonic
 
 Use `--viewport 375` or `--screenshot-dir <path>` only for a focused rerun after a failure.
 
+### Targeted Portfolio What-If QA
+
+For the session-only pre-trade sandbox, run:
+
+```powershell
+npm run qa:portfolio-what-if -- --base-url http://127.0.0.1:3000
+```
+
+The deterministic one-session check seeds an accepted holdings snapshot, exercises empty, incomplete, invalid, unmatched, missing-price, oversell, cash-deficit, valid, export, reset, storage-unavailable, and reload/no-resume states, and asserts the snapshot and research records are never mutated. It also checks keyboard access, document overflow, blocking console/page/request failures, and absence of authored scenario markers in network requests at 1280px, 768px, and 375px.
+
+Use `--viewport 375` or `--screenshot-dir <path>` only for a focused rerun after a failure.
+
 ### Visual QA Contract
 
 Treat any UI request involving a screenshot, alignment, spacing, layout, visual polish, or “looks off” feedback as standard visual verification rather than a compile-only check.
