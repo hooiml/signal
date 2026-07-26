@@ -16,6 +16,12 @@ The Research Alerts workspace loads `/api/research/notifications/settings` to ma
 
 Research monitoring rules remain persisted with each ticker record. Market-condition rules remain browser-local and are explicitly labeled device-only in the alert center until account-scoped synchronization exists.
 
+## This-device native notifications
+
+The Alerts workspace can request the browser's notification permission through an explicit button. Its enabled state and `risk-only` or `all` mode stay in that browser. Signal emits a bounded notification only when the eligible active-alert digest changes, and disabling the setting prevents later alerts from notifying.
+
+This is an open-app notification surface, not Web Push. It does not install a service worker and cannot promise delivery after Signal is closed. Use the authenticated signed webhook for background delivery.
+
 ## Conditions
 
 - `Inside buy zone`: current price is within the two numeric bounds saved in `targetBuyZone`.

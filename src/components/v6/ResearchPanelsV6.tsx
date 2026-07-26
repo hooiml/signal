@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import { buildTechnicalOutlook, type TechnicalTone } from '@/lib/research/technical-outlook';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
+import { FundamentalHistoryV6 } from './FundamentalHistoryV6';
 import { getThemeV6, type ResearchTabV6, type ResearchThemeClassesV6, type ResearchThemeV6 } from './research-v6';
 
 const DataGridV6 = ({ children, themeClasses }: { children: ReactNode; themeClasses: ResearchThemeClassesV6 }) => (
@@ -157,19 +158,22 @@ export const ResearchPanelsV6 = ({ ticker, tab, theme, snapshot = null }: {
     if (tab === 'chart') return null;
 
     if (tab === 'fundamentals') return (
-        <DataGridV6 themeClasses={themeClasses}>
-            {point('Sector', ticker.sector)}
-            {point('Industry', ticker.industry)}
-            {point('Market cap', ticker.marketCap)}
-            {point('Revenue trend', ticker.revenueGrowth)}
-            {point('Gross margin', ticker.grossMargin)}
-            {point('Operating margin', ticker.operatingMargin)}
-            {point('Free cash flow', ticker.freeCashFlowTrend)}
-            {point('Debt', ticker.debtLevel)}
-            {point('Cash position', ticker.cashPosition)}
-            {point('Share count', ticker.shareCountTrend)}
-            {point('Business description', ticker.description, true)}
-        </DataGridV6>
+        <>
+            <DataGridV6 themeClasses={themeClasses}>
+                {point('Sector', ticker.sector)}
+                {point('Industry', ticker.industry)}
+                {point('Market cap', ticker.marketCap)}
+                {point('Revenue trend', ticker.revenueGrowth)}
+                {point('Gross margin', ticker.grossMargin)}
+                {point('Operating margin', ticker.operatingMargin)}
+                {point('Free cash flow', ticker.freeCashFlowTrend)}
+                {point('Debt', ticker.debtLevel)}
+                {point('Cash position', ticker.cashPosition)}
+                {point('Share count', ticker.shareCountTrend)}
+                {point('Business description', ticker.description, true)}
+            </DataGridV6>
+            <FundamentalHistoryV6 ticker={ticker} history={snapshot?.fundamentals.history ?? []} theme={theme} />
+        </>
     );
     if (tab === 'valuation') return (
         <DataGridV6 themeClasses={themeClasses}>

@@ -359,7 +359,17 @@ Compare cited evidence versions across immutable reviews without inventing acces
 
 ### 21. Paper decision tracker
 
-**Delivered:** the Outcomes workspace now records browser-local act-or-pass decisions, a bounded rationale, the initial observed price, and an optional later observed price. It reports the market move without claiming brokerage execution or investment return.
+**Delivered:** the Outcomes Decision Review Lab now records browser-local act-or-pass decisions with a 1M, 3M, 6M, or 1Y horizon, freezes due candidate and VOO or FBM KLCI observations from validated chart history, reports path drawdown/upside and benchmark-relative decision effect, and gates action/confidence/horizon cohort statistics at five and twenty observations. Manual resolution remains a due-only fallback when provider history is unavailable, and the feature still makes no brokerage execution or investment-return claim.
+
+**Delivered:** the collapsed Since Last Visit briefing now waits for canonical saved research and lazily summarizes US/Malaysia posture changes, new or revised records, accepted-evidence changes, upcoming reviews and earnings, alerts, policy breaches, inbox attention, and degraded sources. Users explicitly save a versioned browser-local checkpoint, provider failures degrade independently, and a deterministic top-three priority list links back to the owning workspace without mutating saved research.
+
+**Delivered:** Fundamentals now show up to five annual periods with revenue growth, margins, net income, free cash flow, debt, cash, and share-count evidence. US data remains normalized from SEC Company Facts; Malaysia gains MYR history from Yahoo Finance with missing fields preserved and an explicit Bursa-filing verification warning. The existing current snapshot and derived valuation use the newest available period without inventing historical valuation multiples.
+
+**Delivered:** The Calendar workspace now combines Federal Reserve, BLS, OpenDOSM, and a transparently maintained annual BNM MPC schedule in a separate macro-event contract. Provider failures degrade independently, source links remain explicit, and relevance is limited to same-market tracked symbols without claiming ticker-specific sensitivity.
+
+**Delivered:** The journal editor now offers Core, Quality compounder, Growth, Value, Income, and Turnaround analysis templates. They change session-only questions and evidence priorities without auto-filling research, changing checklist state, altering the decision rule, or persisting a strategy classification.
+
+**Delivered:** Private continuity now includes an opt-in, bearer-protected single-user ciphertext vault with stale-revision protection and local decryption into the existing import preview. Alerts can also request device-native permission for bounded, deduplicated risk-only or all-alert notices while Signal is open. Neither surface claims multi-user accounts, automatic merging, service-worker push, or passphrase recovery.
 
 ### 22. Research relationship graph
 

@@ -107,7 +107,9 @@ Market V6 uses the same atmosphere as a progressive-disclosure market-conditions
 - Watchlist seed symbols and posture values still come from the existing static fixture; Compare evidence is fetched from live research snapshots.
 - Saved research reviews persist thesis, bear case, triggers, notes, valuation state, ownership state, checklist changes, accepted source provenance, and the latest 25 review snapshots.
 - Monitoring rules are evaluated only while the Research page is open or refreshed; push notifications and scheduled background checks remain out of scope.
-- Comparison is point-in-time evidence and does not yet preserve historical comparison snapshots.
+- Comparison is point-in-time evidence and does not yet preserve historical comparison snapshots. The separate Decision Review Lab freezes due act-or-pass observations against VOO or FBM KLCI for decision-learning cohorts; it does not turn Compare into historical valuation data.
+- Since Last Visit is a collapsed orientation layer, not another workspace. It waits for canonical saved records, fetches existing owning boundaries only when opened, labels partial provider coverage, limits priorities to three, and saves its comparison checkpoint only on explicit user action.
+- Fundamentals show a bounded annual evidence table below the current snapshot. US rows name SEC Company Facts; Malaysia rows name Yahoo Finance and disclose that they are not a Bursa filing feed. Missing period metrics render as unavailable, the wide table scrolls inside its own container, and current prices are never combined with historical fundamentals to imply a historical valuation series.
 - Market scenario statements are deterministic interpretations of current signal fields, not forecasts or personalized recommendations.
 
 ## 7. Story First Market Conditions

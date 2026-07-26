@@ -2,8 +2,11 @@ import {
     researchCalendarEventTypes,
     researchCalendarFreshness,
     researchCalendarRanges,
+    researchMacroCategories,
+    researchMacroSources,
     type ResearchCalendarEvent,
     type ResearchCalendarResponse,
+    type ResearchMacroEvent,
 } from '../types/research-calendar';
 import { isResearchCalendarDate, ResearchCalendarInputError } from './calendar-input';
 
@@ -27,6 +30,21 @@ const parseEvent = (value: unknown): ResearchCalendarEvent => {
     return value as ResearchCalendarEvent;
 };
 
+const parseMacroEvent = (value: unknown): ResearchMacroEvent => {
+    if (!isRecord(value)) throw new ResearchCalendarInputError('Invalid macro calendar event.');
+    if (typeof value.id !== 'string' || value.id.length === 0 || value.id.length > 160) throw new ResearchCalendarInputError('Invalid macro event id.');
+    if (value.market !== 'US' && value.market !== 'MY') throw new ResearchCalendarInputError('Invalid macro event market.');
+    if (typeof value.category !== 'string' || !researchMacroCategories.includes(value.category as ResearchMacroEvent['category'])) throw new ResearchCalendarInputError('Invalid macro event category.');
+    if (typeof value.title !== 'string' || value.title.length === 0 || value.title.length > 200) throw new ResearchCalendarInputError('Invalid macro event title.');
+    if (typeof value.date !== 'string' || !isResearchCalendarDate(value.date)) throw new ResearchCalendarInputError('Invalid macro event date.');
+    if (value.timeLabel !== null && (typeof value.timeLabel !== 'string' || value.timeLabel.length > 40)) throw new ResearchCalendarInputError('Invalid macro event release time.');
+    if (typeof value.source !== 'string' || !researchMacroSources.includes(value.source as ResearchMacroEvent['source'])) throw new ResearchCalendarInputError('Invalid macro event source.');
+    if (typeof value.sourceUrl !== 'string' || !/^https:\/\/(www\.federalreserve\.gov|www\.bls\.gov|open\.dosm\.gov\.my|www\.bnm\.gov\.my)\//.test(value.sourceUrl)) throw new ResearchCalendarInputError('Invalid macro event source URL.');
+    if (typeof value.detail !== 'string' || value.detail.length > 500) throw new ResearchCalendarInputError('Invalid macro event detail.');
+    if (!Array.isArray(value.trackedSymbols) || value.trackedSymbols.length > 50 || value.trackedSymbols.some((symbol) => typeof symbol !== 'string' || !/^[A-Z0-9.-]{1,15}$/.test(symbol))) throw new ResearchCalendarInputError('Invalid macro event tracked symbols.');
+    return value as ResearchMacroEvent;
+};
+
 export const parseResearchCalendarResponse = (value: unknown): ResearchCalendarResponse => {
     if (!isRecord(value) || value.success !== true || !isRecord(value.data)) throw new ResearchCalendarInputError('Invalid research calendar response.');
     const data = value.data;
@@ -34,12 +52,14 @@ export const parseResearchCalendarResponse = (value: unknown): ResearchCalendarR
     if (typeof data.rangeDays !== 'number' || !researchCalendarRanges.includes(data.rangeDays as ResearchCalendarResponse['rangeDays'])) throw new ResearchCalendarInputError('Invalid calendar range.');
     if (data.timezone !== 'UTC') throw new ResearchCalendarInputError('Invalid calendar timezone.');
     if (!Array.isArray(data.events) || data.events.length > 250) throw new ResearchCalendarInputError('Invalid calendar event collection.');
+    if (!Array.isArray(data.macroEvents) || data.macroEvents.length > 250) throw new ResearchCalendarInputError('Invalid macro event collection.');
     if (!Array.isArray(data.warnings) || data.warnings.some((warning) => typeof warning !== 'string')) throw new ResearchCalendarInputError('Invalid calendar warnings.');
     return {
         generatedAt: new Date(data.generatedAt).toISOString(),
         rangeDays: data.rangeDays as ResearchCalendarResponse['rangeDays'],
         timezone: 'UTC',
         events: data.events.map(parseEvent),
+        macroEvents: data.macroEvents.map(parseMacroEvent),
         warnings: data.warnings,
     };
 };

@@ -5,8 +5,10 @@ import type {
     ResearchCalendarQuery,
     ResearchCalendarRange,
     ResearchCalendarResponse,
+    ResearchMacroEvent,
 } from '../types/research-calendar';
 import { fetchUpcomingCatalysts } from './catalysts';
+import { fetchResearchMacroCalendar } from './macro-calendar';
 
 const utcDate = (date: Date): string => date.toISOString().slice(0, 10);
 
@@ -101,9 +103,10 @@ export const filterResearchCalendarEvents = (
     && (filters.ticker === 'ALL' || event.symbol === filters.ticker)
     && (filters.type === 'ALL' || event.type === filters.type));
 
-export const buildResearchCalendar = ({ inputs, catalysts, now, rangeDays, warnings = [] }: {
+export const buildResearchCalendar = ({ inputs, catalysts, macroEvents, now, rangeDays, warnings = [] }: {
     readonly inputs: readonly ResearchCalendarInput[];
     readonly catalysts: readonly ResearchCalendarCatalyst[];
+    readonly macroEvents: readonly ResearchMacroEvent[];
     readonly now: Date;
     readonly rangeDays: ResearchCalendarRange;
     readonly warnings?: readonly string[];
@@ -130,6 +133,7 @@ export const buildResearchCalendar = ({ inputs, catalysts, now, rangeDays, warni
         rangeDays,
         timezone: 'UTC',
         events: unique,
+        macroEvents,
         warnings: [...new Set(warnings)].slice(0, 5),
     };
 };
@@ -139,26 +143,34 @@ export const getResearchCalendar = async (
     query: ResearchCalendarQuery,
     now = new Date(),
     catalystFetcher: typeof fetchUpcomingCatalysts = fetchUpcomingCatalysts,
+    macroFetcher: typeof fetchResearchMacroCalendar = fetchResearchMacroCalendar,
 ): Promise<ResearchCalendarResponse> => {
     const usSymbols = inputs
         .filter((input) => input.market === 'US' && input.earningsWithinDays !== null)
         .map((input) => input.symbol);
-    const catalystResult = await Promise.allSettled([
+    const [catalystResult, macroResult] = await Promise.allSettled([
         usSymbols.length > 0 ? catalystFetcher(usSymbols, query.rangeDays, now) : Promise.resolve(new Map()),
+        macroFetcher(inputs, query.rangeDays, now),
     ]);
-    const catalystMap = catalystResult[0]?.status === 'fulfilled'
-        ? catalystResult[0].value
+    const catalystMap = catalystResult.status === 'fulfilled'
+        ? catalystResult.value
         : new Map();
     const catalysts: ResearchCalendarCatalyst[] = [...catalystMap.entries()].map(([symbol, catalyst]) => ({ symbol, ...catalyst }));
+    const macroEvents = macroResult.status === 'fulfilled' ? macroResult.value.events : [];
     const calendar = buildResearchCalendar({
         inputs,
         catalysts,
+        macroEvents,
         now,
         rangeDays: query.rangeDays,
-        warnings: catalystResult[0]?.status === 'rejected' ? ['Upcoming earnings coverage is temporarily unavailable.'] : [],
+        warnings: [
+            ...(catalystResult.status === 'rejected' ? ['Upcoming earnings coverage is temporarily unavailable.'] : []),
+            ...(macroResult.status === 'rejected' ? ['Macro-event coverage is temporarily unavailable.'] : macroResult.value.warnings),
+        ],
     });
     return {
         ...calendar,
         events: filterResearchCalendarEvents(calendar.events, query),
+        macroEvents: calendar.macroEvents.filter((event) => query.market === 'ALL' || event.market === query.market),
     };
 };

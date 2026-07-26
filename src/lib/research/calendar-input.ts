@@ -51,7 +51,7 @@ const parseCalendarInput = (value: unknown): ResearchCalendarInput => {
 };
 
 export const parseResearchCalendarInputs = (value: unknown): readonly ResearchCalendarInput[] => {
-    if (!Array.isArray(value) || value.length === 0 || value.length > 50) throw new ResearchCalendarInputError('Provide between 1 and 50 research calendar records.');
+    if (!Array.isArray(value) || value.length > 50) throw new ResearchCalendarInputError('Provide up to 50 research calendar records.');
     const parsed = value.map(parseCalendarInput);
     if (new Set(parsed.map((input) => input.symbol)).size !== parsed.length) throw new ResearchCalendarInputError('Research calendar symbols must be unique.');
     return parsed;

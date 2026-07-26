@@ -14,6 +14,7 @@ import { parseResearchRecord } from '@/lib/research/input';
 import { trackProductAnalyticsEvent } from '@/lib/product-analytics-client';
 import type { ResearchRecord } from '@/lib/types/research';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
+import { PrivateResearchSyncV6 } from './PrivateResearchSyncV6';
 
 type RestoreResult = {
     readonly records: readonly ResearchRecord[];
@@ -157,6 +158,17 @@ export const EncryptedResearchBackupV6 = ({ records, recordsLoadState, theme, on
         }
     };
 
+    const previewPulledSync = (payload: ResearchBackupPayload) => {
+        setPreview(payload);
+        setSelectedFile(null);
+        setPastedPackage('');
+        setImportPassphrase('');
+        setConflictPolicy('add-only');
+        setReplaceConfirmed(false);
+        setError(null);
+        setMessage('Remote ciphertext was decrypted locally. Review revisions and conflict policy before importing.');
+    };
+
     const inputClass = 'mt-1 h-11 w-full rounded border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ' + styles.panelUtility + ' ' + styles.textPrimary;
     return (
         <div className="w-full min-w-0 space-y-4">
@@ -168,6 +180,8 @@ export const EncryptedResearchBackupV6 = ({ records, recordsLoadState, theme, on
 
             {error ? <div role="alert" className={'rounded border px-4 py-3 text-sm ' + (theme === 'light' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-rose-400/30 bg-rose-500/10 text-rose-200')}>{error}</div> : null}
             {message ? <div role="status" className={'rounded border px-4 py-3 text-sm ' + (theme === 'light' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200')}>{message}</div> : null}
+
+            <PrivateResearchSyncV6 records={records} recordsLoadState={recordsLoadState} theme={theme} onPulled={previewPulledSync} />
 
             <div className="grid gap-4 lg:grid-cols-2">
                 <section className={'rounded-lg border p-4 ' + styles.panelSecondary} aria-labelledby="backup-export-title">

@@ -28,6 +28,19 @@ const isBenchmarkReturnBasis = (value: unknown) => typeof value === 'string' && 
 const hasNullableNumbers = (value: Record<string, unknown>, keys: readonly string[]) =>
     keys.every((key) => isNullableNumber(value[key]));
 
+const isFundamentalPeriod = (value: unknown): value is ResearchSnapshot['fundamentals']['history'][number] =>
+    isRecord(value)
+    && typeof value.reportingPeriod === 'string'
+    && /^\d{4}-\d{2}-\d{2}$/.test(value.reportingPeriod)
+    && typeof value.currency === 'string'
+    && value.currency.length >= 3
+    && value.currency.length <= 8
+    && (value.source === 'SEC EDGAR' || value.source === 'Yahoo Finance')
+    && hasNullableNumbers(value, [
+        'annualRevenue', 'revenueGrowthPercent', 'grossMarginPercent', 'operatingMarginPercent',
+        'annualNetIncome', 'freeCashFlow', 'debt', 'cash', 'shares', 'shareChangePercent',
+    ]);
+
 const isChartPoint = (value: unknown) => isRecord(value)
     && typeof value.time === 'string'
     && /^\d{4}-\d{2}-\d{2}$/.test(value.time)
@@ -65,6 +78,11 @@ const isResearchSnapshot = (value: unknown): value is ResearchSnapshot => {
             'debt', 'cash', 'shares', 'annualRevenue', 'annualNetIncome', 'shareChangePercent',
         ])
         && isNullableString(value.fundamentals.reportingPeriod)
+        && (value.fundamentals.source === null || value.fundamentals.source === 'SEC EDGAR' || value.fundamentals.source === 'Yahoo Finance')
+        && Array.isArray(value.fundamentals.history)
+        && value.fundamentals.history.length <= 5
+        && value.fundamentals.history.every(isFundamentalPeriod)
+        && new Set(value.fundamentals.history.map((period) => period.reportingPeriod)).size === value.fundamentals.history.length
         && hasNullableNumbers(value.valuation, [
             'marketCap', 'priceEarnings', 'priceSales', 'freeCashFlowYieldPercent', 'netCash',
         ])

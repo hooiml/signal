@@ -1,4 +1,5 @@
 import { unstable_cache } from 'next/cache';
+import type { ResearchFundamentalPeriod } from '../types/research-snapshot';
 
 type SecFundamentals = {
     readonly revenueGrowthPercent: number | null;
@@ -12,6 +13,8 @@ type SecFundamentals = {
     readonly annualNetIncome: number | null;
     readonly reportingPeriod: string | null;
     readonly shareChangePercent: number | null;
+    readonly source: 'SEC EDGAR';
+    readonly history: readonly ResearchFundamentalPeriod[];
 };
 
 type FactValue = { readonly value: number; readonly start: string | null; readonly end: string; readonly filed: string; readonly form: string; readonly fiscalPeriod: string };
@@ -66,6 +69,22 @@ const annualPair = (values: readonly FactValue[], durationOnly = true): readonly
 const ratio = (numerator: number | null, denominator: number | null) =>
     numerator === null || denominator === null || denominator === 0 ? null : Number(((numerator / denominator) * 100).toFixed(1));
 
+const change = (current: number | null, previous: number | null) =>
+    current === null || previous === null || previous === 0
+        ? null
+        : Number((((current - previous) / Math.abs(previous)) * 100).toFixed(1));
+
+const annualByEnd = (values: readonly FactValue[], durationOnly: boolean) => {
+    const byEnd = new Map<string, FactValue>();
+    for (const item of values.filter((value) => isAnnualFiling(value) && (!durationOnly || isAnnualDuration(value)))) {
+        if (!byEnd.has(item.end) || (byEnd.get(item.end)?.filed ?? '') < item.filed) byEnd.set(item.end, item);
+    }
+    return byEnd;
+};
+
+const periodValue = (values: ReadonlyMap<string, FactValue>, period: string) =>
+    values.get(period)?.value ?? null;
+
 const totalDebt = (facts: Record<string, unknown>): number | null => {
     const current = latest(factValues(facts, ['LongTermDebtCurrent', 'LongTermDebtAndFinanceLeaseObligationsCurrent'], 'USD'));
     const noncurrent = latest(factValues(facts, ['LongTermDebtNoncurrent', 'LongTermDebtAndFinanceLeaseObligationsNoncurrent'], 'USD'));
@@ -89,6 +108,43 @@ export const parseSecCompanyFacts = (payload: unknown): SecFundamentals => {
     const debt = totalDebt(usGaap);
     const shares = factValues(usGaap, ['EntityCommonStockSharesOutstanding', 'CommonStockSharesOutstanding'], 'shares');
     const sharePair = annualPair(shares, false);
+    const revenueByPeriod = annualByEnd(revenue, true);
+    const grossProfitByPeriod = annualByEnd(factValues(usGaap, ['GrossProfit'], 'USD'), true);
+    const operatingIncomeByPeriod = annualByEnd(factValues(usGaap, ['OperatingIncomeLoss'], 'USD'), true);
+    const netIncomeByPeriod = annualByEnd(factValues(usGaap, ['NetIncomeLoss', 'ProfitLoss'], 'USD'), true);
+    const operatingCashByPeriod = annualByEnd(factValues(usGaap, ['NetCashProvidedByUsedInOperatingActivities'], 'USD'), true);
+    const capexByPeriod = annualByEnd(factValues(usGaap, ['PaymentsToAcquirePropertyPlantAndEquipment'], 'USD'), true);
+    const debtCurrentByPeriod = annualByEnd(factValues(usGaap, ['LongTermDebtCurrent', 'LongTermDebtAndFinanceLeaseObligationsCurrent'], 'USD'), false);
+    const debtNoncurrentByPeriod = annualByEnd(factValues(usGaap, ['LongTermDebtNoncurrent', 'LongTermDebtAndFinanceLeaseObligationsNoncurrent'], 'USD'), false);
+    const debtTotalByPeriod = annualByEnd(factValues(usGaap, ['LongTermDebtAndFinanceLeaseObligations', 'LongTermDebt'], 'USD'), false);
+    const cashByPeriod = annualByEnd(factValues(usGaap, ['CashAndCashEquivalentsAtCarryingValue', 'CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents'], 'USD'), false);
+    const sharesByPeriod = annualByEnd(shares, false);
+    const revenuePeriods = [...revenueByPeriod.keys()].sort((left, right) => right.localeCompare(left)).slice(0, 5);
+    const history = revenuePeriods.map((reportingPeriod, index): ResearchFundamentalPeriod => {
+        const annualRevenue = periodValue(revenueByPeriod, reportingPeriod);
+        const previousPeriod = revenuePeriods[index + 1] ?? null;
+        const operatingCashValue = periodValue(operatingCashByPeriod, reportingPeriod);
+        const capexValue = periodValue(capexByPeriod, reportingPeriod);
+        const debtCurrent = periodValue(debtCurrentByPeriod, reportingPeriod);
+        const debtNoncurrent = periodValue(debtNoncurrentByPeriod, reportingPeriod);
+        const debtFallback = periodValue(debtTotalByPeriod, reportingPeriod);
+        const sharesValue = periodValue(sharesByPeriod, reportingPeriod);
+        return {
+            reportingPeriod,
+            currency: 'USD',
+            source: 'SEC EDGAR',
+            annualRevenue,
+            revenueGrowthPercent: change(annualRevenue, previousPeriod ? periodValue(revenueByPeriod, previousPeriod) : null),
+            grossMarginPercent: ratio(periodValue(grossProfitByPeriod, reportingPeriod), annualRevenue),
+            operatingMarginPercent: ratio(periodValue(operatingIncomeByPeriod, reportingPeriod), annualRevenue),
+            annualNetIncome: periodValue(netIncomeByPeriod, reportingPeriod),
+            freeCashFlow: operatingCashValue === null || capexValue === null ? null : operatingCashValue - capexValue,
+            debt: debtCurrent !== null && debtNoncurrent !== null ? debtCurrent + debtNoncurrent : debtFallback,
+            cash: periodValue(cashByPeriod, reportingPeriod),
+            shares: sharesValue,
+            shareChangePercent: change(sharesValue, previousPeriod ? periodValue(sharesByPeriod, previousPeriod) : null),
+        };
+    });
     return {
         revenueGrowthPercent: pair === null || pair[1] === 0 ? null : Number((((pair[0] - pair[1]) / Math.abs(pair[1])) * 100).toFixed(1)),
         grossMarginPercent: ratio(grossProfit, revenueLatest),
@@ -101,6 +157,8 @@ export const parseSecCompanyFacts = (payload: unknown): SecFundamentals => {
         annualNetIncome: netIncome,
         reportingPeriod: latestPeriod(revenue),
         shareChangePercent: sharePair === null || sharePair[1] === 0 ? null : Number((((sharePair[0] - sharePair[1]) / Math.abs(sharePair[1])) * 100).toFixed(1)),
+        source: 'SEC EDGAR',
+        history,
     };
 };
 
@@ -123,6 +181,6 @@ const fetchAndNormalizeSecFundamentals = async (symbol: string): Promise<SecFund
 
 export const fetchSecFundamentals = unstable_cache(
     fetchAndNormalizeSecFundamentals,
-    ['sec-fundamentals-v1'],
+    ['sec-fundamentals-v2-history'],
     { revalidate: 21600 },
 );

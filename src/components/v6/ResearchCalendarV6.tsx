@@ -17,12 +17,14 @@ import type {
     ResearchCalendarEventType,
     ResearchCalendarRange,
     ResearchCalendarResponse,
+    ResearchMacroEvent,
 } from '@/lib/types/research-calendar';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 
 type CalendarView = 'list' | 'calendar';
 type FilterValue = 'ALL';
+type CalendarEventFilter = ResearchCalendarEventType | 'macro' | FilterValue;
 
 const addUtcDays = (value: string, days: number) => {
     const date = new Date(`${value}T00:00:00.000Z`);
@@ -133,6 +135,45 @@ const CompactCalendarEvent = ({ event, priorDate, theme, onOpen }: {
     </button>
 );
 
+const macroCategoryLabel = (category: ResearchMacroEvent['category']) => ({
+    'monetary-policy': 'Monetary policy',
+    inflation: 'Inflation',
+    employment: 'Employment',
+    growth: 'Growth',
+}[category]);
+
+const MacroEventCard = ({ event, theme }: {
+    readonly event: ResearchMacroEvent;
+    readonly theme: ResearchThemeV6;
+}) => {
+    const styles = getThemeV6(theme);
+    const trackedContext = event.trackedSymbols.length > 0
+        ? `Market-wide context for ${event.trackedSymbols.join(', ')}.`
+        : `No tracked ${event.market} names yet; retained as market context.`;
+    return (
+        <article data-macro-event className={'min-w-0 rounded-lg border p-4 ' + styles.panel + ' ' + styles.divider}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className={'rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ' + styles.statusSurface + ' ' + styles.textSecondary}>{event.market}</span>
+                        <span className={'text-[11px] ' + styles.textMuted}>{macroCategoryLabel(event.category)}</span>
+                    </div>
+                    <h3 className={'mt-2 text-sm font-semibold ' + styles.textPrimary}>{event.title}</h3>
+                    <p className={'mt-1 text-xs leading-5 ' + styles.textSecondary}>{event.detail}</p>
+                    <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>{trackedContext} This does not imply ticker-specific sensitivity.</p>
+                </div>
+                <div className="shrink-0 text-right">
+                    <time dateTime={event.date} className={'block text-sm font-semibold tabular-nums ' + styles.textPrimary}>{event.date}</time>
+                    <span className={'text-[11px] ' + styles.textMuted}>{event.timeLabel ?? 'Time not supplied'}</span>
+                </div>
+            </div>
+            <a href={event.sourceUrl} target="_blank" rel="noreferrer" className={'mt-3 inline-flex min-h-9 items-center text-xs font-medium underline underline-offset-4 ' + styles.positive}>
+                {event.source} source
+            </a>
+        </article>
+    );
+};
+
 export const ResearchCalendarV6 = ({ records, theme, onOpen }: {
     readonly records: readonly ResearchRecord[];
     readonly theme: ResearchThemeV6;
@@ -147,7 +188,7 @@ export const ResearchCalendarV6 = ({ records, theme, onOpen }: {
     const [view, setView] = useState<CalendarView>('list');
     const [market, setMarket] = useState<ResearchMarket | FilterValue>('ALL');
     const [ticker, setTicker] = useState<string | FilterValue>('ALL');
-    const [eventType, setEventType] = useState<ResearchCalendarEventType | FilterValue>('ALL');
+    const [eventType, setEventType] = useState<CalendarEventFilter>('ALL');
     const [visibleMonth, setVisibleMonth] = useState<string | null>(null);
     const [dateChanges, setDateChanges] = useState<ResearchCalendarDateState>({});
 
@@ -164,14 +205,6 @@ export const ResearchCalendarV6 = ({ records, theme, onOpen }: {
     useEffect(() => {
         const controller = new AbortController();
         const loadCalendar = async () => {
-            const inputCount = (JSON.parse(requestKey) as readonly unknown[]).length;
-            if (inputCount === 0) {
-                const generatedAt = new Date().toISOString();
-                setCalendar({ generatedAt, rangeDays, timezone: 'UTC', events: [], warnings: [] });
-                setVisibleMonth(generatedAt.slice(0, 7));
-                setLoading(false);
-                return;
-            }
             setLoading(true);
             setError(null);
             try {
@@ -211,7 +244,10 @@ export const ResearchCalendarV6 = ({ records, theme, onOpen }: {
         return () => controller.abort();
     }, [rangeDays, requestKey, retryKey]);
 
-    const events = useMemo(() => filterResearchCalendarEvents(calendar?.events ?? [], { market, ticker, type: eventType }), [calendar?.events, eventType, market, ticker]);
+    const events = useMemo(() => eventType === 'macro' ? [] : filterResearchCalendarEvents(calendar?.events ?? [], { market, ticker, type: eventType }), [calendar?.events, eventType, market, ticker]);
+    const macroEvents = useMemo(() => (eventType !== 'ALL' && eventType !== 'macro') ? [] : (calendar?.macroEvents ?? []).filter((event) =>
+        (market === 'ALL' || event.market === market)
+        && (ticker === 'ALL' || event.trackedSymbols.includes(ticker))), [calendar?.macroEvents, eventType, market, ticker]);
     const tickerOptions = useMemo(() => [...new Set((calendar?.events ?? []).map((event) => event.symbol))].sort(), [calendar?.events]);
     const startDate = calendar?.generatedAt.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
     const endDate = useMemo(() => addUtcDays(startDate, rangeDays), [rangeDays, startDate]);
@@ -235,8 +271,8 @@ export const ResearchCalendarV6 = ({ records, theme, onOpen }: {
             <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p className={'text-xs font-medium uppercase tracking-[0.12em] ' + styles.textMuted}>Research schedule</p>
-                    <h1 id="research-calendar-title" className={'mt-1 text-xl font-medium ' + styles.textPrimary}>Catalyst and review calendar</h1>
-                    <p className={'mt-2 max-w-2xl text-sm leading-5 ' + styles.textSecondary}>UTC source dates with browser-local viewing context. Opening an event never changes a saved decision or checklist.</p>
+                    <h1 id="research-calendar-title" className={'mt-1 text-xl font-medium ' + styles.textPrimary}>Catalyst, macro, and review calendar</h1>
+                    <p className={'mt-2 max-w-2xl text-sm leading-5 ' + styles.textSecondary}>Official macro releases alongside UTC research dates. Opening an event never changes a saved decision or checklist.</p>
                     <p className={'mt-1 text-xs font-normal ' + styles.textMuted}>UTC source dates · generated {calendar ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(calendar.generatedAt)) : 'when loaded'} local time</p>
                 </div>
                 <div className="flex flex-wrap gap-2" role="group" aria-label="Calendar range">
@@ -256,14 +292,25 @@ export const ResearchCalendarV6 = ({ records, theme, onOpen }: {
                     <select aria-label="Calendar ticker" value={ticker} onChange={(event) => setTicker(event.target.value)} className={'mt-1 w-full ' + inputClass}><option value="ALL">All tickers</option>{tickerOptions.map((symbol) => <option key={symbol} value={symbol}>{symbol}</option>)}</select>
                 </label>
                 <label className={'text-xs font-medium ' + styles.textMuted}>Event type
-                    <select aria-label="Event type" value={eventType} onChange={(event) => setEventType(event.target.value as ResearchCalendarEventType | FilterValue)} className={'mt-1 w-full ' + inputClass}><option value="ALL">All events</option><option value="review">Scheduled reviews</option><option value="earnings">Earnings</option><option value="stale">Stale reviews</option></select>
+                    <select aria-label="Event type" value={eventType} onChange={(event) => setEventType(event.target.value as CalendarEventFilter)} className={'mt-1 w-full ' + inputClass}><option value="ALL">All events</option><option value="macro">Macro releases</option><option value="review">Scheduled reviews</option><option value="earnings">Earnings</option><option value="stale">Stale reviews</option></select>
                 </label>
             </div>
 
             {calendar?.warnings.map((warning) => <p key={warning} role="status" className={'mt-3 rounded-md border px-3 py-2 text-xs ' + styles.risk}>{warning}</p>)}
-            {loading ? <div role="status" className={'mt-4 rounded-lg border p-6 text-sm ' + styles.panel + ' ' + styles.textSecondary}>Loading catalyst and review dates...</div> : null}
+            {loading ? <div role="status" className={'mt-4 rounded-lg border p-6 text-sm ' + styles.panel + ' ' + styles.textSecondary}>Loading catalyst, macro, and review dates...</div> : null}
             {!loading && error ? <div role="alert" className={'mt-4 rounded-lg border p-6 ' + styles.panel}><p className={'text-sm ' + styles.risk}>{error}</p><button type="button" onClick={() => setRetryKey((current) => current + 1)} className="mt-3 min-h-10 rounded-md border border-current px-3 text-xs font-bold">Retry</button></div> : null}
-            {!loading && !error && events.length === 0 ? <div className={'mt-4 rounded-lg border p-6 text-center ' + styles.panel}><h2 className={'text-base font-bold ' + styles.textPrimary}>No events in this view</h2><p className={'mt-2 text-sm ' + styles.textMuted}>Try a longer range or broaden the market, ticker, or event-type filters.</p></div> : null}
+            {!loading && !error && events.length === 0 && macroEvents.length === 0 ? <div className={'mt-4 rounded-lg border p-6 text-center ' + styles.panel}><h2 className={'text-base font-bold ' + styles.textPrimary}>No events in this view</h2><p className={'mt-2 text-sm ' + styles.textMuted}>Try a longer range or broaden the market, ticker, or event-type filters.</p></div> : null}
+
+            {!loading && !error && macroEvents.length > 0 ? <section aria-labelledby="macro-watch-title" className="mt-4">
+                <div className="flex flex-wrap items-end justify-between gap-2">
+                    <div>
+                        <p className={'text-xs font-medium uppercase tracking-[0.12em] ' + styles.textMuted}>Market-wide context</p>
+                        <h2 id="macro-watch-title" className={'mt-1 text-base font-semibold ' + styles.textPrimary}>Macro watch</h2>
+                    </div>
+                    <p className={'text-xs ' + styles.textMuted}>{macroEvents.length} scheduled {macroEvents.length === 1 ? 'event' : 'events'} · source dates shown as supplied</p>
+                </div>
+                <div className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">{macroEvents.map((event) => <MacroEventCard key={event.id} event={event} theme={theme} />)}</div>
+            </section> : null}
 
             {!loading && !error && events.length > 0 && view === 'list' ? <div className="mt-4 space-y-3">{events.map((event) => <CalendarEventCard key={event.id} event={event} priorDate={dateChanges[event.id]} theme={theme} onOpen={onOpen} />)}</div> : null}
 

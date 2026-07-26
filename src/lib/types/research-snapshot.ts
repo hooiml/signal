@@ -44,6 +44,22 @@ export type ResearchChartPoint = {
     readonly supertrendDirection: 1 | -1 | null;
 };
 
+export type ResearchFundamentalPeriod = {
+    readonly reportingPeriod: string;
+    readonly currency: string;
+    readonly source: 'SEC EDGAR' | 'Yahoo Finance';
+    readonly annualRevenue: number | null;
+    readonly revenueGrowthPercent: number | null;
+    readonly grossMarginPercent: number | null;
+    readonly operatingMarginPercent: number | null;
+    readonly annualNetIncome: number | null;
+    readonly freeCashFlow: number | null;
+    readonly debt: number | null;
+    readonly cash: number | null;
+    readonly shares: number | null;
+    readonly shareChangePercent: number | null;
+};
+
 export type ResearchSnapshot = {
     readonly symbol: string;
     readonly market: ResearchMarket;
@@ -67,6 +83,8 @@ export type ResearchSnapshot = {
         readonly annualNetIncome: number | null;
         readonly reportingPeriod: string | null;
         readonly shareChangePercent: number | null;
+        readonly source: ResearchFundamentalPeriod['source'] | null;
+        readonly history: readonly ResearchFundamentalPeriod[];
     };
     readonly valuation: {
         readonly marketCap: number | null;

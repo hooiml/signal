@@ -7,15 +7,16 @@ import type {
     ResearchFindingTone,
 } from '../types/research-assistant';
 import { researchFindingTargets } from '../types/research-assistant';
+import { toYahooSymbol } from './yahoo-research';
 
 const compactNumber = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
 
 const percent = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
-const money = (value: number) => `$${compactNumber.format(value)}`;
+const money = (value: number, currency = 'USD') => `${currency} ${compactNumber.format(value)}`;
 
 const sourceUrl = (snapshot: ResearchSnapshot, source: string) => {
     if (source === 'SEC EDGAR') return `https://www.sec.gov/edgar/search/#/q=${encodeURIComponent(snapshot.symbol)}`;
-    const yahooSymbol = snapshot.market === 'MY' && !snapshot.symbol.endsWith('.KL') ? `${snapshot.symbol}.KL` : snapshot.symbol;
+    const yahooSymbol = toYahooSymbol(snapshot.symbol, snapshot.market);
     return `https://finance.yahoo.com/quote/${encodeURIComponent(yahooSymbol)}`;
 };
 
@@ -34,14 +35,16 @@ export const buildResearchEvidence = (snapshot: ResearchSnapshot): readonly Rese
     const fundamentals = snapshot.fundamentals;
     const valuation = snapshot.valuation;
     const technicals = snapshot.technicals;
+    const fundamentalSource = fundamentals.source;
+    const currency = snapshot.quote.currency ?? fundamentals.history[0]?.currency ?? 'USD';
 
-    if (fundamentals.revenueGrowthPercent !== null) evidence.push(evidenceItem(snapshot, 'revenue-growth', 'Annual revenue growth', percent(fundamentals.revenueGrowthPercent), 'SEC EDGAR', period));
-    if (fundamentals.operatingMarginPercent !== null) evidence.push(evidenceItem(snapshot, 'operating-margin', 'Operating margin', `${fundamentals.operatingMarginPercent.toFixed(1)}%`, 'SEC EDGAR', period));
-    if (fundamentals.freeCashFlow !== null) evidence.push(evidenceItem(snapshot, 'free-cash-flow', 'Annual free cash flow', money(fundamentals.freeCashFlow), 'SEC EDGAR', period));
-    if (valuation.netCash !== null) evidence.push(evidenceItem(snapshot, 'net-cash', valuation.netCash >= 0 ? 'Net cash' : 'Net debt', money(Math.abs(valuation.netCash)), 'SEC EDGAR', valuation.reportingPeriod));
-    if (fundamentals.shareChangePercent !== null) evidence.push(evidenceItem(snapshot, 'share-change', 'Annual share-count change', percent(fundamentals.shareChangePercent), 'SEC EDGAR', period));
-    if (valuation.priceEarnings !== null) evidence.push(evidenceItem(snapshot, 'price-earnings', 'Price / earnings', `${valuation.priceEarnings.toFixed(1)}x`, 'SEC EDGAR', valuation.reportingPeriod));
-    if (valuation.freeCashFlowYieldPercent !== null) evidence.push(evidenceItem(snapshot, 'fcf-yield', 'Free-cash-flow yield', `${valuation.freeCashFlowYieldPercent.toFixed(1)}%`, 'SEC EDGAR', valuation.reportingPeriod));
+    if (fundamentalSource && fundamentals.revenueGrowthPercent !== null) evidence.push(evidenceItem(snapshot, 'revenue-growth', 'Annual revenue growth', percent(fundamentals.revenueGrowthPercent), fundamentalSource, period));
+    if (fundamentalSource && fundamentals.operatingMarginPercent !== null) evidence.push(evidenceItem(snapshot, 'operating-margin', 'Operating margin', `${fundamentals.operatingMarginPercent.toFixed(1)}%`, fundamentalSource, period));
+    if (fundamentalSource && fundamentals.freeCashFlow !== null) evidence.push(evidenceItem(snapshot, 'free-cash-flow', 'Annual free cash flow', money(fundamentals.freeCashFlow, currency), fundamentalSource, period));
+    if (fundamentalSource && valuation.netCash !== null) evidence.push(evidenceItem(snapshot, 'net-cash', valuation.netCash >= 0 ? 'Net cash' : 'Net debt', money(Math.abs(valuation.netCash), currency), fundamentalSource, valuation.reportingPeriod));
+    if (fundamentalSource && fundamentals.shareChangePercent !== null) evidence.push(evidenceItem(snapshot, 'share-change', 'Annual share-count change', percent(fundamentals.shareChangePercent), fundamentalSource, period));
+    if (fundamentalSource && valuation.priceEarnings !== null) evidence.push(evidenceItem(snapshot, 'price-earnings', 'Price / earnings', `${valuation.priceEarnings.toFixed(1)}x`, fundamentalSource, valuation.reportingPeriod));
+    if (fundamentalSource && valuation.freeCashFlowYieldPercent !== null) evidence.push(evidenceItem(snapshot, 'fcf-yield', 'Free-cash-flow yield', `${valuation.freeCashFlowYieldPercent.toFixed(1)}%`, fundamentalSource, valuation.reportingPeriod));
     if (snapshot.quote.price !== null) evidence.push(evidenceItem(snapshot, 'price', 'Current price', `${snapshot.quote.currency ? `${snapshot.quote.currency} ` : ''}${snapshot.quote.price.toFixed(2)}`, 'Yahoo Finance', null));
     if (technicals.ma50 !== null) evidence.push(evidenceItem(snapshot, 'ma50', '50-day moving average', technicals.ma50.toFixed(2), 'Yahoo Finance', null));
     if (technicals.ma200 !== null) evidence.push(evidenceItem(snapshot, 'ma200', '200-day moving average', technicals.ma200.toFixed(2), 'Yahoo Finance', null));
@@ -64,6 +67,7 @@ export const buildEvidenceFindings = (snapshot: ResearchSnapshot, evidence: read
     const fundamentals = snapshot.fundamentals;
     const valuation = snapshot.valuation;
     const technicals = snapshot.technicals;
+    const currency = snapshot.quote.currency ?? fundamentals.history[0]?.currency ?? 'USD';
 
     if (fundamentals.revenueGrowthPercent !== null) {
         const growth = fundamentals.revenueGrowthPercent;
@@ -81,7 +85,7 @@ export const buildEvidenceFindings = (snapshot: ResearchSnapshot, evidence: read
         findings.push(finding(
             'cash-generation',
             positive ? 'Free cash flow is positive' : 'Free cash flow is negative',
-            `Annual free cash flow is ${money(fundamentals.freeCashFlow)} in the latest available filing period.`,
+            `Annual free cash flow is ${money(fundamentals.freeCashFlow, currency)} in the latest available filing period.`,
             positive ? 'bullCase' : 'bearCase',
             positive ? 'positive' : 'risk',
             ['free-cash-flow'],
@@ -92,7 +96,7 @@ export const buildEvidenceFindings = (snapshot: ResearchSnapshot, evidence: read
         findings.push(finding(
             'balance-sheet',
             netCash ? 'Balance sheet carries net cash' : 'Balance sheet carries net debt',
-            `${netCash ? 'Net cash' : 'Net debt'} is ${money(Math.abs(valuation.netCash))} using the latest available annual facts.`,
+            `${netCash ? 'Net cash' : 'Net debt'} is ${money(Math.abs(valuation.netCash), currency)} using the latest available annual facts.`,
             netCash ? 'bullCase' : 'bearCase',
             netCash ? 'positive' : 'risk',
             ['net-cash'],

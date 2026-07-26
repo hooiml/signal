@@ -19,7 +19,9 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 
 const isAlert = (value: unknown): value is ResearchAlert => {
     if (!isRecord(value)) return false;
-    return typeof value.symbol === 'string' && typeof value.title === 'string' && typeof value.detail === 'string'
+    return typeof value.symbol === 'string' && /^[A-Z0-9.-]{1,20}$/.test(value.symbol)
+        && typeof value.title === 'string' && value.title.length > 0 && value.title.length <= 160
+        && typeof value.detail === 'string' && value.detail.length <= 500
         && (value.severity === 'opportunity' || value.severity === 'watch' || value.severity === 'risk');
 };
 
@@ -27,7 +29,7 @@ const parseResponse = (payload: unknown): ResearchAlertsResponse => {
     if (!isRecord(payload) || payload.success !== true || !isRecord(payload.data)) throw new Error('Invalid research alerts response.');
     const data = payload.data;
     if (typeof data.generatedAt !== 'string' || typeof data.monitoredCount !== 'number'
-        || !Array.isArray(data.alerts) || !data.alerts.every(isAlert)
+        || !Array.isArray(data.alerts) || data.alerts.length > 300 || !data.alerts.every(isAlert)
         || !Array.isArray(data.warnings) || !data.warnings.every((warning) => typeof warning === 'string')) {
         throw new Error('Invalid research alerts data.');
     }
@@ -62,9 +64,9 @@ export const ResearchAlertsV6 = ({ items, records, theme, onOpen }: ResearchAler
         return () => { active = false; };
     }, [items]);
 
-    if (items.length === 0) return <section className="min-w-0 flex-1"><p className={'p-4 text-sm ' + styles.textMuted}>Add a ticker to begin monitoring.</p><ResearchNotificationCenterV6 records={records} theme={theme} /></section>;
-    if (error) return <section className="min-w-0 flex-1"><p className={'p-4 text-sm ' + styles.risk}>{error}</p><ResearchNotificationCenterV6 records={records} theme={theme} /></section>;
-    if (!data) return <section className="min-w-0 flex-1"><p className={'p-4 text-sm ' + styles.textMuted}>Checking buy zones and trend conditions...</p><ResearchNotificationCenterV6 records={records} theme={theme} /></section>;
+    if (items.length === 0) return <section className="min-w-0 flex-1"><p className={'p-4 text-sm ' + styles.textMuted}>Add a ticker to begin monitoring.</p><ResearchNotificationCenterV6 records={records} alerts={[]} theme={theme} /></section>;
+    if (error) return <section className="min-w-0 flex-1"><p className={'p-4 text-sm ' + styles.risk}>{error}</p><ResearchNotificationCenterV6 records={records} alerts={[]} theme={theme} /></section>;
+    if (!data) return <section className="min-w-0 flex-1"><p className={'p-4 text-sm ' + styles.textMuted}>Checking buy zones and trend conditions...</p><ResearchNotificationCenterV6 records={records} alerts={[]} theme={theme} /></section>;
 
     const counts = {
         risk: data.alerts.filter((alert) => alert.severity === 'risk').length,
@@ -115,7 +117,7 @@ export const ResearchAlertsV6 = ({ items, records, theme, onOpen }: ResearchAler
                 </ol>
             )}
             {data.warnings.map((warning) => <p key={warning} className={'mt-3 text-xs ' + styles.textMuted}>{warning}</p>)}
-            <ResearchNotificationCenterV6 records={records} theme={theme} />
+            <ResearchNotificationCenterV6 records={records} alerts={data.alerts} theme={theme} />
         </section>
     );
 };

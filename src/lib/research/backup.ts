@@ -139,6 +139,26 @@ const parseEnvelope = (value: unknown): ResearchBackupEnvelope => {
     };
 };
 
+export const validateEncryptedResearchBackup = (encryptedBackup: string): string => {
+    if (typeof encryptedBackup !== 'string' || new TextEncoder().encode(encryptedBackup).byteLength > researchBackupLimits.maxFileBytes) {
+        throw new ResearchBackupError('Encrypted backup is larger than 2 MB.');
+    }
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(encryptedBackup);
+    } catch {
+        throw new ResearchBackupError('Backup file is not valid JSON.');
+    }
+    const envelope = parseEnvelope(parsed);
+    const salt = decodeBase64(envelope.kdf.salt, 'Backup salt');
+    const iv = decodeBase64(envelope.cipher.iv, 'Backup IV');
+    const ciphertext = decodeBase64(envelope.ciphertext, 'Backup ciphertext');
+    if (salt.byteLength !== 16 || iv.byteLength !== 12 || ciphertext.byteLength < 17) {
+        throw new ResearchBackupError('Backup encryption parameters are invalid.');
+    }
+    return encryptedBackup;
+};
+
 export const encryptResearchBackup = async (
     records: readonly ResearchRecord[],
     passphrase: string,
@@ -169,6 +189,7 @@ export const encryptResearchBackup = async (
 
 export const decryptResearchBackup = async (encryptedBackup: string, passphrase: string): Promise<ResearchBackupPayload> => {
     validatePassphrase(passphrase);
+    validateEncryptedResearchBackup(encryptedBackup);
     let parsed: unknown;
     try {
         parsed = JSON.parse(encryptedBackup);

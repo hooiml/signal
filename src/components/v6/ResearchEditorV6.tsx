@@ -10,6 +10,11 @@ import {
     type ResearchWorkflowTemplateId,
     type ResearchWorkflowTextField,
 } from '@/lib/research/workflow-queue';
+import {
+    getResearchStrategyTemplate,
+    researchStrategyTemplates,
+    type ResearchStrategyTemplateId,
+} from '@/lib/research/research-strategy-templates';
 import { ResearchAssistantV6 } from './ResearchAssistantV6';
 import { checklistLabelsV6, getThemeV6, type ResearchActionV6, type ResearchThemeV6 } from './research-v6';
 
@@ -75,8 +80,10 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
     const [isEditing, setIsEditing] = useState(startEditing);
     const [isExpanded, setIsExpanded] = useState(startEditing);
     const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+    const [strategyTemplateId, setStrategyTemplateId] = useState<ResearchStrategyTemplateId>('core');
     const styles = getThemeV6(theme);
     const workflowTemplate = workflowTemplateId ? getResearchWorkflowTemplate(workflowTemplateId) : null;
+    const strategyTemplate = getResearchStrategyTemplate(strategyTemplateId);
     const visibleTextFields = workflowTemplate
         ? workflowTextFields.filter((fieldDefinition) => workflowTemplate.fields.includes(fieldDefinition.key))
         : workflowTextFields;
@@ -110,6 +117,7 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
         const saved = await onSave(draft);
         if (saved) {
             setLastSavedAt(new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date()));
+            setStrategyTemplateId('core');
             setIsEditing(false);
             setIsExpanded(false);
             onEditingChange(false);
@@ -118,6 +126,7 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
     const handleCancel = () => {
         setDraft(initial);
         setLastSavedAt(null);
+        setStrategyTemplateId('core');
         setIsEditing(false);
         setIsExpanded(false);
         onEditingChange(false);
@@ -270,8 +279,26 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                 <p className={'mt-1 ' + styles.textMuted}>Focused narrative fields are shown below. Checklist, decision, position plan, and save behavior remain complete.</p>
             </div> : null}
             {isEditing ? <>
+            <section data-testid="research-strategy-template" className={'mt-3 rounded border p-3 ' + styles.panelUtility} aria-labelledby="strategy-template-title">
+                <div className="grid gap-3 min-[760px]:grid-cols-[minmax(0,220px)_1fr]">
+                    <label className={'text-xs font-medium ' + styles.textMuted}><span id="strategy-template-title">Strategy template</span>
+                        <select aria-label="Strategy template" value={strategyTemplateId} onChange={(event) => setStrategyTemplateId(event.target.value as ResearchStrategyTemplateId)} className={'mt-1 ' + field}>
+                            {researchStrategyTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
+                        </select>
+                    </label>
+                    <div aria-live="polite">
+                        <p className={'text-sm font-semibold ' + styles.textPrimary}>{strategyTemplate.name}</p>
+                        <p className={'mt-1 text-xs leading-5 ' + styles.textSecondary}>{strategyTemplate.description}</p>
+                        <p className={'mt-1 text-[11px] leading-5 ' + styles.textMuted}>Session-only guidance. Selecting a lens does not edit narrative fields, toggle checklist items, or save a strategy classification.</p>
+                    </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2" aria-label="Strategy evidence focus">
+                    {strategyTemplate.evidenceFocus.map((item) => <span key={item} className={'rounded border px-2 py-1 text-[11px] ' + styles.row + ' ' + styles.textSecondary}>{item}</span>)}
+                </div>
+            </section>
             <div className="mt-4 grid gap-3 min-[900px]:grid-cols-2">
                 {visibleTextFields.map((fieldDefinition) => <label key={fieldDefinition.key} className={'text-xs font-medium ' + styles.textMuted}>{fieldDefinition.label}
+                    <span data-strategy-prompt={fieldDefinition.key} className={'mt-1 block min-h-10 text-[11px] font-normal leading-5 ' + styles.textSecondary}>{strategyTemplate.fieldPrompts[fieldDefinition.key]}</span>
                     <textarea value={draft[fieldDefinition.key]} onChange={(event) => updateText(fieldDefinition.key, event.target.value)} rows={3} className={'mt-1 ' + field} />
                 </label>)}
             </div>

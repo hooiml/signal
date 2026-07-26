@@ -10,6 +10,16 @@ import {
 } from '@/lib/types/research-notification-settings';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import { trackProductAnalyticsEvent } from '@/lib/product-analytics-client';
+import type { ResearchAlert } from '@/lib/types/research-alert';
+import {
+    buildResearchNativeNotification,
+    defaultResearchNativeNotificationSettings,
+    parseResearchNativeNotificationSettings,
+    researchNativeNotificationDigest,
+    researchNativeNotificationDigestKey,
+    researchNativeNotificationStorageKey,
+    type ResearchNativeNotificationSettings,
+} from '@/lib/research/native-notifications';
 
 const marketAlertStorageKey = 'signal-market-alerts-v6';
 
@@ -56,8 +66,9 @@ const enabledResearchRuleCount = (records: readonly ResearchRecord[]) => records
 const historyTone = (status: ResearchNotificationDeliveryHistory['status'], styles: ReturnType<typeof getThemeV6>) =>
     status === 'delivered' ? styles.positive : status === 'failed' ? styles.risk : styles.textSecondary;
 
-export const ResearchNotificationCenterV6 = ({ records, theme }: {
+export const ResearchNotificationCenterV6 = ({ records, alerts = [], theme }: {
     readonly records: readonly ResearchRecord[];
+    readonly alerts?: readonly ResearchAlert[];
     readonly theme: ResearchThemeV6;
 }) => {
     const [center, setCenter] = useState<NotificationCenterData | null>(null);
@@ -67,6 +78,10 @@ export const ResearchNotificationCenterV6 = ({ records, theme }: {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
+    const [nativeSettings, setNativeSettings] = useState<ResearchNativeNotificationSettings>(defaultResearchNativeNotificationSettings);
+    const [nativePermission, setNativePermission] = useState<NotificationPermission | 'unsupported'>('default');
+    const [nativeMessage, setNativeMessage] = useState<string | null>(null);
+    const [nativeError, setNativeError] = useState<string | null>(null);
     const styles = getThemeV6(theme);
     const field = theme === 'light'
         ? 'border-slate-300 bg-white text-slate-950'
@@ -83,6 +98,13 @@ export const ResearchNotificationCenterV6 = ({ records, theme }: {
                 } catch {
                     setMarketRules([]);
                 }
+                try {
+                    const stored = window.localStorage.getItem(researchNativeNotificationStorageKey);
+                    setNativeSettings(stored ? parseResearchNativeNotificationSettings(JSON.parse(stored)) : defaultResearchNativeNotificationSettings);
+                } catch {
+                    setNativeSettings(defaultResearchNativeNotificationSettings);
+                }
+                setNativePermission('Notification' in window ? Notification.permission : 'unsupported');
                 const response = await fetch('/api/research/notifications/settings');
                 const payload: unknown = await response.json();
                 if (!response.ok && isRecord(payload) && typeof payload.error === 'string') throw new Error(payload.error);
@@ -100,6 +122,66 @@ export const ResearchNotificationCenterV6 = ({ records, theme }: {
         void load();
         return () => { active = false; };
     }, []);
+
+    useEffect(() => {
+        if (!nativeSettings.enabled || nativePermission !== 'granted' || !('Notification' in window)) return;
+        let active = true;
+        const dispatch = async () => {
+            const notification = buildResearchNativeNotification(alerts, nativeSettings.mode);
+            if (!notification) return;
+            const digest = await researchNativeNotificationDigest(alerts, nativeSettings.mode);
+            if (!active || window.localStorage.getItem(researchNativeNotificationDigestKey) === digest) return;
+            try {
+                new Notification(notification.title, { body: notification.body, tag: notification.tag });
+                window.localStorage.setItem(researchNativeNotificationDigestKey, digest);
+            } catch {
+                setNativeError('This browser could not display the native notification.');
+            }
+        };
+        void dispatch();
+        return () => { active = false; };
+    }, [alerts, nativePermission, nativeSettings]);
+
+    const persistNativeSettings = (settings: ResearchNativeNotificationSettings) => {
+        setNativeSettings(settings);
+        window.localStorage.setItem(researchNativeNotificationStorageKey, JSON.stringify(settings));
+    };
+
+    const enableNativeNotifications = async () => {
+        setNativeError(null);
+        setNativeMessage(null);
+        if (!('Notification' in window)) {
+            setNativePermission('unsupported');
+            setNativeError('This browser does not support native notifications.');
+            return;
+        }
+        const permission = await Notification.requestPermission();
+        setNativePermission(permission);
+        if (permission !== 'granted') {
+            persistNativeSettings({ ...nativeSettings, enabled: false });
+            setNativeError(permission === 'denied'
+                ? 'Notification permission is blocked in this browser. Change the site permission to enable it.'
+                : 'Notification permission was not granted.');
+            return;
+        }
+        persistNativeSettings({ ...nativeSettings, enabled: true });
+        window.localStorage.setItem(researchNativeNotificationDigestKey, await researchNativeNotificationDigest(alerts, nativeSettings.mode));
+        try {
+            new Notification('Signal device alerts enabled', {
+                body: 'New matching research alerts can notify this device while Signal is open.',
+                tag: 'signal-research-enabled',
+            });
+            setNativeMessage('Native notifications enabled for this browser.');
+        } catch {
+            setNativeError('Permission was granted, but this browser could not display a notification.');
+        }
+    };
+
+    const disableNativeNotifications = () => {
+        persistNativeSettings({ ...nativeSettings, enabled: false });
+        setNativeMessage('Native notifications disabled in this browser.');
+        setNativeError(null);
+    };
 
     const save = async () => {
         if (!draft) return;
@@ -161,6 +243,35 @@ export const ResearchNotificationCenterV6 = ({ records, theme }: {
                     </div>
                 ))}
             </dl>
+
+            <section className={'mt-4 rounded-lg border p-4 ' + styles.panelSecondary} aria-labelledby="native-notification-title">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h3 id="native-notification-title" className={'text-sm font-bold ' + styles.textPrimary}>This-device native notifications</h3>
+                        <p className={'mt-1 max-w-3xl text-xs leading-5 ' + styles.textMuted}>Permission is browser-controlled and preferences stay on this device. Notifications can appear for new matching alerts while Signal is open; background delivery still requires the server webhook.</p>
+                    </div>
+                    <span className={'text-xs font-semibold ' + (nativePermission === 'granted' && nativeSettings.enabled ? styles.positive : styles.textMuted)}>
+                        {nativePermission === 'unsupported' ? 'Unsupported' : nativePermission === 'denied' ? 'Blocked' : nativeSettings.enabled && nativePermission === 'granted' ? 'Enabled' : 'Off'}
+                    </span>
+                </div>
+                <div className="mt-3 flex flex-wrap items-end gap-3">
+                    <label className={'text-xs font-semibold ' + styles.textMuted}>Notify for
+                        <select value={nativeSettings.mode} onChange={(event) => {
+                            const mode = event.target.value === 'all' ? 'all' : 'risk-only';
+                            persistNativeSettings({ ...nativeSettings, mode });
+                            window.localStorage.removeItem(researchNativeNotificationDigestKey);
+                        }} className={'mt-1 min-h-10 rounded border px-3 ' + field}>
+                            <option value="risk-only">Risk alerts only</option>
+                            <option value="all">All active research alerts</option>
+                        </select>
+                    </label>
+                    {nativeSettings.enabled && nativePermission === 'granted'
+                        ? <button type="button" onClick={disableNativeNotifications} className={'min-h-10 rounded border px-3 text-xs font-bold ' + styles.row}>Disable on this device</button>
+                        : <button type="button" onClick={() => void enableNativeNotifications()} disabled={nativePermission === 'unsupported'} className="min-h-10 rounded bg-emerald-600 px-3 text-xs font-bold text-white disabled:opacity-50">Enable on this device</button>}
+                </div>
+                {nativeMessage ? <p role="status" className={'mt-3 text-xs ' + styles.positive}>{nativeMessage}</p> : null}
+                {nativeError ? <p role="alert" className={'mt-3 text-xs ' + styles.risk}>{nativeError}</p> : null}
+            </section>
 
             {loading ? <p className={'mt-4 text-sm ' + styles.textMuted}>Loading persistent delivery settings…</p> : null}
             {!loading && draft ? (

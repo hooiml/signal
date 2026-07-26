@@ -3,9 +3,11 @@ import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 export { parseResearchSnapshotResponse } from '@/lib/research/snapshot-input';
 
 const number = (value: number | null, suffix = '') => value === null ? 'Unavailable' : `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}${suffix}`;
-const money = (value: number | null) => value === null ? 'Unavailable' : new Intl.NumberFormat('en-US', { notation: 'compact', style: 'currency', currency: 'USD', maximumFractionDigits: 1 }).format(value);
+const money = (value: number | null, currency = 'USD') => value === null ? 'Unavailable' : new Intl.NumberFormat('en-US', { notation: 'compact', style: 'currency', currency, maximumFractionDigits: 1 }).format(value);
 
-export const applyResearchSnapshotV6 = (item: ResearchWatchlistItem, snapshot: ResearchSnapshot): ResearchWatchlistItem => ({
+export const applyResearchSnapshotV6 = (item: ResearchWatchlistItem, snapshot: ResearchSnapshot): ResearchWatchlistItem => {
+    const currency = snapshot.quote.currency ?? snapshot.fundamentals.history[0]?.currency ?? (snapshot.market === 'MY' ? 'MYR' : 'USD');
+    return ({
     ...item,
     name: snapshot.quote.name ?? item.name,
     price: snapshot.quote.price ?? undefined,
@@ -13,11 +15,11 @@ export const applyResearchSnapshotV6 = (item: ResearchWatchlistItem, snapshot: R
     revenueGrowth: number(snapshot.fundamentals.revenueGrowthPercent, '%'),
     grossMargin: number(snapshot.fundamentals.grossMarginPercent, '%'),
     operatingMargin: number(snapshot.fundamentals.operatingMarginPercent, '%'),
-    freeCashFlowTrend: money(snapshot.fundamentals.freeCashFlow),
-    debtLevel: money(snapshot.fundamentals.debt),
-    cashPosition: money(snapshot.fundamentals.cash),
+    freeCashFlowTrend: money(snapshot.fundamentals.freeCashFlow, currency),
+    debtLevel: money(snapshot.fundamentals.debt, currency),
+    cashPosition: money(snapshot.fundamentals.cash, currency),
     shareCountTrend: number(snapshot.fundamentals.shares),
-    marketCap: money(snapshot.valuation.marketCap),
+    marketCap: money(snapshot.valuation.marketCap, currency),
     valuation: {
         pe: number(snapshot.valuation.priceEarnings),
         forwardPe: 'Unavailable',
@@ -27,7 +29,7 @@ export const applyResearchSnapshotV6 = (item: ResearchWatchlistItem, snapshot: R
         dividendYield: 'Unavailable',
         fiveYearRange: 'Unavailable',
         peerNote: snapshot.valuation.source
-            ? `${snapshot.valuation.source}; annual period ${snapshot.valuation.reportingPeriod ?? 'unavailable'}. Net cash ${money(snapshot.valuation.netCash)}.`
+            ? `${snapshot.valuation.source}; annual period ${snapshot.valuation.reportingPeriod ?? 'unavailable'}. Net cash ${money(snapshot.valuation.netCash, currency)}.`
             : 'Valuation inputs unavailable from free sources.',
     },
     event: {
@@ -45,7 +47,8 @@ export const applyResearchSnapshotV6 = (item: ResearchWatchlistItem, snapshot: R
         supportResistance: snapshot.technicals.support === null || snapshot.technicals.resistance === null
             ? 'Unavailable' : `${number(snapshot.technicals.support)} / ${number(snapshot.technicals.resistance)}`,
     },
-});
+    });
+};
 
 export const applyResearchQuoteV6 = (item: ResearchWatchlistItem, quote: ResearchSnapshot['quote']): ResearchWatchlistItem => ({
     ...item,
