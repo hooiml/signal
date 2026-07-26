@@ -67,7 +67,9 @@ Sector-relative strength compares each candidate's three-month momentum with the
 
 The tracked-performance strip compares prior top-ten cohort prices with current scan prices after approximately 1 day, 1 week, and 1 month. It reports average return and positive-return coverage. This is observational validation of the discovery model, not a transaction-cost-adjusted backtest.
 
-The Research Picker reuses this same live scan and Top-10 performance strip. It can filter current candidates by a transparent risk profile, minimum score, horizon, and pick count, then preserve the selected entry observations as a browser-local paper basket. The horizon selects the observational cohort shown beside the current picks; it does not change the Discovery score or turn cohort history into a candidate-level probability.
+The Research Picker reuses this same live scan and Top-10 performance strip. It can apply one of the browser-local saved Discovery policies, then filter current candidates by a transparent risk profile, minimum score, existing-watchlist exclusion, maximum-per-sector constraint, and pick count. A saved policy reuses the disclosed eligibility and ranking adjustments from Discovery rather than creating another model.
+
+The selected horizon is a measurement deadline. It selects the observational cohort shown beside the current picks and determines when a paper basket becomes due; it does not change the Discovery score or turn cohort history into a candidate-level probability. Paper baskets preserve the selected policy and entry observations in the browser. Every saved symbol refreshes independently through `/api/research/quote/[symbol]`, even after leaving the bounded Discovery list. On or after the deadline, the first available quote is frozen as the outcome observation. VOO is captured on the same basis when both its entry and due observations are available, so basket return and relative return remain visibly separate. These observations exclude fees, dividends, execution, and taxes and are not brokerage returns.
 
 ## Early Trends
 

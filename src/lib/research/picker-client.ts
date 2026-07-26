@@ -12,6 +12,11 @@ export const loadPickerRuns = (): readonly PickerRun[] => {
     }
 };
 
-export const savePickerRuns = (runs: readonly PickerRun[]) => {
-    localStorage.setItem(PICKER_RUNS_STORAGE_KEY, JSON.stringify(parsePickerRuns(runs)));
+export const savePickerRuns = (runs: readonly PickerRun[]): boolean => {
+    try {
+        localStorage.setItem(PICKER_RUNS_STORAGE_KEY, JSON.stringify(parsePickerRuns(runs)));
+        return true;
+    } catch {
+        return false;
+    }
 };

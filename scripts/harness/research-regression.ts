@@ -21,7 +21,9 @@ import {
     parsePickerRuns,
     pickerCohortEvidence,
     pickerObservedMovePercent,
+    pickerRunSummary,
     removePickerRun,
+    resolvePickerRuns,
     selectPickerCandidates,
 } from '../../src/lib/research/picker';
 import { sectorRelativeStrength } from '../../src/lib/research/discovery-sectors';
@@ -1697,26 +1699,72 @@ const runPickerTests = () => {
         catalyst: input.catalyst ?? null,
         ownership: input.ownership ?? null,
     });
-    const high = candidate({ symbol: 'HIGH', discoveryScore: 84 });
-    const moderate = candidate({ symbol: 'MOD', discoveryScore: 78, risk: 'moderate', riskScore: 20 });
+    const high = candidate({ symbol: 'HIGH', discoveryScore: 84, sector: 'Technology' });
+    const moderate = candidate({ symbol: 'MOD', discoveryScore: 78, risk: 'moderate', riskScore: 20, sector: 'Technology' });
     const low = candidate({ symbol: 'LOW', discoveryScore: 65 });
     const data = { candidates: [moderate, high], contenders: [low] };
-    const balanced = { horizon: '1M', riskProfile: 'balanced', minimumScore: 70, pickCount: 3 } as const;
+    const balanced = {
+        horizon: '1M',
+        riskProfile: 'balanced',
+        minimumScore: 70,
+        pickCount: 3,
+        maximumPerSector: 3,
+        excludeSavedSymbols: false,
+    } as const;
     assertEqual(selectPickerCandidates(data, balanced).map((item) => item.symbol).join(','), 'HIGH,MOD', 'picker sorts eligible current candidates by Discovery score');
     assertEqual(selectPickerCandidates(data, { ...balanced, riskProfile: 'conservative' }).map((item) => item.symbol).join(','), 'HIGH', 'conservative picker excludes moderate risk');
     assertEqual(selectPickerCandidates(data, { ...balanced, minimumScore: 80 }).map((item) => item.symbol).join(','), 'HIGH', 'picker enforces the configured minimum score');
+    assertEqual(selectPickerCandidates(data, { ...balanced, maximumPerSector: 1 }).map((item) => item.symbol).join(','), 'HIGH', 'picker enforces the configured sector cap');
+    assertEqual(selectPickerCandidates(data, { ...balanced, excludeSavedSymbols: true }, { savedSymbols: ['HIGH'] }).map((item) => item.symbol).join(','), 'MOD', 'picker can exclude existing research symbols');
     assertEqual(selectPickerCandidates(data, balanced)[0]?.outlook, 'Strong current setup', 'picker outlook remains descriptive of the current score');
+    const policyRanked = selectPickerCandidates({
+        candidates: [
+            candidate({ symbol: 'TREND', discoveryScore: 82, qualityScore: 40, sector: 'Technology' }),
+            candidate({ symbol: 'QUALITY', discoveryScore: 78, qualityScore: 100, sector: 'Healthcare' }),
+        ],
+        contenders: [],
+    }, balanced, {
+        policy: {
+            sectors: [],
+            minimumDollarVolume: 20_000_000,
+            maximumRisk: 'moderate',
+            excludeExtremeValuation: false,
+            preferences: ['quality'],
+        },
+    });
+    assertEqual(policyRanked.map((item) => item.symbol).join(','), 'QUALITY,TREND', 'picker reuses the transparent Discovery policy rank');
+    assertEqual(policyRanked[0]?.policyAdjustment, 5, 'picker exposes the policy adjustment used for selection');
     assertEqual(pickerCohortEvidence([{ period: '1M', averageReturnPercent: 2.4, trackedCount: 4, winnerCount: 3 }], '1M').positiveRatePercent, 75, 'picker derives observational positive coverage');
     assertEqual(pickerCohortEvidence([], '1W').state, 'collecting', 'picker withholds unavailable history');
     assertEqual(pickerObservedMovePercent(100, 112), 12, 'paper basket compares current observation with entry price');
     assertEqual(parsePickerConfig(balanced)?.minimumScore, 70, 'picker config accepts bounded options');
+    assertEqual(parsePickerConfig({ horizon: '1M', riskProfile: 'balanced', minimumScore: 70, pickCount: 3 })?.maximumPerSector, 10, 'picker config preserves legacy basket behavior');
     assertEqual(parsePickerConfig({ ...balanced, minimumScore: 75 }), null, 'picker config rejects unsupported thresholds');
 
-    const run = createPickerRun('2026-07-26T10:00:00.000Z', '2026-07-26T09:00:00.000Z', balanced, selectPickerCandidates(data, balanced));
+    const run = createPickerRun(
+        '2026-07-26T10:00:00.000Z',
+        '2026-07-26T09:00:00.000Z',
+        balanced,
+        selectPickerCandidates(data, balanced),
+        { benchmarkEntryPrice: 500, strategy: null },
+    );
     assertEqual(run.picks.length, 2, 'picker run freezes selected candidates');
     assertEqual(parsePickerRuns([run])[0]?.picks[0]?.discoveryScore, 84, 'picker run parsing preserves entry scores');
     assertEqual(addPickerRun([], run).length, 1, 'picker run can be added to local history');
     assertEqual(removePickerRun([run], run.id).length, 0, 'picker run can be removed from local history');
+    const ongoing = pickerRunSummary(run, new Map([['HIGH', 88.2], ['MOD', 81.9], ['VOO', 505]]), '2026-07-27T09:00:00.000Z');
+    assertEqual(ongoing.state, 'collecting', 'picker basket stays observational before its measurement horizon');
+    const resolved = resolvePickerRuns(
+        [run],
+        new Map([['HIGH', 110], ['MOD', 111], ['VOO', 525]]),
+        '2026-08-26T10:00:00.000Z',
+    )[0];
+    assertEqual(resolved?.picks.every((pick) => pick.outcome !== null), true, 'picker freezes candidate observations once the horizon is due');
+    const summary = resolved ? pickerRunSummary(resolved, new Map(), '2026-08-26T10:00:00.000Z') : null;
+    assertEqual(summary?.state, 'resolved', 'picker reports a fully resolved basket');
+    assertEqual(summary?.averageReturnPercent, 10.5, 'picker summarizes the resolved equal-weight basket');
+    assertEqual(summary?.benchmarkReturnPercent, 5, 'picker resolves the VOO observation from the same quote refresh');
+    assertEqual(summary?.relativeReturnPercent, 5.5, 'picker keeps basket and benchmark outcomes separate');
 };
 
 const runInstitutionalOwnershipTests = () => {

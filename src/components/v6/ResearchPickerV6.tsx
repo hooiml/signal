@@ -6,12 +6,21 @@ import {
     createPickerRun,
     pickerCohortEvidence,
     pickerObservedMovePercent,
+    pickerRunSummary,
     removePickerRun,
+    resolvePickerRuns,
     selectPickerCandidates,
     type PickerConfig,
     type PickerRun,
+    type PickerStrategySnapshot,
 } from '@/lib/research/picker';
 import { loadPickerRuns, savePickerRuns } from '@/lib/research/picker-client';
+import {
+    DISCOVERY_UNIVERSES_STORAGE_KEY,
+    parseSavedDiscoveryUniverses,
+    type SavedDiscoveryUniverse,
+} from '@/lib/research/discovery-policy';
+import { parseResearchQuoteResponse } from '@/lib/research/snapshot-input';
 import type { DiscoveryResponse, QualityDiscoveryResult } from '@/lib/types/research-discovery';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import { parseDiscoveryResponseV6 } from './research-discovery-response-v6';
@@ -21,6 +30,8 @@ const defaultConfig: PickerConfig = {
     riskProfile: 'balanced',
     minimumScore: 70,
     pickCount: 5,
+    maximumPerSector: 2,
+    excludeSavedSymbols: false,
 };
 
 const formatDateTime = (value: string) => new Intl.DateTimeFormat(undefined, {
@@ -30,6 +41,8 @@ const formatDateTime = (value: string) => new Intl.DateTimeFormat(undefined, {
 
 const signedPercent = (value: number | null) =>
     value === null ? 'Collecting' : `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
+const outcomePercent = (value: number | null) =>
+    value === null ? 'Unavailable' : `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
 
 const evidenceLabel = {
     collecting: 'Collecting evidence',
@@ -48,31 +61,88 @@ export const ResearchPickerV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
     const [config, setConfig] = useState<PickerConfig>(defaultConfig);
     const [data, setData] = useState<DiscoveryResponse | null>(null);
     const [runs, setRuns] = useState<readonly PickerRun[]>([]);
+    const [savedStrategies, setSavedStrategies] = useState<readonly SavedDiscoveryUniverse[]>([]);
+    const [selectedStrategyId, setSelectedStrategyId] = useState('default');
+    const [basketPrices, setBasketPrices] = useState<ReadonlyMap<string, number>>(new Map());
+    const [basketQuoteState, setBasketQuoteState] = useState<'idle' | 'loading' | 'ready' | 'partial'>('idle');
+    const [startingBasket, setStartingBasket] = useState(false);
     const [status, setStatus] = useState<'setup' | 'loading' | 'ready' | 'error'>('setup');
     const [error, setError] = useState('');
     const [savedMessage, setSavedMessage] = useState('');
 
     useEffect(() => {
-        const timer = window.setTimeout(() => setRuns(loadPickerRuns()), 0);
+        const timer = window.setTimeout(() => {
+            setRuns(loadPickerRuns());
+            try {
+                const stored = localStorage.getItem(DISCOVERY_UNIVERSES_STORAGE_KEY);
+                setSavedStrategies(stored ? parseSavedDiscoveryUniverses(JSON.parse(stored) as unknown) : []);
+            } catch {
+                setSavedStrategies([]);
+            }
+        }, 0);
         return () => window.clearTimeout(timer);
     }, []);
 
+    const activeStrategy = useMemo(
+        () => savedStrategies.find((strategy) => strategy.id === selectedStrategyId) ?? null,
+        [savedStrategies, selectedStrategyId],
+    );
     const picks = useMemo(
-        () => data ? selectPickerCandidates(data, config) : [],
-        [config, data],
+        () => data ? selectPickerCandidates(data, config, {
+            policy: activeStrategy?.policy,
+            savedSymbols,
+        }) : [],
+        [activeStrategy?.policy, config, data, savedSymbols],
     );
     const cohort = useMemo(
         () => pickerCohortEvidence(data?.performance ?? [], config.horizon),
         [config.horizon, data],
     );
-    const currentPrices = useMemo(() => new Map(
-        data ? [...data.candidates, ...data.contenders].map((candidate) => [candidate.symbol, candidate.price]) : [],
-    ), [data]);
+    const basketTargetKey = useMemo(
+        () => [...new Set(runs.flatMap((run) => [...run.picks.map((pick) => pick.symbol), run.benchmark.symbol]))].sort().join('|'),
+        [runs],
+    );
 
     const persistRuns = (next: readonly PickerRun[]) => {
         setRuns(next);
-        savePickerRuns(next);
+        return savePickerRuns(next);
     };
+
+    useEffect(() => {
+        const symbols = basketTargetKey ? basketTargetKey.split('|') : [];
+        if (symbols.length === 0) {
+            setBasketQuoteState('idle');
+            return;
+        }
+        const controller = new AbortController();
+        setBasketQuoteState('loading');
+        const load = async () => {
+            const results = await Promise.allSettled(symbols.map(async (symbol) => {
+                const response = await fetch(`/api/research/quote/${encodeURIComponent(symbol)}?market=US`, { signal: controller.signal });
+                const payload: unknown = await response.json();
+                if (!response.ok) throw new Error(`Quote unavailable for ${symbol}.`);
+                const quote = parseResearchQuoteResponse(payload);
+                if (quote.price === null || quote.price <= 0) throw new Error(`Quote unavailable for ${symbol}.`);
+                return { symbol, price: quote.price };
+            }));
+            if (controller.signal.aborted) return;
+            const observedAt = new Date().toISOString();
+            const prices = new Map<string, number>();
+            for (const result of results) {
+                if (result.status === 'fulfilled') prices.set(result.value.symbol, result.value.price);
+            }
+            setBasketPrices(prices);
+            setBasketQuoteState(prices.size === symbols.length ? 'ready' : 'partial');
+            setRuns((current) => {
+                const resolved = resolvePickerRuns(current, prices, observedAt);
+                if (JSON.stringify(resolved) === JSON.stringify(current)) return current;
+                savePickerRuns(resolved);
+                return resolved;
+            });
+        };
+        void load();
+        return () => controller.abort();
+    }, [basketTargetKey]);
 
     const runPicker = async () => {
         setStatus('loading');
@@ -89,11 +159,34 @@ export const ResearchPickerV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
         }
     };
 
-    const startBasket = () => {
+    const startBasket = async () => {
         if (!data || picks.length === 0) return;
+        setStartingBasket(true);
+        let benchmarkEntryPrice: number | null = null;
+        try {
+            const response = await fetch('/api/research/quote/VOO?market=US');
+            const payload: unknown = await response.json();
+            if (response.ok) benchmarkEntryPrice = parseResearchQuoteResponse(payload).price;
+        } catch {
+            benchmarkEntryPrice = null;
+        }
         const createdAt = new Date().toISOString();
-        persistRuns(addPickerRun(runs, createPickerRun(createdAt, data.generatedAt, config, picks)));
-        setSavedMessage(`Paper basket started with ${picks.length} candidate${picks.length === 1 ? '' : 's'}.`);
+        const strategy: PickerStrategySnapshot | null = activeStrategy ? {
+            id: activeStrategy.id,
+            name: activeStrategy.name,
+            policy: activeStrategy.policy,
+        } : null;
+        const persisted = persistRuns(addPickerRun(runs, createPickerRun(
+            createdAt,
+            data.generatedAt,
+            config,
+            picks,
+            { strategy, benchmarkEntryPrice },
+        )));
+        setSavedMessage(persisted
+            ? `Paper basket started with ${picks.length} candidate${picks.length === 1 ? '' : 's'}${benchmarkEntryPrice === null ? '; VOO entry was unavailable.' : ' and a VOO observation.'}`
+            : 'Paper basket is available for this session, but browser storage is unavailable.');
+        setStartingBasket(false);
     };
 
     return (
@@ -102,7 +195,7 @@ export const ResearchPickerV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                 <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + styles.positive}>Automated research</p>
                 <h1 id="research-picker-title" className={'mt-1 text-xl font-bold ' + styles.textPrimary}>Stock Picker</h1>
                 <p className={'mt-2 max-w-3xl text-sm leading-6 ' + styles.textSecondary}>
-                    Configure one bounded US scan, rank current candidates with the existing Discovery model, and preserve a paper basket for later review.
+                    Apply a saved Discovery strategy, build a diversified bounded US shortlist, and measure a paper basket against VOO.
                 </p>
                 <p className={'mt-2 max-w-3xl text-xs leading-5 ' + styles.textMuted}>
                     Scores describe current trend, quality, and risk evidence. Top-10 history is observational and is not a candidate-specific probability, price target, or buy recommendation.
@@ -118,8 +211,14 @@ export const ResearchPickerV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                         </div>
                         <span className={'rounded-full border px-2 py-1 text-[10px] font-semibold uppercase ' + styles.divider + ' ' + styles.textSecondary}>US universe</span>
                     </div>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        <label className={'text-xs font-semibold ' + styles.textMuted}>Review horizon
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        <label className={'text-xs font-semibold ' + styles.textMuted}>Saved Discovery strategy
+                            <select aria-label="Picker saved strategy" value={selectedStrategyId} onChange={(event) => setSelectedStrategyId(event.target.value)} className={'mt-1 min-h-10 w-full rounded-md border px-3 ' + styles.panelSolid}>
+                                <option value="default">Default Discovery rank</option>
+                                {savedStrategies.map((strategy) => <option key={strategy.id} value={strategy.id}>{strategy.name}</option>)}
+                            </select>
+                        </label>
+                        <label className={'text-xs font-semibold ' + styles.textMuted}>Measurement horizon
                             <select aria-label="Picker review horizon" value={config.horizon} onChange={(event) => setConfig((current) => ({ ...current, horizon: event.target.value as PickerConfig['horizon'] }))} className={'mt-1 min-h-10 w-full rounded-md border px-3 ' + styles.panelSolid}>
                                 <option value="1D">1 day</option>
                                 <option value="1W">1 week</option>
@@ -146,7 +245,24 @@ export const ResearchPickerV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                                 <option value="10">10</option>
                             </select>
                         </label>
+                        <label className={'text-xs font-semibold ' + styles.textMuted}>Maximum per sector
+                            <select aria-label="Picker maximum per sector" value={config.maximumPerSector} onChange={(event) => setConfig((current) => ({ ...current, maximumPerSector: Number(event.target.value) as PickerConfig['maximumPerSector'] }))} className={'mt-1 min-h-10 w-full rounded-md border px-3 ' + styles.panelSolid}>
+                                <option value="1">1 per sector</option>
+                                <option value="2">2 per sector</option>
+                                <option value="3">3 per sector</option>
+                                <option value="10">No practical cap</option>
+                            </select>
+                        </label>
                     </div>
+                    <label className={'mt-3 flex min-h-10 items-center gap-2 text-xs font-semibold ' + styles.textSecondary}>
+                        <input type="checkbox" checked={config.excludeSavedSymbols} onChange={(event) => setConfig((current) => ({ ...current, excludeSavedSymbols: event.target.checked }))} />
+                        Exclude symbols already in the Research watchlist
+                    </label>
+                    <p className={'mt-2 text-xs leading-5 ' + styles.textMuted}>
+                        {activeStrategy
+                            ? `${activeStrategy.name} reuses its saved sector, liquidity, risk, valuation, and ranking preferences. Every adjustment remains visible.`
+                            : 'The default strategy preserves the existing Discovery score order; basket constraints do not create another score.'}
+                    </p>
                     <button type="button" onClick={runPicker} disabled={status === 'loading'} className={'mt-4 min-h-10 rounded-md border px-4 text-sm font-bold disabled:opacity-50 ' + styles.panelAction}>
                         {status === 'loading' ? 'Scanning current data…' : data ? 'Run again with current data' : 'Run picker'}
                     </button>
@@ -177,13 +293,13 @@ export const ResearchPickerV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                             <h2 id="picker-results-title" className={'mt-1 text-base font-bold ' + styles.textPrimary}>Review current candidates</h2>
                             <p className={'mt-1 text-xs ' + styles.textMuted}>Scanned {data.scannedCount}/{data.universeSize} symbols · Generated {formatDateTime(data.generatedAt)}</p>
                         </div>
-                        <button type="button" onClick={startBasket} disabled={picks.length === 0} className={'min-h-10 rounded-md border px-4 text-xs font-bold disabled:opacity-50 ' + styles.panelAction}>Start paper basket</button>
+                        <button type="button" onClick={() => void startBasket()} disabled={picks.length === 0 || startingBasket} className={'min-h-10 rounded-md border px-4 text-xs font-bold disabled:opacity-50 ' + styles.panelAction}>{startingBasket ? 'Capturing entries…' : 'Start paper basket'}</button>
                     </div>
                     <p role="status" aria-live="polite" className={'mt-2 min-h-5 text-xs ' + styles.positive}>{savedMessage}</p>
                     {picks.length === 0 ? (
                         <div className={'mt-3 rounded-lg border p-5 ' + styles.panelSecondary}>
                             <p className={'text-sm font-bold ' + styles.textPrimary}>No candidates meet this rule</p>
-                            <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Lower the minimum score or switch from Conservative to Balanced, then run the current scan again.</p>
+                            <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Relax the minimum score, risk profile, saved strategy, sector cap, or existing-watchlist exclusion.</p>
                         </div>
                     ) : (
                         <div className="mt-3 grid gap-3 xl:grid-cols-2">
@@ -193,7 +309,7 @@ export const ResearchPickerV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                                     <article key={candidate.symbol} className={'rounded-lg border p-4 ' + styles.row}>
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
-                                                <p className={'text-xs font-semibold uppercase ' + styles.textMuted}>#{index + 1} · {candidate.outlook}</p>
+                                                <p className={'text-xs font-semibold uppercase ' + styles.textMuted}>#{index + 1} · {candidate.outlook} · {candidate.sector}</p>
                                                 <h3 className={'mt-1 truncate text-lg font-bold ' + styles.textPrimary}>{candidate.symbol} <span className={'text-sm font-normal ' + styles.textSecondary}>{candidate.name}</span></h3>
                                             </div>
                                             <div className="text-right">
@@ -208,6 +324,11 @@ export const ResearchPickerV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                                             <div><dt className={'text-[10px] uppercase ' + styles.textMuted}>Risk</dt><dd className={'mt-1 text-sm font-semibold capitalize ' + styles.textPrimary}>{candidate.risk}</dd></div>
                                         </dl>
                                         <p className={'mt-3 text-xs leading-5 ' + styles.textSecondary}>{candidate.reasons[0] ?? candidate.qualityReasons[0] ?? 'Current score is based on the available trend, quality, and risk evidence.'}</p>
+                                        {candidate.policyAdjustment !== 0 ? (
+                                            <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>
+                                                Strategy rank: {candidate.policyScore.toFixed(1)} ({candidate.policyAdjustment >= 0 ? '+' : ''}{candidate.policyAdjustment.toFixed(1)}) · {candidate.policyReasons.join(' · ')}
+                                            </p>
+                                        ) : null}
                                         <div className="mt-3 flex flex-wrap gap-2">
                                             <button type="button" onClick={() => onOpen(candidate.symbol)} className={'min-h-10 rounded-md border px-3 text-xs font-bold ' + styles.row}>Open research</button>
                                             <button type="button" disabled={adding || saved} onClick={() => onAdd(candidate)} className={'min-h-10 rounded-md border px-3 text-xs font-bold disabled:opacity-50 ' + styles.panelAction}>{saved ? 'In watchlist' : 'Add to watchlist'}</button>
@@ -227,39 +348,55 @@ export const ResearchPickerV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                 <div>
                     <p className={'text-xs font-semibold uppercase tracking-[0.08em] ' + styles.textMuted}>Step 3</p>
                     <h2 id="picker-baskets-title" className={'mt-1 text-base font-bold ' + styles.textPrimary}>Paper baskets</h2>
-                    <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Browser-local snapshots preserve the selection rule and entry observations. Current moves appear only when the symbol remains in the latest bounded scan.</p>
+                    <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Browser-local snapshots preserve the strategy and entry observations. Every saved symbol refreshes independently; due outcomes are frozen at the first available observation on or after the selected horizon.</p>
+                    {basketQuoteState === 'loading' ? <p role="status" className={'mt-2 text-xs ' + styles.textMuted}>Refreshing saved basket quotes…</p> : null}
+                    {basketQuoteState === 'partial' ? <p role="status" className={'mt-2 text-xs ' + styles.risk}>Some basket quotes are unavailable; available symbols remain usable.</p> : null}
                 </div>
                 {runs.length === 0 ? <p className={'mt-3 rounded-lg border p-4 text-sm ' + styles.panelSecondary + ' ' + styles.textMuted}>No paper basket started yet.</p> : (
                     <div className="mt-3 space-y-3">
-                        {runs.map((run) => (
-                            <details key={run.id} className={'rounded-lg border ' + styles.panelSecondary}>
-                                <summary className="flex min-h-12 cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
-                                    <span><span className={'block text-sm font-bold ' + styles.textPrimary}>{run.picks.length} picks · {run.config.horizon} · {run.config.riskProfile}</span><span className={'block text-xs ' + styles.textMuted}>{formatDateTime(run.createdAt)} · minimum score {run.config.minimumScore}</span></span>
-                                    <span className={'text-xs font-semibold ' + styles.textSecondary}>Review basket</span>
-                                </summary>
-                                <div className={'border-t p-3 ' + styles.divider}>
-                                    <div className="research-scrollbar overflow-x-auto">
-                                        <table className="w-full min-w-[620px] text-left text-xs">
-                                            <thead><tr className={styles.textMuted}><th className="px-2 py-2">Ticker</th><th className="px-2 py-2">Entry</th><th className="px-2 py-2">Score</th><th className="px-2 py-2">Current observed</th><th className="px-2 py-2">Move</th></tr></thead>
-                                            <tbody className={'divide-y ' + styles.divider}>
-                                                {run.picks.map((pick) => {
-                                                    const currentPrice = currentPrices.get(pick.symbol) ?? null;
-                                                    const move = pickerObservedMovePercent(pick.price, currentPrice);
-                                                    return <tr key={pick.symbol}>
-                                                        <td className="px-2 py-2"><button type="button" onClick={() => onOpen(pick.symbol)} className={'min-h-10 font-mono font-bold ' + styles.textPrimary}>{pick.symbol}</button></td>
-                                                        <td className={'px-2 py-2 font-mono ' + styles.textSecondary}>${pick.price.toFixed(2)}</td>
-                                                        <td className={'px-2 py-2 font-mono ' + styles.textSecondary}>{pick.discoveryScore}</td>
-                                                        <td className={'px-2 py-2 font-mono ' + styles.textSecondary}>{currentPrice === null ? 'Run scan' : `$${currentPrice.toFixed(2)}`}</td>
-                                                        <td className={'px-2 py-2 font-mono font-bold ' + (move === null ? styles.textMuted : move < 0 ? styles.risk : styles.positive)}>{move === null ? 'Unavailable' : `${move >= 0 ? '+' : ''}${move.toFixed(2)}%`}</td>
-                                                    </tr>;
-                                                })}
-                                            </tbody>
-                                        </table>
+                        {runs.map((run) => {
+                            const summary = pickerRunSummary(run, basketPrices, new Date().toISOString());
+                            const stateLabel = summary.state === 'resolved' ? 'Resolved'
+                                : summary.state === 'partial' ? 'Partially resolved'
+                                    : summary.state === 'due' ? 'Outcome due'
+                                        : `Measures ${formatDateTime(summary.dueAt)}`;
+                            return (
+                                <details key={run.id} className={'rounded-lg border ' + styles.panelSecondary}>
+                                    <summary className="flex min-h-12 cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+                                        <span><span className={'block text-sm font-bold ' + styles.textPrimary}>{run.picks.length} picks · {run.config.horizon} · {run.config.riskProfile}</span><span className={'block text-xs ' + styles.textMuted}>{formatDateTime(run.createdAt)} · {run.strategy?.name ?? 'Default Discovery rank'} · minimum score {run.config.minimumScore}</span></span>
+                                        <span className={'text-right text-xs font-semibold ' + styles.textSecondary}>{stateLabel}<span className={'mt-1 block font-mono ' + styles.textPrimary}>{outcomePercent(summary.averageReturnPercent)}</span></span>
+                                    </summary>
+                                    <div className={'border-t p-3 ' + styles.divider}>
+                                        <dl className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                            <div><dt className={'text-[10px] uppercase ' + styles.textMuted}>Basket average</dt><dd className={'mt-1 font-mono text-sm font-bold ' + styles.textPrimary}>{outcomePercent(summary.averageReturnPercent)}</dd></div>
+                                            <div><dt className={'text-[10px] uppercase ' + styles.textMuted}>Positive names</dt><dd className={'mt-1 font-mono text-sm font-bold ' + styles.textPrimary}>{summary.positiveRatePercent === null ? 'Unavailable' : `${summary.positiveRatePercent}%`}</dd></div>
+                                            <div><dt className={'text-[10px] uppercase ' + styles.textMuted}>VOO observation</dt><dd className={'mt-1 font-mono text-sm font-bold ' + styles.textPrimary}>{outcomePercent(summary.benchmarkReturnPercent)}</dd></div>
+                                            <div><dt className={'text-[10px] uppercase ' + styles.textMuted}>Relative to VOO</dt><dd className={'mt-1 font-mono text-sm font-bold ' + styles.textPrimary}>{outcomePercent(summary.relativeReturnPercent)}</dd></div>
+                                        </dl>
+                                        <div className="research-scrollbar overflow-x-auto">
+                                            <table className="w-full min-w-[720px] text-left text-xs">
+                                                <thead><tr className={styles.textMuted}><th className="px-2 py-2">Ticker</th><th className="px-2 py-2">Sector</th><th className="px-2 py-2">Entry</th><th className="px-2 py-2">Score</th><th className="px-2 py-2">{summary.state === 'collecting' ? 'Current observed' : 'Horizon observed'}</th><th className="px-2 py-2">Move</th></tr></thead>
+                                                <tbody className={'divide-y ' + styles.divider}>
+                                                    {run.picks.map((pick) => {
+                                                        const observedPrice = pick.outcome?.price ?? basketPrices.get(pick.symbol) ?? null;
+                                                        const move = pickerObservedMovePercent(pick.price, observedPrice);
+                                                        return <tr key={pick.symbol}>
+                                                            <td className="px-2 py-2"><button type="button" onClick={() => onOpen(pick.symbol)} className={'min-h-10 font-mono font-bold ' + styles.textPrimary}>{pick.symbol}</button></td>
+                                                            <td className={'px-2 py-2 ' + styles.textSecondary}>{pick.sector}</td>
+                                                            <td className={'px-2 py-2 font-mono ' + styles.textSecondary}>${pick.price.toFixed(2)}</td>
+                                                            <td className={'px-2 py-2 font-mono ' + styles.textSecondary}>{pick.discoveryScore}</td>
+                                                            <td className={'px-2 py-2 font-mono ' + styles.textSecondary}>{observedPrice === null ? 'Unavailable' : `$${observedPrice.toFixed(2)}`}</td>
+                                                            <td className={'px-2 py-2 font-mono font-bold ' + (move === null ? styles.textMuted : move < 0 ? styles.risk : styles.positive)}>{move === null ? 'Unavailable' : `${move >= 0 ? '+' : ''}${move.toFixed(2)}%`}</td>
+                                                        </tr>;
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <button type="button" onClick={() => persistRuns(removePickerRun(runs, run.id))} className={'mt-3 min-h-10 text-xs font-semibold ' + styles.risk}>Remove basket</button>
                                     </div>
-                                    <button type="button" onClick={() => persistRuns(removePickerRun(runs, run.id))} className={'mt-3 min-h-10 text-xs font-semibold ' + styles.risk}>Remove basket</button>
-                                </div>
-                            </details>
-                        ))}
+                                </details>
+                            );
+                        })}
                     </div>
                 )}
             </section>
