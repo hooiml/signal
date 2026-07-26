@@ -11,6 +11,11 @@ import {
     defaultResearchDocumentEvidenceSet,
     parseResearchDocumentEvidenceSet,
 } from './document-evidence';
+import {
+    defaultResearchFactorAssumptionSet,
+    parseResearchFactorAssumptionSet,
+    researchFactorEvidenceIds,
+} from './factor-exposure';
 
 const reviewHistoryLimit = 25;
 
@@ -64,6 +69,7 @@ export const createResearchRecord = (input: ResearchCreateInput): ResearchRecord
     monitoringRules: defaultResearchMonitoringRules,
     acceptedEvidence: [],
     documentEvidence: defaultResearchDocumentEvidenceSet,
+    factorAssumptions: defaultResearchFactorAssumptionSet,
     decisionJournal: emptyDecisionJournal,
     positionPlan: emptyPositionPlan,
     reviewHistory: [],
@@ -113,6 +119,7 @@ export const applyResearchUpdate = (current: ResearchRecord, update: ResearchUpd
     monitoringRules: update.monitoringRules ?? current.monitoringRules,
     acceptedEvidence: update.acceptedEvidence ?? current.acceptedEvidence,
     documentEvidence: update.documentEvidence ?? current.documentEvidence,
+    factorAssumptions: update.factorAssumptions ?? current.factorAssumptions,
     decisionJournal: update.decisionJournal ?? current.decisionJournal,
     positionPlan: update.positionPlan ?? current.positionPlan,
 });
@@ -151,6 +158,11 @@ export const appendResearchReview = (record: ResearchRecord, reviewedAt = new Da
             migrationState: 'current',
             citations: record.documentEvidence.citations.map((citation) => ({ ...citation })),
         },
+        factorAssumptions: {
+            version: 1,
+            migrationState: 'current',
+            assumptions: record.factorAssumptions.assumptions.map((assumption) => ({ ...assumption })),
+        },
         decisionJournal: { ...record.decisionJournal },
         positionPlan: { ...record.positionPlan },
     };
@@ -165,11 +177,28 @@ export const prepareStoredResearchRecord = (current: ResearchRecord, input: Rese
     const validatedDocumentEvidence = input.documentEvidence === undefined
         ? undefined
         : parseResearchDocumentEvidenceSet(input.documentEvidence, { market: current.market, symbol: current.symbol });
-    const validatedInput = { ...input, documentEvidence: validatedDocumentEvidence };
+    const evidenceOwner = {
+        acceptedEvidence: mode === 'review'
+            ? input.acceptedEvidence ?? current.acceptedEvidence
+            : current.acceptedEvidence,
+        documentEvidence: mode === 'review'
+            ? validatedDocumentEvidence ?? current.documentEvidence
+            : current.documentEvidence,
+    };
+    const validatedFactorAssumptions = input.factorAssumptions === undefined
+        ? undefined
+        : parseResearchFactorAssumptionSet(input.factorAssumptions, researchFactorEvidenceIds(evidenceOwner));
+    const validatedInput = {
+        ...input,
+        documentEvidence: validatedDocumentEvidence,
+        factorAssumptions: validatedFactorAssumptions,
+    };
     const modeInput: ResearchUpdateInput = mode === 'settings'
         ? { monitoringRules: validatedInput.monitoringRules }
         : mode === 'evidence'
             ? { documentEvidence: validatedInput.documentEvidence }
+            : mode === 'factors'
+                ? { factorAssumptions: validatedInput.factorAssumptions }
             : validatedInput;
     let updated = applyResearchUpdate(current, modeInput);
     if (mode !== 'review') return updated;
@@ -206,6 +235,7 @@ export const describeReviewChanges = (current: ResearchReviewSnapshot | undefine
     if (JSON.stringify(current.monitoringRules) !== JSON.stringify(previous.monitoringRules)) changed.push('Structured monitoring');
     if (JSON.stringify(current.acceptedEvidence) !== JSON.stringify(previous.acceptedEvidence)) changed.push('Evidence');
     if (JSON.stringify(current.documentEvidence) !== JSON.stringify(previous.documentEvidence)) changed.push('Document citations');
+    if (JSON.stringify(current.factorAssumptions) !== JSON.stringify(previous.factorAssumptions)) changed.push('Factor assumptions');
     if (JSON.stringify(current.decisionJournal) !== JSON.stringify(previous.decisionJournal)) changed.push('Decision journal');
     if (JSON.stringify(current.positionPlan) !== JSON.stringify(previous.positionPlan)) changed.push('Position plan');
     return changed.length > 0 ? changed : ['No material changes'];

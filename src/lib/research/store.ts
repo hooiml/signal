@@ -12,6 +12,7 @@ import {
     migrateResearchDocumentEvidenceSet,
     splitPersistedResearchEvidence,
 } from './document-evidence';
+import { migrateResearchFactorAssumptionSet } from './factor-exposure';
 
 const ensureResearchTable = async () => {
     await sql`
@@ -128,9 +129,13 @@ const mapRow = (raw: unknown): ResearchRecord => {
         decisionJournal: row.decision_journal,
         positionPlan: row.position_plan,
     });
+    const documentEvidence = migrateResearchDocumentEvidenceSet(persistedEvidence.documentEvidence, identity);
     return parseResearchRecord({
         ...applyResearchUpdate(createResearchRecord(identity), update),
-        documentEvidence: migrateResearchDocumentEvidenceSet(persistedEvidence.documentEvidence, identity),
+        documentEvidence,
+        factorAssumptions: migrateResearchFactorAssumptionSet(
+            persistedEvidence.factorAssumptions,
+        ),
         reviewHistory: row.review_history,
         lastReviewedAt: readDate(row, 'last_reviewed_at'),
         updatedAt: readTimestamp(row, 'updated_at'),
@@ -151,7 +156,7 @@ const saveRecord = async (record: ResearchRecord, replaceExisting = false): Prom
             ${record.valuationState}, ${record.thesisStrength}, ${record.whyInterested},
             ${record.bullCase}, ${record.bearCase}, ${record.buyTrigger}, ${record.sellTrigger},
             ${record.thesisBreak}, ${record.notes}, ${JSON.stringify(record.checklist)},
-            ${JSON.stringify(record.monitoringRules)}, ${JSON.stringify(buildPersistedResearchEvidenceBundle(record.acceptedEvidence, record.documentEvidence))},
+            ${JSON.stringify(record.monitoringRules)}, ${JSON.stringify(buildPersistedResearchEvidenceBundle(record.acceptedEvidence, record.documentEvidence, record.factorAssumptions))},
             ${JSON.stringify(record.decisionJournal)}, ${JSON.stringify(record.positionPlan)}, ${JSON.stringify(record.reviewHistory)}, ${record.lastReviewedAt}
         )
         ON CONFLICT (user_id, symbol, market_type) DO UPDATE SET
@@ -195,7 +200,7 @@ const updateRecord = async (record: ResearchRecord, expectedRevision: number): P
             buy_trigger = ${record.buyTrigger}, sell_trigger = ${record.sellTrigger},
             thesis_break = ${record.thesisBreak}, notes = ${record.notes},
             checklist = ${JSON.stringify(record.checklist)}, monitoring_rules = ${JSON.stringify(record.monitoringRules)},
-            accepted_evidence = ${JSON.stringify(buildPersistedResearchEvidenceBundle(record.acceptedEvidence, record.documentEvidence))}, decision_journal = ${JSON.stringify(record.decisionJournal)},
+            accepted_evidence = ${JSON.stringify(buildPersistedResearchEvidenceBundle(record.acceptedEvidence, record.documentEvidence, record.factorAssumptions))}, decision_journal = ${JSON.stringify(record.decisionJournal)},
             position_plan = ${JSON.stringify(record.positionPlan)}, review_history = ${JSON.stringify(record.reviewHistory)},
             last_reviewed_at = ${record.lastReviewedAt}, updated_at = NOW(), revision = revision + 1
         WHERE user_id = 'default' AND symbol = ${record.symbol} AND market_type = ${record.market}

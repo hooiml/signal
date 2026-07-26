@@ -8,7 +8,7 @@ export const researchFindingTargets = [
 ] as const;
 export const researchFindingTones = ['positive', 'risk', 'neutral'] as const;
 export const researchSynthesisModes = ['ai', 'evidence'] as const;
-export const researchUpdateModes = ['review', 'settings', 'evidence'] as const;
+export const researchUpdateModes = ['review', 'settings', 'evidence', 'factors'] as const;
 export const researchDocumentSourceKinds = [
     '10-K',
     '10-Q',
@@ -42,11 +42,45 @@ export const researchStructuredTriggerMetrics = [
 ] as const;
 export const researchStructuredTriggerOperators = ['above', 'below', 'within'] as const;
 export const researchStructuredTriggerMigrationStates = ['current', 'migrated-empty', 'invalid-recovered'] as const;
+export const researchFactorIds = [
+    'interest-rates',
+    'usd-myr-fx',
+    'oil-energy-prices',
+    'semiconductor-cycle',
+    'ai-data-center-capex',
+    'china-growth',
+    'consumer-demand',
+    'credit-conditions',
+    'broad-volatility',
+    'commodity-input-costs',
+] as const;
+export const researchFactorDirections = ['benefits-when-rises', 'harmed-when-rises', 'mixed'] as const;
+export const researchFactorMaterialities = ['low', 'moderate', 'high'] as const;
+export const researchFactorMigrationStates = ['current', 'migrated-empty', 'invalid-recovered'] as const;
 
 export type ResearchStructuredTriggerPurpose = typeof researchStructuredTriggerPurposes[number];
 export type ResearchStructuredTriggerMetric = typeof researchStructuredTriggerMetrics[number];
 export type ResearchStructuredTriggerOperator = typeof researchStructuredTriggerOperators[number];
 export type ResearchStructuredTriggerMigrationState = typeof researchStructuredTriggerMigrationStates[number];
+export type ResearchFactorId = typeof researchFactorIds[number];
+export type ResearchFactorDirection = typeof researchFactorDirections[number];
+export type ResearchFactorMateriality = typeof researchFactorMaterialities[number];
+export type ResearchFactorMigrationState = typeof researchFactorMigrationStates[number];
+
+export type ResearchFactorAssumption = {
+    readonly factor: ResearchFactorId;
+    readonly direction: ResearchFactorDirection;
+    readonly materiality: ResearchFactorMateriality;
+    readonly evidenceNote: string;
+    readonly evidenceDate: string;
+    readonly evidenceId: string | null;
+};
+
+export type ResearchFactorAssumptionSet = {
+    readonly version: 1;
+    readonly migrationState: ResearchFactorMigrationState;
+    readonly assumptions: readonly ResearchFactorAssumption[];
+};
 
 export type ResearchStructuredTriggerRule = {
     readonly id: string;
@@ -197,6 +231,7 @@ export type ResearchReviewSnapshot = {
     readonly monitoringRules: ResearchMonitoringRules;
     readonly acceptedEvidence: readonly AcceptedResearchEvidence[];
     readonly documentEvidence: ResearchDocumentEvidenceSet;
+    readonly factorAssumptions: ResearchFactorAssumptionSet;
     readonly decisionJournal: ResearchDecisionJournal;
     readonly positionPlan: ResearchPositionPlan;
 };
@@ -222,6 +257,7 @@ export type ResearchRecord = {
     readonly monitoringRules: ResearchMonitoringRules;
     readonly acceptedEvidence: readonly AcceptedResearchEvidence[];
     readonly documentEvidence: ResearchDocumentEvidenceSet;
+    readonly factorAssumptions: ResearchFactorAssumptionSet;
     readonly decisionJournal: ResearchDecisionJournal;
     readonly positionPlan: ResearchPositionPlan;
     readonly reviewHistory: readonly ResearchReviewSnapshot[];

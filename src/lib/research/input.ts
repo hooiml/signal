@@ -23,6 +23,7 @@ import {
     type ResearchDecisionJournal,
     type ResearchPositionPlan,
     type ResearchDocumentEvidenceSet,
+    type ResearchFactorAssumptionSet,
 } from '../types/research';
 import { createResearchRecord, emptyChecklist, emptyDecisionJournal, emptyPositionPlan } from './records';
 import {
@@ -36,6 +37,12 @@ import {
     parseResearchDocumentEvidenceSet,
     ResearchDocumentEvidenceError,
 } from './document-evidence';
+import {
+    defaultResearchFactorAssumptionSet,
+    migrateResearchFactorAssumptionSet,
+    parseResearchFactorAssumptionSet,
+    ResearchFactorAssumptionError,
+} from './factor-exposure';
 
 const checklistKeys = [
     'understandBusiness', 'revenueGrowingOrStable', 'marginsHealthyOrImproving',
@@ -261,6 +268,8 @@ const parseReviewHistory = (value: unknown): readonly ResearchReviewSnapshot[] =
         const review = objectValue(item, label);
         const inBuyZone = review.inBuyZone;
         if (typeof inBuyZone !== 'boolean') throw new ResearchInputError(`${label}.inBuyZone must be boolean.`);
+        const acceptedEvidence = parseAcceptedEvidence(review.acceptedEvidence, `${label}.acceptedEvidence`);
+        const documentEvidence = migrateResearchDocumentEvidenceSet(review.documentEvidence);
         return {
             id: stringValue(review.id, `${label}.id`, 80),
             reviewedAt: timestampValue(review.reviewedAt, `${label}.reviewedAt`),
@@ -281,8 +290,11 @@ const parseReviewHistory = (value: unknown): readonly ResearchReviewSnapshot[] =
             monitoringRules: review.monitoringRules === undefined
                 ? { ...defaultResearchMonitoringRules, structuredTriggers: { version: 1, migrationState: 'migrated-empty', rules: [] } }
                 : parsePersistedResearchMonitoringRules(review.monitoringRules),
-            acceptedEvidence: parseAcceptedEvidence(review.acceptedEvidence, `${label}.acceptedEvidence`),
-            documentEvidence: migrateResearchDocumentEvidenceSet(review.documentEvidence),
+            acceptedEvidence,
+            documentEvidence,
+            factorAssumptions: migrateResearchFactorAssumptionSet(
+                review.factorAssumptions,
+            ),
             decisionJournal: review.decisionJournal === undefined ? { ...emptyDecisionJournal } : parseDecisionJournal(review.decisionJournal, `${label}.decisionJournal`),
             positionPlan: review.positionPlan === undefined ? { ...emptyPositionPlan } : parsePositionPlan(review.positionPlan, `${label}.positionPlan`),
         };
@@ -317,6 +329,15 @@ export const parseResearchUpdateInput = (value: unknown): ResearchUpdateInput =>
             throw error;
         }
     }
+    let factorAssumptions: ResearchFactorAssumptionSet | undefined;
+    if (body.factorAssumptions !== undefined) {
+        try {
+            factorAssumptions = parseResearchFactorAssumptionSet(body.factorAssumptions);
+        } catch (error) {
+            if (error instanceof ResearchFactorAssumptionError) throw new ResearchInputError(error.message);
+            throw error;
+        }
+    }
     return {
         companyName: optionalString(body.companyName, 'companyName', 120),
         positionState: body.positionState === undefined ? undefined : optionValue(body.positionState, positionStates, 'positionState'),
@@ -336,6 +357,7 @@ export const parseResearchUpdateInput = (value: unknown): ResearchUpdateInput =>
         monitoringRules: body.monitoringRules === undefined ? undefined : parseResearchMonitoringRules(body.monitoringRules),
         acceptedEvidence: body.acceptedEvidence === undefined ? undefined : parseAcceptedEvidence(body.acceptedEvidence, 'acceptedEvidence'),
         documentEvidence,
+        factorAssumptions,
         decisionJournal: body.decisionJournal === undefined ? undefined : parseDecisionJournal(body.decisionJournal, 'decisionJournal'),
         positionPlan: body.positionPlan === undefined ? undefined : parsePositionPlan(body.positionPlan, 'positionPlan'),
     };
@@ -344,18 +366,30 @@ export const parseResearchUpdateInput = (value: unknown): ResearchUpdateInput =>
 export const parseResearchRecord = (value: unknown): ResearchRecord => {
     const body = objectValue(value, 'Research record');
     const identity = parseResearchCreateInput(body);
-    const update = parseResearchUpdateInput({ ...body, documentEvidence: undefined });
+    const update = parseResearchUpdateInput({
+        ...body,
+        documentEvidence: undefined,
+        factorAssumptions: undefined,
+    });
     const lastReviewedAt = stringValue(body.lastReviewedAt, 'lastReviewedAt', 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(lastReviewedAt)) throw new ResearchInputError('lastReviewedAt must use YYYY-MM-DD.');
+    const acceptedEvidence = update.acceptedEvidence ?? [];
+    const documentEvidence = body.documentEvidence === undefined
+        ? { ...defaultResearchDocumentEvidenceSet, migrationState: 'migrated-empty' as const }
+        : migrateResearchDocumentEvidenceSet(body.documentEvidence, identity);
+    const factorAssumptions = body.factorAssumptions === undefined
+        ? { ...defaultResearchFactorAssumptionSet, migrationState: 'migrated-empty' as const }
+        : migrateResearchFactorAssumptionSet(
+            body.factorAssumptions,
+        );
     return {
         ...createResearchRecord(identity),
         ...update,
         checklist: { ...emptyChecklist, ...update.checklist },
         monitoringRules: update.monitoringRules ?? defaultResearchMonitoringRules,
-        acceptedEvidence: update.acceptedEvidence ?? [],
-        documentEvidence: body.documentEvidence === undefined
-            ? { ...defaultResearchDocumentEvidenceSet, migrationState: 'migrated-empty' }
-            : migrateResearchDocumentEvidenceSet(body.documentEvidence, identity),
+        acceptedEvidence,
+        documentEvidence,
+        factorAssumptions,
         decisionJournal: update.decisionJournal ?? { ...emptyDecisionJournal },
         positionPlan: update.positionPlan ?? { ...emptyPositionPlan },
         reviewHistory: body.reviewHistory === undefined ? [] : parseReviewHistory(body.reviewHistory),

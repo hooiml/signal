@@ -135,6 +135,12 @@ import {
     type ResearchDocumentDiffItem,
 } from '../../src/lib/research/document-evidence';
 import {
+    buildPortfolioFactorExposure,
+    migrateResearchFactorAssumptionSet,
+    parseResearchFactorAssumptionSet,
+    researchFactorEvidenceIds,
+} from '../../src/lib/research/factor-exposure';
+import {
     buildOfficialSecFilingUrl,
     fetchSecFilingDiscovery,
     parseSecSubmissions,
@@ -1030,7 +1036,11 @@ const runPrimaryDocumentEvidenceTests = async () => {
     assertThrows(() => parseResearchDocumentEvidenceSet({ version: 1, citations: [{ ...citation, excerpt: 'x'.repeat(2001), contentDigest: 'fnv1a32:00000000' }] }), 'citation excerpt length is bounded');
     assertEqual(migrateResearchDocumentEvidenceSet(undefined).migrationState, 'migrated-empty', 'legacy records migrate to an empty citation set');
     assertEqual(migrateResearchDocumentEvidenceSet({ version: 1, citations: [{ broken: true }] }).migrationState, 'invalid-recovered', 'malformed persisted citations recover visibly');
-    const bundle = buildPersistedResearchEvidenceBundle([], { version: 1, migrationState: 'current', citations: [citation] });
+    const bundle = buildPersistedResearchEvidenceBundle(
+        [],
+        { version: 1, migrationState: 'current', citations: [citation] },
+        { version: 1, migrationState: 'current', assumptions: [] },
+    );
     assertEqual(splitPersistedResearchEvidence(bundle).documentEvidence !== undefined, true, 'versioned evidence bundle shares the existing JSON column');
     assertEqual(splitPersistedResearchEvidence([]).documentEvidence, undefined, 'legacy evidence arrays remain readable');
 
@@ -2863,6 +2873,200 @@ const runResearchAssistantTests = () => {
     }), 'assistant boundary rejects unsupported finding provenance');
 };
 
+const runPortfolioFactorExposureTests = () => {
+    const acceptedEvidence = [{
+        id: 'accepted-msft',
+        title: 'Accepted fact',
+        summary: 'Accepted summary',
+        target: 'bullCase' as const,
+        tone: 'positive' as const,
+        mode: 'evidence' as const,
+        acceptedAt: '2026-07-01T00:00:00.000Z',
+        sources: [{
+            id: 'source-msft',
+            label: 'Revenue',
+            value: '100',
+            source: 'SEC EDGAR',
+            sourceUrl: 'https://www.sec.gov/',
+            reportingPeriod: '2026-Q2',
+        }],
+    }];
+    const base = {
+        ...createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' }),
+        acceptedEvidence,
+    };
+    const valid = parseResearchFactorAssumptionSet({
+        version: 1,
+        assumptions: [{
+            factor: 'interest-rates',
+            direction: 'harmed-when-rises',
+            materiality: 'high',
+            evidenceNote: 'Higher discount rates may pressure the declared valuation thesis.',
+            evidenceDate: '2026-07-01',
+            evidenceId: 'accepted-msft',
+        }],
+    }, researchFactorEvidenceIds(base));
+    assertEqual(valid.assumptions.length, 1, 'factor contract accepts one explicit fixed-enum assumption');
+    assertThrows(() => parseResearchFactorAssumptionSet({
+        version: 1,
+        assumptions: [valid.assumptions[0], { ...valid.assumptions[0], direction: 'mixed' }],
+    }), 'factor contract rejects duplicate factors');
+    assertThrows(() => parseResearchFactorAssumptionSet({
+        version: 1,
+        assumptions: [{ ...valid.assumptions[0], factor: 'custom-factor' }],
+    }), 'factor contract rejects custom factor names');
+    assertThrows(() => parseResearchFactorAssumptionSet({
+        version: 1,
+        assumptions: [{ ...valid.assumptions[0], direction: 'neutral' }],
+    }), 'factor contract rejects unsupported direction');
+    assertThrows(() => parseResearchFactorAssumptionSet({
+        version: 1,
+        assumptions: [{ ...valid.assumptions[0], evidenceDate: '2026-02-30' }],
+    }), 'factor contract rejects invalid evidence dates');
+    assertThrows(() => parseResearchFactorAssumptionSet({
+        version: 1,
+        assumptions: [{ ...valid.assumptions[0], evidenceNote: 'x'.repeat(501) }],
+    }), 'factor contract bounds evidence notes');
+    assertThrows(() => parseResearchFactorAssumptionSet({
+        version: 1,
+        assumptions: [{ ...valid.assumptions[0], evidenceId: 'other-record-evidence' }],
+    }, researchFactorEvidenceIds(base)), 'factor contract enforces same-record evidence ownership');
+    assertThrows(() => parseResearchFactorAssumptionSet({
+        version: 1,
+        assumptions: Array.from({ length: 11 }, (_, index) => ({
+            ...valid.assumptions[0],
+            factor: `factor-${index}`,
+        })),
+    }), 'factor contract enforces the bounded total before custom factor parsing');
+    assertEqual(migrateResearchFactorAssumptionSet(undefined).migrationState, 'migrated-empty', 'legacy records migrate to empty factor assumptions');
+    assertEqual(migrateResearchFactorAssumptionSet({ version: 1, assumptions: [{ bad: true }] }).migrationState, 'invalid-recovered', 'malformed factors recover visibly');
+
+    const reviewedInput = {
+        ...base,
+        whyInterested: 'Keep this thesis unchanged.',
+        checklist: { ...base.checklist, understandBusiness: true },
+        monitoringRules: { ...base.monitoringRules, reviewAgeDays: 45 },
+        factorAssumptions: valid,
+        revision: 7,
+    };
+    const factorsOnly = prepareStoredResearchRecord(reviewedInput, {
+        factorAssumptions: {
+            version: 1,
+            migrationState: 'current',
+            assumptions: [{ ...valid.assumptions[0], materiality: 'moderate' }],
+        },
+        whyInterested: 'Attempted unrelated mutation.',
+        acceptedEvidence: [],
+        monitoringRules: defaultResearchMonitoringRules,
+    }, 'factors');
+    assertEqual(factorsOnly.factorAssumptions.assumptions[0]?.materiality, 'moderate', 'factor mode applies the validated factor set');
+    assertEqual(factorsOnly.whyInterested, reviewedInput.whyInterested, 'factor mode isolates thesis text');
+    assertEqual(JSON.stringify(factorsOnly.acceptedEvidence), JSON.stringify(reviewedInput.acceptedEvidence), 'factor mode isolates accepted evidence');
+    assertEqual(JSON.stringify(factorsOnly.monitoringRules), JSON.stringify(reviewedInput.monitoringRules), 'factor mode isolates monitoring rules');
+    assertEqual(factorsOnly.reviewHistory.length, 0, 'factor mode does not append immutable history');
+    const frozen = appendResearchReview(factorsOnly, '2026-07-02T00:00:00.000Z');
+    const changedCurrent = {
+        ...frozen,
+        factorAssumptions: {
+            version: 1 as const,
+            migrationState: 'current' as const,
+            assumptions: [{ ...valid.assumptions[0], direction: 'mixed' as const }],
+        },
+    };
+    assertEqual(frozen.reviewHistory[0]?.factorAssumptions.assumptions[0]?.direction, 'harmed-when-rises', 'full review freezes factor assumptions');
+    assertEqual(changedCurrent.reviewHistory[0]?.factorAssumptions.assumptions[0]?.direction, 'harmed-when-rises', 'later current edits do not mutate frozen assumptions');
+
+    const persisted = buildPersistedResearchEvidenceBundle(
+        acceptedEvidence,
+        base.documentEvidence,
+        valid,
+    );
+    assertEqual(persisted.version, 3, 'factor assumptions extend the existing evidence JSON bundle');
+    assertEqual(splitPersistedResearchEvidence(persisted).factorAssumptions, persisted.factorAssumptions, 'persisted bundle splits factor assumptions');
+    assertEqual(splitPersistedResearchEvidence({
+        version: 2,
+        acceptedEvidence,
+        documentEvidence: base.documentEvidence,
+    }).factorAssumptions, undefined, 'version-2 evidence bundle migrates without invented assumptions');
+
+    const malformedRecord = parseResearchRecord({
+        ...reviewedInput,
+        factorAssumptions: { version: 1, assumptions: [{ factor: 'invented' }] },
+        lastReviewedAt: '2026-07-01',
+        updatedAt: '2026-07-01T00:00:00.000Z',
+    });
+    assertEqual(malformedRecord.factorAssumptions.migrationState, 'invalid-recovered', 'record parsing surfaces recoverable malformed factor state');
+    const legacyRecord = parseResearchRecord({
+        ...reviewedInput,
+        factorAssumptions: undefined,
+        lastReviewedAt: '2026-07-01',
+        updatedAt: '2026-07-01T00:00:00.000Z',
+    });
+    assertEqual(legacyRecord.factorAssumptions.migrationState, 'migrated-empty', 'record parsing migrates a legacy missing factor set');
+
+    const orcl = {
+        ...createResearchRecord({ symbol: 'ORCL', market: 'US', companyName: 'Oracle' }),
+        factorAssumptions: { version: 1 as const, migrationState: 'current' as const, assumptions: [] },
+    };
+    const maybank = {
+        ...createResearchRecord({ symbol: '1155.KL', market: 'MY', companyName: 'Maybank' }),
+        factorAssumptions: {
+            version: 1 as const,
+            migrationState: 'current' as const,
+            assumptions: [{
+                factor: 'interest-rates' as const,
+                direction: 'benefits-when-rises' as const,
+                materiality: 'moderate' as const,
+                evidenceNote: '',
+                evidenceDate: '2026-07-01',
+                evidenceId: null,
+            }],
+        },
+    };
+    const holdingsSnapshot = parsePortfolioHoldingsSnapshot({
+        version: 1,
+        updatedAt: '2026-07-02T00:00:00.000Z',
+        holdings: [
+            { accountLabel: 'Account A', symbol: 'MSFT', market: 'US', quantity: 1, averageCost: 90, currency: 'USD', importedAt: '2026-07-02T00:00:00.000Z', provenanceLabel: 'QA' },
+            { accountLabel: 'Account A', symbol: 'ORCL', market: 'US', quantity: 1, averageCost: 40, currency: 'USD', importedAt: '2026-07-02T00:00:00.000Z', provenanceLabel: 'QA' },
+            { accountLabel: 'Account A', symbol: 'AMD', market: 'US', quantity: 1, averageCost: 70, currency: 'USD', importedAt: '2026-07-02T00:00:00.000Z', provenanceLabel: 'QA' },
+            { accountLabel: 'Account B', symbol: 'MSFT', market: 'US', quantity: 2, averageCost: 90, currency: 'USD', importedAt: '2026-07-02T00:00:00.000Z', provenanceLabel: 'QA' },
+            { accountLabel: 'Account A', symbol: '1155.KL', market: 'MY', quantity: 3, averageCost: 8, currency: 'MYR', importedAt: '2026-07-02T00:00:00.000Z', provenanceLabel: 'QA' },
+        ],
+        cashBalances: [],
+    });
+    const sourceBefore = JSON.stringify(holdingsSnapshot);
+    const reconciled = reconcilePortfolioHoldings(
+        holdingsSnapshot,
+        [{ ...reviewedInput, factorAssumptions: valid }, orcl, maybank],
+        new Map([
+            ['US:MSFT', 100],
+            ['US:ORCL', 50],
+            ['US:AMD', 80],
+            ['MY:1155.KL', 10],
+        ]),
+    );
+    const exposure = buildPortfolioFactorExposure(reconciled);
+    assertEqual(exposure.length, 3, 'factor exposure keeps account and currency groups separate');
+    const accountUsd = exposure.find((group) => group.accountLabel === 'Account A' && group.currency === 'USD')!;
+    const accountBUsd = exposure.find((group) => group.accountLabel === 'Account B' && group.currency === 'USD')!;
+    const accountMyr = exposure.find((group) => group.accountLabel === 'Account A' && group.currency === 'MYR')!;
+    const usdRates = accountUsd.aggregates.find((aggregate) => aggregate.factor === 'interest-rates')!;
+    assertEqual(accountUsd.knownValue, 150, 'known-value denominator excludes missing unmatched price values');
+    assertEqual(usdRates.harmedKnownValue, 100, 'factor numerator includes only explicitly harmed known value');
+    assertEqual(usdRates.harmedSharePercent, 66.67, 'factor share uses the complete known account-currency denominator');
+    assertEqual(usdRates.knownValueCoveragePercent, 66.67, 'factor value coverage stays separate from direction share');
+    assertEqual(usdRates.holdingsWithAssumption, 1, 'factor count coverage counts declared holdings');
+    assertEqual(usdRates.totalHoldings, 3, 'factor count denominator retains unmatched and undeclared holdings');
+    assertEqual(accountUsd.missingPriceCount, 1, 'factor summary retains missing price count');
+    assertEqual(accountUsd.unmatchedCount, 1, 'factor summary retains unmatched holdings');
+    assertEqual(accountUsd.noAssumptionCount, 1, 'factor summary retains matched holdings with no assumptions');
+    assertEqual(accountBUsd.knownValue, 200, 'a second account is never combined with the first');
+    assertEqual(accountMyr.knownValue, 30, 'a different currency is never FX-converted or combined');
+    assertEqual(accountMyr.aggregates[0]?.benefitsSharePercent, 100, 'explicit benefits direction aggregates independently');
+    assertEqual(JSON.stringify(holdingsSnapshot), sourceBefore, 'factor aggregation does not mutate the holdings snapshot');
+};
+
 const main = async () => {
     runInputTests();
     await runPrimaryDocumentEvidenceTests();
@@ -2871,6 +3075,7 @@ const main = async () => {
     runPortfolioAnalyticsTests();
     runPortfolioHoldingsImportTests();
     runPortfolioSimulationTests();
+    runPortfolioFactorExposureTests();
     runSourceHealthTests();
     runMarketReplayTests();
     runProductAnalyticsTests();

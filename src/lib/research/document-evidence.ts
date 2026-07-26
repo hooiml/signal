@@ -6,6 +6,7 @@ import {
     type ResearchDocumentCitation,
     type ResearchDocumentEvidenceSet,
     type ResearchDocumentSourceKind,
+    type ResearchFactorAssumptionSet,
     type ResearchMarket,
 } from '../types/research';
 
@@ -171,25 +172,43 @@ export const migrateResearchDocumentEvidenceSet = (
 };
 
 export type PersistedResearchEvidenceBundle = {
-    readonly version: 2;
+    readonly version: 3;
     readonly acceptedEvidence: readonly AcceptedResearchEvidence[];
     readonly documentEvidence: ResearchDocumentEvidenceSet;
+    readonly factorAssumptions: ResearchFactorAssumptionSet;
 };
 
 export const splitPersistedResearchEvidence = (value: unknown): {
     readonly acceptedEvidence: unknown;
     readonly documentEvidence: unknown;
-} => isObject(value) && value.version === 2
-    ? { acceptedEvidence: value.acceptedEvidence, documentEvidence: value.documentEvidence }
-    : { acceptedEvidence: value, documentEvidence: undefined };
+    readonly factorAssumptions: unknown;
+} => isObject(value) && value.version === 3
+    ? {
+        acceptedEvidence: value.acceptedEvidence,
+        documentEvidence: value.documentEvidence,
+        factorAssumptions: value.factorAssumptions,
+    }
+    : isObject(value) && value.version === 2
+        ? {
+            acceptedEvidence: value.acceptedEvidence,
+            documentEvidence: value.documentEvidence,
+            factorAssumptions: undefined,
+        }
+        : { acceptedEvidence: value, documentEvidence: undefined, factorAssumptions: undefined };
 
 export const buildPersistedResearchEvidenceBundle = (
     acceptedEvidence: readonly AcceptedResearchEvidence[],
     documentEvidence: ResearchDocumentEvidenceSet,
+    factorAssumptions: ResearchFactorAssumptionSet,
 ): PersistedResearchEvidenceBundle => ({
-    version: 2,
+    version: 3,
     acceptedEvidence,
     documentEvidence: { version: 1, migrationState: 'current', citations: documentEvidence.citations },
+    factorAssumptions: {
+        version: 1,
+        migrationState: 'current',
+        assumptions: factorAssumptions.assumptions,
+    },
 });
 
 export type ResearchDocumentChangeKind = 'added' | 'changed' | 'removed' | 'unchanged';
