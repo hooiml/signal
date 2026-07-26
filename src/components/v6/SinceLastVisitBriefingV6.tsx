@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import { assessInvestmentPolicy } from '@/lib/research/investment-policy';
+import { upcomingDividendCashFlowDigestEvents } from '@/lib/portfolio/dividend-cashflow';
+import { loadDividendCashFlowSnapshot } from '@/lib/portfolio/dividend-cashflow-client';
 import { readInvestmentPolicy } from '@/lib/research/investment-policy-client';
 import { parseResearchCalendarResponse } from '@/lib/research/calendar-response';
 import {
@@ -157,7 +159,13 @@ export const SinceLastVisitBriefingV6 = ({
             sourcePromise,
         ]);
         if (controller.signal.aborted) return;
-        const events = calendarResult.status === 'fulfilled' ? calendarResult.value : [];
+        const researchEvents = calendarResult.status === 'fulfilled' ? calendarResult.value : [];
+        const localPlanning = loadDividendCashFlowSnapshot();
+        const planningEvents = localPlanning.snapshot
+            ? upcomingDividendCashFlowDigestEvents(localPlanning.snapshot, new Date(capturedAt), 30)
+            : [];
+        if (!localPlanning.snapshot) warnings.push('Browser-local dividend and cash-flow planning unavailable.');
+        const events = [...researchEvents, ...planningEvents];
         const alerts = alertsResult.status === 'fulfilled' ? alertsResult.value : [];
         const sourceIssues = sourceResult.status === 'fulfilled' ? sourceResult.value : [];
         if (calendarResult.status === 'rejected') warnings.push('Research calendar unavailable.');

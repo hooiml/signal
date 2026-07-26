@@ -30,6 +30,7 @@ const sourceLabels: Readonly<Record<ResearchWorkflowSource, string>> = {
     'structured-trigger': 'Structured trigger',
     'market-exposure': 'Market exposure',
     'factor-exposure': 'Factor exposure',
+    'dividend-cashflow': 'Dividend / cash flow',
 };
 
 export const ResearchWorkflowQueueV6 = ({ records, theme, onStart }: {

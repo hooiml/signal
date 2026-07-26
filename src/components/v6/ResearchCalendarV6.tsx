@@ -21,10 +21,11 @@ import type {
 } from '@/lib/types/research-calendar';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
+import { DividendCashFlowCalendarV6 } from './DividendCashFlowCalendarV6';
 
 type CalendarView = 'list' | 'calendar';
 type FilterValue = 'ALL';
-type CalendarEventFilter = ResearchCalendarEventType | 'macro' | FilterValue;
+type CalendarEventFilter = ResearchCalendarEventType | 'macro' | 'dividend' | 'cash-flow' | FilterValue;
 
 const addUtcDays = (value: string, days: number) => {
     const date = new Date(`${value}T00:00:00.000Z`);
@@ -244,7 +245,8 @@ export const ResearchCalendarV6 = ({ records, theme, onOpen }: {
         return () => controller.abort();
     }, [rangeDays, requestKey, retryKey]);
 
-    const events = useMemo(() => eventType === 'macro' ? [] : filterResearchCalendarEvents(calendar?.events ?? [], { market, ticker, type: eventType }), [calendar?.events, eventType, market, ticker]);
+    const localEventType = eventType === 'dividend' || eventType === 'cash-flow';
+    const events = useMemo(() => eventType === 'macro' || localEventType ? [] : filterResearchCalendarEvents(calendar?.events ?? [], { market, ticker, type: eventType }), [calendar?.events, eventType, localEventType, market, ticker]);
     const macroEvents = useMemo(() => (eventType !== 'ALL' && eventType !== 'macro') ? [] : (calendar?.macroEvents ?? []).filter((event) =>
         (market === 'ALL' || event.market === market)
         && (ticker === 'ALL' || event.trackedSymbols.includes(ticker))), [calendar?.macroEvents, eventType, market, ticker]);
@@ -292,9 +294,17 @@ export const ResearchCalendarV6 = ({ records, theme, onOpen }: {
                     <select aria-label="Calendar ticker" value={ticker} onChange={(event) => setTicker(event.target.value)} className={'mt-1 w-full ' + inputClass}><option value="ALL">All tickers</option>{tickerOptions.map((symbol) => <option key={symbol} value={symbol}>{symbol}</option>)}</select>
                 </label>
                 <label className={'text-xs font-medium ' + styles.textMuted}>Event type
-                    <select aria-label="Event type" value={eventType} onChange={(event) => setEventType(event.target.value as CalendarEventFilter)} className={'mt-1 w-full ' + inputClass}><option value="ALL">All events</option><option value="macro">Macro releases</option><option value="review">Scheduled reviews</option><option value="earnings">Earnings</option><option value="stale">Stale reviews</option></select>
+                    <select aria-label="Event type" value={eventType} onChange={(event) => setEventType(event.target.value as CalendarEventFilter)} className={'mt-1 w-full ' + inputClass}><option value="ALL">All events</option><option value="dividend">Dividends</option><option value="cash-flow">Planned cash flows</option><option value="macro">Macro releases</option><option value="review">Scheduled reviews</option><option value="earnings">Earnings</option><option value="stale">Stale reviews</option></select>
                 </label>
             </div>
+
+            {eventType === 'ALL' || localEventType ? <DividendCashFlowCalendarV6
+                records={records}
+                theme={theme}
+                rangeDays={rangeDays}
+                view={view}
+                eventKind={localEventType ? eventType : 'ALL'}
+            /> : null}
 
             {calendar?.warnings.map((warning) => <p key={warning} role="status" className={'mt-3 rounded-md border px-3 py-2 text-xs ' + styles.risk}>{warning}</p>)}
             {loading ? <div role="status" className={'mt-4 rounded-lg border p-6 text-sm ' + styles.panel + ' ' + styles.textSecondary}>Loading catalyst, macro, and review dates...</div> : null}

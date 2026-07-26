@@ -40,8 +40,8 @@ export type SinceLastVisitBriefingInput = {
     readonly previous: ResearchVisitSnapshot | null;
     readonly currentMarkets: readonly ResearchVisitMarketSnapshot[];
     readonly events: readonly {
-        readonly symbol: string;
-        readonly type: 'review' | 'earnings' | 'stale';
+        readonly symbol: string | null;
+        readonly type: 'review' | 'earnings' | 'stale' | 'dividend' | 'cash-flow';
         readonly date: string;
     }[];
     readonly alerts: readonly {
@@ -320,7 +320,7 @@ export const buildSinceLastVisitBriefing = (
             workspace: 'calendar',
         }, 90));
     }
-    for (const event of input.events.filter((item) => item.type === 'earnings')) {
+    for (const event of input.events.filter((item) => item.type === 'earnings' && item.symbol !== null)) {
         actions.push(action({
             id: `earnings:${event.symbol}:${event.date}`,
             kind: 'earnings',
