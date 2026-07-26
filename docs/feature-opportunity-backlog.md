@@ -247,6 +247,8 @@ The existing comparison workspace is useful for up to three manually selected wa
 
 Incorrect peer grouping is worse than no peer comparison. Suggested peers should be editable and never silently determine the saved decision.
 
+**Historical valuation slice delivered:** the selected US ticker's Valuation tab now shows up to eight accession-aligned annual `10-K`/`10-K/A` observations for P/E, price-to-sales, and FCF yield. Every value retains filing availability, strict next-close price date, split/share basis, exact inputs, formulas, gaps, amendment status, and sources. It is intentionally separate from peer percentiles. Malaysia and analyst estimate/revision history remain unavailable because the repo has no suitable period-correct or licensed source.
+
 ## Medium-priority opportunity notes
 
 ### 7. Market score sensitivity simulator

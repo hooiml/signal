@@ -296,6 +296,16 @@ Market calibration checks should cover 7-day and 30-day average and median forwa
 
 Assisted research smoke checks should generate findings for a US symbol, show whether synthesis is AI-assisted or evidence-based, retain source links and reporting periods, accept one finding into its intended journal field without overwriting existing text, dismiss another finding, refresh the queue, and save the accepted draft. After reload, the accepted-evidence section must retain the finding and source links, while Review history must show a new timestamped snapshot and identify fields changed from the preceding review. Removing evidence before save must remove its provenance without silently deleting the journal text. With `KIMI_API_KEY` unavailable, the evidence-based fallback must remain usable. Malformed or source-less findings, unsafe source URLs, oversized evidence collections, and client-supplied review-history rewrites must be rejected or ignored at the boundary. The Index Test should remain evidence-only and must not automatically toggle the persisted `betterThanCashOrIndex` checklist field.
 
+Historical valuation checks must keep historical prices, period-correct filing fundamentals, and analyst estimate/revision history as three separate capabilities. Deterministic fixtures cover accession-only fact selection, fiscal-period/current-frame selection, exact duplicates, conflicting duplicates, `10-K/A` changed inputs, USD units, strict post-filing price selection, non-trading days, later stock splits, formula outputs, negative earnings, missing capex, currency mismatch, source links, partial/provider failure, unsupported Malaysia coverage, unavailable analyst revisions, client response bounds, and the eight-observation/4,000-price-row limits. The implementation must never use a same-day close, current fundamentals, cross-accession facts, or proxy analyst signals.
+
+Browser QA at 1280px, 768px, and 375px covers delayed loading, complete success, partial coverage, total provider error with retry, empty/unsupported output, capability cards, metric controls, discrete chart semantics, accessible table, formula/source details, local table scrolling, and document overflow. It asserts the historical endpoint is a body-free `GET` containing only symbol and market, no watchlist mutation occurs, and browser-local holdings/account/cash/factor markers never enter request URLs or bodies.
+
+Run the deterministic browser lane against an owned local server:
+
+```powershell
+npm run qa:historical-valuation
+```
+
 ## Current Test Gap
 
 There is no dedicated unit test runner configured yet. Until one is added, lint, typecheck, build, harness checks, API smoke tests, and browser checks are the available verification surfaces.

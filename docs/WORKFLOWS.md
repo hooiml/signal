@@ -59,6 +59,8 @@ See `docs/HARNESS.md` for check design, eval artifacts, and completion evidence 
 4. Add or update docs if the route changes repo behavior.
 5. Run API smoke checks from `docs/TESTING.md` when the route depends on runtime data.
 
+For historical valuation changes, also run `npm run test:research` and `npm run qa:historical-valuation`. Preserve the point-in-time and privacy contract in `docs/historical-valuation.md`.
+
 ## Configuring Official SEC Requests
 
 Set `SEC_USER_AGENT` to an operator identity with a monitored contact email or an HTTP(S) contact URL, following the SEC access policy. Signal fails closed when that value is absent or malformed; do not substitute placeholder contact data.

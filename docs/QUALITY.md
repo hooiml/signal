@@ -25,6 +25,7 @@ These rules capture repo taste as mechanical, repeatable guidance for future age
 - Preserve source freshness and coverage metadata when changing signal outputs.
 - Do not hide degraded or limited source coverage from the UI.
 - Keep confidence wording clear that it means indicator agreement, not forecast accuracy.
+- Historical financial calculations must retain fiscal period, filing availability, price date, units, source links, formulas, split convention, and per-input gaps. Never pair a historical price with current fundamentals or use a filing fact before it became public.
 
 ## Cleanup Policy
 

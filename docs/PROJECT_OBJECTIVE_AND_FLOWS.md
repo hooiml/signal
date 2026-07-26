@@ -78,6 +78,7 @@ Primary jobs to be done:
 - Find securities that are actionable or waiting for a better entry.
 - Review a security using a consistent research framework.
 - Revisit what would invalidate a thesis or change a decision.
+- Compare a small set of filing-aligned historical valuation observations without mistaking them for daily multiples or analyst forecasts.
 
 ## Product Structure
 
