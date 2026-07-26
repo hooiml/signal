@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getResearchInbox } from '@/lib/research/inbox';
-import { parseResearchMonitoringRules, ResearchInputError } from '@/lib/research/input';
+import { parseResearchMonitoringRules, parseResearchUpdateInput, ResearchInputError } from '@/lib/research/input';
 import type { ResearchInboxInput } from '@/lib/types/research-inbox';
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -19,7 +19,14 @@ const parseInput = (value: unknown): ResearchInboxInput | null => {
     if (typeof input.targetBuyZone !== 'string' || input.targetBuyZone.length > 60) return null;
     if (typeof input.lastReviewedAt !== 'string' || !isCalendarDate(input.lastReviewedAt)) return null;
     try {
-        return { symbol: input.symbol, market: input.market, targetBuyZone: input.targetBuyZone, lastReviewedAt: input.lastReviewedAt, monitoringRules: parseResearchMonitoringRules(input.monitoringRules ?? {}) };
+        return {
+            symbol: input.symbol,
+            market: input.market,
+            targetBuyZone: input.targetBuyZone,
+            lastReviewedAt: input.lastReviewedAt,
+            acceptedEvidence: parseResearchUpdateInput({ acceptedEvidence: input.acceptedEvidence }).acceptedEvidence ?? [],
+            monitoringRules: parseResearchMonitoringRules(input.monitoringRules ?? {}),
+        };
     } catch (error) {
         if (error instanceof ResearchInputError) return null;
         throw error;

@@ -1,9 +1,7 @@
 import type { AlertTickerInput } from './research-alert';
-import type { ResearchMonitoringRules } from './research';
 
 export type ResearchInboxInput = AlertTickerInput & {
     readonly lastReviewedAt: string;
-    readonly monitoringRules: ResearchMonitoringRules;
 };
 
 export type ResearchInboxKind = 'risk' | 'opportunity' | 'catalyst' | 'stale';
@@ -17,8 +15,9 @@ export type ResearchInboxItem = {
     readonly title: string;
     readonly detail: string;
     readonly proximity: string;
-    readonly source: 'Yahoo Finance' | 'Nasdaq earnings calendar' | 'Research journal';
+    readonly source: 'Yahoo Finance' | 'Nasdaq earnings calendar' | 'Research journal' | 'Structured trigger';
     readonly eventDate: string | null;
+    readonly structuredTriggerRuleId: string | null;
 };
 
 export type ResearchInboxResponse = {

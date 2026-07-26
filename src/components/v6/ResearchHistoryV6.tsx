@@ -44,6 +44,7 @@ export const ResearchHistoryV6 = ({ record, theme }: {
                                     <div><dt className={'text-xs font-semibold ' + styles.textMuted}>Bear case</dt><dd className={'mt-1 whitespace-pre-wrap text-sm leading-5 ' + styles.textSecondary}>{review.bearCase || 'Not recorded'}</dd></div>
                                     <div><dt className={'text-xs font-semibold ' + styles.textMuted}>Buy trigger</dt><dd className={'mt-1 whitespace-pre-wrap text-sm leading-5 ' + styles.textSecondary}>{review.buyTrigger || 'Not recorded'}</dd></div>
                                     <div><dt className={'text-xs font-semibold ' + styles.textMuted}>Thesis invalidation</dt><dd className={'mt-1 whitespace-pre-wrap text-sm leading-5 ' + styles.textSecondary}>{review.thesisBreak || 'Not recorded'}</dd></div>
+                                    <div className="sm:col-span-2"><dt className={'text-xs font-semibold ' + styles.textMuted}>Structured monitoring frozen with this review</dt><dd className={'mt-1 text-sm leading-5 ' + styles.textSecondary}>{review.monitoringRules.structuredTriggers.rules.length === 0 ? 'No structured rules' : `${review.monitoringRules.structuredTriggers.rules.filter((rule) => rule.enabled).length} active · ${review.monitoringRules.structuredTriggers.rules.filter((rule) => !rule.enabled).length} disabled`}</dd></div>
                                 </dl>
                                 {review.acceptedEvidence.length > 0 ? (
                                     <div className={'mt-3 border-t pt-3 ' + styles.divider}>

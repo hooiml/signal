@@ -1,8 +1,7 @@
 import type { DiscoveryCatalyst } from '../types/research-discovery';
 import type { AlertMarketState, ResearchAlertEvaluation } from '../types/research-alert';
 import type { ResearchInboxInput, ResearchInboxItem, ResearchInboxResponse } from '../types/research-inbox';
-import { evaluateResearchTickers } from './alert-service';
-import { fetchUpcomingCatalysts } from './catalysts';
+import { evaluateResearchAlertBatch } from './alert-service';
 import { parseBuyZone } from './alerts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -19,6 +18,7 @@ const item = (input: ResearchInboxInput, values: Pick<ResearchInboxItem, 'id' | 
     urgency: 'action',
     source: 'Yahoo Finance',
     eventDate: null,
+    structuredTriggerRuleId: null,
 });
 
 const marketItems = (input: ResearchInboxInput, state: AlertMarketState | null): readonly ResearchInboxItem[] => {
@@ -58,13 +58,37 @@ const marketItems = (input: ResearchInboxInput, state: AlertMarketState | null):
 const catalystItem = (input: ResearchInboxInput, catalyst: DiscoveryCatalyst, now: Date): ResearchInboxItem => ({
     id: `${input.symbol}-earnings-${catalyst.date}`, symbol: input.symbol, kind: 'catalyst', urgency: 'upcoming', title: 'Earnings approaching',
     detail: `Scheduled ${catalyst.timing === 'time-not-supplied' ? 'time not supplied' : catalyst.timing}${catalyst.fiscalQuarterEnding ? ` · quarter ending ${catalyst.fiscalQuarterEnding}` : ''}.`,
-    proximity: `${daysUntil(catalyst.date, now)} days away`, source: catalyst.source, eventDate: catalyst.date,
+    proximity: `${daysUntil(catalyst.date, now)} days away`, source: catalyst.source, eventDate: catalyst.date, structuredTriggerRuleId: null,
 });
 
 const staleItem = (input: ResearchInboxInput, ageDays: number): ResearchInboxItem => ({
     id: `${input.symbol}-stale-${input.lastReviewedAt}`, symbol: input.symbol, kind: 'stale', urgency: 'action', title: 'Research review is stale',
     detail: `Last reviewed ${ageDays} days ago. Recheck the thesis, valuation, and invalidation conditions.`, proximity: `${ageDays} days since review`,
-    source: 'Research journal', eventDate: null,
+    source: 'Research journal', eventDate: null, structuredTriggerRuleId: null,
+});
+
+const structuredTriggerItems = (
+    input: ResearchInboxInput,
+    evaluation: ResearchAlertEvaluation,
+): readonly ResearchInboxItem[] => evaluation.structuredTriggers.flatMap((trigger) => {
+    if (trigger.status !== 'matched') return [];
+    const kind = trigger.rule.purpose === 'thesis-invalidation'
+        ? 'risk' as const
+        : trigger.rule.purpose === 'opportunity-review'
+            ? 'opportunity' as const
+            : 'stale' as const;
+    return [{
+        id: `${input.symbol}-structured-${trigger.rule.id}`,
+        symbol: input.symbol,
+        kind,
+        urgency: trigger.rule.purpose === 'scheduled-evidence-review' ? 'upcoming' as const : 'action' as const,
+        title: trigger.title,
+        detail: trigger.detail,
+        proximity: trigger.observed?.label ?? 'Matched',
+        source: 'Structured trigger' as const,
+        eventDate: trigger.rule.metric === 'earnings-within-days' ? trigger.observed?.observedAt?.slice(0, 10) ?? null : null,
+        structuredTriggerRuleId: trigger.rule.id,
+    }];
 });
 
 export const buildResearchInboxItems = (
@@ -79,7 +103,7 @@ export const buildResearchInboxItems = (
     const inputBySymbol = new Map(inputs.map((input) => [input.symbol, input]));
     const alertItems = evaluations.flatMap((evaluation) => {
         const input = inputBySymbol.get(evaluation.input.symbol);
-        return input ? marketItems(input, evaluation.state) : [];
+        return input ? [...marketItems(input, evaluation.state), ...structuredTriggerItems(input, evaluation)] : [];
     });
     const staleItems = inputs.flatMap((input) => {
         const ageDays = daysBetween(input.lastReviewedAt, now);
@@ -94,21 +118,21 @@ export const buildResearchInboxItems = (
 };
 
 export const getResearchInbox = async (inputs: readonly ResearchInboxInput[]): Promise<ResearchInboxResponse> => {
-    const alertInputs = inputs.map(({ symbol, market, targetBuyZone }) => ({ symbol, market, targetBuyZone }));
-    const usSymbols = inputs.filter((input) => input.market === 'US' && input.monitoringRules.earningsWithinDays !== null).map((input) => input.symbol);
-    const [evaluationsResult, catalystsResult] = await Promise.allSettled([evaluateResearchTickers(alertInputs), fetchUpcomingCatalysts(usSymbols)]);
-    const evaluations = evaluationsResult.status === 'fulfilled' ? evaluationsResult.value : [];
+    const evaluationsResult = await Promise.allSettled([evaluateResearchAlertBatch(inputs)]);
+    const evaluations = evaluationsResult[0].status === 'fulfilled' ? evaluationsResult[0].value.evaluations : [];
     const failedCount = evaluations.filter((result) => result.failed).length;
-    const catalysts = catalystsResult.status === 'fulfilled' ? catalystsResult.value : new Map<string, DiscoveryCatalyst>();
+    const catalysts = new Map(evaluations.flatMap((evaluation) => evaluation.catalyst
+        ? [[evaluation.input.symbol, evaluation.catalyst] as const]
+        : []));
     const warnings = [
-        ...(evaluationsResult.status === 'rejected' ? ['Price and technical conditions are temporarily unavailable.'] : []),
+        ...(evaluationsResult[0].status === 'rejected' ? ['Price, technical, and structured-trigger conditions are temporarily unavailable.'] : []),
         ...(failedCount > 0 ? [`${failedCount} tickers were unavailable and excluded.`] : []),
-        ...(catalystsResult.status === 'rejected' ? ['Upcoming earnings coverage is temporarily unavailable.'] : []),
+        ...(evaluationsResult[0].status === 'fulfilled' ? evaluationsResult[0].value.warnings : []),
     ];
     const generatedAt = new Date();
     return {
         generatedAt: generatedAt.toISOString(),
-        monitoredCount: evaluationsResult.status === 'fulfilled' ? inputs.length - failedCount : 0,
+        monitoredCount: evaluationsResult[0].status === 'fulfilled' ? inputs.length - failedCount : 0,
         items: buildResearchInboxItems({ inputs, evaluations, catalysts, now: generatedAt }),
         warnings,
     };

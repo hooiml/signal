@@ -19,6 +19,7 @@ export const researchWorkflowSources = [
     'document-diff',
     'calendar',
     'alert',
+    'structured-trigger',
     'market-exposure',
 ] as const;
 
@@ -36,6 +37,7 @@ export type ResearchWorkflowTask = {
     readonly symbol: string;
     readonly templateId: ResearchWorkflowTemplateId;
     readonly source: ResearchWorkflowSource;
+    readonly dedupeKey: string | null;
     readonly dueAt: string | null;
     readonly createdAt: string;
     readonly completedAt: string | null;
@@ -93,6 +95,8 @@ export const parseResearchWorkflowTasks = (value: unknown): readonly ResearchWor
             || typeof entry.symbol !== 'string' || !/^[A-Z0-9.-]{1,20}$/.test(entry.symbol)
             || !isResearchWorkflowTemplateId(entry.templateId)
             || !isResearchWorkflowSource(source)
+            || (entry.dedupeKey !== undefined && entry.dedupeKey !== null
+                && (typeof entry.dedupeKey !== 'string' || !/^[A-Za-z0-9:._-]{1,180}$/.test(entry.dedupeKey)))
             || !validDate(entry.dueAt) || !validTimestamp(entry.createdAt)
             || (entry.completedAt !== null && !validTimestamp(entry.completedAt))) return [];
         return [{
@@ -100,6 +104,7 @@ export const parseResearchWorkflowTasks = (value: unknown): readonly ResearchWor
             symbol: entry.symbol,
             templateId: entry.templateId,
             source,
+            dedupeKey: typeof entry.dedupeKey === 'string' ? entry.dedupeKey : null,
             dueAt: entry.dueAt,
             createdAt: entry.createdAt,
             completedAt: entry.completedAt,
@@ -116,6 +121,7 @@ export type ResearchWorkflowEnqueueInput = {
     readonly symbol: string;
     readonly templateId: ResearchWorkflowTemplateId;
     readonly source: Exclude<ResearchWorkflowSource, 'manual'>;
+    readonly dedupeKey?: string;
     readonly dueAt: string | null;
 };
 
@@ -132,9 +138,11 @@ export const enqueueResearchWorkflowTask = (
     createdAt: string,
 ): ResearchWorkflowEnqueueResult => {
     const existing = tasks.find((task) => task.completedAt === null
-        && task.symbol === input.symbol
-        && task.templateId === input.templateId
-        && task.source === input.source);
+        && (input.dedupeKey
+            ? task.dedupeKey === input.dedupeKey
+            : task.symbol === input.symbol
+                && task.templateId === input.templateId
+                && task.source === input.source));
     if (existing) {
         const dueAt = [existing.dueAt, input.dueAt]
             .filter((value): value is string => value !== null)
@@ -147,6 +155,7 @@ export const enqueueResearchWorkflowTask = (
         symbol: input.symbol,
         templateId: input.templateId,
         source: input.source,
+        dedupeKey: input.dedupeKey ?? null,
         dueAt: input.dueAt,
         createdAt,
         completedAt: null,

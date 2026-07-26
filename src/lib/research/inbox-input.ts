@@ -2,7 +2,7 @@ import type { ResearchInboxItem, ResearchInboxResponse } from '../types/research
 
 const kinds = ['risk', 'opportunity', 'catalyst', 'stale'] as const;
 const urgencies = ['action', 'upcoming'] as const;
-const sources = ['Yahoo Finance', 'Nasdaq earnings calendar', 'Research journal'] as const;
+const sources = ['Yahoo Finance', 'Nasdaq earnings calendar', 'Research journal', 'Structured trigger'] as const;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -14,7 +14,8 @@ const isInboxItem = (value: unknown): value is ResearchInboxItem => {
         && urgencies.some((urgency) => urgency === value.urgency)
         && typeof value.title === 'string' && typeof value.detail === 'string' && typeof value.proximity === 'string'
         && sources.some((source) => source === value.source)
-        && (value.eventDate === null || typeof value.eventDate === 'string');
+        && (value.eventDate === null || typeof value.eventDate === 'string')
+        && (value.structuredTriggerRuleId === null || typeof value.structuredTriggerRuleId === 'string');
 };
 
 export const parseResearchInboxResponse = (payload: unknown): ResearchInboxResponse => {

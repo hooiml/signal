@@ -27,6 +27,7 @@ const sourceLabels: Readonly<Record<ResearchWorkflowSource, string>> = {
     'document-diff': 'Filing evidence',
     calendar: 'Calendar',
     alert: 'Alert',
+    'structured-trigger': 'Structured trigger',
     'market-exposure': 'Market exposure',
 };
 
@@ -67,6 +68,7 @@ export const ResearchWorkflowQueueV6 = ({ records, theme, onStart }: {
             symbol,
             templateId,
             source: 'manual',
+            dedupeKey: null,
             dueAt: dueAt || null,
             createdAt: new Date().toISOString(),
             completedAt: null,

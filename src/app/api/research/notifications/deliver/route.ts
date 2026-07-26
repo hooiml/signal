@@ -52,6 +52,7 @@ export const GET = async (request: Request): Promise<NextResponse> => {
             market: record.market,
             targetBuyZone: record.targetBuyZone,
             lastReviewedAt: record.lastReviewedAt,
+            acceptedEvidence: record.acceptedEvidence,
             monitoringRules: record.monitoringRules,
         }));
         if (inputs.length === 0) return NextResponse.json({ success: true, delivered: false, reason: 'empty-watchlist' });

@@ -624,7 +624,7 @@ export const ResearchDashboardV6 = () => {
                                 setProductAnalyticsWorkflowSource('inbox');
                                 trackProductAnalyticsEvent({ name: 'review_opened', surface: 'research', workspace: 'research', source: 'inbox' });
                                 selectTicker(symbol, false, tab);
-                            }} onSave={saveRecord} onSummaryChange={updateInboxSummary} />
+                            }} onSave={saveRecord} saveError={saveError} onSummaryChange={updateInboxSummary} />
                             <PositionPlanOverviewV6 records={records} items={items} theme={theme} />
                         </div>
                     </details>

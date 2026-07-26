@@ -188,6 +188,21 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                             {renderDetail('Review notes', detailText(draft.notes), 'min-[900px]:col-span-2')}
                         </dl>
                     </section>
+                    <section className={'mt-4 border-t pt-4 ' + styles.divider} aria-labelledby="structured-monitoring-summary-title">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h3 id="structured-monitoring-summary-title" className={'text-sm font-semibold ' + styles.textSecondary}>Structured monitoring</h3>
+                            <span className={'text-xs ' + styles.textMuted}>Saved separately from thesis text</span>
+                        </div>
+                        <p className={'mt-2 text-xs leading-5 ' + styles.textMuted}>Fixed numeric rules are edited from Monitoring rules in the Research overview. They are review prompts only and never change this thesis, decision, or checklist.</p>
+                        <p className={'mt-2 text-sm ' + styles.textPrimary}>
+                            {draft.monitoringRules.structuredTriggers.rules.length === 0
+                                ? 'No structured rules configured'
+                                : `${draft.monitoringRules.structuredTriggers.rules.filter((rule) => rule.enabled).length} active · ${draft.monitoringRules.structuredTriggers.rules.filter((rule) => !rule.enabled).length} disabled`}
+                        </p>
+                        {draft.monitoringRules.structuredTriggers.migrationState === 'invalid-recovered'
+                            ? <p role="alert" className={'mt-2 text-xs font-semibold ' + styles.risk}>Malformed legacy rules were recovered as an empty set. Review and save replacements explicitly.</p>
+                            : null}
+                    </section>
                     <section className={'mt-4 border-t pt-4 ' + styles.divider} aria-labelledby="research-state-title">
                         <h3 id="research-state-title" className={'text-sm font-semibold ' + styles.textSecondary}>Research state</h3>
                         <dl className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">

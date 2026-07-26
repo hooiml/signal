@@ -23,6 +23,7 @@ type Props = {
     readonly theme: ResearchThemeV6;
     readonly onOpen: (symbol: string, tab: ResearchTabV6) => void;
     readonly onSave: (record: ResearchRecord, mode: ResearchUpdateMode) => Promise<boolean>;
+    readonly saveError: string | null;
     readonly onSummaryChange?: (summary: ResearchInboxSummaryV6) => void;
 };
 type InboxGroup = { readonly symbol: string; readonly items: readonly ResearchInboxItem[] };
@@ -77,7 +78,7 @@ const ResearchInboxSkeletonV6 = ({ groupCount, theme }: SkeletonProps) => {
     </div>;
 };
 
-export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave, onSummaryChange }: Props) => {
+export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave, saveError, onSummaryChange }: Props) => {
     const [data, setData] = useState<ResearchInboxResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -97,6 +98,7 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave, onSumma
         market,
         targetBuyZone,
         lastReviewedAt,
+        acceptedEvidence: recordBySymbol.get(symbol)?.acceptedEvidence ?? [],
         monitoringRules: recordBySymbol.get(symbol)?.monitoringRules ?? defaultResearchMonitoringRules,
     })));
 
@@ -237,7 +239,7 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave, onSumma
                                 </>}
                                 <button type="button" onClick={() => openItem(group.symbol)} className={'min-h-10 rounded px-3 text-xs font-semibold ' + styles.textSecondary}>Open research</button>
                             </div>
-                            {record ? <ResearchInboxWorkflowV6 key={`${record.symbol}-${JSON.stringify(record.monitoringRules)}`} record={record} theme={theme} onSave={onSave} /> : null}
+                            {record ? <ResearchInboxWorkflowV6 key={record.symbol} record={record} theme={theme} onSave={onSave} saveError={saveError} /> : null}
                         </div>}
                     </article>
                 </li>;

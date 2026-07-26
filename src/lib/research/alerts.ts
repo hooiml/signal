@@ -12,7 +12,15 @@ export const evaluateResearchAlerts = (
     market: AlertMarketState,
 ): readonly ResearchAlert[] => {
     const alerts: ResearchAlert[] = [];
-    const add = (severity: ResearchAlert['severity'], title: string, detail: string) => alerts.push({ symbol, severity, title, detail });
+    const add = (severity: ResearchAlert['severity'], title: string, detail: string) => alerts.push({
+        id: `${symbol}-market-${title}`,
+        symbol,
+        kind: 'market-condition',
+        severity,
+        title,
+        detail,
+        structuredTrigger: null,
+    });
     const zone = parseBuyZone(targetBuyZone);
     if (zone && market.price >= zone[0] && market.price <= zone[1]) {
         add('opportunity', 'Inside buy zone', `Price ${market.price.toFixed(2)} is inside ${zone[0].toFixed(2)}-${zone[1].toFixed(2)}.`);
