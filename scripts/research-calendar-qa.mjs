@@ -108,6 +108,7 @@ try {
                 if (name === 'Watchlist') await researchSectionSelect.selectOption('watchlist');
                 else {
                     await researchSectionSelect.selectOption('activity');
+                    await activityWorkspaceSelect.waitFor({ state: 'visible', timeout });
                     await activityWorkspaceSelect.selectOption(value);
                 }
             } else if (name === 'Watchlist') {
@@ -216,6 +217,7 @@ try {
 
             await selectWorkspace('Watchlist', 'research');
             await page.getByRole('searchbox').fill('NVDA');
+            await page.waitForURL(/ticker=NVDA/, { timeout });
             await selectWorkspace('Calendar', 'calendar');
             await page.waitForFunction(() => document.querySelectorAll('[data-calendar-event]').length === 3, undefined, { timeout });
             await page.getByRole('button', { name: /Open MSFT review workflow/i }).first().click();

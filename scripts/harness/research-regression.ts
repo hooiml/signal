@@ -91,6 +91,25 @@ import {
     reconcilePortfolioHoldings,
 } from '../../src/lib/portfolio/holdings';
 import {
+    buildDividendDiscoveryPath,
+    calculateIllustrativeGrossDividend,
+    dividendEventDate,
+    emptyDividendCashFlowSnapshot,
+    filterDividendCashFlowEvents,
+    migrateDividendCashFlowSnapshot,
+    parseDividendCashFlowSnapshot,
+    parseNasdaqDividendDiscovery,
+    parseNasdaqDividendDiscoveryResponse,
+    removeDividendCashFlowEvent,
+    upcomingDividendCashFlowDigestEvents,
+    upsertDividendCashFlowEvent,
+} from '../../src/lib/portfolio/dividend-cashflow';
+import { fetchNasdaqDividendDiscovery } from '../../src/lib/research/nasdaq-dividends';
+import type {
+    CashFlowPlanningEvent,
+    DividendPlanningEvent,
+} from '../../src/lib/types/dividend-cashflow';
+import {
     buildPortfolioSimulationExport,
     portfolioSimulationLimits,
     simulatePortfolioScenario,
@@ -1414,6 +1433,161 @@ const runPortfolioHoldingsImportTests = () => {
         'portfolio actual weights remain unavailable when market value is missing',
     );
     assertEqual(buildPortfolioSummary([]).totalAllocationPercent, 0, 'imported holdings do not mutate planned allocation analytics');
+};
+
+const runDividendCashFlowTests = async () => {
+    const holdings = createPortfolioImportSnapshot({
+        holdings: [
+            { accountLabel: 'Account A', symbol: 'MSFT', market: 'US', quantity: 10, averageCost: 400, currency: 'USD' },
+            { accountLabel: 'Account B', symbol: 'MSFT', market: 'US', quantity: 2, averageCost: 420, currency: 'USD' },
+            { accountLabel: 'Account A', symbol: '1155.KL', market: 'MY', quantity: 100, averageCost: 9, currency: 'MYR' },
+        ],
+        cashBalances: [
+            { accountLabel: 'Account A', currency: 'USD', balance: 500 },
+            { accountLabel: 'Account A', currency: 'MYR', balance: 700 },
+        ],
+    }, 'Dividend QA', '2026-07-26T08:00:00.000Z');
+    const holdingsBefore = JSON.stringify(holdings);
+    const dividend: DividendPlanningEvent = {
+        id: '10000000-0000-4000-8000-000000000001',
+        revision: 1,
+        accountLabel: 'Account A',
+        currency: 'USD',
+        notes: 'Confirm against the issuer notice.',
+        createdAt: '2026-07-26T09:00:00.000Z',
+        updatedAt: '2026-07-26T09:00:00.000Z',
+        kind: 'dividend',
+        symbol: 'MSFT',
+        market: 'US',
+        status: 'confirmed',
+        declarationDate: '2026-07-10',
+        recordDate: '2026-08-20',
+        exDate: '2026-08-20',
+        paymentDate: '2026-09-10',
+        amountPerShare: 0.91,
+        source: 'user-entered',
+        providerEvidence: null,
+    };
+    const cashFlow: CashFlowPlanningEvent = {
+        id: '10000000-0000-4000-8000-000000000002',
+        revision: 1,
+        accountLabel: 'Account A',
+        currency: 'MYR',
+        notes: 'Planned contribution only.',
+        createdAt: '2026-07-26T09:01:00.000Z',
+        updatedAt: '2026-07-26T09:01:00.000Z',
+        kind: 'cash-flow',
+        category: 'contribution',
+        status: 'planned',
+        plannedDate: '2026-08-01',
+        direction: 'inflow',
+        amount: 1000,
+        source: 'user-entered',
+    };
+    const empty = migrateDividendCashFlowSnapshot(null);
+    assertEqual(empty.revision, 0, 'dividend persistence migrates missing local state to an empty version-1 snapshot');
+    const withDividend = upsertDividendCashFlowEvent(empty, dividend, 0, '2026-07-26T09:00:00.000Z');
+    const withBoth = upsertDividendCashFlowEvent(withDividend, cashFlow, 1, '2026-07-26T09:01:00.000Z');
+    assertEqual(withBoth.revision, 2, 'dividend persistence advances one optimistic snapshot revision per mutation');
+    assertEqual(withBoth.history.length, 2, 'dividend persistence appends immutable revision evidence');
+    assertEqual(parseDividendCashFlowSnapshot(JSON.parse(JSON.stringify(withBoth))).events.length, 2, 'dividend persistence validates a JSON storage round trip');
+    assertThrows(() => upsertDividendCashFlowEvent(withBoth, { ...dividend, notes: 'stale edit' }, 1), 'dividend persistence rejects stale revision updates');
+    assertThrows(() => parseDividendCashFlowSnapshot({ ...withBoth, version: 2 }), 'dividend persistence rejects an unknown contract version');
+    assertThrows(() => parseDividendCashFlowSnapshot({ ...withBoth, events: [{ ...dividend, notes: 'x'.repeat(501) }] }), 'dividend validation bounds authored notes');
+    assertThrows(() => parseDividendCashFlowSnapshot({ ...withBoth, events: [{ ...cashFlow, amount: Number.NaN }] }), 'cash-flow validation rejects non-finite amounts');
+    assertThrows(() => parseDividendCashFlowSnapshot({ ...withBoth, events: [{ ...cashFlow, plannedDate: '2026-02-31' }] }), 'cash-flow validation rejects impossible dates');
+    assertEqual(filterDividendCashFlowEvents(withBoth.events, 'Account A', 'USD').length, 1, 'calendar filtering keeps one exact account and currency');
+    assertEqual(filterDividendCashFlowEvents(withBoth.events, 'Account A', 'MYR').length, 1, 'calendar filtering never aggregates currencies');
+    assertEqual(filterDividendCashFlowEvents(withBoth.events, 'Account B', 'USD').length, 0, 'calendar filtering never aggregates accounts');
+
+    const illustration = calculateIllustrativeGrossDividend(dividend, holdings);
+    assertEqual(illustration?.grossAmount, 9.1, 'illustrative gross multiplies declared amount by current exact quantity');
+    assertEqual(illustration?.arithmetic, '10 shares × USD 0.91 = USD 9.1', 'illustrative gross exposes exact arithmetic');
+    assertEqual(illustration?.snapshotDate, '2026-07-26', 'illustrative gross exposes the actual snapshot date');
+    assertEqual(calculateIllustrativeGrossDividend({ ...dividend, accountLabel: 'Missing' }, holdings), null, 'illustrative gross stays unavailable without exact current quantity');
+    assertEqual(calculateIllustrativeGrossDividend({ ...dividend, amountPerShare: null }, holdings), null, 'illustrative gross stays unavailable without declared amount');
+    assertEqual(dividendEventDate({ ...dividend, declarationDate: null, recordDate: null, exDate: null, paymentDate: null }).basis, 'date unavailable', 'dividend dates remain unavailable instead of being inferred');
+    assertEqual(JSON.stringify(holdings), holdingsBefore, 'dividend and cash-flow calculations never mutate actual holdings or cash');
+
+    const updated = upsertDividendCashFlowEvent(withBoth, { ...dividend, notes: 'Edited after review.' }, 2, '2026-07-26T10:00:00.000Z');
+    assertEqual(updated.events.find((event) => event.id === dividend.id)?.revision, 2, 'event edits advance the event revision');
+    assertEqual(updated.history.at(-1)?.previous?.notes, dividend.notes, 'event edits freeze the prior value in history');
+    const removed = removeDividendCashFlowEvent(updated, dividend.id, 3, '2026-07-26T11:00:00.000Z');
+    assertEqual(removed.events.some((event) => event.id === dividend.id), false, 'event removal removes only the selected planning record');
+    assertEqual(removed.history.at(-1)?.change, 'removed', 'event removal retains a revision-history tombstone');
+
+    const providerPayload = {
+        data: {
+            dividends: {
+                rows: [
+                    {
+                        exOrEffDate: '08/20/2026',
+                        type: 'Cash',
+                        amount: '$0.91',
+                        declarationDate: '06/10/2026',
+                        recordDate: '08/20/2026',
+                        paymentDate: '09/10/2026',
+                        currency: 'USD',
+                    },
+                    {
+                        exOrEffDate: '02/19/2003',
+                        type: 'Cash',
+                        amount: '$0.08',
+                        declarationDate: 'N/A',
+                        recordDate: '02/19/2003',
+                        paymentDate: 'N/A',
+                        currency: 'USD',
+                    },
+                ],
+            },
+        },
+    };
+    const discovery = parseNasdaqDividendDiscovery(providerPayload, 'msft', '2026-07-26T12:00:00.000Z');
+    assertEqual(discovery.events.length, 1, 'provider parser keeps only declared events with supplied usable dates');
+    assertEqual(discovery.events[0]?.amountPerShare, 0.91, 'provider parser normalizes a declared amount per share');
+    assertEqual(discovery.events[0]?.paymentDate, '2026-09-10', 'provider parser preserves a supplied payment date');
+    assertEqual(discovery.events[0]?.status, 'declared', 'provider discovery never upgrades declared metadata to user-confirmed');
+    const response = parseNasdaqDividendDiscoveryResponse({ success: true, data: discovery });
+    assertEqual(response.sourceUrl, 'https://www.nasdaq.com/market-activity/stocks/msft/dividend-history', 'provider response retains official provenance');
+    assertThrows(() => parseNasdaqDividendDiscoveryResponse({ success: true, data: { ...discovery, sourceUrl: 'https://evil.example' } }), 'provider response rejects forged provenance');
+    assertEqual(buildDividendDiscoveryPath('MSFT'), '/api/research/dividends/MSFT', 'provider request path contains only the validated ticker');
+    assertEqual(buildDividendDiscoveryPath('MSFT').includes('Account'), false, 'provider request path excludes account and quantity data');
+
+    const originalFetch = globalThis.fetch;
+    try {
+        globalThis.fetch = async () => new Response('{}', { status: 503 });
+        await assertRejects(() => fetchNasdaqDividendDiscovery('MSFT'), 'provider fetch reports an upstream error state');
+        globalThis.fetch = async () => new Response(JSON.stringify({ data: { dividends: { rows: [] } } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        });
+        await assertRejects(() => fetchNasdaqDividendDiscovery('MSFT'), 'provider fetch reports a per-symbol unavailable state');
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+
+    const digestEvents = upcomingDividendCashFlowDigestEvents(withBoth, new Date('2026-07-26T00:00:00.000Z'), 30);
+    assertEqual(digestEvents.length, 1, 'local briefing includes only upcoming dated local events in range');
+    assertEqual(digestEvents[0]?.type, 'cash-flow', 'local briefing retains the local planning event type without account data');
+    assertEqual(JSON.stringify(digestEvents).includes('Account A'), false, 'local digest projection excludes account labels and authored notes');
+
+    const queued = enqueueResearchWorkflowTask([], {
+        symbol: 'MSFT',
+        templateId: 'post-event',
+        source: 'dividend-cashflow',
+        dedupeKey: `dividend:${dividend.id}`,
+        dueAt: dividend.paymentDate,
+    }, '20000000-0000-4000-8000-000000000001', '2026-07-26T12:00:00.000Z');
+    const duplicate = enqueueResearchWorkflowTask(queued.tasks, {
+        symbol: 'MSFT',
+        templateId: 'post-event',
+        source: 'dividend-cashflow',
+        dedupeKey: `dividend:${dividend.id}`,
+        dueAt: dividend.paymentDate,
+    }, '20000000-0000-4000-8000-000000000002', '2026-07-26T12:01:00.000Z');
+    assertEqual(duplicate.created, false, 'dividend Queue integration deduplicates one pending event review');
+    assertEqual(duplicate.tasks.length, 1, 'dividend Queue integration never creates duplicate pending entries');
+    assertEqual(emptyDividendCashFlowSnapshot().events.length, 0, 'empty planning state contains no fabricated forecasts');
 };
 
 const runPortfolioSimulationTests = () => {
@@ -3074,6 +3248,7 @@ const main = async () => {
     runSinceLastVisitTests();
     runPortfolioAnalyticsTests();
     runPortfolioHoldingsImportTests();
+    await runDividendCashFlowTests();
     runPortfolioSimulationTests();
     runPortfolioFactorExposureTests();
     runSourceHealthTests();

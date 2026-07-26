@@ -10,6 +10,7 @@
     "qa:market": "node scripts/market-qa.mjs",
     "qa:portfolio-import": "node scripts/portfolio-import-qa.mjs",
     "qa:portfolio-what-if": "node scripts/portfolio-what-if-qa.mjs",
+    "qa:dividend-cashflow": "node scripts/dividend-cashflow-qa.mjs",
     "qa:research-calendar": "node scripts/research-calendar-qa.mjs",
     "qa:research-continuity": "node scripts/research-continuity-qa.mjs",
     "qa:research-structured-triggers": "node scripts/research-structured-triggers-qa.mjs",
