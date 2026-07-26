@@ -89,6 +89,12 @@ import {
     previewPortfolioImportEffect,
     reconcilePortfolioHoldings,
 } from '../../src/lib/portfolio/holdings';
+import {
+    buildPortfolioSimulationExport,
+    portfolioSimulationLimits,
+    simulatePortfolioScenario,
+    type PortfolioSimulationLegInput,
+} from '../../src/lib/portfolio/simulation';
 import { isResearchNotificationQuietHour, parseResearchNotificationSettings } from '../../src/lib/types/research-notification-settings';
 import { buildPeerBenchmark } from '../../src/lib/research/peer-benchmark';
 import { summarizeSourceHealth, type SourceHealthEntry } from '../../src/lib/types/source-health';
@@ -1229,6 +1235,114 @@ const runPortfolioHoldingsImportTests = () => {
         'portfolio actual weights remain unavailable when market value is missing',
     );
     assertEqual(buildPortfolioSummary([]).totalAllocationPercent, 0, 'imported holdings do not mutate planned allocation analytics');
+};
+
+const runPortfolioSimulationTests = () => {
+    const imported = createPortfolioImportSnapshot({
+        holdings: [
+            { accountLabel: 'Main', symbol: 'MSFT', market: 'US', quantity: 10, averageCost: 100, currency: 'USD' },
+            { accountLabel: 'Main', symbol: 'NVDA', market: 'US', quantity: 4, averageCost: 200, currency: 'USD' },
+            { accountLabel: 'MY Account', symbol: '1155.KL', market: 'MY', quantity: 100, averageCost: 8, currency: 'MYR' },
+        ],
+        cashBalances: [
+            { accountLabel: 'Main', currency: 'USD', balance: 1_000 },
+            { accountLabel: 'MY Account', currency: 'MYR', balance: 500 },
+        ],
+    }, 'Simulation fixture', '2026-07-26T10:00:00.000Z');
+    const msft = {
+        ...createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' }),
+        lastReviewedAt: '2026-07-20',
+        positionPlan: { plannedAllocationPercent: null, averageCost: null, plannedEntryPrice: null, invalidationPrice: 90 },
+    };
+    const nvda = {
+        ...createResearchRecord({ symbol: 'NVDA', market: 'US', companyName: 'Nvidia' }),
+        lastReviewedAt: '2026-07-20',
+        positionPlan: { plannedAllocationPercent: null, averageCost: null, plannedEntryPrice: null, invalidationPrice: null },
+    };
+    const research = [
+        { record: msft, sector: 'Technology', currentPrice: 120 },
+        { record: nvda, sector: 'Technology', currentPrice: null },
+    ];
+    const buy: PortfolioSimulationLegInput = {
+        id: 'buy-msft', accountLabel: 'Main', symbol: 'msft', market: 'US', currency: 'USD',
+        side: 'buy', quantity: 5, assumedPrice: 110,
+    };
+    const partialSell: PortfolioSimulationLegInput = {
+        id: 'sell-nvda', accountLabel: 'Main', symbol: 'NVDA', market: 'US', currency: 'USD',
+        side: 'sell', quantity: 2, assumedPrice: 210,
+    };
+    const result = simulatePortfolioScenario(imported, [partialSell, buy], research, defaultInvestmentPolicy, '2026-07-26');
+    assertEqual(result.status, 'ready', 'portfolio simulation accepts a valid multi-leg basket');
+    assertEqual(result.legs[0]?.id, 'sell-nvda', 'portfolio simulation preserves visible leg ordering');
+    assertEqual(result.after.positions.find((row) => row.symbol === 'MSFT')?.quantity, 15, 'portfolio simulation applies a buy quantity');
+    assertEqual(result.after.positions.find((row) => row.symbol === 'MSFT')?.averageCost, 103.33, 'portfolio simulation calculates weighted average cost');
+    assertEqual(result.after.positions.find((row) => row.symbol === 'NVDA')?.quantity, 2, 'portfolio simulation applies a partial sell');
+    assertEqual(result.after.buckets.find((row) => row.accountLabel === 'Main')?.cashBalance, 870, 'portfolio simulation nets same-currency cash deterministically');
+    assertEqual(result.before.buckets.find((row) => row.currency === 'MYR')?.cashBalance, 500, 'portfolio simulation isolates currency and account buckets');
+    assertEqual(result.after.buckets.find((row) => row.currency === 'MYR')?.cashBalance, 500, 'portfolio simulation leaves unrelated currency cash unchanged');
+    assertEqual(result.after.buckets.find((row) => row.accountLabel === 'Main')?.missingMarketValues, 0, 'assumed sell price supplies the touched position value');
+    assertEqual(result.before.buckets.find((row) => row.accountLabel === 'Main')?.missingMarketValues, 1, 'portfolio simulation keeps unavailable current values unavailable before the scenario');
+    assertEqual(result.before.buckets.find((row) => row.accountLabel === 'Main')?.largestPosition, null, 'portfolio simulation does not claim concentration with incomplete values');
+    assertEqual(result.after.buckets.find((row) => row.accountLabel === 'Main')?.largestPosition?.symbol, 'MSFT', 'portfolio simulation calculates single-name concentration');
+    assertEqual(result.after.buckets.find((row) => row.accountLabel === 'Main')?.sectors[0]?.label, 'Technology', 'portfolio simulation aggregates exact research sectors');
+    assertEqual(result.after.buckets.find((row) => row.accountLabel === 'Main')?.definedDownsideValue, 300, 'portfolio simulation includes valid lower invalidation downside only');
+    assertEqual(result.after.buckets.find((row) => row.accountLabel === 'Main')?.riskExcludedPositions, 1, 'portfolio simulation discloses missing downside evidence');
+    assertEqual(
+        result.after.buckets.find((row) => row.accountLabel === 'Main')?.policyBreaches.some((breach) => breach.kind === 'single-allocation'),
+        true,
+        'portfolio simulation reuses deterministic policy evaluation for valid actual weights',
+    );
+
+    const reordered = simulatePortfolioScenario(imported, [buy, partialSell], research, defaultInvestmentPolicy, '2026-07-26');
+    assertEqual(JSON.stringify(reordered.after), JSON.stringify(result.after), 'portfolio simulation result is independent of distinct leg ordering');
+
+    const fullSell = simulatePortfolioScenario(imported, [{
+        ...partialSell, id: 'full-sell', quantity: 4,
+    }], research, defaultInvestmentPolicy, '2026-07-26');
+    assertEqual(fullSell.after.positions.some((row) => row.symbol === 'NVDA'), false, 'portfolio simulation removes a fully sold position');
+
+    const invalid = simulatePortfolioScenario(imported, [
+        { ...partialSell, id: 'oversell', quantity: 5 },
+        { ...buy, id: 'duplicate-a' },
+        { ...buy, id: 'duplicate-b', side: 'sell' },
+        { ...buy, id: 'bad-price', symbol: 'AMD', assumedPrice: Number.NaN },
+        { ...buy, id: 'wrong-account', accountLabel: 'main', symbol: 'GOOG' },
+    ], research, defaultInvestmentPolicy, '2026-07-26');
+    assertEqual(invalid.status, 'invalid', 'portfolio simulation rejects an invalid basket');
+    assertEqual(invalid.legs.find((leg) => leg.id === 'oversell')?.errors.some((error) => error.includes('exceeds')), true, 'portfolio simulation rejects overselling');
+    assertEqual(invalid.legs.find((leg) => leg.id === 'duplicate-a')?.errors.some((error) => error.includes('Duplicate')), true, 'portfolio simulation rejects duplicate or conflicting legs');
+    assertEqual(invalid.legs.find((leg) => leg.id === 'bad-price')?.errors.some((error) => error.includes('price')), true, 'portfolio simulation rejects a missing or non-finite assumed price');
+    assertEqual(invalid.legs.find((leg) => leg.id === 'wrong-account')?.errors.some((error) => error.includes('account')), true, 'portfolio simulation requires exact account scope');
+    assertEqual(JSON.stringify(invalid.after), JSON.stringify(invalid.before), 'portfolio simulation never applies a partially invalid basket');
+
+    const unmatched = simulatePortfolioScenario(imported, [{
+        ...buy, id: 'unmatched', symbol: 'GOOG', quantity: 1, assumedPrice: 100,
+    }], research, defaultInvestmentPolicy, '2026-07-26');
+    assertEqual(unmatched.legs[0]?.researchMatched, false, 'portfolio simulation surfaces unmatched symbols without guessing');
+    assertEqual(unmatched.after.buckets.find((row) => row.accountLabel === 'Main')?.unmatchedPositions, 1, 'portfolio simulation discloses unmatched coverage');
+
+    const deficit = simulatePortfolioScenario(imported, [{
+        ...buy, id: 'deficit', symbol: 'GOOG', quantity: 20, assumedPrice: 100,
+    }], research, defaultInvestmentPolicy, '2026-07-26');
+    assertEqual(deficit.after.buckets.find((row) => row.accountLabel === 'Main')?.cashBalance, -1_000, 'portfolio simulation preserves an explicit cash deficit');
+    assertEqual(deficit.warnings.some((warning) => warning.includes('cash deficit')), true, 'portfolio simulation warns instead of silently funding or blocking');
+
+    const duplicateSnapshot = JSON.stringify(imported);
+    const first = simulatePortfolioScenario(imported, [buy], research, defaultInvestmentPolicy, '2026-07-26');
+    const second = simulatePortfolioScenario(imported, [buy], research, defaultInvestmentPolicy, '2026-07-26');
+    assertEqual(JSON.stringify(imported), duplicateSnapshot, 'portfolio simulation does not mutate the accepted holdings snapshot');
+    assertEqual(JSON.stringify(first), JSON.stringify(second), 'portfolio simulation is idempotent for the same explicit inputs');
+
+    const tooMany = Array.from({ length: portfolioSimulationLimits.maxLegs + 1 }, (_, index) => ({
+        ...buy, id: `leg-${index}`, symbol: `S${index}`,
+    }));
+    assertEqual(simulatePortfolioScenario(imported, tooMany, research, defaultInvestmentPolicy).status, 'invalid', 'portfolio simulation enforces its leg bound');
+
+    const csv = buildPortfolioSimulationExport(first, 'csv');
+    const markdown = buildPortfolioSimulationExport(first, 'markdown', '=Authored scenario');
+    assertEqual(csv.includes('No orders were sent'), true, 'portfolio simulation export states that no orders were sent');
+    assertEqual(markdown.includes("'=Authored scenario"), true, 'portfolio simulation export neutralizes spreadsheet formulas');
+    assertEqual(markdown.includes('No orders were sent'), true, 'portfolio simulation Markdown export states that no orders were sent');
 };
 
 const runScenarioLibraryTests = () => {
@@ -2435,6 +2549,7 @@ const main = async () => {
     runSinceLastVisitTests();
     runPortfolioAnalyticsTests();
     runPortfolioHoldingsImportTests();
+    runPortfolioSimulationTests();
     runSourceHealthTests();
     runMarketReplayTests();
     runProductAnalyticsTests();

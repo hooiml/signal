@@ -118,25 +118,28 @@ const boundedLabel = (value: unknown, label: string, maxLength: number): string 
     return normalized;
 };
 
-const parseSymbol = (value: unknown): string => {
+export const parsePortfolioAccountLabel = (value: unknown): string =>
+    boundedLabel(value, 'Account label', portfolioImportLimits.maxAccountLabelLength);
+
+export const parsePortfolioSymbol = (value: unknown): string => {
     const symbol = boundedLabel(value, 'Symbol', 20).toUpperCase();
     if (!/^[A-Z0-9.-]+$/.test(symbol)) throw new Error('Symbol contains unsupported characters.');
     return symbol;
 };
 
-const parseMarket = (value: unknown): ResearchMarket => {
+export const parsePortfolioMarket = (value: unknown): ResearchMarket => {
     const market = typeof value === 'string' ? value.trim().toUpperCase() : '';
     if (market !== 'US' && market !== 'MY') throw new Error('Market must be US or MY.');
     return market;
 };
 
-const parseCurrency = (value: unknown): PortfolioCurrency => {
+export const parsePortfolioCurrency = (value: unknown): PortfolioCurrency => {
     const currency = typeof value === 'string' ? value.trim().toUpperCase() : '';
     if (currency !== 'USD' && currency !== 'MYR') throw new Error('Currency must be USD or MYR.');
     return currency;
 };
 
-const parseFiniteNumber = (
+export const parsePortfolioFiniteNumber = (
     value: unknown,
     label: string,
     options: { readonly positive?: boolean } = {},
@@ -252,12 +255,12 @@ export const parsePortfolioCsv = (text: string): PortfolioCsvPreview => {
         try {
             const kind = values.row_type.trim().toLowerCase() || 'holding';
             const accountLabel = boundedLabel(values.account_label, 'Account label', portfolioImportLimits.maxAccountLabelLength);
-            const currency = parseCurrency(values.currency);
+            const currency = parsePortfolioCurrency(values.currency);
             if (kind === 'cash') {
                 const cash: PortfolioCsvCashRow = {
                     accountLabel,
                     currency,
-                    balance: parseFiniteNumber(values.cash_balance, 'Cash balance'),
+                    balance: parsePortfolioFiniteNumber(values.cash_balance, 'Cash balance'),
                 };
                 parsed.push({ rowNumber, kind, cash, values, identity: `cash:${portfolioCashIdentity(cash)}` });
                 return;
@@ -265,10 +268,10 @@ export const parsePortfolioCsv = (text: string): PortfolioCsvPreview => {
             if (kind !== 'holding') throw new Error('Row type must be holding or cash.');
             const holding: PortfolioCsvHoldingRow = {
                 accountLabel,
-                symbol: parseSymbol(values.symbol),
-                market: parseMarket(values.market),
-                quantity: parseFiniteNumber(values.quantity, 'Quantity', { positive: true }),
-                averageCost: parseFiniteNumber(values.average_cost, 'Average cost'),
+                symbol: parsePortfolioSymbol(values.symbol),
+                market: parsePortfolioMarket(values.market),
+                quantity: parsePortfolioFiniteNumber(values.quantity, 'Quantity', { positive: true }),
+                averageCost: parsePortfolioFiniteNumber(values.average_cost, 'Average cost'),
                 currency,
             };
             parsed.push({ rowNumber, kind, holding, values, identity: `holding:${portfolioHoldingIdentity(holding)}` });
@@ -317,11 +320,11 @@ const validateImportedHolding = (value: unknown, index: number): PortfolioImport
     if (!isObject(value)) throw new Error(`Holding ${index + 1} must be an object.`);
     return {
         accountLabel: boundedLabel(value.accountLabel, `Holding ${index + 1} account label`, portfolioImportLimits.maxAccountLabelLength),
-        symbol: parseSymbol(value.symbol),
-        market: parseMarket(value.market),
-        quantity: parseFiniteNumber(value.quantity, `Holding ${index + 1} quantity`, { positive: true }),
-        averageCost: parseFiniteNumber(value.averageCost, `Holding ${index + 1} average cost`),
-        currency: parseCurrency(value.currency),
+        symbol: parsePortfolioSymbol(value.symbol),
+        market: parsePortfolioMarket(value.market),
+        quantity: parsePortfolioFiniteNumber(value.quantity, `Holding ${index + 1} quantity`, { positive: true }),
+        averageCost: parsePortfolioFiniteNumber(value.averageCost, `Holding ${index + 1} average cost`),
+        currency: parsePortfolioCurrency(value.currency),
         importedAt: validTimestamp(value.importedAt) ? new Date(value.importedAt).toISOString() : (() => { throw new Error(`Holding ${index + 1} import time is invalid.`); })(),
         provenanceLabel: boundedLabel(value.provenanceLabel, `Holding ${index + 1} provenance`, portfolioImportLimits.maxProvenanceLabelLength),
     };
@@ -331,8 +334,8 @@ const validateImportedCash = (value: unknown, index: number): PortfolioImportedC
     if (!isObject(value)) throw new Error(`Cash balance ${index + 1} must be an object.`);
     return {
         accountLabel: boundedLabel(value.accountLabel, `Cash balance ${index + 1} account label`, portfolioImportLimits.maxAccountLabelLength),
-        currency: parseCurrency(value.currency),
-        balance: parseFiniteNumber(value.balance, `Cash balance ${index + 1}`),
+        currency: parsePortfolioCurrency(value.currency),
+        balance: parsePortfolioFiniteNumber(value.balance, `Cash balance ${index + 1}`),
         importedAt: validTimestamp(value.importedAt) ? new Date(value.importedAt).toISOString() : (() => { throw new Error(`Cash balance ${index + 1} import time is invalid.`); })(),
         provenanceLabel: boundedLabel(value.provenanceLabel, `Cash balance ${index + 1} provenance`, portfolioImportLimits.maxProvenanceLabelLength),
     };
