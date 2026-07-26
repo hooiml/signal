@@ -365,6 +365,8 @@ Compare cited evidence versions across immutable reviews without inventing acces
 
 **Delivered:** the Portfolio workspace now saves up to eight browser-local market, sector, or currency shocks, validates every restored entry, shows allocation coverage, and calculates deterministic allocation-weighted impact without changing saved research.
 
+**Delivered:** researched tickers now retain a bounded version-1 fixed-taxonomy factor-assumption set inside existing research continuity. Portfolio joins those declarations to browser-local actual holdings by exact market+symbol, keeps accounts and currencies separate, reports known-value direction shares plus value/count coverage, leaves unmatched/unpriced/undeclared positions explicit, and supports narrow revision-safe editing plus deduplicated Queue review without inference or analytics leakage.
+
 ### 21. Paper decision tracker
 
 **Delivered:** the Outcomes Decision Review Lab now records browser-local act-or-pass decisions with a 1M, 3M, 6M, or 1Y horizon, freezes due candidate and VOO or FBM KLCI observations from validated chart history, reports path drawdown/upside and benchmark-relative decision effect, and gates action/confidence/horizon cohort statistics at five and twenty observations. Manual resolution remains a due-only fallback when provider history is unavailable, and the feature still makes no brokerage execution or investment-return claim.

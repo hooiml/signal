@@ -6,7 +6,7 @@ Signal lets a user retain a small exact excerpt from a primary filing or issuer 
 
 ## Persisted contract
 
-Document evidence is version 1 and is stored inside the existing `accepted_evidence` JSONB value as part of a version-2 evidence bundle. No database column is added. Legacy array-shaped accepted evidence remains readable and migrates to an empty valid document citation list.
+Document evidence is version 1 and is stored inside the existing `accepted_evidence` JSONB value as part of the current version-3 evidence bundle. No database column is added. Legacy array-shaped accepted evidence and version-2 bundles remain readable; both migrate to an empty valid factor-assumption list, while legacy arrays also migrate to an empty valid document citation list.
 
 Each research record and immutable review snapshot has:
 

@@ -291,6 +291,9 @@ Daily attention and portfolio guardrails remain available from the collapsed Res
    - Planned allocation, unallocated capacity, and explicit over-allocation warnings.
    - Sector, market, currency, and single-name concentration.
    - Portfolio-at-risk coverage based only on valid lower invalidation levels.
+   - Explicit version-1 factor assumptions use a fixed taxonomy and a narrow revision-safe save; no prose, sector, AI, score, or price behavior is interpreted as an assumption.
+   - Actual imported holdings join assumptions by exact market+symbol and render an account/currency-separated matrix with direction, materiality, evidence-on-demand, known-value and holding-count coverage, unmatched holdings, missing prices, and undeclared blanks.
+   - Direction shares are descriptive known-value portions with visible numerators/denominators, never beta, sensitivity, forecast, expected return, or advice.
    - Beta, recent volatility, and pairwise return correlation when sufficient history exists.
    - Broad-market, volatility, user-defined, and saved-invalidation stress scenarios with coverage disclosure.
    - A bounded browser-local scenario library for reusable market, sector, and currency shocks with allocation-weighted impact.
