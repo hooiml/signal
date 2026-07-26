@@ -10,6 +10,8 @@ import {
 import { enqueueResearchWorkflowTaskClient } from '@/lib/research/workflow-queue-client';
 import type { ResearchRecord } from '@/lib/types/research';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
+import { PrimaryDocumentEvidenceV6 } from './PrimaryDocumentEvidenceV6';
+import type { ResearchUpdateMode } from '@/lib/types/research';
 
 type DiffFilter = 'all' | Exclude<EvidenceDocumentChangeKind, 'unchanged'>;
 
@@ -30,9 +32,12 @@ const categoryLabels: Readonly<Record<EvidenceDocumentCategory, string>> = {
     other: 'Other evidence',
 };
 
-export const EvidenceDocumentDiffV6 = ({ records, theme, onOpen }: {
+export const EvidenceDocumentDiffV6 = ({ records, theme, saving, saveError, onSave, onOpen }: {
     readonly records: readonly ResearchRecord[];
     readonly theme: ResearchThemeV6;
+    readonly saving: boolean;
+    readonly saveError: string | null;
+    readonly onSave: (record: ResearchRecord, mode?: ResearchUpdateMode) => Promise<boolean>;
     readonly onOpen: (symbol: string) => void;
 }) => {
     const styles = getThemeV6(theme);
@@ -52,6 +57,8 @@ export const EvidenceDocumentDiffV6 = ({ records, theme, onOpen }: {
     if (!record || !diff) return <section className="min-w-0 flex-1 p-8 text-center"><h1 className={'text-lg font-bold ' + styles.textPrimary}>Filing and earnings evidence diff</h1><p className={'mt-2 text-sm ' + styles.textMuted}>Add a saved research record to compare evidence versions.</p></section>;
 
     return <section data-testid="evidence-document-diff" aria-labelledby="evidence-document-diff-title" className="min-w-0 flex-1">
+        <PrimaryDocumentEvidenceV6 key={record.symbol} record={record} theme={theme} saving={saving} saveError={saveError} onSave={onSave} />
+        <div className="mt-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-3xl">
                 <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + styles.positive}>Cited version comparison</p>
@@ -131,6 +138,6 @@ export const EvidenceDocumentDiffV6 = ({ records, theme, onOpen }: {
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <p className={'text-xs leading-5 ' + styles.textMuted}>Categories are deterministic label matching for navigation only; they do not infer materiality or management intent.</p>
             <button type="button" onClick={() => onOpen(record.symbol)} className={'min-h-10 rounded border px-3 text-xs font-semibold ' + styles.row}>Open research</button>
-        </div>
+        </div></div>
     </section>;
 };

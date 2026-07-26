@@ -635,7 +635,7 @@ export const ResearchDashboardV6 = () => {
                     ) : workspace === 'changes' ? (
                         <ThesisChangeInboxV6 records={inboxRecords} theme={theme} onStage={stageThesisChange} />
                     ) : workspace === 'filings' ? (
-                        <EvidenceDocumentDiffV6 records={inboxRecords} theme={theme} onOpen={openResearchFrom('filings')} />
+                        <EvidenceDocumentDiffV6 records={inboxRecords} theme={theme} saving={saving} saveError={saveError} onSave={saveRecord} onOpen={openResearchFrom('filings')} />
                     ) : workspace === 'evidence' ? (
                         <EvidenceCoverageDashboardV6 records={inboxRecords} theme={theme} onOpen={openResearchFrom('evidence')} />
                     ) : workspace === 'policy' ? (
