@@ -19,6 +19,7 @@ const workspaceLabels: Readonly<Record<ProductAnalyticsWorkspace, string>> = {
     market_conditions: 'Market Conditions',
     research: 'Watchlist',
     discovery: 'Discovery',
+    picker: 'Picker',
     compare: 'Compare',
     calendar: 'Calendar',
     alerts: 'Alerts',

@@ -19,6 +19,7 @@ export const productAnalyticsWorkspaces = [
     'market_conditions',
     'research',
     'discovery',
+    'picker',
     'compare',
     'calendar',
     'alerts',
@@ -54,6 +55,7 @@ export const productAnalyticsSources = [
     'peers',
     'outcomes',
     'discovery',
+    'picker',
     'compare',
     'queue',
 ] as const;

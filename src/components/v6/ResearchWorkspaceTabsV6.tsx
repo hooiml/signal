@@ -15,6 +15,7 @@ export const ResearchWorkspaceTabsV6 = ({ active, theme, onChange }: {
     const styles = getThemeV6(theme);
     const tabs: readonly { readonly id: ResearchWorkspaceV6; readonly label: string }[] = [
         { id: 'research', label: 'Watchlist' }, { id: 'discovery', label: 'Discovery' },
+        { id: 'picker', label: 'Picker' },
         { id: 'compare', label: 'Compare' }, { id: 'calendar', label: 'Calendar' },
         { id: 'alerts', label: 'Alerts' }, { id: 'changes', label: 'Changes' }, { id: 'filings', label: 'Filings' }, { id: 'evidence', label: 'Evidence' }, { id: 'policy', label: 'Policy' }, { id: 'queue', label: 'Queue' }, { id: 'portfolio', label: 'Portfolio' }, { id: 'currency', label: 'Currency' }, { id: 'relationships', label: 'Map' },
         { id: 'peers', label: 'Peers' }, { id: 'outcomes', label: 'Outcomes' },

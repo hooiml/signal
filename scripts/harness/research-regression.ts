@@ -14,6 +14,16 @@ import { evaluateMarketAlert, getMarketAlertRulesForBriefing, parseMarketAlertRu
 import { scoreDiscoveryQuality } from '../../src/lib/research/discovery-quality';
 import { parseSecCompanyFacts } from '../../src/lib/research/sec-edgar';
 import { calculateCohortPerformance, calculateHistorySignals } from '../../src/lib/research/discovery-history';
+import {
+    addPickerRun,
+    createPickerRun,
+    parsePickerConfig,
+    parsePickerRuns,
+    pickerCohortEvidence,
+    pickerObservedMovePercent,
+    removePickerRun,
+    selectPickerCandidates,
+} from '../../src/lib/research/picker';
 import { sectorRelativeStrength } from '../../src/lib/research/discovery-sectors';
 import { classifyEarlyTrend, classifyValuation } from '../../src/lib/research/discovery-opportunity';
 import { describeContender, rankDiscoveryTiers } from '../../src/lib/research/discovery-ranking';
@@ -1632,6 +1642,63 @@ const runDiscoveryFilterTests = () => {
     assertEqual(filterDiscoveryCandidates(candidates, { sector: 'all', risk: 'all', stage: 'all', valuation: 'all' }).length, 3, 'all filters preserve the full candidate list');
 };
 
+const runPickerTests = () => {
+    const candidate = (input: Partial<QualityDiscoveryResult> & Pick<QualityDiscoveryResult, 'symbol' | 'discoveryScore'>): QualityDiscoveryResult => ({
+        symbol: input.symbol,
+        name: input.name ?? input.symbol,
+        price: input.price ?? 100,
+        momentum3MonthPercent: 20,
+        momentum6MonthPercent: 30,
+        distanceFromMa50Percent: 5,
+        averageDollarVolume: 100_000_000,
+        volumeSpikeRatio: 1.2,
+        maxDailyMovePercent: 5,
+        annualizedVolatilityPercent: 30,
+        aboveMa50: true,
+        aboveMa200: true,
+        trendScore: input.trendScore ?? input.discoveryScore,
+        riskScore: input.riskScore ?? 5,
+        risk: input.risk ?? 'low',
+        reasons: input.reasons ?? ['Current trend'],
+        flags: input.flags ?? [],
+        qualityScore: input.qualityScore ?? 80,
+        discoveryScore: input.discoveryScore,
+        category: input.category ?? 'quality compounder',
+        qualityReasons: input.qualityReasons ?? ['Business quality'],
+        sector: input.sector ?? 'Technology',
+        sectorRelativeStrengthPercent: input.sectorRelativeStrengthPercent ?? 5,
+        scoreChange1Day: input.scoreChange1Day ?? null,
+        scoreChange1Week: input.scoreChange1Week ?? null,
+        scoreChange1Month: input.scoreChange1Month ?? null,
+        rankChange1Week: input.rankChange1Week ?? null,
+        firstSeenAt: input.firstSeenAt ?? '2026-07-01T00:00:00.000Z',
+        earlyTrendStage: input.earlyTrendStage ?? 'confirmed',
+        valuation: input.valuation ?? { guardrail: 'fair', priceEarnings: 20, priceSales: 4, freeCashFlowYieldPercent: 4 },
+        catalyst: input.catalyst ?? null,
+        ownership: input.ownership ?? null,
+    });
+    const high = candidate({ symbol: 'HIGH', discoveryScore: 84 });
+    const moderate = candidate({ symbol: 'MOD', discoveryScore: 78, risk: 'moderate', riskScore: 20 });
+    const low = candidate({ symbol: 'LOW', discoveryScore: 65 });
+    const data = { candidates: [moderate, high], contenders: [low] };
+    const balanced = { horizon: '1M', riskProfile: 'balanced', minimumScore: 70, pickCount: 3 } as const;
+    assertEqual(selectPickerCandidates(data, balanced).map((item) => item.symbol).join(','), 'HIGH,MOD', 'picker sorts eligible current candidates by Discovery score');
+    assertEqual(selectPickerCandidates(data, { ...balanced, riskProfile: 'conservative' }).map((item) => item.symbol).join(','), 'HIGH', 'conservative picker excludes moderate risk');
+    assertEqual(selectPickerCandidates(data, { ...balanced, minimumScore: 80 }).map((item) => item.symbol).join(','), 'HIGH', 'picker enforces the configured minimum score');
+    assertEqual(selectPickerCandidates(data, balanced)[0]?.outlook, 'Strong current setup', 'picker outlook remains descriptive of the current score');
+    assertEqual(pickerCohortEvidence([{ period: '1M', averageReturnPercent: 2.4, trackedCount: 4, winnerCount: 3 }], '1M').positiveRatePercent, 75, 'picker derives observational positive coverage');
+    assertEqual(pickerCohortEvidence([], '1W').state, 'collecting', 'picker withholds unavailable history');
+    assertEqual(pickerObservedMovePercent(100, 112), 12, 'paper basket compares current observation with entry price');
+    assertEqual(parsePickerConfig(balanced)?.minimumScore, 70, 'picker config accepts bounded options');
+    assertEqual(parsePickerConfig({ ...balanced, minimumScore: 75 }), null, 'picker config rejects unsupported thresholds');
+
+    const run = createPickerRun('2026-07-26T10:00:00.000Z', '2026-07-26T09:00:00.000Z', balanced, selectPickerCandidates(data, balanced));
+    assertEqual(run.picks.length, 2, 'picker run freezes selected candidates');
+    assertEqual(parsePickerRuns([run])[0]?.picks[0]?.discoveryScore, 84, 'picker run parsing preserves entry scores');
+    assertEqual(addPickerRun([], run).length, 1, 'picker run can be added to local history');
+    assertEqual(removePickerRun([run], run.id).length, 0, 'picker run can be removed from local history');
+};
+
 const runInstitutionalOwnershipTests = () => {
     const payload = { data: {
         ownershipSummary: { SharesOutstandingPCT: { value: '72.4%' } },
@@ -1844,6 +1911,7 @@ const main = async () => {
     runDiscoveryOpportunityTests();
     runDiscoveryRankingTests();
     runDiscoveryFilterTests();
+    runPickerTests();
     runInstitutionalOwnershipTests();
     runComparisonTests();
     runResearchAssistantTests();

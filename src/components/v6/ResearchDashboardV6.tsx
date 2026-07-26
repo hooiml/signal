@@ -15,6 +15,7 @@ import {
 } from './ResearchHeaderV6';
 import { ResearchWatchlistV6 } from './ResearchWatchlistV6';
 import { TrendDiscoveryV6 } from './TrendDiscoveryV6';
+import { ResearchPickerV6 } from './ResearchPickerV6';
 import { ResearchAlertsV6 } from './ResearchAlertsV6';
 import { ResearchComparisonV6 } from './ResearchComparisonV6';
 import { ResearchInboxV6, type ResearchInboxSummaryV6 } from './ResearchInboxV6';
@@ -521,7 +522,7 @@ export const ResearchDashboardV6 = () => {
     };
 
     const workspaceLabels: Readonly<Record<ResearchWorkspaceV6, string>> = {
-        research: 'Watchlist', discovery: 'Discovery', compare: 'Compare', calendar: 'Calendar',
+        research: 'Watchlist', discovery: 'Discovery', picker: 'Picker', compare: 'Compare', calendar: 'Calendar',
         alerts: 'Alerts', changes: 'Changes', filings: 'Filings', evidence: 'Evidence', policy: 'Policy', queue: 'Queue', portfolio: 'Portfolio', currency: 'Currency', relationships: 'Map',
         peers: 'Peers', outcomes: 'Outcomes', replay: 'Replay', health: 'Sources',
         packets: 'Export', backup: 'Backup', usage: 'Usage',
@@ -651,6 +652,8 @@ export const ResearchDashboardV6 = () => {
                         <ResearchComparisonV6 items={items} theme={theme} onOpen={openResearch} />
                     ) : workspace === 'discovery' ? (
                         <TrendDiscoveryV6 theme={theme} savedSymbols={items.map((item) => item.symbol)} adding={adding || recordsLoadState !== 'ready'} onAdd={addDiscoveryCandidate} onOpen={openResearch} />
+                    ) : workspace === 'picker' ? (
+                        <ResearchPickerV6 theme={theme} savedSymbols={items.map((item) => item.symbol)} adding={adding || recordsLoadState !== 'ready'} onAdd={addDiscoveryCandidate} onOpen={openResearchFrom('picker')} />
                     ) : (<>
                     <ResearchWatchlistV6
                         items={filteredItems}

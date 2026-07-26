@@ -67,6 +67,8 @@ Sector-relative strength compares each candidate's three-month momentum with the
 
 The tracked-performance strip compares prior top-ten cohort prices with current scan prices after approximately 1 day, 1 week, and 1 month. It reports average return and positive-return coverage. This is observational validation of the discovery model, not a transaction-cost-adjusted backtest.
 
+The Research Picker reuses this same live scan and Top-10 performance strip. It can filter current candidates by a transparent risk profile, minimum score, horizon, and pick count, then preserve the selected entry observations as a browser-local paper basket. The horizon selects the observational cohort shown beside the current picks; it does not change the Discovery score or turn cohort history into a candidate-level probability.
+
 ## Early Trends
 
 The Early Trends view reuses the same liquid universe and risk rules but looks for controlled moves before they become extended. `Emerging` requires a positive six-month trend, price above MA200, at least 5% three-month momentum, and price from 2% below through 6% above MA50. `Confirmed` allows price up to 12% above MA50 with at least 8% three-month momentum. Moves above 35% in three months or more than 12% above MA50 are labelled `Extended` and do not enter the early list.
