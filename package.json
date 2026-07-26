@@ -13,6 +13,7 @@
     "qa:research-calendar": "node scripts/research-calendar-qa.mjs",
     "qa:research-continuity": "node scripts/research-continuity-qa.mjs",
     "qa:research-structured-triggers": "node scripts/research-structured-triggers-qa.mjs",
+    "qa:research-primary-documents": "node scripts/research-primary-documents-qa.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:social-sentiment": "powershell -ExecutionPolicy Bypass -File scripts/harness/check-social-sentiment.ps1",

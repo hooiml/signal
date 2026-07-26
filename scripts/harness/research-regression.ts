@@ -13,7 +13,7 @@ import { evaluateResearchAlerts, parseBuyZone } from '../../src/lib/research/ale
 import { evaluateResearchStructuredTriggers, parseResearchStructuredTriggerSet } from '../../src/lib/research/structured-triggers';
 import { evaluateMarketAlert, getMarketAlertRulesForBriefing, parseMarketAlertRules, type MarketAlertRule } from '../../src/lib/market-alerts';
 import { scoreDiscoveryQuality } from '../../src/lib/research/discovery-quality';
-import { parseSecCompanyFacts } from '../../src/lib/research/sec-edgar';
+import { getConfiguredSecHeaders, parseSecCompanyFacts, parseSecTickerMapping } from '../../src/lib/research/sec-edgar';
 import { parseYahooFundamentalTimeseries } from '../../src/lib/research/yahoo-fundamentals';
 import { calculateCohortPerformance, calculateHistorySignals } from '../../src/lib/research/discovery-history';
 import {
@@ -124,6 +124,22 @@ import {
     parseCurrencyPerformanceSettings,
 } from '../../src/lib/research/currency-performance';
 import { buildEvidenceDocumentDiff } from '../../src/lib/research/evidence-document-diff';
+import {
+    buildPersistedResearchEvidenceBundle,
+    buildResearchDocumentCitationDiff,
+    canonicalPrimarySourceUrl,
+    migrateResearchDocumentEvidenceSet,
+    parseResearchDocumentEvidenceSet,
+    researchDocumentContentDigest,
+    splitPersistedResearchEvidence,
+    type ResearchDocumentDiffItem,
+} from '../../src/lib/research/document-evidence';
+import {
+    buildOfficialSecFilingUrl,
+    fetchSecFilingDiscovery,
+    parseSecSubmissions,
+} from '../../src/lib/research/sec-filings';
+import type { ResearchDocumentCitation } from '../../src/lib/types/research';
 import { buildResearchRelationshipGraph, relationshipsForSymbol } from '../../src/lib/research/relationship-graph';
 import {
     applySavedPortfolioScenario,
@@ -905,6 +921,7 @@ const runInputTests = () => {
     assertEqual(monitoringUpdate.monitoringRules?.rsiBelow, 35, 'update accepts typed monitoring thresholds');
     assertThrows(() => parseResearchUpdateInput({ monitoringRules: { ...defaultResearchMonitoringRules, rsiBelow: 80 } }), 'update rejects an invalid lower RSI threshold');
     assertEqual(parseResearchUpdateMode({ mode: 'settings' }), 'settings', 'settings updates do not masquerade as reviews');
+    assertEqual(parseResearchUpdateMode({ mode: 'evidence' }), 'evidence', 'document-evidence updates use an explicit narrow mode');
     assertEqual(parseResearchUpdateMode({}), 'review', 'legacy updates retain review behavior');
     assertThrows(() => parseResearchUpdateMode({ mode: 'silent' }), 'update rejects unknown persistence modes');
     assertEqual(parseResearchExpectedRevision({ revision: 3 }), 3, 'updates require an optimistic row revision');
@@ -980,6 +997,129 @@ const runInputTests = () => {
     const ownedWithPlan = { ...record, positionState: 'owned' as const, positionPlan };
     const sectorConcentration = calculateSectorConcentration([ownedWithPlan, { ...ownedWithPlan, symbol: 'AMD', positionPlan: { ...positionPlan, plannedAllocationPercent: 5 } }], new Map([['MSFT', 'Technology'], ['AMD', 'Technology']]));
     assertEqual(sectorConcentration[0]?.allocationPercent, 15, 'position plan aggregates owned-sector concentration');
+};
+
+const runPrimaryDocumentEvidenceTests = async () => {
+    const base = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
+    const draft = {
+        id: 'msft-10q-2026q2-risk',
+        market: 'US' as const,
+        symbol: 'MSFT',
+        sourceKind: '10-Q' as const,
+        publicationDate: '2026-07-20',
+        reportingPeriod: '2026-06-30',
+        title: 'Microsoft 2026 Q2 Form 10-Q',
+        sourceUrl: 'https://www.sec.gov/Archives/edgar/data/789019/000078901926000001/msft-20260630.htm#risk',
+        providerLabel: 'SEC EDGAR',
+        location: 'Risk factors, page 42',
+        excerpt: '<script>alert("text only")</script> Customer demand may vary.',
+        capturedAt: '2026-07-21T08:00:00.000Z',
+        captureMethod: 'sec-official' as const,
+    };
+    const citation: ResearchDocumentCitation = { ...draft, contentDigest: researchDocumentContentDigest(draft) };
+    assertEqual(citation.contentDigest, researchDocumentContentDigest({ ...draft }), 'document content fingerprint is stable');
+    assertEqual(canonicalPrimarySourceUrl(`${draft.sourceUrl}#ignored`).includes('#'), false, 'canonical document URL strips fragments');
+    assertThrows(() => canonicalPrimarySourceUrl('http://www.sec.gov/example'), 'manual capture rejects non-HTTPS sources');
+    assertThrows(() => canonicalPrimarySourceUrl('https://user:secret@example.com/report'), 'manual capture rejects embedded credentials');
+    assertEqual(parseResearchDocumentEvidenceSet({ version: 1, citations: [citation] }, { market: 'US', symbol: 'MSFT' }).citations[0]?.excerpt, draft.excerpt, 'citation boundary preserves verbatim markup as inert text');
+    assertThrows(() => parseResearchDocumentEvidenceSet({ version: 1, citations: [{ ...citation, symbol: 'AAPL' }] }, { market: 'US', symbol: 'MSFT' }), 'citation boundary enforces market and symbol ownership');
+    const spoofedSec = { ...citation, sourceUrl: 'https://example.com/report', contentDigest: researchDocumentContentDigest({ ...draft, sourceUrl: 'https://example.com/report' }) };
+    assertThrows(() => parseResearchDocumentEvidenceSet({ version: 1, citations: [spoofedSec] }), 'official SEC provenance cannot point at an arbitrary HTTPS host');
+    assertThrows(() => parseResearchDocumentEvidenceSet({ version: 1, citations: [{ ...citation, excerpt: 'changed without digest update' }] }), 'citation boundary rejects stale content fingerprints');
+    assertThrows(() => parseResearchDocumentEvidenceSet({ version: 1, citations: Array.from({ length: 26 }, (_, index) => ({ ...citation, id: `citation-${index}` })) }), 'citation list is bounded to 25 entries');
+    assertThrows(() => parseResearchDocumentEvidenceSet({ version: 1, citations: [{ ...citation, excerpt: 'x'.repeat(2001), contentDigest: 'fnv1a32:00000000' }] }), 'citation excerpt length is bounded');
+    assertEqual(migrateResearchDocumentEvidenceSet(undefined).migrationState, 'migrated-empty', 'legacy records migrate to an empty citation set');
+    assertEqual(migrateResearchDocumentEvidenceSet({ version: 1, citations: [{ broken: true }] }).migrationState, 'invalid-recovered', 'malformed persisted citations recover visibly');
+    const bundle = buildPersistedResearchEvidenceBundle([], { version: 1, migrationState: 'current', citations: [citation] });
+    assertEqual(splitPersistedResearchEvidence(bundle).documentEvidence !== undefined, true, 'versioned evidence bundle shares the existing JSON column');
+    assertEqual(splitPersistedResearchEvidence([]).documentEvidence, undefined, 'legacy evidence arrays remain readable');
+
+    const evidenceUpdate = parseResearchUpdateInput({ documentEvidence: { version: 1, citations: [citation] } });
+    const evidenceOnly = prepareStoredResearchRecord(base, {
+        ...evidenceUpdate,
+        bullCase: 'must not be applied',
+        checklist: { understandBusiness: true },
+        decisionJournal: { ...base.decisionJournal, confidence: 'high' },
+    }, 'evidence');
+    assertEqual(evidenceOnly.documentEvidence.citations.length, 1, 'evidence-only save applies document citations');
+    assertEqual(evidenceOnly.bullCase, base.bullCase, 'evidence-only save cannot mutate thesis');
+    assertEqual(evidenceOnly.checklist.understandBusiness, false, 'evidence-only save cannot mutate checklist');
+    assertEqual(evidenceOnly.decisionJournal.confidence, base.decisionJournal.confidence, 'evidence-only save cannot mutate decision journal');
+    assertEqual(evidenceOnly.reviewHistory.length, 0, 'evidence-only save does not fabricate a review snapshot');
+    const reviewed = appendResearchReview(evidenceOnly, '2026-07-22T08:00:00.000Z');
+    const editedDraft = { ...draft, excerpt: 'Customer demand changed in this captured selection.' };
+    const edited = { ...editedDraft, contentDigest: researchDocumentContentDigest(editedDraft) };
+    const changedRecord = { ...reviewed, documentEvidence: { version: 1 as const, migrationState: 'current' as const, citations: [edited] } };
+    const changed = buildResearchDocumentCitationDiff(changedRecord.documentEvidence.citations, changedRecord.reviewHistory);
+    assertEqual(changed.items[0]?.kind, 'changed', 'citation diff detects changed captured evidence by stable id and digest');
+    const addedDraft = { ...draft, id: 'msft-8k-new', sourceKind: '8-K' as const, title: 'New 8-K' };
+    const added = { ...addedDraft, contentDigest: researchDocumentContentDigest(addedDraft) };
+    const allKinds = buildResearchDocumentCitationDiff([edited, added], reviewed.reviewHistory).items;
+    assertEqual(allKinds.some((item: ResearchDocumentDiffItem) => item.kind === 'added'), true, 'citation diff detects additions');
+    assertEqual(buildResearchDocumentCitationDiff([], reviewed.reviewHistory).items[0]?.kind, 'removed', 'citation diff detects removals');
+    const reviewedAgain = appendResearchReview(reviewed, '2026-07-23T08:00:00.000Z');
+    assertEqual(buildResearchDocumentCitationDiff([citation], reviewedAgain.reviewHistory).items[0]?.kind, 'unchanged', 'citation diff detects unchanged captures');
+    assertEqual(reviewed.reviewHistory[0]?.documentEvidence.citations[0]?.excerpt, draft.excerpt, 'immutable review snapshot freezes document excerpts');
+
+    assertEqual(parseSecTickerMapping({ 0: { ticker: 'MSFT', cik_str: 789019, title: 'Microsoft Corp' } }, 'msft').cik, '0000789019', 'SEC ticker mapping normalizes CIK');
+    assertThrows(() => parseSecTickerMapping({}, 'MSFT'), 'SEC ticker mapping rejects missing symbols');
+    const officialUrl = buildOfficialSecFilingUrl('0000789019', '0000789019-26-000001', 'msft-20260630.htm');
+    assertEqual(officialUrl, 'https://www.sec.gov/Archives/edgar/data/789019/000078901926000001/msft-20260630.htm', 'SEC filing URL is constructed on the fixed official origin');
+    assertThrows(() => buildOfficialSecFilingUrl('0000789019', '0000789019-26-000001', '../private'), 'SEC filing URL rejects path traversal');
+    const submissions = {
+        filings: { recent: {
+            accessionNumber: ['0000789019-26-000001', '0000789019-26-000002'],
+            form: ['10-Q', 'S-8'],
+            filingDate: ['2026-07-20', '2026-07-21'],
+            reportDate: ['2026-06-30', ''],
+            primaryDocument: ['msft-20260630.htm', 's8.htm'],
+        } },
+    };
+    assertEqual(parseSecSubmissions(submissions, { symbol: 'MSFT', cik: '0000789019', issuer: 'Microsoft Corp' }).filings.length, 1, 'SEC submissions keep only selected forms');
+    assertThrows(() => parseSecSubmissions({ filings: { recent: { accessionNumber: [] } } }, { symbol: 'MSFT', cik: '0000789019', issuer: 'Microsoft' }), 'SEC submissions reject malformed arrays');
+
+    const previousAgent = process.env.SEC_USER_AGENT;
+    delete process.env.SEC_USER_AGENT;
+    assertThrows(() => getConfiguredSecHeaders(), 'SEC requests fail closed without operator contact configuration');
+    process.env.SEC_USER_AGENT = 'Signal Research operator@example.com';
+    const requestedUrls: string[] = [];
+    const fetcher = (async (input: string | URL | Request) => {
+        const url = String(input);
+        requestedUrls.push(url);
+        if (url.endsWith('/files/company_tickers.json')) return new Response(JSON.stringify({ 0: { ticker: 'MSFT', cik_str: 789019, title: 'Microsoft Corp' } }), { status: 200 });
+        if (url.endsWith('/submissions/CIK0000789019.json')) return new Response(JSON.stringify(submissions), { status: 200 });
+        return new Response('', { status: 500 });
+    }) as typeof fetch;
+    const discovery = await fetchSecFilingDiscovery('MSFT', fetcher);
+    assertEqual(discovery.filings.length, 1, 'SEC discovery validates and returns bounded metadata');
+    assertEqual(requestedUrls.every((url) => url.startsWith('https://www.sec.gov/') || url.startsWith('https://data.sec.gov/')), true, 'SEC discovery fetches only fixed official origins');
+    assertEqual(requestedUrls.length, 2, 'SEC discovery performs no arbitrary source fetch');
+    const failingFetcher = (async () => new Response('', { status: 503 })) as typeof fetch;
+    let degraded = false;
+    try {
+        await fetchSecFilingDiscovery('MSFT', failingFetcher);
+    } catch {
+        degraded = true;
+    }
+    assertEqual(degraded, true, 'SEC upstream errors degrade instead of returning fabricated metadata');
+    if (previousAgent === undefined) delete process.env.SEC_USER_AGENT;
+    else process.env.SEC_USER_AGENT = previousAgent;
+
+    const queued = enqueueResearchWorkflowTask([], {
+        symbol: 'MSFT',
+        templateId: 'post-event',
+        source: 'document-diff',
+        dedupeKey: `document:MSFT:${citation.id}:${citation.contentDigest}`,
+        dueAt: '2026-07-22',
+    }, '11111111-1111-4111-8111-111111111111', '2026-07-22T08:00:00.000Z');
+    const duplicate = enqueueResearchWorkflowTask(queued.tasks, {
+        symbol: 'MSFT',
+        templateId: 'post-event',
+        source: 'document-diff',
+        dedupeKey: `document:MSFT:${citation.id}:${citation.contentDigest}`,
+        dueAt: '2026-07-23',
+    }, '22222222-2222-4222-8222-222222222222', '2026-07-22T09:00:00.000Z');
+    assertEqual(duplicate.created, false, 'document evidence Queue tasks deduplicate by stable citation digest');
 };
 
 const runOutcomeAnalyticsTests = () => {
@@ -2725,6 +2865,7 @@ const runResearchAssistantTests = () => {
 
 const main = async () => {
     runInputTests();
+    await runPrimaryDocumentEvidenceTests();
     runOutcomeAnalyticsTests();
     runSinceLastVisitTests();
     runPortfolioAnalyticsTests();

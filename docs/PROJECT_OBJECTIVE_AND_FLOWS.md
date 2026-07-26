@@ -316,13 +316,18 @@ flowchart TD
     G --> H[Read thesis and invalidation]
     H --> I[Check research completeness]
     I --> J[Review fundamentals, valuation, events, and technical context]
-    J --> K{Decision supported?}
+    J --> P[Capture bounded primary-document excerpts in Filings]
+    P --> Q[Explicitly save citations without changing thesis or decision]
+    Q --> R[Compare captured evidence with the prior immutable review]
+    R --> K{Decision supported?}
     K -- Yes --> L[Mark Ready, DCA, or Wait for price]
     K -- No --> M[Keep on Watch or Avoid]
     L --> N[Record review date and revisit conditions]
     M --> N
     N --> O[Evaluate explicit structured review prompts]
 ```
+
+US primary-document discovery loads metadata only from fixed official SEC origins and constructs official filing links. Malaysia uses manual HTTPS citation capture with explicit Bursa/issuer verification guidance; Signal does not fetch arbitrary user-supplied URLs. Captured excerpts remain separate evidence until the user independently edits and saves a review.
 
 ## Connection Between Workspaces
 

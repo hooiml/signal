@@ -359,6 +359,8 @@ Compare cited evidence versions across immutable reviews without inventing acces
 
 **Delivered:** the Filings workspace compares current accepted evidence with the previous saved review, groups structured evidence through disclosed label matching, preserves source links, and connects changes to a `Filing evidence` Queue task.
 
+**Primary-document extension delivered:** Filings now also retains up to 25 bounded exact primary-document excerpts per ticker, discovers recent supported US filings from official SEC metadata, supports explicitly unverified manual Bursa/issuer capture, freezes citations in immutable review history, and compares added/changed/removed/unchanged captures by stable identity and content fingerprint. It does not download documents, scrape arbitrary URLs, summarize prose, or infer management intent.
+
 ### 20. Saved portfolio scenario library
 
 **Delivered:** the Portfolio workspace now saves up to eight browser-local market, sector, or currency shocks, validates every restored entry, shows allocation coverage, and calculates deterministic allocation-weighted impact without changing saved research.

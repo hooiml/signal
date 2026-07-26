@@ -59,6 +59,12 @@ See `docs/HARNESS.md` for check design, eval artifacts, and completion evidence 
 4. Add or update docs if the route changes repo behavior.
 5. Run API smoke checks from `docs/TESTING.md` when the route depends on runtime data.
 
+## Configuring Official SEC Requests
+
+Set `SEC_USER_AGENT` to an operator identity with a monitored contact email or an HTTP(S) contact URL, following the SEC access policy. Signal fails closed when that value is absent or malformed; do not substitute placeholder contact data.
+
+The Filings workspace requests only SEC filing metadata through fixed `sec.gov` endpoints. Manual Bursa/issuer links are browser-opened citations and must never be added to a server-side fetch path.
+
 ## Adding Or Changing Signal Logic
 
 1. Update the relevant calculator or service in `src/lib`.
