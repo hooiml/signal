@@ -8,6 +8,8 @@ import { MarketBriefingV6 } from './MarketBriefingV6';
 import { MarketCommandBarV6, type BriefingStatus } from './MarketCommandBarV6';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import { useThemeV6 } from './ThemeProviderV6';
+import { trackProductAnalyticsEvent } from '@/lib/product-analytics-client';
+import type { AppCommandV6 } from './CommandPaletteV6';
 
 export const MarketDashboardV6 = () => {
     const { config, updateConfig, isLoaded } = useSignalConfig();
@@ -66,6 +68,14 @@ export const MarketDashboardV6 = () => {
         };
     }, [fetchSignal, isLoaded]);
 
+    useEffect(() => {
+        trackProductAnalyticsEvent({
+            name: 'workspace_viewed',
+            surface: 'market',
+            workspace: 'market_conditions',
+        });
+    }, []);
+
     const atmosphere = theme === 'light'
         ? 'bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.11),_transparent_28%),radial-gradient(circle_at_80%_10%,_rgba(14,165,233,0.08),_transparent_20%)]'
         : 'bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.12),_transparent_24%),radial-gradient(circle_at_80%_10%,_rgba(52,211,153,0.1),_transparent_18%)]';
@@ -82,13 +92,21 @@ export const MarketDashboardV6 = () => {
                 : signal
                     ? 'available'
                     : 'unavailable';
+    const marketCommands: readonly AppCommandV6[] = [
+        { id: 'market-us', label: 'Use US market', group: 'Market', keywords: ['region'], run: () => updateConfig({ market: 'US' }) },
+        { id: 'market-my', label: 'Use Malaysia market', group: 'Market', keywords: ['region my'], run: () => updateConfig({ market: 'MY' }) },
+        { id: 'mode-momentum', label: 'Use Momentum mode', group: 'Market', keywords: ['standard'], run: () => updateConfig({ mode: 'standard' }) },
+        { id: 'mode-contrarian', label: 'Use Contrarian mode', group: 'Market', run: () => updateConfig({ mode: 'contrarian' }) },
+        { id: 'source-toggle', label: config.enableSocial ? 'Exclude sentiment source' : 'Include sentiment source', group: 'Market', keywords: ['social news'], run: () => updateConfig({ enableSocial: !config.enableSocial }) },
+        { id: 'refresh-market', label: 'Refresh market conditions', group: 'Market', keywords: ['reload'], run: () => void fetchSignal() },
+    ];
 
     return (
         <main className={'relative min-h-[100dvh] overflow-x-hidden transition-colors duration-300 ' + themeClasses.page}>
             <div className={'pointer-events-none absolute inset-0 transition-opacity duration-300 ' + atmosphere} />
             <div className={'pointer-events-none absolute inset-0 bg-[size:44px_44px] transition-opacity duration-300 ' + grid} />
             <div className="relative z-10">
-                <AppNavV6 active="market" theme={theme} onThemeToggle={toggleTheme}>
+                <AppNavV6 active="market" theme={theme} onThemeToggle={toggleTheme} commands={marketCommands}>
                     <MarketCommandBarV6
                         market={config.market}
                         mode={config.mode}

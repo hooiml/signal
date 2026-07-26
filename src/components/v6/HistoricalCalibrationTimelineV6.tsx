@@ -68,6 +68,11 @@ export const HistoricalCalibrationTimelineV6 = ({
     const marketSpan = Math.max(1, marketMax - marketMin);
     const marketY = (value: number) => PLOT.marketBottom - ((value - marketMin) / marketSpan) * (PLOT.marketBottom - PLOT.marketTop);
     const path = (getY: (point: CalibrationTimeline[number]) => number) => plottedPoints.map((point, index) => `${index === 0 ? 'M' : 'L'}${x(point.date).toFixed(1)},${getY(point).toFixed(1)}`).join(' ');
+    const scoreLinks = plottedPoints.slice(1).map((point, index) => ({
+        from: plottedPoints[index],
+        to: point,
+        reconstructed: plottedPoints[index].origin === 'reconstructed' || point.origin === 'reconstructed',
+    }));
     const active = activeIndex === null ? null : plottedPoints[activeIndex];
     const activeX = active ? x(active.date) : null;
     const tierChanges = plottedPoints.filter((point, index) => index > 0 && point.tier !== plottedPoints[index - 1].tier);
@@ -122,7 +127,7 @@ export const HistoricalCalibrationTimelineV6 = ({
             onPointerMove={move}
             onPointerLeave={() => setActiveIndex(null)}
         >
-            <desc>Score zones are shaded. Solid score markers are observed, hollow markers are reconstructed, and vertical ticks mark tier changes.</desc>
+            <desc>Score zones are shaded. Thin, low-opacity green lines show reconstructed score history; solid green lines and filled markers show observed history. Vertical ticks mark tier changes.</desc>
             {[
                 { min: 0, max: 39, color: palette.zones[0] },
                 { min: 40, max: 64, color: palette.zones[1] },
@@ -134,18 +139,22 @@ export const HistoricalCalibrationTimelineV6 = ({
                 <text x={PLOT.left - 8} y={scoreY(tick) + 3} textAnchor="end" fontSize="9" fill={palette.muted}>{tick}</text>
             </g>)}
             <text x={PLOT.left} y="17" fontSize="10" fontWeight="700" fill={palette.primary}>Composite score</text>
-            <path d={path((point) => scoreY(point.score))} fill="none" stroke={palette.score} strokeWidth="2" strokeLinejoin="round" />
+            {scoreLinks.map(({ from, to, reconstructed }) => <line
+                key={`score-link-${from.date}-${to.date}`}
+                x1={x(from.date)}
+                x2={x(to.date)}
+                y1={scoreY(from.score)}
+                y2={scoreY(to.score)}
+                stroke={palette.score}
+                strokeWidth={reconstructed ? '1' : '1.5'}
+                opacity={reconstructed ? '0.42' : '1'}
+                strokeLinecap="round"
+            />)}
             {tierChanges.map((point) => <line key={`tier-${point.date}`} x1={x(point.date)} x2={x(point.date)} y1={PLOT.scoreTop} y2={PLOT.scoreTop + 10} stroke={palette.muted} strokeWidth="1.5"><title>Tier changed to {point.tier} on {point.date}</title></line>)}
-            {plottedPoints.map((point) => <circle
-                key={point.date}
-                cx={x(point.date)}
-                cy={scoreY(point.score)}
-                r="3.2"
-                fill={point.origin === 'reconstructed' ? palette.reconstructed : palette.observed}
-                stroke={palette.observed}
-                strokeWidth={point.origin === 'reconstructed' ? '1.8' : '0.75'}
-                data-origin={point.origin}
-            ><title>{point.date}: score {point.score}, {point.tier}, {point.origin}</title></circle>)}
+            {plottedPoints.map((point) => <g key={point.date} data-score-point data-origin={point.origin}>
+                {point.origin === 'observed' ? <circle cx={x(point.date)} cy={scoreY(point.score)} r="1.35" fill={palette.observed} stroke={palette.observed} strokeWidth="0.25" /> : null}
+                <title>{point.date}: score {point.score}, {point.tier}, {point.origin}</title>
+            </g>)}
 
             {[marketMin, 100, marketMax].filter((tick, index, ticks) => ticks.indexOf(tick) === index).map((tick) => <g key={tick}>
                 <line x1={PLOT.left} x2={WIDTH - PLOT.right} y1={marketY(tick)} y2={marketY(tick)} stroke={palette.grid} strokeWidth={tick === 100 ? 1.25 : 0.75} strokeDasharray={tick === 100 ? '4 3' : undefined} />
@@ -169,8 +178,8 @@ export const HistoricalCalibrationTimelineV6 = ({
             {active.coverage_note ? <span className="sm:col-span-4">Coverage: {active.coverage_note}</span> : null}
         </div> : null}
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px]" style={{ color: palette.muted }} aria-hidden="true">
-            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: palette.observed }} />Observed</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border-2 bg-transparent" style={{ borderColor: palette.observed }} />Reconstructed</span>
+            <span className="inline-flex items-center gap-1.5"><svg width="26" height="8" viewBox="0 0 26 8"><line x1="1" x2="25" y1="4" y2="4" stroke={palette.score} strokeWidth="1" opacity="0.42" /></svg>Backfilled history</span>
+            <span className="inline-flex items-center gap-1.5"><svg width="26" height="8" viewBox="0 0 26 8"><line x1="1" x2="25" y1="4" y2="4" stroke={palette.score} strokeWidth="1.5" /><circle cx="5" cy="4" r="1" fill={palette.observed} /><circle cx="21" cy="4" r="1" fill={palette.observed} /></svg>Observed history</span>
             <span>Short top ticks mark tier changes</span>
         </div>
     </figure>;

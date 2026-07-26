@@ -3,10 +3,14 @@
 import { useEffect, useState } from 'react';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import type { ResearchAlert, ResearchAlertsResponse } from '@/lib/types/research-alert';
+import { enqueueResearchWorkflowTaskClient } from '@/lib/research/workflow-queue-client';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
+import type { ResearchRecord } from '@/lib/types/research';
+import { ResearchNotificationCenterV6 } from './ResearchNotificationCenterV6';
 
 type ResearchAlertsV6Props = {
     readonly items: readonly ResearchWatchlistItem[];
+    readonly records: readonly ResearchRecord[];
     readonly theme: ResearchThemeV6;
     readonly onOpen: (symbol: string) => void;
 };
@@ -32,9 +36,10 @@ const parseResponse = (payload: unknown): ResearchAlertsResponse => {
 
 const severityLabel = (severity: ResearchAlert['severity']) => severity === 'opportunity' ? 'Opportunity' : severity === 'risk' ? 'Risk' : 'Watch';
 
-export const ResearchAlertsV6 = ({ items, theme, onOpen }: ResearchAlertsV6Props) => {
+export const ResearchAlertsV6 = ({ items, records, theme, onOpen }: ResearchAlertsV6Props) => {
     const [data, setData] = useState<ResearchAlertsResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [queueStatus, setQueueStatus] = useState<string | null>(null);
     const styles = getThemeV6(theme);
 
     useEffect(() => {
@@ -57,9 +62,9 @@ export const ResearchAlertsV6 = ({ items, theme, onOpen }: ResearchAlertsV6Props
         return () => { active = false; };
     }, [items]);
 
-    if (items.length === 0) return <section className={'min-h-72 flex-1 p-4 text-sm ' + styles.textMuted}>Add a ticker to begin monitoring.</section>;
-    if (error) return <section className={'min-h-72 flex-1 p-4 text-sm ' + styles.risk}>{error}</section>;
-    if (!data) return <section className={'min-h-72 flex-1 p-4 text-sm ' + styles.textMuted}>Checking buy zones and trend conditions...</section>;
+    if (items.length === 0) return <section className="min-w-0 flex-1"><p className={'p-4 text-sm ' + styles.textMuted}>Add a ticker to begin monitoring.</p><ResearchNotificationCenterV6 records={records} theme={theme} /></section>;
+    if (error) return <section className="min-w-0 flex-1"><p className={'p-4 text-sm ' + styles.risk}>{error}</p><ResearchNotificationCenterV6 records={records} theme={theme} /></section>;
+    if (!data) return <section className="min-w-0 flex-1"><p className={'p-4 text-sm ' + styles.textMuted}>Checking buy zones and trend conditions...</p><ResearchNotificationCenterV6 records={records} theme={theme} /></section>;
 
     const counts = {
         risk: data.alerts.filter((alert) => alert.severity === 'risk').length,
@@ -79,6 +84,7 @@ export const ResearchAlertsV6 = ({ items, theme, onOpen }: ResearchAlertsV6Props
                     <p className={'text-xs ' + styles.textMuted}>Updated {new Date(data.generatedAt).toLocaleString()}</p>
                 </div>
             </header>
+            {queueStatus ? <p role="status" className={'mt-3 text-xs ' + styles.positive}>{queueStatus}</p> : null}
             {data.alerts.length === 0 ? (
                 <div className={'py-16 text-center text-sm ' + styles.textMuted}>No active conditions. Monitoring remains current.</div>
             ) : (
@@ -90,12 +96,26 @@ export const ResearchAlertsV6 = ({ items, theme, onOpen }: ResearchAlertsV6Props
                             <div className="col-span-2 min-w-0 min-[700px]:col-span-1">
                                 <p className={'text-sm font-semibold ' + styles.textPrimary}>{alert.title}</p>
                                 <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>{alert.detail}</p>
+                                <button type="button" aria-label={`Queue ${alert.symbol} ${severityLabel(alert.severity)} review`} onClick={() => {
+                                    const result = enqueueResearchWorkflowTaskClient({
+                                        symbol: alert.symbol,
+                                        templateId: alert.severity === 'opportunity' ? 'valuation-refresh' : alert.severity === 'watch' ? 'post-event' : 'thesis-challenge',
+                                        source: 'alert',
+                                        dueAt: new Date().toISOString().slice(0, 10),
+                                    });
+                                    setQueueStatus(result.created
+                                        ? `${alert.symbol} ${severityLabel(alert.severity).toLowerCase()} review added to the Queue.`
+                                        : `${alert.symbol} already has this alert review in the Queue.`);
+                                }} className={'mt-2 min-h-10 rounded border px-3 text-xs font-semibold ' + styles.row}>
+                                    Queue review
+                                </button>
                             </div>
                         </li>
                     ))}
                 </ol>
             )}
             {data.warnings.map((warning) => <p key={warning} className={'mt-3 text-xs ' + styles.textMuted}>{warning}</p>)}
+            <ResearchNotificationCenterV6 records={records} theme={theme} />
         </section>
     );
 };

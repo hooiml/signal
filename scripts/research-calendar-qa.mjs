@@ -96,10 +96,23 @@ try {
             };
             return respond();
         });
+        const workspaceSelect = page.getByRole('combobox', { name: 'Research workspace' });
+        const selectWorkspace = async (name, value) => {
+            if (width < 700) await workspaceSelect.selectOption(value);
+            else await page.getByRole('tab', { name, exact: true }).click();
+        };
+        const expectWorkspace = async (name, value) => {
+            if (width < 700) {
+                await workspaceSelect.waitFor({ state: 'visible', timeout });
+                check(await workspaceSelect.inputValue() === value, `${width}: ${name} workspace was not restored`);
+            } else {
+                await page.getByRole('tab', { name, exact: true }).waitFor({ state: 'visible', timeout });
+                check(await page.getByRole('tab', { name, exact: true }).getAttribute('aria-selected') === 'true', `${width}: ${name} workspace was not restored`);
+            }
+        };
         try {
             await page.goto(`${baseUrl}/research?workspace=calendar`, { waitUntil: 'domcontentloaded', timeout });
-            await page.getByRole('tab', { name: 'Calendar', exact: true }).waitFor({ state: 'visible', timeout });
-            check(await page.getByRole('tab', { name: 'Calendar', exact: true }).getAttribute('aria-selected') === 'true', `${width}: Calendar workspace was not restored`);
+            await expectWorkspace('Calendar', 'calendar');
             await page.getByRole('heading', { name: 'Catalyst and review calendar' }).waitFor({ state: 'visible', timeout });
             await page.getByRole('status').getByText('Loading catalyst and review dates...').waitFor({ state: 'visible', timeout });
             check(await page.getByText(/UTC source dates · generated/).isVisible(), `${width}: UTC disclosure missing`);
@@ -172,9 +185,9 @@ try {
             const documentWidth = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth));
             check(documentWidth <= width + 1, `${width}: document horizontally overflows (${documentWidth}px)`);
 
-            await page.getByRole('tab', { name: 'Watchlist', exact: true }).click();
+            await selectWorkspace('Watchlist', 'research');
             await page.getByRole('searchbox').fill('NVDA');
-            await page.getByRole('tab', { name: 'Calendar', exact: true }).click();
+            await selectWorkspace('Calendar', 'calendar');
             await page.waitForFunction(() => document.querySelectorAll('[data-calendar-event]').length === 3, undefined, { timeout });
             await page.getByRole('button', { name: /Open MSFT review workflow/i }).first().click();
             await page.waitForURL(/ticker=MSFT.*review=edit/, { timeout });
@@ -186,7 +199,7 @@ try {
             await page.waitForFunction(() => document.querySelectorAll('[data-calendar-event]').length === 3, undefined, { timeout });
             await page.getByRole('button', { name: /Open MSFT earnings/i }).click();
             await page.waitForURL(/ticker=MSFT.*tab=events/, { timeout });
-            check(await page.getByRole('tab', { name: 'Watchlist', exact: true }).getAttribute('aria-selected') === 'true', `${width}: event did not return to Watchlist workspace`);
+            await expectWorkspace('Watchlist', 'research');
             await page.getByRole('tab', { name: 'Events', exact: true }).waitFor({ state: 'visible', timeout });
             check(await page.getByRole('tab', { name: 'Events', exact: true }).getAttribute('aria-selected') === 'true', `${width}: earnings destination did not open Events`);
             check(researchMutations.length === 0, `${width}: opening calendar events mutated research state (${researchMutations.join(', ')})`);

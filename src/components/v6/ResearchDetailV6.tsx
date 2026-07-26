@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
-import type { ResearchRecord } from '@/lib/types/research';
+import type { AcceptedResearchEvidence, ResearchRecord } from '@/lib/types/research';
+import type { ResearchWorkflowTemplateId } from '@/lib/research/workflow-queue';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { parseResearchChartResponse } from '@/lib/research/snapshot-input';
 import { nextHorizontalTabIndex } from '@/lib/research/tab-navigation';
@@ -24,13 +25,15 @@ const formatProviderTimestampV6 = (timestamp: string) => new Intl.DateTimeFormat
     minute: '2-digit',
 }).format(new Date(timestamp));
 
-export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, startReview, saving, saveError, onTabChange, onSave, onReviewChange, onSnapshot, onDelete }: {
+export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, startReview, stagedEvidence, workflowTemplateId, saving, saveError, onTabChange, onSave, onReviewChange, onSnapshot, onDelete }: {
     ticker: ResearchWatchlistItem;
     theme: ResearchThemeV6;
     record: ResearchRecord;
     liveQuote: ResearchSnapshot['quote'] | null;
     activeTab: ResearchTabV6;
     startReview: boolean;
+    stagedEvidence: AcceptedResearchEvidence | null;
+    workflowTemplateId: ResearchWorkflowTemplateId | null;
     saving: boolean;
     saveError: string | null;
     onTabChange: (tab: ResearchTabV6) => void;
@@ -211,7 +214,7 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
                 className="mt-5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-500"
             >
                 {activeTab === 'overview'
-                    ? <OverviewPanelV6 ticker={liveTicker} action={action} theme={theme} record={record} benchmark={snapshot?.benchmark ?? null} startReview={startReview} saving={saving} saveError={saveError} onSave={onSave} onReviewChange={onReviewChange} />
+                    ? <OverviewPanelV6 ticker={liveTicker} action={action} theme={theme} record={record} benchmark={snapshot?.benchmark ?? null} startReview={startReview} stagedEvidence={stagedEvidence} workflowTemplateId={workflowTemplateId} saving={saving} saveError={saveError} onSave={onSave} onReviewChange={onReviewChange} />
                     : activeTab === 'chart'
                         ? snapshot ? <ResearchChartV6
                             snapshot={snapshot}

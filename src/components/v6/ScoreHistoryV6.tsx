@@ -30,7 +30,7 @@ export const ScoreHistoryV6 = ({ signal, theme }: ScoreHistoryV6Props) => {
             </div>
             {reconstructedCount > 0 ? (
                 <p className={'mt-2 flex items-center gap-2 text-[11px] ' + (theme === 'light' ? 'text-slate-600' : 'text-[#9aa8b8]')}>
-                    <span className={'inline-block h-2.5 w-2.5 rounded-full border-2 ' + (theme === 'light' ? 'border-emerald-700 bg-white' : 'border-emerald-300 bg-slate-950')} />
+                    <span className={'inline-block h-1.5 w-1.5 rounded-full border ' + (theme === 'light' ? 'border-emerald-700 bg-white' : 'border-emerald-300 bg-slate-950')} />
                     Backfilled points were calculated from historical inputs; unavailable sources use a documented neutral fallback.
                 </p>
             ) : null}
@@ -100,8 +100,8 @@ const HistoryChartV6 = ({ points, currentScore, theme, width, height, compact = 
             })}
             <polygon points={areaPoints} fill={fill} />
             <polyline points={linePoints} fill="none" stroke={stroke} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
-            {coordinates.map((point) => <circle key={point.date} cx={point.x} cy={point.y} r={compact ? '2.5' : '3'} fill={point.origin === 'reconstructed' ? (theme === 'light' ? '#ffffff' : '#020617') : stroke} stroke={stroke} strokeWidth={point.origin === 'reconstructed' ? '2' : '0'} />)}
-            {last ? <circle cx={last.x} cy={last.y} r={compact ? '4' : '5'} fill={stroke} /> : null}
+            {coordinates.map((point) => <circle key={point.date} cx={point.x} cy={point.y} r={compact ? '1.25' : '1.5'} fill={point.origin === 'reconstructed' ? (theme === 'light' ? '#ffffff' : '#020617') : stroke} stroke={stroke} strokeWidth={point.origin === 'reconstructed' ? '1' : '0'} />)}
+            {last ? <circle cx={last.x} cy={last.y} r={compact ? '2' : '2.5'} fill={stroke} /> : null}
             {last ? <text x={Math.min(last.x + 10, width - 28)} y={last.y + 4} fill={stroke} fontWeight="700" fontSize={compact ? '11' : '14'}>{Math.round(last.score)}</text> : null}
             <text x={left} y={height - 8} fill={text} fontSize={compact ? '9' : '11'}>{formatCompactDateV6(points[0].date)}</text>
             <text x={left + plotWidth} y={height - 8} textAnchor="end" fill={text} fontSize={compact ? '9' : '11'}>{formatCompactDateV6(points.at(-1)?.date)}</text>

@@ -542,7 +542,7 @@ const inspectCalibrationViews = async (page) => {
     const oneMonthRange = await timeline.evaluate((element) => ({
         visibleCount: element.querySelector('[data-testid="timeline-visible-count"]')?.textContent || '',
         selected: element.querySelector('[data-testid="timeline-range-1m"]')?.getAttribute('aria-pressed') || '',
-        pointCount: element.querySelectorAll('circle[data-origin]').length,
+        pointCount: element.querySelectorAll('[data-score-point][data-origin]').length,
         benchmarkStart: element.getAttribute('data-visible-benchmark-start') || '',
         overflow: element.scrollWidth - element.clientWidth,
     }));
@@ -550,7 +550,7 @@ const inspectCalibrationViews = async (page) => {
     const threeYearRange = await timeline.evaluate((element) => ({
         visibleCount: element.querySelector('[data-testid="timeline-visible-count"]')?.textContent || '',
         selected: element.querySelector('[data-testid="timeline-range-3y"]')?.getAttribute('aria-pressed') || '',
-        pointCount: element.querySelectorAll('circle[data-origin]').length,
+        pointCount: element.querySelectorAll('[data-score-point][data-origin]').length,
     }));
     await timeline.getByRole('button', { name: 'All', exact: true }).click();
     await select('Forward outcomes', 'calibration-forward-view');

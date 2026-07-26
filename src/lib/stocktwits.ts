@@ -46,10 +46,30 @@ interface StockTwitsApiResponse {
 
 const STOCKTWITS_REQUEST_TIMEOUT_MS = 10_000;
 const STOCKTWITS_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
-const STOCKTWITS_MAX_ATTEMPTS = 3;
+const STOCKTWITS_MAX_ATTEMPTS = 1;
+const STOCKTWITS_COOLDOWN_MS = 15 * 60 * 1_000;
 const STOCKTWITS_HEADERS = {
     'User-Agent': 'Signal/1.0.0',
     'Accept': 'application/json',
+};
+let stockTwitsBlockedUntil = 0;
+let warnedDisabled = false;
+
+export const isStockTwitsEnabled = (
+    env: Readonly<Record<string, string | undefined>> = process.env
+): boolean => env.STOCKTWITS_ENABLED?.trim().toLowerCase() === 'true';
+
+export const isStockTwitsRateLimitStatus = (status: number): boolean => status === 429;
+
+const canRequestStockTwits = (): boolean => {
+    if (!isStockTwitsEnabled()) {
+        if (!warnedDisabled) {
+            warnedDisabled = true;
+            console.warn('StockTwits is disabled because public API access is not currently assured.');
+        }
+        return false;
+    }
+    return Date.now() >= stockTwitsBlockedUntil;
 };
 
 class StockTwitsRequestError extends Error {
@@ -96,11 +116,14 @@ function requestStockTwitsApiOnce(url: string): Promise<StockTwitsApiResponse> {
                         body.includes('challenges.cloudflare.com') ||
                         body.includes('<title>Just a moment...</title>')
                     );
+                    const isRateLimited = status === 429;
                     fail(new StockTwitsRequestError(
                         isCloudflareChallenge
                             ? 'StockTwits request blocked by a Cloudflare challenge (403)'
+                            : isRateLimited
+                                ? 'StockTwits API rate limit reached (429)'
                             : `StockTwits API error: ${status}`,
-                        isCloudflareChallenge
+                        isCloudflareChallenge || isStockTwitsRateLimitStatus(status)
                     ));
                     return;
                 }
@@ -158,10 +181,10 @@ const mapStockTwit = (msg: StockTwitsApiMessage): StockTwit => ({
 
 /**
  * Fetch trending market posts from StockTwits
- * No authentication required for public streams
- * Rate limit: 200 calls/hour
+ * This provider is opt-in because public API availability is not assured.
  */
 export const fetchTrendingTwits = async (limit = 10): Promise<StockTwit[]> => {
+    if (!canRequestStockTwits()) return [];
     try {
         const url = `https://api.stocktwits.com/api/2/streams/trending.json?limit=${limit}`;
 
@@ -178,6 +201,9 @@ export const fetchTrendingTwits = async (limit = 10): Promise<StockTwit[]> => {
 
         return data.messages.map(mapStockTwit);
     } catch (error) {
+        if (error instanceof StockTwitsRequestError && error.retryable) {
+            stockTwitsBlockedUntil = Date.now() + STOCKTWITS_COOLDOWN_MS;
+        }
         console.error('Error fetching StockTwits:', error);
         return [];
     }
@@ -187,6 +213,7 @@ export const fetchTrendingTwits = async (limit = 10): Promise<StockTwit[]> => {
  * Fetch posts for a specific stock ticker
  */
 export const fetchTickerTwits = async (ticker: string, limit = 10): Promise<StockTwit[]> => {
+    if (!canRequestStockTwits()) return [];
     try {
         const url = `https://api.stocktwits.com/api/2/streams/symbol/${ticker}.json?limit=${limit}`;
 
@@ -198,6 +225,9 @@ export const fetchTickerTwits = async (ticker: string, limit = 10): Promise<Stoc
 
         return data.messages.map(mapStockTwit);
     } catch (error) {
+        if (error instanceof StockTwitsRequestError && error.retryable) {
+            stockTwitsBlockedUntil = Date.now() + STOCKTWITS_COOLDOWN_MS;
+        }
         console.error(`Error fetching StockTwits for ${ticker}:`, error);
         return [];
     }

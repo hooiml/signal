@@ -8,6 +8,10 @@ import {
 } from '@/lib/market-research-handoff';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
+import {
+    setProductAnalyticsWorkflowSource,
+    trackProductAnalyticsEvent,
+} from '@/lib/product-analytics-client';
 
 export const MarketToResearchLinkV6 = ({ signal, theme }: {
     readonly signal: MarketSignal;
@@ -24,7 +28,16 @@ export const MarketToResearchLinkV6 = ({ signal, theme }: {
                 <p className={'mt-2 max-w-3xl text-sm leading-6 ' + styles.textSecondary}>{getMarketResearchEmphasis(handoff)}</p>
                 <p className={'mt-2 text-xs ' + styles.textMuted}>Context remains visible evidence only. It does not change any ticker decision or checklist answer.</p>
             </div>
-            <Link href={buildResearchHandoffHref(handoff)} className={'inline-flex min-h-11 items-center justify-center rounded border px-4 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + styles.selectedRow}>
+            <Link href={buildResearchHandoffHref(handoff)} onClick={() => {
+                setProductAnalyticsWorkflowSource('market');
+                trackProductAnalyticsEvent({
+                    name: 'market_handoff_opened',
+                    surface: 'market',
+                    workspace: 'market_conditions',
+                    source: 'market',
+                    attributes: { market: handoff.market },
+                });
+            }} className={'inline-flex min-h-11 items-center justify-center rounded border px-4 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + styles.selectedRow}>
                 Review watchlist
             </Link>
         </div>

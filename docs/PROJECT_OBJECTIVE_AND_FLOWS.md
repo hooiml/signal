@@ -56,6 +56,12 @@ The same score has different implications in Momentum and Contrarian modes. Labe
 
 Every security should be evaluated through the same categories and checklist so decisions are comparable over time.
 
+### Measure workflows without collecting research content
+
+Keep product-learning events local to the browser until account and privacy boundaries exist. Measure bounded workspace and action enums only; never include symbols, authored notes, evidence text, URLs, or exported packet contents.
+
+Keep backup secrets local as well. Research backup passphrases and decrypted files remain in the browser; only explicitly approved, boundary-validated records may be sent to the existing persistence layer. Restoration must default to preserving existing records and must never imply that unrelated saved research will be deleted.
+
 ### Keep the design replaceable
 
 Business rules, data normalization, scoring, and decision logic should remain outside presentation components. A new design should not require rewriting domain logic.
@@ -142,6 +148,7 @@ Changing market, mode, or source inclusion refreshes the conditions view while p
 5. **Forward scenarios**
    - Conditions that would strengthen, weaken, or reverse the current interpretation.
    - Scenario wording must match the selected market and mode.
+   - A fixed-weight sensitivity simulator may test normalized driver changes, but it must remain visually separate from the live score and disclose that raw inputs and regime selection are unchanged.
 
 6. **Market breadth and context**
    - Major index direction and breadth.
@@ -186,7 +193,15 @@ The user can:
 - filter by current decision;
 - select a security from the watchlist;
 - switch between Watchlist, Discovery, Compare, Calendar, and Alerts through desktop tabs or the narrow-screen workspace selector;
+- use Ctrl/Cmd+K for quick route, workspace, ticker, Market-configuration, and saved-view actions, or save a browser-local Research view that restores navigation/filter state and density without changing research content;
+- scan the Changes inbox for new or updated sourced evidence and stage it into an editable review without automatic thesis replacement;
+- inspect field-level evidence coverage and freshness, then queue unresolved assumptions, stale sources, conflicts, or missing analysis without automatic thesis replacement;
+- compare plans and Ready/DCA decisions with personal allocation, sector, evidence, review-age, and valuation guardrails without automatically changing the saved decision;
+- separate local security returns from user-supplied USD/MYR currency effects, dividends, and fees while keeping missing inputs unavailable;
+- compare cited structured filing and earnings evidence across saved review versions without claiming access to unavailable raw management-language diffs;
+- queue a focused New idea, Earnings update, Valuation refresh, Thesis challenge, or Post-event review without weakening the shared decision rules;
 - compare live quality, valuation, and technical evidence for up to three watchlist securities;
+- define a bounded US discovery-universe policy while retaining default score, default rank, policy adjustments, and exclusion reasons;
 - share or restore workspace, ticker, detail-tab, and review state through URL parameters without discarding market-handoff or unknown query context;
 - switch between light and dark themes.
 
@@ -260,6 +275,22 @@ Daily attention and portfolio guardrails remain available from the collapsed Res
    - UTC source dates plus browser-local generated-time context.
    - Changed-date, loading, empty, partial-provider, error, and retry states.
    - Direct navigation to the editable review workflow or the ticker Events tab.
+10. **Decision outcomes**
+   - Explicit correct, mixed, incorrect, and unresolved assessments linked to the prior saved review.
+   - Breakdown by saved decision, confidence, and market.
+   - Checklist completeness and scheduled-review timeliness at the assessed decision.
+   - Observed-price change shown only when both linked reviews saved a valid price.
+   - Clear separation between process learning, user judgment, and investment performance.
+11. **Portfolio risk cockpit**
+   - Planned allocation, unallocated capacity, and explicit over-allocation warnings.
+   - Sector, market, currency, and single-name concentration.
+   - Portfolio-at-risk coverage based only on valid lower invalidation levels.
+   - Beta, recent volatility, and pairwise return correlation when sufficient history exists.
+   - Broad-market, volatility, user-defined, and saved-invalidation stress scenarios with coverage disclosure.
+   - A bounded browser-local scenario library for reusable market, sector, and currency shocks with allocation-weighted impact.
+   - A browser-local paper decision journal that connects act-or-pass choices with later observed-price outcomes without pretending to be a brokerage ledger.
+   - An explicit relationship map that connects saved tickers through shared sector and evidence-provider provenance without inferring causality.
+   - Manual encrypted device transfer with conflict preview, preserving the local-first model without claiming account-backed background synchronization.
 
 ### Investment Research flow
 
@@ -295,6 +326,8 @@ Recommended relationship:
 5. Market context may adjust urgency or position sizing, but it does not overwrite the security-level decision rules.
 
 Market Conditions can pass a bounded, validated context reference into Research. That handoff remains visibly labeled evidence-only and never silently merges the market score with security decisions or checklist state.
+
+The Market exposure map may also connect active scored drivers to same-market watchlist sectors through fixed, visible rules. Connection strength indicates review relevance only: it is not beta, estimated price sensitivity, holdings look-through, or a security recommendation. Missing sector classifications remain unmapped.
 
 ## Scoring Semantics
 

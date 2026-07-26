@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { filterResearchCalendarEvents } from '@/lib/research/calendar';
 import { parseResearchCalendarResponse } from '@/lib/research/calendar-response';
+import { enqueueResearchWorkflowTaskClient } from '@/lib/research/workflow-queue-client';
 import {
     calendarDateChanges,
     mergeResearchCalendarDateState,
@@ -59,6 +60,13 @@ const eventButtonLabel = (event: ResearchCalendarEvent) => event.type === 'earni
     ? `Open ${event.symbol} earnings in Events`
     : `Open ${event.symbol} review workflow`;
 
+const queueCalendarEvent = (event: ResearchCalendarEvent) => enqueueResearchWorkflowTaskClient({
+    symbol: event.symbol,
+    templateId: event.type === 'earnings' ? 'earnings-update' : 'thesis-challenge',
+    source: 'calendar',
+    dueAt: event.type === 'stale' ? event.displayDate : event.sourceDate,
+});
+
 const CalendarEventCard = ({ event, priorDate, theme, onOpen }: {
     readonly event: ResearchCalendarEvent;
     readonly priorDate: string | undefined;
@@ -66,6 +74,7 @@ const CalendarEventCard = ({ event, priorDate, theme, onOpen }: {
     readonly onOpen: (targetHref: string) => void;
 }) => {
     const styles = getThemeV6(theme);
+    const [queueStatus, setQueueStatus] = useState<string | null>(null);
     return (
         <article data-calendar-event className={'rounded-lg border p-4 ' + styles.row}>
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -81,9 +90,20 @@ const CalendarEventCard = ({ event, priorDate, theme, onOpen }: {
                     {priorDate ? <p className={'mt-1 text-xs font-medium ' + styles.risk}>Date changed from {priorDate} UTC</p> : null}
                     {event.freshness === 'overdue' ? <p className={'mt-1 text-xs font-medium ' + styles.risk}>Overdue · surfaced today</p> : null}
                 </div>
-                <button type="button" aria-label={eventButtonLabel(event)} onClick={() => onOpen(event.targetHref)} className="min-h-10 shrink-0 rounded-md bg-emerald-500 px-3 text-xs font-semibold text-slate-950 transition-colors hover:bg-emerald-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500">
-                    Open
-                </button>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
+                        <button type="button" aria-label={`Queue ${event.symbol} ${eventTypeLabel(event.type)} review`} onClick={() => {
+                            const result = queueCalendarEvent(event);
+                            setQueueStatus(result.created ? 'Added to Queue' : 'Already queued');
+                        }} className={'min-h-10 rounded-md border px-3 text-xs font-semibold ' + styles.row}>
+                            Queue review
+                        </button>
+                        <button type="button" aria-label={eventButtonLabel(event)} onClick={() => onOpen(event.targetHref)} className="min-h-10 rounded-md bg-emerald-500 px-3 text-xs font-semibold text-slate-950 transition-colors hover:bg-emerald-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500">
+                            Open
+                        </button>
+                    </div>
+                    {queueStatus ? <span role="status" className={'text-[11px] ' + styles.positive}>{queueStatus}</span> : null}
+                </div>
             </div>
         </article>
     );

@@ -10,6 +10,12 @@ The JSON event type is `signal.research.digest.v1`. Deliveries include no creden
 
 This is an opt-in integration surface for email automation, chat tools, or a private notification relay. The receiving endpoint owns recipient consent, quiet hours, and final channel delivery.
 
+## Persistent alert center
+
+The Research Alerts workspace loads `/api/research/notifications/settings` to manage scheduled delivery without receiving the webhook URL or signing secret. Preferences support enabled/disabled delivery, a daily digest or urgent-only items, and optional UTC quiet hours. The delivery job records a bounded history of delivered, failed, and deduplicated digest attempts; failure details are truncated and must never include credentials or payload secrets.
+
+Research monitoring rules remain persisted with each ticker record. Market-condition rules remain browser-local and are explicitly labeled device-only in the alert center until account-scoped synchronization exists.
+
 ## Conditions
 
 - `Inside buy zone`: current price is within the two numeric bounds saved in `targetBuyZone`.

@@ -1,16 +1,21 @@
+'use client';
+
 import Link from 'next/link';
-import type { CSSProperties, ReactNode } from 'react';
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ThemeModeSwitchV2 } from '@/components/ThemeModeSwitchV2';
 import type { ResearchThemeV6 } from './research-v6';
+import { CommandPaletteV6, type AppCommandV6 } from './CommandPaletteV6';
 
 type AppNavV6Props = {
     active: 'market' | 'research';
     theme: ResearchThemeV6;
     onThemeToggle: () => void;
+    commands?: readonly AppCommandV6[];
     children?: ReactNode;
 };
 
-export const AppNavV6 = ({ active, theme, onThemeToggle, children }: AppNavV6Props) => {
+export const AppNavV6 = ({ active, theme, onThemeToggle, commands = [], children }: AppNavV6Props) => {
+    const [paletteOpen, setPaletteOpen] = useState(false);
     const headerVars = {
         '--border': theme === 'light' ? 'rgba(15, 23, 42, 0.12)' : 'rgba(148, 163, 184, 0.22)',
         '--fill-success': theme === 'light' ? '#059669' : '#6ee7b7',
@@ -24,8 +29,15 @@ export const AppNavV6 = ({ active, theme, onThemeToggle, children }: AppNavV6Pro
         { key: 'market', label: 'Market', href: '/' },
         { key: 'research', label: 'Research', href: '/research' },
     ] as const;
+    const allCommands = useMemo<readonly AppCommandV6[]>(() => [
+        { id: 'route-market', label: 'Go to Market', group: 'Route', keywords: ['home'], run: () => window.location.assign('/') },
+        { id: 'route-research', label: 'Go to Research', group: 'Route', keywords: ['watchlist'], run: () => window.location.assign('/research') },
+        { id: 'theme-toggle', label: `Use ${theme === 'light' ? 'dark' : 'light'} theme`, group: 'Appearance', keywords: ['theme mode'], run: onThemeToggle },
+        ...commands,
+    ], [commands, onThemeToggle, theme]);
 
     return (
+        <>
         <header
             className="relative z-20 w-full border-b-[0.5px] border-[var(--border)] bg-transparent px-6"
             aria-label="Signal application header"
@@ -59,10 +71,17 @@ export const AppNavV6 = ({ active, theme, onThemeToggle, children }: AppNavV6Pro
                             );
                         })}
                     </nav>
-                    <ThemeModeSwitchV2 theme={theme} tone={theme} onToggle={onThemeToggle} variant="header" className="shrink-0 justify-self-end" />
+                    <div className="flex shrink-0 items-center justify-self-end gap-2">
+                        <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Open command palette" className="inline-flex min-h-9 items-center rounded-md border-[0.5px] border-[var(--border)] px-2 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                            <span className="min-[700px]:hidden">⌕</span><span className="hidden min-[700px]:inline">Commands</span><kbd className="ml-2 hidden rounded border border-[var(--border)] px-1 py-0.5 text-[9px] min-[900px]:inline">Ctrl K</kbd>
+                        </button>
+                        <ThemeModeSwitchV2 theme={theme} tone={theme} onToggle={onThemeToggle} variant="header" className="shrink-0" />
+                    </div>
                 </div>
                 {children ? <div className="border-t-[0.5px] border-[var(--border)] py-2">{children}</div> : null}
             </div>
         </header>
+        <CommandPaletteV6 commands={allCommands} theme={theme} open={paletteOpen} onOpenChange={setPaletteOpen} />
+        </>
     );
 };

@@ -16,6 +16,7 @@ import type { MarketContextData } from './types/market-context';
 import { getSourceIndicatorCount, shouldEnableSourceIndicator } from './source-indicator';
 import { getMarketCalibration } from './market-calibration-service';
 import { MARKET_SCORE_MODEL_VERSION } from './market-calibration';
+import { AURA_CACHE_MAX_AGE_DAYS, isAuraCacheFresh } from './aura-cache';
 
 interface AggregateMarketData {
     vixData: { price: number; change: number };
@@ -456,11 +457,7 @@ export const getAuraAnalysis = async (marketData: AggregateMarketData, market: M
       LIMIT 1
     `;
 
-        if (cached.length > 0) {
-            // Check staleness (optional log)
-            const isStale = new Date(cached[0].signal_date).toDateString() !== new Date().toDateString();
-            if (isStale) console.log(`⚠️ Serving stale AI analysis for ${market} from ${cached[0].signal_date}`);
-
+        if (cached.length > 0 && isAuraCacheFresh(cached[0].signal_date)) {
             return injectLiveAuraData({
                 // Use the DB's stored level/score if available, or current live calculation?
                 // Ideally, "Aura" (Text) matches the stored record, but "Score" (Number) is live.
@@ -474,6 +471,9 @@ export const getAuraAnalysis = async (marketData: AggregateMarketData, market: M
                 outlook: cached[0].outlook || "Market conditions are evolving. Monitor key drivers for changes.",
                 generatedAt: cached[0].updated_at || cached[0].created_at || cached[0].signal_date
             }, marketData);
+        }
+        if (cached.length > 0) {
+            console.warn(`Ignoring AI analysis older than ${AURA_CACHE_MAX_AGE_DAYS} days for ${market}.`);
         }
     } catch (e) {
         console.error('DB Read failed:', e);

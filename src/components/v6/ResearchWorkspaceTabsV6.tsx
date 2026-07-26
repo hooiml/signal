@@ -1,10 +1,11 @@
 import { nextHorizontalTabIndex } from '@/lib/research/tab-navigation';
+import { researchLayoutWorkspaces, type ResearchLayoutWorkspace } from '@/lib/research/saved-layouts';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 
-export type ResearchWorkspaceV6 = 'research' | 'compare' | 'discovery' | 'calendar' | 'alerts';
+export type ResearchWorkspaceV6 = ResearchLayoutWorkspace;
 
 export const isResearchWorkspaceV6 = (value: string | null): value is ResearchWorkspaceV6 =>
-    value === 'research' || value === 'discovery' || value === 'compare' || value === 'calendar' || value === 'alerts';
+    value !== null && researchLayoutWorkspaces.some((workspace) => workspace === value);
 
 export const ResearchWorkspaceTabsV6 = ({ active, theme, onChange }: {
     readonly active: ResearchWorkspaceV6;
@@ -14,7 +15,11 @@ export const ResearchWorkspaceTabsV6 = ({ active, theme, onChange }: {
     const styles = getThemeV6(theme);
     const tabs: readonly { readonly id: ResearchWorkspaceV6; readonly label: string }[] = [
         { id: 'research', label: 'Watchlist' }, { id: 'discovery', label: 'Discovery' },
-        { id: 'compare', label: 'Compare' }, { id: 'calendar', label: 'Calendar' }, { id: 'alerts', label: 'Alerts' },
+        { id: 'compare', label: 'Compare' }, { id: 'calendar', label: 'Calendar' },
+        { id: 'alerts', label: 'Alerts' }, { id: 'changes', label: 'Changes' }, { id: 'filings', label: 'Filings' }, { id: 'evidence', label: 'Evidence' }, { id: 'policy', label: 'Policy' }, { id: 'queue', label: 'Queue' }, { id: 'portfolio', label: 'Portfolio' }, { id: 'currency', label: 'Currency' }, { id: 'relationships', label: 'Map' },
+        { id: 'peers', label: 'Peers' }, { id: 'outcomes', label: 'Outcomes' },
+        { id: 'replay', label: 'Replay' }, { id: 'health', label: 'Sources' },
+        { id: 'packets', label: 'Export' }, { id: 'backup', label: 'Backup' }, { id: 'usage', label: 'Usage' },
     ];
     return (
         <div className="mb-3 max-w-full">
@@ -29,7 +34,7 @@ export const ResearchWorkspaceTabsV6 = ({ active, theme, onChange }: {
                     {tabs.map((tab) => <option key={tab.id} value={tab.id}>{tab.label}</option>)}
                 </select>
             </label>
-            <div role="tablist" aria-label="Research workspace" data-surface-tier="utility" className={'hidden w-fit rounded border p-1 min-[700px]:flex ' + styles.panelUtility}>
+            <div role="tablist" aria-label="Research workspace" data-surface-tier="utility" className={'research-scrollbar hidden max-w-full overflow-x-auto rounded border p-1 min-[700px]:flex ' + styles.panelUtility}>
                 {tabs.map((tab, index) => (
                     <button
                         key={tab.id}
@@ -51,7 +56,7 @@ export const ResearchWorkspaceTabsV6 = ({ active, theme, onChange }: {
                             onChange(nextTab.id);
                             container.querySelector<HTMLButtonElement>(`#research-workspace-tab-${nextTab.id}`)?.focus();
                         }}
-                        className={'min-h-10 rounded px-3 text-xs font-semibold ' + (active === tab.id ? styles.selectedRow : styles.textMuted)}
+                        className={'min-h-10 shrink-0 rounded px-3 text-xs font-semibold ' + (active === tab.id ? styles.selectedRow : styles.textMuted)}
                     >
                         {tab.label}
                     </button>

@@ -1,10 +1,15 @@
 'use client';
 
 import { useMemo, useState, type ComponentProps } from 'react';
-import type { ResearchRecord } from '@/lib/types/research';
+import type { AcceptedResearchEvidence, ResearchRecord } from '@/lib/types/research';
 import type { ResearchBenchmark } from '@/lib/types/research-snapshot';
 import { calculatePositionPlanRisk } from '@/lib/research/position-plan';
 import type { ResearchFindingTarget } from '@/lib/types/research-assistant';
+import {
+    getResearchWorkflowTemplate,
+    type ResearchWorkflowTemplateId,
+    type ResearchWorkflowTextField,
+} from '@/lib/research/workflow-queue';
 import { ResearchAssistantV6 } from './ResearchAssistantV6';
 import { checklistLabelsV6, getThemeV6, type ResearchActionV6, type ResearchThemeV6 } from './research-v6';
 
@@ -18,6 +23,16 @@ const targetLabels: Record<ResearchFindingTarget, string> = {
     whyInterested: 'Why interested', bullCase: 'Bull case', bearCase: 'Bear case',
     thesisBreak: 'Thesis invalidation', buyTrigger: 'Buy trigger', sellTrigger: 'Sell trigger', notes: 'Review notes',
 };
+
+const workflowTextFields: readonly { readonly key: ResearchWorkflowTextField; readonly label: string }[] = [
+    { key: 'whyInterested', label: 'Why interested' },
+    { key: 'bullCase', label: 'Bull case' },
+    { key: 'bearCase', label: 'Bear case' },
+    { key: 'thesisBreak', label: 'Thesis invalidation' },
+    { key: 'buyTrigger', label: 'Buy trigger' },
+    { key: 'sellTrigger', label: 'Sell trigger' },
+    { key: 'notes', label: 'Review notes' },
+];
 
 const detailText = (value: string) => value.trim() || 'Not recorded';
 
@@ -33,11 +48,16 @@ type ResearchEditorV6Props = {
     readonly observedPrice: number | null;
     readonly benchmark: ResearchBenchmark | null;
     readonly startEditing?: boolean;
+    readonly stagedEvidence?: AcceptedResearchEvidence | null;
+    readonly workflowTemplateId?: ResearchWorkflowTemplateId | null;
     readonly onEditingChange: (editing: boolean) => void;
 };
 
-const prepareReviewDraft = (initial: ResearchRecord, decision: ResearchActionV6, observedPrice: number | null, benchmark: ResearchBenchmark | null): ResearchRecord => ({
+const prepareReviewDraft = (initial: ResearchRecord, decision: ResearchActionV6, observedPrice: number | null, benchmark: ResearchBenchmark | null, stagedEvidence: AcceptedResearchEvidence | null): ResearchRecord => ({
     ...initial,
+    acceptedEvidence: stagedEvidence
+        ? [...initial.acceptedEvidence.filter((item) => item.id !== stagedEvidence.id), stagedEvidence].slice(-50)
+        : initial.acceptedEvidence,
     decisionJournal: {
         ...initial.decisionJournal,
         decision,
@@ -50,12 +70,16 @@ const prepareReviewDraft = (initial: ResearchRecord, decision: ResearchActionV6,
     },
 });
 
-export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decision, observedPrice, benchmark, startEditing = false, onEditingChange }: ResearchEditorV6Props) => {
-    const [draft, setDraft] = useState(() => startEditing ? prepareReviewDraft(initial, decision, observedPrice, benchmark) : initial);
+export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decision, observedPrice, benchmark, startEditing = false, stagedEvidence = null, workflowTemplateId = null, onEditingChange }: ResearchEditorV6Props) => {
+    const [draft, setDraft] = useState(() => startEditing ? prepareReviewDraft(initial, decision, observedPrice, benchmark, stagedEvidence) : initial);
     const [isEditing, setIsEditing] = useState(startEditing);
     const [isExpanded, setIsExpanded] = useState(startEditing);
     const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
     const styles = getThemeV6(theme);
+    const workflowTemplate = workflowTemplateId ? getResearchWorkflowTemplate(workflowTemplateId) : null;
+    const visibleTextFields = workflowTemplate
+        ? workflowTextFields.filter((fieldDefinition) => workflowTemplate.fields.includes(fieldDefinition.key))
+        : workflowTextFields;
     const isDirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(initial), [draft, initial]);
     const completedChecklist = checklistKeys.filter((key) => draft.checklist[key]).length;
     const positionRisk = calculatePositionPlanRisk(draft.positionPlan, observedPrice);
@@ -237,29 +261,19 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                     </ul>
                 </section>
             ) : null}
+            {isEditing && stagedEvidence ? <p role="status" className={'mt-3 rounded border p-3 text-xs leading-5 ' + styles.panelUtility + ' ' + styles.textSecondary}>
+                Staged evidence is attached to this draft. No thesis field was changed; reconcile the relevant wording below, then save or cancel the review.
+            </p> : null}
+            {isEditing && workflowTemplate ? <div role="status" className={'mt-3 rounded border p-3 text-xs leading-5 ' + styles.panelUtility}>
+                <p className={'font-bold ' + styles.textPrimary}>{workflowTemplate.name} template</p>
+                <p className={'mt-1 ' + styles.textSecondary}>{workflowTemplate.description}</p>
+                <p className={'mt-1 ' + styles.textMuted}>Focused narrative fields are shown below. Checklist, decision, position plan, and save behavior remain complete.</p>
+            </div> : null}
             {isEditing ? <>
             <div className="mt-4 grid gap-3 min-[900px]:grid-cols-2">
-                <label className={'text-xs font-medium ' + styles.textMuted}>Why interested
-                    <textarea value={draft.whyInterested} onChange={(event) => updateText('whyInterested', event.target.value)} rows={3} className={'mt-1 ' + field} />
-                </label>
-                <label className={'text-xs font-medium ' + styles.textMuted}>Bull case
-                    <textarea value={draft.bullCase} onChange={(event) => updateText('bullCase', event.target.value)} rows={3} className={'mt-1 ' + field} />
-                </label>
-                <label className={'text-xs font-medium ' + styles.textMuted}>Bear case
-                    <textarea value={draft.bearCase} onChange={(event) => updateText('bearCase', event.target.value)} rows={3} className={'mt-1 ' + field} />
-                </label>
-                <label className={'text-xs font-medium ' + styles.textMuted}>Thesis invalidation
-                    <textarea value={draft.thesisBreak} onChange={(event) => updateText('thesisBreak', event.target.value)} rows={3} className={'mt-1 ' + field} />
-                </label>
-                <label className={'text-xs font-medium ' + styles.textMuted}>Buy trigger
-                    <textarea value={draft.buyTrigger} onChange={(event) => updateText('buyTrigger', event.target.value)} rows={3} className={'mt-1 ' + field} />
-                </label>
-                <label className={'text-xs font-medium ' + styles.textMuted}>Sell trigger
-                    <textarea value={draft.sellTrigger} onChange={(event) => updateText('sellTrigger', event.target.value)} rows={3} className={'mt-1 ' + field} />
-                </label>
-                <label className={'text-xs font-medium ' + styles.textMuted}>Review notes
-                    <textarea value={draft.notes} onChange={(event) => updateText('notes', event.target.value)} rows={3} className={'mt-1 ' + field} />
-                </label>
+                {visibleTextFields.map((fieldDefinition) => <label key={fieldDefinition.key} className={'text-xs font-medium ' + styles.textMuted}>{fieldDefinition.label}
+                    <textarea value={draft[fieldDefinition.key]} onChange={(event) => updateText(fieldDefinition.key, event.target.value)} rows={3} className={'mt-1 ' + field} />
+                </label>)}
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <label className={'text-xs font-medium ' + styles.textMuted}>Thesis strength

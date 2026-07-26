@@ -10,6 +10,68 @@ export interface RedditPost {
     subreddit: string;
 }
 
+type RedditOAuthConfiguration = {
+    readonly clientId: string;
+    readonly clientSecret: string;
+    readonly userAgent: string;
+};
+
+type RedditToken = {
+    readonly value: string;
+    readonly expiresAt: number;
+};
+
+let cachedToken: RedditToken | null = null;
+let pendingToken: Promise<RedditToken> | null = null;
+let warnedUnconfigured = false;
+
+export const getRedditOAuthConfiguration = (
+    env: Readonly<Record<string, string | undefined>> = process.env
+): RedditOAuthConfiguration | null => {
+    const clientId = env.REDDIT_CLIENT_ID?.trim();
+    const clientSecret = env.REDDIT_CLIENT_SECRET?.trim();
+    const userAgent = env.REDDIT_USER_AGENT?.trim();
+    return clientId && clientSecret && userAgent ? { clientId, clientSecret, userAgent } : null;
+};
+
+const getRedditAccessToken = async (configuration: RedditOAuthConfiguration): Promise<string> => {
+    const now = Date.now();
+    if (cachedToken && cachedToken.expiresAt > now + 60_000) return cachedToken.value;
+
+    pendingToken ??= (async () => {
+        const response = await fetch('https://www.reddit.com/api/v1/access_token', {
+            method: 'POST',
+            headers: {
+                Authorization: `Basic ${Buffer.from(`${configuration.clientId}:${configuration.clientSecret}`).toString('base64')}`,
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': configuration.userAgent,
+            },
+            body: 'grant_type=client_credentials',
+            cache: 'no-store',
+            signal: AbortSignal.timeout(10_000),
+        });
+        if (!response.ok) throw new Error(`OAuth token request failed: ${response.status}`);
+
+        const payload: unknown = await response.json();
+        if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) throw new Error('OAuth token response was invalid');
+        const token = Object.fromEntries(Object.entries(payload));
+        if (typeof token.access_token !== 'string' || !token.access_token || typeof token.expires_in !== 'number') {
+            throw new Error('OAuth token response was incomplete');
+        }
+        return {
+            value: token.access_token,
+            expiresAt: now + Math.max(60, token.expires_in) * 1_000,
+        };
+    })();
+
+    try {
+        cachedToken = await pendingToken;
+        return cachedToken.value;
+    } finally {
+        pendingToken = null;
+    }
+};
+
 /**
  * Filter out low-signal posts (megathreads, discussion threads, questions, advice)
  */
@@ -82,24 +144,35 @@ const isSignalPost = (post: RedditPost, minScore = 20): boolean => {
 };
 
 /**
- * Fetch Reddit posts using public JSON API (no auth required)
- * Rate limit: 10 requests/minute (sufficient for daily cron jobs)
+ * Fetch Reddit posts through application-only OAuth.
  */
 export const fetchSubredditPosts = async (subreddit: string, limit = 10): Promise<RedditPost[]> => {
     const isMYSub = ['bursabets', 'malaysianpf'].includes(subreddit.toLowerCase());
+    const configuration = getRedditOAuthConfiguration();
+    if (!configuration) {
+        if (!warnedUnconfigured) {
+            warnedUnconfigured = true;
+            console.warn('[Reddit] OAuth is not configured; Reddit sentiment is unavailable.');
+        }
+        return [];
+    }
 
     try {
-        const url = `https://www.reddit.com/r/${subreddit}/hot.json?limit=${limit * 2}`;
+        const accessToken = await getRedditAccessToken(configuration);
+        const url = `https://oauth.reddit.com/r/${encodeURIComponent(subreddit)}/hot?limit=${limit * 2}`;
 
         const response = await fetch(url, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': 'application/json'
+                Authorization: `Bearer ${accessToken}`,
+                'User-Agent': configuration.userAgent,
+                Accept: 'application/json',
             },
-            next: { revalidate: 30 }
+            cache: 'no-store',
+            signal: AbortSignal.timeout(10_000),
         });
 
         if (!response.ok) {
+            if (response.status === 401) cachedToken = null;
             console.warn(`[Reddit] Failed to fetch r/${subreddit}: ${response.status}`);
             return [];
         }
@@ -135,7 +208,14 @@ export const fetchSubredditPosts = async (subreddit: string, limit = 10): Promis
  * Fetch from multiple subreddits in parallel (with slight stagger)
  */
 export const fetchMultipleSubreddits = async (subreddits: string[], limitPerSub = 10): Promise<RedditPost[]> => {
-    // Fetch ALL subreddits in parallel (Reddit public API is rate-limited but tolerant for small bursts)
+    if (!getRedditOAuthConfiguration()) {
+        if (!warnedUnconfigured) {
+            warnedUnconfigured = true;
+            console.warn('[Reddit] OAuth is not configured; Reddit sentiment is unavailable.');
+        }
+        return [];
+    }
+
     const promises = subreddits.map((sub, index) =>
         // Stagger start by 100ms per subreddit to be slightly nicer to Reddit
         new Promise<RedditPost[]>(resolve =>

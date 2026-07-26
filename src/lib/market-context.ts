@@ -10,6 +10,7 @@ import type {
 const FRED_T10Y3M_URL = 'https://fred.stlouisfed.org/series/T10Y3M';
 const FRED_NFCI_URL = 'https://fred.stlouisfed.org/series/NFCI';
 const BNM_BENCHMARK_YIELDS_URL = 'https://financialmarkets.bnm.gov.my/benchmark-yields';
+const BNM_MAX_ATTEMPTS = 4;
 const EQUAL_WEIGHT_SOURCE_URL = 'https://finance.yahoo.com/quote/%5ESP500EW/';
 const CAP_WEIGHT_SOURCE_URL = 'https://finance.yahoo.com/quote/%5EGSPC/';
 
@@ -180,15 +181,23 @@ const fetchFredObservation = async (url: string): Promise<FredSeriesObservation 
 
 const fetchMalaysiaRates = async (): Promise<MalaysiaRatesContext | null> => {
     try {
-        const response = await fetch(BNM_BENCHMARK_YIELDS_URL, {
-            cache: 'no-store',
-            headers: {
-                Accept: 'text/html,application/xhtml+xml',
-                'user-agent': 'SignalDashboard/1.0 (+https://github.com)',
-            },
-        });
-        if (!response.ok) throw new Error(`BNM benchmark fetch failed: ${response.status}`);
-        return parseMalaysiaBenchmarkPage(await response.text());
+        for (let attempt = 1; attempt <= BNM_MAX_ATTEMPTS; attempt++) {
+            const response = await fetch(BNM_BENCHMARK_YIELDS_URL, {
+                cache: 'no-store',
+                headers: {
+                    Accept: 'text/html,application/xhtml+xml',
+                    'user-agent': 'SignalDashboard/1.0',
+                },
+            });
+            if (response.ok) return parseMalaysiaBenchmarkPage(await response.text());
+
+            const retryable = response.status === 403 || response.status === 429 || response.status >= 500;
+            if (!retryable || attempt === BNM_MAX_ATTEMPTS) {
+                throw new Error(`BNM benchmark fetch failed: ${response.status}`);
+            }
+            await new Promise(resolve => setTimeout(resolve, attempt * 250));
+        }
+        return null;
     } catch (error) {
         const detail = error instanceof Error ? error.message : 'Unknown BNM fetch failure';
         console.warn('Malaysia rates context fetch failed:', detail);

@@ -13,6 +13,8 @@ import { ScoreHistoryV6 } from './ScoreHistoryV6';
 import { MarketAlertsV6 } from './MarketAlertsV6';
 import { MarketContextV6 } from './MarketContextV6';
 import { MarketToResearchLinkV6 } from './MarketResearchHandoffV6';
+import { MarketWatchlistExposureV6 } from './MarketWatchlistExposureV6';
+import { MarketScoreSensitivityV6 } from './MarketScoreSensitivityV6';
 import { MarketCalibrationV6 } from './MarketCalibrationV6';
 import { SimilarScoreOutcomesV6 } from './SimilarScoreOutcomesV6';
 import {
@@ -159,6 +161,8 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                 </div>
             </section>
 
+            <MarketScoreSensitivityV6 key={`${signal.metadata.market}:${signal.mode}:${signal.metadata.score_delta?.snapshot_date ?? 'current'}:${signal.composite_score}`} signal={signal} theme={theme} />
+
             <MarketCalibrationV6 signal={signal} theme={theme} />
 
             <section className={'rounded-lg border p-5 sm:p-6 ' + t.panelSolid} aria-label="Forward scenarios and market developments" data-surface-tier="secondary">
@@ -195,6 +199,8 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
             <MarketAlertsV6 signal={signal} enableSocial={enableSocial} theme={theme} />
 
             <MarketToResearchLinkV6 signal={signal} theme={theme} />
+
+            <MarketWatchlistExposureV6 signal={signal} theme={theme} />
 
             <section className={'rounded-lg border p-5 sm:p-6 ' + t.panelSolid} aria-labelledby="terms-title" data-surface-tier="utility">
                 <div className="grid gap-5 lg:grid-cols-[220px_1fr] lg:items-start">

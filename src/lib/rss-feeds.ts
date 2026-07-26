@@ -16,7 +16,6 @@ const US_FEEDS = [
 ];
 
 const MY_FEEDS = [
-    { url: 'https://www.thestar.com.my/rss/business/business-news', source: 'The Star' },
     { url: 'https://news.google.com/rss/search?q=business+finance+malaysia&hl=en-MY&gl=MY&ceid=MY:en', source: 'Google News (MY)' }
 ];
 

@@ -18,8 +18,20 @@ import {
 import type { DiscoveryContender, DiscoveryResponse, DiscoveryResult, QualityDiscoveryResult } from '@/lib/types/research-discovery';
 import { DiscoveryFiltersV6 } from './DiscoveryFiltersV6';
 import { DiscoveryOwnershipEvidenceV6 } from './DiscoveryOwnershipEvidenceV6';
+import { DiscoveryUniversePolicyV6 } from './DiscoveryUniversePolicyV6';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import { parseDiscoveryResponseV6 } from './research-discovery-response-v6';
+import {
+    applyDiscoveryUniversePolicy,
+    defaultDiscoveryUniversePolicy,
+    DISCOVERY_UNIVERSES_STORAGE_KEY,
+    hasCustomDiscoveryUniversePolicy,
+    parseSavedDiscoveryUniverses,
+    removeSavedDiscoveryUniverse,
+    upsertSavedDiscoveryUniverse,
+    type DiscoveryPolicyRow,
+    type SavedDiscoveryUniverse,
+} from '@/lib/research/discovery-policy';
 
 type TrendDiscoveryV6Props = {
     readonly theme: ResearchThemeV6;
@@ -37,7 +49,7 @@ const riskTone = (risk: DiscoveryResult['risk'], theme: ResearchThemeV6) => {
     return theme === 'light' ? 'text-rose-600' : 'text-rose-300';
 };
 
-const CandidateRows = ({ candidates, rankStart, rankFor, view, theme, savedSymbols, adding, onAdd, onOpen }: {
+const CandidateRows = ({ candidates, rankStart, rankFor, policyFor, view, theme, savedSymbols, adding, onAdd, onOpen }: {
     readonly candidates: readonly (QualityDiscoveryResult | DiscoveryContender)[];
     readonly rankStart: number;
     readonly view: 'leaders' | 'early';
@@ -47,15 +59,20 @@ const CandidateRows = ({ candidates, rankStart, rankFor, view, theme, savedSymbo
     readonly onAdd: (candidate: DiscoveryResult) => Promise<void>;
     readonly onOpen: (symbol: string) => void;
     readonly rankFor?: (candidate: QualityDiscoveryResult | DiscoveryContender, index: number) => number;
+    readonly policyFor?: (candidate: QualityDiscoveryResult | DiscoveryContender) => DiscoveryPolicyRow<QualityDiscoveryResult | DiscoveryContender> | undefined;
 }) => {
     const styles = getThemeV6(theme);
     return candidates.map((candidate, index) => {
         const saved = savedSymbols.includes(candidate.symbol);
         const contenderReason = 'contenderReason' in candidate ? candidate.contenderReason : null;
+        const policyRow = policyFor?.(candidate);
         const rank = String(rankFor?.(candidate, index) ?? rankStart + index).padStart(2, '0');
-        const scoreChange = candidate.scoreChange1Week === null
+        const historyChange = candidate.scoreChange1Week === null
             ? 'new'
             : (candidate.scoreChange1Week >= 0 ? '+' : '') + candidate.scoreChange1Week + ' 1W';
+        const scoreChange = policyRow
+            ? `${policyRow.adjustment >= 0 ? '+' : ''}${policyRow.adjustment.toFixed(1)} policy · default #${policyRow.defaultRank}`
+            : historyChange;
         const details = (view === 'early' ? candidate.earlyTrendStage : candidate.category)
             + (contenderReason ? ' · ' + contenderReason : '')
             + ' · ' + candidate.sector
@@ -63,6 +80,7 @@ const CandidateRows = ({ candidates, rankStart, rankFor, view, theme, savedSymbo
             + ' · ' + candidate.valuation.guardrail + ' valuation'
             + (candidate.valuation.priceEarnings !== null ? ' · P/E ' + candidate.valuation.priceEarnings.toFixed(1) : '')
             + (candidate.catalyst ? ' · Earnings ' + new Date(candidate.catalyst.date + 'T00:00:00').toLocaleDateString() : '');
+        const policyDetails = policyRow ? ` · policy score ${policyRow.policyScore}${policyRow.reasons.length > 0 ? ` (${policyRow.reasons.join(', ')})` : ''}` : '';
         return (
             <li key={candidate.symbol} className={'border-b px-2 py-3 ' + styles.divider}>
                 <div className="grid grid-cols-[36px_minmax(0,1fr)] gap-x-3 gap-y-3 min-[900px]:hidden">
@@ -86,7 +104,7 @@ const CandidateRows = ({ candidates, rankStart, rankFor, view, theme, savedSymbo
                                 <dd className={'mt-1 text-xs font-semibold capitalize ' + riskTone(candidate.risk, theme)}>{candidate.risk}</dd>
                             </div>
                         </dl>
-                        <p className={'mt-3 text-xs leading-5 ' + styles.textSecondary}>{details}</p>
+                        <p className={'mt-3 text-xs leading-5 ' + styles.textSecondary}>{details}{policyDetails}</p>
                         <DiscoveryOwnershipEvidenceV6 ownership={candidate.ownership} theme={theme} className="mt-2" />
                         <button type="button" disabled={saved || adding} onClick={() => void onAdd(candidate)} className={'mt-3 min-h-10 w-full rounded border px-2 text-xs font-semibold disabled:opacity-50 ' + styles.row}>{saved ? 'In research' : 'Add to research'}</button>
                     </div>
@@ -105,7 +123,7 @@ const CandidateRows = ({ candidates, rankStart, rankFor, view, theme, savedSymbo
                     <span className={'text-xs font-semibold capitalize ' + riskTone(candidate.risk, theme)}>{candidate.risk}</span>
                     <span className={'font-mono text-xs ' + styles.textSecondary}>{candidate.trendScore}</span>
                     <div className={'text-xs leading-5 ' + styles.textSecondary}>
-                        <p><strong className="capitalize">{details}</strong> · {[...candidate.qualityReasons, ...candidate.reasons].slice(0, 1).join(' · ')}</p>
+                        <p><strong className="capitalize">{details}{policyDetails}</strong> · {[...candidate.qualityReasons, ...candidate.reasons].slice(0, 1).join(' · ')}</p>
                         <DiscoveryOwnershipEvidenceV6 ownership={candidate.ownership} theme={theme} />
                     </div>
                     <button type="button" disabled={saved || adding} onClick={() => void onAdd(candidate)} className={'min-h-10 rounded border px-2 text-xs font-semibold disabled:opacity-50 ' + styles.row}>{saved ? 'In research' : 'Add'}</button>
@@ -141,6 +159,8 @@ export const TrendDiscoveryV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
     const [previousVisit, setPreviousVisit] = useState<DiscoveryVisitSnapshot | null | undefined>(undefined);
     const [visitChanges, setVisitChanges] = useState<readonly DiscoveryVisitChange[]>([]);
     const [savedViews, setSavedViews] = useState<readonly SavedDiscoveryView[]>([]);
+    const [universePolicy, setUniversePolicy] = useState(defaultDiscoveryUniversePolicy);
+    const [savedUniverses, setSavedUniverses] = useState<readonly SavedDiscoveryUniverse[]>([]);
     const styles = getThemeV6(theme);
 
     useEffect(() => {
@@ -164,11 +184,14 @@ export const TrendDiscoveryV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
         try {
             const visitRaw = localStorage.getItem(DISCOVERY_VISIT_STORAGE_KEY);
             const viewsRaw = localStorage.getItem(DISCOVERY_SAVED_VIEWS_STORAGE_KEY);
+            const universesRaw = localStorage.getItem(DISCOVERY_UNIVERSES_STORAGE_KEY);
             setPreviousVisit(visitRaw ? parseDiscoveryVisitSnapshot(JSON.parse(visitRaw) as unknown) : null);
             setSavedViews(viewsRaw ? parseSavedDiscoveryViews(JSON.parse(viewsRaw) as unknown) : []);
+            setSavedUniverses(universesRaw ? parseSavedDiscoveryUniverses(JSON.parse(universesRaw) as unknown) : []);
         } catch {
             setPreviousVisit(null);
             setSavedViews([]);
+            setSavedUniverses([]);
         }
     }, []);
 
@@ -192,18 +215,37 @@ export const TrendDiscoveryV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
         }
     };
 
+    const persistSavedUniverses = (universes: readonly SavedDiscoveryUniverse[]) => {
+        setSavedUniverses(universes);
+        try {
+            localStorage.setItem(DISCOVERY_UNIVERSES_STORAGE_KEY, JSON.stringify(universes));
+        } catch {
+            // Keep the active policy usable when browser persistence is unavailable.
+        }
+    };
+
     if (error) return <section className={'min-h-72 flex-1 p-4 text-sm ' + styles.risk}>{error}</section>;
     if (!data) return <section className={'min-h-72 flex-1 p-4 text-sm ' + styles.textMuted}>Scanning liquid trend candidates...</section>;
     const allCandidates = [...data.candidates, ...data.contenders, ...data.emergingCandidates];
     const sectors = [...new Set(allCandidates.map((candidate) => candidate.sector))].sort();
-    const filteredLeaders = filterDiscoveryCandidates(data.candidates, filters);
-    const filteredContenders = filterDiscoveryCandidates(data.contenders, filters);
-    const filteredEarly = filterDiscoveryCandidates(data.emergingCandidates, filters);
+    const defaultRanked = [...data.candidates, ...data.contenders];
+    const policyResult = applyDiscoveryUniversePolicy(defaultRanked, universePolicy);
+    const earlyPolicyResult = applyDiscoveryUniversePolicy(data.emergingCandidates, universePolicy);
+    const customPolicyActive = hasCustomDiscoveryUniversePolicy(universePolicy);
+    const policyRowsBySymbol = new Map(policyResult.rows.map((row) => [row.candidate.symbol, row]));
+    const earlyPolicyRowsBySymbol = new Map(earlyPolicyResult.rows.map((row) => [row.candidate.symbol, row]));
+    const policyLeaders = policyResult.rows.slice(0, 10).map((row) => row.candidate);
+    const policyContenders = policyResult.rows.slice(10, 20).map((row) => row.candidate);
+    const filteredLeaders = filterDiscoveryCandidates(policyLeaders, filters);
+    const filteredContenders = filterDiscoveryCandidates(policyContenders, filters);
+    const filteredEarly = filterDiscoveryCandidates(earlyPolicyResult.rows.map((row) => row.candidate), filters);
     const displayedCandidates = view === 'leaders' ? filteredLeaders : filteredEarly;
     const resultCount = view === 'leaders' ? filteredLeaders.length + filteredContenders.length : filteredEarly.length;
-    const rankForLeaders = (candidate: QualityDiscoveryResult | DiscoveryContender) => data.candidates.findIndex((item) => item.symbol === candidate.symbol) + 1;
-    const rankForContenders = (candidate: QualityDiscoveryResult | DiscoveryContender) => data.candidates.length + data.contenders.findIndex((item) => item.symbol === candidate.symbol) + 1;
-    const rankForEarly = (candidate: QualityDiscoveryResult | DiscoveryContender) => data.emergingCandidates.findIndex((item) => item.symbol === candidate.symbol) + 1;
+    const rankForLeaders = (candidate: QualityDiscoveryResult | DiscoveryContender) => policyRowsBySymbol.get(candidate.symbol)?.policyRank ?? 0;
+    const rankForContenders = rankForLeaders;
+    const rankForEarly = (candidate: QualityDiscoveryResult | DiscoveryContender) => earlyPolicyRowsBySymbol.get(candidate.symbol)?.policyRank ?? 0;
+    const policyForRanked = (candidate: QualityDiscoveryResult | DiscoveryContender) => customPolicyActive ? policyRowsBySymbol.get(candidate.symbol) : undefined;
+    const policyForEarly = (candidate: QualityDiscoveryResult | DiscoveryContender) => customPolicyActive ? earlyPolicyRowsBySymbol.get(candidate.symbol) : undefined;
 
     return (
         <section className="min-w-0 flex-1">
@@ -234,6 +276,19 @@ export const TrendDiscoveryV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                 <span className={'ml-auto text-xs ' + styles.textMuted}>{data.historySnapshotCount} hourly snapshots</span>
             </div>
             {previousVisit !== undefined ? <DiscoveryChangeFeedV6 previous={previousVisit} changes={visitChanges} theme={theme} /> : null}
+            <DiscoveryUniversePolicyV6
+                policy={universePolicy}
+                sectors={sectors}
+                eligibleCount={policyResult.rows.length}
+                excludedCount={policyResult.excluded.length}
+                saved={savedUniverses}
+                theme={theme}
+                onChange={setUniversePolicy}
+                onReset={() => setUniversePolicy(defaultDiscoveryUniversePolicy)}
+                onSave={(name) => persistSavedUniverses(upsertSavedDiscoveryUniverse(savedUniverses, name, universePolicy))}
+                onApply={(saved) => setUniversePolicy(saved.policy)}
+                onDelete={(id) => persistSavedUniverses(removeSavedDiscoveryUniverse(savedUniverses, id))}
+            />
             <DiscoveryFiltersV6
                 filters={filters}
                 sectors={sectors}
@@ -254,15 +309,15 @@ export const TrendDiscoveryV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                 <span>Rank</span><span>Ticker</span><span>Score</span><span>Quality</span><span>Risk</span><span>Trend</span><span>Category and evidence</span><span>Action</span>
             </div>
             <ol>
-                <CandidateRows candidates={displayedCandidates} rankStart={1} rankFor={view === 'leaders' ? rankForLeaders : rankForEarly} view={view} theme={theme} savedSymbols={savedSymbols} adding={adding} onAdd={onAdd} onOpen={onOpen} />
+                <CandidateRows candidates={displayedCandidates} rankStart={1} rankFor={view === 'leaders' ? rankForLeaders : rankForEarly} policyFor={view === 'leaders' ? policyForRanked : policyForEarly} view={view} theme={theme} savedSymbols={savedSymbols} adding={adding} onAdd={onAdd} onOpen={onOpen} />
             </ol>
             {view === 'leaders' && filteredContenders.length > 0 ? (
                 <div className={'border-b ' + styles.divider}>
                     <button type="button" aria-expanded={showContenders} onClick={() => setShowContenders((current) => !current)} className={'flex min-h-12 w-full items-center justify-between px-2 text-left text-xs font-semibold ' + styles.textSecondary}>
-                        <span>Contenders · ranks {data.candidates.length + 1}–{data.candidates.length + data.contenders.length}</span>
+                        <span>Contenders · ranks {policyLeaders.length + 1}–{policyLeaders.length + policyContenders.length}</span>
                         <span className={styles.textMuted}>{showContenders ? 'Hide' : `Show ${filteredContenders.length}`}</span>
                     </button>
-                    {showContenders ? <ol><CandidateRows candidates={filteredContenders} rankStart={data.candidates.length + 1} rankFor={rankForContenders} view="leaders" theme={theme} savedSymbols={savedSymbols} adding={adding} onAdd={onAdd} onOpen={onOpen} /></ol> : null}
+                    {showContenders ? <ol><CandidateRows candidates={filteredContenders} rankStart={policyLeaders.length + 1} rankFor={rankForContenders} policyFor={policyForRanked} view="leaders" theme={theme} savedSymbols={savedSymbols} adding={adding} onAdd={onAdd} onOpen={onOpen} /></ol> : null}
                 </div>
             ) : null}
             {resultCount === 0 ? <p className={'px-2 py-8 text-center text-sm ' + styles.textMuted}>No candidates match the current filters.</p> : null}

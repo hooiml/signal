@@ -29,7 +29,7 @@ import { buildResearchInboxItems } from '../../src/lib/research/inbox';
 import { parseResearchInboxResponse } from '../../src/lib/research/inbox-input';
 import { inboxItemChange, inboxItemSignature, parseInboxState, snapshotInboxItems } from '../../src/lib/research/inbox-state';
 import { buildResearchHandoffHref, getMarketResearchEmphasis, parseMarketResearchHandoff, type MarketResearchHandoff } from '../../src/lib/market-research-handoff';
-import { buildResearchNotificationDigest, deliverResearchNotification, executeResearchNotificationDelivery, researchNotificationDigestKey, signResearchNotification, validateNotificationEndpoint } from '../../src/lib/research/notification-delivery';
+import { buildResearchNotificationDigest, deliverResearchNotification, executeResearchNotificationDelivery, filterResearchNotificationItems, researchNotificationDigestKey, signResearchNotification, validateNotificationEndpoint } from '../../src/lib/research/notification-delivery';
 import { compareDiscoveryVisits, parseSavedDiscoveryViews, removeSavedDiscoveryView, upsertSavedDiscoveryView, type DiscoveryVisitSnapshot } from '../../src/lib/research/discovery-workspace';
 import { calculatePositionPlanRisk, calculateSectorConcentration } from '../../src/lib/research/position-plan';
 import { buildResearchCalendar, filterResearchCalendarEvents, getResearchCalendar } from '../../src/lib/research/calendar';
@@ -38,6 +38,86 @@ import { parseResearchCalendarResponse } from '../../src/lib/research/calendar-r
 import { calendarDateChanges, mergeResearchCalendarDateState, parseResearchCalendarDateState, snapshotResearchCalendarDates } from '../../src/lib/research/calendar-state';
 import { buildResearchRelativeUrl, mergeResearchSearchParams, resolveVisibleResearchSymbol } from '../../src/lib/research/url-state';
 import { nextHorizontalTabIndex } from '../../src/lib/research/tab-navigation';
+import { buildResearchOutcomeAnalytics } from '../../src/lib/research/outcome-analytics';
+import { buildPortfolioMarketAnalytics, buildPortfolioScenarios, buildPortfolioSummary } from '../../src/lib/research/portfolio-analytics';
+import { isResearchNotificationQuietHour, parseResearchNotificationSettings } from '../../src/lib/types/research-notification-settings';
+import { buildPeerBenchmark } from '../../src/lib/research/peer-benchmark';
+import { summarizeSourceHealth, type SourceHealthEntry } from '../../src/lib/types/source-health';
+import { compareMarketReplaySnapshots, parseMarketReplayIndex, parseMarketReplaySnapshot, type MarketReplaySnapshot } from '../../src/lib/types/market-replay';
+import { buildResearchDecisionPacket } from '../../src/lib/research/decision-packet';
+import {
+    appendProductAnalyticsEvent,
+    buildProductAnalyticsSummary,
+    parseProductAnalyticsState,
+} from '../../src/lib/product-analytics';
+import type { ProductAnalyticsEvent } from '../../src/lib/types/product-analytics';
+import { buildMarketWatchlistExposure } from '../../src/lib/research/market-exposure';
+import type { MarketSignal } from '../../src/lib/types/signal-v2';
+import { buildThesisChangeItems, stageThesisChangeEvidence } from '../../src/lib/research/thesis-change';
+import type { AssistedResearch } from '../../src/lib/types/research-assistant';
+import { simulateMarketScore, tierForMarketScore } from '../../src/lib/market-sensitivity';
+import { buildEvidenceCoverage } from '../../src/lib/research/evidence-coverage';
+import {
+    assessInvestmentPolicy,
+    defaultInvestmentPolicy,
+    parseInvestmentPolicy,
+} from '../../src/lib/research/investment-policy';
+import {
+    calculateCurrencyPerformance,
+    defaultCurrencyPerformanceSettings,
+    parseCurrencyPerformanceSettings,
+} from '../../src/lib/research/currency-performance';
+import { buildEvidenceDocumentDiff } from '../../src/lib/research/evidence-document-diff';
+import { buildResearchRelationshipGraph, relationshipsForSymbol } from '../../src/lib/research/relationship-graph';
+import {
+    applySavedPortfolioScenario,
+    parseSavedPortfolioScenarios,
+    portfolioScenarioLibraryLimit,
+    removeSavedPortfolioScenario,
+    upsertSavedPortfolioScenario,
+    type SavedPortfolioScenario,
+} from '../../src/lib/research/scenario-library';
+import {
+    addPaperDecision,
+    paperDecisionLimit,
+    paperDecisionMarketMovePercent,
+    parsePaperDecisions,
+    removePaperDecision,
+    resolvePaperDecision,
+    type PaperDecision,
+} from '../../src/lib/research/paper-decisions';
+import {
+    enqueueResearchWorkflowTask,
+    getResearchWorkflowTemplate,
+    parseResearchWorkflowTasks,
+    sortResearchWorkflowTasks,
+    upsertResearchWorkflowTask,
+    type ResearchWorkflowTask,
+} from '../../src/lib/research/workflow-queue';
+import {
+    applyDiscoveryUniversePolicy,
+    defaultDiscoveryUniversePolicy,
+    parseDiscoveryUniversePolicy,
+    parseSavedDiscoveryUniverses,
+    removeSavedDiscoveryUniverse,
+    upsertSavedDiscoveryUniverse,
+} from '../../src/lib/research/discovery-policy';
+import type { QualityDiscoveryResult } from '../../src/lib/types/research-discovery';
+import {
+    buildResearchSyncPreview,
+    decryptResearchBackup,
+    encryptResearchBackup,
+    parseResearchBackupPayload,
+    parseResearchRestoreRequest,
+} from '../../src/lib/research/backup';
+import {
+    parseResearchLayoutDensity,
+    parseSavedResearchLayouts,
+    removeSavedResearchLayout,
+    researchSavedLayoutLimit,
+    upsertSavedResearchLayout,
+    type SavedResearchLayout,
+} from '../../src/lib/research/saved-layouts';
 
 const assertEqual = <T>(actual: T, expected: T, label: string) => {
     if (actual !== expected) throw new Error(`${label}: expected ${expected}, got ${actual}`);
@@ -51,6 +131,89 @@ const assertThrows = (callback: () => void, label: string) => {
         throw error;
     }
     throw new Error(`${label}: expected an error`);
+};
+
+const assertRejects = async (callback: () => Promise<unknown>, label: string) => {
+    try {
+        await callback();
+    } catch (error) {
+        if (error instanceof Error) return;
+        throw error;
+    }
+    throw new Error(`${label}: expected a rejection`);
+};
+
+const runResearchBackupTests = async () => {
+    const record = {
+        ...createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' }),
+        notes: 'Encrypted thesis detail',
+        revision: 7,
+        updatedAt: '2026-07-25T08:00:00.000Z',
+    };
+    const encrypted = await encryptResearchBackup([record], 'correct horse battery staple', '2026-07-25T08:30:00.000Z');
+    assertEqual(encrypted.includes('Encrypted thesis detail'), false, 'encrypted backup does not expose plaintext research');
+    const decrypted = await decryptResearchBackup(encrypted, 'correct horse battery staple');
+    assertEqual(decrypted.records[0]?.notes, record.notes, 'encrypted backup round-trips validated research');
+    assertEqual(decrypted.exportedAt, '2026-07-25T08:30:00.000Z', 'encrypted backup preserves export time');
+    await assertRejects(
+        () => decryptResearchBackup(encrypted, 'incorrect passphrase'),
+        'encrypted backup rejects the wrong passphrase',
+    );
+    assertThrows(
+        () => parseResearchBackupPayload({ version: 1, exportedAt: '2026-07-25T08:30:00.000Z', records: [record, record] }),
+        'backup parser rejects duplicate symbols',
+    );
+    assertEqual(
+        parseResearchRestoreRequest({ conflictPolicy: 'add-only', records: [record] }).records.length,
+        1,
+        'restore boundary accepts validated add-only records',
+    );
+    assertThrows(
+        () => parseResearchRestoreRequest({ conflictPolicy: 'overwrite-everything', records: [record] }),
+        'restore boundary rejects unknown conflict policies',
+    );
+    const syncPreview = buildResearchSyncPreview(
+        [record, { ...record, symbol: 'NVDA', revision: 10 }, { ...record, symbol: 'CIMB', market: 'MY', revision: 1 }],
+        [
+            { ...record, revision: 8, updatedAt: '2026-07-25T09:00:00.000Z' },
+            { ...record, symbol: 'NVDA', revision: 9 },
+            { ...record, symbol: 'CIMB', market: 'MY', revision: 1 },
+            { ...record, symbol: 'MAYBANK', market: 'MY' },
+        ],
+    );
+    assertEqual(syncPreview.newRecords, 1, 'sync preview identifies records new to the receiving device');
+    assertEqual(syncPreview.incomingNewer, 1, 'sync preview identifies incoming newer records');
+    assertEqual(syncPreview.localNewer, 1, 'sync preview identifies local newer records');
+    assertEqual(syncPreview.sameRevision, 1, 'sync preview identifies matching revisions');
+};
+
+const runSavedResearchLayoutTests = () => {
+    const layout: SavedResearchLayout = {
+        id: 'layout-us-ready',
+        name: 'US ready list',
+        savedAt: '2026-07-25T09:00:00.000Z',
+        workspace: 'research',
+        query: '',
+        market: 'US',
+        action: 'Ready',
+        ticker: 'MSFT',
+        tab: 'valuation',
+        density: 'compact',
+    };
+    assertEqual(parseSavedResearchLayouts([layout])[0]?.ticker, 'MSFT', 'saved layout parser preserves a valid ticker');
+    assertEqual(parseSavedResearchLayouts([{ ...layout, ticker: '../../bad' }]).length, 0, 'saved layout parser rejects invalid tickers');
+    assertEqual(parseSavedResearchLayouts([{ ...layout, workspace: 'admin' }]).length, 0, 'saved layout parser rejects unknown workspaces');
+    const renamed = { ...layout, id: 'layout-renamed', savedAt: '2026-07-25T09:10:00.000Z' };
+    assertEqual(upsertSavedResearchLayout([layout], renamed).length, 1, 'saved layout upsert replaces case-insensitive names');
+    const many = Array.from({ length: researchSavedLayoutLimit + 3 }, (_, index) => ({
+        ...layout,
+        id: `layout-${index}`,
+        name: `View ${index}`,
+    }));
+    assertEqual(parseSavedResearchLayouts(many).length, researchSavedLayoutLimit, 'saved layout parser enforces the storage cap');
+    assertEqual(removeSavedResearchLayout([layout], layout.id).length, 0, 'saved layout removal targets one ID');
+    assertEqual(parseResearchLayoutDensity('compact'), 'compact', 'saved density accepts compact');
+    assertEqual(parseResearchLayoutDensity('tiny'), 'comfortable', 'saved density falls back safely');
 };
 
 const runResearchUrlStateTests = () => {
@@ -100,6 +263,392 @@ const runMarketResearchHandoffTests = () => {
     assertEqual(parseMarketResearchHandoff(new URLSearchParams('contextMarket=US&contextScore=150')), null, 'market handoff rejects invalid context');
 };
 
+const runMarketWatchlistExposureTests = () => {
+    const signal = {
+        metadata: {
+            market: 'US',
+            score_drivers: [
+                { key: 'vix', name: 'Volatility Index', impact: 'negative', contribution: -6, score: 30, weight: 0.3, raw_value: 27, last_updated: '2026-07-25T00:00:00.000Z', detail: 'Elevated volatility' },
+                { key: 'naaim', name: 'NAAIM positioning', impact: 'positive', contribution: 4, score: 65, weight: 0.2, raw_value: 70, last_updated: '2026-07-25T00:00:00.000Z', detail: 'Manager exposure' },
+            ],
+        },
+        components: {
+            vix: { enabled: true },
+            naaim: { enabled: true },
+        },
+    } as unknown as MarketSignal;
+    const items = [
+        { symbol: 'TECH', market: 'US' as const, sector: 'Technology', industry: 'Software', positionState: 'not-owned' as const, lastReviewedAt: '2026-07-20' },
+        { symbol: 'ETF', market: 'US' as const, sector: 'ETF', industry: 'Broad market', positionState: 'owned' as const, lastReviewedAt: '2026-07-10' },
+        { symbol: 'UNKNOWN', market: 'US' as const, sector: 'Unknown', industry: 'Unknown', positionState: 'not-owned' as const, lastReviewedAt: 'bad-date' },
+        { symbol: 'MYCO', market: 'MY' as const, sector: 'Financials', industry: 'Banks', positionState: 'owned' as const, lastReviewedAt: '2026-07-01' },
+    ];
+    const exposure = buildMarketWatchlistExposure(signal, items, new Date('2026-07-25T00:00:00.000Z'));
+    assertEqual(exposure.length, 3, 'exposure map includes only same-market watchlist names');
+    assertEqual(exposure[0]?.symbol, 'ETF', 'exposure map prioritizes owned names');
+    assertEqual(exposure.find((item) => item.symbol === 'TECH')?.highestLevel, 'higher', 'cyclical sector receives the visible higher-connection rule');
+    assertEqual(exposure.find((item) => item.symbol === 'UNKNOWN')?.highestLevel, 'unmapped', 'unknown sectors remain explicitly unmapped');
+    assertEqual(exposure.find((item) => item.symbol === 'TECH')?.connections[0]?.driverImpact, 'negative', 'exposure map preserves the source driver direction');
+    assertEqual(exposure.find((item) => item.symbol === 'TECH')?.reviewAgeDays, 5, 'exposure map derives review age from the saved review date');
+};
+
+const runThesisChangeTests = () => {
+    const record = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
+    const assisted: AssistedResearch = {
+        symbol: 'MSFT',
+        market: 'US',
+        generatedAt: '2026-07-25T00:00:00.000Z',
+        mode: 'evidence',
+        findings: [{
+            id: 'revenue-direction',
+            title: 'Revenue is expanding',
+            summary: 'Reported annual revenue growth is +15.0% for 2026-06-30.',
+            target: 'bullCase',
+            tone: 'positive',
+            evidenceIds: ['revenue-growth'],
+        }],
+        evidence: [{
+            id: 'revenue-growth',
+            label: 'Annual revenue growth',
+            value: '+15.0%',
+            source: 'SEC EDGAR',
+            sourceUrl: 'https://www.sec.gov/edgar/search/#/q=MSFT',
+            reportingPeriod: '2026-06-30',
+        }],
+        warnings: [],
+    };
+    const fresh = buildThesisChangeItems(record, assisted);
+    assertEqual(fresh[0]?.status, 'new', 'thesis-change inbox labels unseen sourced evidence as new');
+    assertEqual(fresh[0]?.relationship, 'not-reflected', 'thesis-change inbox does not claim an empty field reflects a finding');
+    const staged = stageThesisChangeEvidence(fresh[0]!, '2026-07-25T01:00:00.000Z');
+    assertEqual(staged.sources[0]?.value, '+15.0%', 'staged thesis evidence freezes the source value');
+    assertEqual(record.bullCase, '', 'staging thesis evidence does not mutate the saved thesis text');
+    const accepted = { ...record, acceptedEvidence: [staged] };
+    assertEqual(buildThesisChangeItems(accepted, assisted)[0]?.status, 'unchanged', 'identical accepted evidence is recognized as unchanged');
+    const changed = {
+        ...assisted,
+        evidence: [{ ...assisted.evidence[0]!, value: '+9.0%', reportingPeriod: '2027-06-30' }],
+    };
+    assertEqual(buildThesisChangeItems(accepted, changed)[0]?.status, 'changed', 'updated source value or reporting period is surfaced as changed');
+    assertEqual(buildThesisChangeItems(accepted, changed)[0]?.relationship, 'updated-evidence', 'changed accepted evidence is distinguished from text reflection');
+};
+
+const runMarketSensitivityTests = () => {
+    const signal = {
+        composite_score: 50,
+        tier: 'neutral',
+        mode: 'standard',
+        components: {
+            first: { enabled: true, score: 60 },
+            second: { enabled: true, score: 40 },
+        },
+        metadata: {
+            score_drivers: [
+                { key: 'first', name: 'First', score: 60, weight: 0.4 },
+                { key: 'second', name: 'Second', score: 40, weight: 0.4 },
+            ],
+            coverage_adjustment: { neutral_baseline: 50, neutral_points: 10 },
+        },
+    } as unknown as MarketSignal;
+    const baseline = simulateMarketScore(signal, {});
+    assertEqual(baseline.simulatedScore, 50, 'sensitivity baseline reproduces the coverage-aware composite');
+    assertEqual(baseline.neutralPoints, 10, 'sensitivity preserves the missing-source neutral reserve');
+    const raised = simulateMarketScore(signal, { first: 100 });
+    assertEqual(raised.simulatedScore, 66, 'sensitivity applies a fixed-weight normalized-score override');
+    assertEqual(raised.scoreDelta, 16, 'sensitivity reports the composite delta');
+    assertEqual(raised.simulatedTier, 'buy', 'sensitivity applies the current mode tier thresholds');
+    assertEqual(raised.drivers[0]?.contributionDelta, 16, 'sensitivity reports per-driver weighted-point delta');
+    assertEqual(raised.conflicts.includes('Second'), true, 'sensitivity reports drivers that conflict with the simulated composite direction');
+    assertEqual(raised.weightRegime, 'base', 'sensitivity identifies the fixed configured-weight regime');
+    assertEqual(simulateMarketScore(signal, { first: 150 }).drivers[0]?.simulatedScore, 100, 'sensitivity clamps overrides to the normalized range');
+    assertEqual(tierForMarketScore(66, 'contrarian'), 'sell', 'sensitivity inverts interpretation tier in contrarian mode');
+};
+
+const runResearchWorkflowQueueTests = () => {
+    const pending: ResearchWorkflowTask = {
+        id: '11111111-1111-4111-8111-111111111111',
+        symbol: 'MSFT',
+        templateId: 'earnings-update',
+        source: 'manual',
+        dueAt: '2026-07-26',
+        createdAt: '2026-07-20T00:00:00.000Z',
+        completedAt: null,
+    };
+    const completed: ResearchWorkflowTask = {
+        ...pending,
+        id: '22222222-2222-4222-8222-222222222222',
+        symbol: 'NVDA',
+        dueAt: '2026-07-25',
+        completedAt: '2026-07-24T00:00:00.000Z',
+    };
+    assertEqual(parseResearchWorkflowTasks([pending, { ...pending, id: 'bad' }]).length, 1, 'workflow queue drops malformed tasks');
+    const migrated = parseResearchWorkflowTasks([{ ...pending, source: undefined }]);
+    assertEqual(migrated[0]?.source, 'manual', 'workflow queue migrates tasks created before source provenance');
+    assertEqual(parseResearchWorkflowTasks([{ ...pending, source: 'unknown' }]).length, 0, 'workflow queue drops tasks with invalid source provenance');
+    assertEqual(sortResearchWorkflowTasks([completed, pending])[0]?.id, pending.id, 'workflow queue keeps pending reviews ahead of completed reviews');
+    assertEqual(upsertResearchWorkflowTask([pending], { ...pending, dueAt: '2026-08-01' }).length, 1, 'workflow queue replaces a task by id');
+    assertEqual(upsertResearchWorkflowTask([pending], { ...pending, dueAt: '2026-08-01' })[0]?.dueAt, '2026-08-01', 'workflow queue retains the updated due date');
+    assertEqual(getResearchWorkflowTemplate('valuation-refresh').fields.join(','), 'notes', 'valuation refresh limits narrative fields to notes');
+    assertEqual(getResearchWorkflowTemplate('earnings-update').fields.includes('thesisBreak'), true, 'earnings update retains thesis invalidation');
+    assertEqual(getResearchWorkflowTemplate('new-idea').fields.length, 7, 'new idea exposes the complete narrative field set');
+
+    const connected = enqueueResearchWorkflowTask([], {
+        symbol: 'MSFT',
+        templateId: 'thesis-challenge',
+        source: 'alert',
+        dueAt: '2026-07-28',
+    }, '33333333-3333-4333-8333-333333333333', '2026-07-25T00:00:00.000Z');
+    assertEqual(connected.created, true, 'workflow queue creates a connected review');
+    assertEqual(connected.task.source, 'alert', 'workflow queue retains connected-review provenance');
+    const duplicate = enqueueResearchWorkflowTask(connected.tasks, {
+        symbol: 'MSFT',
+        templateId: 'thesis-challenge',
+        source: 'alert',
+        dueAt: '2026-07-27',
+    }, '44444444-4444-4444-8444-444444444444', '2026-07-26T00:00:00.000Z');
+    assertEqual(duplicate.created, false, 'workflow queue deduplicates pending connected reviews');
+    assertEqual(duplicate.tasks.length, 1, 'workflow queue keeps one pending task per symbol, template, and source');
+    assertEqual(duplicate.task.dueAt, '2026-07-27', 'workflow queue keeps the earliest connected-review due date');
+    const otherSource = enqueueResearchWorkflowTask(duplicate.tasks, {
+        symbol: 'MSFT',
+        templateId: 'thesis-challenge',
+        source: 'calendar',
+        dueAt: '2026-07-27',
+    }, '55555555-5555-4555-8555-555555555555', '2026-07-26T00:00:00.000Z');
+    assertEqual(otherSource.tasks.length, 2, 'workflow queue preserves distinct signal provenance');
+    const afterCompletion = enqueueResearchWorkflowTask([
+        { ...connected.task, completedAt: '2026-07-26T00:00:00.000Z' },
+    ], {
+        symbol: 'MSFT',
+        templateId: 'thesis-challenge',
+        source: 'alert',
+        dueAt: '2026-08-01',
+    }, '66666666-6666-4666-8666-666666666666', '2026-07-27T00:00:00.000Z');
+    assertEqual(afterCompletion.created, true, 'workflow queue allows a new task after the prior connected review is completed');
+};
+
+const runEvidenceCoverageTests = () => {
+    const base = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
+    const empty = buildEvidenceCoverage(base, '2026-07-26');
+    assertEqual(empty.missing, 7, 'evidence coverage treats empty thesis fields as missing');
+    assertEqual(empty.coveragePercent, 0, 'evidence coverage does not award unsupported coverage');
+
+    const finding = {
+        id: 'bull-growth',
+        title: 'Revenue growth evidence',
+        summary: 'Annual revenue expanded.',
+        target: 'bullCase' as const,
+        tone: 'positive' as const,
+        mode: 'evidence' as const,
+        acceptedAt: '2026-07-20T00:00:00.000Z',
+        sources: [{
+            id: 'revenue-growth',
+            label: 'Annual revenue growth',
+            value: '+15.0%',
+            source: 'SEC EDGAR',
+            sourceUrl: 'https://www.sec.gov/edgar',
+            reportingPeriod: '2026-06-30',
+        }],
+    };
+    const supportedRecord = { ...base, bullCase: 'Revenue growth supports the current thesis.', acceptedEvidence: [finding] };
+    const supported = buildEvidenceCoverage(supportedRecord, '2026-07-26');
+    assertEqual(supported.items.find((item) => item.target === 'bullCase')?.status, 'supported', 'evidence coverage recognizes current sourced analysis');
+    assertEqual(supported.items.find((item) => item.target === 'bullCase')?.ageDays, 26, 'evidence coverage measures freshness from the reporting period');
+
+    const assumption = buildEvidenceCoverage({ ...base, bearCase: 'Competition could pressure margins.' }, '2026-07-26');
+    assertEqual(assumption.items.find((item) => item.target === 'bearCase')?.status, 'assumption', 'evidence coverage distinguishes unsourced saved analysis');
+
+    const stale = buildEvidenceCoverage({
+        ...supportedRecord,
+        acceptedEvidence: [{
+            ...finding,
+            acceptedAt: '2024-06-30T00:00:00.000Z',
+            sources: [{ ...finding.sources[0], reportingPeriod: '2024-06-30' }],
+        }],
+    }, '2026-07-26');
+    assertEqual(stale.items.find((item) => item.target === 'bullCase')?.status, 'stale', 'evidence coverage applies the field freshness rule');
+
+    const conflicting = buildEvidenceCoverage({
+        ...supportedRecord,
+        acceptedEvidence: [finding, { ...finding, id: 'bull-risk', tone: 'risk' as const }],
+    }, '2026-07-26');
+    assertEqual(conflicting.items.find((item) => item.target === 'bullCase')?.status, 'conflicting', 'evidence coverage surfaces mixed positive and risk evidence');
+
+    const evidenceWithoutText = buildEvidenceCoverage({ ...base, acceptedEvidence: [finding] }, '2026-07-26');
+    assertEqual(evidenceWithoutText.items.find((item) => item.target === 'bullCase')?.status, 'missing', 'evidence coverage keeps an empty saved thesis field explicitly missing');
+};
+
+const runInvestmentPolicyTests = () => {
+    assertEqual(parseInvestmentPolicy({ ...defaultInvestmentPolicy, maxReviewAgeDays: 0 }).maxReviewAgeDays, 90, 'investment policy rejects invalid review-age limits');
+    assertEqual(parseInvestmentPolicy({ ...defaultInvestmentPolicy, maxSingleAllocationPercent: 15 }).maxSingleAllocationPercent, 15, 'investment policy accepts bounded allocation limits');
+
+    const first = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
+    const second = createResearchRecord({ symbol: 'NVDA', market: 'US', companyName: 'NVIDIA' });
+    const policy = {
+        ...defaultInvestmentPolicy,
+        maxSingleAllocationPercent: 20,
+        maxSectorAllocationPercent: 35,
+        minEvidenceCoveragePercent: 0,
+        maxReviewAgeDays: 730,
+    };
+    const assessments = assessInvestmentPolicy([
+        {
+            record: {
+                ...first,
+                positionPlan: { ...first.positionPlan, plannedAllocationPercent: 25 },
+                valuationState: 'expensive',
+                decisionJournal: { ...first.decisionJournal, decision: 'Ready' },
+            },
+            sector: 'Technology',
+        },
+        {
+            record: { ...second, positionPlan: { ...second.positionPlan, plannedAllocationPercent: 20 } },
+            sector: 'Technology',
+        },
+    ], policy, '2026-07-26');
+    const firstKinds = assessments[0]?.violations.map((item) => item.kind) ?? [];
+    assertEqual(firstKinds.includes('single-allocation'), true, 'investment policy flags a single-name allocation breach');
+    assertEqual(firstKinds.includes('sector-allocation'), true, 'investment policy flags aggregate sector allocation');
+    assertEqual(firstKinds.includes('ready-valuation'), true, 'investment policy applies the optional Ready valuation guardrail');
+    assertEqual(assessments[1]?.violations.some((item) => item.kind === 'sector-allocation'), true, 'investment policy applies a sector breach to each planned position in that sector');
+
+    const evidenceAndAge = assessInvestmentPolicy([{
+        record: { ...first, bullCase: 'Unsourced thesis.', lastReviewedAt: '2025-01-01' },
+        sector: 'Technology',
+    }], defaultInvestmentPolicy, '2026-07-26')[0];
+    assertEqual(evidenceAndAge?.violations.some((item) => item.kind === 'evidence-coverage'), true, 'investment policy flags evidence coverage below the configured minimum');
+    assertEqual(evidenceAndAge?.violations.some((item) => item.kind === 'review-age'), true, 'investment policy flags an overdue saved review');
+};
+
+const runCurrencyPerformanceTests = () => {
+    assertEqual(parseCurrencyPerformanceSettings({ ...defaultCurrencyPerformanceSettings, currentUsdMyr: 0 }).currentUsdMyr, 4.25, 'currency performance rejects invalid FX assumptions');
+    assertEqual(parseCurrencyPerformanceSettings({
+        ...defaultCurrencyPerformanceSettings,
+        adjustments: [
+            { symbol: 'MSFT', dividendsPercent: 2, feesPercent: 1 },
+            { symbol: 'MSFT', dividendsPercent: 5, feesPercent: 0 },
+            { symbol: 'bad symbol', dividendsPercent: 1, feesPercent: 1 },
+        ],
+    }).adjustments.length, 1, 'currency performance drops duplicate and malformed adjustments');
+
+    const base = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
+    const record = {
+        ...base,
+        positionPlan: { ...base.positionPlan, averageCost: 100 },
+        decisionJournal: { ...base.decisionJournal, benchmarkLabel: 'VOO', benchmarkReturnPercent: 8 },
+    };
+    const myr = calculateCurrencyPerformance(record, 110, {
+        version: 1,
+        baseCurrency: 'MYR',
+        entryUsdMyr: 4,
+        currentUsdMyr: 4.4,
+        adjustments: [{ symbol: 'MSFT', dividendsPercent: 2, feesPercent: 1 }],
+    });
+    assertEqual(myr.priceReturnPercent, 10, 'currency performance separates security-price return');
+    assertEqual(myr.fxReturnPercent, 10, 'currency performance calculates USD appreciation in an MYR base');
+    assertEqual(myr.totalReturnPercent, 22, 'currency performance compounds price and FX before manual adjustments');
+    assertEqual(myr.relativeToSavedBenchmarkPercent, 14, 'currency performance compares with saved benchmark context when available');
+
+    const myBase = createResearchRecord({ symbol: 'MAYBANK', market: 'MY', companyName: 'Maybank' });
+    const usd = calculateCurrencyPerformance({
+        ...myBase,
+        positionPlan: { ...myBase.positionPlan, plannedEntryPrice: 10 },
+    }, 11, {
+        ...defaultCurrencyPerformanceSettings,
+        baseCurrency: 'USD',
+        entryUsdMyr: 4,
+        currentUsdMyr: 4.4,
+    });
+    assertEqual(usd.priceReturnPercent, 10, 'currency performance retains local-currency price return');
+    assertEqual(usd.fxReturnPercent, -9.09, 'currency performance converts MYR depreciation into a USD-base drag');
+    assertEqual(usd.totalReturnPercent, 0, 'currency performance compounds offsetting price and FX changes');
+
+    const unavailable = calculateCurrencyPerformance(base, null, defaultCurrencyPerformanceSettings);
+    assertEqual(unavailable.available, false, 'currency performance keeps missing cost and price inputs unavailable');
+};
+
+const runEvidenceDocumentDiffTests = () => {
+    const base = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
+    const evidence = (id: string, label: string, value: string, target: 'bullCase' | 'bearCase', reportingPeriod: string) => ({
+        id: `finding-${id}`,
+        title: label,
+        summary: `${label}: ${value}`,
+        target,
+        tone: target === 'bullCase' ? 'positive' as const : 'risk' as const,
+        mode: 'evidence' as const,
+        acceptedAt: `${reportingPeriod}T00:00:00.000Z`,
+        sources: [{
+            id,
+            label,
+            value,
+            source: 'SEC EDGAR',
+            sourceUrl: `https://www.sec.gov/edgar/${id}`,
+            reportingPeriod,
+        }],
+    });
+    const first = appendResearchReview({
+        ...base,
+        acceptedEvidence: [
+            evidence('free-cash-flow', 'Annual free cash flow', '$50B', 'bullCase', '2025-06-30'),
+            evidence('operating-margin', 'Operating margin', '40%', 'bullCase', '2025-06-30'),
+        ],
+    }, '2025-07-01T00:00:00.000Z');
+    const second = appendResearchReview({
+        ...first,
+        acceptedEvidence: [
+            evidence('free-cash-flow', 'Annual free cash flow', '$60B', 'bullCase', '2026-06-30'),
+            evidence('total-debt', 'Total debt', '$80B', 'bearCase', '2026-06-30'),
+        ],
+    }, '2026-07-01T00:00:00.000Z');
+    const diff = buildEvidenceDocumentDiff(second);
+    assertEqual(diff.hasBaseline, true, 'evidence document diff uses the prior saved review as its baseline');
+    assertEqual(diff.baselineAt, '2025-07-01T00:00:00.000Z', 'evidence document diff preserves the baseline timestamp');
+    assertEqual(diff.items.find((item) => item.id.endsWith('free-cash-flow'))?.kind, 'changed', 'evidence document diff detects value and reporting-period changes');
+    assertEqual(diff.items.find((item) => item.id.endsWith('free-cash-flow'))?.category, 'cash-flow', 'evidence document diff categorizes cash-flow evidence');
+    assertEqual(diff.items.find((item) => item.id.endsWith('operating-margin'))?.kind, 'removed', 'evidence document diff detects removed evidence');
+    assertEqual(diff.items.find((item) => item.id.endsWith('total-debt'))?.kind, 'added', 'evidence document diff detects added evidence');
+    assertEqual(diff.items.find((item) => item.id.endsWith('total-debt'))?.category, 'debt', 'evidence document diff categorizes debt evidence');
+
+    const noBaseline = buildEvidenceDocumentDiff(appendResearchReview({
+        ...base,
+        acceptedEvidence: [evidence('revenue-growth', 'Revenue growth', '12%', 'bullCase', '2026-06-30')],
+    }, '2026-07-01T00:00:00.000Z'));
+    assertEqual(noBaseline.hasBaseline, false, 'evidence document diff discloses a missing prior review baseline');
+    assertEqual(noBaseline.items[0]?.kind, 'added', 'evidence document diff treats current evidence as added without a baseline');
+};
+
+const runDiscoveryUniversePolicyTests = () => {
+    const candidate = (input: Partial<QualityDiscoveryResult> & Pick<QualityDiscoveryResult, 'symbol' | 'discoveryScore'>) => ({
+        name: input.symbol,
+        qualityScore: 50,
+        trendScore: 50,
+        sector: 'Technology',
+        sectorRelativeStrengthPercent: 0,
+        averageDollarVolume: 30_000_000,
+        risk: 'moderate',
+        valuation: { guardrail: 'fair' },
+        catalyst: null,
+        ...input,
+    }) as QualityDiscoveryResult;
+    const first = candidate({ symbol: 'FIRST', discoveryScore: 70, qualityScore: 40, trendScore: 70, valuation: { guardrail: 'expensive', priceEarnings: null, priceSales: null, freeCashFlowYieldPercent: null } });
+    const second = candidate({ symbol: 'SECOND', discoveryScore: 69, qualityScore: 90, sector: 'Financials', averageDollarVolume: 100_000_000, valuation: { guardrail: 'attractive', priceEarnings: null, priceSales: null, freeCashFlowYieldPercent: null } });
+    const baseline = applyDiscoveryUniversePolicy([first, second], defaultDiscoveryUniversePolicy);
+    assertEqual(baseline.rows[0]?.candidate.symbol, 'FIRST', 'default universe policy preserves the default ranking');
+    assertEqual(baseline.rows[0]?.policyScore, first.discoveryScore, 'default universe policy leaves discovery scores unchanged');
+    const qualityPolicy = { ...defaultDiscoveryUniversePolicy, preferences: ['quality'] as const };
+    const reranked = applyDiscoveryUniversePolicy([first, second], qualityPolicy);
+    assertEqual(reranked.rows[0]?.candidate.symbol, 'SECOND', 'quality preference can transparently change policy rank');
+    assertEqual(reranked.rows[0]?.defaultRank, 2, 'policy result retains the default rank');
+    assertEqual(reranked.rows[0]?.reasons[0], 'Quality +4', 'policy result discloses the exact preference adjustment');
+    const excluded = applyDiscoveryUniversePolicy([first, second], { ...defaultDiscoveryUniversePolicy, sectors: ['Technology'], minimumDollarVolume: 50_000_000 });
+    assertEqual(excluded.rows.length, 0, 'universe policy applies sector and liquidity eligibility before ranking');
+    assertEqual(excluded.excluded.length, 2, 'universe policy reports every excluded candidate');
+    assertEqual(parseDiscoveryUniversePolicy({ ...defaultDiscoveryUniversePolicy, preferences: ['quality', 'quality'] }), null, 'universe policy rejects duplicate preferences');
+    const saved = upsertSavedDiscoveryUniverse([], 'Quality leaders', qualityPolicy);
+    assertEqual(parseSavedDiscoveryUniverses(saved)[0]?.name, 'Quality leaders', 'saved universe round-trips through the strict parser');
+    assertEqual(removeSavedDiscoveryUniverse(saved, saved[0]!.id).length, 0, 'saved universe removal is explicit and bounded');
+};
+
 const runResearchNotificationTests = async () => {
     const inbox = {
         generatedAt: '2026-07-17T08:00:00.000Z', monitoredCount: 1, warnings: [],
@@ -109,6 +658,16 @@ const runResearchNotificationTests = async () => {
     assertEqual(digest.summary.action, 1, 'notification digest counts actionable items');
     assertEqual(digest.summary.tickerCount, 1, 'notification digest counts distinct tickers');
     assertEqual(digest.summary.omitted, 0, 'notification digest reports omitted items');
+    assertEqual(filterResearchNotificationItems(inbox.items, 'daily').length, 1, 'daily notification mode retains the digest');
+    assertEqual(filterResearchNotificationItems(inbox.items, 'urgent-only').length, 1, 'urgent-only mode retains actionable items');
+    assertEqual(filterResearchNotificationItems([{ ...inbox.items[0]!, urgency: 'upcoming' }], 'urgent-only').length, 0, 'urgent-only mode excludes non-action items');
+    const settings = parseResearchNotificationSettings({
+        enabled: true, mode: 'urgent-only', quietHoursEnabled: true,
+        quietHoursStartUtc: 22, quietHoursEndUtc: 7,
+    });
+    assertEqual(isResearchNotificationQuietHour(settings, new Date('2026-07-20T23:00:00.000Z')), true, 'overnight quiet hours include the late UTC range');
+    assertEqual(isResearchNotificationQuietHour(settings, new Date('2026-07-20T12:00:00.000Z')), false, 'overnight quiet hours exclude daytime UTC');
+    assertThrows(() => parseResearchNotificationSettings({ ...settings, quietHoursStartUtc: 24 }), 'notification settings reject invalid UTC hours');
     const crowdedDigest = buildResearchNotificationDigest({
         ...inbox,
         items: [
@@ -277,6 +836,359 @@ const runInputTests = () => {
     const ownedWithPlan = { ...record, positionState: 'owned' as const, positionPlan };
     const sectorConcentration = calculateSectorConcentration([ownedWithPlan, { ...ownedWithPlan, symbol: 'AMD', positionPlan: { ...positionPlan, plannedAllocationPercent: 5 } }], new Map([['MSFT', 'Technology'], ['AMD', 'Technology']]));
     assertEqual(sectorConcentration[0]?.allocationPercent, 15, 'position plan aggregates owned-sector concentration');
+};
+
+const runOutcomeAnalyticsTests = () => {
+    const base = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
+    const completedChecklist = Object.fromEntries(
+        Object.keys(base.checklist).map((key) => [key, true]),
+    ) as unknown as typeof base.checklist;
+    const first = appendResearchReview({
+        ...base,
+        checklist: completedChecklist,
+        decisionJournal: {
+            ...base.decisionJournal,
+            decision: 'Ready',
+            confidence: 'high',
+            observedPrice: 100,
+            nextReviewAt: '2026-02-10',
+        },
+    }, '2026-01-01T12:00:00.000Z');
+    const priorId = first.reviewHistory[0]!.id;
+    const second = appendResearchReview({
+        ...first,
+        decisionJournal: {
+            ...first.decisionJournal,
+            decision: 'Watch',
+            confidence: 'medium',
+            observedPrice: 110,
+            priorReviewId: priorId,
+            priorOutcome: 'correct',
+            outcomeNote: 'The thesis held through the review period.',
+        },
+    }, '2026-02-05T12:00:00.000Z');
+    const analytics = buildResearchOutcomeAnalytics([second]);
+    assertEqual(analytics.historicalDecisions, 2, 'outcome analytics counts saved decision snapshots');
+    assertEqual(analytics.linkedDecisions, 1, 'outcome analytics counts decisions linked to later reviews');
+    assertEqual(analytics.assessedDecisions, 1, 'outcome analytics counts resolved assessments');
+    assertEqual(analytics.correct, 1, 'outcome analytics preserves explicit correct outcomes');
+    assertEqual(analytics.assessments[0]?.decision, 'Ready', 'outcome analytics groups by the assessed decision');
+    assertEqual(analytics.assessments[0]?.confidence, 'high', 'outcome analytics groups by assessed confidence');
+    assertEqual(analytics.assessments[0]?.priceChangePercent, 10, 'outcome analytics derives linked observed-price change');
+    assertEqual(analytics.assessments[0]?.checklistCompletionPercent, 100, 'outcome analytics measures assessed checklist completeness');
+    assertEqual(analytics.onTimeAssessments, 1, 'outcome analytics compares assessment time with the recorded schedule');
+    assertEqual(analytics.byDecision[0]?.label, 'Ready', 'outcome analytics emits populated decision groups');
+
+    const unresolved = buildResearchOutcomeAnalytics([{
+        ...second,
+        reviewHistory: second.reviewHistory.map((review, index) => index === 0
+            ? { ...review, decisionJournal: { ...review.decisionJournal, priorOutcome: 'unresolved' as const } }
+            : review),
+    }]);
+    assertEqual(unresolved.assessedDecisions, 0, 'outcome analytics excludes unresolved judgments from resolved totals');
+    assertEqual(unresolved.unresolvedDecisions, 1, 'outcome analytics reports unresolved linked reviews separately');
+};
+
+const portfolioChartPoint = (time: string, close: number) => ({
+    time, open: close, high: close, low: close, close, volume: 1_000_000,
+    ma50: null, ma200: null, ema20: null, ema50: null, sma200: null, averageVolume20: null,
+    rsi14: null, macd: null, macdSignal: null, macdHistogram: null, atr14: null,
+    atrPercent14: null, anchoredVwap: null, adx14: null, plusDi14: null, minusDi14: null,
+    supertrend: null, supertrendDirection: null,
+});
+
+const runPortfolioAnalyticsTests = () => {
+    const base = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
+    const positionPlan = { plannedAllocationPercent: 20, averageCost: 100, plannedEntryPrice: null, invalidationPrice: 90 };
+    const msft = { ...base, positionState: 'owned' as const, positionPlan };
+    const amd = { ...base, symbol: 'AMD', positionPlan: { ...positionPlan, plannedAllocationPercent: 10, invalidationPrice: null } };
+    const summary = buildPortfolioSummary([
+        { record: msft, sector: 'Technology', currency: 'USD', currentPrice: 110 },
+        { record: amd, sector: 'Technology', currency: 'USD', currentPrice: 120 },
+    ]);
+    assertEqual(summary.totalAllocationPercent, 30, 'portfolio summary totals planned allocation');
+    assertEqual(summary.unallocatedPercent, 70, 'portfolio summary reports unallocated capacity');
+    assertEqual(summary.definedRiskPercent, 2, 'portfolio summary excludes incomplete invalidation risk');
+    assertEqual(summary.riskCoveredAllocationPercent, 20, 'portfolio summary discloses risk coverage');
+    assertEqual(summary.bySector[0]?.allocationPercent, 30, 'portfolio summary aggregates sector exposure');
+    assertEqual(summary.largestHolding?.symbol, 'MSFT', 'portfolio summary surfaces single-name concentration');
+
+    const dates = Array.from({ length: 31 }, (_, index) => `2026-01-${String(index + 1).padStart(2, '0')}`);
+    const benchmark = dates.map((date, index) => portfolioChartPoint(date, 100 + index));
+    const charts = new Map([
+        ['MSFT', dates.map((date, index) => portfolioChartPoint(date, 100 + index * 2))],
+        ['AMD', dates.map((date, index) => portfolioChartPoint(date, 80 + index * 1.5))],
+    ]);
+    const analytics = buildPortfolioMarketAnalytics(summary.holdings, charts, new Map([['US', benchmark]]));
+    assertEqual(analytics.metrics[0]?.observations, 30, 'portfolio beta uses overlapping return observations');
+    assertEqual(analytics.metrics.every((metric) => metric.beta !== null), true, 'portfolio beta is available with sufficient history');
+    assertEqual(analytics.correlations[0]?.correlations.AMD !== null, true, 'portfolio correlation is calculated with sufficient overlap');
+    const scenarios = buildPortfolioScenarios(summary, analytics, -12);
+    assertEqual(scenarios.find((scenario) => scenario.label === 'User-defined shock')?.portfolioImpactPercent, -3.6, 'portfolio custom shock weights planned allocation');
+    assertEqual(scenarios.find((scenario) => scenario.label === 'Saved invalidation levels')?.coveredAllocationPercent, 20, 'portfolio invalidation scenario reports covered allocation');
+};
+
+const runScenarioLibraryTests = () => {
+    const base = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
+    const summary = buildPortfolioSummary([
+        {
+            record: { ...base, positionPlan: { plannedAllocationPercent: 20, averageCost: 100, plannedEntryPrice: null, invalidationPrice: 90 } },
+            sector: 'Technology',
+            currency: 'USD',
+            currentPrice: 110,
+        },
+        {
+            record: { ...base, symbol: 'MAYBANK', market: 'MY', positionPlan: { plannedAllocationPercent: 10, averageCost: 9, plannedEntryPrice: null, invalidationPrice: 8 } },
+            sector: 'Financials',
+            currency: 'MYR',
+            currentPrice: 10,
+        },
+    ]);
+    const scenario: SavedPortfolioScenario = {
+        id: 'sector:tech decline',
+        name: 'Tech decline',
+        kind: 'sector',
+        shockPercent: -25,
+        target: 'Technology',
+        savedAt: '2026-07-26T00:00:00.000Z',
+    };
+    const result = applySavedPortfolioScenario(summary, scenario);
+    assertEqual(result.portfolioImpactPercent, -5, 'saved scenario weights its shock by affected allocation');
+    assertEqual(result.coveredAllocationPercent, 20, 'saved scenario reports targeted allocation coverage');
+    assertEqual(applySavedPortfolioScenario(summary, { ...scenario, target: 'Energy' }).portfolioImpactPercent, null, 'saved scenario preserves an unavailable unmatched target');
+    assertEqual(parseSavedPortfolioScenarios([{ ...scenario, shockPercent: -150 }])[0]?.shockPercent, -100, 'saved scenario parser clamps unsafe shock input');
+    assertEqual(parseSavedPortfolioScenarios([{ ...scenario, target: null }]).length, 0, 'saved scenario parser rejects missing targeted scope');
+    const updated = upsertSavedPortfolioScenario([scenario], { ...scenario, shockPercent: -30, savedAt: '2026-07-26T01:00:00.000Z' });
+    assertEqual(updated.length, 1, 'saved scenario upsert replaces an existing identity');
+    assertEqual(updated[0]?.shockPercent, -30, 'saved scenario upsert preserves the latest definition');
+    assertEqual(removeSavedPortfolioScenario(updated, scenario.id).length, 0, 'saved scenario removal deletes only the selected identity');
+    const many = Array.from({ length: portfolioScenarioLibraryLimit + 2 }, (_, index) => ({
+        ...scenario,
+        id: `market:${index}`,
+        name: `Scenario ${index}`,
+        kind: 'market' as const,
+        target: null,
+        savedAt: `2026-07-26T${String(index).padStart(2, '0')}:00:00.000Z`,
+    }));
+    assertEqual(parseSavedPortfolioScenarios(many).length, portfolioScenarioLibraryLimit, 'saved scenario parser enforces the library limit');
+};
+
+const runPaperDecisionTests = () => {
+    const decision: PaperDecision = {
+        id: 'MSFT:2026-07-26T00:00:00.000Z',
+        symbol: 'MSFT',
+        market: 'US',
+        action: 'act',
+        decisionPrice: 100,
+        note: 'Evidence met the saved policy.',
+        recordedAt: '2026-07-26T00:00:00.000Z',
+        outcomePrice: null,
+        resolvedAt: null,
+    };
+    const added = addPaperDecision([], decision);
+    assertEqual(added.length, 1, 'paper decision tracker adds a validated decision');
+    const resolved = resolvePaperDecision(added, decision.id, 112, '2026-08-26T00:00:00.000Z');
+    assertEqual(paperDecisionMarketMovePercent(resolved[0]!), 12, 'paper decision tracker calculates the later observed market move');
+    assertEqual(resolvePaperDecision(added, decision.id, 0, '2026-08-26T00:00:00.000Z')[0]?.outcomePrice, null, 'paper decision tracker rejects a non-positive outcome through boundary parsing');
+    assertEqual(parsePaperDecisions([{ ...decision, decisionPrice: Number.NaN }]).length, 0, 'paper decision tracker rejects malformed prices');
+    assertEqual(parsePaperDecisions([{ ...decision, symbol: ' msft ', note: 'x'.repeat(300) }])[0]?.symbol, 'MSFT', 'paper decision tracker normalizes symbols');
+    assertEqual(parsePaperDecisions([{ ...decision, symbol: ' msft ', note: 'x'.repeat(300) }])[0]?.note.length, 240, 'paper decision tracker bounds notes');
+    assertEqual(removePaperDecision(resolved, decision.id).length, 0, 'paper decision tracker removes only the selected entry');
+    const many = Array.from({ length: paperDecisionLimit + 2 }, (_, index) => ({
+        ...decision,
+        id: `MSFT:${index}`,
+        recordedAt: `2026-07-26T${String(index % 24).padStart(2, '0')}:${String(index).padStart(3, '0')}:00.000Z`,
+    }));
+    assertEqual(parsePaperDecisions(many).length, paperDecisionLimit, 'paper decision tracker enforces its storage bound');
+};
+
+const runRelationshipGraphTests = () => {
+    const graph = buildResearchRelationshipGraph([
+        { symbol: 'MSFT', market: 'US', sector: 'Technology', providers: ['SEC EDGAR', 'Yahoo Finance', 'SEC EDGAR'] },
+        { symbol: 'NVDA', market: 'US', sector: 'Technology', providers: ['SEC EDGAR'] },
+        { symbol: 'MAYBANK', market: 'MY', sector: 'Financials', providers: ['Bursa Malaysia'] },
+        { symbol: 'CIMB', market: 'MY', sector: 'Financials', providers: ['Bursa Malaysia', 'Company IR'] },
+    ]);
+    assertEqual(graph.nodes.length, 4, 'relationship graph preserves distinct ticker nodes');
+    assertEqual(graph.edges.length, 2, 'relationship graph emits only explicit sector or provider links');
+    const us = graph.edges.find((edge) => edge.id === 'MSFT:NVDA');
+    assertEqual(us?.sharedSector, 'Technology', 'relationship graph reports the shared sector');
+    assertEqual(us?.sharedProviders[0], 'SEC EDGAR', 'relationship graph reports a deduplicated shared provider');
+    assertEqual(us?.strength, 2, 'relationship graph strength counts explicit relationship reasons');
+    const malaysiaLink = relationshipsForSymbol(graph, 'MAYBANK')[0];
+    assertEqual(malaysiaLink?.left === 'MAYBANK' ? malaysiaLink.right : malaysiaLink?.left, 'CIMB', 'relationship graph retrieves focused ticker links');
+    assertEqual(buildResearchRelationshipGraph([
+        { symbol: 'A', market: 'US', sector: 'Unknown', providers: [] },
+        { symbol: 'B', market: 'US', sector: 'Unknown', providers: [] },
+    ]).edges.length, 0, 'relationship graph does not infer a link from market membership alone');
+};
+
+const runSourceHealthTests = () => {
+    const base = {
+        category: 'research' as const,
+        checkedAt: null,
+        lastSuccessfulAt: null,
+        latencyMs: null,
+        cadence: 'On request',
+        coverage: 'Test coverage',
+        affectedFeatures: ['Research'],
+        detail: 'Test evidence',
+    };
+    const entries: SourceHealthEntry[] = [
+        { ...base, id: 'healthy', name: 'Healthy', status: 'healthy' },
+        { ...base, id: 'degraded', name: 'Degraded', status: 'degraded' },
+        { ...base, id: 'unconfigured', name: 'Unconfigured', status: 'unconfigured' },
+        { ...base, id: 'unchecked', name: 'Unchecked', status: 'unchecked' },
+    ];
+    const summary = summarizeSourceHealth(entries);
+    assertEqual(summary.healthy, 1, 'source health summary counts healthy sources');
+    assertEqual(summary.degraded, 1, 'source health summary counts degraded sources');
+    assertEqual(summary.unconfigured, 1, 'source health summary counts unconfigured sources');
+    assertEqual(summary.unchecked, 1, 'source health summary keeps unchecked separate from healthy');
+};
+
+const runMarketReplayTests = () => {
+    const snapshot = (date: string, score: number, tier: MarketReplaySnapshot['summary']['tier'], agreementPercent: number, componentScore: number): MarketReplaySnapshot => ({
+        summary: {
+            date,
+            score,
+            tier,
+            origin: 'observed',
+            coverageNote: null,
+            hasFullEvidence: true,
+            updatedAt: `${date}T12:00:00.000Z`,
+        },
+        confidenceLevel: 'medium',
+        agreementPercent,
+        majoritySignal: 'buy',
+        components: [{
+            key: 'trend',
+            displayName: 'Trend',
+            rawValue: componentScore,
+            score: componentScore,
+            weight: 0.4,
+            signal: 'positive',
+            lastUpdated: date,
+        }],
+        scoreDrivers: [],
+        indexTrend: [],
+        signalQuality: { freshness: 'current' },
+        interpretationContext: { limitation: 'Point-in-time market evidence only.' },
+        metadata: { scoring_model_version: 'v2' },
+    });
+    const current = snapshot('2026-07-25', 72, 'buy', 75, 80);
+    const previous = snapshot('2026-07-18', 65, 'neutral', 60, 70);
+    const comparison = compareMarketReplaySnapshots(current, previous);
+    assertEqual(comparison.scoreDelta, 7, 'market replay compares stored composite scores');
+    assertEqual(comparison.agreementDelta, 15, 'market replay compares stored evidence agreement');
+    assertEqual(comparison.tierChanged, true, 'market replay reports stored tier changes');
+    assertEqual(comparison.changedComponents, 1, 'market replay counts changed persisted components');
+    assertEqual(parseMarketReplayIndex({ success: true, data: {
+        market: 'US', mode: 'standard', enableSocial: true, summaries: [current.summary],
+    } }).summaries.length, 1, 'market replay index boundary accepts the complete contract');
+    assertEqual(parseMarketReplaySnapshot({ success: true, data: current }).components.length, 1, 'market replay detail boundary accepts the complete contract');
+    assertThrows(() => parseMarketReplaySnapshot({ success: true, data: {
+        ...current, components: [{ ...current.components[0], score: '80' }],
+    } }), 'market replay detail boundary rejects malformed component values');
+
+    const baseRecord = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
+    const packetRecord = {
+        ...baseRecord,
+        revision: 3,
+        notes: 'Prefer durable free cash flow.',
+        decisionJournal: {
+            ...baseRecord.decisionJournal,
+            decision: 'Ready' as const,
+            confidence: 'high' as const,
+            nextReviewAt: '2026-08-25',
+        },
+        acceptedEvidence: [{
+            id: 'revenue',
+            title: 'Revenue evidence',
+            summary: 'Revenue grew.',
+            target: 'bullCase' as const,
+            tone: 'positive' as const,
+            mode: 'evidence' as const,
+            acceptedAt: '2026-07-25T00:00:00.000Z',
+            sources: [{
+                id: 'revenue-growth',
+                label: 'Revenue growth',
+                value: '14%',
+                source: 'SEC EDGAR',
+                sourceUrl: 'https://www.sec.gov/edgar',
+                reportingPeriod: '2025-06-30',
+            }],
+        }],
+    };
+    const packet = buildResearchDecisionPacket({
+        record: packetRecord,
+        generatedAt: '2026-07-25T05:00:00.000Z',
+        marketContext: current,
+    });
+    assertEqual(packet.filename, 'msft-decision-packet-2026-07-25.md', 'decision packet uses a deterministic sanitized filename');
+    assertEqual(packet.recordRevision, 3, 'decision packet freezes the saved research revision');
+    assertEqual(packet.marketSnapshotDate, '2026-07-25', 'decision packet records the persisted market snapshot date');
+    assertEqual(packet.markdown.includes('- Decision: Ready'), true, 'decision packet includes the saved decision');
+    assertEqual(packet.markdown.includes('- Confidence: high'), true, 'decision packet includes saved confidence');
+    assertEqual(packet.markdown.includes('- Next review: 2026-08-25'), true, 'decision packet includes the next review date');
+    assertEqual(packet.markdown.includes('[SEC EDGAR](https://www.sec.gov/edgar)'), true, 'decision packet preserves accepted evidence provenance');
+    assertEqual(packet.markdown.includes('This packet freezes saved research state'), true, 'decision packet states its point-in-time limitation');
+};
+
+const runProductAnalyticsTests = () => {
+    const event = (
+        id: string,
+        name: ProductAnalyticsEvent['name'],
+        occurredAt: string,
+        overrides: Partial<ProductAnalyticsEvent> = {},
+    ): ProductAnalyticsEvent => ({
+        id,
+        sessionId: '10000000-0000-4000-8000-000000000001',
+        name,
+        surface: 'research',
+        workspace: 'research',
+        source: null,
+        attributes: {},
+        occurredAt,
+        ...overrides,
+    });
+    const now = new Date('2026-07-25T12:00:00.000Z');
+    const opened = event('10000000-0000-4000-8000-000000000002', 'review_opened', '2026-07-24T09:00:00.000Z', {
+        workspace: 'alerts',
+        source: 'alerts',
+    });
+    const saved = event('10000000-0000-4000-8000-000000000003', 'review_saved', '2026-07-24T09:05:00.000Z', {
+        source: 'alerts',
+        attributes: { decision: 'Ready', result: 'success' },
+    });
+    const exported = event('10000000-0000-4000-8000-000000000004', 'packet_exported', '2026-07-25T10:00:00.000Z', {
+        workspace: 'packets',
+        attributes: { format: 'markdown' },
+    });
+    const viewed = event('10000000-0000-4000-8000-000000000005', 'workspace_viewed', '2026-07-25T08:00:00.000Z', {
+        workspace: 'portfolio',
+    });
+    const old = event('10000000-0000-4000-8000-000000000006', 'workspace_viewed', '2025-01-01T00:00:00.000Z');
+    const state = parseProductAnalyticsState({
+        version: 1,
+        enabled: true,
+        events: [opened, saved, exported, viewed, old, { ...viewed, id: 'invalid', attributes: { symbol: 'MSFT' } }],
+    }, now);
+    assertEqual(state.events.length, 4, 'product analytics drops expired and malformed local events');
+    const appended = appendProductAnalyticsEvent(state, viewed, now);
+    assertEqual(appended.events.length, 4, 'product analytics deduplicates event ids');
+    const summary = buildProductAnalyticsSummary(state.events, 7, now);
+    assertEqual(summary.activeDays, 2, 'product analytics counts active UTC days');
+    assertEqual(summary.sessions, 1, 'product analytics counts browser sessions without a user identifier');
+    assertEqual(summary.meaningfulActions, 3, 'product analytics excludes workspace views from meaningful actions');
+    assertEqual(summary.reviewOpened, 1, 'product analytics counts guided review opens');
+    assertEqual(summary.reviewSaved, 1, 'product analytics counts successful saved reviews');
+    assertEqual(summary.reviewCompletionPercent, 100, 'product analytics derives bounded open-to-save completion');
+    assertEqual(summary.guidedReviewSaved, 1, 'product analytics attributes a saved review to its workflow source');
+    assertEqual(summary.packetExports, 1, 'product analytics counts decision packet exports');
+    assertEqual(summary.pathways[0]?.source, 'alerts', 'product analytics reports the guided source without ticker content');
+    assertEqual(summary.workspaces[0]?.workspace, 'portfolio', 'product analytics reports workspace adoption');
+    assertEqual(summary.daily.length, 7, 'product analytics fills every day in the selected window');
 };
 
 const runDecisionTests = () => {
@@ -805,6 +1717,27 @@ const runComparisonTests = () => {
     assertEqual(metrics.priceEarnings, '34.4x', 'comparison formats earnings multiple');
     assertEqual(metrics.rsi, '58.2', 'comparison formats RSI');
     assertEqual(buildComparisonMetrics({ ...snapshot, valuation: { ...snapshot.valuation, priceEarnings: null } }).priceEarnings, 'Unavailable', 'comparison preserves missing data');
+    const peerBenchmark = buildPeerBenchmark(snapshot, [
+        {
+            ...snapshot,
+            symbol: 'AMD',
+            fundamentals: { ...snapshot.fundamentals, revenueGrowthPercent: 10, operatingMarginPercent: 20, debt: 60, cash: 30 },
+            valuation: { ...snapshot.valuation, priceEarnings: 40, freeCashFlowYieldPercent: 1.5 },
+        },
+        {
+            ...snapshot,
+            symbol: 'ORCL',
+            fundamentals: { ...snapshot.fundamentals, revenueGrowthPercent: 8, operatingMarginPercent: null, debt: null, cash: null },
+            valuation: { ...snapshot.valuation, priceEarnings: 25, freeCashFlowYieldPercent: null },
+        },
+    ]);
+    const growthBenchmark = peerBenchmark.metrics.find((metric) => metric.key === 'revenueGrowth');
+    const earningsBenchmark = peerBenchmark.metrics.find((metric) => metric.key === 'priceEarnings');
+    const marginBenchmark = peerBenchmark.metrics.find((metric) => metric.key === 'operatingMargin');
+    assertEqual(growthBenchmark?.peerMedian, 9, 'peer benchmark calculates the median from available peers');
+    assertEqual(growthBenchmark?.percentile, 100, 'peer benchmark ranks higher-is-better growth in the favorable direction');
+    assertEqual(earningsBenchmark?.percentile, 50, 'peer benchmark reverses percentile direction for lower valuation');
+    assertEqual(marginBenchmark?.peerCoverage, 1, 'peer benchmark reports per-metric coverage');
     assertEqual(buildTechnicalOutlook(snapshot).overall.label, 'Constructive', 'technical outlook requires aligned positive evidence');
     const response = { success: true, data: snapshot };
     assertEqual(parseResearchSnapshotResponse(response).symbol, 'MSFT', 'snapshot boundary accepts complete comparison data');
@@ -873,8 +1806,27 @@ const runResearchAssistantTests = () => {
 
 const main = async () => {
     runInputTests();
+    runOutcomeAnalyticsTests();
+    runPortfolioAnalyticsTests();
+    runSourceHealthTests();
+    runMarketReplayTests();
+    runProductAnalyticsTests();
     runResearchUrlStateTests();
     runMarketResearchHandoffTests();
+    runMarketWatchlistExposureTests();
+    runThesisChangeTests();
+    runMarketSensitivityTests();
+    runResearchWorkflowQueueTests();
+    runEvidenceCoverageTests();
+    runInvestmentPolicyTests();
+    runCurrencyPerformanceTests();
+    runEvidenceDocumentDiffTests();
+    runScenarioLibraryTests();
+    runPaperDecisionTests();
+    runRelationshipGraphTests();
+    runDiscoveryUniversePolicyTests();
+    await runResearchBackupTests();
+    runSavedResearchLayoutTests();
     await runResearchNotificationTests();
     runDiscoveryWorkspaceTests();
     runDecisionTests();

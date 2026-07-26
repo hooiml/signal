@@ -1,5 +1,6 @@
 import { createHash, createHmac } from 'node:crypto';
 import type { ResearchInboxItem, ResearchInboxResponse } from '../types/research-inbox';
+import type { ResearchNotificationMode } from '../types/research-notification-settings';
 
 export type ResearchNotificationDigest = {
     readonly type: 'signal.research.digest.v1';
@@ -16,6 +17,13 @@ export type ResearchNotificationDigest = {
     readonly items: readonly ResearchInboxItem[];
     readonly warnings: readonly string[];
 };
+
+export const filterResearchNotificationItems = (
+    items: readonly ResearchInboxItem[],
+    mode: ResearchNotificationMode,
+): readonly ResearchInboxItem[] => mode === 'urgent-only'
+    ? items.filter((item) => item.urgency === 'action')
+    : items;
 
 export const validateNotificationEndpoint = (value: string): URL => {
     let endpoint: URL;

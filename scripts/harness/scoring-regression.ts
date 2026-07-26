@@ -6,6 +6,9 @@ import { buildBreadthContext, buildFinancialConditionsContext, buildYieldCurveCo
 import { getSourceIndicatorCount, shouldEnableSourceIndicator } from '../../src/lib/source-indicator';
 import { calculateMarketCalibration, getCalibrationZone, selectHistoricalValidationCases, selectSimilarScoreOutcomes } from '../../src/lib/market-calibration';
 import { reconstructUsMarketScores } from '../../src/lib/market-score-reconstruction';
+import { isAuraCacheFresh } from '../../src/lib/aura-cache';
+import { getRedditOAuthConfiguration } from '../../src/lib/reddit';
+import { isStockTwitsEnabled, isStockTwitsRateLimitStatus } from '../../src/lib/stocktwits';
 
 function indicator(overrides: Partial<IndicatorData> & Pick<IndicatorData, 'name' | 'score' | 'value'>): IndicatorData {
     return {
@@ -99,6 +102,23 @@ function runSourceIndicatorTests() {
     assertEqual(shouldEnableSourceIndicator(true, 'social', populated), true, 'requested populated social source is enabled');
     assertEqual(shouldEnableSourceIndicator(false, 'social', populated), false, 'disabled social source stays excluded');
     assertEqual(shouldEnableSourceIndicator(true, 'social', empty), false, 'empty social source stays excluded');
+}
+
+function runProviderBoundaryTests() {
+    assertEqual(getRedditOAuthConfiguration({}), null, 'Reddit stays unavailable without complete OAuth configuration');
+    assertEqual(getRedditOAuthConfiguration({
+        REDDIT_CLIENT_ID: 'client',
+        REDDIT_CLIENT_SECRET: 'secret',
+        REDDIT_USER_AGENT: 'web:signal-dashboard:0.1.0 (by /u/signal)',
+    })?.clientId, 'client', 'Reddit accepts complete application OAuth configuration');
+    assertEqual(isStockTwitsEnabled({}), false, 'StockTwits is disabled by default');
+    assertEqual(isStockTwitsEnabled({ STOCKTWITS_ENABLED: 'true' }), true, 'StockTwits requires explicit provider opt-in');
+    assertEqual(isStockTwitsRateLimitStatus(429), true, 'StockTwits rate limits trigger provider cooldown');
+    assertEqual(isStockTwitsRateLimitStatus(500), false, 'StockTwits transient server errors do not create a long cooldown');
+    const now = new Date('2026-07-26T12:00:00.000Z');
+    assertEqual(isAuraCacheFresh('2026-07-20T12:00:00.000Z', now), true, 'recent AI analysis remains eligible');
+    assertEqual(isAuraCacheFresh('2026-07-18T11:59:59.000Z', now), false, 'AI analysis older than seven days is rejected');
+    assertEqual(isAuraCacheFresh('invalid', now), false, 'invalid AI cache dates are rejected');
 }
 
 function runPutCallTests() {
@@ -444,6 +464,7 @@ function runMarketReconstructionTests() {
 function main() {
     runCoreScoringTests();
     runSourceIndicatorTests();
+    runProviderBoundaryTests();
     runPutCallTests();
     runNaaimTests();
     runCoverageAdjustmentTests();

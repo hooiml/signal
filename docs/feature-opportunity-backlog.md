@@ -45,6 +45,7 @@ The following features already exist and should not be rebuilt as new backlog it
 
 ### Investment Research
 
+- Browser-local workflow analytics with fixed, privacy-safe events, 180-day retention, workspace adoption, guided review pathways, meaningful actions, and local disable/clear controls.
 - Search, market and decision filters, watchlist add/remove, and ticker URL state.
 - Research inbox with attention, upcoming, stale-review, seen, and snooze states.
 - Security overview, fundamentals, valuation, events, charts, and technical analysis.
@@ -208,6 +209,8 @@ The current handoff correctly keeps the market score as evidence and does not ov
 - Show supporting and conflicting company-level evidence.
 - Let the user open the relevant ticker tab without changing its checklist or decision.
 
+**Delivered:** the Market exposure map connects active scored drivers to same-market watchlist sectors through disclosed deterministic rules, preserves driver direction, prioritizes owned and stale reviews, and leaves unknown classifications unmapped without estimating price sensitivity or changing a decision.
+
 **Success signal**
 
 - Market-to-Research handoffs result in more targeted reviews and fewer indiscriminate watchlist checks.
@@ -245,29 +248,43 @@ Incorrect peer grouping is worse than no peer comparison. Suggested peers should
 
 Provide controlled what-if inputs for active drivers and show the resulting score, zone, weight regime, and conflicts. Keep the live score visually separate from simulated results and offer preset scenarios before allowing free-form inputs.
 
+**Delivered:** the Market simulator provides ±15 presets and per-driver normalized-score sliders, preserves current weights and neutral reserve, shows the simulated tier and alignment conflicts, and explicitly leaves raw inputs, VIX regime selection, and the live score unchanged.
+
 ### 8. Filing, earnings, guidance, and thesis-change inbox
 
 Create a provenance-preserving queue of new material facts. Diff each item against the saved bull case, bear case, triggers, and invalidation, then let the user accept evidence into a review without automatic text replacement.
+
+**Delivered:** the Changes workspace scans a bounded saved-record set through the existing sourced assistant, distinguishes new, changed, and unchanged evidence versions, preserves local dismissals, and stages frozen evidence into an editable review without rewriting any thesis field.
 
 ### 9. User-defined discovery universes and ranking policies
 
 Allow a user to define markets, sectors, liquidity floor, risk exclusions, and a bounded list of ranking preferences. Preserve the current default methodology and expose how any user policy changes rank or eligibility.
 
+**Delivered:** Discovery now saves up to five US-scan policies with sector, liquidity, risk, and extreme-valuation eligibility plus three bounded ranking preferences. Policy rank, default rank, exact score adjustment, and exclusion reasons remain visible; unsupported Malaysia scanning is not offered.
+
 ### 10. Historical conditions replay and snapshot comparison
 
 Make score-history points selectable. Reconstruct the story, drivers, weights, freshness, coverage, and conflicts for that date, then compare any two snapshots without presenting hindsight as a trading backtest.
+
+**Delivered:** the Replay workspace compares full persisted observed snapshots and keeps reconstructed score-only rows explicitly outside evidence replay.
 
 ### 11. Research workflow queue and review templates
 
 Add templates such as new idea, earnings update, valuation-only refresh, thesis challenge, and post-event review. Each template should reduce fields without weakening the core decision rules.
 
+**Delivered:** the Queue workspace persists bounded browser-local review tasks and opens five fixed templates in the existing editor. Thesis Changes, Calendar, Alerts, and Market Exposure can now create source-labelled, deduplicated tasks with workflow-specific templates and due dates. Templates focus narrative fields while retaining the complete checklist, decision journal, valuation, position plan, evidence, and save contract.
+
 ### 12. Exportable decision packet
 
 Export a point-in-time Markdown or PDF packet containing the market context, ticker thesis, evidence links, limitations, decision, confidence, and next-review date. The export should be immutable and timestamped so later data does not rewrite the record.
 
+**Delivered:** the Export workspace freezes a timestamped Markdown packet and opens a print-ready browser document for Save as PDF.
+
 ### 13. Source-health and coverage dashboard
 
 Summarize source status, last successful fetch, cadence, regional coverage, fallbacks, and affected features. This should complement—not duplicate—the per-view trust disclosures.
+
+**Delivered:** the Sources workspace separates live health, degraded, unconfigured, and unchecked states without exposing credentials or raw provider payloads.
 
 ## Low-priority opportunity notes
 
@@ -275,18 +292,23 @@ Summarize source status, last successful fetch, cadence, regional coverage, fall
 
 Consider only after validating cross-device demand. Start with encrypted export/import or a recovery code before committing to full authentication and multi-user authorization.
 
+**First step delivered:** the Backup workspace provides passphrase-encrypted export/import without adding accounts or a third-party storage dependency. Decryption and preview stay local; import defaults to add-only and makes replacement a separately acknowledged action.
+
 ### 15. Custom dashboard layout and command palette
 
 Add saved density/layout preferences, keyboard navigation, and quick ticker/route actions only after the core decision loop has enough usage evidence to show where navigation time is actually lost.
 
+**Delivered:** the shared Ctrl/Cmd+K palette provides fixed route/theme actions plus Market configuration and Research workspace/ticker/view commands. Research also supports up to eight browser-local named views that restore filters, ticker, detail tab, workspace, and compact or comfortable density without mutating saved research.
+
 ## Suggested delivery sequence
 
+0. **Workflow analytics — delivered:** privacy-safe browser-local events now measure workspace adoption and guided actions without collecting ticker or research content.
 1. **Calendar foundation — delivered:** unified scheduled reviews, stale-review deadlines, and monitored earnings without adding a new external provider.
-2. **Alert center:** move existing rule and delivery capabilities into one observable workflow.
-3. **Portfolio cockpit:** aggregate existing position plans, then add only well-covered risk measures.
-4. **Outcome analytics:** calculate feedback from the review history already being stored.
-5. **Cross-workspace exposure:** add explainable market-to-watchlist relationships.
-6. **Peer benchmarking:** expand provider coverage and comparison semantics after the decision loop is complete.
+2. **Alert center — delivered:** existing research rules, device-local market rules, delivery preferences, and bounded delivery history now share one observable workflow.
+3. **Portfolio cockpit — delivered:** saved position plans now drive allocation, concentration, defined-risk coverage, market metrics, and bounded scenarios.
+4. **Outcome analytics — delivered:** linked review history now produces explicit resolved and unresolved feedback without claiming predictive accuracy.
+5. **Cross-workspace exposure — delivered:** active market drivers now connect to same-market watchlist names through visible sector rules and direct review links.
+6. **Peer benchmarking — delivered:** editable peer sets now expose medians, favorable-direction percentiles, and per-metric coverage.
 
 This sequence reuses current records and infrastructure before introducing broader data dependencies.
 
@@ -304,6 +326,48 @@ The top opportunities still contain desirability and usability assumptions. Vali
 | Peer benchmarking | Suggested peers are comparable enough to improve valuation judgment. | Manually curate peers for three representative US and Malaysia securities. | Users retain most peers and change valuation notes based on the comparison evidence. |
 
 ## Intentionally deferred ideas
+
+## Next feature sequence
+
+### 16. Evidence coverage and freshness map
+
+Map saved thesis fields to accepted evidence using visible per-field freshness windows. Keep supported, stale, conflicting, assumption, and missing states distinct, and allow gaps to create a deduplicated Queue task without changing saved research.
+
+**Delivered:** the Evidence workspace evaluates seven thesis fields, prefers reporting periods over acceptance dates, exposes the exact freshness rule and evidence age, and connects unresolved gaps to an `Evidence coverage` Queue task.
+
+### 17. Investment-policy guardrails
+
+Compare saved position plans and decisions with user-defined allocation, concentration, evidence, review-age, and valuation limits. Guardrails must remain advisory and must never silently change a decision.
+
+**Delivered:** the Policy workspace persists bounded browser-local limits, evaluates every saved record through deterministic rules, excludes missing allocations from totals, and connects breaches to a source-labelled Queue review.
+
+### 18. Multi-currency performance
+
+Separate security return from currency contribution for MYR and USD base views, using explicit exchange-rate, dividend, and fee inputs. Missing cost or price data must stay unavailable.
+
+**Delivered:** the Currency workspace uses saved cost/entry data and hydrated quotes with browser-local USD/MYR assumptions. It compounds price and FX changes, applies explicit adjustments, and labels saved-benchmark comparison as potentially period-misaligned context.
+
+### 19. Filing and earnings evidence diff
+
+Compare cited evidence versions across immutable reviews without inventing access to raw filing prose. Preserve source values, reporting periods, additions, removals, and an explicit missing-baseline state.
+
+**Delivered:** the Filings workspace compares current accepted evidence with the previous saved review, groups structured evidence through disclosed label matching, preserves source links, and connects changes to a `Filing evidence` Queue task.
+
+### 20. Saved portfolio scenario library
+
+**Delivered:** the Portfolio workspace now saves up to eight browser-local market, sector, or currency shocks, validates every restored entry, shows allocation coverage, and calculates deterministic allocation-weighted impact without changing saved research.
+
+### 21. Paper decision tracker
+
+**Delivered:** the Outcomes workspace now records browser-local act-or-pass decisions, a bounded rationale, the initial observed price, and an optional later observed price. It reports the market move without claiming brokerage execution or investment return.
+
+### 22. Research relationship graph
+
+**Delivered:** the Map workspace connects ticker records only through explicit shared watchlist sectors and accepted-evidence providers, exposes every reason for each edge, and supports focused filtering and ticker navigation without semantic inference.
+
+### 23. Encrypted cross-device transfer
+
+**Delivered:** the Backup workspace can create and copy a versioned AES-GCM transfer package, paste and decrypt it on another device, and preview new or conflicting revisions before an explicit import. It is manual transfer rather than background sync because Signal has no account or synchronization server.
 
 The following should not be prioritized without stronger evidence and data controls:
 

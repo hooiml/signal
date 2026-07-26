@@ -126,7 +126,7 @@ const mapRow = (raw: unknown): ResearchRecord => {
     });
 };
 
-const saveRecord = async (record: ResearchRecord): Promise<ResearchRecord> => {
+const saveRecord = async (record: ResearchRecord, replaceExisting = false): Promise<ResearchRecord | null> => {
     const rows = await sql`
         INSERT INTO research_records (
             user_id, symbol, market_type, company_name, position_state, in_buy_zone,
@@ -164,10 +164,12 @@ const saveRecord = async (record: ResearchRecord): Promise<ResearchRecord> => {
             position_plan = EXCLUDED.position_plan,
             review_history = EXCLUDED.review_history,
             last_reviewed_at = EXCLUDED.last_reviewed_at,
-            updated_at = NOW()
+            updated_at = NOW(),
+            revision = research_records.revision + 1
+        WHERE ${replaceExisting}
         RETURNING *
     `;
-    return mapRow(rows[0]);
+    return rows[0] ? mapRow(rows[0]) : null;
 };
 
 const updateRecord = async (record: ResearchRecord, expectedRevision: number): Promise<ResearchRecord | null> => {
@@ -211,7 +213,44 @@ export const createStoredResearchRecord = async (input: unknown): Promise<Resear
     const existing = await sql`SELECT symbol FROM research_records WHERE user_id = 'default' AND symbol = ${record.symbol} LIMIT 1`;
     if (existing[0]) throw new ResearchConflictError(record.symbol);
     await sql`DELETE FROM research_archived_symbols WHERE user_id = 'default' AND symbol = ${record.symbol}`;
-    return saveRecord(record);
+    const saved = await saveRecord(record);
+    if (!saved) throw new ResearchConflictError(record.symbol);
+    return saved;
+};
+
+export const restoreStoredResearchRecords = async (
+    records: readonly ResearchRecord[],
+    conflictPolicy: 'add-only' | 'replace-existing',
+): Promise<{
+    readonly records: readonly ResearchRecord[];
+    readonly added: number;
+    readonly replaced: number;
+    readonly skipped: number;
+}> => {
+    await ensureResearchTable();
+    const existingRows = await sql`SELECT symbol FROM research_records WHERE user_id = 'default'`;
+    const existingSymbols = new Set(existingRows.flatMap((raw) => {
+        if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return [];
+        const symbol = Object.fromEntries(Object.entries(raw)).symbol;
+        return typeof symbol === 'string' ? [symbol] : [];
+    }));
+    const restored: ResearchRecord[] = [];
+    let added = 0;
+    let replaced = 0;
+    let skipped = 0;
+    for (const record of records) {
+        const existed = existingSymbols.has(record.symbol);
+        const saved = await saveRecord(record, conflictPolicy === 'replace-existing');
+        if (!saved) {
+            skipped += 1;
+            continue;
+        }
+        await sql`DELETE FROM research_archived_symbols WHERE user_id = 'default' AND symbol = ${record.symbol}`;
+        restored.push(saved);
+        if (existed) replaced += 1;
+        else added += 1;
+    }
+    return { records: restored, added, replaced, skipped };
 };
 
 export const updateStoredResearchRecord = async (symbol: string, input: ResearchUpdateInput, mode: ResearchUpdateMode, expectedRevision: number): Promise<ResearchRecord | null> => {
