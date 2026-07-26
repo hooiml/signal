@@ -13,6 +13,7 @@ import { evaluateResearchAlerts, parseBuyZone } from '../../src/lib/research/ale
 import { evaluateMarketAlert, getMarketAlertRulesForBriefing, parseMarketAlertRules, type MarketAlertRule } from '../../src/lib/market-alerts';
 import { scoreDiscoveryQuality } from '../../src/lib/research/discovery-quality';
 import { parseSecCompanyFacts } from '../../src/lib/research/sec-edgar';
+import { parseYahooFundamentalTimeseries } from '../../src/lib/research/yahoo-fundamentals';
 import { calculateCohortPerformance, calculateHistorySignals } from '../../src/lib/research/discovery-history';
 import {
     addPickerRun,
@@ -48,9 +49,31 @@ import { buildResearchCalendar, filterResearchCalendarEvents, getResearchCalenda
 import { parseResearchCalendarInputs, parseResearchCalendarQuery } from '../../src/lib/research/calendar-input';
 import { parseResearchCalendarResponse } from '../../src/lib/research/calendar-response';
 import { calendarDateChanges, mergeResearchCalendarDateState, parseResearchCalendarDateState, snapshotResearchCalendarDates } from '../../src/lib/research/calendar-state';
+import {
+    buildResearchMacroEvents,
+    parseBlsCalendarIcs,
+    parseDosmReleaseCalendar,
+    parseFomcCalendarHtml,
+} from '../../src/lib/research/macro-calendar';
 import { buildResearchRelativeUrl, mergeResearchSearchParams, resolveVisibleResearchSymbol } from '../../src/lib/research/url-state';
 import { nextHorizontalTabIndex } from '../../src/lib/research/tab-navigation';
 import { researchWorkspaceGroupFor, researchWorkspaceGroups } from '../../src/lib/research/workspace-navigation';
+import {
+    buildResearchVisitSnapshot,
+    buildSinceLastVisitBriefing,
+    buildSinceLastVisitChanges,
+    parseResearchVisitSnapshot,
+} from '../../src/lib/research/since-last-visit';
+import {
+    parseSinceLastVisitAlerts,
+    parseSinceLastVisitMarket,
+    parseSinceLastVisitSourceIssues,
+} from '../../src/lib/research/since-last-visit-input';
+import {
+    getResearchStrategyTemplate,
+    researchStrategyTemplateIds,
+    researchStrategyTemplates,
+} from '../../src/lib/research/research-strategy-templates';
 import { buildResearchOutcomeAnalytics } from '../../src/lib/research/outcome-analytics';
 import { buildPortfolioMarketAnalytics, buildPortfolioScenarios, buildPortfolioSummary } from '../../src/lib/research/portfolio-analytics';
 import { isResearchNotificationQuietHour, parseResearchNotificationSettings } from '../../src/lib/types/research-notification-settings';
@@ -92,10 +115,15 @@ import {
 } from '../../src/lib/research/scenario-library';
 import {
     addPaperDecision,
+    buildDecisionReviewAnalytics,
+    decisionReviewDueAt,
+    decisionReviewHistoryKey,
+    evaluatePaperDecision,
     paperDecisionLimit,
     paperDecisionMarketMovePercent,
     parsePaperDecisions,
     removePaperDecision,
+    resolveDuePaperDecisions,
     resolvePaperDecision,
     type PaperDecision,
 } from '../../src/lib/research/paper-decisions';
@@ -122,7 +150,17 @@ import {
     encryptResearchBackup,
     parseResearchBackupPayload,
     parseResearchRestoreRequest,
+    validateEncryptedResearchBackup,
 } from '../../src/lib/research/backup';
+import {
+    authorizeResearchSyncBearer,
+    parseResearchSyncWriteRequest,
+} from '../../src/lib/research/sync-vault';
+import {
+    buildResearchNativeNotification,
+    parseResearchNativeNotificationSettings,
+    researchNativeNotificationDigest,
+} from '../../src/lib/research/native-notifications';
 import {
     parseResearchLayoutDensity,
     parseSavedResearchLayouts,
@@ -199,6 +237,14 @@ const runResearchBackupTests = async () => {
     assertEqual(syncPreview.incomingNewer, 1, 'sync preview identifies incoming newer records');
     assertEqual(syncPreview.localNewer, 1, 'sync preview identifies local newer records');
     assertEqual(syncPreview.sameRevision, 1, 'sync preview identifies matching revisions');
+    assertEqual(validateEncryptedResearchBackup(encrypted), encrypted, 'sync vault accepts only a validated encrypted backup envelope');
+    assertEqual(parseResearchSyncWriteRequest({ envelope: encrypted, expectedRevision: 0 }).expectedRevision, 0, 'sync write accepts an initial expected revision');
+    assertThrows(() => parseResearchSyncWriteRequest({ envelope: '{}', expectedRevision: 0 }), 'sync write rejects an invalid encrypted envelope');
+    assertThrows(() => parseResearchSyncWriteRequest({ envelope: encrypted, expectedRevision: -1 }), 'sync write rejects a negative expected revision');
+    const syncSecret = '0123456789abcdef0123456789abcdef';
+    assertEqual(authorizeResearchSyncBearer(`Bearer ${syncSecret}`, syncSecret), true, 'sync authorization accepts the configured bearer secret');
+    assertThrows(() => authorizeResearchSyncBearer('Bearer wrong-secret', syncSecret), 'sync authorization rejects an incorrect bearer secret');
+    assertThrows(() => authorizeResearchSyncBearer(`Bearer ${syncSecret}`, undefined), 'sync authorization fails closed when the server secret is absent');
 };
 
 const runSavedResearchLayoutTests = () => {
@@ -755,6 +801,24 @@ const runResearchNotificationTests = async () => {
         // Expected delivery failure.
     }
     assertEqual(released, true, 'failed delivery releases its reservation for retry');
+
+    const alerts = [
+        { symbol: 'MSFT', title: 'Below 200-day average', detail: 'Review trend weakness.', severity: 'risk' as const },
+        { symbol: 'NVDA', title: 'Near buy zone', detail: 'Price is near the saved range.', severity: 'opportunity' as const },
+    ];
+    const nativeSettings = parseResearchNativeNotificationSettings({ enabled: true, mode: 'risk-only' });
+    assertEqual(nativeSettings.enabled, true, 'native notification settings preserve explicit opt-in');
+    assertEqual(parseResearchNativeNotificationSettings({ enabled: 'yes', mode: 'all' }).enabled, false, 'malformed native settings fail closed');
+    const riskNotification = buildResearchNativeNotification(alerts, nativeSettings.mode);
+    assertEqual(riskNotification?.itemCount, 1, 'risk-only native mode excludes non-risk alerts');
+    assertEqual(riskNotification?.body.includes('MSFT'), true, 'native notification body names the affected ticker');
+    assertEqual(buildResearchNativeNotification([], 'all'), null, 'native notifications stay quiet without active alerts');
+    assertEqual(
+        await researchNativeNotificationDigest(alerts),
+        await researchNativeNotificationDigest([...alerts].reverse()),
+        'native notification deduplication is stable across provider order',
+    );
+    assertEqual((await researchNativeNotificationDigest(alerts)).includes('MSFT'), false, 'native notification deduplication does not persist alert plaintext');
 };
 
 const runDiscoveryWorkspaceTests = () => {
@@ -921,6 +985,102 @@ const runOutcomeAnalyticsTests = () => {
     assertEqual(unresolved.unresolvedDecisions, 1, 'outcome analytics reports unresolved linked reviews separately');
 };
 
+const runSinceLastVisitTests = () => {
+    const baselineRecord = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
+    const baseline = buildResearchVisitSnapshot([baselineRecord], '2026-07-01T00:00:00.000Z', [{
+        market: 'US', tier: 'neutral', score: 50, snapshotAt: '2026-07-01T00:00:00.000Z',
+    }]);
+    const changedRecord = {
+        ...baselineRecord,
+        revision: baselineRecord.revision + 1,
+        updatedAt: '2026-07-20T00:00:00.000Z',
+        decisionJournal: { ...baselineRecord.decisionJournal, nextReviewAt: '2026-07-15' },
+        acceptedEvidence: [{
+            id: 'finding-1',
+            title: 'Revenue evidence',
+            summary: 'Revenue advanced.',
+            target: 'bullCase' as const,
+            tone: 'positive' as const,
+            mode: 'evidence' as const,
+            acceptedAt: '2026-07-20T00:00:00.000Z',
+            sources: [{ id: 'revenue', label: 'Revenue', value: '10%', source: 'SEC EDGAR', sourceUrl: 'https://www.sec.gov/', reportingPeriod: '2026-Q2' }],
+        }],
+    };
+    const changes = buildSinceLastVisitChanges([
+        changedRecord,
+        createResearchRecord({ symbol: 'NVDA', market: 'US', companyName: 'NVIDIA' }),
+    ], baseline, '2026-07-26T00:00:00.000Z');
+    assertEqual(changes.newSymbols.join(','), 'NVDA', 'since-last-visit briefing identifies newly tracked records');
+    assertEqual(changes.revisedSymbols.join(','), 'MSFT', 'since-last-visit briefing identifies revised records');
+    assertEqual(changes.evidenceChangedSymbols.join(','), 'MSFT', 'since-last-visit briefing detects accepted-evidence changes');
+    assertEqual(changes.overdueReviewSymbols.join(','), 'MSFT', 'since-last-visit briefing identifies overdue scheduled reviews');
+    assertEqual(parseResearchVisitSnapshot(JSON.parse(JSON.stringify(baseline)))?.records[0]?.symbol, 'MSFT', 'since-last-visit snapshot survives local persistence');
+    assertEqual(parseResearchVisitSnapshot(JSON.parse(JSON.stringify(baseline)))?.markets[0]?.tier, 'neutral', 'since-last-visit snapshot preserves the prior market posture');
+    assertEqual(parseResearchVisitSnapshot({ ...baseline, version: 2 }), null, 'since-last-visit snapshot rejects unknown versions');
+    const briefing = buildSinceLastVisitBriefing({
+        changes,
+        previous: baseline,
+        currentMarkets: [{ market: 'US', tier: 'buy', score: 68, snapshotAt: '2026-07-26T00:00:00.000Z' }],
+        events: [
+            { symbol: 'MSFT', type: 'stale', date: '2026-07-15' },
+            { symbol: 'NVDA', type: 'earnings', date: '2026-07-28' },
+        ],
+        alerts: [{ symbol: 'MSFT', severity: 'risk' }],
+        policyViolations: [{ symbol: 'NVDA', count: 2 }],
+        sourceIssues: [{ name: 'SEC EDGAR', affectedFeatures: ['Research fundamentals'] }],
+        attentionCount: 4,
+        unreadCount: 2,
+    });
+    assertEqual(briefing.marketChanges[0]?.direction, 'improved', 'since-last-visit briefing identifies a stronger market posture');
+    assertEqual(briefing.topActions.length, 3, 'since-last-visit briefing limits the action list to three priorities');
+    assertEqual(briefing.topActions[0]?.kind, 'risk-alert', 'since-last-visit briefing prioritizes active risk conditions');
+    assertEqual(briefing.topActions[1]?.kind, 'policy', 'since-last-visit briefing prioritizes policy breaches before upcoming events');
+    assertEqual(briefing.sourceIssues[0]?.name, 'SEC EDGAR', 'since-last-visit briefing keeps degraded source impact visible');
+
+    const market = parseSinceLastVisitMarket({
+        success: true,
+        data: {
+            composite_score: 68,
+            tier: 'buy',
+            metadata: { market: 'US' },
+        },
+    }, 'US', '2026-07-26T08:00:00.000Z');
+    assertEqual(market.tier, 'buy', 'since-last-visit market parser preserves a validated tier');
+    assertEqual(market.snapshotAt, '2026-07-26T08:00:00.000Z', 'since-last-visit market parser uses the bounded fetch timestamp');
+    assertThrows(() => parseSinceLastVisitMarket({
+        success: true,
+        data: { composite_score: 68, tier: 'buy', metadata: { market: 'MY' } },
+    }, 'US', '2026-07-26T08:00:00.000Z'), 'since-last-visit market parser rejects a mismatched market');
+
+    const alertSummaries = parseSinceLastVisitAlerts({
+        success: true,
+        data: {
+            generatedAt: '2026-07-26T08:00:00.000Z',
+            monitoredCount: 2,
+            alerts: [
+                { symbol: 'MSFT', severity: 'risk', title: 'Risk', detail: 'Below invalidation.' },
+                { symbol: 'NVDA', severity: 'watch', title: 'Watch', detail: 'Near target.' },
+            ],
+            warnings: [],
+        },
+    });
+    assertEqual(alertSummaries.map((item) => `${item.symbol}:${item.severity}`).join(','), 'MSFT:risk,NVDA:watch', 'since-last-visit alert parser emits bounded alert summaries');
+    assertThrows(() => parseSinceLastVisitAlerts({ success: true, data: { alerts: [{ symbol: '../bad', severity: 'risk' }] } }), 'since-last-visit alert parser rejects unsafe symbols');
+
+    const sourceIssues = parseSinceLastVisitSourceIssues({
+        success: true,
+        data: {
+            generatedAt: '2026-07-26T08:00:00.000Z',
+            entries: [
+                { id: 'sec', name: 'SEC EDGAR', category: 'research', status: 'degraded', checkedAt: null, lastSuccessfulAt: null, latencyMs: null, cadence: 'daily', coverage: 'US', affectedFeatures: ['Research fundamentals'], detail: 'Unavailable.' },
+                { id: 'yahoo', name: 'Yahoo', category: 'market', status: 'healthy', checkedAt: null, lastSuccessfulAt: null, latencyMs: null, cadence: 'live', coverage: 'US', affectedFeatures: ['Quotes'], detail: 'Healthy.' },
+            ],
+        },
+    });
+    assertEqual(sourceIssues.length, 1, 'since-last-visit source parser includes degraded sources only');
+    assertEqual(sourceIssues[0]?.affectedFeatures[0], 'Research fundamentals', 'since-last-visit source parser preserves affected features');
+};
+
 const portfolioChartPoint = (time: string, close: number) => ({
     time, open: close, high: close, low: close, close, volume: 1_000_000,
     ma50: null, ma200: null, ema20: null, ema50: null, sma200: null, averageVolume20: null,
@@ -1014,11 +1174,87 @@ const runPaperDecisionTests = () => {
         decisionPrice: 100,
         note: 'Evidence met the saved policy.',
         recordedAt: '2026-07-26T00:00:00.000Z',
+        horizon: '3M',
+        researchDecision: 'Ready',
+        confidence: 'high',
+        benchmark: {
+            symbol: 'VOO',
+            entryPrice: 500,
+            outcomePrice: null,
+            observedAt: null,
+        },
         outcomePrice: null,
         resolvedAt: null,
+        maxDrawdownPercent: null,
+        maxFavorableMovePercent: null,
     };
     const added = addPaperDecision([], decision);
     assertEqual(added.length, 1, 'paper decision tracker adds a validated decision');
+    assertEqual(decisionReviewDueAt(added[0]!), '2026-10-24T00:00:00.000Z', 'decision review horizon produces a stable due date');
+    const migrated = parsePaperDecisions([{
+        id: 'MAYBANK:legacy',
+        symbol: 'MAYBANK',
+        market: 'MY',
+        action: 'pass',
+        decisionPrice: 10,
+        note: '',
+        recordedAt: '2026-07-26T00:00:00.000Z',
+        outcomePrice: null,
+        resolvedAt: null,
+    }])[0];
+    assertEqual(migrated?.horizon, '3M', 'legacy paper decisions migrate to the default review horizon');
+    assertEqual(migrated?.benchmark.symbol, 'KLCI', 'legacy Malaysia decisions migrate to the local benchmark');
+    const candidateHistory = [
+        portfolioChartPoint('2026-07-27', 100),
+        { ...portfolioChartPoint('2026-09-01', 90), low: 80, high: 110 },
+        { ...portfolioChartPoint('2026-10-23', 120), low: 115, high: 120 },
+        portfolioChartPoint('2026-10-26', 115),
+    ];
+    const benchmarkHistory = [
+        portfolioChartPoint('2026-07-27', 500),
+        portfolioChartPoint('2026-10-26', 525),
+    ];
+    const evaluated = evaluatePaperDecision(added[0]!, candidateHistory, benchmarkHistory);
+    assertEqual(evaluated.outcomePrice, 115, 'decision review resolves from the first available session after the horizon');
+    assertEqual(evaluated.benchmark.outcomePrice, 525, 'decision review freezes the matching benchmark observation');
+    assertEqual(evaluated.maxDrawdownPercent, -20, 'decision review measures maximum path drawdown from the recorded price');
+    assertEqual(evaluated.maxFavorableMovePercent, 20, 'decision review measures maximum favorable path move from the recorded price');
+    const evaluatedWithBenchmarkBackfill = evaluatePaperDecision(
+        { ...added[0]!, benchmark: { ...added[0]!.benchmark, entryPrice: null } },
+        candidateHistory,
+        benchmarkHistory,
+    );
+    assertEqual(evaluatedWithBenchmarkBackfill.benchmark.entryPrice, 500, 'decision review backfills a missing benchmark entry from the first session after recording');
+    assertEqual(
+        evaluatePaperDecision(evaluated, [...candidateHistory, portfolioChartPoint('2026-10-27', 140)], benchmarkHistory).outcomePrice,
+        115,
+        'decision review never rewrites a frozen outcome',
+    );
+    const reviewAnalytics = buildDecisionReviewAnalytics(Array.from({ length: 5 }, (_, index) => ({
+        ...evaluated,
+        id: `MSFT:review-${index}`,
+        action: index === 4 ? 'pass' as const : 'act' as const,
+    })));
+    assertEqual(reviewAnalytics.resolvedCount, 5, 'decision review analytics counts frozen outcomes');
+    assertEqual(reviewAnalytics.benchmarkedCount, 5, 'decision review analytics counts comparable benchmark outcomes');
+    assertEqual(reviewAnalytics.averageRelativeReturnPercent, 10, 'decision review analytics reports benchmark-relative return');
+    assertEqual(reviewAnalytics.byHorizon[0]?.evidenceLevel, 'preliminary', 'decision review cohorts require five observations before showing statistics');
+    assertEqual(reviewAnalytics.byAction.find((group) => group.label === 'pass')?.averageDecisionEffectPercent, null, 'small decision cohorts withhold false precision');
+    assertEqual(
+        buildDecisionReviewAnalytics(Array.from({ length: 20 }, (_, index) => ({ ...evaluated, id: `MSFT:established-${index}` }))).byHorizon[0]?.evidenceLevel,
+        'established',
+        'decision review cohorts require twenty observations for established evidence',
+    );
+    const batchResolved = resolveDuePaperDecisions(
+        [added[0]!, { ...added[0]!, id: 'NVDA:pending', symbol: 'NVDA' }],
+        new Map([
+            [decisionReviewHistoryKey('MSFT', 'US'), candidateHistory],
+            [decisionReviewHistoryKey('VOO', 'US'), benchmarkHistory],
+            [decisionReviewHistoryKey('MSFT', 'MY'), [portfolioChartPoint('2026-10-26', 1)]],
+        ]),
+    );
+    assertEqual(batchResolved[0]?.outcomePrice, 115, 'decision review batch resolves histories that are available');
+    assertEqual(batchResolved[1]?.outcomePrice, null, 'decision review batch preserves pending decisions with unavailable history');
     const resolved = resolvePaperDecision(added, decision.id, 112, '2026-08-26T00:00:00.000Z');
     assertEqual(paperDecisionMarketMovePercent(resolved[0]!), 12, 'paper decision tracker calculates the later observed market move');
     assertEqual(resolvePaperDecision(added, decision.id, 0, '2026-08-26T00:00:00.000Z')[0]?.outcomePrice, null, 'paper decision tracker rejects a non-positive outcome through boundary parsing');
@@ -1464,6 +1700,7 @@ const runCalendarTests = async () => {
     ];
     const calendar = buildResearchCalendar({
         inputs, catalysts, now: new Date('2026-07-15T12:00:00.000Z'), rangeDays: 30,
+        macroEvents: [],
         warnings: ['Upcoming earnings coverage is temporarily unavailable.'],
     });
     assertEqual(calendar.rangeDays, 30, 'calendar preserves the requested range');
@@ -1485,7 +1722,7 @@ const runCalendarTests = async () => {
             { ...inputs[0]!, symbol: 'DAY90', nextReviewAt: '2026-10-13', reviewAgeDays: null },
             { ...inputs[0]!, symbol: 'DAY91', nextReviewAt: '2026-10-14', reviewAgeDays: null },
         ],
-        catalysts: [], now: new Date('2026-07-15T12:00:00.000Z'), rangeDays: 90,
+        catalysts: [], macroEvents: [], now: new Date('2026-07-15T12:00:00.000Z'), rangeDays: 90,
     });
     assertEqual(ninetyDay.events.some((event) => event.symbol === 'DAY90'), true, 'calendar includes the inclusive day-ninety boundary');
     assertEqual(ninetyDay.events.some((event) => event.symbol === 'DAY91'), false, 'calendar excludes events beyond the ninety-day boundary');
@@ -1502,7 +1739,7 @@ const runCalendarTests = async () => {
     assertThrows(() => parseResearchCalendarQuery(new URLSearchParams('market=EU')), 'calendar query rejects unknown markets');
     assertThrows(() => parseResearchCalendarQuery(new URLSearchParams('ticker=../bad')), 'calendar query rejects unsafe tickers');
     assertThrows(() => parseResearchCalendarQuery(new URLSearchParams('type=dividend')), 'calendar query rejects unknown event types');
-    assertThrows(() => parseResearchCalendarInputs([]), 'calendar input rejects an empty watchlist');
+    assertEqual(parseResearchCalendarInputs([]).length, 0, 'calendar accepts an empty watchlist so macro dates remain useful');
     assertThrows(() => parseResearchCalendarInputs([inputs[0], inputs[0]]), 'calendar input rejects duplicate symbols');
     assertThrows(() => parseResearchCalendarInputs([{ symbol: 'MSFT', market: 'US', nextReviewAt: '20/07/2026', lastReviewedAt: '2026-05-10', reviewAgeDays: 30, earningsWithinDays: 21 }]), 'calendar input rejects malformed review dates');
 
@@ -1520,13 +1757,97 @@ const runCalendarTests = async () => {
     assertEqual(mergeResearchCalendarDateState(priorDates, {}, true)['MSFT:earnings'], '2026-07-21', 'degraded calendar refresh preserves missing provider dates');
     assertEqual(mergeResearchCalendarDateState(priorDates, {}, false)['MSFT:earnings'], undefined, 'complete calendar refresh removes events that are no longer scheduled');
 
-    const degraded = await getResearchCalendar(inputs, parseResearchCalendarQuery(new URLSearchParams('range=30')), new Date('2026-07-15T12:00:00.000Z'), async () => {
-        throw new Error('Nasdaq unavailable');
-    });
+    const degraded = await getResearchCalendar(
+        inputs,
+        parseResearchCalendarQuery(new URLSearchParams('range=30')),
+        new Date('2026-07-15T12:00:00.000Z'),
+        async () => { throw new Error('Nasdaq unavailable'); },
+        async () => ({ events: [], warnings: [] }),
+    );
     assertEqual(degraded.events.some((event) => event.type === 'review'), true, 'calendar service preserves scheduled reviews when earnings fail');
     assertEqual(degraded.events.some((event) => event.type === 'stale'), true, 'calendar service preserves stale reviews when earnings fail');
     assertEqual(degraded.events.some((event) => event.type === 'earnings'), false, 'calendar service excludes unavailable earnings without inventing dates');
     assertEqual(degraded.warnings[0], 'Upcoming earnings coverage is temporarily unavailable.', 'calendar service explains degraded earnings coverage');
+
+    const fomcEvents = parseFomcCalendarHtml(`
+        <h4><a>2026 FOMC Meetings</a></h4>
+        <div class="fomc-meeting__month"><strong>July</strong></div>
+        <div class="fomc-meeting__date">28-29</div>
+        <div class="fomc-meeting__month"><strong>September</strong></div>
+        <div class="fomc-meeting__date">15-16*</div>
+    `);
+    assertEqual(fomcEvents[0]?.date, '2026-07-29', 'FOMC parser uses the scheduled decision day');
+    assertEqual(fomcEvents[1]?.detail.includes('economic projections'), true, 'FOMC parser discloses projection meetings');
+
+    const blsEvents = parseBlsCalendarIcs([
+        'BEGIN:VCALENDAR',
+        'BEGIN:VEVENT',
+        'DTSTART;TZID=America/New_York:20260812T083000',
+        'SUMMARY:Consumer Price Index for July 2026',
+        'URL:https://www.bls.gov/news.release/cpi.nr0.htm',
+        'END:VEVENT',
+        'BEGIN:VEVENT',
+        'DTSTART:20260904T123000Z',
+        'SUMMARY:The Employment Situation for August 2026',
+        'URL:https://www.bls.gov/news.release/empsit.nr0.htm',
+        'END:VEVENT',
+        'BEGIN:VEVENT',
+        'DTSTART:20260813T123000Z',
+        'SUMMARY:Producer Price Index',
+        'END:VEVENT',
+        'END:VCALENDAR',
+    ].join('\r\n'));
+    assertEqual(blsEvents.length, 2, 'BLS parser keeps CPI and employment releases only');
+    assertEqual(blsEvents[0]?.timeLabel, '08:30 ET', 'BLS parser preserves the official Eastern release time');
+
+    const dosmEvents = parseDosmReleaseCalendar([
+        { title_en: 'Consumer Price Index, July 2026', frequency: 'MONTHLY', release_date: '2026-08-21 12:00:00', publication_id: 'cpi_2026-07', publication_type: 'cpi' },
+        { title_en: 'Gross Domestic Product, Second Quarter 2026', frequency: 'QUARTERLY', release_date: '2026-08-14 12:00:00', publication_id: 'gdp_2026-q2', publication_type: 'gdp' },
+        { title_en: 'Labour Force Survey, June 2026', frequency: 'MONTHLY', release_date: '2026-08-10 12:00:00', publication_id: 'lfs_2026-06', publication_type: 'lfs' },
+        { title_en: 'External Trade Statistics', frequency: 'MONTHLY', release_date: '2026-08-19 12:00:00', publication_id: 'trade_2026-07', publication_type: 'trade' },
+    ]);
+    assertEqual(dosmEvents.length, 3, 'OpenDOSM parser keeps inflation, growth, and employment releases');
+    assertEqual(dosmEvents.every((event) => event.market === 'MY'), true, 'OpenDOSM events carry Malaysia market scope');
+
+    const macroEvents = buildResearchMacroEvents({
+        inputs,
+        events: [...fomcEvents, ...blsEvents, ...dosmEvents],
+        now: new Date('2026-07-15T12:00:00.000Z'),
+        rangeDays: 90,
+    });
+    assertEqual(macroEvents.some((event) => event.date === '2026-07-29'), true, 'macro calendar includes dates inside the range');
+    assertEqual(macroEvents.some((event) => event.date === '2026-11-01'), false, 'macro calendar excludes dates beyond the range');
+    assertEqual(macroEvents.find((event) => event.market === 'US')?.trackedSymbols.join(','), 'MSFT,NVDA', 'macro relevance names same-market tracked symbols');
+    assertEqual(macroEvents.find((event) => event.market === 'MY')?.trackedSymbols.join(','), '1155', 'macro relevance does not cross market scope');
+    const typedMacroResponse = parseResearchCalendarResponse({ success: true, data: { ...calendar, macroEvents } });
+    assertEqual(typedMacroResponse.macroEvents.length, macroEvents.length, 'calendar client boundary accepts typed macro events');
+    assertThrows(() => parseResearchCalendarResponse({
+        success: true,
+        data: { ...calendar, macroEvents: [{ ...macroEvents[0], sourceUrl: 'https://evil.example/calendar' }] },
+    }), 'calendar client boundary rejects an untrusted macro source URL');
+
+    const macroDegraded = await getResearchCalendar(
+        inputs,
+        parseResearchCalendarQuery(new URLSearchParams('range=30')),
+        new Date('2026-07-15T12:00:00.000Z'),
+        async () => new Map(),
+        async () => { throw new Error('Macro providers unavailable'); },
+    );
+    assertEqual(macroDegraded.events.some((event) => event.type === 'review'), true, 'calendar service preserves journal dates when macro providers fail');
+    assertEqual(macroDegraded.macroEvents.length, 0, 'calendar service does not invent macro dates on provider failure');
+    assertEqual(macroDegraded.warnings[0], 'Macro-event coverage is temporarily unavailable.', 'calendar service explains degraded macro coverage');
+};
+
+const runResearchStrategyTemplateTests = () => {
+    assertEqual(new Set(researchStrategyTemplateIds).size, researchStrategyTemplateIds.length, 'strategy template ids are unique');
+    assertEqual(researchStrategyTemplates.length, 6, 'strategy templates include the core lens and five strategy-specific lenses');
+    for (const template of researchStrategyTemplates) {
+        assertEqual(Object.keys(template.fieldPrompts).length, 7, `${template.id} guides every narrative field`);
+        assertEqual(template.evidenceFocus.length >= 3, true, `${template.id} names at least three evidence priorities`);
+        assertEqual(Object.values(template.fieldPrompts).every((prompt) => prompt.trim().endsWith('?')), true, `${template.id} guidance remains question-led`);
+    }
+    assertEqual(getResearchStrategyTemplate('quality-compounder').name, 'Quality compounder', 'strategy template lookup returns the requested lens');
+    assertEqual(getResearchStrategyTemplate('unsupported').id, 'core', 'unknown strategy template ids fall back without changing research');
 };
 
 const runMarketAlertTests = () => {
@@ -1591,6 +1912,43 @@ const runSecCompanyFactsTests = () => {
     assertEqual(parsed.annualRevenue, 215_938, 'latest revenue survives an SEC concept-name transition');
     assertEqual(parsed.revenueGrowthPercent, 65.5, 'growth compares the two latest periods across revenue concepts');
     assertEqual(parsed.operatingMarginPercent, 60.4, 'margin uses the matching latest revenue concept');
+    assertEqual(parsed.history.map((period) => period.reportingPeriod).join(','), '2026-01-25,2025-01-26,2022-01-30', 'SEC history keeps distinct annual periods across concept changes');
+    assertEqual(parsed.history[0]?.revenueGrowthPercent, 65.5, 'SEC history calculates period-over-period revenue growth');
+
+    const yahoo = parseYahooFundamentalTimeseries({
+        timeseries: {
+            result: [
+                {
+                    meta: { symbol: ['1155.KL'], type: ['annualTotalRevenue'] },
+                    annualTotalRevenue: [
+                        { asOfDate: '2023-12-31', periodType: '12M', currencyCode: 'MYR', reportedValue: { raw: 25_999_633_000 } },
+                        { asOfDate: '2024-12-31', periodType: '12M', currencyCode: 'MYR', reportedValue: { raw: 28_041_657_000 } },
+                    ],
+                },
+                {
+                    meta: { symbol: ['1155.KL'], type: ['annualNetIncome'] },
+                    annualNetIncome: [
+                        { asOfDate: '2023-12-31', periodType: '12M', currencyCode: 'MYR', reportedValue: { raw: 9_349_780_000 } },
+                        { asOfDate: '2024-12-31', periodType: '12M', currencyCode: 'MYR', reportedValue: { raw: 10_088_673_000 } },
+                    ],
+                },
+                {
+                    meta: { symbol: ['1155.KL'], type: ['annualDilutedAverageShares'] },
+                    annualDilutedAverageShares: [
+                        { asOfDate: '2023-12-31', periodType: '12M', currencyCode: 'MYR', reportedValue: { raw: 12_056_164_000 } },
+                        { asOfDate: '2024-12-31', periodType: '12M', currencyCode: 'MYR', reportedValue: { raw: 12_066_347_327 } },
+                    ],
+                },
+            ],
+            error: null,
+        },
+    }, 'MYR');
+    assertEqual(yahoo.length, 2, 'Yahoo fundamentals combine metric series into annual periods');
+    assertEqual(yahoo[0]?.reportingPeriod, '2024-12-31', 'Yahoo fundamentals sort the latest annual period first');
+    assertEqual(yahoo[0]?.revenueGrowthPercent, 7.9, 'Yahoo fundamentals calculate annual revenue growth');
+    assertEqual(yahoo[0]?.shareChangePercent, 0.1, 'Yahoo fundamentals calculate annual share-count change');
+    assertEqual(yahoo[0]?.grossMarginPercent, null, 'Yahoo fundamentals preserve unavailable Malaysia metrics');
+    assertThrows(() => parseYahooFundamentalTimeseries({ timeseries: { result: [{ bad: true }] } }, 'MYR'), 'Yahoo fundamentals reject malformed provider entries');
 };
 
 const runDiscoveryHistoryTests = () => {
@@ -1827,7 +2185,15 @@ const runComparisonTests = () => {
             revenueGrowthPercent: 14.2, grossMarginPercent: 68.5, operatingMarginPercent: 44.1,
             freeCashFlow: 70_000_000_000, debt: 40_000_000_000, cash: 80_000_000_000,
             shares: 7_400_000_000, annualRevenue: 250_000_000_000, annualNetIncome: 90_000_000_000,
-            reportingPeriod: '2025-06-30', shareChangePercent: -0.8,
+            reportingPeriod: '2025-06-30', shareChangePercent: -0.8, source: 'SEC EDGAR',
+            history: [{
+                reportingPeriod: '2025-06-30', currency: 'USD', source: 'SEC EDGAR',
+                annualRevenue: 250_000_000_000, revenueGrowthPercent: 14.2,
+                grossMarginPercent: 68.5, operatingMarginPercent: 44.1,
+                annualNetIncome: 90_000_000_000, freeCashFlow: 70_000_000_000,
+                debt: 40_000_000_000, cash: 80_000_000_000, shares: 7_400_000_000,
+                shareChangePercent: -0.8,
+            }],
         },
         valuation: {
             marketCap: 3_100_000_000_000, priceEarnings: 34.4, priceSales: 12.4,
@@ -1876,6 +2242,7 @@ const runComparisonTests = () => {
     assertEqual(buildTechnicalOutlook(snapshot).overall.label, 'Constructive', 'technical outlook requires aligned positive evidence');
     const response = { success: true, data: snapshot };
     assertEqual(parseResearchSnapshotResponse(response).symbol, 'MSFT', 'snapshot boundary accepts complete comparison data');
+    assertEqual(parseResearchSnapshotResponse(response).fundamentals.history[0]?.source, 'SEC EDGAR', 'snapshot boundary preserves fundamental-history provenance');
     assertEqual(parseResearchChartResponse({ success: true, data: { chart: snapshot.chart } }).points.length, 1, 'chart boundary accepts aligned history');
     assertThrows(() => parseResearchChartResponse({ success: true, data: { chart: { interval: '1d', points: [{ time: 'bad-date' }] } } }), 'chart boundary rejects malformed history');
     assertThrows(() => parseResearchSnapshotResponse({
@@ -1886,6 +2253,10 @@ const runComparisonTests = () => {
         ...response,
         data: { ...snapshot, chart: { interval: '1d', points: [{ ...snapshot.chart.points[0], close: null }] } },
     }), 'snapshot boundary rejects malformed chart candles');
+    assertThrows(() => parseResearchSnapshotResponse({
+        ...response,
+        data: { ...snapshot, fundamentals: { ...snapshot.fundamentals, history: [{ ...snapshot.fundamentals.history[0], reportingPeriod: 'bad-date' }] } },
+    }), 'snapshot boundary rejects malformed fundamental history');
     assertThrows(() => parseResearchChartResponse({
         success: true,
         data: { chart: { interval: '1d', points: [{ ...snapshot.chart.points[0], supertrendDirection: 0 }] } },
@@ -1909,7 +2280,15 @@ const runResearchAssistantTests = () => {
             revenueGrowthPercent: 14, grossMarginPercent: 68, operatingMarginPercent: 44,
             freeCashFlow: 70_000_000_000, debt: 40_000_000_000, cash: 80_000_000_000,
             shares: 7_400_000_000, annualRevenue: 250_000_000_000, annualNetIncome: 90_000_000_000,
-            reportingPeriod: '2025-06-30', shareChangePercent: 2.2,
+            reportingPeriod: '2025-06-30', shareChangePercent: 2.2, source: 'SEC EDGAR',
+            history: [{
+                reportingPeriod: '2025-06-30', currency: 'USD', source: 'SEC EDGAR',
+                annualRevenue: 250_000_000_000, revenueGrowthPercent: 14,
+                grossMarginPercent: 68, operatingMarginPercent: 44,
+                annualNetIncome: 90_000_000_000, freeCashFlow: 70_000_000_000,
+                debt: 40_000_000_000, cash: 80_000_000_000, shares: 7_400_000_000,
+                shareChangePercent: 2.2,
+            }],
         },
         valuation: {
             marketCap: 3_100_000_000_000, priceEarnings: 34.4, priceSales: 12.4,
@@ -1942,6 +2321,7 @@ const runResearchAssistantTests = () => {
 const main = async () => {
     runInputTests();
     runOutcomeAnalyticsTests();
+    runSinceLastVisitTests();
     runPortfolioAnalyticsTests();
     runSourceHealthTests();
     runMarketReplayTests();
@@ -1973,6 +2353,7 @@ const main = async () => {
     runAlertTests();
     runInboxTests();
     await runCalendarTests();
+    runResearchStrategyTemplateTests();
     runMarketAlertTests();
     runDiscoveryQualityTests();
     runSecCompanyFactsTests();

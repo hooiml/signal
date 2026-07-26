@@ -47,7 +47,12 @@ const calendarResponse = (rangeDays, partial = false) => ({
             { id: 'MSFT-stale-2026-06-09', symbol: 'MSFT', market: 'US', type: 'stale', title: 'Research review is stale', detail: 'The 30-day review deadline passed on 2026-06-09.', source: 'Research journal', sourceDate: '2026-06-09', displayDate: '2026-07-17', timezone: 'UTC', freshness: 'overdue', urgency: 'action', targetHref: '/research?ticker=MSFT&tab=overview&review=edit' },
             { id: 'MSFT-review-2026-07-20', symbol: 'MSFT', market: 'US', type: 'review', title: 'Scheduled research review', detail: 'Review the thesis, valuation, invalidation, and saved decision.', source: 'Research journal', sourceDate: '2026-07-20', displayDate: '2026-07-20', timezone: 'UTC', freshness: 'scheduled', urgency: 'upcoming', targetHref: '/research?ticker=MSFT&tab=overview&review=edit' },
             ...(partial ? [] : [{ id: 'MSFT-earnings-2026-07-22', symbol: 'MSFT', market: 'US', type: 'earnings', title: 'Earnings announcement', detail: 'After market close', source: 'Nasdaq earnings calendar', sourceDate: '2026-07-22', displayDate: '2026-07-22', timezone: 'UTC', freshness: 'scheduled', urgency: 'upcoming', targetHref: '/research?ticker=MSFT&tab=events' }]),
-        ], warnings: partial ? ['Upcoming earnings coverage is temporarily unavailable.'] : [],
+        ],
+        macroEvents: [
+            { id: 'us-monetary-policy-2026-07-29-federal-reserve', market: 'US', category: 'monetary-policy', title: 'FOMC interest-rate decision', date: '2026-07-29', timeLabel: null, source: 'Federal Reserve', sourceUrl: 'https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm', detail: 'Scheduled Federal Open Market Committee decision day.', trackedSymbols: ['MSFT'] },
+            { id: 'my-inflation-2026-08-17-opendosm', market: 'MY', category: 'inflation', title: 'Consumer Price Index: Jul 2026', date: '2026-08-17', timeLabel: '12:00 MYT', source: 'OpenDOSM', sourceUrl: 'https://open.dosm.gov.my/data-catalogue/arc_dosm', detail: 'Scheduled Malaysia consumer inflation release.', trackedSymbols: [] },
+        ],
+        warnings: partial ? ['Upcoming earnings coverage is temporarily unavailable.'] : [],
     },
 });
 
@@ -96,29 +101,47 @@ try {
             };
             return respond();
         });
-        const workspaceSelect = page.getByRole('combobox', { name: 'Research workspace' });
+        const researchSectionSelect = page.getByRole('combobox', { name: 'Research section' });
+        const activityWorkspaceSelect = page.getByRole('combobox', { name: 'Activity workspace' });
         const selectWorkspace = async (name, value) => {
-            if (width < 700) await workspaceSelect.selectOption(value);
-            else await page.getByRole('tab', { name, exact: true }).click();
+            if (width < 700) {
+                if (name === 'Watchlist') await researchSectionSelect.selectOption('watchlist');
+                else {
+                    await researchSectionSelect.selectOption('activity');
+                    await activityWorkspaceSelect.selectOption(value);
+                }
+            } else if (name === 'Watchlist') {
+                await page.getByRole('button', { name: 'Watchlist', exact: true }).click();
+            } else {
+                await page.getByRole('button', { name: 'Activity', exact: true }).click();
+                await page.getByRole('tab', { name, exact: true }).click();
+            }
         };
         const expectWorkspace = async (name, value) => {
             if (width < 700) {
-                await workspaceSelect.waitFor({ state: 'visible', timeout });
-                check(await workspaceSelect.inputValue() === value, `${width}: ${name} workspace was not restored`);
+                await researchSectionSelect.waitFor({ state: 'visible', timeout });
+                const expectedSection = name === 'Watchlist' ? 'watchlist' : 'activity';
+                check(await researchSectionSelect.inputValue() === expectedSection, `${width}: ${name} section was not restored`);
+                if (name !== 'Watchlist') check(await activityWorkspaceSelect.inputValue() === value, `${width}: ${name} workspace was not restored`);
             } else {
-                await page.getByRole('tab', { name, exact: true }).waitFor({ state: 'visible', timeout });
-                check(await page.getByRole('tab', { name, exact: true }).getAttribute('aria-selected') === 'true', `${width}: ${name} workspace was not restored`);
+                if (name === 'Watchlist') await page.getByRole('heading', { name: 'Watchlist', exact: true }).waitFor({ state: 'visible', timeout });
+                else {
+                    await page.getByRole('tab', { name, exact: true }).waitFor({ state: 'visible', timeout });
+                    check(await page.getByRole('tab', { name, exact: true }).getAttribute('aria-selected') === 'true', `${width}: ${name} workspace was not restored`);
+                }
             }
         };
         try {
             await page.goto(`${baseUrl}/research?workspace=calendar`, { waitUntil: 'domcontentloaded', timeout });
             await expectWorkspace('Calendar', 'calendar');
-            await page.getByRole('heading', { name: 'Catalyst and review calendar' }).waitFor({ state: 'visible', timeout });
-            await page.getByRole('status').getByText('Loading catalyst and review dates...').waitFor({ state: 'visible', timeout });
+            await page.getByRole('heading', { name: 'Catalyst, macro, and review calendar' }).waitFor({ state: 'visible', timeout });
+            await page.getByRole('status').getByText('Loading catalyst, macro, and review dates...').waitFor({ state: 'visible', timeout });
             check(await page.getByText(/UTC source dates · generated/).isVisible(), `${width}: UTC disclosure missing`);
             await page.waitForFunction(() => document.querySelectorAll('[data-calendar-event]').length === 3, undefined, { timeout });
             await page.waitForLoadState('networkidle', { timeout });
             check(await page.locator('[data-calendar-event]').count() === 3, `${width}: expected three calendar events`);
+            check(await page.locator('[data-macro-event]').count() === 2, `${width}: expected two macro events`);
+            check(await page.getByRole('link', { name: 'Federal Reserve source' }).getAttribute('href') === 'https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm', `${width}: macro source link is missing`);
             check(calendarRequestCount === 1, `${width}: initial load made ${calendarRequestCount} calendar requests`);
             await page.getByText('Date changed from 2026-07-21 UTC').waitFor({ state: 'visible', timeout });
             check(await page.getByRole('button', { name: '30 days' }).getAttribute('aria-pressed') === 'true', `${width}: thirty-day range is not selected`);
@@ -164,10 +187,16 @@ try {
             await page.keyboard.press('Enter');
             await page.getByLabel('Event type').selectOption('earnings');
             check(await page.locator('[data-calendar-event]').count() === 1, `${width}: event-type filter did not reduce the list`);
-            await page.getByLabel('Event type').selectOption('ALL');
+            check(await page.locator('[data-macro-event]').count() === 0, `${width}: earnings filter did not hide macro events`);
+            await page.getByLabel('Event type').selectOption('macro');
+            check(await page.locator('[data-macro-event]').count() === 2, `${width}: macro filter did not isolate macro events`);
             await page.getByLabel('Calendar market').selectOption('MY');
+            check(await page.locator('[data-macro-event]').count() === 1, `${width}: market filter did not isolate Malaysia macro events`);
+            await page.getByLabel('Calendar ticker').selectOption('MSFT');
             await page.getByRole('heading', { name: 'No events in this view' }).waitFor({ state: 'visible', timeout });
+            await page.getByLabel('Calendar ticker').selectOption('ALL');
             await page.getByLabel('Calendar market').selectOption('ALL');
+            await page.getByLabel('Event type').selectOption('ALL');
 
             calendarMode = 'error';
             expectedCalendarError = true;
@@ -195,7 +224,7 @@ try {
             await page.getByRole('button', { name: 'Save review' }).waitFor({ state: 'visible', timeout });
 
             await page.goto(`${baseUrl}/research?workspace=calendar`, { waitUntil: 'domcontentloaded', timeout });
-            await page.getByRole('heading', { name: 'Catalyst and review calendar' }).waitFor({ state: 'visible', timeout });
+            await page.getByRole('heading', { name: 'Catalyst, macro, and review calendar' }).waitFor({ state: 'visible', timeout });
             await page.waitForFunction(() => document.querySelectorAll('[data-calendar-event]').length === 3, undefined, { timeout });
             await page.getByRole('button', { name: /Open MSFT earnings/i }).click();
             await page.waitForURL(/ticker=MSFT.*tab=events/, { timeout });

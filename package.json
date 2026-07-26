@@ -9,6 +9,7 @@
     "qa:header": "node scripts/header-qa.mjs",
     "qa:market": "node scripts/market-qa.mjs",
     "qa:research-calendar": "node scripts/research-calendar-qa.mjs",
+    "qa:research-continuity": "node scripts/research-continuity-qa.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:social-sentiment": "powershell -ExecutionPolicy Bypass -File scripts/harness/check-social-sentiment.ps1",
