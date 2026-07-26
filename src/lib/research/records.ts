@@ -129,6 +129,13 @@ export const appendResearchReview = (record: ResearchRecord, reviewedAt = new Da
         thesisBreak: record.thesisBreak,
         notes: record.notes,
         checklist: { ...record.checklist },
+        monitoringRules: {
+            ...record.monitoringRules,
+            structuredTriggers: {
+                ...record.monitoringRules.structuredTriggers,
+                rules: record.monitoringRules.structuredTriggers.rules.map((rule) => ({ ...rule })),
+            },
+        },
         acceptedEvidence: record.acceptedEvidence.map((item) => ({
             ...item,
             sources: item.sources.map((source) => ({ ...source })),
@@ -177,6 +184,7 @@ export const describeReviewChanges = (current: ResearchReviewSnapshot | undefine
         if (current[key] !== previous[key]) changed.push(label);
     }
     if (JSON.stringify(current.checklist) !== JSON.stringify(previous.checklist)) changed.push('Checklist');
+    if (JSON.stringify(current.monitoringRules) !== JSON.stringify(previous.monitoringRules)) changed.push('Structured monitoring');
     if (JSON.stringify(current.acceptedEvidence) !== JSON.stringify(previous.acceptedEvidence)) changed.push('Evidence');
     if (JSON.stringify(current.decisionJournal) !== JSON.stringify(previous.decisionJournal)) changed.push('Decision journal');
     if (JSON.stringify(current.positionPlan) !== JSON.stringify(previous.positionPlan)) changed.push('Position plan');

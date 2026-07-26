@@ -1,5 +1,10 @@
 import { sql } from '@/lib/db';
-import { parseResearchCreateInput, parseResearchRecord, parseResearchUpdateInput } from './input';
+import {
+    parsePersistedResearchMonitoringRules,
+    parseResearchCreateInput,
+    parseResearchRecord,
+    parseResearchUpdateInput,
+} from './input';
 import { applyResearchUpdate, createResearchRecord, prepareStoredResearchRecord } from './records';
 import type { ResearchRecord, ResearchUpdateInput, ResearchUpdateMode } from '../types/research';
 
@@ -112,7 +117,7 @@ const mapRow = (raw: unknown): ResearchRecord => {
         thesisBreak: readString(row, 'thesis_break'),
         notes: readString(row, 'notes'),
         checklist: row.checklist,
-        monitoringRules: row.monitoring_rules,
+        monitoringRules: parsePersistedResearchMonitoringRules(row.monitoring_rules),
         acceptedEvidence: row.accepted_evidence,
         decisionJournal: row.decision_journal,
         positionPlan: row.position_plan,

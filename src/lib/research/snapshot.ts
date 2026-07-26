@@ -1,5 +1,5 @@
-import type { ResearchMarket } from '@/lib/types/research';
-import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
+import type { ResearchMarket } from '../types/research';
+import type { ResearchSnapshot } from '../types/research-snapshot';
 import { buildResearchBenchmark, notApplicableResearchBenchmark } from './benchmark';
 import { fetchSecFundamentals } from './sec-edgar';
 import { fetchYahooResearch } from './yahoo-research';

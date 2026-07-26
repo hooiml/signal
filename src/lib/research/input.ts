@@ -24,6 +24,11 @@ import {
     type ResearchPositionPlan,
 } from '../types/research';
 import { createResearchRecord, emptyChecklist, emptyDecisionJournal, emptyPositionPlan } from './records';
+import {
+    migrateResearchStructuredTriggerSet,
+    parseResearchStructuredTriggerSet,
+    ResearchStructuredTriggerError,
+} from './structured-triggers';
 
 const checklistKeys = [
     'understandBusiness', 'revenueGrowingOrStable', 'marginsHealthyOrImproving',
@@ -205,6 +210,15 @@ export const parseResearchMonitoringRules = (value: unknown): ResearchMonitoring
     const buyZone = rules.buyZone ?? defaultResearchMonitoringRules.buyZone;
     const belowMa200 = rules.belowMa200 ?? defaultResearchMonitoringRules.belowMa200;
     if (typeof buyZone !== 'boolean' || typeof belowMa200 !== 'boolean') throw new ResearchInputError('monitoringRules buyZone and belowMa200 must be boolean.');
+    let structuredTriggers;
+    try {
+        structuredTriggers = rules.structuredTriggers === undefined
+            ? migrateResearchStructuredTriggerSet(undefined)
+            : parseResearchStructuredTriggerSet(rules.structuredTriggers);
+    } catch (error) {
+        if (error instanceof ResearchStructuredTriggerError) throw new ResearchInputError(error.message);
+        throw error;
+    }
     return {
         buyZone,
         belowMa200,
@@ -212,7 +226,24 @@ export const parseResearchMonitoringRules = (value: unknown): ResearchMonitoring
         rsiAbove: thresholdValue(rules.rsiAbove === undefined ? defaultResearchMonitoringRules.rsiAbove : rules.rsiAbove, 'monitoringRules.rsiAbove', 50, 99),
         earningsWithinDays: thresholdValue(rules.earningsWithinDays === undefined ? defaultResearchMonitoringRules.earningsWithinDays : rules.earningsWithinDays, 'monitoringRules.earningsWithinDays', 1, 21),
         reviewAgeDays: thresholdValue(rules.reviewAgeDays === undefined ? defaultResearchMonitoringRules.reviewAgeDays : rules.reviewAgeDays, 'monitoringRules.reviewAgeDays', 1, 365),
+        structuredTriggers,
     };
+};
+
+export const parsePersistedResearchMonitoringRules = (value: unknown): ResearchMonitoringRules => {
+    try {
+        const rules = objectValue(value, 'monitoringRules');
+        const parsed = parseResearchMonitoringRules({
+            ...rules,
+            structuredTriggers: migrateResearchStructuredTriggerSet(rules.structuredTriggers),
+        });
+        return parsed;
+    } catch {
+        return {
+            ...defaultResearchMonitoringRules,
+            structuredTriggers: { version: 1, migrationState: 'invalid-recovered', rules: [] },
+        };
+    }
 };
 
 const parseReviewHistory = (value: unknown): readonly ResearchReviewSnapshot[] => {
@@ -240,6 +271,9 @@ const parseReviewHistory = (value: unknown): readonly ResearchReviewSnapshot[] =
             thesisBreak: boundedString(review.thesisBreak, `${label}.thesisBreak`, 2000),
             notes: boundedString(review.notes, `${label}.notes`, 5000),
             checklist: { ...emptyChecklist, ...parseChecklist(review.checklist, `${label}.checklist`) },
+            monitoringRules: review.monitoringRules === undefined
+                ? { ...defaultResearchMonitoringRules, structuredTriggers: { version: 1, migrationState: 'migrated-empty', rules: [] } }
+                : parsePersistedResearchMonitoringRules(review.monitoringRules),
             acceptedEvidence: parseAcceptedEvidence(review.acceptedEvidence, `${label}.acceptedEvidence`),
             decisionJournal: review.decisionJournal === undefined ? { ...emptyDecisionJournal } : parseDecisionJournal(review.decisionJournal, `${label}.decisionJournal`),
             positionPlan: review.positionPlan === undefined ? { ...emptyPositionPlan } : parsePositionPlan(review.positionPlan, `${label}.positionPlan`),

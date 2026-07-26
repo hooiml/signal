@@ -11,6 +11,45 @@ export const researchSynthesisModes = ['ai', 'evidence'] as const;
 export const researchUpdateModes = ['review', 'settings'] as const;
 export const researchDecisionConfidences = ['low', 'medium', 'high'] as const;
 export const researchDecisionOutcomes = ['unresolved', 'correct', 'mixed', 'incorrect'] as const;
+export const researchStructuredTriggerPurposes = [
+    'thesis-invalidation',
+    'opportunity-review',
+    'scheduled-evidence-review',
+] as const;
+export const researchStructuredTriggerMetrics = [
+    'price',
+    'rsi14',
+    'price-vs-ma50-percent',
+    'price-vs-ma200-percent',
+    'earnings-within-days',
+    'research-age-days',
+    'evidence-age-days',
+    'price-earnings',
+    'free-cash-flow-yield-percent',
+    'revenue-growth-percent',
+] as const;
+export const researchStructuredTriggerOperators = ['above', 'below', 'within'] as const;
+export const researchStructuredTriggerMigrationStates = ['current', 'migrated-empty', 'invalid-recovered'] as const;
+
+export type ResearchStructuredTriggerPurpose = typeof researchStructuredTriggerPurposes[number];
+export type ResearchStructuredTriggerMetric = typeof researchStructuredTriggerMetrics[number];
+export type ResearchStructuredTriggerOperator = typeof researchStructuredTriggerOperators[number];
+export type ResearchStructuredTriggerMigrationState = typeof researchStructuredTriggerMigrationStates[number];
+
+export type ResearchStructuredTriggerRule = {
+    readonly id: string;
+    readonly enabled: boolean;
+    readonly purpose: ResearchStructuredTriggerPurpose;
+    readonly metric: ResearchStructuredTriggerMetric;
+    readonly operator: ResearchStructuredTriggerOperator;
+    readonly threshold: number;
+};
+
+export type ResearchStructuredTriggerSet = {
+    readonly version: 1;
+    readonly migrationState: ResearchStructuredTriggerMigrationState;
+    readonly rules: readonly ResearchStructuredTriggerRule[];
+};
 
 export type ResearchMonitoringRules = {
     readonly buyZone: boolean;
@@ -19,6 +58,7 @@ export type ResearchMonitoringRules = {
     readonly rsiAbove: number | null;
     readonly earningsWithinDays: number | null;
     readonly reviewAgeDays: number | null;
+    readonly structuredTriggers: ResearchStructuredTriggerSet;
 };
 
 export const defaultResearchMonitoringRules: ResearchMonitoringRules = {
@@ -28,6 +68,11 @@ export const defaultResearchMonitoringRules: ResearchMonitoringRules = {
     rsiAbove: null,
     earningsWithinDays: 21,
     reviewAgeDays: 30,
+    structuredTriggers: {
+        version: 1,
+        migrationState: 'current',
+        rules: [],
+    },
 };
 
 export type ResearchMarket = typeof researchMarkets[number];
@@ -111,6 +156,7 @@ export type ResearchReviewSnapshot = {
     readonly thesisBreak: string;
     readonly notes: string;
     readonly checklist: InvestmentChecklist;
+    readonly monitoringRules: ResearchMonitoringRules;
     readonly acceptedEvidence: readonly AcceptedResearchEvidence[];
     readonly decisionJournal: ResearchDecisionJournal;
     readonly positionPlan: ResearchPositionPlan;
