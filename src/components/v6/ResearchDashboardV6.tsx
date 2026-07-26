@@ -655,7 +655,7 @@ export const ResearchDashboardV6 = () => {
                     ) : workspace === 'peers' ? (
                         <ResearchPeerBenchmarkV6 items={items} theme={theme} onOpen={openResearchFrom('peers')} />
                     ) : workspace === 'portfolio' ? (
-                        <PortfolioRiskCockpitV6 records={inboxRecords} items={items} theme={theme} onOpen={openResearchFrom('portfolio')} />
+                        <PortfolioRiskCockpitV6 records={inboxRecords} items={items} theme={theme} saving={saving} saveError={saveError} onSave={saveRecord} onOpen={openResearchFrom('portfolio')} />
                     ) : workspace === 'currency' ? (
                         <CurrencyPerformanceV6 records={inboxRecords} items={items} theme={theme} onOpen={openResearchFrom('currency')} />
                     ) : workspace === 'relationships' ? (

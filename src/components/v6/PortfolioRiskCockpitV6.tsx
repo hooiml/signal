@@ -27,6 +27,8 @@ import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import { trackProductAnalyticsEvent } from '@/lib/product-analytics-client';
 import { PortfolioHoldingsImportV6 } from './PortfolioHoldingsImportV6';
 import { PortfolioWhatIfSandboxV6 } from './PortfolioWhatIfSandboxV6';
+import { PortfolioFactorExposureV6 } from './PortfolioFactorExposureV6';
+import type { ResearchUpdateMode } from '@/lib/types/research';
 
 type HistoryState =
     | { readonly status: 'idle'; readonly key: ''; readonly analytics: PortfolioMarketAnalytics }
@@ -74,10 +76,13 @@ const loadChart = async (symbol: string, market: ResearchMarket, signal: AbortSi
     }
 };
 
-export const PortfolioRiskCockpitV6 = ({ records, items, theme, onOpen }: {
+export const PortfolioRiskCockpitV6 = ({ records, items, theme, saving, saveError, onSave, onOpen }: {
     readonly records: readonly ResearchRecord[];
     readonly items: readonly ResearchWatchlistItem[];
     readonly theme: ResearchThemeV6;
+    readonly saving: boolean;
+    readonly saveError: string | null;
+    readonly onSave: (record: ResearchRecord, mode?: ResearchUpdateMode) => Promise<boolean>;
     readonly onOpen: (symbol: string) => void;
 }) => {
     const [customShock, setCustomShock] = useState(-10);
@@ -191,6 +196,7 @@ export const PortfolioRiskCockpitV6 = ({ records, items, theme, onOpen }: {
             </div>
 
             <PortfolioHoldingsImportV6 records={records} items={items} theme={theme} onOpen={onOpen} />
+            <PortfolioFactorExposureV6 records={records} items={items} theme={theme} saving={saving} saveError={saveError} onSave={onSave} />
             <PortfolioWhatIfSandboxV6 records={records} items={items} theme={theme} />
 
             {summary.holdings.length === 0 ? (

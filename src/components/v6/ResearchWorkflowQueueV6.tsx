@@ -29,6 +29,7 @@ const sourceLabels: Readonly<Record<ResearchWorkflowSource, string>> = {
     alert: 'Alert',
     'structured-trigger': 'Structured trigger',
     'market-exposure': 'Market exposure',
+    'factor-exposure': 'Factor exposure',
 };
 
 export const ResearchWorkflowQueueV6 = ({ records, theme, onStart }: {

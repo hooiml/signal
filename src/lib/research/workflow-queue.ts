@@ -21,6 +21,7 @@ export const researchWorkflowSources = [
     'alert',
     'structured-trigger',
     'market-exposure',
+    'factor-exposure',
 ] as const;
 
 export type ResearchWorkflowSource = typeof researchWorkflowSources[number];
