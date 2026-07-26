@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" role="img" aria-label="Signal">
+  <rect width="192" height="192" rx="40" fill="#071019"/>
+  <path d="M40 128h24V88H40zm44 0h24V56H84zm44 0h24V72h-24z" fill="#2dd4bf"/>
+  <path d="M34 144h124" stroke="#ecfeff" stroke-width="10" stroke-linecap="round"/>
+</svg>

@@ -20,6 +20,7 @@ import {
     researchNativeNotificationStorageKey,
     type ResearchNativeNotificationSettings,
 } from '@/lib/research/native-notifications';
+import { ResearchWebPushV6 } from '@/components/pwa/ResearchWebPushV6';
 
 const marketAlertStorageKey = 'signal-market-alerts-v6';
 
@@ -248,7 +249,7 @@ export const ResearchNotificationCenterV6 = ({ records, alerts = [], theme }: {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h3 id="native-notification-title" className={'text-sm font-bold ' + styles.textPrimary}>This-device native notifications</h3>
-                        <p className={'mt-1 max-w-3xl text-xs leading-5 ' + styles.textMuted}>Permission is browser-controlled and preferences stay on this device. Notifications can appear for new matching alerts while Signal is open; background delivery still requires the server webhook.</p>
+                        <p className={'mt-1 max-w-3xl text-xs leading-5 ' + styles.textMuted}>Permission is browser-controlled and preferences stay on this device. Notifications can appear for new matching alerts while Signal is open; the separate Web Push control below provides opt-in background delivery.</p>
                     </div>
                     <span className={'text-xs font-semibold ' + (nativePermission === 'granted' && nativeSettings.enabled ? styles.positive : styles.textMuted)}>
                         {nativePermission === 'unsupported' ? 'Unsupported' : nativePermission === 'denied' ? 'Blocked' : nativeSettings.enabled && nativePermission === 'granted' ? 'Enabled' : 'Off'}
@@ -272,6 +273,8 @@ export const ResearchNotificationCenterV6 = ({ records, alerts = [], theme }: {
                 {nativeMessage ? <p role="status" className={'mt-3 text-xs ' + styles.positive}>{nativeMessage}</p> : null}
                 {nativeError ? <p role="alert" className={'mt-3 text-xs ' + styles.risk}>{nativeError}</p> : null}
             </section>
+
+            <ResearchWebPushV6 theme={theme} />
 
             {loading ? <p className={'mt-4 text-sm ' + styles.textMuted}>Loading persistent delivery settings…</p> : null}
             {!loading && draft ? (

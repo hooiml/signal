@@ -17,6 +17,8 @@ import {
 } from '@/lib/research/notification-store';
 import { listResearchState } from '@/lib/research/store';
 import { isResearchNotificationQuietHour } from '@/lib/types/research-notification-settings';
+import { executeResearchPushDelivery } from '@/lib/pwa/push-delivery';
+import { researchPushConfigured } from '@/lib/pwa/push-security';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -42,7 +44,9 @@ export const GET = async (request: Request): Promise<NextResponse> => {
         }
         const endpoint = process.env.RESEARCH_NOTIFICATION_WEBHOOK_URL;
         const webhookSecret = process.env.RESEARCH_NOTIFICATION_WEBHOOK_SECRET;
-        if (!dryRun && (!endpoint || !webhookSecret)) {
+        const webhookConfigured = Boolean(endpoint && webhookSecret);
+        const pushConfigured = researchPushConfigured();
+        if (!dryRun && !webhookConfigured && !pushConfigured) {
             return NextResponse.json({ success: true, delivered: false, reason: 'not-configured' });
         }
 
@@ -74,20 +78,58 @@ export const GET = async (request: Request): Promise<NextResponse> => {
         if (digest.items.length === 0) return NextResponse.json({ success: true, delivered: false, reason: 'no-attention-items', digestKey });
         if (dryRun) return NextResponse.json({ success: true, delivered: false, reason: 'dry-run', digestKey, digest });
 
-        const outcome = await executeResearchNotificationDelivery({
-            digest,
-            digestKey,
-            reserve: reserveResearchNotificationDigest,
-            deliver: () => deliverResearchNotification({ endpoint: endpoint!, secret: webhookSecret!, digest, digestKey }),
-            markDelivered: markResearchNotificationDigestDelivered,
-            release: releaseResearchNotificationDigest,
-        });
-        if (outcome === 'duplicate') {
-            await recordResearchNotificationDelivery(digestKey, digest.items.length, 'duplicate', 'Digest already delivered.');
-            return NextResponse.json({ success: true, delivered: false, reason: 'duplicate', digestKey });
+        const [webhookResult, pushResult] = await Promise.allSettled([
+            webhookConfigured
+                ? executeResearchNotificationDelivery({
+                    digest,
+                    digestKey,
+                    reserve: reserveResearchNotificationDigest,
+                    deliver: () => deliverResearchNotification({ endpoint: endpoint!, secret: webhookSecret!, digest, digestKey }),
+                    markDelivered: markResearchNotificationDigestDelivered,
+                    release: releaseResearchNotificationDigest,
+                })
+                : Promise.resolve<'not-configured'>('not-configured'),
+            pushConfigured
+                ? executeResearchPushDelivery({ digest, digestKey })
+                : Promise.resolve(null),
+        ]);
+        const webhookOutcome = webhookResult.status === 'fulfilled' ? webhookResult.value : 'failed';
+        const pushOutcome = pushResult.status === 'fulfilled' ? pushResult.value : null;
+        const delivered = webhookOutcome === 'delivered' || (pushOutcome?.delivered ?? 0) > 0;
+        const duplicate = webhookOutcome === 'duplicate'
+            && (pushOutcome?.delivered ?? 0) === 0
+            && (pushOutcome?.deferred ?? 0) === 0
+            && (pushOutcome?.disabled ?? 0) === 0;
+        const detail = `Webhook ${webhookOutcome}; Web Push ${
+            pushResult.status === 'rejected'
+                ? 'failed closed'
+                : pushOutcome
+                    ? `${pushOutcome.delivered} delivered, ${pushOutcome.ambiguous} ambiguous, ${pushOutcome.deferred} deferred, ${pushOutcome.disabled} disabled`
+                    : 'not configured'
+        }.`;
+        if (webhookResult.status === 'rejected') {
+            throw new Error('Webhook delivery failed; any successful Web Push delivery remains deduplicated.');
         }
-        await recordResearchNotificationDelivery(digestKey, digest.items.length, 'delivered');
-        return NextResponse.json({ success: true, delivered: true, digestKey, itemCount: digest.items.length });
+        if (pushResult.status === 'rejected') {
+            throw new Error('Web Push delivery failed closed.');
+        }
+        await recordResearchNotificationDelivery(
+            digestKey,
+            digest.items.length,
+            duplicate ? 'duplicate' : delivered ? 'delivered' : 'failed',
+            detail,
+        );
+        return NextResponse.json({
+            success: true,
+            delivered,
+            reason: duplicate ? 'duplicate' : delivered ? undefined : 'no-active-push-subscriptions',
+            digestKey,
+            itemCount: digest.items.length,
+            channels: {
+                webhook: webhookOutcome,
+                push: pushOutcome ?? (pushConfigured ? 'failed-closed' : 'not-configured'),
+            },
+        });
     } catch (error) {
         if (activeDigestKey) {
             try {

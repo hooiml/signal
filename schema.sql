@@ -116,6 +116,32 @@ CREATE INDEX IF NOT EXISTS idx_discovery_snapshots_generated
     ON discovery_snapshots(generated_at DESC);
 
 -- ============================================
+-- TABLE: research_push_subscriptions
+-- Purpose: Store encrypted, opt-in Web Push capabilities for the private default user
+-- ============================================
+CREATE TABLE IF NOT EXISTS research_push_subscriptions (
+    user_id TEXT NOT NULL DEFAULT 'default',
+    endpoint_hash CHAR(64) NOT NULL,
+    encrypted_subscription TEXT,
+    expiration_at TIMESTAMPTZ,
+    disabled_at TIMESTAMPTZ,
+    disabled_reason TEXT,
+    last_digest_key CHAR(64),
+    delivered_digest_key CHAR(64),
+    last_delivery_outcome TEXT CHECK (last_delivery_outcome IN ('delivered', 'ambiguous')),
+    attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count BETWEEN 0 AND 5),
+    next_attempt_at TIMESTAMPTZ,
+    claimed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, endpoint_hash)
+);
+
+CREATE INDEX IF NOT EXISTS research_push_subscriptions_active_idx
+    ON research_push_subscriptions (user_id, updated_at DESC)
+    WHERE disabled_at IS NULL;
+
+-- ============================================
 -- TABLE: institutional_data
 -- Purpose: Store slower-moving survey/manual indicators such as AAII
 -- ============================================
