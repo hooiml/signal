@@ -37,6 +37,9 @@ import { buildComparisonMetrics } from '../../src/lib/research/comparison';
 import { buildResearchBenchmark, notApplicableResearchBenchmark } from '../../src/lib/research/benchmark';
 import type { ResearchSnapshot } from '../../src/lib/types/research-snapshot';
 import { parseResearchChartResponse, parseResearchSnapshotResponse } from '../../src/lib/research/snapshot-input';
+import { buildHistoricalValuationReport, HISTORICAL_VALUATION_PRICE_CONVENTION, historicalValuationLimits } from '../../src/lib/research/historical-valuation';
+import { parseHistoricalValuationResponse } from '../../src/lib/research/historical-valuation-input';
+import { parseHistoricalValuationRequest } from '../../src/lib/research/historical-valuation-request';
 import { buildEvidenceFindings, buildResearchEvidence } from '../../src/lib/research/assistant';
 import { parseResearchAssistantResponse } from '../../src/lib/research/assistant-input';
 import { buildResearchInboxItems } from '../../src/lib/research/inbox';
@@ -3241,6 +3244,159 @@ const runPortfolioFactorExposureTests = () => {
     assertEqual(JSON.stringify(holdingsSnapshot), sourceBefore, 'factor aggregation does not mutate the holdings snapshot');
 };
 
+const runHistoricalValuationTests = () => {
+    assertEqual(parseHistoricalValuationRequest(' msft ', 'US').symbol, 'MSFT', 'historical valuation request normalizes a bounded symbol');
+    assertThrows(() => parseHistoricalValuationRequest('MSFT/private', 'US'), 'historical valuation request rejects an unsafe symbol');
+    assertThrows(() => parseHistoricalValuationRequest('MSFT', 'GB'), 'historical valuation request rejects an unsupported market');
+    const fact = (
+        val: number,
+        start: string,
+        end: string,
+        filed: string,
+        form: '10-K' | '10-K/A',
+        accn: string,
+    ) => ({ val, start, end, filed, form, accn, fp: 'FY', fy: Number(end.slice(0, 4)), frame: `CY${end.slice(0, 4)}` });
+    const original = {
+        start: '2023-01-01', end: '2023-12-31', filed: '2024-02-15',
+        form: '10-K' as const, accn: '0000789019-24-000001',
+    };
+    const amendment = {
+        start: '2023-01-01', end: '2023-12-31', filed: '2024-03-01',
+        form: '10-K/A' as const, accn: '0000789019-24-000002',
+    };
+    const lossYear = {
+        start: '2024-01-01', end: '2024-12-31', filed: '2025-02-14',
+        form: '10-K' as const, accn: '0000789019-25-000001',
+    };
+    const comparative = fact(800, '2022-01-01', '2022-12-31', original.filed, original.form, original.accn);
+    const companyFacts = {
+        facts: {
+            'us-gaap': {
+                RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: [
+                    comparative,
+                    fact(1_000, original.start, original.end, original.filed, original.form, original.accn),
+                    fact(1_000, original.start, original.end, original.filed, original.form, original.accn),
+                    fact(1_100, amendment.start, amendment.end, amendment.filed, amendment.form, amendment.accn),
+                    fact(1_200, lossYear.start, lossYear.end, lossYear.filed, lossYear.form, lossYear.accn),
+                ] } },
+                NetIncomeLoss: { units: { USD: [
+                    fact(100, original.start, original.end, original.filed, original.form, original.accn),
+                    fact(90, amendment.start, amendment.end, amendment.filed, amendment.form, amendment.accn),
+                    fact(-20, lossYear.start, lossYear.end, lossYear.filed, lossYear.form, lossYear.accn),
+                ] } },
+                NetCashProvidedByUsedInOperatingActivities: { units: { USD: [
+                    fact(150, original.start, original.end, original.filed, original.form, original.accn),
+                    fact(155, amendment.start, amendment.end, amendment.filed, amendment.form, amendment.accn),
+                    fact(50, lossYear.start, lossYear.end, lossYear.filed, lossYear.form, lossYear.accn),
+                ] } },
+                PaymentsToAcquirePropertyPlantAndEquipment: { units: { USD: [
+                    fact(50, original.start, original.end, original.filed, original.form, original.accn),
+                    fact(50, amendment.start, amendment.end, amendment.filed, amendment.form, amendment.accn),
+                ] } },
+                WeightedAverageNumberOfDilutedSharesOutstanding: { units: { shares: [
+                    fact(50, original.start, original.end, original.filed, original.form, original.accn),
+                    fact(50, amendment.start, amendment.end, amendment.filed, amendment.form, amendment.accn),
+                    fact(48, lossYear.start, lossYear.end, lossYear.filed, lossYear.form, lossYear.accn),
+                ] } },
+            },
+        },
+    };
+    const unix = (date: string) => Date.parse(`${date}T21:00:00.000Z`) / 1_000;
+    const chart = {
+        chart: {
+            result: [{
+                meta: { currency: 'USD' },
+                timestamp: [
+                    unix('2024-02-15'), unix('2024-02-16'),
+                    unix('2024-03-01'), unix('2024-03-04'),
+                    unix('2025-02-14'), unix('2025-02-18'),
+                ],
+                indicators: { quote: [{ close: [19, 20, 21, 22, 29, 30] }] },
+                events: { splits: { split1: { date: unix('2024-06-01'), numerator: 2, denominator: 1, splitRatio: '2:1' } } },
+            }],
+        },
+    };
+    const report = buildHistoricalValuationReport({
+        symbol: 'MSFT',
+        market: 'US',
+        cik: '0000789019',
+        companyName: 'Microsoft Corp',
+        companyFacts,
+        chartPayload: chart,
+        generatedAt: '2026-07-26T00:00:00.000Z',
+    });
+    assertEqual(report.observations.length, 3, 'historical valuation emits one current-period observation per annual accession');
+    const originalObservation = report.observations.find((item) => item.accession === original.accn)!;
+    const amendedObservation = report.observations.find((item) => item.accession === amendment.accn)!;
+    const lossObservation = report.observations.find((item) => item.accession === lossYear.accn)!;
+    assertEqual(originalObservation.priceDate, '2024-02-16', 'price selection is strictly after the filed date');
+    assertEqual(originalObservation.price, 20, 'price selection uses the first next available close');
+    assertEqual(originalObservation.splitAdjustmentFactor, 2, 'future stock splits are applied to filing-period diluted shares');
+    assertEqual(originalObservation.splitAdjustedShares, 100, 'reported shares are aligned to the provider split-adjusted price basis');
+    assertEqual(originalObservation.marketCapitalization, 2_000, 'historical market capitalization uses aligned price and share bases');
+    assertEqual(originalObservation.priceEarnings.value, 20, 'historical P/E formula is deterministic');
+    assertEqual(originalObservation.priceSales.value, 2, 'historical price-to-sales formula is deterministic');
+    assertEqual(originalObservation.freeCashFlowYield.value, 5, 'historical FCF yield formula is deterministic');
+    assertEqual(originalObservation.facts.length, 5, 'formula inputs retain exact accession provenance');
+    assertEqual(originalObservation.facts.every((item) => item.accession === original.accn), true, 'facts never cross filing accessions');
+    assertEqual(originalObservation.fiscalPeriodEnd, '2023-12-31', 'comparative prior-year rows in the filing do not replace the current fiscal year frame');
+    assertEqual(amendedObservation.restatementStatus, 'amended-values-changed', 'changed amendment inputs are visibly classified');
+    assertEqual(lossObservation.priceDate, '2025-02-18', 'next close selection handles a non-trading holiday window');
+    assertEqual(lossObservation.priceEarnings.value, null, 'negative earnings never produce a P/E multiple');
+    assertEqual(lossObservation.priceEarnings.unavailableReason?.includes('not positive'), true, 'negative denominator has a specific unavailable reason');
+    assertEqual(lossObservation.freeCashFlowYield.value, null, 'missing capex omits FCF yield');
+    assertEqual(lossObservation.freeCashFlowYield.unavailableReason?.includes('capital-expenditure'), true, 'missing capex has a specific unavailable reason');
+    assertEqual(report.priceConvention, HISTORICAL_VALUATION_PRICE_CONVENTION, 'report freezes the explicit look-ahead-safe price convention');
+    assertEqual(report.capabilities.periodCorrectFundamentals.status, 'partial', 'metric gaps surface partial provider coverage');
+    assertEqual(report.capabilities.analystEstimateRevisions.status, 'unavailable', 'analyst revisions remain explicitly unavailable');
+    assertEqual(report.capabilities.analystEstimateRevisions.detail.includes('not substitutes'), true, 'analyst revision unavailability rejects proxy substitution');
+    assertEqual(report.sources[0]?.url, 'https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json', 'SEC source evidence links the exact CIK');
+    assertEqual(parseHistoricalValuationResponse({ success: true, data: report }).observations.length, 3, 'client boundary accepts a valid bounded report');
+    assertThrows(() => parseHistoricalValuationResponse({ success: true, data: { ...report, observations: Array(9).fill(originalObservation) } }), 'client boundary rejects oversized observation collections');
+
+    const currencyMismatch = buildHistoricalValuationReport({
+        symbol: 'MSFT', market: 'US', cik: '0000789019', companyName: 'Microsoft Corp',
+        companyFacts, chartPayload: { chart: { result: [{ ...chart.chart.result[0], meta: { currency: 'EUR' } }] } },
+    });
+    assertEqual(currencyMismatch.observations[0]?.priceEarnings.value, null, 'currency mismatch omits valuation');
+    assertEqual(currencyMismatch.observations[0]?.gaps[0]?.includes('does not match'), true, 'currency mismatch is explained');
+
+    const unavailablePrices = buildHistoricalValuationReport({
+        symbol: 'MSFT', market: 'US', cik: '0000789019', companyName: 'Microsoft Corp',
+        companyFacts, chartPayload: null, priceError: 'Historical prices unavailable: fixture failure.',
+    });
+    assertEqual(unavailablePrices.capabilities.historicalPrices.status, 'unavailable', 'provider failure retains an unavailable price capability');
+    assertEqual(unavailablePrices.observations.every((item) => item.priceEarnings.value === null), true, 'price failure never falls back to current prices');
+    assertEqual(unavailablePrices.warnings[0], 'Historical prices unavailable: fixture failure.', 'provider failure evidence remains visible');
+
+    const unsupportedSymbol = buildHistoricalValuationReport({
+        symbol: 'ZZZZ', market: 'US', cik: null, companyName: null,
+        companyFacts: null, chartPayload: chart, secError: 'SEC has no CIK mapping for ZZZZ.',
+    });
+    assertEqual(unsupportedSymbol.capabilities.historicalPrices.status, 'available', 'unsupported SEC symbol can retain independent price capability');
+    assertEqual(unsupportedSymbol.capabilities.periodCorrectFundamentals.status, 'unavailable', 'unsupported SEC symbol has no filing valuation');
+    assertEqual(unsupportedSymbol.warnings[0], 'SEC has no CIK mapping for ZZZZ.', 'unsupported symbol reason remains visible');
+
+    const malaysia = buildHistoricalValuationReport({
+        symbol: '1155', market: 'MY', cik: null, companyName: null, companyFacts: null, chartPayload: null,
+    });
+    assertEqual(malaysia.observations.length, 0, 'unsupported markets never manufacture observations');
+    assertEqual(malaysia.capabilities.periodCorrectFundamentals.status, 'unavailable', 'unsupported market capability is explicit');
+
+    const conflictingFacts = structuredClone(companyFacts);
+    conflictingFacts.facts['us-gaap'].RevenueFromContractWithCustomerExcludingAssessedTax.units.USD.push(
+        fact(999, original.start, original.end, original.filed, original.form, original.accn),
+    );
+    const conflictReport = buildHistoricalValuationReport({
+        symbol: 'MSFT', market: 'US', cik: '0000789019', companyName: 'Microsoft Corp',
+        companyFacts: conflictingFacts, chartPayload: chart,
+    });
+    assertEqual(conflictReport.observations.length, 0, 'conflicting duplicate facts fail closed');
+    assertEqual(conflictReport.warnings.some((warning) => warning.includes('conflicting duplicate')), true, 'conflicting duplicate fact reason remains visible');
+    assertEqual(historicalValuationLimits.maxObservations, 8, 'historical valuation observation count is bounded');
+    assertEqual(historicalValuationLimits.maxPriceRows, 4_000, 'historical price payload row count is bounded');
+};
+
 const main = async () => {
     runInputTests();
     await runPrimaryDocumentEvidenceTests();
@@ -3286,6 +3442,7 @@ const main = async () => {
     runMarketAlertTests();
     runDiscoveryQualityTests();
     runSecCompanyFactsTests();
+    runHistoricalValuationTests();
     runDiscoveryHistoryTests();
     runDiscoveryOpportunityTests();
     runDiscoveryRankingTests();
