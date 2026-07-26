@@ -192,7 +192,7 @@ The user can:
 - filter by market;
 - filter by current decision;
 - select a security from the watchlist;
-- switch between Watchlist, Discovery, Compare, Calendar, and Alerts through desktop tabs or the narrow-screen workspace selector;
+- switch between seven intent-based Research sections and their related workspaces through desktop primary/secondary navigation or narrow-screen section/workspace selectors;
 - use Ctrl/Cmd+K for quick route, workspace, ticker, Market-configuration, and saved-view actions, or save a browser-local Research view that restores navigation/filter state and density without changing research content;
 - scan the Changes inbox for new or updated sourced evidence and stage it into an editable review without automatic thesis replacement;
 - inspect field-level evidence coverage and freshness, then queue unresolved assumptions, stale sources, conflicts, or missing analysis without automatic thesis replacement;

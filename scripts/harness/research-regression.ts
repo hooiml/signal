@@ -48,6 +48,7 @@ import { parseResearchCalendarResponse } from '../../src/lib/research/calendar-r
 import { calendarDateChanges, mergeResearchCalendarDateState, parseResearchCalendarDateState, snapshotResearchCalendarDates } from '../../src/lib/research/calendar-state';
 import { buildResearchRelativeUrl, mergeResearchSearchParams, resolveVisibleResearchSymbol } from '../../src/lib/research/url-state';
 import { nextHorizontalTabIndex } from '../../src/lib/research/tab-navigation';
+import { researchWorkspaceGroupFor, researchWorkspaceGroups } from '../../src/lib/research/workspace-navigation';
 import { buildResearchOutcomeAnalytics } from '../../src/lib/research/outcome-analytics';
 import { buildPortfolioMarketAnalytics, buildPortfolioScenarios, buildPortfolioSummary } from '../../src/lib/research/portfolio-analytics';
 import { isResearchNotificationQuietHour, parseResearchNotificationSettings } from '../../src/lib/types/research-notification-settings';
@@ -124,6 +125,7 @@ import {
     parseResearchLayoutDensity,
     parseSavedResearchLayouts,
     removeSavedResearchLayout,
+    researchLayoutWorkspaces,
     researchSavedLayoutLimit,
     upsertSavedResearchLayout,
     type SavedResearchLayout,
@@ -255,6 +257,24 @@ const runResearchUrlStateTests = () => {
     assertEqual(nextHorizontalTabIndex(3, 'Home', 5), 0, 'Home moves to the first tab');
     assertEqual(nextHorizontalTabIndex(1, 'End', 5), 4, 'End moves to the final tab');
     assertEqual(nextHorizontalTabIndex(1, 'Enter', 5), null, 'unrelated keys do not move tab focus');
+};
+
+const runResearchWorkspaceNavigationTests = () => {
+    const workspaceIds = researchWorkspaceGroups.flatMap((group) => group.items.map((item) => item.id));
+    assertEqual(researchWorkspaceGroups.length, 7, 'research navigation exposes seven primary sections');
+    assertEqual(new Set(workspaceIds).size, workspaceIds.length, 'research navigation assigns every workspace at most once');
+    assertEqual(
+        [...workspaceIds].sort().join('|'),
+        [...researchLayoutWorkspaces].sort().join('|'),
+        'research navigation assigns every supported workspace exactly once',
+    );
+    assertEqual(researchWorkspaceGroupFor('picker').id, 'discovery', 'Picker lives under Discovery');
+    assertEqual(researchWorkspaceGroupFor('queue').id, 'activity', 'Queue lives under Activity');
+    assertEqual(researchWorkspaceGroupFor('relationships').id, 'analyze', 'Map lives under Analyze');
+    assertEqual(researchWorkspaceGroupFor('outcomes').id, 'review', 'Outcomes lives under Review');
+    assertEqual(researchWorkspaceGroupFor('backup').id, 'more', 'Backup lives under More');
+    assertEqual(researchWorkspaceGroups.find((group) => group.id === 'activity')?.defaultWorkspace, 'queue', 'Activity opens Queue by default');
+    assertEqual(researchWorkspaceGroups.find((group) => group.id === 'discovery')?.items[1]?.label, 'Picker', 'Discovery exposes Picker as its second workspace');
 };
 
 const runMarketResearchHandoffTests = () => {
@@ -1879,6 +1899,7 @@ const main = async () => {
     runMarketReplayTests();
     runProductAnalyticsTests();
     runResearchUrlStateTests();
+    runResearchWorkspaceNavigationTests();
     runMarketResearchHandoffTests();
     runMarketWatchlistExposureTests();
     runThesisChangeTests();

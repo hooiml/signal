@@ -22,7 +22,7 @@
 - Key contexts of use: Desktop investigation and mobile review.
 
 ## Information architecture
-- Primary navigation: Market and Research.
+- Primary navigation: Market and Research. Within Research, use `Watchlist | Discovery | Activity | Analyze | Portfolio | Review | More`; Picker is a secondary Discovery workspace.
 - Core routes/screens: `/` for market conditions and `/research` for ticker-level workspaces.
 - Content hierarchy: Current state, evidence and limitations, action or saved observation, then historical learning.
 
@@ -41,8 +41,8 @@
 - Imagery/iconography: Text-first; no new decorative imagery for financial claims.
 
 ## Components
-- Existing components to reuse: Research workspace tabs, V6 theme tokens, Discovery response validation, and Research navigation actions.
-- New/changed components: A Research Picker workspace for configuring a scan, reviewing ranked candidates, and starting a browser-local paper basket.
+- Existing components to reuse: Grouped Research workspace navigation, V6 theme tokens, Discovery response validation, and Research navigation actions.
+- New/changed components: A Research Picker workspace under Discovery for configuring a scan, reviewing ranked candidates, and starting a browser-local paper basket.
 - Variants and states: Setup, loading, results, no matches, error, and saved basket.
 - Token/component ownership: V6 theme tokens remain owned by `src/components/v6/research-v6.ts`.
 
