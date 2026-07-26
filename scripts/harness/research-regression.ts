@@ -76,6 +76,19 @@ import {
 } from '../../src/lib/research/research-strategy-templates';
 import { buildResearchOutcomeAnalytics } from '../../src/lib/research/outcome-analytics';
 import { buildPortfolioMarketAnalytics, buildPortfolioScenarios, buildPortfolioSummary } from '../../src/lib/research/portfolio-analytics';
+import {
+    buildCanonicalPortfolioCsvTemplate,
+    buildPortfolioActualSummary,
+    createPortfolioImportSnapshot,
+    escapeSpreadsheetCell,
+    mergePortfolioHoldingsSnapshots,
+    parsePortfolioCsv,
+    parsePortfolioHoldingsSnapshot,
+    portfolioActualWeightPercent,
+    portfolioImportLimits,
+    previewPortfolioImportEffect,
+    reconcilePortfolioHoldings,
+} from '../../src/lib/portfolio/holdings';
 import { isResearchNotificationQuietHour, parseResearchNotificationSettings } from '../../src/lib/types/research-notification-settings';
 import { buildPeerBenchmark } from '../../src/lib/research/peer-benchmark';
 import { summarizeSourceHealth, type SourceHealthEntry } from '../../src/lib/types/source-health';
@@ -1118,6 +1131,104 @@ const runPortfolioAnalyticsTests = () => {
     const scenarios = buildPortfolioScenarios(summary, analytics, -12);
     assertEqual(scenarios.find((scenario) => scenario.label === 'User-defined shock')?.portfolioImpactPercent, -3.6, 'portfolio custom shock weights planned allocation');
     assertEqual(scenarios.find((scenario) => scenario.label === 'Saved invalidation levels')?.coveredAllocationPercent, 20, 'portfolio invalidation scenario reports covered allocation');
+};
+
+const runPortfolioHoldingsImportTests = () => {
+    const canonical = [
+        'account_label,row_type,symbol,market,quantity,average_cost,currency,cash_balance',
+        'Main,holding,MSFT,US,10,420.5,USD,',
+        'Main,cash,,,,,USD,2500',
+        'Trading,holding,1155.KL,MY,100,9.25,MYR,',
+    ].join('\n');
+    const parsed = parsePortfolioCsv(canonical);
+    assertEqual(parsed.holdings.length, 2, 'portfolio CSV parses canonical holding rows');
+    assertEqual(parsed.cashBalances[0]?.balance, 2500, 'portfolio CSV parses explicit cash rows');
+    assertEqual(parsed.holdings[1]?.symbol, '1155.KL', 'portfolio CSV preserves provider-qualified symbols');
+
+    const aliases = parsePortfolioCsv([
+        'account,ticker,market,shares,avg_cost,ccy',
+        'Broker,msft,US,2,100,USD',
+    ].join('\n'));
+    assertEqual(aliases.holdings[0]?.symbol, 'MSFT', 'portfolio CSV accepts only documented unambiguous aliases');
+    assertThrows(() => parsePortfolioCsv('account,account_name,symbol,market,quantity,average_cost,currency\nA,A,MSFT,US,1,1,USD'), 'portfolio CSV rejects ambiguous duplicate aliases');
+    assertThrows(() => parsePortfolioCsv('account_label,symbol,quantity,average_cost,currency\nA,MSFT,1,1,USD'), 'portfolio CSV requires explicit market');
+    assertThrows(() => parsePortfolioCsv('account_label,symbol,market,quantity,average_cost,currency,notes\nA,MSFT,US,1,1,USD,x'), 'portfolio CSV rejects unsupported columns');
+
+    const partial = parsePortfolioCsv([
+        'account_label,row_type,symbol,market,quantity,average_cost,currency,cash_balance',
+        'Main,holding,MSFT,US,10,420.5,USD,',
+        'Main,holding,NVDA,US,not-a-number,100,USD,',
+        'Main,holding,../bad,US,1,1,USD,',
+        'Main,cash,,,,,EUR,50',
+    ].join('\n'));
+    assertEqual(partial.holdings.length, 1, 'portfolio CSV retains valid rows in a partial import');
+    assertEqual(partial.rejectedRows.length, 3, 'portfolio CSV reports every invalid row');
+    assertEqual(partial.rejectedRows[0]?.rowNumber, 3, 'portfolio CSV errors retain exact source row numbers');
+
+    const duplicate = parsePortfolioCsv([
+        'account_label,symbol,market,quantity,average_cost,currency',
+        'Main,MSFT,US,1,100,USD',
+        ' main ,msft,US,2,110,USD',
+    ].join('\n'));
+    assertEqual(duplicate.holdings.length, 0, 'portfolio CSV excludes every row in a duplicate identity group');
+    assertEqual(duplicate.duplicates[0]?.rowNumbers.join(','), '2,3', 'portfolio CSV reports duplicate source rows');
+    assertEqual(duplicate.rejectedRows.length, 2, 'portfolio CSV exposes duplicate rows as rejected rows');
+
+    const tooManyRows = [
+        'account_label,symbol,market,quantity,average_cost,currency',
+        ...Array.from({ length: portfolioImportLimits.maxRows + 1 }, (_, index) => `A${index},S${index},US,1,1,USD`),
+    ].join('\n');
+    assertThrows(() => parsePortfolioCsv(tooManyRows), 'portfolio CSV enforces the row limit');
+    assertThrows(() => parsePortfolioCsv('x'.repeat(portfolioImportLimits.maxFileBytes + 1)), 'portfolio CSV enforces the byte limit');
+    assertEqual(escapeSpreadsheetCell('=HYPERLINK("bad")'), '\'=HYPERLINK("bad")', 'portfolio CSV export neutralizes formula cells');
+    assertEqual(buildCanonicalPortfolioCsvTemplate().startsWith('account_label,row_type'), true, 'portfolio CSV template exposes the canonical contract');
+
+    const first = createPortfolioImportSnapshot(parsed, 'Manual import', '2026-07-26T10:00:00.000Z');
+    const conflictIncoming = createPortfolioImportSnapshot({
+        holdings: [
+            { accountLabel: 'Main', symbol: 'MSFT', market: 'US', quantity: 12, averageCost: 410, currency: 'USD' },
+            { accountLabel: 'Main', symbol: 'NVDA', market: 'US', quantity: 5, averageCost: 150, currency: 'USD' },
+        ],
+        cashBalances: [{ accountLabel: 'Main', currency: 'USD', balance: 3000 }],
+    }, 'Second import', '2026-07-26T11:00:00.000Z');
+    const addEffect = previewPortfolioImportEffect(first, conflictIncoming, 'add-only');
+    assertEqual(addEffect.skippedHoldings, 1, 'portfolio add-only preview identifies matching holdings');
+    assertEqual(addEffect.addedHoldings, 1, 'portfolio add-only preview identifies new holdings');
+    assertEqual(addEffect.unchangedExistingHoldings, 1, 'portfolio import preview preserves unrelated holdings');
+    const additive = mergePortfolioHoldingsSnapshots(first, conflictIncoming, 'add-only');
+    assertEqual(additive.holdings.find((holding) => holding.symbol === 'MSFT')?.quantity, 10, 'portfolio add-only merge does not replace a match');
+    assertEqual(additive.holdings.some((holding) => holding.symbol === '1155.KL'), true, 'portfolio add-only merge preserves unrelated holdings');
+    assertThrows(() => mergePortfolioHoldingsSnapshots(first, conflictIncoming, 'replace-matching'), 'portfolio replacement requires acknowledgement');
+    const replaced = mergePortfolioHoldingsSnapshots(first, conflictIncoming, 'replace-matching', true);
+    assertEqual(replaced.holdings.find((holding) => holding.symbol === 'MSFT')?.quantity, 12, 'portfolio acknowledged replacement updates an exact match');
+    assertEqual(replaced.holdings.some((holding) => holding.symbol === '1155.KL'), true, 'portfolio replacement never deletes unrelated holdings');
+    assertEqual(replaced.cashBalances[0]?.balance, 3000, 'portfolio replacement updates only matching cash identity');
+
+    assertThrows(() => parsePortfolioHoldingsSnapshot({ ...first, version: 2 }), 'portfolio persistence rejects unsupported versions');
+    assertThrows(() => parsePortfolioHoldingsSnapshot({ ...first, holdings: [...first.holdings, first.holdings[0]] }), 'portfolio persistence rejects duplicate stored holdings');
+    assertEqual(parsePortfolioHoldingsSnapshot(JSON.parse(JSON.stringify(first))).version, 1, 'portfolio persistence validates a round-tripped snapshot');
+
+    const msft = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
+    const wrongMarket = createResearchRecord({ symbol: '1155.KL', market: 'US', companyName: 'Wrong market record' });
+    const reconciled = reconcilePortfolioHoldings(first, [msft, wrongMarket], new Map([
+        ['US:MSFT', 450],
+        ['MY:1155.KL', 10],
+    ]));
+    assertEqual(reconciled.find((row) => row.holding.symbol === 'MSFT')?.marketValue, 4500, 'portfolio reconciliation uses exact matched research price');
+    assertEqual(reconciled.find((row) => row.holding.symbol === '1155.KL')?.researchRecord, null, 'portfolio reconciliation never guesses across markets');
+    assertEqual(reconciled.find((row) => row.holding.symbol === '1155.KL')?.marketValue, null, 'unmatched portfolio values remain unavailable');
+    const actual = buildPortfolioActualSummary(first, reconciled);
+    const usd = actual.find((summary) => summary.currency === 'USD');
+    const myr = actual.find((summary) => summary.currency === 'MYR');
+    assertEqual(usd?.costBasis, 4205, 'portfolio actual summary calculates cost basis independently of planned allocation');
+    assertEqual(usd?.cashBalance, 2500, 'portfolio actual summary includes explicit cash separately');
+    assertEqual(myr?.missingMarketValues, 1, 'portfolio actual summary reports missing market values');
+    assertEqual(
+        portfolioActualWeightPercent(reconciled.find((row) => row.holding.symbol === '1155.KL')!, myr!),
+        null,
+        'portfolio actual weights remain unavailable when market value is missing',
+    );
+    assertEqual(buildPortfolioSummary([]).totalAllocationPercent, 0, 'imported holdings do not mutate planned allocation analytics');
 };
 
 const runScenarioLibraryTests = () => {
@@ -2323,6 +2434,7 @@ const main = async () => {
     runOutcomeAnalyticsTests();
     runSinceLastVisitTests();
     runPortfolioAnalyticsTests();
+    runPortfolioHoldingsImportTests();
     runSourceHealthTests();
     runMarketReplayTests();
     runProductAnalyticsTests();

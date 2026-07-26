@@ -115,6 +115,18 @@ npm run qa:research-continuity -- --base-url http://127.0.0.1:3000
 
 The deterministic harness covers ciphertext-only push, mounted-page-only secrets, local pull/decryption, add-only import preview, stale-revision conflict handling, explicit notification permission, risk-only filtering, stable deduplication after reload, disable behavior, settings-service degradation, research mutation safety, document overflow, and blocking console/page/request failures at 1280px, 768px, and 375px.
 
+### Targeted Portfolio Import QA
+
+For the read-only local portfolio import boundary, run:
+
+```powershell
+npm run qa:portfolio-import -- --base-url http://127.0.0.1:3000
+```
+
+The deterministic one-session check covers empty and restored snapshots, canonical template download, malformed and partial CSV previews, row-level errors, formula-like text display, add-only conflict preview, separately acknowledged exact replacement, explicit save, reload persistence, exact and unmatched research reconciliation, missing market values, actual-versus-planned separation, storage unavailability, keyboard focus, research-mutation safety, document overflow, and blocking console/page/request failures at 1280px, 768px, and 375px.
+
+Use `--viewport 375` or `--screenshot-dir <path>` only for a focused rerun after a failure.
+
 ### Visual QA Contract
 
 Treat any UI request involving a screenshot, alignment, spacing, layout, visual polish, or “looks off” feedback as standard visual verification rather than a compile-only check.
