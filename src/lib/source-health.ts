@@ -1,5 +1,6 @@
 import { sql } from './db';
 import { getRedditOAuthConfiguration } from './reddit';
+import { getConfiguredSecHeaders } from './research/sec-edgar';
 import { isStockTwitsEnabled } from './stocktwits';
 import type { SourceHealthEntry, SourceHealthReport } from './types/source-health';
 
@@ -42,8 +43,8 @@ const probes: readonly ProbeDefinition[] = [
         name: 'Yahoo Finance',
         category: 'research',
         cadence: 'Live and cached by feature',
-        coverage: 'US and Malaysia quotes, charts, technicals, benchmarks',
-        affectedFeatures: ['Market conditions', 'Research detail', 'Portfolio', 'Peers'],
+        coverage: 'US and Malaysia quotes, charts, technicals, benchmarks; US filing-observation price dates',
+        affectedFeatures: ['Market conditions', 'Research detail', 'Historical valuation', 'Portfolio', 'Peers'],
         probe: () => fetchOk('https://query1.finance.yahoo.com/v8/finance/chart/VOO?interval=1d&range=5d', {
             Accept: 'application/json',
             'User-Agent': 'Mozilla/5.0 Signal source health',
@@ -53,13 +54,10 @@ const probes: readonly ProbeDefinition[] = [
         id: 'sec',
         name: 'SEC EDGAR',
         category: 'research',
-        cadence: 'Normalized fundamentals cached for six hours',
-        coverage: 'US company fundamentals and evidence provenance',
-        affectedFeatures: ['Research fundamentals', 'Valuation', 'Discovery', 'Peers'],
-        probe: () => fetchOk('https://data.sec.gov/submissions/CIK0000789019.json', {
-            Accept: 'application/json',
-            'User-Agent': process.env.SEC_USER_AGENT?.trim() || 'Signal research dashboard research@example.invalid',
-        }),
+        cadence: 'Normalized fundamentals and filing observations cached for six hours',
+        coverage: 'US company fundamentals, filing availability, and evidence provenance',
+        affectedFeatures: ['Research fundamentals', 'Valuation', 'Historical valuation', 'Discovery', 'Peers'],
+        probe: () => fetchOk('https://data.sec.gov/submissions/CIK0000789019.json', { ...getConfiguredSecHeaders() }),
     },
     {
         id: 'nasdaq-earnings',

@@ -110,14 +110,25 @@ export const parseYahooResearchChart = (payload: unknown): YahooResearchResult =
     };
 };
 
-const fetchYahooChart = async (providerSymbol: string, range: '5d' | '1y' | '5y' | '10y') => {
-    const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(providerSymbol)}?interval=1d&range=${range}`, {
+export const fetchYahooChartPayload = async (
+    providerSymbol: string,
+    range: '5d' | '1y' | '5y' | '10y',
+    includeSplitEvents = false,
+) => {
+    const query = new URLSearchParams({ interval: '1d', range });
+    if (includeSplitEvents) query.set('events', 'splits');
+    const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(providerSymbol)}?${query.toString()}`, {
         headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 Signal research dashboard' },
         cache: 'no-store',
+        redirect: 'error',
+        signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) throw new Error(`Yahoo Finance request failed (${response.status}).`);
     return response.json();
 };
+
+const fetchYahooChart = async (providerSymbol: string, range: '5d' | '1y' | '5y' | '10y') =>
+    fetchYahooChartPayload(providerSymbol, range);
 
 export const fetchYahooResearch = async (symbol: string, market: ResearchMarket): Promise<YahooResearchResult> => {
     const providerSymbol = toYahooSymbol(symbol, market);

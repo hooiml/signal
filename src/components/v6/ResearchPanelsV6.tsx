@@ -3,6 +3,7 @@ import type { ResearchWatchlistItem } from '@/components/research/ResearchDashbo
 import { buildTechnicalOutlook, type TechnicalTone } from '@/lib/research/technical-outlook';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { FundamentalHistoryV6 } from './FundamentalHistoryV6';
+import { HistoricalValuationV6 } from './HistoricalValuationV6';
 import { getThemeV6, type ResearchTabV6, type ResearchThemeClassesV6, type ResearchThemeV6 } from './research-v6';
 
 const DataGridV6 = ({ children, themeClasses }: { children: ReactNode; themeClasses: ResearchThemeClassesV6 }) => (
@@ -176,17 +177,20 @@ export const ResearchPanelsV6 = ({ ticker, tab, theme, snapshot = null }: {
         </>
     );
     if (tab === 'valuation') return (
-        <DataGridV6 themeClasses={themeClasses}>
-            {point('Target buy zone', ticker.targetBuyZone)}
-            {point('P/E', ticker.valuation.pe)}
-            {point('Forward P/E', ticker.valuation.forwardPe)}
-            {point('Price / sales', ticker.valuation.priceSales)}
-            {point('EV / EBITDA', ticker.valuation.evEbitda)}
-            {point('FCF yield', ticker.valuation.fcfYield)}
-            {point('Dividend yield', ticker.valuation.dividendYield)}
-            {point('Five-year range', ticker.valuation.fiveYearRange)}
-            {point('Peer note', ticker.valuation.peerNote, true)}
-        </DataGridV6>
+        <>
+            <DataGridV6 themeClasses={themeClasses}>
+                {point('Target buy zone', ticker.targetBuyZone)}
+                {point('P/E', ticker.valuation.pe)}
+                {point('Forward P/E', ticker.valuation.forwardPe)}
+                {point('Price / sales', ticker.valuation.priceSales)}
+                {point('EV / EBITDA', ticker.valuation.evEbitda)}
+                {point('FCF yield', ticker.valuation.fcfYield)}
+                {point('Dividend yield', ticker.valuation.dividendYield)}
+                {point('Five-year range', ticker.valuation.fiveYearRange)}
+                {point('Peer note', ticker.valuation.peerNote, true)}
+            </DataGridV6>
+            <HistoricalValuationV6 ticker={ticker} theme={theme} />
+        </>
     );
     if (tab === 'events') return (
         <DataGridV6 themeClasses={themeClasses}>

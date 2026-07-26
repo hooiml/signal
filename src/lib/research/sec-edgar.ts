@@ -183,14 +183,23 @@ export const parseSecTickerMapping = (payload: unknown, symbol: string): { reado
     };
 };
 
-const fetchAndNormalizeSecFundamentals = async (symbol: string): Promise<SecFundamentals> => {
+export const fetchSecCompanyFactsDocument = async (symbol: string): Promise<{
+    readonly cik: string;
+    readonly title: string;
+    readonly payload: unknown;
+}> => {
     const headers = getConfiguredSecHeaders();
     const tickersResponse = await fetch('https://www.sec.gov/files/company_tickers.json', { headers, next: { revalidate: 86400 }, redirect: 'error', signal: AbortSignal.timeout(8_000) });
     if (!tickersResponse.ok) throw new Error(`SEC ticker lookup failed (${tickersResponse.status}).`);
-    const { cik } = parseSecTickerMapping(await tickersResponse.json(), symbol);
+    const { cik, title } = parseSecTickerMapping(await tickersResponse.json(), symbol);
     const factsResponse = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`, { headers, cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(8_000) });
     if (!factsResponse.ok) throw new Error(`SEC company facts request failed (${factsResponse.status}).`);
-    return parseSecCompanyFacts(await factsResponse.json());
+    return { cik, title, payload: await factsResponse.json() };
+};
+
+const fetchAndNormalizeSecFundamentals = async (symbol: string): Promise<SecFundamentals> => {
+    const document = await fetchSecCompanyFactsDocument(symbol);
+    return parseSecCompanyFacts(document.payload);
 };
 
 export const fetchSecFundamentals = unstable_cache(
