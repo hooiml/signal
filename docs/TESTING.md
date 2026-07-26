@@ -310,6 +310,24 @@ npm run qa:historical-valuation
 
 There is no dedicated unit test runner configured yet. Until one is added, lint, typecheck, build, harness checks, API smoke tests, and browser checks are the available verification surfaces.
 
+## PWA and Web Push
+
+Run deterministic manifest, cache, auth, validation, encryption, payload, and delivery-policy checks:
+
+```powershell
+npm run test:pwa
+```
+
+The regression covers manifest/install metadata, the exact static precache allowlist, API/research/admin deny rules, obsolete cache cleanup, network-only navigation fallback, explicit update confirmation, direct-gesture permission gating, unsupported/denied/misconfigured states, bearer and same-origin mutation protection, endpoint HTTPS/provider allowlisting, body/key/count/expiration bounds, idempotent ownership, AES-GCM encryption and tamper rejection, private-field redaction, same-origin click paths, dedupe tags, retry/backoff, fifth-attempt disable, 404/410 cleanup, and no endpoint material in source logging or analytics.
+
+Run the production-runtime browser lane:
+
+```powershell
+npm run qa:pwa
+```
+
+Use an owned localhost production server and one service-worker-enabled Chromium session. Cover install metadata, registered scope, exact Cache Storage contents, online/offline/reconnect fallback, last-online disclosure, waiting-update confirmation, direct-gesture subscription mocks without external push traffic, denied/unsupported/misconfigured/error/subscribed/unsubscribed states, the local-only notification message path, safe notification navigation, console/network/privacy assertions, and document overflow at 1280, 768, and 375 pixels.
+
 ## Harness And Eval Evidence
 
 Follow `docs/HARNESS.md` for harness design. Future Codex or agent evals should keep raw traces and run artifacts under `.tmp/`, use deterministic checks first, and promote curated fixtures only when they are stable enough to review.

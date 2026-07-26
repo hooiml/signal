@@ -26,6 +26,8 @@ The main dashboard route starts at `src/app/page.tsx`, with V2 dashboard UI unde
 
 Create `.env.local` from `.env.example` and fill in the required values before using database-backed or AI-backed routes.
 
+Signal is installable with a static, privacy-bounded offline fallback. Optional background Web Push requires explicit user opt-in and private server configuration; read `docs/pwa-offline-web-push.md` before enabling it.
+
 Protected refresh, admin, and diagnostic routes require `CRON_SECRET` and/or `ADMIN_SECRET`. Those routes fail closed when the secrets are missing.
 
 ## Verification

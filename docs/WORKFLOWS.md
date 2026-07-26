@@ -61,6 +61,17 @@ See `docs/HARNESS.md` for check design, eval artifacts, and completion evidence 
 
 For historical valuation changes, also run `npm run test:research` and `npm run qa:historical-valuation`. Preserve the point-in-time and privacy contract in `docs/historical-valuation.md`.
 
+## PWA and Web Push
+
+For manifest, service-worker, offline, notification, subscription, or scheduled push changes, run:
+
+```powershell
+npm run test:pwa
+npm run qa:pwa
+```
+
+Use the security, environment, migration, key-rotation, deployment, and rollback contract in `docs/pwa-offline-web-push.md`. Never add a private or user-specific URL to the service-worker precache. Local notification verification must use the service-worker message test and must not contact an external push service.
+
 ## Configuring Official SEC Requests
 
 Set `SEC_USER_AGENT` to an operator identity with a monitored contact email or an HTTP(S) contact URL, following the SEC access policy. Signal fails closed when that value is absent or malformed; do not substitute placeholder contact data.
