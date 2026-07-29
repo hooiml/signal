@@ -101,6 +101,15 @@ import {
     reconcilePortfolioHoldings,
 } from '../../src/lib/portfolio/holdings';
 import {
+    buildCanonicalPortfolioTransactionCsvTemplate,
+    createPortfolioTransactionImportSnapshot,
+    mergePortfolioTransactionSnapshots,
+    parsePortfolioTransactionCsv,
+    parsePortfolioTransactionSnapshot,
+    portfolioTransactionImportLimits,
+    previewPortfolioTransactionImportEffect,
+} from '../../src/lib/portfolio/transactions';
+import {
     buildDividendDiscoveryPath,
     calculateIllustrativeGrossDividend,
     dividendEventDate,
@@ -1517,6 +1526,112 @@ const runPortfolioHoldingsImportTests = () => {
         'portfolio actual weights remain unavailable when market value is missing',
     );
     assertEqual(buildPortfolioSummary([]).totalAllocationPercent, 0, 'imported holdings do not mutate planned allocation analytics');
+};
+
+const runPortfolioTransactionImportTests = () => {
+    const canonical = [
+        'transaction_id,account_label,type,date,market,symbol,quantity,amount,currency',
+        'tx-buy,Main,buy,2026-07-01,US,MSFT,10,4205,USD',
+        'tx-sell,Main,sell,2026-07-02,US,MSFT,2,900,USD',
+        'tx-dividend,Main,dividend,2026-07-03,US,MSFT,,15.5,USD',
+        'tx-fee,Main,fee,2026-07-03,US,MSFT,,4.5,USD',
+        'tx-tax,Main,tax,2026-07-03,,,,3.25,USD',
+        'tx-deposit,Main,deposit,2026-07-04,,,,2500,USD',
+        'tx-withdrawal,Main,withdrawal,2026-07-05,,,,100,USD',
+    ].join('\n');
+    const parsed = parsePortfolioTransactionCsv(canonical, '2026-07-30');
+    assertEqual(parsed.transactions.length, 7, 'transaction CSV accepts every canonical transaction type');
+    assertEqual(parsed.transactions[0]?.symbol, 'MSFT', 'trade transaction preserves the exact symbol');
+    assertEqual(parsed.transactions[2]?.quantity, null, 'non-trade transaction does not manufacture quantity');
+    assertEqual(parsed.transactions[4]?.market, null, 'account-level tax remains unassigned to a market');
+    assertEqual(parsed.rejectedRows.length, 0, 'canonical transaction CSV has no rejected rows');
+
+    const partial = parsePortfolioTransactionCsv([
+        'transaction_id,account_label,type,date,market,symbol,quantity,amount,currency',
+        'valid,Main,deposit,2026-07-01,,,,100,USD',
+        'missing-quantity,Main,buy,2026-07-01,US,MSFT,,100,USD',
+        'unexpected-security,Main,withdrawal,2026-07-01,US,MSFT,,100,USD',
+        'formula,=HYPERLINK(\"bad\"),fee,2026-07-01,,,,10,USD',
+        '-formula-id,Main,fee,2026-07-01,,,,10,USD',
+        'tab-formula,\tMain,fee,2026-07-01,,,,10,USD',
+        'future,Main,deposit,2026-08-01,,,,10,USD',
+        'negative,Main,fee,2026-07-01,,,,-5,USD',
+    ].join('\n'), '2026-07-30');
+    assertEqual(partial.transactions.length, 1, 'transaction CSV retains valid rows during partial import');
+    assertEqual(partial.rejectedRows.length, 7, 'transaction CSV reports every invalid or unsafe row');
+    assertEqual(partial.rejectedRows[0]?.rowNumber, 3, 'transaction errors preserve exact CSV row numbers');
+
+    assertThrows(
+        () => parsePortfolioTransactionCsv('account_label,type,date,amount,currency\nMain,deposit,2026-07-01,10,USD', '2026-07-30'),
+        'transaction CSV requires a stable transaction identifier',
+    );
+    assertThrows(
+        () => parsePortfolioTransactionCsv('transaction_id,account_label,type,date,market,symbol,quantity,amount,currency,notes\nx,Main,deposit,2026-07-01,,,,10,USD,note', '2026-07-30'),
+        'transaction CSV rejects unsupported columns',
+    );
+
+    const duplicate = parsePortfolioTransactionCsv([
+        'transaction_id,account_label,type,date,market,symbol,quantity,amount,currency',
+        'same-id,Main,deposit,2026-07-01,,,,100,USD',
+        ' SAME-ID , main ,deposit,2026-07-02,,,,200,USD',
+    ].join('\n'), '2026-07-30');
+    assertEqual(duplicate.transactions.length, 0, 'transaction CSV excludes every duplicate identity row');
+    assertEqual(duplicate.duplicates[0]?.rowNumbers.join(','), '2,3', 'transaction CSV reports duplicate source rows');
+
+    const tooManyRows = [
+        'transaction_id,account_label,type,date,market,symbol,quantity,amount,currency',
+        ...Array.from(
+            { length: portfolioTransactionImportLimits.maxRows + 1 },
+            (_, index) => `tx-${index},Main,deposit,2026-07-01,,,,1,USD`,
+        ),
+    ].join('\n');
+    assertThrows(() => parsePortfolioTransactionCsv(tooManyRows, '2026-07-30'), 'transaction CSV enforces the row limit');
+    assertThrows(
+        () => parsePortfolioTransactionCsv('x'.repeat(portfolioTransactionImportLimits.maxFileBytes + 1), '2026-07-30'),
+        'transaction CSV enforces the byte limit',
+    );
+    assertEqual(
+        buildCanonicalPortfolioTransactionCsvTemplate().startsWith('transaction_id,account_label,type,date'),
+        true,
+        'transaction CSV template exposes the canonical contract',
+    );
+
+    const first = createPortfolioTransactionImportSnapshot(parsed, 'Broker export', '2026-07-30T03:00:00.000Z');
+    const incoming = createPortfolioTransactionImportSnapshot(
+        parsePortfolioTransactionCsv([
+            'transaction_id,account_label,type,date,market,symbol,quantity,amount,currency',
+            'tx-buy,Main,buy,2026-07-01,US,MSFT,12,5000,USD',
+            'tx-new,Main,deposit,2026-07-06,,,,500,USD',
+        ].join('\n'), '2026-07-30'),
+        'Corrected export',
+        '2026-07-30T04:00:00.000Z',
+    );
+    const addEffect = previewPortfolioTransactionImportEffect(first, incoming, 'add-only');
+    assertEqual(addEffect.added, 1, 'transaction add-only preview identifies new transactions');
+    assertEqual(addEffect.skipped, 1, 'transaction add-only preview identifies matching IDs');
+    assertEqual(addEffect.unchangedExisting, 6, 'transaction preview preserves unrelated existing rows');
+    const additive = mergePortfolioTransactionSnapshots(first, incoming, 'add-only');
+    assertEqual(additive.transactions.find((item) => item.id === 'tx-buy')?.quantity, 10, 'add-only never replaces a matching transaction');
+    assertThrows(
+        () => mergePortfolioTransactionSnapshots(first, incoming, 'replace-matching'),
+        'transaction replacement requires separate acknowledgement',
+    );
+    const replaced = mergePortfolioTransactionSnapshots(first, incoming, 'replace-matching', true);
+    assertEqual(replaced.transactions.find((item) => item.id === 'tx-buy')?.quantity, 12, 'acknowledged replacement updates only the exact transaction ID');
+    assertEqual(replaced.transactions.some((item) => item.id === 'tx-dividend'), true, 'transaction replacement preserves unrelated history');
+    assertThrows(
+        () => parsePortfolioTransactionSnapshot({ ...first, version: 2 }),
+        'transaction persistence rejects unsupported versions',
+    );
+    assertThrows(
+        () => parsePortfolioTransactionSnapshot({ ...first, transactions: [...first.transactions, first.transactions[0]] }),
+        'transaction persistence rejects duplicate stored identities',
+    );
+    assertEqual(
+        parsePortfolioTransactionSnapshot(JSON.parse(JSON.stringify(first))).transactions.length,
+        7,
+        'transaction persistence validates a round-tripped snapshot',
+    );
 };
 
 const runDividendCashFlowTests = async () => {
@@ -3565,6 +3680,7 @@ const main = async () => {
     runSinceLastVisitTests();
     runPortfolioAnalyticsTests();
     runPortfolioHoldingsImportTests();
+    runPortfolioTransactionImportTests();
     await runDividendCashFlowTests();
     runPortfolioSimulationTests();
     runPortfolioFactorExposureTests();

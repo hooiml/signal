@@ -160,6 +160,18 @@ The deterministic one-session check covers empty and restored snapshots, canonic
 
 Use `--viewport 375` or `--screenshot-dir <path>` only for a focused rerun after a failure.
 
+### Targeted Portfolio Transaction Import QA
+
+For the browser-local transaction ledger and its privacy boundary, run:
+
+```powershell
+npm run qa:portfolio-transactions -- --base-url http://127.0.0.1:3000
+```
+
+The deterministic one-session check covers empty and restored ledgers, canonical template download, partial preview, formula-like input rejection, add-only conflict handling, separately acknowledged exact replacement, reload persistence, holdings immutability, raw-CSV and request privacy, storage unavailability, keyboard focus, document overflow, and blocking console/page/request failures at 1280px, 768px, and 375px.
+
+Use `--viewport 375` or `--screenshot-dir <path>` only for a focused rerun after a failure.
+
 ### Targeted Portfolio What-If QA
 
 For the session-only pre-trade sandbox, run:
