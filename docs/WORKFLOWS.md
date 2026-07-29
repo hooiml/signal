@@ -19,6 +19,32 @@ npm run harness
 
 Run `npm run build` for route, framework, dependency, or deployment changes.
 
+## Commit Messages
+
+Every commit subject must use a scoped Conventional Commit:
+
+```text
+<type>(<scope>): <short summary>
+```
+
+Examples:
+
+```text
+feat(research): add encrypted decision backups
+fix(provider): stop serving stale market context
+docs(workflows): document deployment verification
+```
+
+Keep the type and scope lowercase. Choose the narrowest scope that describes the change; split unrelated work instead of using a generic subject such as `Implement requested project changes`.
+
+Activate the repository hook once per clone:
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+The dependency-free `commit-msg` hook rejects missing scopes and generic subjects before Git creates the commit. Do not bypass it with `--no-verify`.
+
 For Market V6 hierarchy, score-evidence, responsive layout, or control changes, run the reusable browser check instead of creating a task-specific Playwright script:
 
 ```powershell

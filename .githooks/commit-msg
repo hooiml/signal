@@ -1,0 +1,23 @@
+#!/bin/sh
+
+message_file=$1
+subject=$(sed -n '1p' "$message_file" | tr -d '\r')
+pattern='^[a-z][a-z0-9-]*\([a-z0-9][a-z0-9._/-]*\)!?: [^[:space:]].*$'
+
+if printf '%s\n' "$subject" | grep -Eq "$pattern"; then
+    exit 0
+fi
+
+cat >&2 <<'EOF'
+Invalid commit subject.
+
+Use a scoped Conventional Commit:
+  <type>(<scope>): <short summary>
+
+Examples:
+  feat(research): add encrypted decision backups
+  fix(provider): stop serving stale market context
+  docs(workflows): document deployment verification
+EOF
+
+exit 1
