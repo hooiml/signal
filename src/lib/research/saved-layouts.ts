@@ -1,5 +1,5 @@
 export const researchLayoutWorkspaces = [
-    'research', 'discovery', 'picker', 'compare', 'calendar', 'alerts', 'changes', 'filings', 'evidence', 'policy', 'queue',
+    'research', 'today', 'discovery', 'picker', 'compare', 'calendar', 'alerts', 'changes', 'filings', 'evidence', 'policy', 'queue',
     'portfolio', 'currency', 'relationships', 'peers', 'outcomes', 'replay', 'health', 'packets', 'backup', 'usage',
 ] as const;
 

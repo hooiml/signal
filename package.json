@@ -8,6 +8,7 @@
     "start": "next start",
     "qa:header": "node scripts/header-qa.mjs",
     "qa:market": "node scripts/market-qa.mjs",
+    "qa:performance": "node scripts/performance-baseline.mjs",
     "qa:portfolio-import": "node scripts/portfolio-import-qa.mjs",
     "qa:portfolio-what-if": "node scripts/portfolio-what-if-qa.mjs",
     "qa:dividend-cashflow": "node scripts/dividend-cashflow-qa.mjs",

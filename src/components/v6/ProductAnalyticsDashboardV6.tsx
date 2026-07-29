@@ -18,6 +18,7 @@ import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 const workspaceLabels: Readonly<Record<ProductAnalyticsWorkspace, string>> = {
     market_conditions: 'Market Conditions',
     research: 'Watchlist',
+    today: 'Today',
     discovery: 'Discovery',
     picker: 'Picker',
     compare: 'Compare',
@@ -42,6 +43,8 @@ const workspaceLabels: Readonly<Record<ProductAnalyticsWorkspace, string>> = {
 
 const eventLabels: Readonly<Record<ProductAnalyticsEvent['name'], string>> = {
     workspace_viewed: 'Workspace viewed',
+    workflow_opened: 'Workflow opened',
+    workflow_completed: 'Workflow completed',
     market_handoff_opened: 'Market handoff opened',
     review_opened: 'Research opened',
     review_saved: 'Review saved',
@@ -174,12 +177,12 @@ export const ProductAnalyticsDashboardV6 = ({ theme }: {
                         </section>
 
                         <section className={'min-w-0 rounded-lg border p-4 ' + styles.panelSecondary} aria-labelledby="workflow-pathways-title">
-                            <h2 id="workflow-pathways-title" className={'text-sm font-bold ' + styles.textPrimary}>Review pathways</h2>
-                            {summary.pathways.length === 0 ? <p className={'mt-3 text-xs ' + styles.textMuted}>No guided Research opens have been recorded yet.</p> : (
+                            <h2 id="workflow-pathways-title" className={'text-sm font-bold ' + styles.textPrimary}>Workflow pathways</h2>
+                            {summary.pathways.length === 0 ? <p className={'mt-3 text-xs ' + styles.textMuted}>No guided workflow openings have been recorded yet.</p> : (
                                 <div className="research-scrollbar mt-3 overflow-x-auto">
-                                    <table className="w-full min-w-[380px] text-left text-xs">
-                                        <thead><tr className={styles.textMuted}><th className="pb-2">Source</th><th className="pb-2 text-right">Opened</th><th className="pb-2 text-right">Saved</th><th className="pb-2 text-right">Completion</th></tr></thead>
-                                        <tbody>{summary.pathways.map((row) => <tr key={row.source} className={'border-t ' + styles.divider}><th className={'py-2 font-semibold ' + styles.textSecondary}>{labelize(row.source)}</th><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.opened}</td><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.saved}</td><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.completionPercent === null ? '—' : `${row.completionPercent}%`}</td></tr>)}</tbody>
+                                    <table className="w-full min-w-[560px] text-left text-xs">
+                                        <thead><tr className={styles.textMuted}><th className="pb-2">Source</th><th className="pb-2 text-right">Opened</th><th className="pb-2 text-right">Completed</th><th className="pb-2 text-right">Completion</th><th className="pb-2 text-right">Active days</th><th className="pb-2 text-right">Last used</th></tr></thead>
+                                        <tbody>{summary.pathways.map((row) => <tr key={row.source} className={'border-t ' + styles.divider}><th className={'py-2 font-semibold ' + styles.textSecondary}>{labelize(row.source)}</th><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.opened}</td><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.completed}</td><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.completionPercent === null ? '—' : `${row.completionPercent}%`}</td><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.activeDays}</td><td className={'py-2 text-right ' + styles.textMuted}>{formatTime(row.lastUsedAt)}</td></tr>)}</tbody>
                                     </table>
                                 </div>
                             )}

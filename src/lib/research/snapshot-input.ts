@@ -1,4 +1,5 @@
 import { researchBenchmarkReturnBases, researchBenchmarkStatuses, type ResearchSnapshot } from '../types/research-snapshot';
+import type { ResearchQuoteBatchResult } from '../types/research-quote';
 
 export class ResearchSnapshotInputError extends Error {
     constructor(message: string) {
@@ -117,4 +118,34 @@ export const parseResearchQuoteResponse = (payload: unknown): ResearchSnapshot['
         throw new ResearchSnapshotInputError(isRecord(payload) && typeof payload.error === 'string' ? payload.error : 'Unable to load live quote.');
     }
     return payload.data.quote;
+};
+
+const isQuoteBatchResult = (value: unknown): value is ResearchQuoteBatchResult => {
+    if (!isRecord(value) || typeof value.success !== 'boolean') return false;
+    if (value.success) {
+        return isRecord(value.data)
+            && typeof value.data.symbol === 'string'
+            && (value.data.market === 'US' || value.data.market === 'MY')
+            && typeof value.data.providerSymbol === 'string'
+            && typeof value.data.fetchedAt === 'string'
+            && isResearchQuote(value.data.quote);
+    }
+    return typeof value.symbol === 'string'
+        && (value.market === 'US' || value.market === 'MY')
+        && typeof value.error === 'string';
+};
+
+export const parseResearchQuoteBatchResponse = (payload: unknown): readonly ResearchQuoteBatchResult[] => {
+    if (!isRecord(payload) || payload.success !== true || !isRecord(payload.data)
+        || typeof payload.data.fetchedAt !== 'string'
+        || !Array.isArray(payload.data.items)
+        || payload.data.items.length > 50
+        || !payload.data.items.every(isQuoteBatchResult)) {
+        throw new ResearchSnapshotInputError(
+            isRecord(payload) && typeof payload.error === 'string'
+                ? payload.error
+                : 'Unable to load live quotes.',
+        );
+    }
+    return payload.data.items;
 };

@@ -24,7 +24,7 @@ export const MarketDashboardV6 = () => {
     const { theme, toggleTheme } = useThemeV6();
     const themeClasses = getThemeV6(theme);
 
-    const fetchSignal = useCallback(async () => {
+    const fetchSignal = useCallback(async (forceRefresh = false) => {
         const requestId = ++requestSequence.current;
         activeRequest.current?.abort();
         const controller = new AbortController();
@@ -37,6 +37,7 @@ export const MarketDashboardV6 = () => {
                 mode: config.mode,
                 enableSocial: String(config.enableSocial),
             });
+            if (forceRefresh) query.set('refresh', 'true');
             const response = await fetch('/api/signals/v2?' + query.toString(), {
                 cache: 'no-store',
                 signal: controller.signal,
@@ -98,7 +99,7 @@ export const MarketDashboardV6 = () => {
         { id: 'mode-momentum', label: 'Use Momentum mode', group: 'Market', keywords: ['standard'], run: () => updateConfig({ mode: 'standard' }) },
         { id: 'mode-contrarian', label: 'Use Contrarian mode', group: 'Market', run: () => updateConfig({ mode: 'contrarian' }) },
         { id: 'source-toggle', label: config.enableSocial ? 'Exclude sentiment source' : 'Include sentiment source', group: 'Market', keywords: ['social news'], run: () => updateConfig({ enableSocial: !config.enableSocial }) },
-        { id: 'refresh-market', label: 'Refresh market conditions', group: 'Market', keywords: ['reload'], run: () => void fetchSignal() },
+        { id: 'refresh-market', label: 'Refresh market conditions', group: 'Market', keywords: ['reload'], run: () => void fetchSignal(true) },
     ];
 
     return (
@@ -118,7 +119,7 @@ export const MarketDashboardV6 = () => {
                         status={briefingStatus}
                         lastAttemptedAt={lastAttemptedAt}
                         lastSuccessfulAt={lastSuccessfulAt}
-                        onRefresh={() => void fetchSignal()}
+                        onRefresh={() => void fetchSignal(true)}
                         snapshotDate={signal?.metadata.score_delta?.snapshot_date ?? null}
                         sourceToggleImpact={signal?.metadata.counterfactuals?.source_toggle}
                         theme={theme}
@@ -132,7 +133,7 @@ export const MarketDashboardV6 = () => {
                             <p className={'text-xs font-semibold uppercase tracking-[0.12em] ' + themeClasses.risk}>Signal unavailable</p>
                             <h1 className={'mt-2 text-2xl font-bold ' + themeClasses.textPrimary}>Current market conditions are unavailable</h1>
                             <p className={'mt-2 max-w-2xl text-sm ' + themeClasses.textSecondary}>{error || 'Try another market, mode, or source configuration.'}</p>
-                            <button type="button" onClick={() => void fetchSignal()} className="mt-5 min-h-10 rounded-md border border-emerald-500 px-4 text-sm font-bold text-emerald-600 transition-colors hover:bg-emerald-500/10">Retry</button>
+                            <button type="button" onClick={() => void fetchSignal(true)} className="mt-5 min-h-10 rounded-md border border-emerald-500 px-4 text-sm font-bold text-emerald-600 transition-colors hover:bg-emerald-500/10">Retry</button>
                         </section>
                     ) : null}
 

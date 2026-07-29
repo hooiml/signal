@@ -18,6 +18,7 @@ import {
 } from '@/lib/research/workflow-queue-client';
 import type { ResearchRecord } from '@/lib/types/research';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
+import { currentProductAnalyticsWorkflowSource, trackProductAnalyticsEvent } from '@/lib/product-analytics-client';
 
 const sourceLabels: Readonly<Record<ResearchWorkflowSource, string>> = {
     manual: 'Manual',
@@ -130,7 +131,18 @@ export const ResearchWorkflowQueueV6 = ({ records, theme, onStart }: {
                                 </div>
                                 <div className="flex shrink-0 flex-wrap gap-2">
                                     {task.completedAt === null ? <button type="button" onClick={() => onStart(task.symbol, task.templateId)} className="min-h-10 rounded bg-emerald-500 px-3 text-xs font-bold text-slate-950">Start review</button> : null}
-                                    <button type="button" onClick={() => updateTasks(upsertResearchWorkflowTask(tasks, { ...task, completedAt: task.completedAt ? null : new Date().toISOString() }))} className={'min-h-10 rounded border px-3 text-xs font-semibold ' + styles.row}>{task.completedAt ? 'Reopen' : 'Mark complete'}</button>
+                                    <button type="button" onClick={() => {
+                                        const completing = task.completedAt === null;
+                                        updateTasks(upsertResearchWorkflowTask(tasks, { ...task, completedAt: completing ? new Date().toISOString() : null }));
+                                        if (completing) {
+                                            trackProductAnalyticsEvent({
+                                                name: 'workflow_completed',
+                                                surface: 'research',
+                                                workspace: 'queue',
+                                                source: currentProductAnalyticsWorkflowSource() === 'queue' ? 'queue' : null,
+                                            });
+                                        }
+                                    }} className={'min-h-10 rounded border px-3 text-xs font-semibold ' + styles.row}>{task.completedAt ? 'Reopen' : 'Mark complete'}</button>
                                     <button type="button" aria-label={`Remove ${task.symbol} ${template.name} task`} onClick={() => updateTasks(tasks.filter((item) => item.id !== task.id))} className={'min-h-10 px-2 text-xs font-semibold ' + styles.risk}>Remove</button>
                                 </div>
                             </div>

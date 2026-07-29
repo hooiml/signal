@@ -21,6 +21,7 @@ import {
     readResearchVisitSnapshot,
     writeResearchVisitSnapshot,
 } from '@/lib/research/since-last-visit-client';
+import { readResearchWorkflowTasks } from '@/lib/research/workflow-queue-client';
 import {
     parseSinceLastVisitAlerts,
     parseSinceLastVisitMarket,
@@ -66,12 +67,14 @@ export const SinceLastVisitBriefingV6 = ({
     inboxSummary,
     theme,
     onOpenAction,
+    variant = 'briefing',
 }: {
     readonly records: readonly ResearchRecord[];
     readonly items: readonly ResearchWatchlistItem[];
     readonly inboxSummary: ResearchInboxSummaryV6 | null;
     readonly theme: ResearchThemeV6;
     readonly onOpenAction: (action: SinceLastVisitAction) => void;
+    readonly variant?: 'briefing' | 'today';
 }) => {
     const styles = getThemeV6(theme);
     const [state, setState] = useState<BriefingState | null>(null);
@@ -179,6 +182,10 @@ export const SinceLastVisitBriefingV6 = ({
             symbol: assessment.symbol,
             count: assessment.violations.length,
         }));
+        const today = capturedAt.slice(0, 10);
+        const queueTasks = readResearchWorkflowTasks()
+            .filter((task) => task.completedAt === null && task.dueAt !== null && task.dueAt <= today)
+            .map((task) => ({ id: task.id, symbol: task.symbol, dueAt: task.dueAt! }));
         setState({
             previous,
             changes,
@@ -192,6 +199,7 @@ export const SinceLastVisitBriefingV6 = ({
                 alerts,
                 policyViolations,
                 sourceIssues,
+                queueTasks,
                 attentionCount: inboxSummary?.attentionCount ?? 0,
                 unreadCount: inboxSummary?.unreadCount ?? 0,
             }),
@@ -210,6 +218,18 @@ export const SinceLastVisitBriefingV6 = ({
         });
     };
 
+    useEffect(() => {
+        if (variant !== 'today' || requested.current) return;
+        requested.current = true;
+        const timer = window.setTimeout(() => {
+            void load().catch((caught) => {
+                setError(caught instanceof Error ? caught.message : 'Unable to build Today.');
+                setLoading(false);
+            });
+        }, 0);
+        return () => window.clearTimeout(timer);
+    }, [load, variant]);
+
     const markCaughtUp = () => {
         if (!state) return;
         writeResearchVisitSnapshot(buildResearchVisitSnapshot(records, new Date().toISOString(), state.markets));
@@ -218,8 +238,9 @@ export const SinceLastVisitBriefingV6 = ({
 
     return (
         <details
-            data-testid="since-last-visit"
+            data-testid={variant === 'today' ? 'research-today' : 'since-last-visit'}
             data-surface-tier="utility"
+            open={variant === 'today' ? true : undefined}
             onToggle={(event) => {
                 if (event.currentTarget.open && !requested.current) retry();
             }}
@@ -227,9 +248,15 @@ export const SinceLastVisitBriefingV6 = ({
         >
             <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-[10px] px-4 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 [&::-webkit-details-marker]:hidden">
                 <span>
-                    <span className={'block text-sm font-bold ' + styles.textPrimary}>Since last visit</span>
+                    <span className={'block text-sm font-bold ' + styles.textPrimary}>{variant === 'today' ? 'Today' : 'Since last visit'}</span>
                     <span className={'block text-xs ' + styles.textMuted}>
-                        {state ? changeLabel(state.changes) : 'Open a bounded briefing across research, events, alerts, and source health'}
+                        {state
+                            ? variant === 'today'
+                                ? `${state.briefing.topActions.length} immediate action${state.briefing.topActions.length === 1 ? '' : 's'} · ${state.briefing.upcomingEvents.length} upcoming`
+                                : changeLabel(state.changes)
+                            : variant === 'today'
+                                ? 'Building a bounded action list from existing workflow state'
+                                : 'Open a bounded briefing across research, events, alerts, and source health'}
                     </span>
                 </span>
                 <span aria-hidden="true" className={'text-lg transition-transform group-open:rotate-180 ' + styles.textMuted}>⌄</span>
@@ -265,6 +292,7 @@ export const SinceLastVisitBriefingV6 = ({
                                                 <div className="min-w-0">
                                                     <p className={'text-sm font-semibold ' + styles.textPrimary}>{index + 1}. {action.label}</p>
                                                     <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>{action.detail}</p>
+                                                    <p className={'mt-1 text-[11px] font-semibold uppercase tracking-[0.06em] ' + styles.textMuted}>Source: {action.kind.replaceAll('-', ' ')} · Opens {action.workspace}</p>
                                                 </div>
                                                 <button type="button" onClick={() => onOpenAction(action)} className={'min-h-10 shrink-0 rounded border px-3 text-xs font-bold ' + styles.row}>Open</button>
                                             </li>

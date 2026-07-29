@@ -40,8 +40,9 @@ export const researchWorkspaceGroups: readonly ResearchWorkspaceNavigationGroup[
     {
         id: 'activity',
         label: 'Activity',
-        defaultWorkspace: 'queue',
+        defaultWorkspace: 'today',
         items: [
+            { id: 'today', label: 'Today' },
             { id: 'queue', label: 'Queue' },
             { id: 'alerts', label: 'Alerts' },
             { id: 'calendar', label: 'Calendar' },

@@ -36,7 +36,14 @@ import { parseNasdaqInstitutionalHoldings } from '../../src/lib/research/institu
 import { buildComparisonMetrics } from '../../src/lib/research/comparison';
 import { buildResearchBenchmark, notApplicableResearchBenchmark } from '../../src/lib/research/benchmark';
 import type { ResearchSnapshot } from '../../src/lib/types/research-snapshot';
-import { parseResearchChartResponse, parseResearchSnapshotResponse } from '../../src/lib/research/snapshot-input';
+import { parseResearchChartResponse, parseResearchQuoteBatchResponse, parseResearchSnapshotResponse } from '../../src/lib/research/snapshot-input';
+import {
+    getResearchQuoteBatch,
+    parseResearchQuoteBatchRequest,
+    researchQuoteBatchLimits,
+} from '../../src/lib/research/quote-batch';
+import type { ResearchQuoteData } from '../../src/lib/types/research-quote';
+import { createSignalCache, SIGNAL_CACHE_TTL_MS } from '../../src/lib/signal-cache';
 import { buildHistoricalValuationReport, HISTORICAL_VALUATION_PRICE_CONVENTION, historicalValuationLimits } from '../../src/lib/research/historical-valuation';
 import { parseHistoricalValuationResponse } from '../../src/lib/research/historical-valuation-input';
 import { parseHistoricalValuationRequest } from '../../src/lib/research/historical-valuation-request';
@@ -126,6 +133,7 @@ import { buildResearchDecisionPacket } from '../../src/lib/research/decision-pac
 import {
     appendProductAnalyticsEvent,
     buildProductAnalyticsSummary,
+    parseProductAnalyticsEvent,
     parseProductAnalyticsState,
 } from '../../src/lib/product-analytics';
 import type { ProductAnalyticsEvent } from '../../src/lib/types/product-analytics';
@@ -259,6 +267,77 @@ const assertRejects = async (callback: () => Promise<unknown>, label: string) =>
     throw new Error(`${label}: expected a rejection`);
 };
 
+const runResearchQuoteBatchTests = async () => {
+    const parsed = parseResearchQuoteBatchRequest([
+        { symbol: ' msft ', market: 'US' },
+        { symbol: '1155.KL', market: 'MY' },
+    ]);
+    assertEqual(parsed[0]?.symbol, 'MSFT', 'quote batch normalizes symbols at the route boundary');
+    assertEqual(parsed[1]?.market, 'MY', 'quote batch preserves explicit markets');
+    assertThrows(() => parseResearchQuoteBatchRequest([]), 'quote batch rejects an empty request');
+    assertThrows(
+        () => parseResearchQuoteBatchRequest(Array.from({ length: 51 }, (_, index) => ({ symbol: `A${index}`, market: 'US' }))),
+        'quote batch rejects oversized item collections',
+    );
+    assertThrows(
+        () => parseResearchQuoteBatchRequest([{ symbol: 'MSFT', market: 'US', account: 'private' }]),
+        'quote batch rejects unexpected private fields',
+    );
+    assertThrows(
+        () => parseResearchQuoteBatchRequest([{ symbol: 'MSFT', market: 'US' }, { symbol: 'msft', market: 'US' }]),
+        'quote batch rejects duplicate exact identities',
+    );
+
+    let active = 0;
+    let maximumActive = 0;
+    const requests = parseResearchQuoteBatchRequest([
+        { symbol: 'A', market: 'US' },
+        { symbol: 'B', market: 'US' },
+        { symbol: 'C', market: 'US' },
+        { symbol: 'D', market: 'US' },
+        { symbol: 'E', market: 'US' },
+        { symbol: 'F', market: 'US' },
+        { symbol: 'FAIL', market: 'MY' },
+    ]);
+    const results = await getResearchQuoteBatch(requests, async (symbol, market): Promise<ResearchQuoteData> => {
+        active += 1;
+        maximumActive = Math.max(maximumActive, active);
+        try {
+            await new Promise((resolve) => setTimeout(resolve, 1));
+            if (symbol === 'FAIL') throw new Error('fixture failure');
+            return {
+                symbol,
+                market,
+                providerSymbol: symbol,
+                fetchedAt: '2026-07-29T00:00:00.000Z',
+                quote: { name: symbol, currency: market === 'MY' ? 'MYR' : 'USD', price: 10, dailyChangePercent: 1 },
+            };
+        } finally {
+            active -= 1;
+        }
+    });
+    assertEqual(maximumActive, researchQuoteBatchLimits.concurrency, 'quote batch caps provider concurrency');
+    assertEqual(results.length, requests.length, 'quote batch preserves one result per input');
+    assertEqual(results[0]?.success, true, 'quote batch retains successful items');
+    assertEqual(results[6]?.success, false, 'quote batch degrades one provider failure independently');
+
+    const response = parseResearchQuoteBatchResponse({
+        success: true,
+        data: { fetchedAt: '2026-07-29T00:00:00.000Z', items: results },
+    });
+    assertEqual(response.length, 7, 'quote batch client boundary accepts bounded partial results');
+    assertThrows(
+        () => parseResearchQuoteBatchResponse({
+            success: true,
+            data: {
+                fetchedAt: '2026-07-29T00:00:00.000Z',
+                items: Array.from({ length: 51 }, () => results[0]),
+            },
+        }),
+        'quote batch client boundary rejects oversized responses',
+    );
+};
+
 const runResearchBackupTests = async () => {
     const record = {
         ...createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' }),
@@ -381,11 +460,12 @@ const runResearchWorkspaceNavigationTests = () => {
         'research navigation assigns every supported workspace exactly once',
     );
     assertEqual(researchWorkspaceGroupFor('picker').id, 'discovery', 'Picker lives under Discovery');
+    assertEqual(researchWorkspaceGroupFor('today').id, 'activity', 'Today lives under Activity');
     assertEqual(researchWorkspaceGroupFor('queue').id, 'activity', 'Queue lives under Activity');
     assertEqual(researchWorkspaceGroupFor('relationships').id, 'analyze', 'Map lives under Analyze');
     assertEqual(researchWorkspaceGroupFor('outcomes').id, 'review', 'Outcomes lives under Review');
     assertEqual(researchWorkspaceGroupFor('backup').id, 'more', 'Backup lives under More');
-    assertEqual(researchWorkspaceGroups.find((group) => group.id === 'activity')?.defaultWorkspace, 'queue', 'Activity opens Queue by default');
+    assertEqual(researchWorkspaceGroups.find((group) => group.id === 'activity')?.defaultWorkspace, 'today', 'Activity opens Today by default');
     assertEqual(researchWorkspaceGroups.find((group) => group.id === 'discovery')?.items[1]?.label, 'Picker', 'Discovery exposes Picker as its second workspace');
 };
 
@@ -1248,13 +1328,14 @@ const runSinceLastVisitTests = () => {
         alerts: [{ symbol: 'MSFT', severity: 'risk' }],
         policyViolations: [{ symbol: 'NVDA', count: 2 }],
         sourceIssues: [{ name: 'SEC EDGAR', affectedFeatures: ['Research fundamentals'] }],
+        queueTasks: [{ id: '10000000-0000-4000-8000-000000000099', symbol: 'MSFT', dueAt: '2026-07-25' }],
         attentionCount: 4,
         unreadCount: 2,
     });
     assertEqual(briefing.marketChanges[0]?.direction, 'improved', 'since-last-visit briefing identifies a stronger market posture');
     assertEqual(briefing.topActions.length, 3, 'since-last-visit briefing limits the action list to three priorities');
-    assertEqual(briefing.topActions[0]?.kind, 'risk-alert', 'since-last-visit briefing prioritizes active risk conditions');
-    assertEqual(briefing.topActions[1]?.kind, 'policy', 'since-last-visit briefing prioritizes policy breaches before upcoming events');
+    assertEqual(briefing.topActions[0]?.kind, 'source', 'Today prioritizes degraded sources affecting active workflow evidence');
+    assertEqual(briefing.topActions[1]?.kind, 'risk-alert', 'Today prioritizes active risk conditions next');
     assertEqual(briefing.sourceIssues[0]?.name, 'SEC EDGAR', 'since-last-visit briefing keeps degraded source impact visible');
 
     const market = parseSinceLastVisitMarket({
@@ -1993,6 +2074,7 @@ const runProductAnalyticsTests = () => {
     ): ProductAnalyticsEvent => ({
         id,
         sessionId: '10000000-0000-4000-8000-000000000001',
+        workflowId: null,
         name,
         surface: 'research',
         workspace: 'research',
@@ -2005,9 +2087,11 @@ const runProductAnalyticsTests = () => {
     const opened = event('10000000-0000-4000-8000-000000000002', 'review_opened', '2026-07-24T09:00:00.000Z', {
         workspace: 'alerts',
         source: 'alerts',
+        workflowId: '10000000-0000-4000-8000-000000000010',
     });
     const saved = event('10000000-0000-4000-8000-000000000003', 'review_saved', '2026-07-24T09:05:00.000Z', {
         source: 'alerts',
+        workflowId: '10000000-0000-4000-8000-000000000010',
         attributes: { decision: 'Ready', result: 'success' },
     });
     const exported = event('10000000-0000-4000-8000-000000000004', 'packet_exported', '2026-07-25T10:00:00.000Z', {
@@ -2024,6 +2108,14 @@ const runProductAnalyticsTests = () => {
         events: [opened, saved, exported, viewed, old, { ...viewed, id: 'invalid', attributes: { symbol: 'MSFT' } }],
     }, now);
     assertEqual(state.events.length, 4, 'product analytics drops expired and malformed local events');
+    assertThrows(
+        () => parseProductAnalyticsEvent({ ...opened, symbol: 'MSFT' }),
+        'product analytics rejects unexpected content-bearing event keys',
+    );
+    assertThrows(
+        () => parseProductAnalyticsEvent({ ...opened, workflowId: 'not-a-uuid' }),
+        'product analytics rejects malformed workflow correlation identifiers',
+    );
     const appended = appendProductAnalyticsEvent(state, viewed, now);
     assertEqual(appended.events.length, 4, 'product analytics deduplicates event ids');
     const summary = buildProductAnalyticsSummary(state.events, 7, now);
@@ -2036,6 +2128,8 @@ const runProductAnalyticsTests = () => {
     assertEqual(summary.guidedReviewSaved, 1, 'product analytics attributes a saved review to its workflow source');
     assertEqual(summary.packetExports, 1, 'product analytics counts decision packet exports');
     assertEqual(summary.pathways[0]?.source, 'alerts', 'product analytics reports the guided source without ticker content');
+    assertEqual(summary.pathways[0]?.completed, 1, 'product analytics correlates a workflow completion without recording content');
+    assertEqual(summary.pathways[0]?.activeDays, 1, 'product analytics reports active days per pathway');
     assertEqual(summary.workspaces[0]?.workspace, 'portfolio', 'product analytics reports workspace adoption');
     assertEqual(summary.daily.length, 7, 'product analytics fills every day in the selected window');
 };
@@ -3397,8 +3491,75 @@ const runHistoricalValuationTests = () => {
     assertEqual(historicalValuationLimits.maxPriceRows, 4_000, 'historical price payload row count is bounded');
 };
 
+const runSignalCacheTests = async () => {
+    type Fixture = { ok: boolean; sequence: number };
+    let now = 1_000;
+    let loadCount = 0;
+    const cache = createSignalCache<Fixture>((value) => value.ok);
+    const input = { market: 'US' as const, mode: 'standard' as const, enableSocial: true };
+    const load = async () => ({ ok: true, sequence: ++loadCount });
+
+    const first = await cache.get(input, load, { now: () => now });
+    const second = await cache.get(input, load, { now: () => now });
+    assertEqual(first.status, 'miss', 'signal cache records the first request as a miss');
+    assertEqual(second.status, 'hit', 'signal cache reuses a fresh exact-key result');
+    assertEqual(second.value.sequence, first.value.sequence, 'signal cache returns the cached value');
+    assertEqual(loadCount, 1, 'signal cache loads an exact key only once within the TTL');
+
+    await cache.get({ ...input, mode: 'contrarian' }, load, { now: () => now });
+    assertEqual(loadCount, 2, 'signal cache isolates market configuration keys');
+
+    const bypass = await cache.get(input, load, { forceRefresh: true, now: () => now });
+    assertEqual(bypass.status, 'bypass', 'explicit refresh bypasses a fresh cache entry');
+    assertEqual(loadCount, 3, 'explicit refresh invokes the loader');
+
+    now += SIGNAL_CACHE_TTL_MS + 1;
+    await cache.get(input, load, { now: () => now });
+    assertEqual(loadCount, 4, 'expired signal entries are reloaded');
+
+    cache.clear();
+    let releasePending: ((value: Fixture) => void) | undefined;
+    const pendingLoad = () => {
+        loadCount += 1;
+        return new Promise<Fixture>((resolve) => {
+            releasePending = resolve;
+        });
+    };
+    const pendingFirst = cache.get(input, pendingLoad, { now: () => now });
+    const pendingSecond = cache.get(input, pendingLoad, { now: () => now });
+    assertEqual(loadCount, 5, 'concurrent requests share one in-flight signal load');
+    releasePending?.({ ok: true, sequence: loadCount });
+    const [resolvedFirst, resolvedSecond] = await Promise.all([pendingFirst, pendingSecond]);
+    assertEqual(resolvedFirst.status, 'miss', 'the in-flight owner records a miss');
+    assertEqual(resolvedSecond.status, 'shared', 'the concurrent waiter records a shared load');
+
+    cache.clear();
+    let rejectedLoads = 0;
+    const rejectOnce = async () => {
+        rejectedLoads += 1;
+        if (rejectedLoads === 1) throw new Error('fixture failure');
+        return { ok: true, sequence: rejectedLoads };
+    };
+    try {
+        await cache.get(input, rejectOnce, { now: () => now });
+    } catch {
+        // Expected: failed loads must not occupy the cache or in-flight map.
+    }
+    await cache.get(input, rejectOnce, { now: () => now });
+    assertEqual(rejectedLoads, 2, 'failed signal loads can be retried');
+
+    cache.clear();
+    let uncacheableLoads = 0;
+    const uncacheable = async () => ({ ok: false, sequence: ++uncacheableLoads });
+    await cache.get(input, uncacheable, { now: () => now });
+    await cache.get(input, uncacheable, { now: () => now });
+    assertEqual(uncacheableLoads, 2, 'engine-level errors are not cached');
+};
+
 const main = async () => {
     runInputTests();
+    await runResearchQuoteBatchTests();
+    await runSignalCacheTests();
     await runPrimaryDocumentEvidenceTests();
     runOutcomeAnalyticsTests();
     runSinceLastVisitTests();

@@ -48,6 +48,27 @@ Then open `http://localhost:3000` and check:
 - social toggle still affects the signal request
 - desktop and mobile layouts do not overlap text or controls
 
+### Reproducible Performance Baseline
+
+For shared route, bundle, or request-hydration performance work, build the
+production app, start one owned production server, and run:
+
+```powershell
+npm run qa:performance -- --base-url http://127.0.0.1:3000
+```
+
+The probe uses two cold Chromium contexts per route, disables browser and
+service-worker caches, applies the same bounded 3G-like network and 4x CPU
+profile, and records JavaScript transfer, request count, API request paths,
+opposite-route prefetches, LCP, and same-origin request failures. Evidence is
+written under `.tmp/signal-performance/<timestamp>/report.json`.
+
+Use `--no-throttle` only for a separate fast diagnostic. Before/after claims
+must use the same build, route data, viewport, cache state, run count, settle
+time, and throttle profile. Two baseline runs should remain within 10% for
+JavaScript transfer and request count; investigate instability before using
+the measurement as an optimization gate.
+
 ### Targeted Market QA
 
 For Market V6 hierarchy, score-evidence, responsive layout, or control wiring, use the deterministic one-session check:
@@ -198,7 +219,7 @@ Picker smoke checks should restore `workspace=picker`, retain setup until Run pi
 
 Decision Review Lab checks should migrate legacy browser-local paper decisions to a three-month horizon and the market-appropriate VOO or FBM KLCI benchmark, while keeping US and Malaysia history keys separate. Verify 1M, 3M, 6M, and 1Y due dates; freeze the first available candidate and benchmark sessions on or after the due date; backfill a missing benchmark entry from the first session after recording; calculate maximum drawdown, maximum favorable move, benchmark-relative change, and act-or-pass decision effect; and never rewrite a resolved outcome. Cohort statistics must remain unavailable below five observations, become preliminary at five, and become established at twenty. In the browser, restore `workspace=outcomes`, record and reload a decision, exercise automatic success plus one independently degraded ticker, retain a due manual fallback, render evidence-gated action/confidence/horizon cohorts, emit no Research mutation, and avoid console/request failures or document overflow at 1280px, 768px, and 375px.
 
-Since-last-visit checks should reject malformed and cross-market signal payloads, unsafe alert symbols, invalid source-health entries, unknown checkpoint versions, and duplicate record or market identities. Verify new and revised records, accepted-evidence fingerprints, overdue reviews, stronger/weaker market tiers, degraded sources, and the risk → policy → overdue → earnings → evidence → market → source priority order with a strict top-three cap. In the browser, open the collapsed utility only after saved records are ready, prove complete and independently degraded provider states, save a checkpoint, reload to confirm stable zero-change comparison, follow a priority action, emit no research-record mutation, and avoid settled console/request failures or document overflow at 1280px, 768px, and 375px.
+Since-last-visit and Today checks should reject malformed and cross-market signal payloads, unsafe alert symbols, invalid source-health entries, unknown checkpoint versions, and duplicate record or market identities. Verify new and revised records, accepted-evidence fingerprints, overdue reviews, due Queue tasks, stronger/weaker market tiers, degraded sources affecting active workflows, and the source → risk → policy → overdue → Queue → earnings → evidence → market priority order with a strict top-three cap. In the browser, open the collapsed utility only after saved records are ready; restore `workspace=today` to verify automatic loading, source/destination labels, empty and partial states, and exact deep links; prove complete and independently degraded provider states, save a checkpoint, reload to confirm stable zero-change comparison, emit no research or workflow mutation on load, and avoid settled console/request failures or document overflow at 1280px, 768px, and 375px.
 
 Fundamental-history checks should combine concept-name transitions into distinct SEC annual periods, calculate revenue and share-count changes against the preceding comparable period, join Yahoo metric series by annual date, retain missing metrics as `null`, reject malformed periods or currencies, and cap output at five newest periods. Live API verification should prove one US ticker returns SEC USD history and one Malaysia ticker returns Yahoo MYR history without a false Bursa-source claim. In the browser, open both Fundamentals tabs, verify provider attribution, currency formatting, contained horizontal table scrolling, a partial-metric Malaysia state, and the saved-research fallback when the snapshot provider fails; confirm no settled console/request failures or document overflow at 1280px, 768px, and 375px.
 
@@ -248,7 +269,7 @@ Historical replay checks should validate market, mode, source-toggle, and exact 
 
 Decision-packet checks should freeze a supplied timestamp and saved research revision, preserve decision confidence, review date, checklist state, accepted evidence links, limitations, and optional persisted market context, and use a sanitized deterministic filename. In the browser, restore `workspace=packets`, generate with and without market context, verify the Markdown download filename and content, open the print-ready document, exercise the empty-record state, and confirm no document overflow at 1280px, 768px, and 375px.
 
-Workflow-analytics checks should reject malformed or free-form event properties, prune events older than 180 days, cap retained history at 2,000 events, deduplicate event IDs, keep failed review saves out of completion totals, and calculate active days, sessions, meaningful actions, workspace adoption, guided review pathways, and filled daily windows. Browser checks should restore `workspace=usage`, prove events remain in local storage with no analytics network request, exercise the 7/30/90-day ranges, enabled state, two-step history removal, and event generation from Market handoff, workspace navigation, review save, packet export, alert preferences, portfolio scenario, peer editing, outcome breakdown, source refresh, and replay comparison. Verify local history never contains symbols, notes, evidence text, URLs, or packet contents and confirm no document overflow at 1280px, 768px, and 375px.
+Workflow-analytics checks should reject unknown names, sources, attributes, malformed workflow UUIDs, unexpected keys, and free-form event properties; prune events older than 180 days; cap retained history at 2,000 events; deduplicate event IDs; keep failed review saves out of completion totals; and calculate active days, sessions, meaningful actions, workspace adoption, pathway openings, correlated completions, completion percentage, pathway active days and last use, and filled daily windows. Browser checks should restore `workspace=usage`, prove events remain in local storage with no analytics network request, exercise the 7/30/90-day ranges, immediate disable, two-step history removal, and event generation from Today, Calendar, Alerts, Queue start/completion, Research review save, and the existing meaningful-action entry points. Verify local history never contains symbols, company names, thesis or note text, evidence, URLs, accounts, holdings, quantities, amounts, or provider payloads and confirm no document overflow at 1280px, 768px, and 375px.
 
 Market-to-watchlist exposure checks should prove that only same-market names are included, owned names are prioritized without changing connection strength, active driver direction is preserved, cyclical/defensive/ETF rules are deterministic, and unknown sectors stay explicitly unmapped. Browser verification should cover saved-watchlist success, built-in fallback, empty-market, and active-driver-unavailable states; each Review link must retain the bounded market handoff and open the selected ticker's editable review. Confirm the disclosure does not imply beta, price sensitivity, holdings look-through, or a recommendation, and check local horizontal scrollers plus document overflow at 1280px, 768px, and 375px.
 

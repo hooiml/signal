@@ -1,11 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { watchlist } from '@/components/research/ResearchDashboardV2';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import { parseResearchRecord, ResearchInputError } from '@/lib/research/input';
-import { parseResearchQuoteResponse } from '@/lib/research/snapshot-input';
+import { parseResearchQuoteBatchResponse } from '@/lib/research/snapshot-input';
 import type { AcceptedResearchEvidence, ResearchCreateInput, ResearchRecord, ResearchUpdateMode } from '@/lib/types/research';
 import { ResearchDetailV6 } from './ResearchDetailV6';
 import {
@@ -14,10 +15,6 @@ import {
     type ResearchMarketFilterV6,
 } from './ResearchHeaderV6';
 import { ResearchWatchlistV6 } from './ResearchWatchlistV6';
-import { TrendDiscoveryV6 } from './TrendDiscoveryV6';
-import { ResearchPickerV6 } from './ResearchPickerV6';
-import { ResearchAlertsV6 } from './ResearchAlertsV6';
-import { ResearchComparisonV6 } from './ResearchComparisonV6';
 import { ResearchInboxV6, type ResearchInboxSummaryV6 } from './ResearchInboxV6';
 import { isResearchWorkspaceV6, ResearchWorkspaceTabsV6, type ResearchWorkspaceV6 } from './ResearchWorkspaceTabsV6';
 import { ResearchMarketContextV6 } from './MarketResearchHandoffV6';
@@ -33,23 +30,8 @@ import {
 import { useThemeV6 } from './ThemeProviderV6';
 import { parseMarketResearchHandoff } from '@/lib/market-research-handoff';
 import { PositionPlanOverviewV6 } from './PositionPlanOverviewV6';
-import { ResearchCalendarV6 } from './ResearchCalendarV6';
-import { ResearchOutcomeAnalyticsV6 } from './ResearchOutcomeAnalyticsV6';
-import { PortfolioRiskCockpitV6 } from './PortfolioRiskCockpitV6';
-import { ResearchPeerBenchmarkV6 } from './ResearchPeerBenchmarkV6';
-import { SourceHealthDashboardV6 } from './SourceHealthDashboardV6';
-import { EvidenceCoverageDashboardV6 } from './EvidenceCoverageDashboardV6';
-import { InvestmentPolicyGuardrailsV6 } from './InvestmentPolicyGuardrailsV6';
-import { CurrencyPerformanceV6 } from './CurrencyPerformanceV6';
-import { EvidenceDocumentDiffV6 } from './EvidenceDocumentDiffV6';
-import { ResearchRelationshipGraphV6 } from './ResearchRelationshipGraphV6';
-import { HistoricalDecisionReplayV6 } from './HistoricalDecisionReplayV6';
-import { ResearchDecisionPacketV6 } from './ResearchDecisionPacketV6';
-import { ProductAnalyticsDashboardV6 } from './ProductAnalyticsDashboardV6';
-import { ThesisChangeInboxV6 } from './ThesisChangeInboxV6';
-import { ResearchWorkflowQueueV6 } from './ResearchWorkflowQueueV6';
-import { EncryptedResearchBackupV6 } from './EncryptedResearchBackupV6';
 import { ResearchLayoutControlsV6 } from './ResearchLayoutControlsV6';
+import { ResearchWorkspaceBoundaryV6 } from './ResearchWorkspaceBoundaryV6';
 import type { AppCommandV6 } from './CommandPaletteV6';
 import type { ResearchLayoutDensity, SavedResearchLayout } from '@/lib/research/saved-layouts';
 import type { ResearchWorkflowTemplateId } from '@/lib/research/workflow-queue';
@@ -62,6 +44,99 @@ import {
 } from '@/lib/product-analytics-client';
 import type { ProductAnalyticsSource } from '@/lib/types/product-analytics';
 import { SinceLastVisitBriefingV6 } from './SinceLastVisitBriefingV6';
+
+const workspaceLoading = (label: string) => function ResearchWorkspaceLoadingV6() {
+    return (
+        <section role="status" className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
+            <p className="text-sm font-semibold text-[var(--text-muted)]">Loading {label}…</p>
+        </section>
+    );
+};
+
+const TrendDiscoveryV6 = dynamic(
+    () => import('./TrendDiscoveryV6').then((module) => module.TrendDiscoveryV6),
+    { loading: workspaceLoading('Discovery'), ssr: false },
+);
+const ResearchPickerV6 = dynamic(
+    () => import('./ResearchPickerV6').then((module) => module.ResearchPickerV6),
+    { loading: workspaceLoading('Picker'), ssr: false },
+);
+const ResearchAlertsV6 = dynamic(
+    () => import('./ResearchAlertsV6').then((module) => module.ResearchAlertsV6),
+    { loading: workspaceLoading('Alerts'), ssr: false },
+);
+const ResearchComparisonV6 = dynamic(
+    () => import('./ResearchComparisonV6').then((module) => module.ResearchComparisonV6),
+    { loading: workspaceLoading('Comparison'), ssr: false },
+);
+const ResearchCalendarV6 = dynamic(
+    () => import('./ResearchCalendarV6').then((module) => module.ResearchCalendarV6),
+    { loading: workspaceLoading('Calendar'), ssr: false },
+);
+const ResearchOutcomeAnalyticsV6 = dynamic(
+    () => import('./ResearchOutcomeAnalyticsV6').then((module) => module.ResearchOutcomeAnalyticsV6),
+    { loading: workspaceLoading('Outcomes'), ssr: false },
+);
+const PortfolioRiskCockpitV6 = dynamic(
+    () => import('./PortfolioRiskCockpitV6').then((module) => module.PortfolioRiskCockpitV6),
+    { loading: workspaceLoading('Portfolio'), ssr: false },
+);
+const ResearchPeerBenchmarkV6 = dynamic(
+    () => import('./ResearchPeerBenchmarkV6').then((module) => module.ResearchPeerBenchmarkV6),
+    { loading: workspaceLoading('Peers'), ssr: false },
+);
+const SourceHealthDashboardV6 = dynamic(
+    () => import('./SourceHealthDashboardV6').then((module) => module.SourceHealthDashboardV6),
+    { loading: workspaceLoading('Sources'), ssr: false },
+);
+const EvidenceCoverageDashboardV6 = dynamic(
+    () => import('./EvidenceCoverageDashboardV6').then((module) => module.EvidenceCoverageDashboardV6),
+    { loading: workspaceLoading('Evidence'), ssr: false },
+);
+const InvestmentPolicyGuardrailsV6 = dynamic(
+    () => import('./InvestmentPolicyGuardrailsV6').then((module) => module.InvestmentPolicyGuardrailsV6),
+    { loading: workspaceLoading('Policy'), ssr: false },
+);
+const CurrencyPerformanceV6 = dynamic(
+    () => import('./CurrencyPerformanceV6').then((module) => module.CurrencyPerformanceV6),
+    { loading: workspaceLoading('Currency'), ssr: false },
+);
+const EvidenceDocumentDiffV6 = dynamic(
+    () => import('./EvidenceDocumentDiffV6').then((module) => module.EvidenceDocumentDiffV6),
+    { loading: workspaceLoading('Filings'), ssr: false },
+);
+const ResearchRelationshipGraphV6 = dynamic(
+    () => import('./ResearchRelationshipGraphV6').then((module) => module.ResearchRelationshipGraphV6),
+    { loading: workspaceLoading('Map'), ssr: false },
+);
+const HistoricalDecisionReplayV6 = dynamic(
+    () => import('./HistoricalDecisionReplayV6').then((module) => module.HistoricalDecisionReplayV6),
+    { loading: workspaceLoading('Replay'), ssr: false },
+);
+const ResearchDecisionPacketV6 = dynamic(
+    () => import('./ResearchDecisionPacketV6').then((module) => module.ResearchDecisionPacketV6),
+    { loading: workspaceLoading('Export'), ssr: false },
+);
+const ProductAnalyticsDashboardV6 = dynamic(
+    () => import('./ProductAnalyticsDashboardV6').then((module) => module.ProductAnalyticsDashboardV6),
+    { loading: workspaceLoading('Usage'), ssr: false },
+);
+const ThesisChangeInboxV6 = dynamic(
+    () => import('./ThesisChangeInboxV6').then((module) => module.ThesisChangeInboxV6),
+    { loading: workspaceLoading('Changes'), ssr: false },
+);
+const ResearchWorkflowQueueV6 = dynamic(
+    () => import('./ResearchWorkflowQueueV6').then((module) => module.ResearchWorkflowQueueV6),
+    { loading: workspaceLoading('Queue'), ssr: false },
+);
+const ResearchTodayV6 = dynamic(
+    () => import('./ResearchTodayV6').then((module) => module.ResearchTodayV6),
+    { loading: workspaceLoading('Today'), ssr: false },
+);
+const EncryptedResearchBackupV6 = dynamic(
+    () => import('./EncryptedResearchBackupV6').then((module) => module.EncryptedResearchBackupV6),
+    { loading: workspaceLoading('Backup'), ssr: false },
+);
 
 const formatSnapshotLabel = (date: string) => new Intl.DateTimeFormat('en-US', {
     month: 'short',
@@ -209,11 +284,10 @@ export const ResearchDashboardV6 = () => {
 
     const updateLiveSnapshot = useCallback((symbol: string, snapshot: ResearchSnapshot) => {
         liveSnapshots.current.set(symbol, snapshot);
-        const liveQuote = liveQuotes.current.get(symbol);
+        liveQuotes.current.set(symbol, snapshot.quote);
         setItems((current) => current.map((item) => {
             if (item.symbol !== symbol) return item;
-            const withSnapshot = applyResearchSnapshotV6(item, snapshot);
-            return liveQuote ? applyResearchQuoteV6(withSnapshot, liveQuote) : withSnapshot;
+            return applyResearchSnapshotV6(item, snapshot);
         }));
     }, []);
 
@@ -261,33 +335,42 @@ export const ResearchDashboardV6 = () => {
     }, [items]);
 
     useEffect(() => {
-        const itemsToQuote = quoteItems.current.filter((item) => !liveQuotes.current.has(item.symbol));
+        if (recordsLoadState !== 'ready') return;
+        const itemsToQuote = quoteItems.current.filter((item) =>
+            item.symbol !== selectedSymbol && !liveQuotes.current.has(item.symbol));
         if (itemsToQuote.length === 0) return;
         const controller = new AbortController();
         const loadQuotes = async () => {
-            const results = await Promise.allSettled(itemsToQuote.map(async (item) => {
-                const response = await fetch(`/api/research/quote/${encodeURIComponent(item.symbol)}?market=${item.market}`, { signal: controller.signal });
+            try {
+                const response = await fetch('/api/research/quotes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(itemsToQuote.map((item) => ({ symbol: item.symbol, market: item.market }))),
+                    signal: controller.signal,
+                });
                 const payload: unknown = await response.json();
-                if (!response.ok) throw new ResearchInputError('Live quote unavailable.');
-                return { symbol: item.symbol, quote: parseResearchQuoteResponse(payload) };
-            }));
-            if (controller.signal.aborted) return;
-            const quotes = new Map<string, ResearchSnapshot['quote']>();
-            for (const result of results) {
-                if (result.status === 'fulfilled') {
-                    quotes.set(result.value.symbol, result.value.quote);
-                    liveQuotes.current.set(result.value.symbol, result.value.quote);
+                if (!response.ok) throw new ResearchInputError('Live quotes unavailable.');
+                const results = parseResearchQuoteBatchResponse(payload);
+                if (controller.signal.aborted) return;
+                const quotes = new Map<string, ResearchSnapshot['quote']>();
+                for (const result of results) {
+                    if (result.success) {
+                        quotes.set(result.data.symbol, result.data.quote);
+                        liveQuotes.current.set(result.data.symbol, result.data.quote);
+                    }
                 }
+                if (quotes.size === 0) return;
+                setItems((current) => current.map((item) => {
+                    const quote = quotes.get(item.symbol);
+                    return quote ? applyResearchQuoteV6(item, quote) : item;
+                }));
+            } catch {
+                if (controller.signal.aborted) return;
             }
-            if (quotes.size === 0) return;
-            setItems((current) => current.map((item) => {
-                const quote = quotes.get(item.symbol);
-                return quote ? applyResearchQuoteV6(item, quote) : item;
-            }));
         };
         void loadQuotes();
         return () => controller.abort();
-    }, [quoteTargetKey]);
+    }, [quoteTargetKey, recordsLoadState, selectedSymbol]);
 
     const selectTicker = (symbol: string, focusDetail = false, tab: ResearchTabV6 = 'overview', startReview = false, historyMode: 'push' | 'replace' = 'replace') => {
         if (focusDetail) {
@@ -523,7 +606,7 @@ export const ResearchDashboardV6 = () => {
     };
 
     const workspaceLabels: Readonly<Record<ResearchWorkspaceV6, string>> = {
-        research: 'Watchlist', discovery: 'Discovery', picker: 'Picker', compare: 'Compare', calendar: 'Calendar',
+        research: 'Watchlist', today: 'Today', discovery: 'Discovery', picker: 'Picker', compare: 'Compare', calendar: 'Calendar',
         alerts: 'Alerts', changes: 'Changes', filings: 'Filings', evidence: 'Evidence', policy: 'Policy', queue: 'Queue', portfolio: 'Portfolio', currency: 'Currency', relationships: 'Map',
         peers: 'Peers', outcomes: 'Outcomes', replay: 'Replay', health: 'Sources',
         packets: 'Export', backup: 'Backup', usage: 'Usage',
@@ -630,7 +713,32 @@ export const ResearchDashboardV6 = () => {
                     </details>
                 </> : null}
                 <main id={`research-workspace-${workspace}`} data-surface-tier="primary" data-density={density} className={'flex flex-col rounded-[10px] border backdrop-blur min-[700px]:flex-row ' + (density === 'compact' ? 'gap-2 p-2 min-[700px]:p-3 ' : 'gap-4 p-3 min-[700px]:p-4 ') + themeClasses.panelPrimary}>
-                    {workspace === 'alerts' ? (
+                    <ResearchWorkspaceBoundaryV6 workspace={workspace}>
+                    {workspace === 'today' ? (
+                        <ResearchTodayV6
+                            records={inboxRecords}
+                            items={items}
+                            inboxSummary={inboxSummary}
+                            theme={theme}
+                            onOpenAction={(briefingAction) => {
+                                if (briefingAction.kind === 'market') {
+                                    router.push('/');
+                                    return;
+                                }
+                                setProductAnalyticsWorkflowSource('today');
+                                trackProductAnalyticsEvent({
+                                    name: 'workflow_opened',
+                                    surface: 'research',
+                                    workspace: 'today',
+                                    source: 'today',
+                                });
+                                updateUrl({
+                                    workspace: briefingAction.workspace,
+                                    ticker: briefingAction.symbol,
+                                }, 'push');
+                            }}
+                        />
+                    ) : workspace === 'alerts' ? (
                         <ResearchAlertsV6 items={items} records={records} theme={theme} onOpen={openResearchFrom('alerts')} />
                     ) : workspace === 'changes' ? (
                         <ThesisChangeInboxV6 records={inboxRecords} theme={theme} onStage={stageThesisChange} />
@@ -690,6 +798,7 @@ export const ResearchDashboardV6 = () => {
                         </section>
                     )}
                     </>)}
+                    </ResearchWorkspaceBoundaryV6>
                 </main>
             </div>
         </div>

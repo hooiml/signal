@@ -47,6 +47,7 @@ export const AppNavV6 = ({ active, theme, onThemeToggle, commands = [], children
                 <div className="grid min-h-14 min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 min-[700px]:grid-cols-[1fr_auto_1fr] min-[700px]:gap-5">
                     <Link
                         href="/"
+                        prefetch={false}
                         className="shrink-0 text-[13px] font-medium uppercase tracking-[0.05em] text-[var(--text-primary)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
                     >
                         SIGNAL
@@ -58,6 +59,7 @@ export const AppNavV6 = ({ active, theme, onThemeToggle, commands = [], children
                                 <Link
                                     key={item.key}
                                     href={item.href}
+                                    prefetch={false}
                                     aria-current={selected ? 'page' : undefined}
                                     className={
                                         'flex min-h-10 shrink-0 items-center border-b-2 px-0 text-[13px] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 min-[700px]:px-1 min-[700px]:text-sm '

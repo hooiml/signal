@@ -15,6 +15,8 @@ export const PRODUCT_ANALYTICS_STORAGE_KEY = 'signal-product-analytics-v1';
 export const PRODUCT_ANALYTICS_CHANGE_EVENT = 'signal:product-analytics-change';
 const PRODUCT_ANALYTICS_SESSION_KEY = 'signal-product-analytics-session-v1';
 const PRODUCT_ANALYTICS_SOURCE_KEY = 'signal-product-analytics-source-v1';
+const PRODUCT_ANALYTICS_WORKFLOW_KEY = 'signal-product-analytics-workflow-v1';
+const PRODUCT_ANALYTICS_WORKFLOW_TTL_MS = 30 * 60 * 1_000;
 
 const emptyState: ProductAnalyticsState = { version: 1, enabled: true, events: [] };
 
@@ -44,6 +46,10 @@ const sessionId = (): string => {
 export const setProductAnalyticsEnabled = (enabled: boolean): ProductAnalyticsState => {
     const current = readProductAnalyticsState();
     const next = { ...current, enabled };
+    if (!enabled) {
+        window.sessionStorage.removeItem(PRODUCT_ANALYTICS_SOURCE_KEY);
+        window.sessionStorage.removeItem(PRODUCT_ANALYTICS_WORKFLOW_KEY);
+    }
     writeProductAnalyticsState(next);
     return next;
 };
@@ -51,23 +57,56 @@ export const setProductAnalyticsEnabled = (enabled: boolean): ProductAnalyticsSt
 export const clearProductAnalyticsHistory = (): ProductAnalyticsState => {
     const current = readProductAnalyticsState();
     const next: ProductAnalyticsState = { version: 1, enabled: current.enabled, events: [] };
+    window.sessionStorage.removeItem(PRODUCT_ANALYTICS_SOURCE_KEY);
+    window.sessionStorage.removeItem(PRODUCT_ANALYTICS_WORKFLOW_KEY);
     writeProductAnalyticsState(next);
     return next;
 };
 
 export const setProductAnalyticsWorkflowSource = (source: ProductAnalyticsSource): void => {
-    if (typeof window !== 'undefined') window.sessionStorage.setItem(PRODUCT_ANALYTICS_SOURCE_KEY, source);
+    if (typeof window === 'undefined') return;
+    if (source !== 'today'
+        && window.sessionStorage.getItem(PRODUCT_ANALYTICS_SOURCE_KEY) === 'today'
+        && currentWorkflowId('today') !== null) {
+        return;
+    }
+    window.sessionStorage.setItem(PRODUCT_ANALYTICS_SOURCE_KEY, source);
+    window.sessionStorage.setItem(PRODUCT_ANALYTICS_WORKFLOW_KEY, JSON.stringify({
+        id: window.crypto.randomUUID(),
+        source,
+        startedAt: new Date().toISOString(),
+    }));
 };
 
 export const currentProductAnalyticsWorkflowSource = (): ProductAnalyticsSource => {
     if (typeof window === 'undefined') return 'direct';
     const value = window.sessionStorage.getItem(PRODUCT_ANALYTICS_SOURCE_KEY);
-    const allowed: readonly ProductAnalyticsSource[] = ['direct', 'market', 'inbox', 'alerts', 'calendar', 'portfolio', 'peers', 'outcomes', 'discovery', 'compare'];
+    const allowed: readonly ProductAnalyticsSource[] = [
+        'direct', 'today', 'market', 'inbox', 'filings', 'evidence', 'policy', 'alerts', 'calendar',
+        'portfolio', 'currency', 'relationships', 'peers', 'outcomes', 'discovery', 'picker', 'compare', 'queue',
+    ];
     return allowed.includes(value as ProductAnalyticsSource) ? value as ProductAnalyticsSource : 'direct';
 };
 
 export const clearProductAnalyticsWorkflowSource = (): void => {
-    if (typeof window !== 'undefined') window.sessionStorage.removeItem(PRODUCT_ANALYTICS_SOURCE_KEY);
+    if (typeof window === 'undefined') return;
+    window.sessionStorage.removeItem(PRODUCT_ANALYTICS_SOURCE_KEY);
+    window.sessionStorage.removeItem(PRODUCT_ANALYTICS_WORKFLOW_KEY);
+};
+
+const currentWorkflowId = (source: ProductAnalyticsSource | null): string | null => {
+    if (source === null || typeof window === 'undefined') return null;
+    try {
+        const value: unknown = JSON.parse(window.sessionStorage.getItem(PRODUCT_ANALYTICS_WORKFLOW_KEY) ?? 'null');
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+        const context = Object.fromEntries(Object.entries(value));
+        if (context.source !== source || typeof context.id !== 'string'
+            || !/^[0-9a-f-]{36}$/i.test(context.id) || typeof context.startedAt !== 'string'
+            || Date.now() - Date.parse(context.startedAt) > PRODUCT_ANALYTICS_WORKFLOW_TTL_MS) return null;
+        return context.id;
+    } catch {
+        return null;
+    }
 };
 
 export const trackProductAnalyticsEvent = ({
@@ -87,6 +126,7 @@ export const trackProductAnalyticsEvent = ({
     const current = readProductAnalyticsState();
     if (!current.enabled) return null;
     const currentSessionId = sessionId();
+    const workflowId = currentWorkflowId(source);
     const now = new Date();
     const duplicateWindowMs = name === 'workspace_viewed' ? 5_000 : 500;
     const duplicate = current.events.find((event) =>
@@ -94,6 +134,7 @@ export const trackProductAnalyticsEvent = ({
         && event.name === name
         && event.workspace === workspace
         && event.source === source
+        && event.workflowId === workflowId
         && JSON.stringify(event.attributes) === JSON.stringify(attributes)
         && now.getTime() - Date.parse(event.occurredAt) <= duplicateWindowMs,
     );
@@ -101,6 +142,7 @@ export const trackProductAnalyticsEvent = ({
     const event: ProductAnalyticsEvent = {
         id: window.crypto.randomUUID(),
         sessionId: currentSessionId,
+        workflowId,
         name,
         surface,
         workspace,

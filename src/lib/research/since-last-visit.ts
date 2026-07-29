@@ -56,6 +56,11 @@ export type SinceLastVisitBriefingInput = {
         readonly name: string;
         readonly affectedFeatures: readonly string[];
     }[];
+    readonly queueTasks?: readonly {
+        readonly id: string;
+        readonly symbol: string;
+        readonly dueAt: string;
+    }[];
     readonly attentionCount: number;
     readonly unreadCount: number;
 };
@@ -68,11 +73,11 @@ export type SinceLastVisitMarketChange = ResearchVisitMarketSnapshot & {
 
 export type SinceLastVisitAction = {
     readonly id: string;
-    readonly kind: 'risk-alert' | 'policy' | 'overdue-review' | 'earnings' | 'evidence' | 'market' | 'source';
+    readonly kind: 'source' | 'risk-alert' | 'policy' | 'overdue-review' | 'queue' | 'earnings' | 'evidence' | 'market';
     readonly symbol: string | null;
     readonly label: string;
     readonly detail: string;
-    readonly workspace: 'alerts' | 'policy' | 'calendar' | 'changes' | 'health' | 'research';
+    readonly workspace: 'alerts' | 'policy' | 'calendar' | 'changes' | 'health' | 'research' | 'queue';
     readonly priority: number;
 };
 
@@ -290,6 +295,16 @@ export const buildSinceLastVisitBriefing = (
         };
     });
     const actions: SinceLastVisitAction[] = [];
+    for (const source of input.sourceIssues.filter((item) => item.affectedFeatures.length > 0)) {
+        actions.push(action({
+            id: `source:${source.name}`,
+            kind: 'source',
+            symbol: null,
+            label: `${source.name} is degraded`,
+            detail: `Affected: ${source.affectedFeatures.join(', ')}.`,
+            workspace: 'health',
+        }, 110));
+    }
     for (const alert of input.alerts.filter((item) => item.severity === 'risk')) {
         actions.push(action({
             id: `risk:${alert.symbol}`,
@@ -319,6 +334,16 @@ export const buildSinceLastVisitBriefing = (
             detail: 'Revisit the thesis, invalidation conditions, and next decision.',
             workspace: 'calendar',
         }, 90));
+    }
+    for (const task of input.queueTasks ?? []) {
+        actions.push(action({
+            id: `queue:${task.id}`,
+            kind: 'queue',
+            symbol: task.symbol,
+            label: `${task.symbol} queued review is due`,
+            detail: `Due ${task.dueAt}. Open the owning Queue task before updating research.`,
+            workspace: 'queue',
+        }, 85));
     }
     for (const event of input.events.filter((item) => item.type === 'earnings' && item.symbol !== null)) {
         actions.push(action({
@@ -350,7 +375,7 @@ export const buildSinceLastVisitBriefing = (
             workspace: 'research',
         }, 60));
     }
-    for (const source of input.sourceIssues) {
+    for (const source of input.sourceIssues.filter((item) => item.affectedFeatures.length === 0)) {
         actions.push(action({
             id: `source:${source.name}`,
             kind: 'source',

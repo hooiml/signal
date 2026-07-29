@@ -1,5 +1,7 @@
 export const productAnalyticsEventNames = [
     'workspace_viewed',
+    'workflow_opened',
+    'workflow_completed',
     'market_handoff_opened',
     'review_opened',
     'review_saved',
@@ -18,6 +20,7 @@ export const productAnalyticsEventNames = [
 export const productAnalyticsWorkspaces = [
     'market_conditions',
     'research',
+    'today',
     'discovery',
     'picker',
     'compare',
@@ -42,6 +45,7 @@ export const productAnalyticsWorkspaces = [
 
 export const productAnalyticsSources = [
     'direct',
+    'today',
     'market',
     'inbox',
     'filings',
@@ -78,6 +82,7 @@ export type ProductAnalyticsAttributes = {
 export type ProductAnalyticsEvent = {
     readonly id: string;
     readonly sessionId: string;
+    readonly workflowId: string | null;
     readonly name: ProductAnalyticsEventName;
     readonly surface: 'market' | 'research';
     readonly workspace: ProductAnalyticsWorkspace;
@@ -103,7 +108,10 @@ export type ProductAnalyticsPathwaySummary = {
     readonly source: ProductAnalyticsSource;
     readonly opened: number;
     readonly saved: number;
+    readonly completed: number;
     readonly completionPercent: number | null;
+    readonly activeDays: number;
+    readonly lastUsedAt: string;
 };
 
 export type ProductAnalyticsDailySummary = {

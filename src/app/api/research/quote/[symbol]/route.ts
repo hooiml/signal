@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchYahooQuote, toYahooSymbol } from '@/lib/research/yahoo-research';
+import { getResearchQuote } from '@/lib/research/quote';
 import type { ResearchMarket } from '@/lib/types/research';
 
 type RouteContext = { readonly params: Promise<{ readonly symbol: string }> };
@@ -16,13 +16,7 @@ export const GET = async (request: Request, context: RouteContext): Promise<Next
         const researchMarket: ResearchMarket = market;
         return NextResponse.json({
             success: true,
-            data: {
-                symbol,
-                market: researchMarket,
-                providerSymbol: toYahooSymbol(symbol, researchMarket),
-                fetchedAt: new Date().toISOString(),
-                quote: await fetchYahooQuote(symbol, researchMarket),
-            },
+            data: await getResearchQuote(symbol, researchMarket),
         });
     } catch (error) {
         return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Live quote unavailable.' }, { status: 502 });

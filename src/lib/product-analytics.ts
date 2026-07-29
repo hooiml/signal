@@ -22,6 +22,7 @@ const meaningfulNames = new Set<ProductAnalyticsEventName>(productAnalyticsEvent
 const attributeKeys: readonly (keyof ProductAnalyticsAttributes)[] = [
     'market', 'decision', 'format', 'mode', 'change', 'breakdown', 'comparison', 'result',
 ];
+const eventKeys = ['id', 'sessionId', 'workflowId', 'name', 'surface', 'workspace', 'source', 'attributes', 'occurredAt'] as const;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -73,8 +74,11 @@ const parseAttributes = (value: unknown): ProductAnalyticsAttributes => {
 
 export const parseProductAnalyticsEvent = (value: unknown): ProductAnalyticsEvent => {
     if (!isRecord(value)
+        || Object.keys(value).some((key) => !eventKeys.includes(key as typeof eventKeys[number]))
         || typeof value.id !== 'string' || !uuidPattern.test(value.id)
         || typeof value.sessionId !== 'string' || !uuidPattern.test(value.sessionId)
+        || value.workflowId !== undefined && value.workflowId !== null
+            && (typeof value.workflowId !== 'string' || !uuidPattern.test(value.workflowId))
         || !isOneOf(value.name, productAnalyticsEventNames)
         || (value.surface !== 'market' && value.surface !== 'research')
         || !isOneOf(value.workspace, productAnalyticsWorkspaces)
@@ -85,6 +89,7 @@ export const parseProductAnalyticsEvent = (value: unknown): ProductAnalyticsEven
     return {
         id: value.id,
         sessionId: value.sessionId,
+        workflowId: typeof value.workflowId === 'string' ? value.workflowId : null,
         name: value.name,
         surface: value.surface,
         workspace: value.workspace,
@@ -171,15 +176,27 @@ export const buildProductAnalyticsSummary = (
         }))
         .sort((left, right) => right.views - left.views || left.workspace.localeCompare(right.workspace));
     const pathways: readonly ProductAnalyticsPathwaySummary[] = productAnalyticsSources.flatMap((source) => {
-        const opened = inRange.filter((event) => event.name === 'review_opened' && event.source === source).length;
-        const saved = reviewSavedEvents.filter((event) => event.source === source).length;
-        return opened === 0 && saved === 0 ? [] : [{
+        const sourceEvents = inRange.filter((event) => event.source === source);
+        const openingEvents = sourceEvents.filter((event) => event.name === 'review_opened' || event.name === 'workflow_opened');
+        const openedWorkflowIds = new Set(openingEvents.flatMap((event) => event.workflowId ? [event.workflowId] : []));
+        const completionEvents = sourceEvents.filter((event) =>
+            (event.name === 'review_saved' && event.attributes.result !== 'failure')
+            || event.name === 'workflow_completed');
+        const matchedCompletions = completionEvents.filter((event) =>
+            event.workflowId === null || openedWorkflowIds.has(event.workflowId));
+        const opened = openingEvents.length;
+        const saved = completionEvents.filter((event) => event.name === 'review_saved').length;
+        const completed = matchedCompletions.length;
+        return opened === 0 && completed === 0 ? [] : [{
             source,
             opened,
             saved,
-            completionPercent: percentage(saved, Math.max(opened, saved)),
+            completed,
+            completionPercent: percentage(completed, Math.max(opened, completed)),
+            activeDays: new Set(sourceEvents.map((event) => dateKey(event.occurredAt))).size,
+            lastUsedAt: sourceEvents[0]?.occurredAt ?? '',
         }];
-    }).sort((left, right) => right.opened - left.opened || right.saved - left.saved);
+    }).sort((left, right) => right.opened - left.opened || right.completed - left.completed);
     const daily: ProductAnalyticsDailySummary[] = [];
     for (let offset = 0; offset < rangeDays; offset += 1) {
         const date = new Date(start + offset * 86_400_000).toISOString().slice(0, 10);
