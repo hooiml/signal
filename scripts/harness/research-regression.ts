@@ -665,6 +665,21 @@ const runResearchWorkflowQueueTests = () => {
     assertEqual(portfolioHolding.task.source, 'portfolio-holdings', 'workflow queue retains portfolio-holdings provenance');
     assertEqual(duplicatePortfolioHolding.created, false, 'workflow queue deduplicates repeated holding-review prompts');
     assertEqual(duplicatePortfolioHolding.tasks.length, 1, 'workflow queue keeps one pending holding review across account rows');
+    const portfolioReconciliation = enqueueResearchWorkflowTask([], {
+        symbol: '1155.KL',
+        templateId: 'thesis-challenge',
+        source: 'portfolio-reconciliation',
+        dueAt: '2026-07-27',
+    }, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', '2026-07-26T00:00:00.000Z');
+    const duplicatePortfolioReconciliation = enqueueResearchWorkflowTask(portfolioReconciliation.tasks, {
+        symbol: '1155.KL',
+        templateId: 'thesis-challenge',
+        source: 'portfolio-reconciliation',
+        dueAt: '2026-07-28',
+    }, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', '2026-07-26T01:00:00.000Z');
+    assertEqual(portfolioReconciliation.task.source, 'portfolio-reconciliation', 'workflow queue retains portfolio-reconciliation provenance');
+    assertEqual(duplicatePortfolioReconciliation.created, false, 'workflow queue deduplicates repeated reconciliation-review prompts');
+    assertEqual(duplicatePortfolioReconciliation.tasks.length, 1, 'workflow queue keeps one pending reconciliation review across account rows');
     const afterCompletion = enqueueResearchWorkflowTask([
         { ...connected.task, completedAt: '2026-07-26T00:00:00.000Z' },
     ], {

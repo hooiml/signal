@@ -33,6 +33,7 @@ const sourceLabels: Readonly<Record<ResearchWorkflowSource, string>> = {
     'factor-exposure': 'Factor exposure',
     'dividend-cashflow': 'Dividend / cash flow',
     'portfolio-holdings': 'Portfolio holdings',
+    'portfolio-reconciliation': 'Portfolio reconciliation',
 };
 
 export const ResearchWorkflowQueueV6 = ({ records, theme, onStart }: {

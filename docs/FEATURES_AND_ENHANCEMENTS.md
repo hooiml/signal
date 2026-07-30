@@ -38,6 +38,9 @@ Every enhancement must preserve:
 - Explicit holdings-to-Research Queue handoff for exact research matches, with one
   deduplicated browser-local review task and no account, quantity, cost, currency, balance,
   or provenance data copied into the Queue.
+- Explicit transaction-reconciliation-to-Research Queue handoff for non-matching exact
+  securities, with one deduplicated browser-local review task and no account, quantity,
+  difference, cost, currency, balance, transaction, or provenance data copied into the Queue.
 - Covered contribution attribution:
   - unrealized price contribution only for exact reconciled holdings with accepted average
     cost and an exact current price;

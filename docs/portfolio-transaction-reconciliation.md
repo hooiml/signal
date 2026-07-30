@@ -50,6 +50,13 @@ If either calculation cannot remain within JavaScript safe-integer precision at 
 
 An exact match proves arithmetic alignment only. It does not prove that the imported history is complete.
 
+For a non-matching security row with an exact market-and-symbol Research match, including an
+explicit provider-symbol match, the user may explicitly create a browser-local `Thesis challenge`
+Queue task due today under the canonical Research ticker. Repeated exceptions
+for the same symbol deduplicate to one pending `Portfolio reconciliation` task. Matching and
+closed rows do not expose the action, and an unmatched security remains visible without creating
+a task.
+
 ## Coverage And Limitations
 
 The surface always shows the first and last imported transaction dates. Differences may reflect missing history before that range.
@@ -65,7 +72,7 @@ The following remain unsupported and are never inferred:
 
 ## Privacy And State Ownership
 
-Reconciliation reads only `signal-portfolio-holdings-v1` and `signal-portfolio-transactions-v1` in the current browser. It writes no reconciliation snapshot. Holdings and transactions are not changed, uploaded, logged, added to URLs, included in analytics, copied into research backup/sync, placed in Cache Storage, or sent to a provider.
+Reconciliation reads only `signal-portfolio-holdings-v1` and `signal-portfolio-transactions-v1` in the current browser. It writes no reconciliation snapshot. An explicit Queue handoff stores only the ticker, template, source, and due date already supported by the Queue; account labels, quantities, differences, costs, currencies, balances, transaction details, and provenance never enter the task. Holdings and transactions are not changed, uploaded, logged, added to URLs, included in analytics, copied into research backup/sync, placed in Cache Storage, or sent to a provider.
 
 ## Verification
 

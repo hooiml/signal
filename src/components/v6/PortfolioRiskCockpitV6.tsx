@@ -200,7 +200,7 @@ export const PortfolioRiskCockpitV6 = ({ records, items, theme, saving, saveErro
 
             <PortfolioHoldingsImportV6 records={records} items={items} theme={theme} onOpen={onOpen} />
             <PortfolioTransactionImportV6 theme={theme} />
-            <PortfolioTransactionReconciliationV6 theme={theme} />
+            <PortfolioTransactionReconciliationV6 items={items} theme={theme} />
             <PortfolioCoveredAttributionV6 items={items} theme={theme} />
             <PortfolioFactorExposureV6 records={records} items={items} theme={theme} saving={saving} saveError={saveError} onSave={onSave} />
             <PortfolioWhatIfSandboxV6 records={records} items={items} theme={theme} />

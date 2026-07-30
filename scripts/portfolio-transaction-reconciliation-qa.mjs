@@ -15,6 +15,7 @@ const widths = arg('--viewport', '1280,768,375').split(',').map(Number);
 const screenshotDir = arg('--screenshot-dir', path.join('.tmp', 'portfolio-transaction-reconciliation-qa'));
 const holdingsKey = 'signal-portfolio-holdings-v1';
 const transactionsKey = 'signal-portfolio-transactions-v1';
+const queueKey = 'signal-research-workflow-queue-v1';
 const privateMarker = 'PRIVATE-RECONCILIATION-MARKER';
 const failures = [];
 
@@ -162,6 +163,44 @@ try {
             await maybankRow.getByText('Opening history needed', { exact: true }).waitFor({ state: 'visible', timeout });
             const closedRow = positionTable.getByRole('row').filter({ hasText: 'US:AAPL' });
             await closedRow.getByText('Closed / zero derived', { exact: true }).waitFor({ state: 'visible', timeout });
+            if (await msftRow.getByRole('button', { name: /Queue .* reconciliation review/ }).count() !== 0) {
+                throw new Error(`${width}: matching position exposed a reconciliation Queue action`);
+            }
+            if (await closedRow.getByRole('button', { name: /Queue .* reconciliation review/ }).count() !== 0) {
+                throw new Error(`${width}: closed position exposed a reconciliation Queue action`);
+            }
+
+            if (width === 1280) {
+                const queueReview = maybankRow.getByRole('button', { name: 'Queue 1155.KL reconciliation review' });
+                await queueReview.click();
+                await region.getByText('MAYBANK reconciliation review added to the Queue.').waitFor({ state: 'visible', timeout });
+                await queueReview.click();
+                await region.getByText('MAYBANK already has a reconciliation review in the Queue.').waitFor({ state: 'visible', timeout });
+                const tasks = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '[]'), queueKey);
+                const reconciliationTasks = tasks.filter((task) => task.source === 'portfolio-reconciliation');
+                if (reconciliationTasks.length !== 1
+                    || reconciliationTasks[0]?.symbol !== 'MAYBANK'
+                    || reconciliationTasks[0]?.templateId !== 'thesis-challenge') {
+                    throw new Error('1280: reconciliation Queue action did not create one exact connected task');
+                }
+                const taskKeys = Object.keys(reconciliationTasks[0] ?? {}).sort().join(',');
+                if (taskKeys !== 'completedAt,createdAt,dedupeKey,dueAt,id,source,symbol,templateId') {
+                    throw new Error(`1280: reconciliation Queue task contains unexpected fields (${taskKeys})`);
+                }
+                const queuePayload = JSON.stringify(reconciliationTasks);
+                for (const privateValue of [privateMarker, 'QA holdings', 'QA transactions']) {
+                    if (queuePayload.includes(privateValue)) throw new Error(`1280: Queue task leaked private reconciliation data (${privateValue})`);
+                }
+                await page.goto(`${baseUrl}/research?workspace=queue`, { waitUntil: 'domcontentloaded', timeout });
+                const queueRegion = page.getByTestId('research-workflow-queue');
+                await queueRegion.getByText('MAYBANK · Thesis challenge').waitFor({ state: 'visible', timeout });
+                await queueRegion.getByText('Portfolio reconciliation', { exact: true }).waitFor({ state: 'visible', timeout });
+                if (await queueRegion.getByText('MAYBANK · Thesis challenge').count() !== 1) {
+                    throw new Error('1280: reconciliation-to-Queue handoff rendered duplicate pending reviews');
+                }
+                await page.goto(`${baseUrl}/research?workspace=portfolio`, { waitUntil: 'domcontentloaded', timeout });
+                await region.waitFor({ state: 'visible', timeout });
+            }
 
             const cashTable = region.getByRole('table', { name: 'Cash comparison by exact account and currency' });
             const mainUsdRow = cashTable.getByRole('row').filter({ hasText: privateMarker }).filter({ hasText: 'USD' });
@@ -264,6 +303,29 @@ try {
         failures.push(error instanceof Error ? error.message : String(error));
     } finally {
         await refreshContext.close();
+    }
+
+    const queueUnavailableContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    await seedContext(queueUnavailableContext);
+    try {
+        const { page, region, issues } = await openPortfolio(queueUnavailableContext);
+        await page.evaluate((key) => {
+            const original = Storage.prototype.setItem;
+            Storage.prototype.setItem = function setItem(candidate, value) {
+                if (candidate === key) throw new Error('Queue storage unavailable for QA');
+                return original.call(this, candidate, value);
+            };
+        }, queueKey);
+        const row = region.getByRole('table', { name: 'Position quantity comparison' })
+            .getByRole('row').filter({ hasText: 'MY:1155.KL' });
+        await row.getByRole('button', { name: 'Queue 1155.KL reconciliation review' }).click();
+        await region.getByText('The Research Queue is unavailable in this browser.').waitFor({ state: 'visible', timeout });
+        if (issues.length > 0) throw new Error(`queue-storage-unavailable: ${issues.join(' | ')}`);
+        console.log('PASS portfolio transaction reconciliation Queue storage-unavailable');
+    } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error));
+    } finally {
+        await queueUnavailableContext.close();
     }
 
     const unavailableContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });

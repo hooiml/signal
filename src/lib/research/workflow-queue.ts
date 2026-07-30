@@ -24,6 +24,7 @@ export const researchWorkflowSources = [
     'factor-exposure',
     'dividend-cashflow',
     'portfolio-holdings',
+    'portfolio-reconciliation',
 ] as const;
 
 export type ResearchWorkflowSource = typeof researchWorkflowSources[number];
