@@ -239,6 +239,14 @@ export const ResearchDashboardV6 = () => {
             surface: 'research',
             workspace,
         });
+        if (workspace !== 'today' && currentProductAnalyticsWorkflowSource() === 'today') {
+            trackProductAnalyticsEvent({
+                name: 'workflow_source_opened',
+                surface: 'research',
+                workspace,
+                source: 'today',
+            });
+        }
     }, [workspace]);
 
     const changeWorkspace = (nextWorkspace: ResearchWorkspaceV6) => {
@@ -721,10 +729,6 @@ export const ResearchDashboardV6 = () => {
                             inboxSummary={inboxSummary}
                             theme={theme}
                             onOpenAction={(briefingAction) => {
-                                if (briefingAction.kind === 'market') {
-                                    router.push('/');
-                                    return;
-                                }
                                 setProductAnalyticsWorkflowSource('today');
                                 trackProductAnalyticsEvent({
                                     name: 'workflow_opened',
@@ -732,6 +736,10 @@ export const ResearchDashboardV6 = () => {
                                     workspace: 'today',
                                     source: 'today',
                                 });
+                                if (briefingAction.kind === 'market') {
+                                    router.push('/');
+                                    return;
+                                }
                                 updateUrl({
                                     workspace: briefingAction.workspace,
                                     ticker: briefingAction.symbol,

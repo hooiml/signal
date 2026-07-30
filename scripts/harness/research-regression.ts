@@ -2458,6 +2458,54 @@ const runProductAnalyticsTests = () => {
     assertEqual(summary.pathways[0]?.activeDays, 1, 'product analytics reports active days per pathway');
     assertEqual(summary.workspaces[0]?.workspace, 'portfolio', 'product analytics reports workspace adoption');
     assertEqual(summary.daily.length, 7, 'product analytics fills every day in the selected window');
+
+    const todayWorkflowOne = '30000000-0000-4000-8000-000000000001';
+    const todayWorkflowTwo = '30000000-0000-4000-8000-000000000002';
+    const todayOpenedOne = event('20000000-0000-4000-8000-000000000001', 'workflow_opened', '2026-07-24T10:00:00.000Z', {
+        workspace: 'today',
+        source: 'today',
+        workflowId: todayWorkflowOne,
+    });
+    const todayReachedOne = event('20000000-0000-4000-8000-000000000002', 'workflow_source_opened', '2026-07-24T10:01:00.000Z', {
+        workspace: 'calendar',
+        source: 'today',
+        workflowId: todayWorkflowOne,
+    });
+    const todayReachedOneAgain = event('20000000-0000-4000-8000-000000000003', 'workflow_source_opened', '2026-07-24T10:02:00.000Z', {
+        workspace: 'research',
+        source: 'today',
+        workflowId: todayWorkflowOne,
+    });
+    const todaySavedOne = event('20000000-0000-4000-8000-000000000004', 'review_saved', '2026-07-24T10:03:00.000Z', {
+        source: 'today',
+        workflowId: todayWorkflowOne,
+        attributes: { decision: 'Watch', result: 'success' },
+    });
+    const todayOpenedTwo = event('20000000-0000-4000-8000-000000000005', 'workflow_opened', '2026-07-25T10:00:00.000Z', {
+        workspace: 'today',
+        source: 'today',
+        workflowId: todayWorkflowTwo,
+    });
+    const unmatchedTodayReach = event('20000000-0000-4000-8000-000000000006', 'workflow_source_opened', '2026-07-25T10:01:00.000Z', {
+        workspace: 'alerts',
+        source: 'today',
+        workflowId: '30000000-0000-4000-8000-000000000003',
+    });
+    const todaySummary = buildProductAnalyticsSummary([
+        todayOpenedOne,
+        todayReachedOne,
+        todayReachedOneAgain,
+        todaySavedOne,
+        todayOpenedTwo,
+        unmatchedTodayReach,
+    ], 7, now);
+    const todayPathway = todaySummary.pathways[0];
+    assertEqual(todayPathway?.source, 'today', 'product analytics exposes the Today pathway');
+    assertEqual(todayPathway?.opened, 2, 'product analytics counts Today action opens');
+    assertEqual(todayPathway?.reached, 1, 'product analytics counts each correlated Today destination once');
+    assertEqual(todayPathway?.reachPercent, 50, 'product analytics derives the Today open-to-destination rate');
+    assertEqual(todayPathway?.completed, 1, 'product analytics keeps Today completion correlated to an opened action');
+    assertEqual(todayPathway?.completionPercent, 50, 'product analytics derives Today open-to-completion');
 };
 
 const runDecisionTests = () => {

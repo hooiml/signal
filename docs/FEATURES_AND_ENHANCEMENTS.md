@@ -1,5 +1,10 @@
 # Signal Features And Enhancement Roadmap
 
+The focused, sequential candidate roadmap for the next product cycle is tracked in
+[`NEXT_PRODUCT_ROADMAP.md`](NEXT_PRODUCT_ROADMAP.md). It preserves the ideas, gates, minimum
+valuable slices, acceptance criteria, and one-item-at-a-time execution contract without rewriting
+the delivered capability history below.
+
 ## Product Direction
 
 Signal is transparent investment decision support. It is not an automated recommendation,

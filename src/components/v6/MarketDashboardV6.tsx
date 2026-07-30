@@ -8,7 +8,10 @@ import { MarketBriefingV6 } from './MarketBriefingV6';
 import { MarketCommandBarV6, type BriefingStatus } from './MarketCommandBarV6';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import { useThemeV6 } from './ThemeProviderV6';
-import { trackProductAnalyticsEvent } from '@/lib/product-analytics-client';
+import {
+    currentProductAnalyticsWorkflowSource,
+    trackProductAnalyticsEvent,
+} from '@/lib/product-analytics-client';
 import type { AppCommandV6 } from './CommandPaletteV6';
 
 export const MarketDashboardV6 = () => {
@@ -75,6 +78,14 @@ export const MarketDashboardV6 = () => {
             surface: 'market',
             workspace: 'market_conditions',
         });
+        if (currentProductAnalyticsWorkflowSource() === 'today') {
+            trackProductAnalyticsEvent({
+                name: 'workflow_source_opened',
+                surface: 'market',
+                workspace: 'market_conditions',
+                source: 'today',
+            });
+        }
     }, []);
 
     const atmosphere = theme === 'light'

@@ -111,6 +111,8 @@ export type ProductAnalyticsWorkspaceSummary = {
 export type ProductAnalyticsPathwaySummary = {
     readonly source: ProductAnalyticsSource;
     readonly opened: number;
+    readonly reached: number | null;
+    readonly reachPercent: number | null;
     readonly saved: number;
     readonly completed: number;
     readonly completionPercent: number | null;

@@ -180,6 +180,13 @@ export const buildProductAnalyticsSummary = (
         const sourceEvents = inRange.filter((event) => event.source === source);
         const openingEvents = sourceEvents.filter((event) => event.name === 'review_opened' || event.name === 'workflow_opened');
         const openedWorkflowIds = new Set(openingEvents.flatMap((event) => event.workflowId ? [event.workflowId] : []));
+        const reachedWorkflowIds = new Set(sourceEvents.flatMap((event) =>
+            source === 'today'
+                && event.name === 'workflow_source_opened'
+                && event.workflowId !== null
+                && openedWorkflowIds.has(event.workflowId)
+                ? [event.workflowId]
+                : []));
         const completionEvents = sourceEvents.filter((event) =>
             (event.name === 'review_saved' && event.attributes.result !== 'failure')
             || event.name === 'workflow_completed');
@@ -191,6 +198,8 @@ export const buildProductAnalyticsSummary = (
         return opened === 0 && completed === 0 ? [] : [{
             source,
             opened,
+            reached: source === 'today' ? reachedWorkflowIds.size : null,
+            reachPercent: source === 'today' ? percentage(reachedWorkflowIds.size, opened) : null,
             saved,
             completed,
             completionPercent: percentage(completed, Math.max(opened, completed)),

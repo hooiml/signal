@@ -65,6 +65,11 @@ const eventLabels: Readonly<Record<ProductAnalyticsEvent['name'], string>> = {
 const labelize = (value: string): string =>
     value.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
 
+const eventLabel = (event: ProductAnalyticsEvent): string =>
+    event.name === 'workflow_source_opened' && event.source === 'today'
+        ? 'Workflow destination reached'
+        : eventLabels[event.name];
+
 const formatTime = (value: string): string => new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
@@ -182,9 +187,9 @@ export const ProductAnalyticsDashboardV6 = ({ theme }: {
                             <h2 id="workflow-pathways-title" className={'text-sm font-bold ' + styles.textPrimary}>Workflow pathways</h2>
                             {summary.pathways.length === 0 ? <p className={'mt-3 text-xs ' + styles.textMuted}>No guided workflow openings have been recorded yet.</p> : (
                                 <div className="research-scrollbar mt-3 overflow-x-auto">
-                                    <table className="w-full min-w-[560px] text-left text-xs">
-                                        <thead><tr className={styles.textMuted}><th className="pb-2">Source</th><th className="pb-2 text-right">Opened</th><th className="pb-2 text-right">Completed</th><th className="pb-2 text-right">Completion</th><th className="pb-2 text-right">Active days</th><th className="pb-2 text-right">Last used</th></tr></thead>
-                                        <tbody>{summary.pathways.map((row) => <tr key={row.source} className={'border-t ' + styles.divider}><th className={'py-2 font-semibold ' + styles.textSecondary}>{labelize(row.source)}</th><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.opened}</td><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.completed}</td><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.completionPercent === null ? '—' : `${row.completionPercent}%`}</td><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.activeDays}</td><td className={'py-2 text-right ' + styles.textMuted}>{formatTime(row.lastUsedAt)}</td></tr>)}</tbody>
+                                    <table className="w-full min-w-[760px] text-left text-xs">
+                                        <thead><tr className={styles.textMuted}><th className="pb-2">Source</th><th className="pb-2 text-right">Opened</th><th className="pb-2 text-right">Reached</th><th className="pb-2 text-right">Reach</th><th className="pb-2 text-right">Completed</th><th className="pb-2 text-right">Completion</th><th className="pb-2 text-right">Active days</th><th className="pb-2 text-right">Last used</th></tr></thead>
+                                        <tbody>{summary.pathways.map((row) => <tr key={row.source} className={'border-t ' + styles.divider}><th className={'py-2 font-semibold ' + styles.textSecondary}>{labelize(row.source)}</th><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.opened}</td><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.reached ?? '—'}</td><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.reachPercent === null ? '—' : `${row.reachPercent}%`}</td><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.completed}</td><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.completionPercent === null ? '—' : `${row.completionPercent}%`}</td><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.activeDays}</td><td className={'py-2 text-right ' + styles.textMuted}>{formatTime(row.lastUsedAt)}</td></tr>)}</tbody>
                                     </table>
                                 </div>
                             )}
@@ -210,7 +215,7 @@ export const ProductAnalyticsDashboardV6 = ({ theme }: {
                         <ol className={'mt-2 divide-y ' + styles.divider}>
                             {summary.recent.slice(0, 10).map((event) => (
                                 <li key={event.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
-                                    <span className={styles.textSecondary}>{eventLabels[event.name]} · {workspaceLabels[event.workspace]}{event.source ? ` · from ${labelize(event.source)}` : ''}</span>
+                                    <span className={styles.textSecondary}>{eventLabel(event)} · {workspaceLabels[event.workspace]}{event.source ? ` · from ${labelize(event.source)}` : ''}</span>
                                     <time className={styles.textMuted}>{formatTime(event.occurredAt)}</time>
                                 </li>
                             ))}
