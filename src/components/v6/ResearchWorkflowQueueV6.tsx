@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
+    getResearchWorkflowSourceDestination,
     getResearchWorkflowTemplate,
     researchWorkflowTemplates,
     sortResearchWorkflowTasks,
     upsertResearchWorkflowTask,
     type ResearchWorkflowTask,
     type ResearchWorkflowSource,
+    type ResearchWorkflowSourceDestination,
     type ResearchWorkflowTemplateId,
 } from '@/lib/research/workflow-queue';
 import {
@@ -36,10 +38,11 @@ const sourceLabels: Readonly<Record<ResearchWorkflowSource, string>> = {
     'portfolio-reconciliation': 'Portfolio reconciliation',
 };
 
-export const ResearchWorkflowQueueV6 = ({ records, theme, onStart }: {
+export const ResearchWorkflowQueueV6 = ({ records, theme, onStart, onOpenSource }: {
     readonly records: readonly ResearchRecord[];
     readonly theme: ResearchThemeV6;
     readonly onStart: (symbol: string, templateId: ResearchWorkflowTemplateId) => void;
+    readonly onOpenSource: (destination: ResearchWorkflowSourceDestination) => void;
 }) => {
     const styles = getThemeV6(theme);
     const [tasks, setTasks] = useState<readonly ResearchWorkflowTask[]>([]);
@@ -118,6 +121,7 @@ export const ResearchWorkflowQueueV6 = ({ records, theme, onStart }: {
                 {ordered.length > 0 ? <ul className={'mt-3 divide-y border-y ' + styles.divider}>
                     {ordered.map((task) => {
                         const template = getResearchWorkflowTemplate(task.templateId);
+                        const sourceDestination = getResearchWorkflowSourceDestination(task.source);
                         const isOverdue = task.completedAt === null && task.dueAt !== null && task.dueAt < today;
                         return <li key={task.id} className={'py-4 ' + (task.completedAt ? 'opacity-65' : '')}>
                             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -132,6 +136,12 @@ export const ResearchWorkflowQueueV6 = ({ records, theme, onStart }: {
                                     <p className={'mt-1 text-[11px] ' + styles.textMuted}>{task.dueAt ? `Due ${task.dueAt}` : 'No due date'} · queued {new Date(task.createdAt).toLocaleDateString()}</p>
                                 </div>
                                 <div className="flex shrink-0 flex-wrap gap-2">
+                                    {sourceDestination ? <button
+                                        type="button"
+                                        aria-label={`Open ${sourceLabels[task.source]} source`}
+                                        onClick={() => onOpenSource(sourceDestination)}
+                                        className={'min-h-10 rounded border px-3 text-xs font-semibold ' + styles.row}
+                                    >View source</button> : null}
                                     {task.completedAt === null ? <button type="button" onClick={() => onStart(task.symbol, task.templateId)} className="min-h-10 rounded bg-emerald-500 px-3 text-xs font-bold text-slate-950">Start review</button> : null}
                                     <button type="button" onClick={() => {
                                         const completing = task.completedAt === null;

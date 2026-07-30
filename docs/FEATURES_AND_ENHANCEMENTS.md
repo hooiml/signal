@@ -24,6 +24,8 @@ Every enhancement must preserve:
   structured triggers, filings, policy, Queue, Calendar, Changes, Evidence, Backup, Sources,
   Export, Usage, and command-palette workflows.
 - Daily `Today` workflow with deterministic actions and independently degraded source states.
+- Source-aware Queue navigation back to each connected task's owning Market or Research
+  workspace, without changing the task or research record.
 - Privacy-safe browser-local workflow measurement with bounded enums and no authored content.
 
 ### Portfolio

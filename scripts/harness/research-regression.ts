@@ -212,6 +212,7 @@ import {
 } from '../../src/lib/research/paper-decisions';
 import {
     enqueueResearchWorkflowTask,
+    getResearchWorkflowSourceDestination,
     getResearchWorkflowTemplate,
     parseResearchWorkflowTasks,
     sortResearchWorkflowTasks,
@@ -625,6 +626,32 @@ const runResearchWorkflowQueueTests = () => {
     assertEqual(getResearchWorkflowTemplate('valuation-refresh').fields.join(','), 'notes', 'valuation refresh limits narrative fields to notes');
     assertEqual(getResearchWorkflowTemplate('earnings-update').fields.includes('thesisBreak'), true, 'earnings update retains thesis invalidation');
     assertEqual(getResearchWorkflowTemplate('new-idea').fields.length, 7, 'new idea exposes the complete narrative field set');
+    assertEqual(getResearchWorkflowSourceDestination('manual'), null, 'manual Queue tasks have no source destination');
+    assertEqual(getResearchWorkflowSourceDestination('thesis-change')?.kind, 'research', 'connected Queue tasks retain an internal source destination');
+    const thesisChangeDestination = getResearchWorkflowSourceDestination('thesis-change');
+    assertEqual(
+        thesisChangeDestination?.kind === 'research'
+            ? thesisChangeDestination.workspace
+            : null,
+        'changes',
+        'thesis-change Queue tasks return to Changes',
+    );
+    const marketExposureDestination = getResearchWorkflowSourceDestination('market-exposure');
+    assertEqual(
+        marketExposureDestination?.kind === 'market'
+            ? marketExposureDestination.pathname
+            : null,
+        '/',
+        'market-exposure Queue tasks return to Market',
+    );
+    for (const source of ['factor-exposure', 'portfolio-holdings', 'portfolio-reconciliation'] as const) {
+        const destination = getResearchWorkflowSourceDestination(source);
+        assertEqual(
+            destination?.kind === 'research' ? destination.workspace : null,
+            'portfolio',
+            `${source} Queue tasks return to Portfolio`,
+        );
+    }
 
     const connected = enqueueResearchWorkflowTask([], {
         symbol: 'MSFT',

@@ -29,6 +29,33 @@ export const researchWorkflowSources = [
 
 export type ResearchWorkflowSource = typeof researchWorkflowSources[number];
 
+export type ResearchWorkflowSourceDestination =
+    | { readonly kind: 'market'; readonly pathname: '/' }
+    | {
+        readonly kind: 'research';
+        readonly workspace: 'alerts' | 'calendar' | 'changes' | 'evidence' | 'filings' | 'policy' | 'portfolio';
+    };
+
+const researchWorkflowSourceDestinations = {
+    'thesis-change': { kind: 'research', workspace: 'changes' },
+    'evidence-coverage': { kind: 'research', workspace: 'evidence' },
+    'policy-guardrail': { kind: 'research', workspace: 'policy' },
+    'document-diff': { kind: 'research', workspace: 'filings' },
+    calendar: { kind: 'research', workspace: 'calendar' },
+    alert: { kind: 'research', workspace: 'alerts' },
+    'structured-trigger': { kind: 'research', workspace: 'alerts' },
+    'market-exposure': { kind: 'market', pathname: '/' },
+    'factor-exposure': { kind: 'research', workspace: 'portfolio' },
+    'dividend-cashflow': { kind: 'research', workspace: 'calendar' },
+    'portfolio-holdings': { kind: 'research', workspace: 'portfolio' },
+    'portfolio-reconciliation': { kind: 'research', workspace: 'portfolio' },
+} as const satisfies Readonly<Record<Exclude<ResearchWorkflowSource, 'manual'>, ResearchWorkflowSourceDestination>>;
+
+export const getResearchWorkflowSourceDestination = (
+    source: ResearchWorkflowSource,
+): ResearchWorkflowSourceDestination | null =>
+    source === 'manual' ? null : researchWorkflowSourceDestinations[source];
+
 export type ResearchWorkflowTemplate = {
     readonly id: ResearchWorkflowTemplateId;
     readonly name: string;

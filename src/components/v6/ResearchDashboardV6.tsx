@@ -749,7 +749,18 @@ export const ResearchDashboardV6 = () => {
                     ) : workspace === 'policy' ? (
                         <InvestmentPolicyGuardrailsV6 records={inboxRecords} items={items} theme={theme} onOpen={openResearchFrom('policy')} />
                     ) : workspace === 'queue' ? (
-                        <ResearchWorkflowQueueV6 records={inboxRecords} theme={theme} onStart={startWorkflowReview} />
+                        <ResearchWorkflowQueueV6
+                            records={inboxRecords}
+                            theme={theme}
+                            onStart={startWorkflowReview}
+                            onOpenSource={(destination) => {
+                                if (destination.kind === 'market') {
+                                    router.push(destination.pathname);
+                                    return;
+                                }
+                                changeWorkspace(destination.workspace);
+                            }}
+                        />
                     ) : workspace === 'usage' ? (
                         <ProductAnalyticsDashboardV6 theme={theme} />
                     ) : workspace === 'backup' ? (
