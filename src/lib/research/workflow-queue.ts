@@ -23,6 +23,7 @@ export const researchWorkflowSources = [
     'market-exposure',
     'factor-exposure',
     'dividend-cashflow',
+    'portfolio-holdings',
 ] as const;
 
 export type ResearchWorkflowSource = typeof researchWorkflowSources[number];

@@ -35,4 +35,6 @@ Only the validated version-1 snapshot is stored. Raw CSV contents, file names, b
 
 Imported actual holdings remain separate from research position plans. Exact market+symbol matches may reuse the current research quote; unmatched rows stay visible and are never guessed. Cost basis and cash are totaled by currency. Signal does not invent an FX rate or combine USD and MYR totals. A missing price leaves market value and actual weight unavailable rather than treating it as zero.
 
+An exact research match can explicitly create a browser-local `Thesis challenge` Queue task due today. Repeated holdings for the same symbol deduplicate to one pending `Portfolio holdings` task. The task contains only the ticker, template, source, and due date already supported by the Queue; account labels, quantities, costs, currencies, balances, and provenance never enter the task. Unmatched holdings cannot create a Queue item, and queuing never changes a research record.
+
 This release is local-only. Holdings are excluded from research backups, the encrypted remote research vault, plaintext APIs, analytics events, and all provider requests. There is no brokerage OAuth/API connection, credential storage, live trading, order placement, tax-lot accounting, or transaction history.

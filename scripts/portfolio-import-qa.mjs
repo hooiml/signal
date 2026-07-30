@@ -14,6 +14,7 @@ const timeout = Number(arg('--timeout', '15000'));
 const widths = arg('--viewport', '1280,768,375').split(',').map(Number);
 const screenshotDir = arg('--screenshot-dir', path.join('.tmp', 'portfolio-import-qa'));
 const storageKey = 'signal-portfolio-holdings-v1';
+const queueStorageKey = 'signal-research-workflow-queue-v1';
 const failures = [];
 
 const seededSnapshot = {
@@ -141,7 +142,29 @@ try {
                 await region.getByText(/Saved 1 holding row and 1 cash balance locally/).waitFor({ state: 'visible', timeout });
                 await region.getByText('=Formula account', { exact: true }).waitFor({ state: 'visible', timeout });
                 await region.getByRole('button', { name: 'Exact match' }).waitFor({ state: 'visible', timeout });
-                await region.getByText(/\$4,500\.00/).first().waitFor({ state: 'visible', timeout });
+                const queueReview = region.getByRole('button', { name: 'Queue MSFT holding review' });
+                await queueReview.click();
+                await region.getByText('MSFT holding review added to the Queue.').waitFor({ state: 'visible', timeout });
+                await queueReview.click();
+                await region.getByText('MSFT already has a holding review in the Queue.').waitFor({ state: 'visible', timeout });
+                const queuedHoldingReviews = await page.evaluate((key) => {
+                    const tasks = JSON.parse(localStorage.getItem(key) ?? '[]');
+                    return tasks.filter((task) => task.source === 'portfolio-holdings');
+                }, queueStorageKey);
+                if (queuedHoldingReviews.length !== 1
+                    || queuedHoldingReviews[0]?.symbol !== 'MSFT'
+                    || queuedHoldingReviews[0]?.templateId !== 'thesis-challenge') {
+                    throw new Error('1280: holding-review Queue action did not create one exact connected task');
+                }
+                const queueKeys = Object.keys(queuedHoldingReviews[0] ?? {}).sort().join(',');
+                if (queueKeys !== 'completedAt,createdAt,dedupeKey,dueAt,id,source,symbol,templateId') {
+                    throw new Error(`1280: holding-review Queue task contains unexpected fields (${queueKeys})`);
+                }
+                const queuePayload = JSON.stringify(queuedHoldingReviews);
+                for (const privateValue of ['=Formula account', 'Main account', 'QA import', '420.5']) {
+                    if (queuePayload.includes(privateValue)) throw new Error(`1280: Queue task leaked private holding data (${privateValue})`);
+                }
+                await region.getByText(/\$4,284\.00/).first().waitFor({ state: 'visible', timeout });
                 await page.getByText('No planned allocation yet').waitFor({ state: 'visible', timeout });
 
                 await fileInput.setInputFiles({
@@ -163,6 +186,15 @@ try {
                 await region.getByText(/Saved 1 holding row and 0 cash balances locally/).waitFor({ state: 'visible', timeout });
                 await page.reload({ waitUntil: 'domcontentloaded', timeout });
                 await page.getByRole('region', { name: 'Read-only holdings snapshot' }).getByText('12', { exact: true }).waitFor({ state: 'visible', timeout });
+                await page.goto(`${baseUrl}/research?workspace=queue`, { waitUntil: 'domcontentloaded', timeout });
+                const queueRegion = page.getByTestId('research-workflow-queue');
+                await queueRegion.getByText('MSFT · Thesis challenge').waitFor({ state: 'visible', timeout });
+                await queueRegion.getByText('Portfolio holdings', { exact: true }).waitFor({ state: 'visible', timeout });
+                if (await queueRegion.getByText('MSFT · Thesis challenge').count() !== 1) {
+                    throw new Error('1280: Portfolio-to-Queue handoff rendered duplicate pending reviews');
+                }
+                await page.goto(`${baseUrl}/research?workspace=portfolio`, { waitUntil: 'domcontentloaded', timeout });
+                await region.waitFor({ state: 'visible', timeout });
             } else {
                 await region.getByText('Unmatched — kept visible').waitFor({ state: 'visible', timeout });
                 await region.getByText('Unavailable', { exact: true }).first().waitFor({ state: 'visible', timeout });

@@ -20,6 +20,7 @@ import {
     savePortfolioHoldingsSnapshot,
     type PortfolioHoldingsLoadResult,
 } from '@/lib/portfolio/holdings-client';
+import { enqueueResearchWorkflowTaskClient } from '@/lib/research/workflow-queue-client';
 import type { ResearchRecord } from '@/lib/types/research';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 
@@ -58,6 +59,7 @@ export const PortfolioHoldingsImportV6 = ({ records, items, theme, onOpen }: {
     const [replacementAcknowledged, setReplacementAcknowledged] = useState(false);
     const [invalidStorageAcknowledged, setInvalidStorageAcknowledged] = useState(false);
     const [saveMessage, setSaveMessage] = useState('');
+    const [queueMessage, setQueueMessage] = useState('');
     const styles = getThemeV6(theme);
 
     useEffect(() => {
@@ -162,6 +164,22 @@ export const PortfolioHoldingsImportV6 = ({ records, items, theme, onOpen }: {
         }
     };
 
+    const queueHoldingReview = (symbol: string) => {
+        try {
+            const result = enqueueResearchWorkflowTaskClient({
+                symbol,
+                templateId: 'thesis-challenge',
+                source: 'portfolio-holdings',
+                dueAt: new Date().toISOString().slice(0, 10),
+            });
+            setQueueMessage(result.created
+                ? `${symbol} holding review added to the Queue.`
+                : `${symbol} already has a holding review in the Queue.`);
+        } catch {
+            setQueueMessage('The Research Queue is unavailable in this browser.');
+        }
+    };
+
     return (
         <section className={'mt-5 rounded-lg border p-4 ' + styles.panelSecondary} aria-labelledby="portfolio-import-title" data-testid="portfolio-import">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -249,7 +267,17 @@ export const PortfolioHoldingsImportV6 = ({ records, items, theme, onOpen }: {
                                             <td className="py-2 text-right font-mono">{weight === null ? 'Unavailable' : `${weight.toFixed(2)}%`}</td>
                                             <td className="py-2">
                                                 {row.researchRecord ? (
-                                                    <button type="button" className={'min-h-10 font-semibold underline ' + styles.positive} onClick={() => onOpen(row.holding.symbol)}>Exact match</button>
+                                                    <div className="flex min-w-max flex-col items-start gap-1">
+                                                        <button type="button" className={'min-h-10 font-semibold underline ' + styles.positive} onClick={() => onOpen(row.holding.symbol)}>Exact match</button>
+                                                        <button
+                                                            type="button"
+                                                            aria-label={`Queue ${row.holding.symbol} holding review`}
+                                                            className={'min-h-10 rounded border px-2 font-semibold ' + styles.row}
+                                                            onClick={() => queueHoldingReview(row.holding.symbol)}
+                                                        >
+                                                            Queue review
+                                                        </button>
+                                                    </div>
                                                 ) : <span className={styles.textMuted}>Unmatched — kept visible</span>}
                                             </td>
                                         </tr>
@@ -258,6 +286,7 @@ export const PortfolioHoldingsImportV6 = ({ records, items, theme, onOpen }: {
                             </tbody>
                         </table>
                     </div>
+                    {queueMessage ? <p className={'mt-3 text-xs ' + (queueMessage.includes('unavailable') ? styles.risk : styles.positive)} role="status">{queueMessage}</p> : null}
                     {snapshot.cashBalances.length > 0 ? (
                         <ul className="mt-3 flex flex-wrap gap-2" aria-label="Imported cash balances">
                             {snapshot.cashBalances.map((cash) => (

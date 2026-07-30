@@ -35,6 +35,9 @@ Every enhancement must preserve:
 - Browser-local transaction import for buy, sell, dividend, fee, tax, deposit, and withdrawal.
 - Read-only transaction reconciliation against holdings by exact account, security, and
   currency, including missing opening history and unsupported-action warnings.
+- Explicit holdings-to-Research Queue handoff for exact research matches, with one
+  deduplicated browser-local review task and no account, quantity, cost, currency, balance,
+  or provenance data copied into the Queue.
 - Covered contribution attribution:
   - unrealized price contribution only for exact reconciled holdings with accepted average
     cost and an exact current price;

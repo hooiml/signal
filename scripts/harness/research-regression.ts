@@ -650,6 +650,21 @@ const runResearchWorkflowQueueTests = () => {
         dueAt: '2026-07-27',
     }, '55555555-5555-4555-8555-555555555555', '2026-07-26T00:00:00.000Z');
     assertEqual(otherSource.tasks.length, 2, 'workflow queue preserves distinct signal provenance');
+    const portfolioHolding = enqueueResearchWorkflowTask([], {
+        symbol: 'MSFT',
+        templateId: 'thesis-challenge',
+        source: 'portfolio-holdings',
+        dueAt: '2026-07-27',
+    }, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-07-26T00:00:00.000Z');
+    const duplicatePortfolioHolding = enqueueResearchWorkflowTask(portfolioHolding.tasks, {
+        symbol: 'MSFT',
+        templateId: 'thesis-challenge',
+        source: 'portfolio-holdings',
+        dueAt: '2026-07-28',
+    }, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '2026-07-26T01:00:00.000Z');
+    assertEqual(portfolioHolding.task.source, 'portfolio-holdings', 'workflow queue retains portfolio-holdings provenance');
+    assertEqual(duplicatePortfolioHolding.created, false, 'workflow queue deduplicates repeated holding-review prompts');
+    assertEqual(duplicatePortfolioHolding.tasks.length, 1, 'workflow queue keeps one pending holding review across account rows');
     const afterCompletion = enqueueResearchWorkflowTask([
         { ...connected.task, completedAt: '2026-07-26T00:00:00.000Z' },
     ], {
