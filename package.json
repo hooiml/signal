@@ -11,6 +11,7 @@
     "qa:performance": "node scripts/performance-baseline.mjs",
     "qa:portfolio-import": "node scripts/portfolio-import-qa.mjs",
     "qa:portfolio-transactions": "node scripts/portfolio-transaction-import-qa.mjs",
+    "qa:portfolio-reconciliation": "node scripts/portfolio-transaction-reconciliation-qa.mjs",
     "qa:portfolio-what-if": "node scripts/portfolio-what-if-qa.mjs",
     "qa:dividend-cashflow": "node scripts/dividend-cashflow-qa.mjs",
     "qa:historical-valuation": "node scripts/historical-valuation-qa.mjs",

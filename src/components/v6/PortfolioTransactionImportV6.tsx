@@ -154,7 +154,7 @@ export const PortfolioTransactionImportV6 = ({ theme }: {
                     <p className={'text-xs font-semibold uppercase tracking-[0.12em] ' + styles.positive}>Transaction history · local only</p>
                     <h2 id="portfolio-transactions-title" className={'mt-1 text-base font-bold ' + styles.textPrimary}>Read-only transaction import</h2>
                     <p className={'mt-1 max-w-3xl text-xs leading-5 ' + styles.textMuted}>
-                        Import a bounded broker export for review. Signal keeps accepted rows in this browser only; it does not upload the CSV, reconcile holdings, calculate tax lots, convert currencies, or place orders.
+                        Import a bounded broker export for review. Signal keeps accepted rows in this browser only; it does not upload the CSV, overwrite holdings, calculate tax lots, convert currencies, or place orders.
                     </p>
                 </div>
                 <button

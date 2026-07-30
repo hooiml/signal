@@ -39,9 +39,9 @@ The versioned snapshot uses the `signal-portfolio-transactions-v1` local-storage
 
 ## Privacy And Scope Boundary
 
-Transaction rows remain in the current browser. They are not included in research records, encrypted research backup or sync, server APIs, workflow analytics, broker integrations, or order placement. The first version deliberately does not:
+Transaction rows remain in the current browser. They are not included in research records, encrypted research backup or sync, server APIs, workflow analytics, broker integrations, or order placement. The importer itself deliberately does not:
 
-- reconcile transactions into holdings or cash;
+- overwrite holdings or cash; the separate read-only reconciliation described in `docs/portfolio-transaction-reconciliation.md` compares derived values without persisting them;
 - infer missing market, symbol, currency, quantity, sign, account, or identifier;
 - calculate realized or unrealized returns, fees-adjusted performance, tax lots, cost basis, or corporate actions;
 - aggregate USD and MYR or apply foreign exchange rates;

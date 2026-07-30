@@ -172,6 +172,18 @@ The deterministic one-session check covers empty and restored ledgers, canonical
 
 Use `--viewport 375` or `--screenshot-dir <path>` only for a focused rerun after a failure.
 
+### Targeted Portfolio Transaction Reconciliation QA
+
+For the read-only comparison between browser-local transactions and holdings, run:
+
+```powershell
+npm run qa:portfolio-reconciliation -- --base-url http://127.0.0.1:3000
+```
+
+The deterministic one-session check covers exact quantity matches, quantity and cash differences, missing opening history, transaction-only and closed activity, account/currency separation, empty and one-sided source states, invalid and unavailable storage, same-tab refresh, holdings and transaction immutability, request privacy, document overflow, and blocking console/page/request failures at 1280px, 768px, and 375px.
+
+Use `--viewport 375` or `--screenshot-dir <path>` only for a focused rerun after a failure.
+
 ### Targeted Portfolio What-If QA
 
 For the session-only pre-trade sandbox, run:

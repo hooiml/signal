@@ -109,6 +109,7 @@ import {
     portfolioTransactionImportLimits,
     previewPortfolioTransactionImportEffect,
 } from '../../src/lib/portfolio/transactions';
+import { buildPortfolioTransactionReconciliation } from '../../src/lib/portfolio/transaction-reconciliation';
 import {
     buildDividendDiscoveryPath,
     calculateIllustrativeGrossDividend,
@@ -1631,6 +1632,72 @@ const runPortfolioTransactionImportTests = () => {
         parsePortfolioTransactionSnapshot(JSON.parse(JSON.stringify(first))).transactions.length,
         7,
         'transaction persistence validates a round-tripped snapshot',
+    );
+};
+
+const runPortfolioTransactionReconciliationTests = () => {
+    const holdings = createPortfolioImportSnapshot({
+        holdings: [
+            { accountLabel: 'Main', symbol: 'MSFT', market: 'US', quantity: 10, averageCost: 400, currency: 'USD' },
+            { accountLabel: 'Main', symbol: '1155.KL', market: 'MY', quantity: 100, averageCost: 9, currency: 'MYR' },
+        ],
+        cashBalances: [
+            { accountLabel: 'Main', currency: 'USD', balance: 1000 },
+            { accountLabel: 'Main', currency: 'MYR', balance: 500 },
+        ],
+    }, 'Holdings snapshot', '2026-07-30T02:00:00.000Z');
+    const transactions = createPortfolioTransactionImportSnapshot(
+        parsePortfolioTransactionCsv([
+            'transaction_id,account_label,type,date,market,symbol,quantity,amount,currency',
+            'buy-msft,Main,buy,2026-07-01,US,MSFT,12,4800,USD',
+            'sell-msft,Main,sell,2026-07-02,US,MSFT,2,900,USD',
+            'div-msft,Main,dividend,2026-07-03,US,MSFT,,15,USD',
+            'fee-msft,Main,fee,2026-07-03,US,MSFT,,5,USD',
+            'deposit-main,Main,deposit,2026-07-01,,,,5000,USD',
+            'withdraw-main,Main,withdrawal,2026-07-04,,,,100,USD',
+            'deposit-b,Account B,deposit,2026-07-01,,,,200,MYR',
+            'buy-closed,Account C,buy,2026-07-01,US,AAPL,1,100,USD',
+            'sell-closed,Account C,sell,2026-07-02,US,AAPL,1,100,USD',
+        ].join('\n'), '2026-07-30'),
+        'Broker history',
+        '2026-07-30T03:00:00.000Z',
+    );
+    const holdingsBefore = JSON.stringify(holdings);
+    const transactionsBefore = JSON.stringify(transactions);
+    const reconciliation = buildPortfolioTransactionReconciliation(holdings, transactions);
+    const msft = reconciliation.positions.find((row) => row.symbol === 'MSFT');
+    assertEqual(msft?.status, 'match', 'transaction reconciliation matches exact derived and snapshot quantities');
+    assertEqual(msft?.derivedQuantity, 10, 'transaction reconciliation nets buys and sells');
+    const maybank = reconciliation.positions.find((row) => row.symbol === '1155.KL');
+    assertEqual(maybank?.status, 'missing-opening-balance', 'holding without transaction history requires an opening quantity');
+    assertEqual(maybank?.differenceQuantity, 100, 'missing position history preserves the exact unexplained quantity');
+    const closed = reconciliation.positions.find((row) => row.symbol === 'AAPL');
+    assertEqual(closed?.status, 'closed', 'fully offset transaction-only history is labelled closed');
+    const mainUsd = reconciliation.cashBalances.find((row) => row.accountLabel === 'Main' && row.currency === 'USD');
+    assertEqual(mainUsd?.derivedBalance, 1010, 'transaction reconciliation applies explicit cash directions without inferring signs');
+    assertEqual(mainUsd?.differenceBalance, -10, 'cash reconciliation reports the exact snapshot minus derived difference');
+    const mainMyr = reconciliation.cashBalances.find((row) => row.accountLabel === 'Main' && row.currency === 'MYR');
+    assertEqual(mainMyr?.status, 'missing-opening-balance', 'cash snapshot without matching transaction history requires an opening balance');
+    const accountBMyr = reconciliation.cashBalances.find((row) => row.accountLabel === 'Account B' && row.currency === 'MYR');
+    assertEqual(accountBMyr?.status, 'transactions-only', 'transaction-only cash remains separate from the holdings snapshot');
+    assertEqual(accountBMyr?.derivedBalance, 200, 'cash reconciliation never combines accounts');
+    assertEqual(reconciliation.dateRange?.first, '2026-07-01', 'reconciliation exposes the first imported transaction date');
+    assertEqual(reconciliation.dateRange?.last, '2026-07-04', 'reconciliation exposes the last imported transaction date');
+    assertEqual(reconciliation.summary.matchedPositions, 1, 'reconciliation summary counts exact position matches');
+    assertEqual(reconciliation.summary.incompletePositions, 1, 'reconciliation summary counts positions requiring earlier history');
+    assertEqual(JSON.stringify(holdings), holdingsBefore, 'transaction reconciliation never mutates holdings');
+    assertEqual(JSON.stringify(transactions), transactionsBefore, 'transaction reconciliation never mutates transactions');
+    const unsafeAmount = createPortfolioTransactionImportSnapshot(
+        parsePortfolioTransactionCsv([
+            'transaction_id,account_label,type,date,market,symbol,quantity,amount,currency',
+            'unsafe,Main,deposit,2026-07-01,,,,100000000000000,USD',
+        ].join('\n'), '2026-07-30'),
+        'Unsafe precision fixture',
+        '2026-07-30T04:00:00.000Z',
+    );
+    assertThrows(
+        () => buildPortfolioTransactionReconciliation(holdings, unsafeAmount),
+        'transaction reconciliation fails closed when cash exceeds safe decimal precision',
     );
 };
 
@@ -3681,6 +3748,7 @@ const main = async () => {
     runPortfolioAnalyticsTests();
     runPortfolioHoldingsImportTests();
     runPortfolioTransactionImportTests();
+    runPortfolioTransactionReconciliationTests();
     await runDividendCashFlowTests();
     runPortfolioSimulationTests();
     runPortfolioFactorExposureTests();
