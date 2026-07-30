@@ -77,7 +77,7 @@ Only one item may have status `In progress` at a time.
 | Order | Initiative | Status | Primary outcome | Gate or dependency |
 | ---: | --- | --- | --- | --- |
 | 0 | Observe Today and Usage | Observing | Validate the daily workflow before changing navigation defaults | 30 active-use days or two review cycles |
-| 1 | Today 2.0 action home | Proposed, gated | Make the next useful action obvious | Task 0 promotion gate |
+| 1 | Today 2.0 action home | Verified implementation; promotion gated | Make the next useful action obvious | Task 0 promotion gate |
 | 2 | Universal local research search | Proposed | Find existing research and workflow state quickly | Reuse the current command palette and local data |
 | 3 | First-run setup and guided demo | Proposed, audience-gated | Help a new user reach a first useful review | Confirm intended audience beyond the current operator |
 | 4 | Research readiness strip | Proposed | Show what is complete, stale, blocked, or due for one ticker | Reuse existing Evidence, Policy, trigger, and review state |
@@ -145,7 +145,7 @@ Observe approximately 30 active-use days or two review cycles, and require:
 
 ### Task 1 — Today 2.0 Action Home
 
-**Status:** Proposed, gated by Task 0
+**Status:** Verified (implementation); default-workspace promotion gated by Task 0
 
 **Problem**
 
@@ -186,6 +186,24 @@ still need to reconstruct their next action across Activity workspaces.
 - At least 40% of opened Today actions reach their owning detail.
 - At least 25% result in a saved review or completed Queue task.
 - Manual use shows fewer repeated workspace searches.
+
+**Implementation evidence — 2026-07-30**
+
+- Today reuses the existing deterministic priority builder and keeps its strict top-three result
+  above the compact overdue-review, near-term-event, Alerts, Queue, and Sources projections.
+- `Continue where you left off` accepts only a version-1, browser-local, allowlisted destination
+  with a validated optional ticker, fixed tab/review state, timestamp, and 90-day maximum age.
+  It stores no authored content and creates no new request or analytics payload.
+- Fixed `returnTo=today` context reaches the existing Market or Research owner and returns without
+  acknowledging, completing, saving, or otherwise mutating research, alerts, Queue, or checkpoints.
+- Provider checks resolve independently with bounded loading, partial, empty, unavailable, and
+  saved-research error states. Existing privacy-safe workflow analytics remain the only emitted
+  events.
+- Targeted regression, lint, typecheck, full repository harness, production build, and consolidated
+  deterministic browser checks passed at 1280 px, 768 px, and 375 px.
+- Direct `/research` still restores Watchlist. Task 0 remains `Observing`; Today must not become the
+  default until the real 30-active-day or two-review-cycle gate and its reach, completion, and
+  navigation-confusion thresholds pass.
 
 ---
 
@@ -559,3 +577,4 @@ Update this table only when a task changes state or scope.
 | --- | ---: | --- | --- | --- |
 | 2026-07-30 | 0 | Proposed | Observing | Existing Today and privacy-safe Usage funnels are available; collect approximately 30 active-use days or two review cycles. |
 | 2026-07-30 | 0 | Observing | Observing | Visible local baseline has no prior Today or Portfolio-to-Queue activity. Added only the missing correlated Today destination-reach metric; the real-use window and manual notes remain outstanding. |
+| 2026-07-30 | 1 | Proposed, gated | Verified implementation; promotion gated | Existing deterministic priority and owner contracts now form a responsive action home with strict local continuation, fixed return context, independent degradation, and bounded analytics. Watchlist remains the default while Task 0 observes real use. |

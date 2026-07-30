@@ -59,7 +59,8 @@ export type SinceLastVisitBriefingInput = {
     readonly queueTasks?: readonly {
         readonly id: string;
         readonly symbol: string;
-        readonly dueAt: string;
+        readonly dueAt: string | null;
+        readonly isDue: boolean;
     }[];
     readonly attentionCount: number;
     readonly unreadCount: number;
@@ -79,6 +80,7 @@ export type SinceLastVisitAction = {
     readonly detail: string;
     readonly workspace: 'alerts' | 'policy' | 'calendar' | 'changes' | 'health' | 'research' | 'queue';
     readonly priority: number;
+    readonly href?: string;
 };
 
 export type SinceLastVisitBriefing = {
@@ -87,9 +89,53 @@ export type SinceLastVisitBriefing = {
     readonly alerts: SinceLastVisitBriefingInput['alerts'];
     readonly policyViolations: SinceLastVisitBriefingInput['policyViolations'];
     readonly sourceIssues: SinceLastVisitBriefingInput['sourceIssues'];
+    readonly queueTasks: NonNullable<SinceLastVisitBriefingInput['queueTasks']>;
     readonly attentionCount: number;
     readonly unreadCount: number;
     readonly topActions: readonly SinceLastVisitAction[];
+};
+
+export const todayContinuationResearchWorkspaces = [
+    'alerts',
+    'policy',
+    'calendar',
+    'changes',
+    'health',
+    'research',
+    'queue',
+] as const satisfies readonly SinceLastVisitAction['workspace'][];
+
+export type TodayContinuation = {
+    readonly version: 1;
+    readonly updatedAt: string;
+    readonly destination:
+        | { readonly kind: 'market' }
+        | {
+            readonly kind: 'research';
+            readonly workspace: typeof todayContinuationResearchWorkspaces[number];
+            readonly symbol: string | null;
+            readonly tab: 'overview' | 'fundamentals' | 'valuation' | 'events' | 'chart' | 'technical';
+            readonly review: boolean;
+        };
+};
+
+export type TodaySummaryStatus = 'ready' | 'empty' | 'partial' | 'unavailable';
+
+export type TodaySummaryAvailability = {
+    readonly overdueReviews: TodaySummaryStatus;
+    readonly calendar: TodaySummaryStatus;
+    readonly alerts: TodaySummaryStatus;
+    readonly queue: TodaySummaryStatus;
+    readonly sources: TodaySummaryStatus;
+};
+
+export type TodayOwnerSummary = {
+    readonly id: 'overdue' | 'upcoming' | 'alerts' | 'queue' | 'sources';
+    readonly label: string;
+    readonly count: number;
+    readonly status: TodaySummaryStatus;
+    readonly workspace: 'calendar' | 'alerts' | 'queue' | 'health';
+    readonly symbol: string | null;
 };
 
 const validTimestamp = (value: unknown): value is string =>
@@ -97,6 +143,138 @@ const validTimestamp = (value: unknown): value is string =>
 
 const validDate = (value: unknown): value is string =>
     typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00.000Z`));
+
+const validSymbol = (value: unknown): value is string =>
+    typeof value === 'string' && /^[A-Z0-9.-]{1,20}$/.test(value);
+
+const todayContinuationTabs = ['overview', 'fundamentals', 'valuation', 'events', 'chart', 'technical'] as const;
+const TODAY_CONTINUATION_MAX_AGE_MS = 90 * 86_400_000;
+
+const hasOnlyKeys = (value: Record<string, unknown>, keys: readonly string[]): boolean =>
+    Object.keys(value).every((key) => keys.includes(key)) && keys.every((key) => key in value);
+
+export const parseTodayContinuation = (
+    value: unknown,
+    now = new Date(),
+): TodayContinuation | null => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const candidate = Object.fromEntries(Object.entries(value));
+    if (!hasOnlyKeys(candidate, ['version', 'updatedAt', 'destination'])
+        || candidate.version !== 1
+        || !validTimestamp(candidate.updatedAt)) return null;
+    const updatedAt = new Date(candidate.updatedAt).toISOString();
+    const age = now.getTime() - Date.parse(updatedAt);
+    if (!Number.isFinite(age) || age < -300_000 || age > TODAY_CONTINUATION_MAX_AGE_MS
+        || !candidate.destination
+        || typeof candidate.destination !== 'object'
+        || Array.isArray(candidate.destination)) return null;
+    const destination = Object.fromEntries(Object.entries(candidate.destination));
+    if (destination.kind === 'market') {
+        if (!hasOnlyKeys(destination, ['kind'])) return null;
+        return { version: 1, updatedAt, destination: { kind: 'market' } };
+    }
+    if (!hasOnlyKeys(destination, ['kind', 'workspace', 'symbol', 'tab', 'review'])
+        || destination.kind !== 'research'
+        || typeof destination.workspace !== 'string'
+        || !todayContinuationResearchWorkspaces.includes(destination.workspace as typeof todayContinuationResearchWorkspaces[number])
+        || destination.symbol !== null && !validSymbol(destination.symbol)
+        || typeof destination.tab !== 'string'
+        || !todayContinuationTabs.includes(destination.tab as typeof todayContinuationTabs[number])
+        || typeof destination.review !== 'boolean') return null;
+    return {
+        version: 1,
+        updatedAt,
+        destination: {
+            kind: 'research',
+            workspace: destination.workspace as typeof todayContinuationResearchWorkspaces[number],
+            symbol: destination.symbol,
+            tab: destination.tab as typeof todayContinuationTabs[number],
+            review: destination.review,
+        },
+    };
+};
+
+export const createTodayResearchContinuation = ({
+    workspace,
+    symbol,
+    tab,
+    review,
+    updatedAt,
+}: {
+    readonly workspace: string;
+    readonly symbol: string | null;
+    readonly tab: string;
+    readonly review: boolean;
+    readonly updatedAt: string;
+}): TodayContinuation | null => parseTodayContinuation({
+    version: 1,
+    updatedAt,
+    destination: { kind: 'research', workspace, symbol, tab, review },
+}, new Date(updatedAt));
+
+export const createTodayMarketContinuation = (
+    updatedAt: string,
+): TodayContinuation | null => parseTodayContinuation({
+    version: 1,
+    updatedAt,
+    destination: { kind: 'market' },
+}, new Date(updatedAt));
+
+const todayContinuationWorkspaceLabels: Readonly<Record<typeof todayContinuationResearchWorkspaces[number], string>> = {
+    alerts: 'Alerts',
+    policy: 'Policy',
+    calendar: 'Calendar',
+    changes: 'Changes',
+    health: 'Sources',
+    research: 'Watchlist',
+    queue: 'Queue',
+};
+
+export const describeTodayContinuation = (continuation: TodayContinuation): string =>
+    continuation.destination.kind === 'market'
+        ? 'Market Conditions'
+        : continuation.destination.symbol
+            ? `${continuation.destination.symbol} · ${todayContinuationWorkspaceLabels[continuation.destination.workspace]}`
+            : todayContinuationWorkspaceLabels[continuation.destination.workspace];
+
+export const buildTodayContinuationHref = (continuation: TodayContinuation): string => {
+    if (continuation.destination.kind === 'market') return '/?returnTo=today';
+    const params = new URLSearchParams({
+        workspace: continuation.destination.workspace,
+        returnTo: 'today',
+    });
+    if (continuation.destination.symbol) params.set('ticker', continuation.destination.symbol);
+    if (continuation.destination.tab !== 'overview') params.set('tab', continuation.destination.tab);
+    if (continuation.destination.review) params.set('review', 'edit');
+    return `/research?${params.toString()}`;
+};
+
+export const todayContinuationAction = (
+    continuation: TodayContinuation,
+): SinceLastVisitAction => ({
+    id: `continue:${continuation.destination.kind === 'market' ? 'market' : continuation.destination.workspace}`,
+    kind: continuation.destination.kind === 'market'
+        ? 'market'
+        : continuation.destination.workspace === 'health'
+            ? 'source'
+            : continuation.destination.workspace === 'alerts'
+                ? 'risk-alert'
+                : continuation.destination.workspace === 'calendar'
+                    ? 'overdue-review'
+                    : continuation.destination.workspace === 'queue'
+                        ? 'queue'
+                        : continuation.destination.workspace === 'policy'
+                            ? 'policy'
+                            : continuation.destination.workspace === 'changes'
+                                ? 'evidence'
+                                : 'evidence',
+    symbol: continuation.destination.kind === 'research' ? continuation.destination.symbol : null,
+    label: 'Continue where you left off',
+    detail: describeTodayContinuation(continuation),
+    workspace: continuation.destination.kind === 'research' ? continuation.destination.workspace : 'research',
+    priority: 0,
+    href: buildTodayContinuationHref(continuation),
+});
 
 const evidenceFingerprint = (record: ResearchRecord): readonly string[] =>
     record.acceptedEvidence.flatMap((finding) => finding.sources.map((source) =>
@@ -335,7 +513,7 @@ export const buildSinceLastVisitBriefing = (
             workspace: 'calendar',
         }, 90));
     }
-    for (const task of input.queueTasks ?? []) {
+    for (const task of (input.queueTasks ?? []).filter((item) => item.isDue && item.dueAt !== null)) {
         actions.push(action({
             id: `queue:${task.id}`,
             kind: 'queue',
@@ -398,8 +576,65 @@ export const buildSinceLastVisitBriefing = (
         alerts: input.alerts,
         policyViolations: input.policyViolations,
         sourceIssues: input.sourceIssues,
+        queueTasks: input.queueTasks ?? [],
         attentionCount: Math.max(0, Math.floor(input.attentionCount)),
         unreadCount: Math.max(0, Math.floor(input.unreadCount)),
         topActions: uniqueActions,
     };
+};
+
+export const buildTodayOwnerSummaries = ({
+    briefing,
+    changes,
+    availability,
+    today,
+}: {
+    readonly briefing: SinceLastVisitBriefing;
+    readonly changes: SinceLastVisitChanges;
+    readonly availability: TodaySummaryAvailability;
+    readonly today: string;
+}): readonly TodayOwnerSummary[] => {
+    const nearTermEvents = briefing.upcomingEvents.filter((event) => event.date >= today);
+    return [
+        {
+            id: 'overdue',
+            label: 'Overdue reviews',
+            count: changes.overdueReviewSymbols.length,
+            status: availability.overdueReviews,
+            workspace: 'calendar',
+            symbol: changes.overdueReviewSymbols[0] ?? null,
+        },
+        {
+            id: 'upcoming',
+            label: 'Near-term events',
+            count: nearTermEvents.length,
+            status: availability.calendar,
+            workspace: 'calendar',
+            symbol: nearTermEvents.find((event) => event.symbol !== null)?.symbol ?? null,
+        },
+        {
+            id: 'alerts',
+            label: 'Triggered alerts',
+            count: briefing.alerts.length,
+            status: availability.alerts,
+            workspace: 'alerts',
+            symbol: briefing.alerts[0]?.symbol ?? null,
+        },
+        {
+            id: 'queue',
+            label: 'Incomplete Queue',
+            count: briefing.queueTasks.length,
+            status: availability.queue,
+            workspace: 'queue',
+            symbol: briefing.queueTasks[0]?.symbol ?? null,
+        },
+        {
+            id: 'sources',
+            label: 'Degraded sources',
+            count: briefing.sourceIssues.length,
+            status: availability.sources,
+            workspace: 'health',
+            symbol: null,
+        },
+    ];
 };

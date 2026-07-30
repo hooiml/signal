@@ -73,7 +73,12 @@ import {
     buildResearchVisitSnapshot,
     buildSinceLastVisitBriefing,
     buildSinceLastVisitChanges,
+    buildTodayContinuationHref,
+    buildTodayOwnerSummaries,
+    createTodayMarketContinuation,
+    createTodayResearchContinuation,
     parseResearchVisitSnapshot,
+    parseTodayContinuation,
 } from '../../src/lib/research/since-last-visit';
 import {
     parseSinceLastVisitAlerts,
@@ -1396,7 +1401,10 @@ const runSinceLastVisitTests = () => {
         alerts: [{ symbol: 'MSFT', severity: 'risk' }],
         policyViolations: [{ symbol: 'NVDA', count: 2 }],
         sourceIssues: [{ name: 'SEC EDGAR', affectedFeatures: ['Research fundamentals'] }],
-        queueTasks: [{ id: '10000000-0000-4000-8000-000000000099', symbol: 'MSFT', dueAt: '2026-07-25' }],
+        queueTasks: [
+            { id: '10000000-0000-4000-8000-000000000099', symbol: 'MSFT', dueAt: '2026-07-25', isDue: true },
+            { id: '10000000-0000-4000-8000-000000000098', symbol: 'NVDA', dueAt: '2026-08-15', isDue: false },
+        ],
         attentionCount: 4,
         unreadCount: 2,
     });
@@ -1405,6 +1413,79 @@ const runSinceLastVisitTests = () => {
     assertEqual(briefing.topActions[0]?.kind, 'source', 'Today prioritizes degraded sources affecting active workflow evidence');
     assertEqual(briefing.topActions[1]?.kind, 'risk-alert', 'Today prioritizes active risk conditions next');
     assertEqual(briefing.sourceIssues[0]?.name, 'SEC EDGAR', 'since-last-visit briefing keeps degraded source impact visible');
+    assertEqual(briefing.queueTasks.length, 2, 'Today summarizes every incomplete Queue task without changing priority eligibility');
+    assertEqual(
+        JSON.stringify(buildSinceLastVisitBriefing({
+            changes,
+            previous: baseline,
+            currentMarkets: [{ market: 'US', tier: 'buy', score: 68, snapshotAt: '2026-07-26T00:00:00.000Z' }],
+            events: briefing.upcomingEvents,
+            alerts: briefing.alerts,
+            policyViolations: briefing.policyViolations,
+            sourceIssues: briefing.sourceIssues,
+            queueTasks: briefing.queueTasks,
+            attentionCount: briefing.attentionCount,
+            unreadCount: briefing.unreadCount,
+        }).topActions),
+        JSON.stringify(briefing.topActions),
+        'Today produces the same priorities for the same validated inputs',
+    );
+    const summaries = buildTodayOwnerSummaries({
+        briefing,
+        changes,
+        availability: {
+            overdueReviews: 'ready',
+            calendar: 'partial',
+            alerts: 'ready',
+            queue: 'ready',
+            sources: 'ready',
+        },
+        today: '2026-07-26',
+    });
+    assertEqual(summaries.map((summary) => summary.workspace).join(','), 'calendar,calendar,alerts,queue,health', 'Today summaries link to their exact owning workspaces');
+    assertEqual(summaries.find((summary) => summary.id === 'upcoming')?.count, 1, 'Today near-term summary excludes past Calendar items');
+    assertEqual(summaries.find((summary) => summary.id === 'queue')?.count, 2, 'Today Queue summary includes incomplete future work without ranking it as due');
+
+    const continuationAt = '2026-07-26T08:00:00.000Z';
+    const researchContinuation = createTodayResearchContinuation({
+        workspace: 'research',
+        symbol: 'MSFT',
+        tab: 'valuation',
+        review: true,
+        updatedAt: continuationAt,
+    });
+    assertEqual(researchContinuation?.destination.kind, 'research', 'Today continuation accepts a bounded Research destination');
+    assertEqual(
+        researchContinuation ? buildTodayContinuationHref(researchContinuation) : '',
+        '/research?workspace=research&returnTo=today&ticker=MSFT&tab=valuation&review=edit',
+        'Today continuation restores exact Research state and return context',
+    );
+    const marketContinuation = createTodayMarketContinuation(continuationAt);
+    assertEqual(marketContinuation ? buildTodayContinuationHref(marketContinuation) : '', '/?returnTo=today', 'Today continuation restores Market with return context');
+    assertEqual(createTodayResearchContinuation({
+        workspace: 'usage',
+        symbol: null,
+        tab: 'overview',
+        review: false,
+        updatedAt: continuationAt,
+    }), null, 'Today continuation rejects non-workflow workspaces');
+    assertEqual(parseTodayContinuation({
+        version: 1,
+        updatedAt: continuationAt,
+        destination: {
+            kind: 'research',
+            workspace: 'queue',
+            symbol: null,
+            tab: 'overview',
+            review: false,
+            privateNote: 'must not persist',
+        },
+    }, new Date(continuationAt)), null, 'Today continuation rejects unexpected private fields');
+    assertEqual(parseTodayContinuation({
+        version: 1,
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        destination: { kind: 'market' },
+    }, new Date(continuationAt)), null, 'Today continuation expires stale local destinations');
 
     const market = parseSinceLastVisitMarket({
         success: true,

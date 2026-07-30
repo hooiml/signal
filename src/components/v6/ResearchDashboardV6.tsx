@@ -44,6 +44,8 @@ import {
 } from '@/lib/product-analytics-client';
 import type { ProductAnalyticsSource } from '@/lib/types/product-analytics';
 import { SinceLastVisitBriefingV6 } from './SinceLastVisitBriefingV6';
+import { createTodayResearchContinuation } from '@/lib/research/since-last-visit';
+import { writeTodayContinuation } from '@/lib/research/since-last-visit-client';
 
 const workspaceLoading = (label: string) => function ResearchWorkspaceLoadingV6() {
     return (
@@ -172,6 +174,7 @@ export const ResearchDashboardV6 = () => {
     const requestedWorkspace = searchParams.get('workspace');
     const requestedDetailTab = searchParams.get('tab');
     const requestedReview = searchParams.get('review');
+    const returnsToToday = searchParams.get('returnTo') === 'today';
     const marketHandoff = useMemo(() => parseMarketResearchHandoff(searchParams), [searchParams]);
     const initialSymbol = requestedSymbol;
     const initialTab: ResearchTabV6 = isResearchTabV6(requestedDetailTab) ? requestedDetailTab : 'overview';
@@ -248,6 +251,17 @@ export const ResearchDashboardV6 = () => {
             });
         }
     }, [workspace]);
+
+    useEffect(() => {
+        if (!returnsToToday || workspace === 'today') return;
+        writeTodayContinuation(createTodayResearchContinuation({
+            workspace,
+            symbol: validRequestedTicker && requestedTicker ? requestedTicker : null,
+            tab: activeDetailTab,
+            review: reviewRequested,
+            updatedAt: new Date().toISOString(),
+        }));
+    }, [activeDetailTab, requestedTicker, returnsToToday, reviewRequested, validRequestedTicker, workspace]);
 
     const changeWorkspace = (nextWorkspace: ResearchWorkspaceV6) => {
         setWorkspace(nextWorkspace);
@@ -678,6 +692,24 @@ export const ResearchDashboardV6 = () => {
                     onDensityChange={setDensity}
                     onLayoutsChange={setSavedLayouts}
                 />
+                {returnsToToday && workspace !== 'today' ? (
+                    <section data-testid="today-return-context" className={'mb-3 flex flex-col gap-3 rounded-[10px] border p-3 sm:flex-row sm:items-center sm:justify-between ' + themeClasses.panelUtility}>
+                        <div>
+                            <p className={'text-xs font-bold uppercase tracking-[0.1em] ' + themeClasses.positive}>Opened from Today</p>
+                            <p className={'mt-1 text-sm ' + themeClasses.textSecondary}>This workspace still owns its data and actions. Return without changing or acknowledging anything automatically.</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setWorkspace('today');
+                                updateUrl({ workspace: 'today', returnTo: null, tab: null, review: null }, 'push');
+                            }}
+                            className={'min-h-10 shrink-0 rounded border px-4 text-xs font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + themeClasses.selectedRow}
+                        >
+                            Back to Today
+                        </button>
+                    </section>
+                ) : null}
                 {marketHandoff ? <ResearchMarketContextV6 handoff={marketHandoff} items={items} theme={theme} onOpen={openResearchFrom('market')} /> : null}
                 {workspace === 'research' ? <>
                     <h1 className="sr-only">Research workspace</h1>
@@ -722,30 +754,48 @@ export const ResearchDashboardV6 = () => {
                 </> : null}
                 <main id={`research-workspace-${workspace}`} data-surface-tier="primary" data-density={density} className={'flex flex-col rounded-[10px] border backdrop-blur min-[700px]:flex-row ' + (density === 'compact' ? 'gap-2 p-2 min-[700px]:p-3 ' : 'gap-4 p-3 min-[700px]:p-4 ') + themeClasses.panelPrimary}>
                     <ResearchWorkspaceBoundaryV6 workspace={workspace}>
-                    {workspace === 'today' ? (
-                        <ResearchTodayV6
-                            records={inboxRecords}
-                            items={items}
-                            inboxSummary={inboxSummary}
-                            theme={theme}
-                            onOpenAction={(briefingAction) => {
-                                setProductAnalyticsWorkflowSource('today');
-                                trackProductAnalyticsEvent({
-                                    name: 'workflow_opened',
-                                    surface: 'research',
-                                    workspace: 'today',
-                                    source: 'today',
-                                });
-                                if (briefingAction.kind === 'market') {
-                                    router.push('/');
-                                    return;
-                                }
-                                updateUrl({
-                                    workspace: briefingAction.workspace,
-                                    ticker: briefingAction.symbol,
-                                }, 'push');
-                            }}
-                        />
+                    {workspace === 'today' ? recordsLoadState === 'loading' ? (
+                        <section role="status" className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
+                            <p className={'text-sm font-semibold ' + themeClasses.textMuted}>Loading Today…</p>
+                        </section>
+                    ) : (
+                        <div className="min-w-0 flex-1">
+                            {recordsLoadState === 'error' ? (
+                                <div role="alert" className={'mb-3 rounded-lg border p-4 ' + themeClasses.panelUtility}>
+                                    <p className={'text-sm font-semibold ' + themeClasses.risk}>Saved research is unavailable. Today will keep Calendar-dependent research state unavailable while checking Alerts, Queue, Sources, and local planning independently.</p>
+                                </div>
+                            ) : null}
+                            <ResearchTodayV6
+                                records={recordsLoadState === 'ready' ? inboxRecords : []}
+                                items={items}
+                                inboxSummary={inboxSummary}
+                                theme={theme}
+                                onOpenAction={(briefingAction) => {
+                                    setProductAnalyticsWorkflowSource('today');
+                                    trackProductAnalyticsEvent({
+                                        name: 'workflow_opened',
+                                        surface: 'research',
+                                        workspace: 'today',
+                                        source: 'today',
+                                    });
+                                    if (briefingAction.href) {
+                                        router.push(briefingAction.href, { scroll: false });
+                                        return;
+                                    }
+                                    if (briefingAction.kind === 'market') {
+                                        router.push('/?returnTo=today', { scroll: false });
+                                        return;
+                                    }
+                                    updateUrl({
+                                        workspace: briefingAction.workspace,
+                                        ticker: briefingAction.symbol,
+                                        tab: null,
+                                        review: null,
+                                        returnTo: 'today',
+                                    }, 'push');
+                                }}
+                            />
+                        </div>
                     ) : workspace === 'alerts' ? (
                         <ResearchAlertsV6 items={items} records={records} theme={theme} onOpen={openResearchFrom('alerts')} />
                     ) : workspace === 'changes' ? (

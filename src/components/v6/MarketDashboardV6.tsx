@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useSignalConfig } from '@/hooks/use-signal-config';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import { AppNavV6 } from './AppNavV6';
@@ -13,8 +15,12 @@ import {
     trackProductAnalyticsEvent,
 } from '@/lib/product-analytics-client';
 import type { AppCommandV6 } from './CommandPaletteV6';
+import { createTodayMarketContinuation } from '@/lib/research/since-last-visit';
+import { writeTodayContinuation } from '@/lib/research/since-last-visit-client';
 
 export const MarketDashboardV6 = () => {
+    const searchParams = useSearchParams();
+    const returnsToToday = searchParams.get('returnTo') === 'today';
     const { config, updateConfig, isLoaded } = useSignalConfig();
     const [signal, setSignal] = useState<MarketSignal | null>(null);
     const [signalEnableSocial, setSignalEnableSocial] = useState(true);
@@ -88,6 +94,11 @@ export const MarketDashboardV6 = () => {
         }
     }, []);
 
+    useEffect(() => {
+        if (!returnsToToday) return;
+        writeTodayContinuation(createTodayMarketContinuation(new Date().toISOString()));
+    }, [returnsToToday]);
+
     const atmosphere = theme === 'light'
         ? 'bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.11),_transparent_28%),radial-gradient(circle_at_80%_10%,_rgba(14,165,233,0.08),_transparent_20%)]'
         : 'bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.12),_transparent_24%),radial-gradient(circle_at_80%_10%,_rgba(52,211,153,0.1),_transparent_18%)]';
@@ -137,6 +148,21 @@ export const MarketDashboardV6 = () => {
                     />
                 </AppNavV6>
                 <div className="mx-auto w-full max-w-[1280px] px-4 pb-16 pt-5 min-[700px]:px-5">
+                    {returnsToToday ? (
+                        <section data-testid="today-return-context" className={'mb-4 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between ' + themeClasses.panel}>
+                            <div>
+                                <p className={'text-xs font-bold uppercase tracking-[0.1em] ' + themeClasses.positive}>Opened from Today</p>
+                                <p className={'mt-1 text-sm ' + themeClasses.textSecondary}>Market Conditions remains read-only context and does not change a ticker decision.</p>
+                            </div>
+                            <Link
+                                href="/research?workspace=today"
+                                prefetch={false}
+                                className={'inline-flex min-h-10 shrink-0 items-center justify-center rounded border px-4 text-xs font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + themeClasses.selectedRow}
+                            >
+                                Back to Today
+                            </Link>
+                        </section>
+                    ) : null}
                     {!signal && loading ? <MarketSkeletonV6 theme={theme} /> : null}
 
                     {!signal && !loading ? (
