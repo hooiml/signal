@@ -67,23 +67,26 @@ This is a product-evidence activity, not another implementation lane.
 
 ### 1. Production Dependency Security Remediation
 
-Status: **Approval required — High-risk maintenance**
+Status: **Implemented and verified on `codex/dependency-security-remediation`; deployment pending**
 
-The July 2026 production dependency audit reports three high-severity advisory groups affecting
-the pinned Next.js dependency tree, including PostCSS and sharp. The available automated fix
-moves Next.js outside the currently declared range.
+The dedicated remediation upgrades Next.js and its matching ESLint configuration from 16.1.0
+to 16.2.12, then pins the patched PostCSS 8.5.18 and sharp 0.35.3 transitive versions. This
+clears all production dependency findings reported by `npm audit --omit=dev`.
 
-Before implementation:
+Verification completed:
 
-- approve the framework/dependency upgrade as a dedicated release;
-- review official migration and security notes;
-- record current production runtime and deployment configuration;
-- run the full harness, build, API smoke checks, PWA checks, and consolidated Market/Research
-  browser regression;
-- verify no middleware, image optimization, Server Action, caching, or deployment behavior
-  regresses.
+- official Next.js and dependency advisory versions were checked before selecting the target;
+- lint, typecheck, the full repository harness, and the production build pass;
+- US, Malaysia, and invalid-parameter signal API smoke checks pass;
+- the static PWA harness and full production PWA browser matrix pass;
+- production Market and Research routes pass at 1280px, 768px, and 375px with no blocking
+  console, page, request, response, or document-overflow failures; and
+- the repeatable production performance probe completes for both routes.
 
-Do not mix this upgrade with a product feature.
+The full development-dependency audit still reports seven toolchain findings. They are not
+present in the production dependency audit and should be handled as a separate maintenance
+slice after tracing their owning packages. Production deployment configuration and deployed
+runtime behavior remain unverified until release.
 
 ### 2. Malaysia Data Parity
 
