@@ -28,6 +28,7 @@ import { trackProductAnalyticsEvent } from '@/lib/product-analytics-client';
 import { PortfolioHoldingsImportV6 } from './PortfolioHoldingsImportV6';
 import { PortfolioTransactionImportV6 } from './PortfolioTransactionImportV6';
 import { PortfolioTransactionReconciliationV6 } from './PortfolioTransactionReconciliationV6';
+import { PortfolioCoveredAttributionV6 } from './PortfolioCoveredAttributionV6';
 import { PortfolioWhatIfSandboxV6 } from './PortfolioWhatIfSandboxV6';
 import { PortfolioFactorExposureV6 } from './PortfolioFactorExposureV6';
 import type { ResearchUpdateMode } from '@/lib/types/research';
@@ -200,6 +201,7 @@ export const PortfolioRiskCockpitV6 = ({ records, items, theme, saving, saveErro
             <PortfolioHoldingsImportV6 records={records} items={items} theme={theme} onOpen={onOpen} />
             <PortfolioTransactionImportV6 theme={theme} />
             <PortfolioTransactionReconciliationV6 theme={theme} />
+            <PortfolioCoveredAttributionV6 items={items} theme={theme} />
             <PortfolioFactorExposureV6 records={records} items={items} theme={theme} saving={saving} saveError={saveError} onSave={onSave} />
             <PortfolioWhatIfSandboxV6 records={records} items={items} theme={theme} />
 

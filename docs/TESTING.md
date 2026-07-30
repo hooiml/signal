@@ -184,6 +184,16 @@ The deterministic one-session check covers exact quantity matches, quantity and 
 
 Use `--viewport 375` or `--screenshot-dir <path>` only for a focused rerun after a failure.
 
+### Targeted Covered Portfolio Attribution QA
+
+For evidence-limited, browser-local contribution reporting, run:
+
+```powershell
+npm run qa:portfolio-attribution -- --base-url http://127.0.0.1:3000
+```
+
+The deterministic check covers exact covered holdings, incomplete transaction history, unavailable prices, currency-scoped dividends/fees/taxes, unavailable realized and FX contribution, empty and invalid source states, source immutability, request privacy, document overflow, and blocking console/page/request failures at 1280px, 768px, and 375px.
+
 ### Targeted Portfolio What-If QA
 
 For the session-only pre-trade sandbox, run:

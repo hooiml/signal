@@ -110,6 +110,7 @@ import {
     previewPortfolioTransactionImportEffect,
 } from '../../src/lib/portfolio/transactions';
 import { buildPortfolioTransactionReconciliation } from '../../src/lib/portfolio/transaction-reconciliation';
+import { buildCoveredPortfolioAttribution } from '../../src/lib/portfolio/performance-attribution';
 import {
     buildDividendDiscoveryPath,
     calculateIllustrativeGrossDividend,
@@ -1699,6 +1700,70 @@ const runPortfolioTransactionReconciliationTests = () => {
         () => buildPortfolioTransactionReconciliation(holdings, unsafeAmount),
         'transaction reconciliation fails closed when cash exceeds safe decimal precision',
     );
+};
+
+const runCoveredPortfolioAttributionTests = () => {
+    const holdings = createPortfolioImportSnapshot({
+        holdings: [
+            { accountLabel: 'Main', symbol: 'MSFT', market: 'US', quantity: 10, averageCost: 400, currency: 'USD' },
+            { accountLabel: 'Main', symbol: 'NVDA', market: 'US', quantity: 5, averageCost: 100, currency: 'USD' },
+            { accountLabel: 'Main', symbol: '1155.KL', market: 'MY', quantity: 100, averageCost: 9, currency: 'MYR' },
+        ],
+        cashBalances: [],
+    }, 'Holdings snapshot', '2026-07-30T02:00:00.000Z');
+    const transactions = createPortfolioTransactionImportSnapshot(
+        parsePortfolioTransactionCsv([
+            'transaction_id,account_label,type,date,market,symbol,quantity,amount,currency',
+            'buy-msft,Main,buy,2026-07-01,US,MSFT,12,4800,USD',
+            'sell-msft,Main,sell,2026-07-02,US,MSFT,2,900,USD',
+            'buy-nvda,Main,buy,2026-07-01,US,NVDA,5,500,USD',
+            'div-msft,Main,dividend,2026-07-03,US,MSFT,,15,USD',
+            'fee-msft,Main,fee,2026-07-03,US,MSFT,,5,USD',
+            'tax-msft,Main,tax,2026-07-03,US,MSFT,,3,USD',
+        ].join('\n'), '2026-07-30'),
+        'Broker history',
+        '2026-07-30T03:00:00.000Z',
+    );
+    const beforeHoldings = JSON.stringify(holdings);
+    const beforeTransactions = JSON.stringify(transactions);
+    const reconciliation = buildPortfolioTransactionReconciliation(holdings, transactions);
+    const attribution = buildCoveredPortfolioAttribution(
+        holdings,
+        transactions,
+        reconciliation,
+        new Map([
+            ['US:MSFT', 450],
+            ['US:NVDA', null],
+            ['MY:1155.KL', 10],
+        ]),
+    );
+    const msft = attribution.holdings.find((row) => row.symbol === 'MSFT');
+    assertEqual(msft?.status, 'covered', 'attribution covers only exact reconciled holdings with a current price');
+    assertEqual(msft?.costBasis, 4000, 'attribution uses the accepted snapshot average cost');
+    assertEqual(msft?.marketValue, 4500, 'attribution uses the exact current price');
+    assertEqual(msft?.unrealizedPriceContribution, 500, 'attribution calculates covered unrealized price contribution');
+    assertEqual(
+        attribution.holdings.find((row) => row.symbol === 'NVDA')?.unavailableReason,
+        'price-unavailable',
+        'attribution preserves missing current prices as unavailable',
+    );
+    assertEqual(
+        attribution.holdings.find((row) => row.symbol === '1155.KL')?.unavailableReason,
+        'incomplete-transaction-history',
+        'attribution excludes holdings without reconciled transaction history',
+    );
+    const usd = attribution.currencies.find((row) => row.currency === 'USD');
+    assertEqual(usd?.holdingsCovered, 1, 'attribution reports its exact holdings coverage denominator');
+    assertEqual(usd?.holdingsTotal, 2, 'attribution keeps uncovered holdings in the denominator');
+    assertEqual(usd?.unrealizedPriceContribution, 500, 'currency summary includes only covered unrealized contribution');
+    assertEqual(usd?.dividends, 15, 'attribution reports explicit dividends separately');
+    assertEqual(usd?.fees, 5, 'attribution reports explicit fees separately');
+    assertEqual(usd?.taxes, 3, 'attribution reports explicit taxes separately');
+    assertEqual(usd?.realizedPriceContribution, null, 'realized contribution remains unavailable without proven lots');
+    assertEqual(usd?.saleTransactions, 1, 'realized coverage discloses the number of excluded sale rows');
+    assertEqual(usd?.fxContribution, null, 'FX contribution remains unavailable without an explicit FX contract');
+    assertEqual(JSON.stringify(holdings), beforeHoldings, 'attribution never mutates holdings');
+    assertEqual(JSON.stringify(transactions), beforeTransactions, 'attribution never mutates transactions');
 };
 
 const runDividendCashFlowTests = async () => {
@@ -3749,6 +3814,7 @@ const main = async () => {
     runPortfolioHoldingsImportTests();
     runPortfolioTransactionImportTests();
     runPortfolioTransactionReconciliationTests();
+    runCoveredPortfolioAttributionTests();
     await runDividendCashFlowTests();
     runPortfolioSimulationTests();
     runPortfolioFactorExposureTests();
