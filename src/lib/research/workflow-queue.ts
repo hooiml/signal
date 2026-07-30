@@ -29,6 +29,22 @@ export const researchWorkflowSources = [
 
 export type ResearchWorkflowSource = typeof researchWorkflowSources[number];
 
+export const researchWorkflowSourceLabels: Readonly<Record<ResearchWorkflowSource, string>> = {
+    manual: 'Manual',
+    'thesis-change': 'Thesis change',
+    'evidence-coverage': 'Evidence coverage',
+    'policy-guardrail': 'Policy guardrail',
+    'document-diff': 'Filing evidence',
+    calendar: 'Calendar',
+    alert: 'Alert',
+    'structured-trigger': 'Structured trigger',
+    'market-exposure': 'Market exposure',
+    'factor-exposure': 'Factor exposure',
+    'dividend-cashflow': 'Dividend / cash flow',
+    'portfolio-holdings': 'Portfolio holdings',
+    'portfolio-reconciliation': 'Portfolio reconciliation',
+};
+
 export type ResearchWorkflowSourceDestination =
     | { readonly kind: 'market'; readonly pathname: '/' }
     | {

@@ -32,8 +32,9 @@ const categoryLabels: Readonly<Record<EvidenceDocumentCategory, string>> = {
     other: 'Other evidence',
 };
 
-export const EvidenceDocumentDiffV6 = ({ records, theme, saving, saveError, onSave, onOpen }: {
+export const EvidenceDocumentDiffV6 = ({ records, initialSymbol = null, theme, saving, saveError, onSave, onOpen }: {
     readonly records: readonly ResearchRecord[];
+    readonly initialSymbol?: string | null;
     readonly theme: ResearchThemeV6;
     readonly saving: boolean;
     readonly saveError: string | null;
@@ -41,7 +42,11 @@ export const EvidenceDocumentDiffV6 = ({ records, theme, saving, saveError, onSa
     readonly onOpen: (symbol: string) => void;
 }) => {
     const styles = getThemeV6(theme);
-    const [symbol, setSymbol] = useState(records[0]?.symbol ?? '');
+    const [symbol, setSymbol] = useState(
+        initialSymbol && records.some((item) => item.symbol === initialSymbol)
+            ? initialSymbol
+            : records[0]?.symbol ?? '',
+    );
     const [filter, setFilter] = useState<DiffFilter>('all');
     const [category, setCategory] = useState<EvidenceDocumentCategory | 'all'>('all');
     const [showUnchanged, setShowUnchanged] = useState(false);

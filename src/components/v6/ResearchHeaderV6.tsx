@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { Market } from '@/components/research/ResearchDashboardV2';
 import type { ResearchActionV6, ResearchThemeV6 } from './research-v6';
 import { AppNavV6 } from './AppNavV6';
-import type { AppCommandV6 } from './CommandPaletteV6';
+import type { AppCommandV6, AppLocalSearchV6 } from './CommandPaletteV6';
 
 export type ResearchMarketFilterV6 = 'ALL' | Market;
 export type ResearchActionFilterV6 = 'ALL' | ResearchActionV6;
@@ -22,6 +22,7 @@ type ResearchHeaderV6Props = {
     onActionChange: (action: ResearchActionFilterV6) => void;
     onThemeToggle: () => void;
     commands: readonly AppCommandV6[];
+    localSearch: AppLocalSearchV6;
 };
 
 const actionOptions: Array<{ value: ResearchActionFilterV6; label: string }> = [
@@ -46,6 +47,7 @@ export const ResearchHeaderV6 = ({
     onActionChange,
     onThemeToggle,
     commands,
+    localSearch,
 }: ResearchHeaderV6Props) => {
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
     const isLight = theme === 'light';
@@ -77,7 +79,7 @@ export const ResearchHeaderV6 = ({
     const regionSegmentClass = (active: boolean) => `min-h-8 rounded-[6px] px-3 text-sm font-semibold transition-colors active:scale-[0.98] ${focusClass} ${active ? 'bg-[var(--fill-success)] text-[var(--on-success)]' : 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--border)] hover:text-[var(--text-primary)]'}`;
 
     return (
-        <AppNavV6 active="research" theme={theme} onThemeToggle={onThemeToggle} commands={commands}>
+        <AppNavV6 active="research" theme={theme} onThemeToggle={onThemeToggle} commands={commands} localSearch={localSearch}>
             {showResearchControls ? <div aria-label="Research controls">
             <div className="min-[1024px]:hidden">
                 <div className="flex gap-2">

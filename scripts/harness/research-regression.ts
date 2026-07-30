@@ -225,6 +225,12 @@ import {
     type ResearchWorkflowTask,
 } from '../../src/lib/research/workflow-queue';
 import {
+    buildLocalResearchSearchIndex,
+    localResearchSearchGroups,
+    localResearchSearchLimits,
+    searchLocalResearchIndex,
+} from '../../src/lib/research/local-search';
+import {
     applyDiscoveryUniversePolicy,
     defaultDiscoveryUniversePolicy,
     parseDiscoveryUniversePolicy,
@@ -735,6 +741,123 @@ const runResearchWorkflowQueueTests = () => {
         dedupeKey: 'structured-trigger:MSFT:rsi-rule', dueAt: '2026-07-27',
     }, '99999999-9999-4999-8999-999999999999', '2026-07-27T02:00:00.000Z');
     assertEqual(secondTrigger.tasks.length, 2, 'workflow queue preserves distinct matched rules even when their templates match');
+};
+
+const runLocalResearchSearchTests = () => {
+    const base = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
+    const citationDraft = {
+        id: '0000789019-26-000001',
+        market: 'US' as const,
+        symbol: 'MSFT',
+        sourceKind: '10-Q' as const,
+        publicationDate: '2026-07-20',
+        reportingPeriod: '2026-06-30',
+        title: 'Microsoft quarterly filing',
+        sourceUrl: 'https://www.sec.gov/Archives/edgar/data/789019/000078901926000001/msft-20260630.htm?private-marker=do-not-index',
+        providerLabel: 'SEC EDGAR',
+        location: 'Risk factors, page 42',
+        excerpt: 'PRIVATE-FILING-EXCERPT must remain outside the search index.',
+        capturedAt: '2026-07-20T12:00:00.000Z',
+        captureMethod: 'sec-official' as const,
+    };
+    const citation: ResearchDocumentCitation = {
+        ...citationDraft,
+        contentDigest: researchDocumentContentDigest(citationDraft),
+    };
+    const record = {
+        ...base,
+        whyInterested: 'Durable enterprise demand and pricing power support the research case.',
+        notes: 'Review renewal evidence before the next decision.',
+        acceptedEvidence: [{
+            id: 'accepted-revenue',
+            title: 'Annual revenue evidence',
+            summary: 'Revenue growth remained positive.',
+            target: 'bullCase' as const,
+            tone: 'positive' as const,
+            mode: 'evidence' as const,
+            acceptedAt: '2026-07-20T12:00:00.000Z',
+            sources: [{
+                id: 'source-revenue',
+                label: 'Annual revenue growth',
+                value: 'PRIVATE-EVIDENCE-VALUE',
+                source: 'SEC Company Facts',
+                sourceUrl: 'https://data.sec.gov/private-search-marker',
+                reportingPeriod: '2026-06-30',
+            }],
+        }],
+        documentEvidence: { version: 1 as const, migrationState: 'current' as const, citations: [citation] },
+    };
+    const queueTask: ResearchWorkflowTask = {
+        id: '11111111-1111-4111-8111-111111111111',
+        symbol: 'MSFT',
+        templateId: 'post-event',
+        source: 'document-diff',
+        dedupeKey: 'PRIVATE-QUEUE-DEDUPE-KEY',
+        dueAt: '2026-07-30',
+        createdAt: '2026-07-20T12:00:00.000Z',
+        completedAt: null,
+    };
+    const beforeRecord = JSON.stringify(record);
+    const beforeQueue = JSON.stringify(queueTask);
+    const index = buildLocalResearchSearchIndex([record], [queueTask]);
+    assertEqual(
+        localResearchSearchGroups.every((group) => index.some((item) => item.group === group)),
+        true,
+        'local research search builds every accepted owner group',
+    );
+    assertEqual(searchLocalResearchIndex(index, 'msft').results[0]?.group, 'Ticker', 'exact ticker matches rank first');
+    const thesis = searchLocalResearchIndex(index, 'pricing power').results[0];
+    assertEqual(thesis?.group, 'Research', 'authored thesis text is searchable in the browser-local index');
+    assertEqual(thesis?.destination.workspace, 'research', 'thesis results open the owning Research record');
+    assertEqual(thesis?.snippet.includes('pricing power'), true, 'authored matches show a short local snippet');
+    const evidence = searchLocalResearchIndex(index, 'SEC Company Facts').results[0];
+    assertEqual(evidence?.group, 'Evidence', 'accepted-evidence source titles are searchable');
+    assertEqual(evidence?.destination.workspace, 'research', 'accepted evidence opens the owning Research record');
+    const filing = searchLocalResearchIndex(index, '0000789019-26-000001').results[0];
+    assertEqual(filing?.group, 'Filings', 'filing identifiers are searchable');
+    assertEqual(filing?.destination.workspace, 'filings', 'filing results open the owning Filings workspace');
+    assertEqual(filing?.destination.symbol, 'MSFT', 'filing results preserve exact ticker context');
+    const queue = searchLocalResearchIndex(index, 'Filing evidence').results[0];
+    assertEqual(queue?.group, 'Queue', 'fixed Queue source metadata is searchable');
+    assertEqual(queue?.destination.workspace, 'queue', 'Queue results open the Queue owner');
+    assertEqual(
+        queue?.destination.workspace === 'queue' ? queue.destination.taskId : null,
+        queueTask.id,
+        'Queue results retain the exact task destination',
+    );
+    assertEqual(searchLocalResearchIndex(index, 'P').results.length, 0, 'single-character local queries do not scan authored text');
+    assertEqual(searchLocalResearchIndex(index, 'PRIVATE-EVIDENCE-VALUE').results.length, 0, 'evidence values stay outside the search index');
+    assertEqual(searchLocalResearchIndex(index, 'PRIVATE-FILING-EXCERPT').results.length, 0, 'filing excerpts stay outside the search index');
+    assertEqual(searchLocalResearchIndex(index, 'PRIVATE-QUEUE-DEDUPE-KEY').results.length, 0, 'Queue dedupe keys stay outside the search index');
+    const serializedIndex = JSON.stringify(index);
+    assertEqual(serializedIndex.includes('private-search-marker'), false, 'source URLs stay outside the local search index');
+    assertEqual(serializedIndex.includes('private-marker'), false, 'filing URLs stay outside the local search index');
+    assertEqual(JSON.stringify(record), beforeRecord, 'building the local index does not mutate research records');
+    assertEqual(JSON.stringify(queueTask), beforeQueue, 'building the local index does not mutate Queue state');
+
+    const manyRecords = Array.from({ length: 20 }, (_, indexValue) => ({
+        ...createResearchRecord({
+            symbol: `S${indexValue}`,
+            market: 'US',
+            companyName: `Search Fixture ${indexValue}`,
+        }),
+        whyInterested: `Shared bounded phrase ${indexValue}`,
+    }));
+    const largeIndex = buildLocalResearchSearchIndex(manyRecords, []);
+    const largeSearch = searchLocalResearchIndex(largeIndex, 'shared bounded phrase');
+    assertEqual(largeSearch.totalMatches, 20, 'large local result sets retain the deterministic total');
+    assertEqual(largeSearch.results.length, localResearchSearchLimits.resultsPerGroup, 'large local result sets are capped per owner');
+    assertEqual(largeSearch.truncated, true, 'large local result sets disclose truncation');
+    assertEqual(
+        JSON.stringify(searchLocalResearchIndex(largeIndex, 'shared bounded phrase')),
+        JSON.stringify(largeSearch),
+        'identical local inputs produce identical search order and snippets',
+    );
+    assertEqual(
+        largeSearch.results.every((result) => result.snippet.length <= localResearchSearchLimits.snippetLength + 2),
+        true,
+        'local search snippets remain bounded',
+    );
 };
 
 const runEvidenceCoverageTests = () => {
@@ -4036,6 +4159,7 @@ const main = async () => {
     runThesisChangeTests();
     runMarketSensitivityTests();
     runResearchWorkflowQueueTests();
+    runLocalResearchSearchTests();
     runEvidenceCoverageTests();
     runInvestmentPolicyTests();
     runCurrencyPerformanceTests();

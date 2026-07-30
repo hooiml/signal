@@ -4,17 +4,18 @@ import Link from 'next/link';
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ThemeModeSwitchV2 } from '@/components/ThemeModeSwitchV2';
 import type { ResearchThemeV6 } from './research-v6';
-import { CommandPaletteV6, type AppCommandV6 } from './CommandPaletteV6';
+import { CommandPaletteV6, type AppCommandV6, type AppLocalSearchV6 } from './CommandPaletteV6';
 
 type AppNavV6Props = {
     active: 'market' | 'research';
     theme: ResearchThemeV6;
     onThemeToggle: () => void;
     commands?: readonly AppCommandV6[];
+    localSearch?: AppLocalSearchV6;
     children?: ReactNode;
 };
 
-export const AppNavV6 = ({ active, theme, onThemeToggle, commands = [], children }: AppNavV6Props) => {
+export const AppNavV6 = ({ active, theme, onThemeToggle, commands = [], localSearch, children }: AppNavV6Props) => {
     const [paletteOpen, setPaletteOpen] = useState(false);
     const headerVars = {
         '--border': theme === 'light' ? 'rgba(15, 23, 42, 0.12)' : 'rgba(148, 163, 184, 0.22)',
@@ -83,7 +84,7 @@ export const AppNavV6 = ({ active, theme, onThemeToggle, commands = [], children
                 {children ? <div className="border-t-[0.5px] border-[var(--border)] py-2">{children}</div> : null}
             </div>
         </header>
-        <CommandPaletteV6 commands={allCommands} theme={theme} open={paletteOpen} onOpenChange={setPaletteOpen} />
+        <CommandPaletteV6 commands={allCommands} localSearch={localSearch} theme={theme} open={paletteOpen} onOpenChange={setPaletteOpen} />
         </>
     );
 };

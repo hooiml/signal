@@ -11,13 +11,23 @@ import {
 export const RESEARCH_WORKFLOW_QUEUE_STORAGE_KEY = 'signal-research-workflow-queue-v1';
 export const RESEARCH_WORKFLOW_QUEUE_CHANGE_EVENT = 'signal:research-workflow-queue-change';
 
-export const readResearchWorkflowTasks = (): readonly ResearchWorkflowTask[] => {
+export type ResearchWorkflowTaskReadResult =
+    | { readonly status: 'ready'; readonly tasks: readonly ResearchWorkflowTask[] }
+    | { readonly status: 'unavailable'; readonly tasks: readonly [] };
+
+export const readResearchWorkflowTaskState = (): ResearchWorkflowTaskReadResult => {
     try {
-        return parseResearchWorkflowTasks(JSON.parse(localStorage.getItem(RESEARCH_WORKFLOW_QUEUE_STORAGE_KEY) ?? '[]'));
+        return {
+            status: 'ready',
+            tasks: parseResearchWorkflowTasks(JSON.parse(localStorage.getItem(RESEARCH_WORKFLOW_QUEUE_STORAGE_KEY) ?? '[]')),
+        };
     } catch {
-        return [];
+        return { status: 'unavailable', tasks: [] };
     }
 };
+
+export const readResearchWorkflowTasks = (): readonly ResearchWorkflowTask[] =>
+    readResearchWorkflowTaskState().tasks;
 
 export const writeResearchWorkflowTasks = (tasks: readonly ResearchWorkflowTask[]) => {
     const validated = parseResearchWorkflowTasks(tasks);

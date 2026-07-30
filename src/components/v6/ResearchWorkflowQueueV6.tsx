@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
     getResearchWorkflowSourceDestination,
     getResearchWorkflowTemplate,
+    researchWorkflowSourceLabels,
     researchWorkflowTemplates,
     sortResearchWorkflowTasks,
     upsertResearchWorkflowTask,
@@ -23,22 +24,6 @@ import type { ProductAnalyticsSource } from '@/lib/types/product-analytics';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import { currentProductAnalyticsWorkflowSource, trackProductAnalyticsEvent } from '@/lib/product-analytics-client';
 
-const sourceLabels: Readonly<Record<ResearchWorkflowSource, string>> = {
-    manual: 'Manual',
-    'thesis-change': 'Thesis change',
-    'evidence-coverage': 'Evidence coverage',
-    'policy-guardrail': 'Policy guardrail',
-    'document-diff': 'Filing evidence',
-    calendar: 'Calendar',
-    alert: 'Alert',
-    'structured-trigger': 'Structured trigger',
-    'market-exposure': 'Market exposure',
-    'factor-exposure': 'Factor exposure',
-    'dividend-cashflow': 'Dividend / cash flow',
-    'portfolio-holdings': 'Portfolio holdings',
-    'portfolio-reconciliation': 'Portfolio reconciliation',
-};
-
 const portfolioAnalyticsSource = (
     source: ResearchWorkflowSource,
 ): Extract<ProductAnalyticsSource, 'portfolio_holdings' | 'portfolio_reconciliation'> | null =>
@@ -48,8 +33,9 @@ const portfolioAnalyticsSource = (
             ? 'portfolio_reconciliation'
             : null;
 
-export const ResearchWorkflowQueueV6 = ({ records, theme, onStart, onOpenSource }: {
+export const ResearchWorkflowQueueV6 = ({ records, selectedTaskId = null, theme, onStart, onOpenSource }: {
     readonly records: readonly ResearchRecord[];
+    readonly selectedTaskId?: string | null;
     readonly theme: ResearchThemeV6;
     readonly onStart: (symbol: string, templateId: ResearchWorkflowTemplateId) => void;
     readonly onOpenSource: (destination: ResearchWorkflowSourceDestination) => void;
@@ -77,6 +63,16 @@ export const ResearchWorkflowQueueV6 = ({ records, theme, onStart, onOpenSource 
             window.removeEventListener('storage', refreshFromStorage);
         };
     }, []);
+
+    useEffect(() => {
+        if (!selectedTaskId || !tasks.some((task) => task.id === selectedTaskId)) return;
+        const frame = window.requestAnimationFrame(() => {
+            const selectedTask = document.getElementById(`research-queue-task-${selectedTaskId}`);
+            selectedTask?.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+            selectedTask?.focus({ preventScroll: true });
+        });
+        return () => window.cancelAnimationFrame(frame);
+    }, [selectedTaskId, tasks]);
 
     const updateTasks = (next: readonly ResearchWorkflowTask[]) => setTasks(writeResearchWorkflowTasks(next));
     const createTask = () => {
@@ -134,12 +130,20 @@ export const ResearchWorkflowQueueV6 = ({ records, theme, onStart, onOpenSource 
                         const sourceDestination = getResearchWorkflowSourceDestination(task.source);
                         const analyticsSource = portfolioAnalyticsSource(task.source);
                         const isOverdue = task.completedAt === null && task.dueAt !== null && task.dueAt < today;
-                        return <li key={task.id} className={'py-4 ' + (task.completedAt ? 'opacity-65' : '')}>
+                        return <li
+                            id={`research-queue-task-${task.id}`}
+                            key={task.id}
+                            tabIndex={-1}
+                            aria-current={task.id === selectedTaskId ? 'true' : undefined}
+                            className={'rounded py-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 '
+                                + (task.id === selectedTaskId ? `px-3 ${styles.selectedRow} ` : '')
+                                + (task.completedAt ? 'opacity-65' : '')}
+                        >
                             <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <p className={'text-sm font-bold ' + styles.textPrimary}>{task.symbol} · {template.name}</p>
-                                        <span className={'rounded border px-2 py-0.5 text-[10px] font-bold uppercase ' + styles.row}>{sourceLabels[task.source]}</span>
+                                        <span className={'rounded border px-2 py-0.5 text-[10px] font-bold uppercase ' + styles.row}>{researchWorkflowSourceLabels[task.source]}</span>
                                         {isOverdue ? <span className={'rounded border px-2 py-0.5 text-[10px] font-bold uppercase ' + styles.risk}>Overdue</span> : null}
                                         {task.completedAt ? <span className={'rounded border px-2 py-0.5 text-[10px] font-bold uppercase ' + styles.positive}>Completed</span> : null}
                                     </div>
@@ -149,7 +153,7 @@ export const ResearchWorkflowQueueV6 = ({ records, theme, onStart, onOpenSource 
                                 <div className="flex shrink-0 flex-wrap gap-2">
                                     {sourceDestination ? <button
                                         type="button"
-                                        aria-label={`Open ${sourceLabels[task.source]} source`}
+                                        aria-label={`Open ${researchWorkflowSourceLabels[task.source]} source`}
                                         onClick={() => {
                                             if (analyticsSource) {
                                                 trackProductAnalyticsEvent({

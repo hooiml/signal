@@ -19,7 +19,7 @@ activation, dependency upgrades, or destructive operations by itself.
 
 ## Baseline
 
-- Reviewed against `main` at `e0b4fcd` on 2026-07-30.
+- Reviewed against `main` at `356188b` on 2026-07-30.
 - Signal already has substantial Market, Research, Portfolio, evidence, alerting, continuity,
   outcome, and workflow functionality.
 - Research currently exposes 22 workspaces across seven navigation sections.
@@ -78,7 +78,7 @@ Only one item may have status `In progress` at a time.
 | ---: | --- | --- | --- | --- |
 | 0 | Observe Today and Usage | Observing | Validate the daily workflow before changing navigation defaults | 30 active-use days or two review cycles |
 | 1 | Today 2.0 action home | Verified implementation; promotion gated | Make the next useful action obvious | Task 0 promotion gate |
-| 2 | Universal local research search | Proposed | Find existing research and workflow state quickly | Reuse the current command palette and local data |
+| 2 | Universal local research search | Verified | Find existing research and workflow state quickly | Reuses the current command palette and validated local owner state |
 | 3 | First-run setup and guided demo | Proposed, audience-gated | Help a new user reach a first useful review | Confirm intended audience beyond the current operator |
 | 4 | Research readiness strip | Proposed | Show what is complete, stale, blocked, or due for one ticker | Reuse existing Evidence, Policy, trigger, and review state |
 | 5 | Pinned workspaces and attention badges | Proposed | Reduce navigation friction without unstable automatic reordering | Use existing loaded counts; avoid new fetches |
@@ -209,7 +209,7 @@ still need to reconstruct their next action across Activity workspaces.
 
 ### Task 2 — Universal Local Research Search
 
-**Status:** Proposed
+**Status:** Verified
 
 **Problem**
 
@@ -250,6 +250,28 @@ task.
 
 - Users reach an existing detailed record without navigating through multiple workspace groups.
 - Command-palette usage leads to more completed reviews without increasing abandoned opens.
+
+**Implementation evidence — 2026-07-30**
+
+- The existing shared command palette now builds a deterministic browser-only index after saved
+  research passes the normal record parser and Queue state passes its existing local-storage
+  parser. It searches only ticker/company identity, seven bounded authored thesis fields,
+  accepted-evidence titles and source labels, bounded primary-document titles/identifiers, and
+  fixed Queue template/source metadata.
+- Indexing is capped at 100 records, 25 accepted findings and 25 citations per record, and 100
+  Queue tasks. Queries require two characters, are capped at 80 characters, and return at most
+  eight results per owner group with an explicit truncation message.
+- Ticker, Research, and Evidence results open the exact ticker Overview; Filings results open the
+  selected ticker in Filings; Queue results restore and focus the exact validated task. Existing
+  URL parameters outside those owned destinations remain intact.
+- Search input, authored snippets, evidence values, filing excerpts/URLs, Queue dedupe keys, and
+  matched content create no search request or analytics event. Selecting a result does not save,
+  acknowledge, complete, or otherwise mutate Research or Queue state.
+- Loading and independently degraded saved-record or Queue-storage states retain the valid owner
+  results that remain available. Empty and large-result states are explicit.
+- Focused regression, lint, typecheck, full harness, production build, and consolidated browser
+  checks passed at 1280 px, 768 px, and 375 px with keyboard navigation, focus restoration,
+  exact destinations, privacy/non-mutation assertions, and no document overflow.
 
 ---
 
@@ -578,3 +600,4 @@ Update this table only when a task changes state or scope.
 | 2026-07-30 | 0 | Proposed | Observing | Existing Today and privacy-safe Usage funnels are available; collect approximately 30 active-use days or two review cycles. |
 | 2026-07-30 | 0 | Observing | Observing | Visible local baseline has no prior Today or Portfolio-to-Queue activity. Added only the missing correlated Today destination-reach metric; the real-use window and manual notes remain outstanding. |
 | 2026-07-30 | 1 | Proposed, gated | Verified implementation; promotion gated | Existing deterministic priority and owner contracts now form a responsive action home with strict local continuation, fixed return context, independent degradation, and bounded analytics. Watchlist remains the default while Task 0 observes real use. |
+| 2026-07-30 | 2 | Proposed | Verified | The shared command palette now searches bounded validated local Research, Evidence, Filings, and Queue owner state with deterministic caps, exact non-mutating destinations, independent degradation, and no search network or analytics content path. |

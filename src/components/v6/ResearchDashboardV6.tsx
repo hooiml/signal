@@ -32,9 +32,19 @@ import { parseMarketResearchHandoff } from '@/lib/market-research-handoff';
 import { PositionPlanOverviewV6 } from './PositionPlanOverviewV6';
 import { ResearchLayoutControlsV6 } from './ResearchLayoutControlsV6';
 import { ResearchWorkspaceBoundaryV6 } from './ResearchWorkspaceBoundaryV6';
-import type { AppCommandV6 } from './CommandPaletteV6';
+import type { AppCommandV6, AppLocalSearchV6 } from './CommandPaletteV6';
 import type { ResearchLayoutDensity, SavedResearchLayout } from '@/lib/research/saved-layouts';
 import type { ResearchWorkflowTemplateId } from '@/lib/research/workflow-queue';
+import {
+    buildLocalResearchSearchIndex,
+    type LocalResearchSearchResult,
+} from '@/lib/research/local-search';
+import {
+    readResearchWorkflowTaskState,
+    RESEARCH_WORKFLOW_QUEUE_CHANGE_EVENT,
+    RESEARCH_WORKFLOW_QUEUE_STORAGE_KEY,
+    type ResearchWorkflowTaskReadResult,
+} from '@/lib/research/workflow-queue-client';
 import { buildResearchRelativeUrl, mergeResearchSearchParams, resolveVisibleResearchSymbol, type ResearchUrlChanges } from '@/lib/research/url-state';
 import {
     clearProductAnalyticsWorkflowSource,
@@ -174,6 +184,10 @@ export const ResearchDashboardV6 = () => {
     const requestedWorkspace = searchParams.get('workspace');
     const requestedDetailTab = searchParams.get('tab');
     const requestedReview = searchParams.get('review');
+    const rawRequestedQueueTask = searchParams.get('queueTask');
+    const requestedQueueTask = rawRequestedQueueTask && /^[a-f0-9-]{36}$/i.test(rawRequestedQueueTask)
+        ? rawRequestedQueueTask
+        : null;
     const returnsToToday = searchParams.get('returnTo') === 'today';
     const marketHandoff = useMemo(() => parseMarketResearchHandoff(searchParams), [searchParams]);
     const initialSymbol = requestedSymbol;
@@ -197,6 +211,7 @@ export const ResearchDashboardV6 = () => {
     const [workflowTemplateId, setWorkflowTemplateId] = useState<ResearchWorkflowTemplateId | null>(null);
     const [density, setDensity] = useState<ResearchLayoutDensity>('comfortable');
     const [savedLayouts, setSavedLayouts] = useState<readonly SavedResearchLayout[]>([]);
+    const [queueSearchState, setQueueSearchState] = useState<ResearchWorkflowTaskReadResult | null>(null);
     const liveSnapshots = useRef(new Map<string, ResearchSnapshot>());
     const liveQuotes = useRef(new Map<string, ResearchSnapshot['quote']>());
     const quoteItems = useRef(items);
@@ -265,7 +280,7 @@ export const ResearchDashboardV6 = () => {
 
     const changeWorkspace = (nextWorkspace: ResearchWorkspaceV6) => {
         setWorkspace(nextWorkspace);
-        updateUrl({ workspace: nextWorkspace }, 'push');
+        updateUrl({ workspace: nextWorkspace, queueTask: null }, 'push');
     };
 
     const filteredItems = useMemo(() => filterResearchItems(items, query, market, action), [action, items, market, query]);
@@ -353,6 +368,20 @@ export const ResearchDashboardV6 = () => {
     }, []);
 
     useEffect(() => {
+        const refresh = () => setQueueSearchState(readResearchWorkflowTaskState());
+        const refreshFromStorage = (event: StorageEvent) => {
+            if (event.key === RESEARCH_WORKFLOW_QUEUE_STORAGE_KEY) refresh();
+        };
+        refresh();
+        window.addEventListener(RESEARCH_WORKFLOW_QUEUE_CHANGE_EVENT, refresh);
+        window.addEventListener('storage', refreshFromStorage);
+        return () => {
+            window.removeEventListener(RESEARCH_WORKFLOW_QUEUE_CHANGE_EVENT, refresh);
+            window.removeEventListener('storage', refreshFromStorage);
+        };
+    }, []);
+
+    useEffect(() => {
         quoteItems.current = items;
     }, [items]);
 
@@ -409,6 +438,7 @@ export const ResearchDashboardV6 = () => {
             ticker: symbol,
             tab: tab === 'overview' ? null : tab,
             review: startReview ? 'edit' : null,
+            queueTask: null,
         }, historyMode);
         if (focusDetail) {
             window.setTimeout(() => {
@@ -435,6 +465,7 @@ export const ResearchDashboardV6 = () => {
             ticker: layout.ticker,
             tab: layout.tab === 'overview' ? null : layout.tab,
             review: null,
+            queueTask: null,
         }, 'push');
     };
 
@@ -449,6 +480,27 @@ export const ResearchDashboardV6 = () => {
         selectTicker(symbol, true, 'overview', false, 'push');
     };
     const openResearch = openResearchFrom('direct');
+
+    const openLocalSearchResult = (result: LocalResearchSearchResult) => {
+        const destination = result.destination;
+        if (destination.workspace === 'research') {
+            selectTicker(destination.symbol, true, destination.tab, false, 'push');
+            return;
+        }
+        setQuery('');
+        setMarket('ALL');
+        setAction('ALL');
+        setWorkspace(destination.workspace);
+        setSelectedSymbol(destination.symbol);
+        setReviewRequested(false);
+        updateUrl({
+            workspace: destination.workspace,
+            ticker: destination.symbol,
+            tab: null,
+            review: null,
+            queueTask: destination.workspace === 'queue' ? destination.taskId : null,
+        }, 'push');
+    };
 
     const changeDetailTab = (tab: ResearchTabV6) => {
         setActiveDetailTab(tab);
@@ -656,6 +708,35 @@ export const ResearchDashboardV6 = () => {
             run: () => applySavedLayout(layout),
         })),
     ];
+    const localSearchEntries = useMemo(
+        () => buildLocalResearchSearchIndex(
+            recordsLoadState === 'ready' ? records : [],
+            queueSearchState?.status === 'ready' ? queueSearchState.tasks : [],
+        ),
+        [queueSearchState, records, recordsLoadState],
+    );
+    const localSearch: AppLocalSearchV6 = {
+        status: recordsLoadState === 'ready' && queueSearchState?.status === 'ready'
+            ? 'ready'
+            : recordsLoadState === 'error' && queueSearchState?.status === 'unavailable'
+                ? 'error'
+                : recordsLoadState === 'loading' || queueSearchState === null
+                    ? 'loading'
+                    : 'degraded',
+        entries: localSearchEntries,
+        message: recordsLoadState === 'loading'
+            ? 'Saved research is still loading. Valid local Queue matches remain available.'
+            : recordsLoadState === 'error' && queueSearchState?.status === 'unavailable'
+                ? 'Saved research and local Queue storage are unavailable. Command navigation remains usable.'
+                : recordsLoadState === 'error'
+                    ? 'Saved research is unavailable. Valid local Queue matches remain searchable.'
+                    : queueSearchState === null
+                        ? 'Local Queue state is still loading. Saved research matches remain available.'
+                        : queueSearchState.status === 'unavailable'
+                            ? 'Local Queue storage is unavailable. Saved research matches remain searchable.'
+                            : null,
+        onSelect: openLocalSearchResult,
+    };
 
     const atmosphere = theme === 'light'
         ? 'bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.11),_transparent_28%),radial-gradient(circle_at_80%_10%,_rgba(100,116,139,0.1),_transparent_20%)]'
@@ -681,6 +762,7 @@ export const ResearchDashboardV6 = () => {
                 onActionChange={setAction}
                 onThemeToggle={toggleTheme}
                 commands={researchCommands}
+                localSearch={localSearch}
             />
             <div className="relative z-10 mx-auto w-full max-w-[1280px] px-4 pb-5 pt-4 min-[700px]:px-5">
                 <ResearchWorkspaceTabsV6 active={workspace} theme={theme} onChange={changeWorkspace} />
@@ -801,7 +883,7 @@ export const ResearchDashboardV6 = () => {
                     ) : workspace === 'changes' ? (
                         <ThesisChangeInboxV6 records={inboxRecords} theme={theme} onStage={stageThesisChange} />
                     ) : workspace === 'filings' ? (
-                        <EvidenceDocumentDiffV6 records={inboxRecords} theme={theme} saving={saving} saveError={saveError} onSave={saveRecord} onOpen={openResearchFrom('filings')} />
+                        <EvidenceDocumentDiffV6 key={selectedSymbol} records={inboxRecords} initialSymbol={selectedSymbol} theme={theme} saving={saving} saveError={saveError} onSave={saveRecord} onOpen={openResearchFrom('filings')} />
                     ) : workspace === 'evidence' ? (
                         <EvidenceCoverageDashboardV6 records={inboxRecords} theme={theme} onOpen={openResearchFrom('evidence')} />
                     ) : workspace === 'policy' ? (
@@ -809,6 +891,7 @@ export const ResearchDashboardV6 = () => {
                     ) : workspace === 'queue' ? (
                         <ResearchWorkflowQueueV6
                             records={inboxRecords}
+                            selectedTaskId={requestedQueueTask}
                             theme={theme}
                             onStart={startWorkflowReview}
                             onOpenSource={(destination) => {
