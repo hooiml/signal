@@ -91,10 +91,15 @@ Verification completed:
   console, page, request, response, or document-overflow failures; and
 - the repeatable production performance probe completes for both routes.
 
-The full development-dependency audit still reports seven toolchain findings. They are not
-present in the production dependency audit and should be handled as a separate maintenance
-slice after tracing their owning packages. Production deployment configuration and deployed
-runtime behavior remain unverified until release.
+The compatible development-toolchain remediation updates the lockfile to patched releases for
+`@babel/core`, `ajv`, `flatted`, `js-yaml`, `minimatch`, and `picomatch` without changing direct
+dependencies. One `brace-expansion` resource-exhaustion advisory remains in the ESLint dependency
+tree. npm's force-fix would apply an incompatible ESLint major change and an invalid
+`eslint-config-next` downgrade, while globally overriding `minimatch` would break consumers that
+still require its legacy callable export. Keep the residual dev-only advisory visible until the
+upstream ESLint plugin chain adopts a compatible patched matcher. It is not present in
+`npm audit --omit=dev`. Production deployment configuration and deployed runtime behavior remain
+unverified until release.
 
 ### 2. Malaysia Data Parity
 
