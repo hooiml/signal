@@ -2405,13 +2405,29 @@ const runProductAnalyticsTests = () => {
     const viewed = event('10000000-0000-4000-8000-000000000005', 'workspace_viewed', '2026-07-25T08:00:00.000Z', {
         workspace: 'portfolio',
     });
+    const queued = event('10000000-0000-4000-8000-000000000007', 'workflow_queued', '2026-07-25T08:01:00.000Z', {
+        workspace: 'portfolio',
+        source: 'portfolio_holdings',
+    });
+    const sourceOpened = event('10000000-0000-4000-8000-000000000008', 'workflow_source_opened', '2026-07-25T08:02:00.000Z', {
+        workspace: 'queue',
+        source: 'portfolio_holdings',
+    });
+    const workflowOpened = event('10000000-0000-4000-8000-000000000009', 'workflow_opened', '2026-07-25T08:03:00.000Z', {
+        workspace: 'queue',
+        source: 'portfolio_holdings',
+    });
+    const workflowCompleted = event('10000000-0000-4000-8000-000000000011', 'workflow_completed', '2026-07-25T08:04:00.000Z', {
+        workspace: 'queue',
+        source: 'portfolio_holdings',
+    });
     const old = event('10000000-0000-4000-8000-000000000006', 'workspace_viewed', '2025-01-01T00:00:00.000Z');
     const state = parseProductAnalyticsState({
         version: 1,
         enabled: true,
-        events: [opened, saved, exported, viewed, old, { ...viewed, id: 'invalid', attributes: { symbol: 'MSFT' } }],
+        events: [opened, saved, exported, viewed, queued, sourceOpened, workflowOpened, workflowCompleted, old, { ...viewed, id: 'invalid', attributes: { symbol: 'MSFT' } }],
     }, now);
-    assertEqual(state.events.length, 4, 'product analytics drops expired and malformed local events');
+    assertEqual(state.events.length, 8, 'product analytics drops expired and malformed local events');
     assertThrows(
         () => parseProductAnalyticsEvent({ ...opened, symbol: 'MSFT' }),
         'product analytics rejects unexpected content-bearing event keys',
@@ -2421,16 +2437,22 @@ const runProductAnalyticsTests = () => {
         'product analytics rejects malformed workflow correlation identifiers',
     );
     const appended = appendProductAnalyticsEvent(state, viewed, now);
-    assertEqual(appended.events.length, 4, 'product analytics deduplicates event ids');
+    assertEqual(appended.events.length, 8, 'product analytics deduplicates event ids');
     const summary = buildProductAnalyticsSummary(state.events, 7, now);
     assertEqual(summary.activeDays, 2, 'product analytics counts active UTC days');
     assertEqual(summary.sessions, 1, 'product analytics counts browser sessions without a user identifier');
-    assertEqual(summary.meaningfulActions, 3, 'product analytics excludes workspace views from meaningful actions');
+    assertEqual(summary.meaningfulActions, 7, 'product analytics excludes workspace views from meaningful actions');
     assertEqual(summary.reviewOpened, 1, 'product analytics counts guided review opens');
     assertEqual(summary.reviewSaved, 1, 'product analytics counts successful saved reviews');
     assertEqual(summary.reviewCompletionPercent, 100, 'product analytics derives bounded open-to-save completion');
     assertEqual(summary.guidedReviewSaved, 1, 'product analytics attributes a saved review to its workflow source');
     assertEqual(summary.packetExports, 1, 'product analytics counts decision packet exports');
+    assertEqual(summary.portfolioQueue[0]?.source, 'portfolio_holdings', 'product analytics groups the fixed holdings Queue source');
+    assertEqual(summary.portfolioQueue[0]?.queued, 1, 'product analytics counts privacy-safe Portfolio Queue creation');
+    assertEqual(summary.portfolioQueue[0]?.sourceOpened, 1, 'product analytics counts privacy-safe source reopening');
+    assertEqual(summary.portfolioQueue[0]?.reviewStarted, 1, 'product analytics counts privacy-safe Portfolio review starts');
+    assertEqual(summary.portfolioQueue[0]?.completed, 1, 'product analytics counts privacy-safe Portfolio Queue completion');
+    assertEqual(summary.portfolioQueue[1]?.queued, 0, 'product analytics retains an explicit zero baseline for reconciliation');
     assertEqual(summary.pathways[0]?.source, 'alerts', 'product analytics reports the guided source without ticker content');
     assertEqual(summary.pathways[0]?.completed, 1, 'product analytics correlates a workflow completion without recording content');
     assertEqual(summary.pathways[0]?.activeDays, 1, 'product analytics reports active days per pathway');

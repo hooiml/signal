@@ -1,5 +1,7 @@
 export const productAnalyticsEventNames = [
     'workspace_viewed',
+    'workflow_queued',
+    'workflow_source_opened',
     'workflow_opened',
     'workflow_completed',
     'market_handoff_opened',
@@ -62,6 +64,8 @@ export const productAnalyticsSources = [
     'picker',
     'compare',
     'queue',
+    'portfolio_holdings',
+    'portfolio_reconciliation',
 ] as const;
 
 export type ProductAnalyticsEventName = typeof productAnalyticsEventNames[number];
@@ -120,6 +124,14 @@ export type ProductAnalyticsDailySummary = {
     readonly meaningfulActions: number;
 };
 
+export type ProductAnalyticsPortfolioQueueSummary = {
+    readonly source: Extract<ProductAnalyticsSource, 'portfolio_holdings' | 'portfolio_reconciliation'>;
+    readonly queued: number;
+    readonly sourceOpened: number;
+    readonly reviewStarted: number;
+    readonly completed: number;
+};
+
 export type ProductAnalyticsSummary = {
     readonly rangeDays: 7 | 30 | 90;
     readonly eventCount: number;
@@ -131,6 +143,7 @@ export type ProductAnalyticsSummary = {
     readonly reviewCompletionPercent: number | null;
     readonly guidedReviewSaved: number;
     readonly packetExports: number;
+    readonly portfolioQueue: readonly ProductAnalyticsPortfolioQueueSummary[];
     readonly workspaces: readonly ProductAnalyticsWorkspaceSummary[];
     readonly pathways: readonly ProductAnalyticsPathwaySummary[];
     readonly daily: readonly ProductAnalyticsDailySummary[];

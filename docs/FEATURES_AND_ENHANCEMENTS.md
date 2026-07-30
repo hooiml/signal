@@ -26,7 +26,9 @@ Every enhancement must preserve:
 - Daily `Today` workflow with deterministic actions and independently degraded source states.
 - Source-aware Queue navigation back to each connected task's owning Market or Research
   workspace, without changing the task or research record.
-- Privacy-safe browser-local workflow measurement with bounded enums and no authored content.
+- Privacy-safe browser-local workflow measurement with bounded enums and no authored content,
+  including the Portfolio holdings/reconciliation → Queue creation, source-return, review-start,
+  and completion funnel.
 
 ### Portfolio
 

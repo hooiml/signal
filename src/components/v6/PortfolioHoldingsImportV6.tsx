@@ -21,6 +21,7 @@ import {
     type PortfolioHoldingsLoadResult,
 } from '@/lib/portfolio/holdings-client';
 import { enqueueResearchWorkflowTaskClient } from '@/lib/research/workflow-queue-client';
+import { trackProductAnalyticsEvent } from '@/lib/product-analytics-client';
 import type { ResearchRecord } from '@/lib/types/research';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 
@@ -172,6 +173,14 @@ export const PortfolioHoldingsImportV6 = ({ records, items, theme, onOpen }: {
                 source: 'portfolio-holdings',
                 dueAt: new Date().toISOString().slice(0, 10),
             });
+            if (result.created) {
+                trackProductAnalyticsEvent({
+                    name: 'workflow_queued',
+                    surface: 'research',
+                    workspace: 'portfolio',
+                    source: 'portfolio_holdings',
+                });
+            }
             setQueueMessage(result.created
                 ? `${symbol} holding review added to the Queue.`
                 : `${symbol} already has a holding review in the Queue.`);

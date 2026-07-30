@@ -7,6 +7,7 @@ import {
     type ProductAnalyticsEvent,
     type ProductAnalyticsEventName,
     type ProductAnalyticsPathwaySummary,
+    type ProductAnalyticsPortfolioQueueSummary,
     type ProductAnalyticsState,
     type ProductAnalyticsSummary,
     type ProductAnalyticsWorkspace,
@@ -207,6 +208,17 @@ export const buildProductAnalyticsSummary = (
             meaningfulActions: matching.filter((event) => meaningfulNames.has(event.name)).length,
         });
     }
+    const portfolioQueueSources = ['portfolio_holdings', 'portfolio_reconciliation'] as const;
+    const portfolioQueue: readonly ProductAnalyticsPortfolioQueueSummary[] = portfolioQueueSources.map((source) => {
+        const sourceEvents = inRange.filter((event) => event.source === source);
+        return {
+            source,
+            queued: sourceEvents.filter((event) => event.name === 'workflow_queued').length,
+            sourceOpened: sourceEvents.filter((event) => event.name === 'workflow_source_opened').length,
+            reviewStarted: sourceEvents.filter((event) => event.name === 'workflow_opened').length,
+            completed: sourceEvents.filter((event) => event.name === 'workflow_completed').length,
+        };
+    });
     return {
         rangeDays,
         eventCount: inRange.length,
@@ -218,6 +230,7 @@ export const buildProductAnalyticsSummary = (
         reviewCompletionPercent: percentage(reviewSaved, Math.max(reviewOpened, reviewSaved)),
         guidedReviewSaved: reviewSavedEvents.filter((event) => event.source !== null && event.source !== 'direct').length,
         packetExports: inRange.filter((event) => event.name === 'packet_exported').length,
+        portfolioQueue,
         workspaces,
         pathways,
         daily,

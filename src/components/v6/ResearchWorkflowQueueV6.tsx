@@ -19,6 +19,7 @@ import {
     writeResearchWorkflowTasks,
 } from '@/lib/research/workflow-queue-client';
 import type { ResearchRecord } from '@/lib/types/research';
+import type { ProductAnalyticsSource } from '@/lib/types/product-analytics';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import { currentProductAnalyticsWorkflowSource, trackProductAnalyticsEvent } from '@/lib/product-analytics-client';
 
@@ -37,6 +38,15 @@ const sourceLabels: Readonly<Record<ResearchWorkflowSource, string>> = {
     'portfolio-holdings': 'Portfolio holdings',
     'portfolio-reconciliation': 'Portfolio reconciliation',
 };
+
+const portfolioAnalyticsSource = (
+    source: ResearchWorkflowSource,
+): Extract<ProductAnalyticsSource, 'portfolio_holdings' | 'portfolio_reconciliation'> | null =>
+    source === 'portfolio-holdings'
+        ? 'portfolio_holdings'
+        : source === 'portfolio-reconciliation'
+            ? 'portfolio_reconciliation'
+            : null;
 
 export const ResearchWorkflowQueueV6 = ({ records, theme, onStart, onOpenSource }: {
     readonly records: readonly ResearchRecord[];
@@ -122,6 +132,7 @@ export const ResearchWorkflowQueueV6 = ({ records, theme, onStart, onOpenSource 
                     {ordered.map((task) => {
                         const template = getResearchWorkflowTemplate(task.templateId);
                         const sourceDestination = getResearchWorkflowSourceDestination(task.source);
+                        const analyticsSource = portfolioAnalyticsSource(task.source);
                         const isOverdue = task.completedAt === null && task.dueAt !== null && task.dueAt < today;
                         return <li key={task.id} className={'py-4 ' + (task.completedAt ? 'opacity-65' : '')}>
                             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -139,10 +150,30 @@ export const ResearchWorkflowQueueV6 = ({ records, theme, onStart, onOpenSource 
                                     {sourceDestination ? <button
                                         type="button"
                                         aria-label={`Open ${sourceLabels[task.source]} source`}
-                                        onClick={() => onOpenSource(sourceDestination)}
+                                        onClick={() => {
+                                            if (analyticsSource) {
+                                                trackProductAnalyticsEvent({
+                                                    name: 'workflow_source_opened',
+                                                    surface: 'research',
+                                                    workspace: 'queue',
+                                                    source: analyticsSource,
+                                                });
+                                            }
+                                            onOpenSource(sourceDestination);
+                                        }}
                                         className={'min-h-10 rounded border px-3 text-xs font-semibold ' + styles.row}
                                     >View source</button> : null}
-                                    {task.completedAt === null ? <button type="button" onClick={() => onStart(task.symbol, task.templateId)} className="min-h-10 rounded bg-emerald-500 px-3 text-xs font-bold text-slate-950">Start review</button> : null}
+                                    {task.completedAt === null ? <button type="button" onClick={() => {
+                                        if (analyticsSource) {
+                                            trackProductAnalyticsEvent({
+                                                name: 'workflow_opened',
+                                                surface: 'research',
+                                                workspace: 'queue',
+                                                source: analyticsSource,
+                                            });
+                                        }
+                                        onStart(task.symbol, task.templateId);
+                                    }} className="min-h-10 rounded bg-emerald-500 px-3 text-xs font-bold text-slate-950">Start review</button> : null}
                                     <button type="button" onClick={() => {
                                         const completing = task.completedAt === null;
                                         updateTasks(upsertResearchWorkflowTask(tasks, { ...task, completedAt: completing ? new Date().toISOString() : null }));
@@ -151,7 +182,7 @@ export const ResearchWorkflowQueueV6 = ({ records, theme, onStart, onOpenSource 
                                                 name: 'workflow_completed',
                                                 surface: 'research',
                                                 workspace: 'queue',
-                                                source: currentProductAnalyticsWorkflowSource() === 'queue' ? 'queue' : null,
+                                                source: analyticsSource ?? (currentProductAnalyticsWorkflowSource() === 'queue' ? 'queue' : null),
                                             });
                                         }
                                     }} className={'min-h-10 rounded border px-3 text-xs font-semibold ' + styles.row}>{task.completedAt ? 'Reopen' : 'Mark complete'}</button>

@@ -156,7 +156,7 @@ For the read-only local portfolio import boundary, run:
 npm run qa:portfolio-import -- --base-url http://127.0.0.1:3000
 ```
 
-The deterministic one-session check covers empty and restored snapshots, canonical template download, malformed and partial CSV previews, row-level errors, formula-like text display, add-only conflict preview, separately acknowledged exact replacement, explicit save, reload persistence, exact and unmatched research reconciliation, missing market values, actual-versus-planned separation, storage unavailability, keyboard focus, research-mutation safety, document overflow, and blocking console/page/request failures at 1280px, 768px, and 375px.
+The deterministic one-session check covers empty and restored snapshots, canonical template download, malformed and partial CSV previews, row-level errors, formula-like text display, add-only conflict preview, separately acknowledged exact replacement, explicit save, reload persistence, exact and unmatched research reconciliation, missing market values, actual-versus-planned separation, storage unavailability, keyboard focus, research-mutation safety, document overflow, and blocking console/page/request failures at 1280px, 768px, and 375px. The desktop flow also proves that one deduplicated Queue handoff records only fixed holdings-workflow actions through source return, review start, and completion, with no private portfolio content.
 
 Use `--viewport 375` or `--screenshot-dir <path>` only for a focused rerun after a failure.
 
@@ -180,7 +180,7 @@ For the read-only comparison between browser-local transactions and holdings, ru
 npm run qa:portfolio-reconciliation -- --base-url http://127.0.0.1:3000
 ```
 
-The deterministic one-session check covers exact quantity matches, quantity and cash differences, missing opening history, transaction-only and closed activity, account/currency separation, empty and one-sided source states, invalid and unavailable storage, same-tab refresh, holdings and transaction immutability, request privacy, document overflow, and blocking console/page/request failures at 1280px, 768px, and 375px. It also verifies that only non-matching exact Research securities expose an explicit Queue action, repeated account-level prompts deduplicate by ticker, Queue storage failures remain local and visible, the destination preserves `Portfolio reconciliation` provenance, and no account, quantity, difference, cost, currency, balance, transaction, or provenance data enters the task.
+The deterministic one-session check covers exact quantity matches, quantity and cash differences, missing opening history, transaction-only and closed activity, account/currency separation, empty and one-sided source states, invalid and unavailable storage, same-tab refresh, holdings and transaction immutability, request privacy, document overflow, and blocking console/page/request failures at 1280px, 768px, and 375px. It also verifies that only non-matching exact Research securities expose an explicit Queue action, repeated account-level prompts deduplicate by ticker, Queue storage failures remain local and visible, the destination preserves `Portfolio reconciliation` provenance, one fixed reconciliation-workflow event is recorded without private content, and no account, quantity, difference, cost, currency, balance, transaction, or provenance data enters the task or analytics.
 
 Use `--viewport 375` or `--screenshot-dir <path>` only for a focused rerun after a failure.
 

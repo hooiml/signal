@@ -15,6 +15,7 @@ const widths = arg('--viewport', '1280,768,375').split(',').map(Number);
 const screenshotDir = arg('--screenshot-dir', path.join('.tmp', 'portfolio-import-qa'));
 const storageKey = 'signal-portfolio-holdings-v1';
 const queueStorageKey = 'signal-research-workflow-queue-v1';
+const analyticsStorageKey = 'signal-product-analytics-v1';
 const failures = [];
 
 const seededSnapshot = {
@@ -192,6 +193,33 @@ try {
                 await queueRegion.getByText('Portfolio holdings', { exact: true }).waitFor({ state: 'visible', timeout });
                 if (await queueRegion.getByText('MSFT · Thesis challenge').count() !== 1) {
                     throw new Error('1280: Portfolio-to-Queue handoff rendered duplicate pending reviews');
+                }
+                await queueRegion.getByRole('button', { name: 'Open Portfolio holdings source' }).click();
+                await page.waitForURL((url) => url.searchParams.get('workspace') === 'portfolio', { timeout });
+                await page.goto(`${baseUrl}/research?workspace=queue`, { waitUntil: 'domcontentloaded', timeout });
+                await page.getByTestId('research-workflow-queue').getByRole('button', { name: 'Start review' }).click();
+                await page.waitForURL((url) => url.searchParams.get('ticker') === 'MSFT', { timeout });
+                await page.goto(`${baseUrl}/research?workspace=queue`, { waitUntil: 'domcontentloaded', timeout });
+                const pendingTask = page.getByTestId('research-workflow-queue').locator('li').filter({ hasText: 'MSFT · Thesis challenge' });
+                await pendingTask.getByRole('button', { name: 'Mark complete' }).click();
+                await pendingTask.getByText('Completed', { exact: true }).waitFor({ state: 'visible', timeout });
+                const analyticsEvents = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '{"events":[]}').events, analyticsStorageKey);
+                const holdingsFunnel = analyticsEvents.filter((event) => event.source === 'portfolio_holdings');
+                const funnelNames = holdingsFunnel.map((event) => event.name).sort().join(',');
+                if (funnelNames !== 'workflow_completed,workflow_opened,workflow_queued,workflow_source_opened') {
+                    throw new Error(`1280: holdings Queue funnel recorded unexpected actions (${funnelNames})`);
+                }
+                const analyticsPayload = JSON.stringify(holdingsFunnel);
+                for (const privateValue of ['MSFT', '=Formula account', 'Main account', 'QA import', '420.5']) {
+                    if (analyticsPayload.includes(privateValue)) throw new Error(`1280: product analytics leaked private holding data (${privateValue})`);
+                }
+                await page.goto(`${baseUrl}/research?workspace=usage`, { waitUntil: 'domcontentloaded', timeout });
+                const funnelTable = page.getByRole('table', { name: 'Portfolio to Queue funnel' });
+                const holdingsRow = funnelTable.getByRole('row').filter({ hasText: 'Portfolio holdings' });
+                await holdingsRow.waitFor({ state: 'visible', timeout });
+                const funnelCells = (await holdingsRow.getByRole('cell').allTextContents()).join('|');
+                if (funnelCells !== '1|1|1|1') {
+                    throw new Error(`1280: Usage did not render the holdings Queue funnel (${funnelCells})`);
                 }
                 await page.goto(`${baseUrl}/research?workspace=portfolio`, { waitUntil: 'domcontentloaded', timeout });
                 await region.waitFor({ state: 'visible', timeout });

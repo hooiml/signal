@@ -19,6 +19,7 @@ import {
     type PortfolioTransactionsLoadResult,
 } from '@/lib/portfolio/transactions-client';
 import { enqueueResearchWorkflowTaskClient } from '@/lib/research/workflow-queue-client';
+import { trackProductAnalyticsEvent } from '@/lib/product-analytics-client';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 
 type HoldingsState =
@@ -115,6 +116,14 @@ export const PortfolioTransactionReconciliationV6 = ({ items, theme }: {
                 source: 'portfolio-reconciliation',
                 dueAt: new Date().toISOString().slice(0, 10),
             });
+            if (result.created) {
+                trackProductAnalyticsEvent({
+                    name: 'workflow_queued',
+                    surface: 'research',
+                    workspace: 'portfolio',
+                    source: 'portfolio_reconciliation',
+                });
+            }
             setQueueMessage(result.created
                 ? `${symbol} reconciliation review added to the Queue.`
                 : `${symbol} already has a reconciliation review in the Queue.`);

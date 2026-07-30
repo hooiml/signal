@@ -16,6 +16,7 @@ const screenshotDir = arg('--screenshot-dir', path.join('.tmp', 'portfolio-trans
 const holdingsKey = 'signal-portfolio-holdings-v1';
 const transactionsKey = 'signal-portfolio-transactions-v1';
 const queueKey = 'signal-research-workflow-queue-v1';
+const analyticsKey = 'signal-product-analytics-v1';
 const privateMarker = 'PRIVATE-RECONCILIATION-MARKER';
 const failures = [];
 
@@ -190,6 +191,17 @@ try {
                 const queuePayload = JSON.stringify(reconciliationTasks);
                 for (const privateValue of [privateMarker, 'QA holdings', 'QA transactions']) {
                     if (queuePayload.includes(privateValue)) throw new Error(`1280: Queue task leaked private reconciliation data (${privateValue})`);
+                }
+                const reconciliationAnalytics = await page.evaluate((key) => {
+                    const state = JSON.parse(localStorage.getItem(key) ?? '{"events":[]}');
+                    return state.events.filter((event) => event.source === 'portfolio_reconciliation');
+                }, analyticsKey);
+                if (reconciliationAnalytics.length !== 1 || reconciliationAnalytics[0]?.name !== 'workflow_queued') {
+                    throw new Error('1280: reconciliation Queue action did not record one fixed analytics event');
+                }
+                const analyticsPayload = JSON.stringify(reconciliationAnalytics);
+                for (const privateValue of ['1155.KL', 'MAYBANK', privateMarker, 'QA holdings', 'QA transactions']) {
+                    if (analyticsPayload.includes(privateValue)) throw new Error(`1280: product analytics leaked private reconciliation data (${privateValue})`);
                 }
                 await page.goto(`${baseUrl}/research?workspace=queue`, { waitUntil: 'domcontentloaded', timeout });
                 const queueRegion = page.getByTestId('research-workflow-queue');

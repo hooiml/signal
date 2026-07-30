@@ -2,13 +2,14 @@ import {
     appendProductAnalyticsEvent,
     parseProductAnalyticsState,
 } from './product-analytics';
-import type {
-    ProductAnalyticsAttributes,
-    ProductAnalyticsEvent,
-    ProductAnalyticsEventName,
-    ProductAnalyticsSource,
-    ProductAnalyticsState,
-    ProductAnalyticsWorkspace,
+import {
+    productAnalyticsSources,
+    type ProductAnalyticsAttributes,
+    type ProductAnalyticsEvent,
+    type ProductAnalyticsEventName,
+    type ProductAnalyticsSource,
+    type ProductAnalyticsState,
+    type ProductAnalyticsWorkspace,
 } from './types/product-analytics';
 
 export const PRODUCT_ANALYTICS_STORAGE_KEY = 'signal-product-analytics-v1';
@@ -81,11 +82,7 @@ export const setProductAnalyticsWorkflowSource = (source: ProductAnalyticsSource
 export const currentProductAnalyticsWorkflowSource = (): ProductAnalyticsSource => {
     if (typeof window === 'undefined') return 'direct';
     const value = window.sessionStorage.getItem(PRODUCT_ANALYTICS_SOURCE_KEY);
-    const allowed: readonly ProductAnalyticsSource[] = [
-        'direct', 'today', 'market', 'inbox', 'filings', 'evidence', 'policy', 'alerts', 'calendar',
-        'portfolio', 'currency', 'relationships', 'peers', 'outcomes', 'discovery', 'picker', 'compare', 'queue',
-    ];
-    return allowed.includes(value as ProductAnalyticsSource) ? value as ProductAnalyticsSource : 'direct';
+    return productAnalyticsSources.includes(value as ProductAnalyticsSource) ? value as ProductAnalyticsSource : 'direct';
 };
 
 export const clearProductAnalyticsWorkflowSource = (): void => {
@@ -150,6 +147,10 @@ export const trackProductAnalyticsEvent = ({
         attributes,
         occurredAt: now.toISOString(),
     };
-    writeProductAnalyticsState(appendProductAnalyticsEvent(current, event));
+    try {
+        writeProductAnalyticsState(appendProductAnalyticsEvent(current, event));
+    } catch {
+        return null;
+    }
     return event;
 };

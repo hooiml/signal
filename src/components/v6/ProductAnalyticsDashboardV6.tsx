@@ -43,6 +43,8 @@ const workspaceLabels: Readonly<Record<ProductAnalyticsWorkspace, string>> = {
 
 const eventLabels: Readonly<Record<ProductAnalyticsEvent['name'], string>> = {
     workspace_viewed: 'Workspace viewed',
+    workflow_queued: 'Workflow queued',
+    workflow_source_opened: 'Workflow source opened',
     workflow_opened: 'Workflow opened',
     workflow_completed: 'Workflow completed',
     market_handoff_opened: 'Market handoff opened',
@@ -188,6 +190,20 @@ export const ProductAnalyticsDashboardV6 = ({ theme }: {
                             )}
                         </section>
                     </div>
+
+                    <section className={'mt-5 min-w-0 rounded-lg border p-4 ' + styles.panelSecondary} aria-labelledby="portfolio-queue-funnel-title">
+                        <div>
+                            <h2 id="portfolio-queue-funnel-title" className={'text-sm font-bold ' + styles.textPrimary}>Portfolio → Queue funnel</h2>
+                            <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Counts fixed workflow actions only. Holdings, accounts, quantities, balances, transactions, and ticker symbols are never recorded.</p>
+                        </div>
+                        <div className="research-scrollbar mt-3 overflow-x-auto">
+                            <table className="w-full min-w-[620px] text-left text-xs">
+                                <caption className="sr-only">Portfolio to Queue funnel</caption>
+                                <thead><tr className={styles.textMuted}><th className="pb-2">Source</th><th className="pb-2 text-right">Queued</th><th className="pb-2 text-right">Source reopened</th><th className="pb-2 text-right">Review started</th><th className="pb-2 text-right">Completed</th></tr></thead>
+                                <tbody>{summary.portfolioQueue.map((row) => <tr key={row.source} className={'border-t ' + styles.divider}><th className={'py-2 font-semibold ' + styles.textSecondary}>{row.source === 'portfolio_holdings' ? 'Portfolio holdings' : 'Portfolio reconciliation'}</th><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.queued}</td><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.sourceOpened}</td><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.reviewStarted}</td><td className={'py-2 text-right font-mono ' + styles.textSecondary}>{row.completed}</td></tr>)}</tbody>
+                            </table>
+                        </div>
+                    </section>
 
                     <section className={'mt-5 rounded-lg border p-4 ' + styles.panelSecondary} aria-labelledby="recent-product-events-title">
                         <h2 id="recent-product-events-title" className={'text-sm font-bold ' + styles.textPrimary}>Recent privacy-safe events</h2>
