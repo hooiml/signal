@@ -32,9 +32,9 @@ const successFixture = { success: true, data: {
     generatedAt: '2026-07-31T08:00:00.000Z', universeSize: 40, scannedCount: 40,
     candidates: [
         candidate({}),
-        candidate({ symbol: 'AMD', name: 'Advanced Micro Devices', discoveryScore: 82, risk: 'low', riskScore: 8 }),
-        candidate({ symbol: 'NVDA', name: 'Nvidia', discoveryScore: 80, risk: 'low', riskScore: 9 }),
-        candidate({ symbol: 'JNJ', name: 'Johnson & Johnson', discoveryScore: 78, risk: 'low', riskScore: 7, sector: 'Healthcare' }),
+        candidate({ symbol: 'AMD', name: 'Advanced Micro Devices', discoveryScore: 82, risk: 'moderate', riskScore: 18, qualityScore: null, qualityReasons: [] }),
+        candidate({ symbol: 'NVDA', name: 'Nvidia', discoveryScore: 80, risk: 'low', riskScore: 9, qualityScore: null, qualityReasons: [], sector: 'Communication Services', valuation: { guardrail: 'unavailable', priceEarnings: null, priceSales: null, freeCashFlowYieldPercent: null } }),
+        candidate({ symbol: 'JNJ', name: 'Johnson & Johnson', discoveryScore: 70, risk: 'low', riskScore: 7, sector: 'Healthcare' }),
         candidate({ symbol: 'LOW', name: 'Below threshold', discoveryScore: 65, risk: 'low', riskScore: 6, sector: 'Utilities' }),
         candidate({ symbol: 'RISK', name: 'High risk fixture', discoveryScore: 92, risk: 'high', riskScore: 45, sector: 'Materials' }),
     ],
@@ -73,6 +73,17 @@ try {
     for (const width of widths) {
         const context = await browser.newContext({ viewport: { width, height: width <= 480 ? 812 : 900 } });
         await context.addInitScript((storageKey) => {
+            localStorage.setItem('signal-discovery-universes-v1', JSON.stringify([{
+                id: 'quality-tilt',
+                name: 'Quality tilt',
+                policy: {
+                    sectors: [],
+                    minimumDollarVolume: 20_000_000,
+                    maximumRisk: 'moderate',
+                    excludeExtremeValuation: false,
+                    preferences: ['quality'],
+                },
+            }]));
             const original = Storage.prototype.setItem;
             Storage.prototype.setItem = function setItem(key, value) {
                 if (key === storageKey) throw new DOMException('Storage unavailable', 'QuotaExceededError');
@@ -120,6 +131,8 @@ try {
             await expectStatus(page, 'scan', 'next');
             await expectStatus(page, 'filter', 'pending');
             if (await page.getByTestId('picker-methodology').getAttribute('open') !== null) throw new Error('methodology is not collapsed initially');
+            await page.getByLabel('Picker saved strategy').selectOption('quality-tilt');
+            await page.getByLabel('Picker pick count').selectOption('3');
 
             await page.getByRole('button', { name: 'Run picker' }).click();
             await expectStatus(page, 'scan', 'current');
@@ -132,9 +145,37 @@ try {
             await expectStatus(page, 'measure', 'pending');
             if (await page.getByRole('button', { name: 'Open research' }).count() !== 3) throw new Error('expected three explicit Research actions');
             if (discoveryRequests !== 1) throw new Error(`expected one Discovery request, got ${discoveryRequests}`);
+            if (await page.locator('[data-testid^="picker-support-"]').count() !== 3) throw new Error('expected exactly one support statement per candidate');
+            if (await page.locator('[data-testid^="picker-risk-"]').count() !== 3) throw new Error('expected exactly one risk or unknown per candidate');
+            if (await page.locator('[data-testid^="picker-evidence-"]').count() !== 3) throw new Error('expected exactly one evidence status per candidate');
+            const shortlistSymbols = await page.getByTestId('picker-shortlist').locator('article h3').evaluateAll((headings) => headings.map((heading) => heading.textContent?.trim().split(/\s+/)[0]));
+            if (shortlistSymbols.join(',') !== 'MSFT,AMD,NVDA') throw new Error(`unexpected shortlist order ${shortlistSymbols.join(',')}`);
+            const shortlistText = (await page.getByTestId('picker-shortlist').textContent()) ?? '';
+            if (/\b(best|winner|buy|probability)\b|expected return/i.test(shortlistText)) throw new Error('shortlist contains recommendation or forecast wording');
+            await page.getByTestId('picker-support-MSFT').waitFor({ state: 'visible', timeout });
+            await page.getByTestId('picker-risk-AMD').getByText('Current risk is moderate.').waitFor({ state: 'visible', timeout });
+            if ((await page.getByTestId('picker-evidence-MSFT').textContent())?.trim() !== 'Evidence confirmed') throw new Error('MSFT confirmed evidence status is missing');
+            if ((await page.getByTestId('picker-evidence-AMD').textContent())?.trim() !== 'Evidence partial') throw new Error('AMD partial evidence status is missing');
+            if ((await page.getByTestId('picker-evidence-NVDA').textContent())?.trim() !== 'Evidence unconfirmed') throw new Error('NVDA unconfirmed evidence status is missing');
+            if ((await page.getByTestId('picker-policy-adjustment-MSFT').textContent())?.trim() !== 'Saved policy adjustment: +3.8 points') throw new Error('exact saved policy adjustment is missing');
+
+            const rejectionDisclosure = page.getByTestId('picker-rejections');
+            if (await rejectionDisclosure.getAttribute('open') !== null) throw new Error('rejection disclosure is not collapsed initially');
+            const controlsBeforeDisclosure = await page.getByTestId('picker-setup').locator('select').evaluateAll((selects) => selects.map((select) => select.value));
+            const strategiesBeforeDisclosure = await page.evaluate(() => localStorage.getItem('signal-discovery-universes-v1'));
+            await rejectionDisclosure.locator('summary').click();
+            const rejectionRows = rejectionDisclosure.locator('li[data-reason-code]');
+            if (await rejectionRows.count() !== 3) throw new Error('expected three fixed rejection reasons');
+            const reasonCodes = await rejectionRows.evaluateAll((rows) => rows.map((row) => row.getAttribute('data-reason-code')));
+            if (reasonCodes.join(',') !== 'high-risk,minimum-score,shortlist-cutoff') throw new Error(`unexpected rejection reason codes ${reasonCodes.join(',')}`);
+            const disclosedExamples = await rejectionRows.evaluateAll((rows) => rows.flatMap((row) => (row.textContent?.match(/examples: (.*)$/)?.[1] ?? '').split(',').map((symbol) => symbol.trim()).filter(Boolean)));
+            if (disclosedExamples.length > 5) throw new Error(`rejection disclosure exceeded five examples: ${disclosedExamples.join(',')}`);
+            const controlsAfterDisclosure = await page.getByTestId('picker-setup').locator('select').evaluateAll((selects) => selects.map((select) => select.value));
+            const strategiesAfterDisclosure = await page.evaluate(() => localStorage.getItem('signal-discovery-universes-v1'));
+            if (JSON.stringify(controlsAfterDisclosure) !== JSON.stringify(controlsBeforeDisclosure) || strategiesAfterDisclosure !== strategiesBeforeDisclosure) throw new Error('rejection disclosure mutated Picker state');
 
             await page.getByTestId('picker-methodology').locator('summary').click();
-            await page.getByText('basket constraints do not create another score.').waitFor({ state: 'visible', timeout });
+            await page.getByText(/reuses its saved sector, liquidity, risk, valuation, and ranking preferences/).waitFor({ state: 'visible', timeout });
             await page.getByRole('button', { name: 'Start paper basket' }).click();
             await expectStatus(page, 'measure', 'available');
             await page.getByText('Paper basket is available for this session, but browser storage is unavailable.').waitFor({ state: 'visible', timeout });
@@ -151,7 +192,7 @@ try {
             if (layout.documentOverflow > 1) throw new Error(`document overflows by ${layout.documentOverflow}px`);
             if (layout.journeyOverflow === null || layout.journeyOverflow > 1) throw new Error(`journey overflows by ${layout.journeyOverflow}px`);
             if (width === 1280 && (layout.journeyBottom === null || layout.journeyBottom > 900)) throw new Error('journey is not visible in the first desktop viewport');
-            await page.getByTestId('picker-journey').screenshot({ path: path.join(evidenceDir, `picker-journey-${width}.png`) });
+            await page.getByTestId('picker-results').screenshot({ path: path.join(evidenceDir, `picker-shortlist-${width}.png`) });
 
             responseMode = 'failure';
             await page.getByRole('button', { name: 'Run again with current data' }).click();
@@ -179,7 +220,7 @@ if (failures.length > 0) {
     failures.forEach((failure) => console.error(`FAIL ${failure}`));
     process.exitCode = 1;
 } else {
-    console.log('PASS setup, loading, success, storage-unavailable, failure, retry, and no-match states');
+    console.log('PASS setup, loading, evidence briefs, rejection disclosure, storage-unavailable, failure, retry, and no-match states');
     console.log('PASS console and failed requests: 0 blocking issues');
     console.log(`Screenshots: ${evidenceDir}`);
     console.log('Research Picker journey QA passed.');

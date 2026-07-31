@@ -25,6 +25,7 @@ import type { DiscoveryResponse, QualityDiscoveryResult } from '@/lib/types/rese
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import { parseDiscoveryResponseV6 } from './research-discovery-response-v6';
 import { ResearchSelectionJourneyV6 } from './ResearchSelectionJourneyV6';
+import { ResearchShortlistBriefV6 } from './ResearchShortlistBriefV6';
 
 const defaultConfig: PickerConfig = {
     horizon: '1M',
@@ -306,7 +307,7 @@ export const ResearchPickerV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                 </aside>
             </div>
 
-            {status === 'ready' && data ? (
+            {status === 'ready' && data && selectionTrace ? (
                 <section data-testid="picker-results" className={'border-t pt-4 ' + styles.divider} aria-labelledby="picker-results-title">
                     <div className="flex flex-wrap items-end justify-between gap-3">
                         <div>
@@ -323,41 +324,15 @@ export const ResearchPickerV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                             <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Relax the minimum score, risk profile, saved strategy, sector cap, or existing-watchlist exclusion.</p>
                         </div>
                     ) : (
-                        <div className="mt-3 grid gap-3 xl:grid-cols-2">
-                            {picks.map((candidate, index) => {
-                                const saved = savedSymbols.includes(candidate.symbol);
-                                return (
-                                    <article key={candidate.symbol} className={'rounded-lg border p-4 ' + styles.row}>
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="min-w-0">
-                                                <p className={'text-xs font-semibold uppercase ' + styles.textMuted}>#{index + 1} · {candidate.outlook} · {candidate.sector}</p>
-                                                <h3 className={'mt-1 truncate text-lg font-bold ' + styles.textPrimary}>{candidate.symbol} <span className={'text-sm font-normal ' + styles.textSecondary}>{candidate.name}</span></h3>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className={'font-mono text-2xl font-bold ' + styles.positive}>{candidate.discoveryScore}</p>
-                                                <p className={'text-[10px] uppercase ' + styles.textMuted}>Discovery score</p>
-                                            </div>
-                                        </div>
-                                        <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                                            <div><dt className={'text-[10px] uppercase ' + styles.textMuted}>Price</dt><dd className={'mt-1 font-mono text-sm font-semibold ' + styles.textPrimary}>${candidate.price.toFixed(2)}</dd></div>
-                                            <div><dt className={'text-[10px] uppercase ' + styles.textMuted}>Trend</dt><dd className={'mt-1 font-mono text-sm font-semibold ' + styles.textPrimary}>{candidate.trendScore}</dd></div>
-                                            <div><dt className={'text-[10px] uppercase ' + styles.textMuted}>Quality</dt><dd className={'mt-1 font-mono text-sm font-semibold ' + styles.textPrimary}>{candidate.qualityScore ?? 'Unconfirmed'}</dd></div>
-                                            <div><dt className={'text-[10px] uppercase ' + styles.textMuted}>Risk</dt><dd className={'mt-1 text-sm font-semibold capitalize ' + styles.textPrimary}>{candidate.risk}</dd></div>
-                                        </dl>
-                                        <p className={'mt-3 text-xs leading-5 ' + styles.textSecondary}>{candidate.reasons[0] ?? candidate.qualityReasons[0] ?? 'Current score is based on the available trend, quality, and risk evidence.'}</p>
-                                        {candidate.policyAdjustment !== 0 ? (
-                                            <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>
-                                                Strategy rank: {candidate.policyScore.toFixed(1)} ({candidate.policyAdjustment >= 0 ? '+' : ''}{candidate.policyAdjustment.toFixed(1)}) · {candidate.policyReasons.join(' · ')}
-                                            </p>
-                                        ) : null}
-                                        <div className="mt-3 flex flex-wrap gap-2">
-                                            <button type="button" onClick={() => onOpen(candidate.symbol)} className={'min-h-10 rounded-md border px-3 text-xs font-bold ' + styles.row}>Open research</button>
-                                            <button type="button" disabled={adding || saved} onClick={() => onAdd(candidate)} className={'min-h-10 rounded-md border px-3 text-xs font-bold disabled:opacity-50 ' + styles.panelAction}>{saved ? 'In watchlist' : 'Add to watchlist'}</button>
-                                        </div>
-                                    </article>
-                                );
-                            })}
-                        </div>
+                        <ResearchShortlistBriefV6
+                            theme={theme}
+                            candidates={picks}
+                            trace={selectionTrace}
+                            savedSymbols={savedSymbols}
+                            adding={adding}
+                            onAdd={onAdd}
+                            onOpen={onOpen}
+                        />
                     )}
                     {data.warnings.length > 0 ? <div className={'mt-3 rounded-md border p-3 text-xs leading-5 ' + styles.panelUtility + ' ' + styles.textMuted}>
                         {data.warnings.map((warning) => <p key={warning}>{warning}</p>)}

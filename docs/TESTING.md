@@ -135,9 +135,11 @@ existing paper-basket boundary, run against a local Signal server:
 npm run qa:research-picker -- --base-url http://127.0.0.1:3000
 ```
 
-The command covers setup, loading, selected candidates, methodology disclosure, storage-unavailable
-paper-basket feedback, request failure and retry, no-match state, stage semantics, exact Discovery
-request count, document overflow, blocking console/request errors, and journey screenshots at
+The command covers setup, loading, selected candidate briefs, confirmed/partial/unconfirmed evidence,
+exact saved-policy adjustments, collapsed fixed-reason rejection disclosure, methodology disclosure,
+storage-unavailable paper-basket feedback, request failure and retry, no-match state, stage semantics,
+selection order, disclosure mutation safety, exact Discovery request count, document overflow,
+blocking console/request errors, and shortlist screenshots at
 1280px, 768px, and 375px. Use `--viewport 375` only for a focused rerun after a failure.
 
 ### Targeted Research Continuity QA

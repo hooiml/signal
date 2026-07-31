@@ -141,6 +141,73 @@ export type PickerSelectionTrace = {
     readonly exclusionCounts: Readonly<Record<PickerSelectionExclusionCode, number>>;
 };
 
+export type PickerCandidateEvidenceStatus = 'confirmed' | 'partial' | 'unconfirmed';
+
+export type PickerCandidateBrief = {
+    readonly support: string;
+    readonly riskOrUnknown: string;
+    readonly evidenceStatus: PickerCandidateEvidenceStatus;
+};
+
+export type PickerRejectionSummary = {
+    readonly code: PickerSelectionExclusionCode;
+    readonly label: string;
+    readonly count: number;
+    readonly exampleSymbols: readonly string[];
+};
+
+const pickerExclusionLabels: Readonly<Record<PickerSelectionExclusionCode, string>> = {
+    'discovery-policy-sector': 'Outside saved sectors',
+    'discovery-policy-liquidity': 'Below saved liquidity floor',
+    'discovery-policy-risk': 'Above saved risk limit',
+    'discovery-policy-valuation': 'Excluded by saved valuation rule',
+    'high-risk': 'High risk',
+    'conservative-profile': 'Outside conservative risk or valuation profile',
+    'minimum-score': 'Below minimum score',
+    'saved-symbol': 'Already in the Research watchlist',
+    'sector-cap': 'Sector cap reached',
+    'shortlist-cutoff': 'Below shortlist cutoff',
+};
+
+export const buildPickerCandidateBrief = (candidate: PickerCandidate): PickerCandidateBrief => {
+    const qualityAvailable = candidate.qualityScore !== null;
+    const valuationAvailable = candidate.valuation.guardrail !== 'unavailable';
+    const evidenceStatus: PickerCandidateEvidenceStatus = qualityAvailable && valuationAvailable
+        ? 'confirmed'
+        : qualityAvailable || valuationAvailable
+            ? 'partial'
+            : 'unconfirmed';
+    const support = (qualityAvailable ? candidate.qualityReasons[0] : null)
+        ?? candidate.reasons[0]
+        ?? 'The current Discovery score uses the available trend and risk inputs.';
+    const riskOrUnknown = candidate.flags[0]
+        ?? (candidate.risk !== 'low' ? `Current risk is ${candidate.risk}.` : null)
+        ?? (candidate.valuation.guardrail === 'extreme' || candidate.valuation.guardrail === 'expensive'
+            ? `Valuation guardrail is ${candidate.valuation.guardrail}.`
+            : null)
+        ?? (!valuationAvailable ? 'Valuation evidence is unavailable.' : null)
+        ?? (!qualityAvailable ? 'Business quality evidence is unconfirmed.' : null)
+        ?? 'No principal risk is identified by this bounded scan; complete Research before acting.';
+    return { support, riskOrUnknown, evidenceStatus };
+};
+
+export const buildPickerRejectionSummary = (
+    trace: PickerSelectionTrace,
+    maximumExampleSymbols = 5,
+): readonly PickerRejectionSummary[] => {
+    let remainingExamples = Math.max(0, Math.floor(maximumExampleSymbols));
+    return pickerSelectionExclusionCodes.flatMap((code) => {
+        const count = trace.exclusionCounts[code];
+        if (count === 0) return [];
+        const exampleSymbols = trace.decisions
+            .filter((decision) => decision.exclusionReason === code)
+            .slice(0, remainingExamples)
+            .map((decision) => decision.symbol);
+        remainingExamples -= exampleSymbols.length;
+        return [{ code, label: pickerExclusionLabels[code], count, exampleSymbols }];
+    });
+};
+
 const oneOf = <T extends string | number>(value: unknown, values: readonly T[]): value is T =>
     values.some((candidate) => candidate === value);
 

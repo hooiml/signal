@@ -18,6 +18,8 @@ import { parseYahooFundamentalTimeseries } from '../../src/lib/research/yahoo-fu
 import { calculateCohortPerformance, calculateHistorySignals } from '../../src/lib/research/discovery-history';
 import {
     addPickerRun,
+    buildPickerCandidateBrief,
+    buildPickerRejectionSummary,
     createPickerRun,
     explainPickerSelection,
     parsePickerConfig,
@@ -3523,6 +3525,40 @@ const runPickerTests = () => {
     });
     assertEqual(policyRanked.map((item) => item.symbol).join(','), 'QUALITY,TREND', 'picker reuses the transparent Discovery policy rank');
     assertEqual(policyRanked[0]?.policyAdjustment, 5, 'picker exposes the policy adjustment used for selection');
+    assertEqual(
+        JSON.stringify(buildPickerCandidateBrief(policyRanked[0])),
+        JSON.stringify({
+            support: 'Business quality',
+            riskOrUnknown: 'No principal risk is identified by this bounded scan; complete Research before acting.',
+            evidenceStatus: 'confirmed',
+        }),
+        'picker brief chooses one bounded support, one risk or unknown, and confirmed coverage',
+    );
+    const partialBrief = buildPickerCandidateBrief({
+        ...policyRanked[0],
+        qualityScore: null,
+        qualityReasons: [],
+        reasons: ['Above 50- and 200-day averages'],
+        risk: 'moderate',
+    });
+    assertEqual(
+        JSON.stringify(partialBrief),
+        JSON.stringify({
+            support: 'Above 50- and 200-day averages',
+            riskOrUnknown: 'Current risk is moderate.',
+            evidenceStatus: 'partial',
+        }),
+        'picker brief keeps partial evidence and the principal bounded risk explicit',
+    );
+    const unconfirmedBrief = buildPickerCandidateBrief({
+        ...policyRanked[0],
+        qualityScore: null,
+        qualityReasons: [],
+        reasons: [],
+        valuation: { guardrail: 'unavailable', priceEarnings: null, priceSales: null, freeCashFlowYieldPercent: null },
+    });
+    assertEqual(unconfirmedBrief.evidenceStatus, 'unconfirmed', 'picker brief identifies unconfirmed quality and valuation coverage');
+    assertEqual(unconfirmedBrief.riskOrUnknown, 'Valuation evidence is unavailable.', 'picker brief emits one explicit unavailable-evidence statement');
 
     const traceCandidates = [
         candidate({ symbol: 'SELECT_A', discoveryScore: 99, sector: 'Technology' }),
@@ -3566,6 +3602,22 @@ const runPickerTests = () => {
         detailedTrace.decisions.find((decision) => decision.symbol === 'LIMITED')?.evidenceLimitations.join(','),
         'quality-unavailable,valuation-unavailable',
         'picker trace keeps unavailable quality and valuation explicit',
+    );
+    const rejectionSummary = buildPickerRejectionSummary(detailedTrace);
+    assertEqual(
+        rejectionSummary.map((reason) => `${reason.code}:${reason.count}`).join(','),
+        'high-risk:1,conservative-profile:1,minimum-score:1,saved-symbol:1,sector-cap:1,shortlist-cutoff:2',
+        'picker rejection summary maps the stable trace codes to fixed counted reasons',
+    );
+    assertEqual(
+        rejectionSummary.flatMap((reason) => reason.exampleSymbols).join(','),
+        'HIGH_RISK,CONSERVATIVE,MINIMUM,SAVED,SECTOR_CAP',
+        'picker rejection examples preserve decision order within reason and cap disclosure at five symbols',
+    );
+    assertEqual(
+        detailedTrace.selected.map((item) => item.symbol).join(','),
+        'SELECT_A,SELECT_B,SELECT_C',
+        'building rejection disclosure does not mutate selection order',
     );
 
     const policyReasonCases = [
