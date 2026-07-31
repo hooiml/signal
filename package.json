@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "qa:start": "node scripts/start-guide-qa.mjs",
     "qa:header": "node scripts/header-qa.mjs",
     "qa:market": "node scripts/market-qa.mjs",
     "qa:performance": "node scripts/performance-baseline.mjs",

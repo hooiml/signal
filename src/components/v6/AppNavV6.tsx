@@ -7,7 +7,7 @@ import type { ResearchThemeV6 } from './research-v6';
 import { CommandPaletteV6, type AppCommandV6, type AppLocalSearchV6 } from './CommandPaletteV6';
 
 type AppNavV6Props = {
-    active: 'market' | 'research';
+    active: 'start' | 'market' | 'research';
     theme: ResearchThemeV6;
     onThemeToggle: () => void;
     commands?: readonly AppCommandV6[];
@@ -27,10 +27,12 @@ export const AppNavV6 = ({ active, theme, onThemeToggle, commands = [], localSea
         '--radius': '8px',
     } as CSSProperties;
     const items = [
+        { key: 'start', label: 'Start', href: '/start' },
         { key: 'market', label: 'Market', href: '/' },
         { key: 'research', label: 'Research', href: '/research' },
     ] as const;
     const allCommands = useMemo<readonly AppCommandV6[]>(() => [
+        { id: 'route-start', label: 'Go to Start', group: 'Route', keywords: ['guide onboarding today'], run: () => window.location.assign('/start') },
         { id: 'route-market', label: 'Go to Market', group: 'Route', keywords: ['home'], run: () => window.location.assign('/') },
         { id: 'route-research', label: 'Go to Research', group: 'Route', keywords: ['watchlist'], run: () => window.location.assign('/research') },
         { id: 'theme-toggle', label: `Use ${theme === 'light' ? 'dark' : 'light'} theme`, group: 'Appearance', keywords: ['theme mode'], run: onThemeToggle },

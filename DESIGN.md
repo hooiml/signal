@@ -2,9 +2,9 @@
 
 ## Source of truth
 - Status: Active
-- Last refreshed: 2026-07-26
-- Primary product surfaces: Market Conditions and Research workspaces.
-- Evidence reviewed: `src/components/v6/DESIGN.md`, `docs/ARCHITECTURE.md`, `docs/TESTING.md`, `src/components/v6/ResearchDashboardV6.tsx`, and existing V6 workspace components.
+- Last refreshed: 2026-08-01
+- Primary product surfaces: Guided Start, Market Conditions, and Research workspaces.
+- Evidence reviewed: `src/components/v6/DESIGN.md`, `docs/ARCHITECTURE.md`, `docs/TESTING.md`, `src/components/v6/StartGuideV6.tsx`, `src/components/v6/MarketDashboardV6.tsx`, `src/components/v6/ResearchDashboardV6.tsx`, and existing V6 workspace components.
 
 ## Brand
 - Personality: Calm, evidence-led, compact, and explicit about uncertainty.
@@ -12,7 +12,7 @@
 - Avoid: Trading-terminal density, decorative financial imagery, urgency, and unsupported recommendation language.
 
 ## Product goals
-- Goals: Shorten the path from current evidence to a reviewable research action and preserve a learning trail.
+- Goals: Shorten the path from current evidence to a reviewable research action, give new users one clear daily entry point, and preserve a learning trail.
 - Non-goals: Brokerage execution, guaranteed forecasts, personalized financial advice, and opaque AI picks.
 - Success signals: Users can understand why a result appeared, inspect its evidence, and revisit the recorded outcome.
 
@@ -22,8 +22,8 @@
 - Key contexts of use: Desktop investigation and mobile review.
 
 ## Information architecture
-- Primary navigation: Market and Research. Within Research, use `Watchlist | Discovery | Activity | Analyze | Portfolio | Review | More`; Picker is a secondary Discovery workspace.
-- Core routes/screens: `/` for market conditions and `/research` for ticker-level workspaces.
+- Primary navigation: Start, Market, and Research. Within Research, use `Watchlist | Discovery | Activity | Analyze | Portfolio | Review | More`; Picker is a secondary Discovery workspace.
+- Core routes/screens: `/start` for the guided current-evidence journey, `/` for market conditions, and `/research` for ticker-level workspaces.
 - Content hierarchy: Current state, evidence and limitations, action or saved observation, then historical learning.
 
 ## Design principles
@@ -42,7 +42,7 @@
 
 ## Components
 - Existing components to reuse: Grouped Research workspace navigation, V6 theme tokens, Discovery response validation, and Research navigation actions.
-- New/changed components: A Research Picker workspace under Discovery for configuring a scan, reviewing ranked candidates, and starting a browser-local paper basket.
+- New/changed components: `StartGuideV6` for the score-to-candidate-to-current-news journey, plus the Research Picker workspace under Discovery.
 - Variants and states: Setup, loading, results, no matches, error, and saved basket.
 - Token/component ownership: V6 theme tokens remain owned by `src/components/v6/research-v6.ts`.
 
@@ -59,7 +59,7 @@
 - Touch/hover differences: Primary actions remain visible and do not depend on hover.
 
 ## Interaction states
-- Loading: Preserve configuration and identify that current data is being scanned.
+- Loading: Identify which current market or Discovery data is being loaded without presenting stale examples as live results.
 - Empty: Explain which score or risk constraint removed every candidate.
 - Error: Retain configuration and provide an explicit retry action.
 - Success: Show scan time, coverage, selected candidates, and evidence limitations.
@@ -74,7 +74,7 @@
 ## Implementation constraints
 - Framework/styling system: Next.js, React, TypeScript, and existing Tailwind utility patterns.
 - Design-token constraints: Reuse V6 theme classes; add no design-system layer.
-- Performance constraints: Reuse the bounded Discovery endpoint and avoid duplicate provider scans.
+- Performance constraints: The Start route reuses the existing signal and bounded Discovery endpoints; it must not introduce another score, provider, or duplicate request after the initial guided load.
 - Compatibility constraints: Browser-local paper baskets must not mutate persisted Research records.
 - Test/screenshot expectations: Standard lane checks plus 1280px, 768px, and 375px browser verification.
 

@@ -2,8 +2,8 @@
 
 ## Source of truth
 - Status: Active
-- Last refreshed: 2026-07-17
-- Primary product surfaces: Market Conditions and Investment Research.
+- Last refreshed: 2026-08-01
+- Primary product surfaces: Guided Start, Market Conditions, and Investment Research.
 - Evidence reviewed: `docs/PROJECT_OBJECTIVE_AND_FLOWS.md`, `docs/signal-decision-cockpit-design-brief.md`, `docs/TESTING.md`, `docs/QUALITY.md`, and the V6 components under `src/components/v6`.
 
 ## Brand
@@ -12,7 +12,7 @@
 - Avoid: Trading hype, unexplained scores, decorative finance-dashboard density, and confidence language that implies forecast probability.
 
 ## Product goals
-- Goals: Turn scattered market and security evidence into traceable decisions; make disagreement and data quality easy to see.
+- Goals: Turn scattered market and security evidence into traceable decisions, provide a clear first-use path, and make disagreement and data quality easy to see.
 - Non-goals: Predict returns, provide financial advice, or merge the market score into security-level decisions.
 - Success signals: A user can identify the current posture, strongest evidence, conflicts, freshness, and next review condition without reverse-engineering the interface.
 
@@ -22,8 +22,8 @@
 - Key contexts of use: Quick daily scan, deeper evidence review, mobile monitoring, and periodic research review.
 
 ## Information architecture
-- Primary navigation: Market Conditions and Investment Research.
-- Core routes/screens: `/` and `/main-v6` for Market Conditions; `/research` and `/research-v6` for Investment Research.
+- Primary navigation: Start, Market Conditions, and Investment Research.
+- Core routes/screens: `/start` for the guided daily journey; `/` and `/main-v6` for Market Conditions; `/research` and `/research-v6` for Investment Research.
 - Content hierarchy: Decision posture -> trust and score summary -> ranked evidence -> change/history -> scenarios/context -> methodology.
 
 ## Design principles
@@ -43,7 +43,7 @@
 
 ## Components
 - Existing components to reuse: V6 theme helpers, raw-value formatters, freshness helpers, ranked-driver helpers, evidence tables, and disclosure patterns.
-- New/changed components: Market-story evidence cards may expose actual readings, role, score contribution formula, and update date.
+- New/changed components: `StartGuideV6` composes the current US score, current Discovery leaders, strictly same-day market headlines, and explicit Research handoffs without inventing a recommendation.
 - Research hierarchy: The selected security workspace is primary; daily attention and thesis workflow panels are secondary; portfolio summaries, comparisons, fundamentals, history, and workspace navigation use utility surfaces; submit/save controls carry action emphasis. Keep the read-only journal collapsed by default with a useful summary, and stabilize detail-tab height with an internally scrolling viewport from tablet upward while preserving natural document flow on mobile.
 - Variants and states: Support, conflict, caution, neutral, stale, missing, loading, and refresh-error states.
 - Token/component ownership: Reuse `getThemeV6` and its primary, secondary, utility, and action panel tiers; do not create a parallel token layer.
@@ -76,7 +76,7 @@
 ## Implementation constraints
 - Framework/styling system: Next.js, React, TypeScript, and existing Tailwind utilities.
 - Design-token constraints: Use existing V6 theme classes and shared cockpit helpers.
-- Performance constraints: No new client fetches or dependencies for presentational explanation.
+- Performance constraints: Presentational explanation adds no provider or dependency. The guided Start route may call the existing signal and Discovery endpoints once on load or explicit refresh.
 - Compatibility constraints: Preserve the typed market-signal contract and mode-aware scoring semantics.
 - Test/screenshot expectations: Follow `docs/TESTING.md`; run Market V6 QA at 1280px, 768px, and 375px for hierarchy or responsive changes.
 

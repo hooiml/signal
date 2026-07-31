@@ -96,9 +96,19 @@ For shared header or responsive navigation changes, use the deterministic one-se
 npm run qa:header
 ```
 
-The command checks `/` and `/research` at 1280px, 768px, and 375px. It waits for the header and navigation to be visible after `domcontentloaded`, so it does not wait for unrelated upstream API requests. It measures the shared inner width, bottom hairline, navigation clipping, document overflow, and toggle behavior, and writes a fresh report plus header captures under `.tmp/signal-header-qa/<timestamp>/`.
+The command checks `/start`, `/`, and `/research` at 1280px, 768px, and 375px. It waits for the header and navigation to be visible after `domcontentloaded`, so it does not wait for unrelated upstream API requests. It measures the shared inner width, bottom hairline, navigation clipping, document overflow, and toggle behavior, and writes a fresh report plus header captures under `.tmp/signal-header-qa/<timestamp>/`.
 
 Set `SIGNAL_QA_URL` or pass `--base-url` when the local server uses another port.
+
+### Targeted Start Guide QA
+
+For the guided daily-start route, run the deterministic responsive check against a local Signal server:
+
+```powershell
+npm run qa:start
+```
+
+The check intercepts current US market conditions and Discovery with dated fixtures, verifies the score-to-candidate-to-news-to-research sequence, confirms that a prior-day headline is excluded, exercises candidate selection, checks the shared Start navigation state, and captures the page without horizontal overflow at 1280px, 768px, and 375px. Set `SIGNAL_QA_URL` when the server uses another port.
 
 When a failure identifies one affected surface, rerun only that scenario:
 

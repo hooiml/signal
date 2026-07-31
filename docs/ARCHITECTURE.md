@@ -4,6 +4,7 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 
 ## User-Facing Routes
 
+- `/start`: guided daily journey from the latest US market score through current Discovery candidates and same-day market context into Research.
 - `/`: primary Story First market conditions view, implemented by `MarketDashboardV6`.
 - `/research`: primary research workspace, implemented by `ResearchDashboardV6`.
 - `/demo`: isolated session-only guided example of Market, Research, and Portfolio. It uses fixed
@@ -111,6 +112,7 @@ Signal is a Next.js App Router application for market signal dashboards. The app
   to the existing watchlist add, Portfolio import, and Research review surfaces. Skip, restart, and
   malformed-progress recovery touch only the setup key. The `/demo` route is a separate mounted
   session with no setup, Research, Portfolio, Queue, analytics, backup, sync, or provider write.
+- `StartGuideV6` independently requests the existing US signal and Discovery boundaries. It filters the signal article feed to the browser's current calendar date, excludes undated and older headlines, keeps those headlines labeled as market context, and links into existing Research workspaces without mutating research or portfolio state.
 - Discovery supports up to five browser-local custom universe policies over the existing curated US provider scan. Sector, dollar-volume, risk, and extreme-valuation rules determine eligibility; up to three bounded preferences adjust a separate policy score. The default discovery score and rank remain visible and unchanged, every adjustment is explained, exclusions retain reasons, and unsupported Malaysia coverage is not implied.
 - A scheduled refresh path precomputes the default V2 market/mode combinations once per day so the dashboard is less dependent on first-visitor refreshes.
 

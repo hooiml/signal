@@ -22,7 +22,7 @@ const getArg = (name) => {
 const baseUrl = getArg('--base-url') || process.env.SIGNAL_QA_URL || DEFAULT_BASE_URL;
 const timeoutMs = Number(getArg('--timeout') || process.env.SIGNAL_QA_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
 const captureScreenshots = !args.includes('--no-screenshots') && process.env.SIGNAL_QA_SCREENSHOTS !== '0';
-const requestedRoutes = (getArg('--route') || '/,/research')
+const requestedRoutes = (getArg('--route') || '/start,/,/research')
     .split(',')
     .map((route) => route.trim())
     .filter(Boolean)
@@ -123,7 +123,7 @@ const inspectHeader = async (page, routePath, viewport) => page.evaluate(({ rout
         expectedInnerWidth,
         themePressed: toggle?.getAttribute('aria-pressed') || null,
         themeLabel: toggle?.getAttribute('aria-label') || null,
-        routeSurface: currentRoute.startsWith('/research') ? 'research' : 'market',
+        routeSurface: currentRoute.startsWith('/research') ? 'research' : currentRoute.startsWith('/start') ? 'start' : 'market',
     };
 }, { routePath, viewportWidth: viewport.width });
 
@@ -207,12 +207,12 @@ const main = async () => {
 
                     const header = page.locator('header[aria-label="Signal application header"]');
                     await header.waitFor({ state: 'visible', timeout: timeoutMs });
-                    await page.locator('nav[aria-label="Primary"] a').nth(1).waitFor({ state: 'visible', timeout: timeoutMs });
+                    await page.locator('nav[aria-label="Primary"] a').nth(2).waitFor({ state: 'visible', timeout: timeoutMs });
                     const details = await inspectHeader(page, routePath, viewport);
-                    const expectedSurface = routePath.startsWith('/research') ? 'research' : 'market';
+                    const expectedSurface = routePath.startsWith('/research') ? 'research' : routePath.startsWith('/start') ? 'start' : 'market';
                     const linkLabels = details.navLinks.map((link) => link.label);
                     const navBounds = details.nav;
-                    const linksVisible = Boolean(navBounds) && details.navLinks.length === 2 && details.navLinks.every((link) => (
+                    const linksVisible = Boolean(navBounds) && details.navLinks.length === 3 && details.navLinks.every((link) => (
                         Boolean(link.rect)
                         && link.rect.width > 0
                         && link.rect.left >= navBounds.left - 1
@@ -228,13 +228,16 @@ const main = async () => {
                     runCheck(scenario.checks, 'shared header visible', Boolean(details.header), 'header[aria-label="Signal application header"] is visible');
                     runCheck(scenario.checks, 'header content width', innerWidthDelta <= 2, `inner width ${details.inner?.width ?? 'missing'}; expected ${details.expectedInnerWidth}`);
                     runCheck(scenario.checks, 'bottom hairline', details.borderBottomStyle === 'solid' && details.borderBottomWidth > 0 && details.borderBottomWidth <= 1, `${details.borderBottomStyle} ${details.borderBottomWidth}px`);
-                    runCheck(scenario.checks, 'primary navigation labels', linkLabels.join('|') === 'Market|Research', linkLabels.join('|') || 'no links');
+                    runCheck(scenario.checks, 'primary navigation labels', linkLabels.join('|') === 'Start|Market|Research', linkLabels.join('|') || 'no links');
                     const selectedLabel = details.navLinks.find((link) => link.ariaCurrent === 'page')?.label;
-                    runCheck(scenario.checks, 'primary navigation selected state', selectedLabel === (expectedSurface === 'market' ? 'Market' : 'Research'), selectedLabel || 'no selected link');
+                    const expectedLabel = expectedSurface === 'market' ? 'Market' : expectedSurface === 'research' ? 'Research' : 'Start';
+                    runCheck(scenario.checks, 'primary navigation selected state', selectedLabel === expectedLabel, selectedLabel || 'no selected link');
                     runCheck(scenario.checks, 'primary navigation fully visible', linksVisible, `nav ${navBounds ? `${navBounds.width}px` : 'missing'}`);
                     runCheck(scenario.checks, 'document has no horizontal overflow', documentOverflow <= 1, `${details.documentWidth}px document width on ${details.viewportWidth}px viewport`);
                     runCheck(scenario.checks, 'theme toggle dimensions', toggleSize, details.toggle ? `${details.toggle.width}x${details.toggle.height}` : 'toggle missing');
-                    runCheck(scenario.checks, `${expectedSurface} surface present`, Boolean(expectedSurface === 'market' ? details.command : details.researchControls), expectedSurface === 'market' ? 'market conditions controls' : 'research controls');
+                    if (expectedSurface !== 'start') {
+                        runCheck(scenario.checks, `${expectedSurface} surface present`, Boolean(expectedSurface === 'market' ? details.command : details.researchControls), expectedSurface === 'market' ? 'market conditions controls' : 'research controls');
+                    }
 
                     const toggle = header.locator('button[aria-label^="Switch to"]');
                     await page.waitForFunction(
@@ -261,7 +264,7 @@ const main = async () => {
                     runCheck(scenario.checks, 'theme toggle restores state', await toggle.getAttribute('aria-pressed') === initialPressed, `restored ${initialPressed}`);
 
                     if (captureScreenshots) {
-                        const filename = `${routePath === '/' ? 'main' : 'research'}-${viewport.name}-${viewport.width}x${viewport.height}.png`;
+                        const filename = `${routePath === '/' ? 'main' : routePath.slice(1).replaceAll('/', '-')}-${viewport.name}-${viewport.width}x${viewport.height}.png`;
                         const screenshotPath = path.join(evidenceDir, filename);
                         await page.screenshot({ path: screenshotPath, fullPage: false });
                         scenario.screenshot = screenshotPath;
