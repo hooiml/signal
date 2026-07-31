@@ -12,6 +12,15 @@ export const DISCOVERY_UNIVERSES_STORAGE_KEY = 'signal-discovery-universes-v1';
 
 export type DiscoveryPolicyPreference = typeof discoveryPolicyPreferences[number];
 
+export const discoveryPolicyExclusionCodes = [
+    'sector',
+    'liquidity',
+    'risk',
+    'valuation',
+] as const;
+
+export type DiscoveryPolicyExclusionCode = typeof discoveryPolicyExclusionCodes[number];
+
 export type DiscoveryUniversePolicy = {
     readonly sectors: readonly string[];
     readonly minimumDollarVolume: number;
@@ -37,7 +46,11 @@ export type DiscoveryPolicyRow<T extends QualityDiscoveryResult = QualityDiscove
 
 export type DiscoveryPolicyResult<T extends QualityDiscoveryResult = QualityDiscoveryResult> = {
     readonly rows: readonly DiscoveryPolicyRow<T>[];
-    readonly excluded: readonly { readonly symbol: string; readonly reason: string }[];
+    readonly excluded: readonly {
+        readonly symbol: string;
+        readonly code: DiscoveryPolicyExclusionCode;
+        readonly reason: string;
+    }[];
 };
 
 export const defaultDiscoveryUniversePolicy: DiscoveryUniversePolicy = {
@@ -93,22 +106,22 @@ export const applyDiscoveryUniversePolicy = <T extends QualityDiscoveryResult>(
     candidates: readonly T[],
     policy: DiscoveryUniversePolicy,
 ): DiscoveryPolicyResult<T> => {
-    const excluded: { symbol: string; reason: string }[] = [];
+    const excluded: Array<{ symbol: string; code: DiscoveryPolicyExclusionCode; reason: string }> = [];
     const eligible = candidates.flatMap((candidate, index): Array<Omit<DiscoveryPolicyRow<T>, 'policyRank'>> => {
         if (policy.sectors.length > 0 && !policy.sectors.includes(candidate.sector)) {
-            excluded.push({ symbol: candidate.symbol, reason: `Sector ${candidate.sector} is outside the selected universe.` });
+            excluded.push({ symbol: candidate.symbol, code: 'sector', reason: `Sector ${candidate.sector} is outside the selected universe.` });
             return [];
         }
         if (candidate.averageDollarVolume < policy.minimumDollarVolume) {
-            excluded.push({ symbol: candidate.symbol, reason: `Dollar volume is below $${Math.round(policy.minimumDollarVolume / 1_000_000)}M.` });
+            excluded.push({ symbol: candidate.symbol, code: 'liquidity', reason: `Dollar volume is below $${Math.round(policy.minimumDollarVolume / 1_000_000)}M.` });
             return [];
         }
         if (riskRank[candidate.risk] > riskRank[policy.maximumRisk]) {
-            excluded.push({ symbol: candidate.symbol, reason: `Risk ${candidate.risk} exceeds the ${policy.maximumRisk} limit.` });
+            excluded.push({ symbol: candidate.symbol, code: 'risk', reason: `Risk ${candidate.risk} exceeds the ${policy.maximumRisk} limit.` });
             return [];
         }
         if (policy.excludeExtremeValuation && candidate.valuation.guardrail === 'extreme') {
-            excluded.push({ symbol: candidate.symbol, reason: 'Extreme valuation is excluded.' });
+            excluded.push({ symbol: candidate.symbol, code: 'valuation', reason: 'Extreme valuation is excluded.' });
             return [];
         }
         const adjustments = policy.preferences.map((preference) => preferenceAdjustment(candidate, preference));

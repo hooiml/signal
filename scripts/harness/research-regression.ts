@@ -19,6 +19,7 @@ import { calculateCohortPerformance, calculateHistorySignals } from '../../src/l
 import {
     addPickerRun,
     createPickerRun,
+    explainPickerSelection,
     parsePickerConfig,
     parsePickerRuns,
     pickerCohortEvidence,
@@ -3474,6 +3475,32 @@ const runPickerTests = () => {
         excludeSavedSymbols: false,
     } as const;
     assertEqual(selectPickerCandidates(data, balanced).map((item) => item.symbol).join(','), 'HIGH,MOD', 'picker sorts eligible current candidates by Discovery score');
+    const baselineTrace = explainPickerSelection(data, balanced);
+    assertEqual(
+        JSON.stringify(baselineTrace.selected),
+        JSON.stringify(selectPickerCandidates(data, balanced)),
+        'picker explanation preserves the existing selected candidates and order',
+    );
+    assertEqual(
+        JSON.stringify(baselineTrace.counts),
+        JSON.stringify({ scanned: 3, policyEligible: 3, riskScoreEligible: 2, diversificationEligible: 2, shortlisted: 2 }),
+        'picker explanation reports conserved funnel counts',
+    );
+    assertEqual(
+        baselineTrace.decisions.length,
+        3,
+        'picker explanation represents every unique input symbol exactly once',
+    );
+    assertEqual(
+        Object.values(baselineTrace.exclusionCounts).reduce((sum, count) => sum + count, 0),
+        baselineTrace.decisions.filter((decision) => decision.outcome === 'excluded').length,
+        'picker explanation exclusion counts match excluded decisions',
+    );
+    assertEqual(
+        JSON.stringify(explainPickerSelection(data, balanced)),
+        JSON.stringify(baselineTrace),
+        'picker explanation is deterministic for identical inputs',
+    );
     assertEqual(selectPickerCandidates(data, { ...balanced, riskProfile: 'conservative' }).map((item) => item.symbol).join(','), 'HIGH', 'conservative picker excludes moderate risk');
     assertEqual(selectPickerCandidates(data, { ...balanced, minimumScore: 80 }).map((item) => item.symbol).join(','), 'HIGH', 'picker enforces the configured minimum score');
     assertEqual(selectPickerCandidates(data, { ...balanced, maximumPerSector: 1 }).map((item) => item.symbol).join(','), 'HIGH', 'picker enforces the configured sector cap');
@@ -3496,6 +3523,80 @@ const runPickerTests = () => {
     });
     assertEqual(policyRanked.map((item) => item.symbol).join(','), 'QUALITY,TREND', 'picker reuses the transparent Discovery policy rank');
     assertEqual(policyRanked[0]?.policyAdjustment, 5, 'picker exposes the policy adjustment used for selection');
+
+    const traceCandidates = [
+        candidate({ symbol: 'SELECT_A', discoveryScore: 99, sector: 'Technology' }),
+        candidate({ symbol: 'SELECT_B', discoveryScore: 98, sector: 'Healthcare' }),
+        candidate({ symbol: 'SELECT_C', discoveryScore: 97, sector: 'Financials' }),
+        candidate({ symbol: 'CUTOFF', discoveryScore: 96, sector: 'Industrials' }),
+        candidate({ symbol: 'SECTOR_CAP', discoveryScore: 95, sector: 'Technology' }),
+        candidate({ symbol: 'SAVED', discoveryScore: 94, sector: 'Energy' }),
+        candidate({ symbol: 'CONSERVATIVE', discoveryScore: 93, risk: 'moderate', sector: 'Real Estate' }),
+        candidate({ symbol: 'MINIMUM', discoveryScore: 60, sector: 'Utilities' }),
+        candidate({ symbol: 'HIGH_RISK', discoveryScore: 92, risk: 'high', sector: 'Materials' }),
+        {
+            ...candidate({
+                symbol: 'LIMITED',
+                discoveryScore: 91,
+                sector: 'Communication Services',
+                valuation: { guardrail: 'unavailable', priceEarnings: null, priceSales: null, freeCashFlowYieldPercent: null },
+            }),
+            qualityScore: null,
+        },
+        candidate({ symbol: 'SELECT_A', discoveryScore: 10, sector: 'Utilities' }),
+    ];
+    const detailedTrace = explainPickerSelection({ candidates: traceCandidates, contenders: [] }, {
+        ...balanced,
+        riskProfile: 'conservative',
+        maximumPerSector: 1,
+        excludeSavedSymbols: true,
+    }, { savedSymbols: ['SAVED'] });
+    assertEqual(detailedTrace.selected.map((item) => item.symbol).join(','), 'SELECT_A,SELECT_B,SELECT_C', 'picker trace keeps the current sorted selection under combined rules');
+    assertEqual(detailedTrace.counts.scanned, 10, 'picker trace retains first-seen behavior for duplicate symbols');
+    assertEqual(detailedTrace.counts.policyEligible, 9, 'picker trace counts policy-eligible unique symbols');
+    assertEqual(detailedTrace.counts.riskScoreEligible, 7, 'picker trace counts candidates after risk and score checks');
+    assertEqual(detailedTrace.counts.diversificationEligible, 5, 'picker trace counts candidates after saved-symbol and sector rules');
+    assertEqual(detailedTrace.exclusionCounts['shortlist-cutoff'], 2, 'picker trace explains candidates beyond the configured shortlist size');
+    assertEqual(detailedTrace.exclusionCounts['sector-cap'], 1, 'picker trace explains sector diversification exclusions');
+    assertEqual(detailedTrace.exclusionCounts['saved-symbol'], 1, 'picker trace explains saved-symbol exclusions');
+    assertEqual(detailedTrace.exclusionCounts['conservative-profile'], 1, 'picker trace explains conservative-profile exclusions');
+    assertEqual(detailedTrace.exclusionCounts['minimum-score'], 1, 'picker trace explains minimum-score exclusions');
+    assertEqual(detailedTrace.exclusionCounts['high-risk'], 1, 'picker trace explains high-risk exclusions');
+    assertEqual(
+        detailedTrace.decisions.find((decision) => decision.symbol === 'LIMITED')?.evidenceLimitations.join(','),
+        'quality-unavailable,valuation-unavailable',
+        'picker trace keeps unavailable quality and valuation explicit',
+    );
+
+    const policyReasonCases = [
+        {
+            expected: 'discovery-policy-sector',
+            candidate: candidate({ symbol: 'POLICY_SECTOR', discoveryScore: 90, sector: 'Utilities' }),
+            policy: { ...defaultDiscoveryUniversePolicy, sectors: ['Technology'] },
+        },
+        {
+            expected: 'discovery-policy-liquidity',
+            candidate: {
+                ...candidate({ symbol: 'POLICY_LIQUIDITY', discoveryScore: 90 }),
+                averageDollarVolume: 10_000_000,
+            },
+            policy: defaultDiscoveryUniversePolicy,
+        },
+        {
+            expected: 'discovery-policy-risk',
+            candidate: candidate({ symbol: 'POLICY_RISK', discoveryScore: 90, risk: 'moderate' }),
+            policy: { ...defaultDiscoveryUniversePolicy, maximumRisk: 'low' as const },
+        },
+        {
+            expected: 'discovery-policy-valuation',
+            candidate: candidate({ symbol: 'POLICY_VALUATION', discoveryScore: 90, valuation: { guardrail: 'extreme', priceEarnings: 90, priceSales: 30, freeCashFlowYieldPercent: 0.5 } }),
+            policy: { ...defaultDiscoveryUniversePolicy, excludeExtremeValuation: true },
+        },
+    ] as const;
+    for (const testCase of policyReasonCases) {
+        const trace = explainPickerSelection({ candidates: [testCase.candidate], contenders: [] }, balanced, { policy: testCase.policy });
+        assertEqual(trace.decisions[0]?.exclusionReason, testCase.expected, `picker trace exposes fixed ${testCase.expected} reason`);
+    }
     assertEqual(pickerCohortEvidence([{ period: '1M', averageReturnPercent: 2.4, trackedCount: 4, winnerCount: 3 }], '1M').positiveRatePercent, 75, 'picker derives observational positive coverage');
     assertEqual(pickerCohortEvidence([], '1W').state, 'collecting', 'picker withholds unavailable history');
     assertEqual(pickerObservedMovePercent(100, 112), 12, 'paper basket compares current observation with entry price');

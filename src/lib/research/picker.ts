@@ -7,6 +7,7 @@ import {
     applyDiscoveryUniversePolicy,
     defaultDiscoveryUniversePolicy,
     parseDiscoveryUniversePolicy,
+    type DiscoveryPolicyExclusionCode,
     type DiscoveryUniversePolicy,
 } from './discovery-policy';
 
@@ -97,6 +98,49 @@ export type PickerSelectionOptions = {
     readonly savedSymbols?: readonly string[];
 };
 
+export const pickerSelectionExclusionCodes = [
+    'discovery-policy-sector',
+    'discovery-policy-liquidity',
+    'discovery-policy-risk',
+    'discovery-policy-valuation',
+    'high-risk',
+    'conservative-profile',
+    'minimum-score',
+    'saved-symbol',
+    'sector-cap',
+    'shortlist-cutoff',
+] as const;
+
+export const pickerEvidenceLimitationCodes = [
+    'quality-unavailable',
+    'valuation-unavailable',
+] as const;
+
+export type PickerSelectionExclusionCode = typeof pickerSelectionExclusionCodes[number];
+export type PickerEvidenceLimitationCode = typeof pickerEvidenceLimitationCodes[number];
+
+export type PickerSelectionCounts = {
+    readonly scanned: number;
+    readonly policyEligible: number;
+    readonly riskScoreEligible: number;
+    readonly diversificationEligible: number;
+    readonly shortlisted: number;
+};
+
+export type PickerSelectionDecision = {
+    readonly symbol: string;
+    readonly outcome: 'selected' | 'excluded';
+    readonly exclusionReason: PickerSelectionExclusionCode | null;
+    readonly evidenceLimitations: readonly PickerEvidenceLimitationCode[];
+};
+
+export type PickerSelectionTrace = {
+    readonly selected: readonly PickerCandidate[];
+    readonly decisions: readonly PickerSelectionDecision[];
+    readonly counts: PickerSelectionCounts;
+    readonly exclusionCounts: Readonly<Record<PickerSelectionExclusionCode, number>>;
+};
+
 const oneOf = <T extends string | number>(value: unknown, values: readonly T[]): value is T =>
     values.some((candidate) => candidate === value);
 
@@ -121,16 +165,146 @@ export const parsePickerConfig = (value: unknown): PickerConfig | null => {
     };
 };
 
-const candidateAllowed = (candidate: QualityDiscoveryResult, config: PickerConfig) =>
-    candidate.discoveryScore >= config.minimumScore
-    && candidate.risk !== 'high'
-    && (config.riskProfile === 'balanced'
-        || (candidate.risk === 'low' && candidate.valuation.guardrail !== 'extreme'));
-
 const outlookFor = (candidate: QualityDiscoveryResult): PickerCandidate['outlook'] => {
     if (candidate.discoveryScore >= 80 && candidate.risk === 'low') return 'Strong current setup';
     if (candidate.discoveryScore >= 70) return 'Favorable current setup';
     return 'Watch setup';
+};
+
+const pickerCandidate = (
+    row: ReturnType<typeof applyDiscoveryUniversePolicy>['rows'][number],
+): PickerCandidate => ({
+    ...row.candidate,
+    outlook: outlookFor(row.candidate),
+    policyScore: row.policyScore,
+    policyAdjustment: row.adjustment,
+    policyReasons: row.reasons,
+});
+
+const evidenceLimitationsFor = (
+    candidate: QualityDiscoveryResult,
+): readonly PickerEvidenceLimitationCode[] => {
+    const limitations: PickerEvidenceLimitationCode[] = [];
+    if (candidate.qualityScore === null) limitations.push('quality-unavailable');
+    if (candidate.valuation.guardrail === 'unavailable') limitations.push('valuation-unavailable');
+    return limitations;
+};
+
+const policyExclusionReason = (
+    code: DiscoveryPolicyExclusionCode,
+    candidate: QualityDiscoveryResult,
+): PickerSelectionExclusionCode => {
+    if (code === 'sector') return 'discovery-policy-sector';
+    if (code === 'liquidity') return 'discovery-policy-liquidity';
+    if (code === 'valuation') return 'discovery-policy-valuation';
+    return candidate.risk === 'high' ? 'high-risk' : 'discovery-policy-risk';
+};
+
+const pickerEligibilityExclusion = (
+    candidate: QualityDiscoveryResult,
+    config: PickerConfig,
+): PickerSelectionExclusionCode | null => {
+    if (candidate.risk === 'high') return 'high-risk';
+    if (config.riskProfile === 'conservative'
+        && (candidate.risk !== 'low' || candidate.valuation.guardrail === 'extreme')) {
+        return 'conservative-profile';
+    }
+    return candidate.discoveryScore < config.minimumScore ? 'minimum-score' : null;
+};
+
+const emptyExclusionCounts = (): Record<PickerSelectionExclusionCode, number> =>
+    Object.fromEntries(pickerSelectionExclusionCodes.map((code) => [code, 0])) as Record<PickerSelectionExclusionCode, number>;
+
+export const explainPickerSelection = (
+    data: {
+        readonly candidates: readonly QualityDiscoveryResult[];
+        readonly contenders: readonly QualityDiscoveryResult[];
+    },
+    config: PickerConfig,
+    options: PickerSelectionOptions = {},
+): PickerSelectionTrace => {
+    const bySymbol = new Map<string, QualityDiscoveryResult>();
+    for (const candidate of [...data.candidates, ...data.contenders]) {
+        if (!bySymbol.has(candidate.symbol)) bySymbol.set(candidate.symbol, candidate);
+    }
+
+    const policyResult = applyDiscoveryUniversePolicy(
+        [...bySymbol.values()],
+        options.policy ?? defaultDiscoveryUniversePolicy,
+    );
+    const ranked = [...policyResult.rows].sort((left, right) => right.policyScore - left.policyScore
+        || left.candidate.riskScore - right.candidate.riskScore
+        || left.candidate.symbol.localeCompare(right.candidate.symbol));
+    const savedSymbols = new Set(options.savedSymbols ?? []);
+    const decisionsBySymbol = new Map<string, PickerSelectionDecision>();
+    const exclusionCounts = emptyExclusionCounts();
+    const recordExclusion = (
+        candidate: QualityDiscoveryResult,
+        exclusionReason: PickerSelectionExclusionCode,
+    ) => {
+        decisionsBySymbol.set(candidate.symbol, {
+            symbol: candidate.symbol,
+            outcome: 'excluded',
+            exclusionReason,
+            evidenceLimitations: evidenceLimitationsFor(candidate),
+        });
+        exclusionCounts[exclusionReason] += 1;
+    };
+
+    for (const exclusion of policyResult.excluded) {
+        const candidate = bySymbol.get(exclusion.symbol);
+        if (candidate) recordExclusion(candidate, policyExclusionReason(exclusion.code, candidate));
+    }
+
+    const riskScoreEligible = ranked.filter((row) => {
+        const exclusionReason = pickerEligibilityExclusion(row.candidate, config);
+        if (exclusionReason) recordExclusion(row.candidate, exclusionReason);
+        return exclusionReason === null;
+    });
+
+    const sectorCounts = new Map<string, number>();
+    const diversificationEligible = riskScoreEligible.filter((row) => {
+        if (config.excludeSavedSymbols && savedSymbols.has(row.candidate.symbol)) {
+            recordExclusion(row.candidate, 'saved-symbol');
+            return false;
+        }
+        const sectorCount = sectorCounts.get(row.candidate.sector) ?? 0;
+        if (sectorCount >= config.maximumPerSector) {
+            recordExclusion(row.candidate, 'sector-cap');
+            return false;
+        }
+        sectorCounts.set(row.candidate.sector, sectorCount + 1);
+        return true;
+    });
+
+    const shortlistedRows = diversificationEligible.slice(0, config.pickCount);
+    for (const row of shortlistedRows) {
+        decisionsBySymbol.set(row.candidate.symbol, {
+            symbol: row.candidate.symbol,
+            outcome: 'selected',
+            exclusionReason: null,
+            evidenceLimitations: evidenceLimitationsFor(row.candidate),
+        });
+    }
+    for (const row of diversificationEligible.slice(config.pickCount)) {
+        recordExclusion(row.candidate, 'shortlist-cutoff');
+    }
+
+    return {
+        selected: shortlistedRows.map(pickerCandidate),
+        decisions: [...bySymbol.keys()].flatMap((symbol) => {
+            const decision = decisionsBySymbol.get(symbol);
+            return decision ? [decision] : [];
+        }),
+        counts: {
+            scanned: bySymbol.size,
+            policyEligible: policyResult.rows.length,
+            riskScoreEligible: riskScoreEligible.length,
+            diversificationEligible: diversificationEligible.length,
+            shortlisted: shortlistedRows.length,
+        },
+        exclusionCounts,
+    };
 };
 
 export const selectPickerCandidates = (
@@ -140,38 +314,7 @@ export const selectPickerCandidates = (
     },
     config: PickerConfig,
     options: PickerSelectionOptions = {},
-): readonly PickerCandidate[] => {
-    const bySymbol = new Map<string, QualityDiscoveryResult>();
-    for (const candidate of [...data.candidates, ...data.contenders]) {
-        if (!bySymbol.has(candidate.symbol)) bySymbol.set(candidate.symbol, candidate);
-    }
-    const savedSymbols = new Set(options.savedSymbols ?? []);
-    const ranked = applyDiscoveryUniversePolicy(
-        [...bySymbol.values()],
-        options.policy ?? defaultDiscoveryUniversePolicy,
-    ).rows
-        .filter(({ candidate }) => candidateAllowed(candidate, config))
-        .filter(({ candidate }) => !config.excludeSavedSymbols || !savedSymbols.has(candidate.symbol))
-        .sort((left, right) => right.policyScore - left.policyScore
-            || left.candidate.riskScore - right.candidate.riskScore
-            || left.candidate.symbol.localeCompare(right.candidate.symbol));
-    const sectorCounts = new Map<string, number>();
-    const selected: PickerCandidate[] = [];
-    for (const row of ranked) {
-        const sectorCount = sectorCounts.get(row.candidate.sector) ?? 0;
-        if (sectorCount >= config.maximumPerSector) continue;
-        selected.push({
-            ...row.candidate,
-            outlook: outlookFor(row.candidate),
-            policyScore: row.policyScore,
-            policyAdjustment: row.adjustment,
-            policyReasons: row.reasons,
-        });
-        sectorCounts.set(row.candidate.sector, sectorCount + 1);
-        if (selected.length === config.pickCount) break;
-    }
-    return selected;
-};
+): readonly PickerCandidate[] => explainPickerSelection(data, config, options).selected;
 
 export const pickerCohortEvidence = (
     performance: readonly DiscoveryPerformance[],
