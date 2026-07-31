@@ -154,9 +154,9 @@ try {
             if (/\b(best|winner|buy|probability)\b|expected return/i.test(shortlistText)) throw new Error('shortlist contains recommendation or forecast wording');
             await page.getByTestId('picker-support-MSFT').waitFor({ state: 'visible', timeout });
             await page.getByTestId('picker-risk-AMD').getByText('Current risk is moderate.').waitFor({ state: 'visible', timeout });
-            if ((await page.getByTestId('picker-evidence-MSFT').textContent())?.trim() !== 'Evidence confirmed') throw new Error('MSFT confirmed evidence status is missing');
-            if ((await page.getByTestId('picker-evidence-AMD').textContent())?.trim() !== 'Evidence partial') throw new Error('AMD partial evidence status is missing');
-            if ((await page.getByTestId('picker-evidence-NVDA').textContent())?.trim() !== 'Evidence unconfirmed') throw new Error('NVDA unconfirmed evidence status is missing');
+            if ((await page.getByTestId('picker-evidence-MSFT').textContent())?.trim() !== 'Discovery evidence: confirmed') throw new Error('MSFT confirmed Discovery evidence status is missing');
+            if ((await page.getByTestId('picker-evidence-AMD').textContent())?.trim() !== 'Discovery evidence: partial') throw new Error('AMD partial Discovery evidence status is missing');
+            if ((await page.getByTestId('picker-evidence-NVDA').textContent())?.trim() !== 'Discovery evidence: unconfirmed') throw new Error('NVDA unconfirmed Discovery evidence status is missing');
             if ((await page.getByTestId('picker-policy-adjustment-MSFT').textContent())?.trim() !== 'Saved policy adjustment: +3.8 points') throw new Error('exact saved policy adjustment is missing');
 
             const rejectionDisclosure = page.getByTestId('picker-rejections');

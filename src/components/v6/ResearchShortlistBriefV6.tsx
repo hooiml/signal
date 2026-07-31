@@ -33,7 +33,7 @@ export const ResearchShortlistBriefV6 = ({ theme, candidates, trace, savedSymbol
                                     <h3 className={'mt-1 truncate text-lg font-bold ' + styles.textPrimary}>{candidate.symbol} <span className={'text-sm font-normal ' + styles.textSecondary}>{candidate.name}</span></h3>
                                 </div>
                                 <span data-testid={`picker-evidence-${candidate.symbol}`} className={'rounded-full border px-2 py-1 text-[10px] font-semibold uppercase ' + styles.divider + ' ' + styles.textSecondary}>
-                                    Evidence {brief.evidenceStatus}
+                                    Discovery evidence: {brief.evidenceStatus}
                                 </span>
                             </div>
                             <dl className="mt-3 grid gap-2 sm:grid-cols-2">

@@ -28,13 +28,14 @@ const statusExplanation = (item: EvidenceCoverageItem): string => {
         : 'Both saved analysis and accepted evidence are missing.';
 };
 
-export const EvidenceCoverageDashboardV6 = ({ records, theme, onOpen }: {
+export const EvidenceCoverageDashboardV6 = ({ records, initialSymbol, theme, onOpen }: {
     readonly records: readonly ResearchRecord[];
+    readonly initialSymbol?: string;
     readonly theme: ResearchThemeV6;
     readonly onOpen: (symbol: string) => void;
 }) => {
     const styles = getThemeV6(theme);
-    const [symbol, setSymbol] = useState(records[0]?.symbol ?? '');
+    const [symbol, setSymbol] = useState(initialSymbol ?? records[0]?.symbol ?? '');
     const [queueStatus, setQueueStatus] = useState<string | null>(null);
     const record = records.find((item) => item.symbol === symbol) ?? records[0] ?? null;
     const coverage = useMemo(() => record ? buildEvidenceCoverage(record) : null, [record]);

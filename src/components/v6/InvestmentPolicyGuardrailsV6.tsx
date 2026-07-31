@@ -21,9 +21,10 @@ const percentFields: readonly {
     { key: 'minEvidenceCoveragePercent', label: 'Minimum evidence coverage' },
 ];
 
-export const InvestmentPolicyGuardrailsV6 = ({ records, items, theme, onOpen }: {
+export const InvestmentPolicyGuardrailsV6 = ({ records, items, initialSymbol, theme, onOpen }: {
     readonly records: readonly ResearchRecord[];
     readonly items: readonly ResearchWatchlistItem[];
+    readonly initialSymbol?: string;
     readonly theme: ResearchThemeV6;
     readonly onOpen: (symbol: string) => void;
 }) => {
@@ -37,10 +38,10 @@ export const InvestmentPolicyGuardrailsV6 = ({ records, items, theme, onOpen }: 
         return () => window.clearTimeout(timer);
     }, []);
 
-    const assessments = useMemo(() => assessInvestmentPolicy(records.map((record) => ({
+    const assessments = useMemo(() => [...assessInvestmentPolicy(records.map((record) => ({
         record,
         sector: items.find((item) => item.symbol === record.symbol)?.sector ?? 'Unclassified',
-    })), policy), [items, policy, records]);
+    })), policy)].sort((left, right) => Number(right.symbol === initialSymbol) - Number(left.symbol === initialSymbol)), [initialSymbol, items, policy, records]);
     const violationCount = assessments.reduce((total, item) => total + item.violations.length, 0);
     const compliantCount = assessments.filter((item) => item.compliant).length;
 

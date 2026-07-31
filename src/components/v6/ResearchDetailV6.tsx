@@ -17,6 +17,8 @@ import {
     type ResearchThemeV6,
 } from './research-v6';
 import { applyResearchSnapshotV6, parseResearchSnapshotResponse } from './research-snapshot-v6';
+import { ResearchReadinessStripV6 } from './ResearchReadinessStripV6';
+import type { ResearchReadinessDestination } from '@/lib/research/readiness';
 
 const formatProviderTimestampV6 = (timestamp: string) => new Intl.DateTimeFormat(undefined, {
     month: 'short',
@@ -25,8 +27,10 @@ const formatProviderTimestampV6 = (timestamp: string) => new Intl.DateTimeFormat
     minute: '2-digit',
 }).format(new Date(timestamp));
 
-export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, startReview, stagedEvidence, workflowTemplateId, saving, saveError, onTabChange, onSave, onReviewChange, onSnapshot, onDelete }: {
+export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQuote, activeTab, startReview, stagedEvidence, workflowTemplateId, saving, saveError, onTabChange, onReadinessNavigate, onSave, onReviewChange, onSnapshot, onDelete }: {
     ticker: ResearchWatchlistItem;
+    records: readonly ResearchRecord[];
+    items: readonly ResearchWatchlistItem[];
     theme: ResearchThemeV6;
     record: ResearchRecord;
     liveQuote: ResearchSnapshot['quote'] | null;
@@ -37,6 +41,7 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
     saving: boolean;
     saveError: string | null;
     onTabChange: (tab: ResearchTabV6) => void;
+    onReadinessNavigate: (destination: ResearchReadinessDestination) => void;
     onSave: (record: ResearchRecord) => Promise<boolean>;
     onReviewChange: (editing: boolean) => void;
     onSnapshot: (symbol: string, snapshot: ResearchSnapshot) => void;
@@ -150,6 +155,8 @@ export const ResearchDetailV6 = ({ ticker, theme, record, liveQuote, activeTab, 
                     <button type="button" onClick={() => void onDelete()} data-testid="research-remove-ticker" className={'mt-1 min-h-10 rounded px-2 text-xs font-medium transition-colors hover:text-rose-500 ' + themeClasses.textMuted}>Remove</button>
                 </div>
             </header>
+
+            <ResearchReadinessStripV6 record={record} ticker={ticker} records={records} items={items} theme={theme} onNavigate={onReadinessNavigate} />
 
             {providerState === 'loading' ? (
                 <div role="status" className={'mt-3 flex items-center gap-2 rounded-md border px-3 py-2 text-xs ' + themeClasses.row + ' ' + themeClasses.textSecondary}>

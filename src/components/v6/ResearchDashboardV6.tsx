@@ -17,6 +17,7 @@ import {
 import { ResearchWatchlistV6 } from './ResearchWatchlistV6';
 import { ResearchInboxV6, type ResearchInboxSummaryV6 } from './ResearchInboxV6';
 import { isResearchWorkspaceV6, ResearchWorkspaceTabsV6, type ResearchWorkspaceV6 } from './ResearchWorkspaceTabsV6';
+import type { ResearchReadinessDestination } from '@/lib/research/readiness';
 import { ResearchMarketContextV6 } from './MarketResearchHandoffV6';
 import { applyResearchRecordV6, createWatchlistItemV6, toResearchRecordV6 } from './research-records-v6';
 import { applyResearchQuoteV6, applyResearchSnapshotV6 } from './research-snapshot-v6';
@@ -281,6 +282,18 @@ export const ResearchDashboardV6 = () => {
     const changeWorkspace = (nextWorkspace: ResearchWorkspaceV6) => {
         setWorkspace(nextWorkspace);
         updateUrl({ workspace: nextWorkspace, queueTask: null }, 'push');
+    };
+
+    const openReadinessDestination = (destination: ResearchReadinessDestination) => {
+        if (destination === 'review' || destination === 'valuation') {
+            const tab = destination === 'valuation' ? 'valuation' : 'overview';
+            setWorkspace('research');
+            setActiveDetailTab(tab);
+            setReviewRequested(destination === 'review');
+            updateUrl({ workspace: 'research', ticker: selectedSymbol, tab, review: destination === 'review' ? 'edit' : null }, 'push');
+            return;
+        }
+        changeWorkspace(destination);
     };
 
     const filteredItems = useMemo(() => filterResearchItems(items, query, market, action), [action, items, market, query]);
@@ -885,9 +898,9 @@ export const ResearchDashboardV6 = () => {
                     ) : workspace === 'filings' ? (
                         <EvidenceDocumentDiffV6 key={selectedSymbol} records={inboxRecords} initialSymbol={selectedSymbol} theme={theme} saving={saving} saveError={saveError} onSave={saveRecord} onOpen={openResearchFrom('filings')} />
                     ) : workspace === 'evidence' ? (
-                        <EvidenceCoverageDashboardV6 records={inboxRecords} theme={theme} onOpen={openResearchFrom('evidence')} />
+                        <EvidenceCoverageDashboardV6 records={inboxRecords} initialSymbol={selectedSymbol} theme={theme} onOpen={openResearchFrom('evidence')} />
                     ) : workspace === 'policy' ? (
-                        <InvestmentPolicyGuardrailsV6 records={inboxRecords} items={items} theme={theme} onOpen={openResearchFrom('policy')} />
+                        <InvestmentPolicyGuardrailsV6 records={inboxRecords} items={items} initialSymbol={selectedSymbol} theme={theme} onOpen={openResearchFrom('policy')} />
                     ) : workspace === 'queue' ? (
                         <ResearchWorkflowQueueV6
                             records={inboxRecords}
@@ -940,7 +953,7 @@ export const ResearchDashboardV6 = () => {
                         adding={adding || recordsLoadState !== 'ready'}
                     />
                     {selected && selectedRecord ? (
-                        <ResearchDetailV6 key={selected.symbol + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} ticker={selected} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} activeTab={activeDetailTab} startReview={reviewRequested} stagedEvidence={stagedEvidence?.id.startsWith(selected.symbol + ':') ? stagedEvidence : null} workflowTemplateId={workflowTemplateId} saving={saving || recordsLoadState !== 'ready'} saveError={saveError} onTabChange={changeDetailTab} onSave={saveRecord} onReviewChange={changeReviewMode} onSnapshot={updateLiveSnapshot} onDelete={deleteRecord} />
+                        <ResearchDetailV6 key={selected.symbol + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} ticker={selected} records={inboxRecords} items={items} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} activeTab={activeDetailTab} startReview={reviewRequested} stagedEvidence={stagedEvidence?.id.startsWith(selected.symbol + ':') ? stagedEvidence : null} workflowTemplateId={workflowTemplateId} saving={saving || recordsLoadState !== 'ready'} saveError={saveError} onTabChange={changeDetailTab} onReadinessNavigate={openReadinessDestination} onSave={saveRecord} onReviewChange={changeReviewMode} onSnapshot={updateLiveSnapshot} onDelete={deleteRecord} />
                     ) : (
                         <section className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
                             <div>

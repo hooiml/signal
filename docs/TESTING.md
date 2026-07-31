@@ -142,6 +142,20 @@ selection order, disclosure mutation safety, exact Discovery request count, docu
 blocking console/request errors, and shortlist screenshots at
 1280px, 768px, and 375px. Use `--viewport 375` only for a focused rerun after a failure.
 
+### Targeted Research Readiness QA
+
+For the ticker-level saved-state readiness strip and its owner navigation, run against a local
+Signal server:
+
+```powershell
+npm run qa:research-readiness -- --base-url http://127.0.0.1:3000
+```
+
+The deterministic command covers the fixed next-gap precedence, collapsed seven-signal detail,
+selected-ticker handoff to Evidence and Policy, Valuation/Alerts/Calendar destinations, no Research
+mutation, first-viewport placement, document and strip overflow, blocking console/request errors,
+and responsive captures at 1280px, 768px, and 375px.
+
 ### Targeted Research Continuity QA
 
 For encrypted sync-vault and native-notification boundaries, run:

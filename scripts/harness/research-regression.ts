@@ -167,6 +167,7 @@ import {
     defaultInvestmentPolicy,
     parseInvestmentPolicy,
 } from '../../src/lib/research/investment-policy';
+import { buildResearchReadiness } from '../../src/lib/research/readiness';
 import {
     calculateCurrencyPerformance,
     defaultCurrencyPerformanceSettings,
@@ -954,6 +955,89 @@ const runInvestmentPolicyTests = () => {
     }], defaultInvestmentPolicy, '2026-07-26')[0];
     assertEqual(evidenceAndAge?.violations.some((item) => item.kind === 'evidence-coverage'), true, 'investment policy flags evidence coverage below the configured minimum');
     assertEqual(evidenceAndAge?.violations.some((item) => item.kind === 'review-age'), true, 'investment policy flags an overdue saved review');
+};
+
+const runResearchReadinessTests = () => {
+    const base = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
+    const baseAssessment = {
+        symbol: 'MSFT',
+        sector: 'Technology',
+        violations: [],
+        evidenceCoveragePercent: 100,
+        reviewAgeDays: 1,
+        compliant: true,
+    } as const;
+    const empty = buildResearchReadiness({ record: base, sector: 'Technology', policyAssessment: null, today: '2026-07-26' });
+    assertEqual(empty.items.length, 7, 'research readiness exposes each saved-state owner exactly once');
+    assertEqual(empty.nextGap.label, 'Thesis and checklist', 'research readiness starts with incomplete authored research');
+    assertEqual(empty.context, 'US · Technology · saved research only', 'research readiness keeps market and sector context descriptive');
+    assertEqual(
+        JSON.stringify(buildResearchReadiness({ record: base, sector: 'Technology', policyAssessment: null, today: '2026-07-26' })),
+        JSON.stringify(empty),
+        'research readiness is deterministic for identical saved inputs',
+    );
+
+    const targets = ['whyInterested', 'bullCase', 'bearCase', 'buyTrigger', 'sellTrigger', 'thesisBreak', 'notes'] as const;
+    const evidenceReady = {
+        ...base,
+        whyInterested: 'Why interested',
+        bullCase: 'Bull case',
+        bearCase: 'Bear case',
+        buyTrigger: 'Buy trigger',
+        sellTrigger: 'Sell trigger',
+        thesisBreak: 'Thesis invalidation',
+        notes: 'Review notes',
+        checklist: Object.fromEntries(Object.keys(base.checklist).map((key) => [key, true])) as typeof base.checklist,
+        acceptedEvidence: targets.map((target) => ({
+            id: `evidence-${target}`,
+            title: `${target} evidence`,
+            summary: 'Bounded fixture.',
+            target,
+            tone: 'neutral' as const,
+            mode: 'evidence' as const,
+            acceptedAt: '2026-07-25T00:00:00.000Z',
+            sources: [{
+                id: `source-${target}`,
+                label: 'Saved evidence',
+                value: 'Available',
+                source: 'Fixture source',
+                sourceUrl: 'https://example.com/evidence',
+                reportingPeriod: '2026-07-25',
+            }],
+        })),
+    };
+    const valuationGap = buildResearchReadiness({ record: evidenceReady, sector: 'Technology', policyAssessment: baseAssessment, today: '2026-07-26' });
+    assertEqual(valuationGap.nextGap.label, 'Saved valuation', 'unknown valuation follows complete research and evidence in the fixed precedence');
+
+    const valued = { ...evidenceReady, valuationState: 'fair' as const };
+    const policyGap = buildResearchReadiness({
+        record: valued,
+        sector: 'Technology',
+        policyAssessment: { ...baseAssessment, compliant: false, violations: [{ kind: 'review-age' as const, message: 'Review stale.', actual: 100, limit: 90 }] },
+        today: '2026-07-26',
+    });
+    assertEqual(policyGap.nextGap.label, 'Policy guardrails', 'saved-policy violations precede monitoring and scheduling gaps');
+
+    const triggerGap = buildResearchReadiness({ record: valued, sector: 'Technology', policyAssessment: baseAssessment, today: '2026-07-26' });
+    assertEqual(triggerGap.nextGap.label, 'Structured triggers', 'missing structured triggers remain explicit after policy passes');
+    const monitored = {
+        ...valued,
+        monitoringRules: {
+            ...valued.monitoringRules,
+            structuredTriggers: {
+                ...valued.monitoringRules.structuredTriggers,
+                rules: [{ id: 'review-age', enabled: true, purpose: 'scheduled-evidence-review' as const, metric: 'research-age-days' as const, operator: 'above' as const, threshold: 30 }],
+            },
+        },
+    };
+    const reviewGap = buildResearchReadiness({ record: monitored, sector: 'Technology', policyAssessment: baseAssessment, today: '2026-07-26' });
+    assertEqual(reviewGap.nextGap.label, 'Next review', 'missing next-review date follows configured monitoring');
+    const scheduled = { ...monitored, decisionJournal: { ...monitored.decisionJournal, nextReviewAt: '2026-08-01' } };
+    const positionGap = buildResearchReadiness({ record: scheduled, sector: 'Technology', policyAssessment: baseAssessment, today: '2026-07-26' });
+    assertEqual(positionGap.nextGap.label, 'Position plan', 'incomplete position planning is the final saved-state gap');
+    const complete = { ...scheduled, positionPlan: { ...scheduled.positionPlan, plannedAllocationPercent: 5, plannedEntryPrice: 100, invalidationPrice: 90 } };
+    const ready = buildResearchReadiness({ record: complete, sector: 'Technology', policyAssessment: baseAssessment, today: '2026-07-26' });
+    assertEqual(ready.nextGap.label, 'Review current evidence', 'readiness falls back to review without inventing a score when no gap remains');
 };
 
 const runCurrencyPerformanceTests = () => {
@@ -4315,6 +4399,7 @@ const main = async () => {
     runLocalResearchSearchTests();
     runEvidenceCoverageTests();
     runInvestmentPolicyTests();
+    runResearchReadinessTests();
     runCurrencyPerformanceTests();
     runEvidenceDocumentDiffTests();
     runScenarioLibraryTests();

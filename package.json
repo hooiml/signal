@@ -23,6 +23,7 @@
     "qa:research-structured-triggers": "node scripts/research-structured-triggers-qa.mjs",
     "qa:research-primary-documents": "node scripts/research-primary-documents-qa.mjs",
     "qa:research-picker": "node scripts/research-picker-qa.mjs",
+    "qa:research-readiness": "node scripts/research-readiness-qa.mjs",
     "qa:research-factor-exposure": "node scripts/research-factor-exposure-qa.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
