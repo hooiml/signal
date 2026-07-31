@@ -10,6 +10,7 @@ type ResearchWatchlistV6Props = {
     onSelect: (symbol: string) => void;
     onAdd: (input: { readonly symbol: string; readonly market: ResearchMarket; readonly companyName: string }) => Promise<void>;
     adding: boolean;
+    initiallyOpen?: boolean;
 };
 
 export const ResearchWatchlistV6 = ({
@@ -19,8 +20,9 @@ export const ResearchWatchlistV6 = ({
     onSelect,
     onAdd,
     adding,
+    initiallyOpen = false,
 }: ResearchWatchlistV6Props) => {
-    const [showAdd, setShowAdd] = useState(false);
+    const [showAdd, setShowAdd] = useState(initiallyOpen);
     const [symbol, setSymbol] = useState('');
     const [companyName, setCompanyName] = useState('');
     const [market, setMarket] = useState<ResearchMarket>('US');

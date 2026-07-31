@@ -166,6 +166,23 @@ npm run qa:research-continuity -- --base-url http://127.0.0.1:3000
 
 The deterministic harness covers ciphertext-only push, mounted-page-only secrets, local pull/decryption, add-only import preview, stale-revision conflict handling, explicit notification permission, risk-only filtering, stable deduplication after reload, disable behavior, settings-service degradation, research mutation safety, document overflow, and blocking console/page/request failures at 1280px, 768px, and 375px.
 
+### Targeted First-Run Setup And Guided Demo QA
+
+For the browser-local setup lifecycle and isolated demonstration boundary, run:
+
+```powershell
+npm run qa:first-run -- --base-url http://127.0.0.1:3000
+```
+
+The consolidated deterministic check covers a first-ever empty launch, existing Research,
+Portfolio, and Queue preservation, owner-backed setup completion, exact add/import/review
+destinations, one saved review with a scheduled next review, optional monitoring skip, explicit
+setup skip, reload/resume and idempotency, malformed setup recovery, corrupt Portfolio coexistence,
+setup-only restart, analytics/request privacy, and document overflow at 1280px, 768px, and 375px.
+It also exercises pointer and keyboard demo navigation across Market, Research, and Portfolio,
+checks example/not-live labels on every demo panel, proves restart is session-only, and fails if
+the demo makes an application API request or writes setup, Portfolio, or Queue state.
+
 ### Targeted Structured Thesis-Trigger QA
 
 For structured rule authoring, revision safety, Alerts coverage, Queue handoff, and privacy boundaries, run:
@@ -378,6 +395,16 @@ npm run qa:research-queue -- --base-url http://127.0.0.1:3000
 Encrypted-backup checks should prove that research plaintext is absent from the envelope, AES-GCM round-trips a fully validated record and review history, the wrong passphrase fails, duplicate symbols and malformed records are rejected, and only `add-only` or `replace-existing` conflict policies cross the restore boundary. Browser verification should restore `workspace=backup`, download a `.signal-backup`, decrypt it locally, show the timestamp/record/symbol preview, reject a wrong passphrase and files over 2 MB, keep add-only as the default, require the explicit replacement acknowledgement, and verify import counts. Add-only must leave matching records untouched; replacement must preserve imported review history and advance the server revision without deleting unrelated records. Confirm no passphrase or encrypted-file upload occurs before the explicit import, and check document overflow at 1280px, 768px, and 375px.
 
 Command-palette, universal local-search, and saved-view checks should reject malformed workspace, ticker, tab, filter, and density values; deduplicate names case-insensitively; cap storage at eight views; and fall back to comfortable density. Local-search regression must build only from validated saved records and parsed Queue tasks; cover Ticker, Research, Evidence, Filings, and Queue groups; enforce the two-character/80-character query bounds plus eight-results-per-owner cap; exclude evidence values, source URLs, filing excerpts/digests, Queue dedupe keys, and unrelated private state; preserve inputs byte-for-byte; and resolve the exact owning destination. Browser verification should open the palette with Ctrl/Cmd+K from both Market and Research, filter commands, use Arrow keys/Enter/Escape, restore focus, and cover loading, empty, large-result, saved-record-error, and Queue-storage-unavailable states. Select representative authored Research, filing-identifier, and Queue-task results; verify the exact ticker/workspace/tab/task, preserve unrelated URL parameters, and confirm no search request, query/content analytics capture, Research mutation, or Queue mutation. Run the matrix at 1280px, 768px, and 375px with focus visibility, contained palette scrolling, snippets/destination labels, and no document overflow. Existing command and saved-view coverage still runs representative Market configuration, Research workspace, ticker, and saved-view commands; save, replace, apply, reload, and remove a named Research view and verify its workspace, query/filter, ticker, detail tab, and density state.
+
+First-run setup checks should accept only the version-1 fixed lifecycle, US/MY, completion-step,
+and optional-monitoring enums; reject duplicates, unknown fields, unsupported versions, and
+malformed timestamps; preserve input owner records; derive completion only from validated saved
+Research, review history, next-review dates, structured rules, and accepted Portfolio presence;
+and keep reconciliation deterministic and idempotent. In the browser, confirm an empty first
+launch opens setup while existing owner state does not, every setup action reaches its existing
+owner, skip and restart change only setup state, corrupt setup remains recoverable without
+clearing corrupt or valid owner state, direct `/research` still restores Watchlist, and `/demo`
+remains fixed, clearly labelled, request-free, mutation-free, keyboard operable, and responsive.
 
 Discovery-universe policy checks should preserve default rank and score with the default policy, apply eligibility before preferences, retain exclusion reasons, limit preferences to three unique values, cap saved policies at five, and show default rank plus exact adjustment reasons after reranking. Browser verification should create and save a sector/liquidity/risk policy, reload and explicitly apply it, exercise a policy that yields no eligible candidates, reset to default, remove the saved policy, and prove the US-only coverage disclosure. Confirm existing Discovery filters still act after policy eligibility and check document overflow at 1280px, 768px, and 375px.
 

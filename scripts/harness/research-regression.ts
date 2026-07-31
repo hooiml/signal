@@ -269,6 +269,16 @@ import {
     upsertSavedResearchLayout,
     type SavedResearchLayout,
 } from '../../src/lib/research/saved-layouts';
+import {
+    createFirstRunSetupState,
+    firstRunOwnerCompletedSteps,
+    hasExistingFirstRunOwnerState,
+    parseFirstRunSetupState,
+    reconcileFirstRunSetupState,
+    setFirstRunMonitoringSkipped,
+    setFirstRunSetupStatus,
+    updateFirstRunMarkets,
+} from '../../src/lib/research/first-run';
 
 const assertEqual = <T>(actual: T, expected: T, label: string) => {
     if (actual !== expected) throw new Error(`${label}: expected ${expected}, got ${actual}`);
@@ -292,6 +302,84 @@ const assertRejects = async (callback: () => Promise<unknown>, label: string) =>
         throw error;
     }
     throw new Error(`${label}: expected a rejection`);
+};
+
+const runFirstRunSetupTests = () => {
+    const initial = createFirstRunSetupState('2026-07-30T09:00:00.000Z');
+    assertEqual(initial.status, 'active', 'first-run setup begins active');
+    assertEqual(initial.completedSteps.length, 0, 'first-run setup begins without invented completion');
+    assertThrows(
+        () => parseFirstRunSetupState({ ...initial, hiddenPayload: 'research content' }),
+        'first-run setup rejects unexpected persisted fields',
+    );
+    assertThrows(
+        () => parseFirstRunSetupState({ ...initial, markets: ['US', 'US'] }),
+        'first-run setup rejects duplicate markets',
+    );
+    assertThrows(
+        () => parseFirstRunSetupState({ ...initial, completedSteps: ['review', 'private-note'] }),
+        'first-run setup accepts only bounded completion enums',
+    );
+
+    const markets = updateFirstRunMarkets(initial, ['MY', 'US'], '2026-07-30T09:01:00.000Z');
+    assertEqual(markets.markets.join(','), 'US,MY', 'first-run markets use deterministic supported order');
+    const created = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
+    const reviewed = appendResearchReview({
+        ...created,
+        decisionJournal: { ...created.decisionJournal, nextReviewAt: '2026-08-30' },
+        monitoringRules: {
+            ...created.monitoringRules,
+            structuredTriggers: {
+                version: 1,
+                migrationState: 'current',
+                rules: [{
+                    id: 'setup-rule',
+                    purpose: 'opportunity-review',
+                    metric: 'price',
+                    operator: 'above',
+                    threshold: 500,
+                    enabled: true,
+                }],
+            },
+        },
+    }, '2026-07-30T09:02:00.000Z');
+    const owner = { records: [reviewed], hasPortfolioSnapshot: false };
+    assertEqual(firstRunOwnerCompletedSteps(markets, owner).join(','), 'markets,watchlist,review,schedule,monitoring', 'first-run derives completion from existing owners');
+
+    const completed = reconcileFirstRunSetupState(markets, owner, '2026-07-30T09:03:00.000Z');
+    assertEqual(completed.status, 'completed', 'first-run completes after all owner-backed steps');
+    assertEqual(
+        reconcileFirstRunSetupState(completed, owner, '2026-07-30T09:04:00.000Z').completedSteps.join(','),
+        completed.completedSteps.join(','),
+        'first-run reconciliation is idempotent',
+    );
+
+    const requiredOwner = {
+        records: [{
+            ...reviewed,
+            monitoringRules: created.monitoringRules,
+        }],
+        hasPortfolioSnapshot: false,
+    };
+    const optionalSkipped = reconcileFirstRunSetupState(
+        setFirstRunMonitoringSkipped(markets, true, '2026-07-30T09:05:00.000Z'),
+        requiredOwner,
+        '2026-07-30T09:06:00.000Z',
+    );
+    assertEqual(optionalSkipped.status, 'completed', 'first-run optional monitoring step can be explicitly skipped');
+    assertEqual(
+        reconcileFirstRunSetupState(
+            setFirstRunSetupStatus(optionalSkipped, 'skipped', '2026-07-30T09:07:00.000Z'),
+            requiredOwner,
+            '2026-07-30T09:08:00.000Z',
+        ).status,
+        'skipped',
+        'first-run skip remains explicit during reconciliation',
+    );
+    assertEqual(hasExistingFirstRunOwnerState({ records: [], hasPortfolioSnapshot: false }, 0), false, 'first-run detects a truly empty owner state');
+    assertEqual(hasExistingFirstRunOwnerState({ records: [], hasPortfolioSnapshot: true }, 0), true, 'first-run preserves existing portfolio state');
+    assertEqual(hasExistingFirstRunOwnerState({ records: [], hasPortfolioSnapshot: false }, 1), true, 'first-run preserves existing Queue state');
+    assertEqual(created.reviewHistory.length, 0, 'first-run derivation does not mutate Research records');
 };
 
 const runResearchQuoteBatchTests = async () => {
@@ -4373,6 +4461,7 @@ const runSignalCacheTests = async () => {
 
 const main = async () => {
     runInputTests();
+    runFirstRunSetupTests();
     await runResearchQuoteBatchTests();
     await runSignalCacheTests();
     await runPrimaryDocumentEvidenceTests();

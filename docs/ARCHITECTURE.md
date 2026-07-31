@@ -6,6 +6,9 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 
 - `/`: primary Story First market conditions view, implemented by `MarketDashboardV6`.
 - `/research`: primary research workspace, implemented by `ResearchDashboardV6`.
+- `/demo`: isolated session-only guided example of Market, Research, and Portfolio. It uses fixed
+  local fixtures, labels every surface as example/not live, and has no application API or
+  persistence path.
 - `/main-v6` and `/research-v6`: retained versioned aliases for direct comparison and existing links.
 - `/backup/main` and `/backup/research`: previous market and research experiences retained as rollback references.
 
@@ -100,6 +103,14 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 - The Research `Queue` workspace is the shared execution layer for manual reviews plus Thesis Changes, Calendar events, Alerts, Market Exposure prompts, and Portfolio review prompts. It stores at most 100 browser-local ticker/template/source/due-date tasks, keeps one pending connected task per ticker, template, and source, and synchronizes same-tab or cross-tab changes without a server write. Connected tasks expose a deterministic return action to their owning Market or Research workspace; manual tasks have no invented source destination. Source navigation does not alter the task or research record. Five fixed templates select a smaller narrative-field set in the existing review editor, while the full checklist, valuation and target-zone controls, position plan, decision journal, accepted evidence, optimistic revision check, and explicit save remain unchanged.
 - The Research `Backup` workspace serializes only persisted research records, validates them against the normal record boundary, and encrypts/decrypts entirely in the browser with PBKDF2-SHA-256 plus AES-256-GCM. Imports are limited to 100 records and 2 MB, require a decrypted preview, default to add-only, and require a second explicit acknowledgement before replacing matches. `/api/research/backup` accepts plaintext only after that local approval, revalidates every record, never deletes unrelated records, preserves review history, and advances the stored revision on replacement.
 - `AppNavV6` owns the shared Ctrl/Cmd+K command palette. Its fixed route/theme commands are extended by Market configuration actions or Research workspace/ticker/saved-view actions, and the palette contains no mutation command for saved research. On Research, `local-search.ts` builds a bounded in-memory index only from records already accepted by `parseResearchRecord` plus Queue tasks already accepted by `parseResearchWorkflowTasks`. It searches fixed ticker/company, authored thesis, accepted-evidence label/source, primary-document title/identifier, and Queue template/source fields; evidence values, filing excerpts/URLs, Queue dedupe keys, holdings, transactions, accounts, credentials, backup content, and unrelated state are excluded. Matching has deterministic per-owner caps, emits no request or analytics content, and routes to the exact Research Overview, Filings ticker, or Queue task without mutation. Saved-record and Queue-storage failures degrade independently. Research saved views are capped at eight in browser storage and capture workspace, watchlist query/filters, ticker, detail tab, and comfortable/compact density; applying a view uses the existing URL-state boundary and never edits a research record.
+- First-run setup stores only the validated version-1 `signal-first-run-setup-v1` lifecycle,
+  selected-market, fixed completion-step, and optional-monitoring enums. It derives watchlist or
+  holdings, saved-review, scheduled-review, and structured-rule completion from the existing
+  Research and Portfolio owners. A first-ever empty owner state opens setup automatically;
+  existing Research, Portfolio, or Queue state is not changed or auto-replaced. Setup actions route
+  to the existing watchlist add, Portfolio import, and Research review surfaces. Skip, restart, and
+  malformed-progress recovery touch only the setup key. The `/demo` route is a separate mounted
+  session with no setup, Research, Portfolio, Queue, analytics, backup, sync, or provider write.
 - Discovery supports up to five browser-local custom universe policies over the existing curated US provider scan. Sector, dollar-volume, risk, and extreme-valuation rules determine eligibility; up to three bounded preferences adjust a separate policy score. The default discovery score and rank remain visible and unchanged, every adjustment is explained, exclusions retain reasons, and unsupported Malaysia coverage is not implied.
 - A scheduled refresh path precomputes the default V2 market/mode combinations once per day so the dashboard is less dependent on first-visitor refreshes.
 

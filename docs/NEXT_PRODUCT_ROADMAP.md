@@ -19,7 +19,9 @@ activation, dependency upgrades, or destructive operations by itself.
 
 ## Baseline
 
-- Reviewed against `main` at `356188b` on 2026-07-30.
+- Task 3 originated from pushed `origin/main` baseline
+  `2ee2da51111ea836eb85f298529f6d18aafdba5c` on 2026-07-30 and was ported onto
+  `38738906e037b584a271010d6d7e358eda531904` on 2026-08-01.
 - Signal already has substantial Market, Research, Portfolio, evidence, alerting, continuity,
   outcome, and workflow functionality.
 - Research currently exposes 22 workspaces across seven navigation sections.
@@ -79,7 +81,7 @@ Only one item may have status `In progress` at a time.
 | 0 | Observe Today and Usage | Observing | Validate the daily workflow before changing navigation defaults | 30 active-use days or two review cycles |
 | 1 | Today 2.0 action home | Verified implementation; promotion gated | Make the next useful action obvious | Task 0 promotion gate |
 | 2 | Universal local research search | Verified | Find existing research and workflow state quickly | Reuses the current command palette and validated local owner state |
-| 3 | First-run setup and guided demo | Proposed, audience-gated | Help a new user reach a first useful review | Confirm intended audience beyond the current operator |
+| 3 | First-run setup and guided demo | Verified | Help a new user reach a first useful review | Audience expansion explicitly authorized for this bounded setup slice |
 | 4 | Research readiness strip | Proposed | Show what is complete, stale, blocked, or due for one ticker | Reuse existing Evidence, Policy, trigger, and review state |
 | 5 | Pinned workspaces and attention badges | Proposed | Reduce navigation friction without unstable automatic reordering | Use existing loaded counts; avoid new fetches |
 | 6 | Forward-validation lab | Proposed, discovery required | Build genuine prospective trust evidence for scoring | Freeze a model/version and evaluation policy first |
@@ -277,7 +279,7 @@ task.
 
 ### Task 3 — First-Run Setup And Guided Demo
 
-**Status:** Proposed, audience-gated
+**Status:** Verified
 
 **Problem**
 
@@ -323,6 +325,30 @@ task ahead of Tasks 1 and 2. If not, keep it in the default order.
 - Higher completion of the first saved review.
 - Shorter time from first open to a meaningful action.
 - Fewer abandoned empty-state sessions.
+
+**Audience decision and implementation evidence — 2026-07-30**
+
+- The delegated Task 3 implementation explicitly confirms preparation for users beyond the
+  current operator. Tasks 1 and 2 were already verified, so their order and behavior remain
+  unchanged; Task 0 remains `Observing`.
+- First-ever empty Research state opens one resumable browser-local checklist. Existing Research,
+  Portfolio, or Queue owner state is preserved and receives only a quiet command-palette
+  `Setup & demo` return action instead of an automatic interruption or added page chrome.
+- The version-1 setup record accepts only fixed lifecycle, market, completion-step, and optional
+  monitoring enums. Watchlist/holdings, saved-review, next-review, and structured-rule completion
+  are derived from their existing validated owners rather than copied into setup persistence.
+- Setup actions open the existing watchlist add form, Portfolio import surface, and exact Research
+  review editor. Skip, hide, restart, reload, storage-unavailable, and malformed-progress recovery
+  paths do not clear or replace Research, Portfolio, Queue, Calendar, Alerts, Sources, analytics,
+  backup, or sync state.
+- `/demo` is a separate session-only, read-only path over fixed example Market, Research, and
+  Portfolio fixtures. Every panel labels its content as demo/example/not live; it makes no provider
+  or application API request and exposes no save, acknowledgement, import, rule, Queue, backup,
+  sync, or analytics mutation.
+- Focused regression, lint, typecheck, full harness, production build, and consolidated browser
+  checks passed at 1280 px, 768 px, and 375 px for first launch, existing-user preservation,
+  setup/review success, skip, reload/idempotency, malformed/partial storage recovery, exact
+  destinations, privacy/non-mutation, keyboard focus, tab navigation, and document overflow.
 
 ---
 
@@ -601,3 +627,4 @@ Update this table only when a task changes state or scope.
 | 2026-07-30 | 0 | Observing | Observing | Visible local baseline has no prior Today or Portfolio-to-Queue activity. Added only the missing correlated Today destination-reach metric; the real-use window and manual notes remain outstanding. |
 | 2026-07-30 | 1 | Proposed, gated | Verified implementation; promotion gated | Existing deterministic priority and owner contracts now form a responsive action home with strict local continuation, fixed return context, independent degradation, and bounded analytics. Watchlist remains the default while Task 0 observes real use. |
 | 2026-07-30 | 2 | Proposed | Verified | The shared command palette now searches bounded validated local Research, Evidence, Filings, and Queue owner state with deterministic caps, exact non-mutating destinations, independent degradation, and no search network or analytics content path. |
+| 2026-08-01 | 3 | Proposed, audience-gated | Verified | Audience expansion was explicitly authorized. Ported the validated, reversible owner-derived setup checklist and isolated read-only demo onto current `main` with no provider/application requests or real-state mutation. |

@@ -25,6 +25,7 @@
     "qa:research-picker": "node scripts/research-picker-qa.mjs",
     "qa:research-readiness": "node scripts/research-readiness-qa.mjs",
     "qa:research-factor-exposure": "node scripts/research-factor-exposure-qa.mjs",
+    "qa:first-run": "node scripts/first-run-setup-qa.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:social-sentiment": "powershell -ExecutionPolicy Bypass -File scripts/harness/check-social-sentiment.ps1",

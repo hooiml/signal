@@ -57,6 +57,7 @@ import type { ProductAnalyticsSource } from '@/lib/types/product-analytics';
 import { SinceLastVisitBriefingV6 } from './SinceLastVisitBriefingV6';
 import { createTodayResearchContinuation } from '@/lib/research/since-last-visit';
 import { writeTodayContinuation } from '@/lib/research/since-last-visit-client';
+import { FirstRunSetupV6 } from './FirstRunSetupV6';
 
 const workspaceLoading = (label: string) => function ResearchWorkspaceLoadingV6() {
     return (
@@ -185,6 +186,7 @@ export const ResearchDashboardV6 = () => {
     const requestedWorkspace = searchParams.get('workspace');
     const requestedDetailTab = searchParams.get('tab');
     const requestedReview = searchParams.get('review');
+    const requestedSetup = searchParams.get('setup') === '1';
     const rawRequestedQueueTask = searchParams.get('queueTask');
     const requestedQueueTask = rawRequestedQueueTask && /^[a-f0-9-]{36}$/i.test(rawRequestedQueueTask)
         ? rawRequestedQueueTask
@@ -213,6 +215,7 @@ export const ResearchDashboardV6 = () => {
     const [density, setDensity] = useState<ResearchLayoutDensity>('comfortable');
     const [savedLayouts, setSavedLayouts] = useState<readonly SavedResearchLayout[]>([]);
     const [queueSearchState, setQueueSearchState] = useState<ResearchWorkflowTaskReadResult | null>(null);
+    const [watchlistAddRequest, setWatchlistAddRequest] = useState(0);
     const liveSnapshots = useRef(new Map<string, ResearchSnapshot>());
     const liveQuotes = useRef(new Map<string, ResearchSnapshot['quote']>());
     const quoteItems = useRef(items);
@@ -699,6 +702,20 @@ export const ResearchDashboardV6 = () => {
         packets: 'Export', backup: 'Backup', usage: 'Usage',
     };
     const researchCommands: readonly AppCommandV6[] = [
+        {
+            id: 'first-run-setup',
+            label: 'Open setup and demo',
+            group: 'Setup',
+            keywords: ['first run onboarding restart'],
+            run: () => updateUrl({ setup: '1' }, 'push'),
+        },
+        {
+            id: 'guided-demo',
+            label: 'Open read-only guided demo',
+            group: 'Setup',
+            keywords: ['example market research portfolio'],
+            run: () => router.push('/demo'),
+        },
         ...Object.entries(workspaceLabels).map(([id, label]) => ({
             id: `workspace-${id}`,
             label: `Open ${label}`,
@@ -777,6 +794,27 @@ export const ResearchDashboardV6 = () => {
                 commands={researchCommands}
                 localSearch={localSearch}
             />
+            <div className="relative z-10">
+                <FirstRunSetupV6
+                    records={records}
+                    recordsReady={recordsLoadState === 'ready'}
+                    queueReady={queueSearchState !== null}
+                    queueTaskCount={queueSearchState?.tasks.length ?? 0}
+                    theme={theme}
+                    forceOpen={requestedSetup}
+                    onStartAdd={() => {
+                        setWorkspace('research');
+                        setWatchlistAddRequest((current) => current + 1);
+                        updateUrl({ workspace: 'research', setup: '1', queueTask: null }, 'push');
+                    }}
+                    onOpenWorkspace={(nextWorkspace) => {
+                        setWorkspace(nextWorkspace);
+                        updateUrl({ workspace: nextWorkspace, setup: '1', queueTask: null }, 'push');
+                    }}
+                    onOpenReview={(symbol) => selectTicker(symbol, true, 'overview', true, 'push')}
+                    onCloseRequested={() => updateUrl({ setup: null })}
+                />
+            </div>
             <div className="relative z-10 mx-auto w-full max-w-[1280px] px-4 pb-5 pt-4 min-[700px]:px-5">
                 <ResearchWorkspaceTabsV6 active={workspace} theme={theme} onChange={changeWorkspace} />
                 <ResearchLayoutControlsV6
@@ -945,12 +983,14 @@ export const ResearchDashboardV6 = () => {
                         <ResearchPickerV6 theme={theme} savedSymbols={items.map((item) => item.symbol)} adding={adding || recordsLoadState !== 'ready'} onAdd={addDiscoveryCandidate} onOpen={openResearchFrom('picker')} />
                     ) : (<>
                     <ResearchWatchlistV6
+                        key={`research-watchlist-${watchlistAddRequest}`}
                         items={filteredItems}
                         selectedSymbol={selected?.symbol ?? ''}
                         theme={theme}
                         onSelect={selectTicker}
                         onAdd={addRecord}
                         adding={adding || recordsLoadState !== 'ready'}
+                        initiallyOpen={watchlistAddRequest > 0}
                     />
                     {selected && selectedRecord ? (
                         <ResearchDetailV6 key={selected.symbol + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} ticker={selected} records={inboxRecords} items={items} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} activeTab={activeDetailTab} startReview={reviewRequested} stagedEvidence={stagedEvidence?.id.startsWith(selected.symbol + ':') ? stagedEvidence : null} workflowTemplateId={workflowTemplateId} saving={saving || recordsLoadState !== 'ready'} saveError={saveError} onTabChange={changeDetailTab} onReadinessNavigate={openReadinessDestination} onSave={saveRecord} onReviewChange={changeReviewMode} onSnapshot={updateLiveSnapshot} onDelete={deleteRecord} />
