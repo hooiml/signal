@@ -10,6 +10,7 @@ import { parseYahooResearchChart, toYahooSymbol } from '../../src/lib/research/y
 import { calculateValuation } from '../../src/lib/research/valuation';
 import { scoreDiscoveryCandidate } from '../../src/lib/research/discovery-score';
 import { evaluateResearchAlerts, parseBuyZone } from '../../src/lib/research/alerts';
+import { buildResearchAlertRequest } from '../../src/lib/research/alert-request';
 import { evaluateResearchStructuredTriggers, parseResearchStructuredTriggerSet } from '../../src/lib/research/structured-triggers';
 import { evaluateMarketAlert, getMarketAlertRulesForBriefing, parseMarketAlertRules, type MarketAlertRule } from '../../src/lib/market-alerts';
 import { scoreDiscoveryQuality } from '../../src/lib/research/discovery-quality';
@@ -3063,6 +3064,20 @@ const runAlertTests = () => {
     assertEqual(alerts.some((alert) => alert.title === 'Large daily move'), true, 'large daily move alerts');
     assertEqual(alerts.some((alert) => alert.title === 'Oversold review'), true, 'low RSI alerts without claiming a buy');
     assertEqual(alerts.some((alert) => alert.title === 'Below 50-day average'), true, 'medium trend weakness alerts');
+
+    const monitoringRules = { ...defaultResearchMonitoringRules, reviewAgeDays: 14 };
+    const request = buildResearchAlertRequest([{
+        symbol: 'MSFT', market: 'US', targetBuyZone: '$390 - $405', lastReviewedAt: '2026-07-01',
+    }, {
+        symbol: 'MAYBANK', market: 'MY', targetBuyZone: 'RM9.20 - RM9.60', lastReviewedAt: '2026-07-02',
+    }], [{
+        symbol: 'MSFT', lastReviewedAt: '2026-07-20', acceptedEvidence: [], monitoringRules,
+    }]);
+    assertEqual(request[0]?.lastReviewedAt, '2026-07-20', 'alert request uses the saved record review date');
+    assertEqual(request[0]?.acceptedEvidence.length, 0, 'alert request includes accepted evidence');
+    assertEqual(request[0]?.monitoringRules.reviewAgeDays, 14, 'alert request includes saved monitoring rules');
+    assertEqual(request[1]?.lastReviewedAt, '2026-07-02', 'alert request falls back to the watchlist review date');
+    assertEqual(request[1]?.monitoringRules.reviewAgeDays, defaultResearchMonitoringRules.reviewAgeDays, 'alert request includes default monitoring rules without a saved record');
 };
 
 const runStructuredTriggerTests = () => {

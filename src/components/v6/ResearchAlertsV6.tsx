@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import type { ResearchAlert, ResearchAlertsResponse } from '@/lib/types/research-alert';
+import { buildResearchAlertRequest } from '@/lib/research/alert-request';
 import type { ResearchStructuredTriggerEvaluation } from '@/lib/research/structured-triggers';
 import { enqueueResearchWorkflowTaskClient } from '@/lib/research/workflow-queue-client';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
-import { defaultResearchMonitoringRules, type ResearchRecord } from '@/lib/types/research';
+import type { ResearchRecord } from '@/lib/types/research';
 import { ResearchNotificationCenterV6 } from './ResearchNotificationCenterV6';
 
 type ResearchAlertsV6Props = {
@@ -87,18 +88,7 @@ export const ResearchAlertsV6 = ({ items, records, theme, onOpen }: ResearchAler
     const [error, setError] = useState<string | null>(null);
     const [queueStatus, setQueueStatus] = useState<string | null>(null);
     const styles = getThemeV6(theme);
-    const recordsBySymbol = useMemo(() => new Map(records.map((record) => [record.symbol, record])), [records]);
-    const requestBody = useMemo(() => JSON.stringify(items.map((item) => {
-        const record = recordsBySymbol.get(item.symbol);
-        return {
-            symbol: item.symbol,
-            market: item.market,
-            targetBuyZone: item.targetBuyZone,
-            lastReviewedAt: record?.lastReviewedAt ?? item.lastReviewedAt,
-            acceptedEvidence: record?.acceptedEvidence ?? [],
-            monitoringRules: record?.monitoringRules ?? defaultResearchMonitoringRules,
-        };
-    })), [items, recordsBySymbol]);
+    const requestBody = useMemo(() => JSON.stringify(buildResearchAlertRequest(items, records)), [items, records]);
 
     useEffect(() => {
         let active = true;
