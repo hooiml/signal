@@ -96,7 +96,7 @@ For shared header or responsive navigation changes, use the deterministic one-se
 npm run qa:header
 ```
 
-The command checks `/start`, `/`, and `/research` at 1280px, 768px, and 375px. It waits for the header and navigation to be visible after `domcontentloaded`, so it does not wait for unrelated upstream API requests. It measures the shared inner width, bottom hairline, navigation clipping, document overflow, and toggle behavior, and writes a fresh report plus header captures under `.tmp/signal-header-qa/<timestamp>/`.
+The command checks `/start`, `/`, and `/research` at 1280px, 768px, and 375px. It waits for the header and navigation to be visible after `domcontentloaded`, so it does not wait for unrelated upstream API requests. It measures the shared inner width, bottom hairline, navigation clipping, document overflow, command and theme control target sizes, and toggle behavior, and writes a fresh report plus header captures under `.tmp/signal-header-qa/<timestamp>/`.
 
 Set `SIGNAL_QA_URL` or pass `--base-url` when the local server uses another port.
 
@@ -454,7 +454,7 @@ Run the production-runtime browser lane:
 npm run qa:pwa
 ```
 
-Use an owned localhost production server and one service-worker-enabled Chromium session. Cover install metadata, registered scope, exact Cache Storage contents, online/offline/reconnect fallback, last-online disclosure, waiting-update confirmation, direct-gesture subscription mocks without external push traffic, denied/unsupported/misconfigured/error/subscribed/unsubscribed states, the local-only notification message path, safe notification navigation, console/network/privacy assertions, and document overflow at 1280, 768, and 375 pixels.
+Use an owned localhost production server and one service-worker-enabled Chromium session. Cover install metadata, registered scope, exact Cache Storage contents, online/offline/reconnect fallback, last-online disclosure, waiting-update confirmation, direct-gesture subscription mocks without external push traffic, denied/unsupported/misconfigured/error/subscribed/unsubscribed states, the local-only notification message path, safe notification navigation, console/network/privacy assertions, and document overflow at 1280, 768, and 375 pixels. Lifecycle notices must remain in document flow without covering interactive content; install, retry, and update actions must be keyboard operable, at least 40px tall, and the optional install invitation must expose an explicit deferral action.
 
 ## Harness And Eval Evidence
 

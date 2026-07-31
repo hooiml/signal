@@ -44,8 +44,8 @@ export default function RootLayout({
       <body
         className={`${sourceSans.variable} ${robotoMono.variable} antialiased`}
       >
-        <ThemeProviderV6>{children}</ThemeProviderV6>
         <PwaLifecycle />
+        <ThemeProviderV6>{children}</ThemeProviderV6>
       </body>
     </html>
   );

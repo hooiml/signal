@@ -83,6 +83,11 @@ export const PwaLifecycle = () => {
         setMessage(choice.outcome === 'accepted' ? 'Signal installation started.' : 'Installation was dismissed.');
     };
 
+    const deferInstall = () => {
+        setInstallPrompt(null);
+        setMessage(null);
+    };
+
     const applyUpdate = () => {
         if (!waitingWorker) return;
         const proceed = window.confirm('Applying the Signal update reloads this page. Save any unsaved research or planning changes first. Apply now?');
@@ -95,19 +100,51 @@ export const PwaLifecycle = () => {
     };
 
     if (online && !waitingWorker && !installPrompt && !message) return null;
+    const hasPriorityNotice = !online || waitingWorker !== null;
     return (
-        <aside className="fixed bottom-3 right-3 z-[100] max-w-[min(24rem,calc(100vw-1.5rem))] rounded-lg border border-slate-600 bg-[#071019] p-3 text-xs text-slate-100 shadow-2xl" aria-live="polite">
+        <aside
+            data-testid="pwa-lifecycle"
+            data-priority={hasPriorityNotice ? 'essential' : 'optional'}
+            className={'relative z-[100] w-full border-b px-3 py-3 text-xs text-slate-100 ' + (hasPriorityNotice
+                ? 'border-amber-400/50 bg-[#101820] shadow-md'
+                : 'border-slate-700 bg-[#071019]')}
+            aria-live="polite"
+        >
+            <div className="mx-auto max-w-[1280px] space-y-3">
             {!online ? (
-                <div>
+                <div role="status">
                     <p className="font-bold text-amber-300">Offline — live server data is unavailable</p>
                     <p className="mt-1 leading-5 text-slate-300">Only the static offline page is cached. Already-loaded browser-local planning data stays local and is neither synced nor copied into Cache Storage.</p>
                     <p className="mt-1 text-slate-400">{lastOnlineAt ? `Last online ${new Date(lastOnlineAt).toLocaleString()}.` : 'No last-online time is available.'}</p>
-                    <button type="button" onClick={() => window.location.reload()} className="mt-2 min-h-9 rounded bg-teal-700 px-3 font-bold text-white">Retry connection</button>
+                    <button type="button" onClick={() => window.location.reload()} className="mt-2 min-h-10 rounded bg-teal-700 px-3 font-bold text-white">Retry connection</button>
                 </div>
             ) : null}
-            {waitingWorker ? <button type="button" onClick={applyUpdate} className="mt-2 min-h-9 rounded bg-teal-700 px-3 font-bold text-white">Update available — review and apply</button> : null}
-            {installPrompt ? <button type="button" onClick={() => void install()} className="mt-2 min-h-9 rounded border border-slate-500 px-3 font-bold">Install Signal</button> : null}
-            {message ? <p className="mt-2 leading-5 text-slate-300">{message}</p> : null}
+            {waitingWorker ? (
+                <div role="status">
+                    <p className="font-bold text-teal-200">A Signal update is ready</p>
+                    <p className="mt-1 leading-5 text-slate-300">Save any open research or planning changes before applying it.</p>
+                    <button type="button" onClick={applyUpdate} className="mt-2 min-h-10 rounded bg-teal-700 px-3 font-bold text-white">Review and apply update</button>
+                </div>
+            ) : null}
+            {installPrompt ? (
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p className="font-bold text-slate-100">Install Signal</p>
+                        <p className="mt-1 leading-5 text-slate-400">Optional: add Signal to this device for quicker access.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <button type="button" onClick={() => void install()} className="min-h-10 rounded border border-slate-500 px-3 font-bold">Install Signal</button>
+                        <button type="button" onClick={deferInstall} className="min-h-10 rounded px-3 font-bold text-slate-300 underline decoration-slate-500 underline-offset-4">Not now</button>
+                    </div>
+                </div>
+            ) : null}
+            {message ? (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="leading-5 text-slate-300">{message}</p>
+                    <button type="button" onClick={() => setMessage(null)} className="min-h-10 rounded px-3 font-bold text-slate-300 underline decoration-slate-500 underline-offset-4">Dismiss notice</button>
+                </div>
+            ) : null}
+            </div>
         </aside>
     );
 };

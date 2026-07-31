@@ -37,12 +37,12 @@ export const ThemeModeSwitchV2 = ({ theme, tone, onToggle, className = '', varia
                 aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
                 aria-pressed={theme === 'dark'}
                 title={theme === 'dark' ? 'Dark mode active. Switch to light mode' : 'Light mode active. Switch to dark mode'}
-                className={`relative inline-flex h-7 w-[52px] items-center rounded-full border-[0.5px] border-[var(--border)] bg-transparent p-1 transition-all duration-300 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ${className}`}
+                className={`relative inline-flex h-10 w-14 items-center rounded-full border-[0.5px] border-[var(--border)] bg-transparent p-1 transition-all duration-300 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ${className}`}
             >
                 <span aria-hidden="true" className={`absolute inset-1 rounded-full transition-colors ${isLightTone ? 'bg-slate-200/70' : 'bg-slate-950/35'}`} />
                 <span
                     aria-hidden="true"
-                    className={`relative z-10 grid h-5 w-5 place-items-center rounded-full transition-transform duration-300 ${theme === 'dark' ? 'translate-x-6' : 'translate-x-0'} ${isLightTone ? 'bg-emerald-600 text-white' : 'bg-emerald-300 text-slate-950'}`}
+                    className={`relative z-10 grid h-6 w-6 place-items-center rounded-full transition-transform duration-300 ${theme === 'dark' ? 'translate-x-6' : 'translate-x-0'} ${isLightTone ? 'bg-emerald-600 text-white' : 'bg-emerald-300 text-slate-950'}`}
                 >
                     <ThemeModeGlyph theme={theme} />
                 </span>

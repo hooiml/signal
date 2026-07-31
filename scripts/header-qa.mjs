@@ -89,6 +89,7 @@ const inspectHeader = async (page, routePath, viewport) => page.evaluate(({ rout
     const inner = header?.firstElementChild;
     const nav = header?.querySelector('nav[aria-label="Primary"]');
     const toggle = header?.querySelector('button[aria-label^="Switch to"]');
+    const headerCommand = header?.querySelector('button[aria-label="Open command palette"]');
     const command = header?.querySelector('[aria-label="Market conditions controls"]');
     const researchControls = header?.querySelector('[aria-label="Research controls"]');
     const rect = (element) => {
@@ -114,6 +115,7 @@ const inspectHeader = async (page, routePath, viewport) => page.evaluate(({ rout
         nav: rect(nav),
         navLinks,
         toggle: rect(toggle),
+        headerCommand: rect(headerCommand),
         command: rect(command),
         researchControls: rect(researchControls),
         borderBottomWidth: headerStyle ? Number.parseFloat(headerStyle.borderBottomWidth) : 0,
@@ -221,9 +223,7 @@ const main = async () => {
                     ));
                     const documentOverflow = details.documentWidth - details.viewportWidth;
                     const innerWidthDelta = details.inner ? Math.abs(details.inner.width - details.expectedInnerWidth) : Infinity;
-                    const toggleSize = details.toggle
-                        ? Math.abs(details.toggle.width - 52) <= 1 && Math.abs(details.toggle.height - 28) <= 1
-                        : false;
+                    const meetsTargetSize = (box) => Boolean(box) && box.width >= 40 && box.height >= 40;
 
                     runCheck(scenario.checks, 'shared header visible', Boolean(details.header), 'header[aria-label="Signal application header"] is visible');
                     runCheck(scenario.checks, 'header content width', innerWidthDelta <= 2, `inner width ${details.inner?.width ?? 'missing'}; expected ${details.expectedInnerWidth}`);
@@ -234,7 +234,8 @@ const main = async () => {
                     runCheck(scenario.checks, 'primary navigation selected state', selectedLabel === expectedLabel, selectedLabel || 'no selected link');
                     runCheck(scenario.checks, 'primary navigation fully visible', linksVisible, `nav ${navBounds ? `${navBounds.width}px` : 'missing'}`);
                     runCheck(scenario.checks, 'document has no horizontal overflow', documentOverflow <= 1, `${details.documentWidth}px document width on ${details.viewportWidth}px viewport`);
-                    runCheck(scenario.checks, 'theme toggle dimensions', toggleSize, details.toggle ? `${details.toggle.width}x${details.toggle.height}` : 'toggle missing');
+                    runCheck(scenario.checks, 'theme toggle target size', meetsTargetSize(details.toggle), details.toggle ? `${details.toggle.width}x${details.toggle.height}` : 'toggle missing');
+                    runCheck(scenario.checks, 'command palette target size', meetsTargetSize(details.headerCommand), details.headerCommand ? `${details.headerCommand.width}x${details.headerCommand.height}` : 'command button missing');
                     if (expectedSurface !== 'start') {
                         runCheck(scenario.checks, `${expectedSurface} surface present`, Boolean(expectedSurface === 'market' ? details.command : details.researchControls), expectedSurface === 'market' ? 'market conditions controls' : 'research controls');
                     }

@@ -77,7 +77,7 @@ export const AppNavV6 = ({ active, theme, onThemeToggle, commands = [], localSea
                         })}
                     </nav>
                     <div className="flex shrink-0 items-center justify-self-end gap-2">
-                        <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Open command palette" className="inline-flex min-h-9 items-center rounded-md border-[0.5px] border-[var(--border)] px-2 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                        <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Open command palette" className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md border-[0.5px] border-[var(--border)] px-2 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)]">
                             <span className="min-[700px]:hidden">⌕</span><span className="hidden min-[700px]:inline">Commands</span><kbd className="ml-2 hidden rounded border border-[var(--border)] px-1 py-0.5 text-[9px] min-[900px]:inline">Ctrl K</kbd>
                         </button>
                         <ThemeModeSwitchV2 theme={theme} tone={theme} onToggle={onThemeToggle} variant="header" className="shrink-0" />

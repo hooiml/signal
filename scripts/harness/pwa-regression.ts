@@ -184,6 +184,7 @@ const repo = process.cwd();
 const serviceWorker = readFileSync(join(repo, 'public/sw.js'), 'utf8');
 const manifest = readFileSync(join(repo, 'src/app/manifest.ts'), 'utf8');
 const lifecycle = readFileSync(join(repo, 'src/components/pwa/PwaLifecycle.tsx'), 'utf8');
+const rootLayout = readFileSync(join(repo, 'src/app/layout.tsx'), 'utf8');
 const offlinePage = readFileSync(join(repo, 'src/app/offline/page.tsx'), 'utf8');
 const pushUi = readFileSync(join(repo, 'src/components/pwa/ResearchWebPushV6.tsx'), 'utf8');
 const route = readFileSync(join(repo, 'src/app/api/research/push/subscriptions/route.ts'), 'utf8');
@@ -199,6 +200,13 @@ assert.match(serviceWorker, /new URL\(path, self\.location\.origin\)/);
 assert.match(serviceWorker, /clients\.matchAll[\s\S]+existing\.navigate[\s\S]+existing\.focus/);
 assert.match(serviceWorker, /SIGNAL_APPLY_UPDATE/);
 assert.match(lifecycle, /window\.confirm\([\s\S]+unsaved research/);
+assert.match(rootLayout, /<PwaLifecycle \/>[\s\S]+<ThemeProviderV6>/);
+assert.match(lifecycle, /data-testid="pwa-lifecycle"/);
+assert.match(lifecycle, />Not now<\/button>/);
+assert.doesNotMatch(lifecycle, /className="fixed/);
+for (const label of ['Retry connection', 'Review and apply update', 'Install Signal', 'Not now', 'Dismiss notice']) {
+    assert.match(lifecycle, new RegExp(`min-h-10[^>]*>${label}<\\/button>`));
+}
 assert.match(offlinePage, /<a href="\/"[\s\S]+Retry Signal<\/a>/);
 assert.equal((pushUi.match(/Notification\.requestPermission\(\)/g) ?? []).length, 1);
 assert.match(pushUi, /const subscribe = async \(\)/);
