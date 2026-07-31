@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import {
     addPickerRun,
     createPickerRun,
+    explainPickerSelection,
     pickerCohortEvidence,
     pickerObservedMovePercent,
     pickerRunSummary,
     removePickerRun,
     resolvePickerRuns,
-    selectPickerCandidates,
     type PickerConfig,
     type PickerRun,
     type PickerStrategySnapshot,
@@ -24,6 +24,7 @@ import { parseResearchQuoteResponse } from '@/lib/research/snapshot-input';
 import type { DiscoveryResponse, QualityDiscoveryResult } from '@/lib/types/research-discovery';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import { parseDiscoveryResponseV6 } from './research-discovery-response-v6';
+import { ResearchSelectionJourneyV6 } from './ResearchSelectionJourneyV6';
 
 const defaultConfig: PickerConfig = {
     horizon: '1M',
@@ -87,12 +88,19 @@ export const ResearchPickerV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
         () => savedStrategies.find((strategy) => strategy.id === selectedStrategyId) ?? null,
         [savedStrategies, selectedStrategyId],
     );
-    const picks = useMemo(
-        () => data ? selectPickerCandidates(data, config, {
+    const selectionTrace = useMemo(
+        () => data ? explainPickerSelection(data, config, {
             policy: activeStrategy?.policy,
             savedSymbols,
-        }) : [],
+        }) : null,
         [activeStrategy?.policy, config, data, savedSymbols],
+    );
+    const picks = selectionTrace?.selected ?? [];
+    const basketAvailable = useMemo(
+        () => data !== null && runs.some((run) => run.discoveryGeneratedAt === data.generatedAt
+            && JSON.stringify(run.config) === JSON.stringify(config)
+            && (run.strategy?.id ?? 'default') === selectedStrategyId),
+        [config, data, runs, selectedStrategyId],
     );
     const cohort = useMemo(
         () => pickerCohortEvidence(data?.performance ?? [], config.horizon),
@@ -202,11 +210,18 @@ export const ResearchPickerV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                 </p>
             </header>
 
+            <ResearchSelectionJourneyV6
+                theme={theme}
+                runStatus={status}
+                trace={selectionTrace}
+                basketAvailable={basketAvailable}
+            />
+
             <div className="grid gap-3 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,0.55fr)]">
                 <section data-testid="picker-setup" className={'rounded-lg border p-4 ' + styles.panelSecondary} aria-labelledby="picker-setup-title">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <p className={'text-xs font-semibold uppercase tracking-[0.08em] ' + styles.textMuted}>Step 1</p>
+                            <p className={'text-xs font-semibold uppercase tracking-[0.08em] ' + styles.textMuted}>Selection rule</p>
                             <h2 id="picker-setup-title" className={'mt-1 text-base font-bold ' + styles.textPrimary}>Set the selection rule</h2>
                         </div>
                         <span className={'rounded-full border px-2 py-1 text-[10px] font-semibold uppercase ' + styles.divider + ' ' + styles.textSecondary}>US universe</span>
@@ -258,11 +273,17 @@ export const ResearchPickerV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                         <input type="checkbox" checked={config.excludeSavedSymbols} onChange={(event) => setConfig((current) => ({ ...current, excludeSavedSymbols: event.target.checked }))} />
                         Exclude symbols already in the Research watchlist
                     </label>
-                    <p className={'mt-2 text-xs leading-5 ' + styles.textMuted}>
-                        {activeStrategy
-                            ? `${activeStrategy.name} reuses its saved sector, liquidity, risk, valuation, and ranking preferences. Every adjustment remains visible.`
-                            : 'The default strategy preserves the existing Discovery score order; basket constraints do not create another score.'}
-                    </p>
+                    <details data-testid="picker-methodology" className={'group mt-2 rounded-md border ' + styles.divider}>
+                        <summary className={'flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 [&::-webkit-details-marker]:hidden ' + styles.textSecondary}>
+                            <span>How this selection rule works</span>
+                            <span aria-hidden="true" className={'text-base transition-transform group-open:rotate-45 ' + styles.textMuted}>+</span>
+                        </summary>
+                        <p className={'border-t px-3 py-3 text-xs leading-5 ' + styles.divider + ' ' + styles.textMuted}>
+                            {activeStrategy
+                                ? `${activeStrategy.name} reuses its saved sector, liquidity, risk, valuation, and ranking preferences. Every adjustment remains visible.`
+                                : 'The default strategy preserves the existing Discovery score order; basket constraints do not create another score.'}
+                        </p>
+                    </details>
                     <button type="button" onClick={runPicker} disabled={status === 'loading'} className={'mt-4 min-h-10 rounded-md border px-4 text-sm font-bold disabled:opacity-50 ' + styles.panelAction}>
                         {status === 'loading' ? 'Scanning current data…' : data ? 'Run again with current data' : 'Run picker'}
                     </button>
@@ -289,7 +310,7 @@ export const ResearchPickerV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
                 <section data-testid="picker-results" className={'border-t pt-4 ' + styles.divider} aria-labelledby="picker-results-title">
                     <div className="flex flex-wrap items-end justify-between gap-3">
                         <div>
-                            <p className={'text-xs font-semibold uppercase tracking-[0.08em] ' + styles.textMuted}>Step 2</p>
+                            <p className={'text-xs font-semibold uppercase tracking-[0.08em] ' + styles.textMuted}>Current shortlist</p>
                             <h2 id="picker-results-title" className={'mt-1 text-base font-bold ' + styles.textPrimary}>Review current candidates</h2>
                             <p className={'mt-1 text-xs ' + styles.textMuted}>Scanned {data.scannedCount}/{data.universeSize} symbols · Generated {formatDateTime(data.generatedAt)}</p>
                         </div>
@@ -346,7 +367,7 @@ export const ResearchPickerV6 = ({ theme, savedSymbols, adding, onAdd, onOpen }:
 
             <section className={'mt-5 border-t pt-4 ' + styles.divider} aria-labelledby="picker-baskets-title">
                 <div>
-                    <p className={'text-xs font-semibold uppercase tracking-[0.08em] ' + styles.textMuted}>Step 3</p>
+                    <p className={'text-xs font-semibold uppercase tracking-[0.08em] ' + styles.textMuted}>Measurement</p>
                     <h2 id="picker-baskets-title" className={'mt-1 text-base font-bold ' + styles.textPrimary}>Paper baskets</h2>
                     <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Browser-local snapshots preserve the strategy and entry observations. Every saved symbol refreshes independently; due outcomes are frozen at the first available observation on or after the selected horizon.</p>
                     {basketQuoteState === 'loading' ? <p role="status" className={'mt-2 text-xs ' + styles.textMuted}>Refreshing saved basket quotes…</p> : null}

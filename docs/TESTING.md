@@ -126,6 +126,20 @@ Use a focused viewport only while iterating on a failure:
 npm run qa:research-calendar -- --base-url http://127.0.0.1:3000 --viewport 375 --no-screenshots
 ```
 
+### Targeted Research Picker QA
+
+For the trace-driven Picker journey, deterministic funnel counts, responsive stage layout, and
+existing paper-basket boundary, run against a local Signal server:
+
+```powershell
+npm run qa:research-picker -- --base-url http://127.0.0.1:3000
+```
+
+The command covers setup, loading, selected candidates, methodology disclosure, storage-unavailable
+paper-basket feedback, request failure and retry, no-match state, stage semantics, exact Discovery
+request count, document overflow, blocking console/request errors, and journey screenshots at
+1280px, 768px, and 375px. Use `--viewport 375` only for a focused rerun after a failure.
+
 ### Targeted Research Continuity QA
 
 For encrypted sync-vault and native-notification boundaries, run:
