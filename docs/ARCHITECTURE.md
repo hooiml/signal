@@ -11,6 +11,10 @@ Signal is a Next.js App Router application for market signal dashboards. The app
   local fixtures, labels every surface as example/not live, and has no application API or
   persistence path.
 - `/main-v6` and `/research-v6`: retained versioned aliases for direct comparison and existing links.
+- `/main-v7` and `/research-v7`: isolated presentation prototypes that share the route-scoped
+  V7 shell, theme tokens, controls, and surface helpers in `src/components/v7/foundation`.
+  They render representative static content only and do not replace V6 routes, request live data,
+  or change persisted state.
 - `/backup/main` and `/backup/research`: previous market and research experiences retained as rollback references.
 
 ## Runtime Shape
