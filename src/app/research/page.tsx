@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { ResearchDashboardV6 } from '@/components/v6/ResearchDashboardV6';
+import { ResearchDashboardV7 } from '@/components/v6/ResearchDashboardV6';
 import { ResearchLoadingV6 } from '@/components/v6/ThemeProviderV6';
 
 export const metadata: Metadata = {
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function ResearchPage() {
     return (
         <Suspense fallback={<ResearchLoadingV6 />}>
-            <ResearchDashboardV6 />
+            <ResearchDashboardV7 />
         </Suspense>
     );
 }

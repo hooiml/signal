@@ -34,6 +34,7 @@ type MarketBriefingV6Props = {
     theme: ResearchThemeV6;
     updating: boolean;
     refreshError: string | null;
+    hideStory?: boolean;
 };
 
 type DriverChangeV6 = NonNullable<MarketSignal['metadata']['driver_changes']>[number];
@@ -45,7 +46,7 @@ type SnapshotComparisonV6 = {
     digits: number;
 };
 
-export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refreshError }: MarketBriefingV6Props) => {
+export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refreshError, hideStory = false }: MarketBriefingV6Props) => {
     const t = getThemeV6(theme);
     const tierTone = getTierTone(signal.tier, theme);
     const posture = getDecisionPostureV6(signal);
@@ -77,7 +78,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                 </div>
             ) : null}
 
-            <div className="min-w-0">
+            {!hideStory ? <div className="min-w-0">
                 <section className={primaryPanel + ' min-w-0 overflow-hidden'} aria-labelledby="market-story-title" data-surface-tier="primary">
                     <div className={'h-1 bg-gradient-to-r ' + tierTone.rail} />
                     <div className="p-5 sm:p-7">
@@ -116,7 +117,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                     </div>
                 </section>
 
-            </div>
+            </div> : null}
 
             <SimilarScoreOutcomesV6 signal={signal} theme={theme} />
 

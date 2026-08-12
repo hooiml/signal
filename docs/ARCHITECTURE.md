@@ -5,16 +5,14 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 ## User-Facing Routes
 
 - `/start`: guided daily journey from the latest US market score through current Discovery candidates and same-day market context into Research.
-- `/`: primary Story First market conditions view, implemented by `MarketDashboardV6`.
-- `/research`: primary research workspace, implemented by `ResearchDashboardV6`.
+- `/`: primary V7 Market Conditions view, implemented by `MarketDashboardV7` over the shared Market controller and V6 domain surfaces.
+- `/research`: primary V7 Research workspace, implemented by `ResearchDashboardV7` over the shared Research controller and existing workspace owners.
 - `/demo`: isolated session-only guided example of Market, Research, and Portfolio. It uses fixed
   local fixtures, labels every surface as example/not live, and has no application API or
   persistence path.
-- `/main-v6` and `/research-v6`: retained versioned aliases for direct comparison and existing links.
-- `/main-v7` and `/research-v7`: isolated presentation prototypes that share the route-scoped
-  V7 shell, theme tokens, controls, and surface helpers in `src/components/v7/foundation`.
-  They render representative static content only and do not replace V6 routes, request live data,
-  or change persisted state.
+- `/main-v6` and `/research-v6`: retained V6 rollback references for direct comparison and existing links; removal requires separate approval.
+- `/main-v7` and `/research-v7`: live V7 aliases that use the same shared shell, controllers, and domain surfaces as the promoted routes.
+- The Phase 1 static Market and Research prototypes remain preserved in `src/components/v7/V7Prototype.tsx`; they are no longer mounted by the live V7 aliases.
 - `/backup/main` and `/backup/research`: previous market and research experiences retained as rollback references.
 
 ## Runtime Shape

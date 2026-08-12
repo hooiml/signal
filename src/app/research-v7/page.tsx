@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import { ResearchOverviewPrototypeV7 } from '@/components/v7/V7Prototype';
+import { ResearchDashboardV7 } from '@/components/v6/ResearchDashboardV6';
 
 export const metadata: Metadata = {
-    title: 'Research Overview Prototype | Signal',
-    description: 'A presentation-only prototype for the Signal investment research overview.',
+    title: 'Research V7 | Signal',
+    description: 'Live Signal Research V7 experience.',
 };
 
-export default function ResearchOverviewPrototypePageV7() {
-    return <ResearchOverviewPrototypeV7 />;
+export default function ResearchPageV7() {
+    return <ResearchDashboardV7 />;
 }

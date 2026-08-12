@@ -58,6 +58,10 @@ import { SinceLastVisitBriefingV6 } from './SinceLastVisitBriefingV6';
 import { createTodayResearchContinuation } from '@/lib/research/since-last-visit';
 import { writeTodayContinuation } from '@/lib/research/since-last-visit-client';
 import { FirstRunSetupV6 } from './FirstRunSetupV6';
+import { researchWorkspaceGroups } from '@/lib/research/workspace-navigation';
+import { V7Shell } from '@/components/v7/foundation/V7Foundation';
+import { ResearchControlsV7 } from '@/components/v7/ResearchControlsV7';
+import liveStyles from '@/components/v7/v7-live.module.css';
 
 const workspaceLoading = (label: string) => function ResearchWorkspaceLoadingV6() {
     return (
@@ -176,7 +180,7 @@ const filterResearchItems = (
     });
 };
 
-export const ResearchDashboardV6 = () => {
+export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presentation?: 'v6' | 'v7' }) => {
     const router = useRouter();
     const searchParams = useSearchParams();
     const requestedTicker = searchParams.get('ticker')?.trim().toUpperCase();
@@ -775,25 +779,8 @@ export const ResearchDashboardV6 = () => {
         ? 'bg-[linear-gradient(rgba(16,185,129,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.06)_1px,transparent_1px)] opacity-45'
         : 'bg-[linear-gradient(rgba(16,185,129,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.035)_1px,transparent_1px)] opacity-55';
 
-    return (
-        <div className={'relative min-h-screen overflow-x-hidden transition-colors duration-300 ' + themeClasses.page}>
-            <div className={'pointer-events-none absolute inset-0 transition-opacity duration-300 ' + atmosphere} />
-            <div className={'pointer-events-none absolute inset-0 bg-[size:44px_44px] transition-opacity duration-300 ' + grid} />
-            <ResearchHeaderV6
-                theme={theme}
-                query={query}
-                market={market}
-                action={action}
-                reviewedLabel={formatSnapshotLabel(latestReviewedAt)}
-                resultCount={filteredItems.length}
-                showResearchControls={workspace === 'research'}
-                onQueryChange={setQuery}
-                onMarketChange={setMarket}
-                onActionChange={setAction}
-                onThemeToggle={toggleTheme}
-                commands={researchCommands}
-                localSearch={localSearch}
-            />
+    const dashboardBody = (
+        <>
             <div className="relative z-10">
                 <FirstRunSetupV6
                     records={records}
@@ -815,7 +802,7 @@ export const ResearchDashboardV6 = () => {
                     onCloseRequested={() => updateUrl({ setup: null })}
                 />
             </div>
-            <div className="relative z-10 mx-auto w-full max-w-[1280px] px-4 pb-5 pt-4 min-[700px]:px-5">
+            <div className={'relative z-10 mx-auto w-full max-w-[1280px] px-4 pb-5 pt-4 min-[700px]:px-5 ' + (presentation === 'v7' ? liveStyles.researchContentV7 : '')}>
                 <ResearchWorkspaceTabsV6 active={workspace} theme={theme} onChange={changeWorkspace} />
                 <ResearchLayoutControlsV6
                     current={{ workspace, query, market, action, ticker: selected?.symbol ?? null, tab: activeDetailTab }}
@@ -844,7 +831,7 @@ export const ResearchDashboardV6 = () => {
                     </section>
                 ) : null}
                 {marketHandoff ? <ResearchMarketContextV6 handoff={marketHandoff} items={items} theme={theme} onOpen={openResearchFrom('market')} /> : null}
-                {workspace === 'research' ? <>
+                {workspace === 'research' ? <div className={presentation === 'v7' ? liveStyles.researchUtilitiesV7 : undefined}>
                     <h1 className="sr-only">Research workspace</h1>
                     {recordsLoadState === 'ready' ? (
                         <SinceLastVisitBriefingV6
@@ -884,8 +871,8 @@ export const ResearchDashboardV6 = () => {
                             <PositionPlanOverviewV6 records={records} items={items} theme={theme} />
                         </div>
                     </details>
-                </> : null}
-                <main id={`research-workspace-${workspace}`} data-surface-tier="primary" data-density={density} className={'flex flex-col rounded-[10px] border backdrop-blur min-[700px]:flex-row ' + (density === 'compact' ? 'gap-2 p-2 min-[700px]:p-3 ' : 'gap-4 p-3 min-[700px]:p-4 ') + themeClasses.panelPrimary}>
+                </div> : null}
+                <main id={`research-workspace-${workspace}`} data-surface-tier="primary" data-density={density} className={'flex flex-col rounded-[10px] border backdrop-blur min-[700px]:flex-row ' + (presentation === 'v7' ? liveStyles.researchWorkspaceV7 + ' ' : '') + (density === 'compact' ? 'gap-2 p-2 min-[700px]:p-3 ' : 'gap-4 p-3 min-[700px]:p-4 ') + themeClasses.panelPrimary}>
                     <ResearchWorkspaceBoundaryV6 workspace={workspace}>
                     {workspace === 'today' ? recordsLoadState === 'loading' ? (
                         <section role="status" className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
@@ -993,7 +980,7 @@ export const ResearchDashboardV6 = () => {
                         initiallyOpen={watchlistAddRequest > 0}
                     />
                     {selected && selectedRecord ? (
-                        <ResearchDetailV6 key={selected.symbol + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} ticker={selected} records={inboxRecords} items={items} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} activeTab={activeDetailTab} startReview={reviewRequested} stagedEvidence={stagedEvidence?.id.startsWith(selected.symbol + ':') ? stagedEvidence : null} workflowTemplateId={workflowTemplateId} saving={saving || recordsLoadState !== 'ready'} saveError={saveError} onTabChange={changeDetailTab} onReadinessNavigate={openReadinessDestination} onSave={saveRecord} onReviewChange={changeReviewMode} onSnapshot={updateLiveSnapshot} onDelete={deleteRecord} />
+                        <ResearchDetailV6 key={selected.symbol + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} ticker={selected} records={inboxRecords} items={items} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} activeTab={activeDetailTab} startReview={reviewRequested} stagedEvidence={stagedEvidence?.id.startsWith(selected.symbol + ':') ? stagedEvidence : null} workflowTemplateId={workflowTemplateId} saving={saving || recordsLoadState !== 'ready'} saveError={saveError} onTabChange={changeDetailTab} onReadinessNavigate={openReadinessDestination} onSave={saveRecord} onReviewChange={changeReviewMode} onSnapshot={updateLiveSnapshot} onDelete={deleteRecord} presentation={presentation} />
                     ) : (
                         <section className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
                             <div>
@@ -1006,6 +993,65 @@ export const ResearchDashboardV6 = () => {
                     </ResearchWorkspaceBoundaryV6>
                 </main>
             </div>
+        </>
+    );
+
+    if (presentation === 'v7') {
+        return (
+            <V7Shell
+                active="research"
+                commands={researchCommands}
+                localSearch={localSearch}
+                controls={
+                    <ResearchControlsV7
+                        query={query}
+                        market={market}
+                        action={action}
+                        reviewedLabel={formatSnapshotLabel(latestReviewedAt)}
+                        resultCount={filteredItems.length}
+                        showResearchControls={workspace === 'research'}
+                        onQueryChange={setQuery}
+                        onMarketChange={setMarket}
+                        onActionChange={setAction}
+                    />
+                }
+                footer="Live Research V7 · Existing review, evidence, persistence, queue, portfolio, backup, notification, and URL-state contracts"
+                testId="research-v7"
+            >
+                <div className={liveStyles.researchPage}>
+                    <div className={liveStyles.researchIdentity}>
+                        <p>Investment research</p>
+                        <h1>{workspace === 'research' ? 'Selected security' : researchWorkspaceGroups.find((group) => group.items.some((item) => item.id === workspace))?.items.find((item) => item.id === workspace)?.label ?? 'Research workspace'}</h1>
+                        <span>{workspace === 'research' ? 'The saved decision, qualifying evidence, next gap, and owning review workflow stay together.' : 'This workspace retains its existing identifier, deep link, data owner, and mutation boundary.'}</span>
+                    </div>
+                    {dashboardBody}
+                </div>
+            </V7Shell>
+        );
+    }
+
+    return (
+        <div className={'relative min-h-screen overflow-x-hidden transition-colors duration-300 ' + themeClasses.page}>
+            <div className={'pointer-events-none absolute inset-0 transition-opacity duration-300 ' + atmosphere} />
+            <div className={'pointer-events-none absolute inset-0 bg-[size:44px_44px] transition-opacity duration-300 ' + grid} />
+            <ResearchHeaderV6
+                theme={theme}
+                query={query}
+                market={market}
+                action={action}
+                reviewedLabel={formatSnapshotLabel(latestReviewedAt)}
+                resultCount={filteredItems.length}
+                showResearchControls={workspace === 'research'}
+                onQueryChange={setQuery}
+                onMarketChange={setMarket}
+                onActionChange={setAction}
+                onThemeToggle={toggleTheme}
+                commands={researchCommands}
+                localSearch={localSearch}
+            />
+            {dashboardBody}
         </div>
     );
 };
+
+export const ResearchDashboardV7 = () => <ResearchDashboardV6 presentation="v7" />;

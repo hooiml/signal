@@ -17,8 +17,11 @@ import {
 import type { AppCommandV6 } from './CommandPaletteV6';
 import { createTodayMarketContinuation } from '@/lib/research/since-last-visit';
 import { writeTodayContinuation } from '@/lib/research/since-last-visit-client';
+import { V7Shell } from '@/components/v7/foundation/V7Foundation';
+import { MarketBriefingV7 } from '@/components/v7/MarketBriefingV7';
+import liveStyles from '@/components/v7/v7-live.module.css';
 
-export const MarketDashboardV6 = () => {
+export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentation?: 'v6' | 'v7' }) => {
     const searchParams = useSearchParams();
     const returnsToToday = searchParams.get('returnTo') === 'today';
     const { config, updateConfig, isLoaded } = useSignalConfig();
@@ -124,6 +127,60 @@ export const MarketDashboardV6 = () => {
         { id: 'refresh-market', label: 'Refresh market conditions', group: 'Market', keywords: ['reload'], run: () => void fetchSignal(true) },
     ];
 
+    if (presentation === 'v7') {
+        return (
+            <V7Shell
+                active="market"
+                commands={marketCommands}
+                controls={
+                    <div className={liveStyles.marketControls}>
+                        <MarketCommandBarV6
+                            market={config.market}
+                            mode={config.mode}
+                            enableSocial={config.enableSocial}
+                            onMarketChange={(market) => updateConfig({ market })}
+                            onModeChange={(mode) => updateConfig({ mode })}
+                            onSocialToggle={(enableSocial) => updateConfig({ enableSocial })}
+                            isLoaded={isLoaded}
+                            status={briefingStatus}
+                            lastAttemptedAt={lastAttemptedAt}
+                            lastSuccessfulAt={lastSuccessfulAt}
+                            onRefresh={() => void fetchSignal(true)}
+                            snapshotDate={signal?.metadata.score_delta?.snapshot_date ?? null}
+                            sourceToggleImpact={signal?.metadata.counterfactuals?.source_toggle}
+                            theme={theme}
+                            presentation="v7"
+                        />
+                    </div>
+                }
+                footer="Live Market V7 · Existing scoring, source, alert, calibration, context, and methodology contracts"
+                testId="market-v7"
+            >
+                <main className={liveStyles.marketPage}>
+                    {returnsToToday ? (
+                        <section data-testid="today-return-context" className={'mb-4 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between ' + themeClasses.panel}>
+                            <div>
+                                <p className={'text-xs font-bold uppercase tracking-[0.1em] ' + themeClasses.positive}>Opened from Today</p>
+                                <p className={'mt-1 text-sm ' + themeClasses.textSecondary}>Market Conditions remains read-only context and does not change a ticker decision.</p>
+                            </div>
+                            <Link href="/research?workspace=today" prefetch={false} className={'inline-flex min-h-10 shrink-0 items-center justify-center rounded border px-4 text-xs font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + themeClasses.selectedRow}>Back to Today</Link>
+                        </section>
+                    ) : null}
+                    {!signal && loading ? <MarketSkeletonV6 theme={theme} /> : null}
+                    {!signal && !loading ? (
+                        <section className={'mt-4 rounded-lg border p-6 ' + themeClasses.panel}>
+                            <p className={'text-xs font-semibold uppercase tracking-[0.12em] ' + themeClasses.risk}>Signal unavailable</p>
+                            <h1 className={'mt-2 text-2xl font-bold ' + themeClasses.textPrimary}>Current market conditions are unavailable</h1>
+                            <p className={'mt-2 max-w-2xl text-sm ' + themeClasses.textSecondary}>{error || 'Try another market, mode, or source configuration.'}</p>
+                            <button type="button" onClick={() => void fetchSignal(true)} className="mt-5 min-h-10 rounded-md border border-emerald-500 px-4 text-sm font-bold text-emerald-600">Retry</button>
+                        </section>
+                    ) : null}
+                    {signal ? <MarketBriefingV7 signal={signal} enableSocial={signalEnableSocial} theme={theme} updating={updating} refreshError={error} /> : null}
+                </main>
+            </V7Shell>
+        );
+    }
+
     return (
         <main className={'relative min-h-[100dvh] overflow-x-hidden transition-colors duration-300 ' + themeClasses.page}>
             <div className={'pointer-events-none absolute inset-0 transition-opacity duration-300 ' + atmosphere} />
@@ -188,6 +245,8 @@ export const MarketDashboardV6 = () => {
         </main>
     );
 };
+
+export const MarketDashboardV7 = () => <MarketDashboardV6 presentation="v7" />;
 
 const MarketSkeletonV6 = ({ theme }: { theme: ResearchThemeV6 }) => {
     const themeClasses = getThemeV6(theme);

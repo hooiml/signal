@@ -5,7 +5,7 @@
     --v7-surface-quiet-strong: #edf3ef;
     --v7-text: #18201d;
     --v7-text-secondary: #52605a;
-    --v7-text-muted: #75817b;
+    --v7-text-muted: #68756f;
     --v7-border: #dfe5e1;
     --v7-border-strong: #cbd5cf;
     --v7-accent: #147a4b;
@@ -37,6 +37,12 @@
     --risk-quiet: var(--v7-risk-quiet);
     --caution: var(--v7-caution);
     --caution-quiet: var(--v7-caution-quiet);
+    --fill-success: var(--v7-accent);
+    --on-success: var(--v7-on-accent);
+    --text-primary: var(--v7-text);
+    --text-secondary: var(--v7-text-secondary);
+    --text-muted: var(--v7-text-muted);
+    --radius: var(--v7-radius-control);
 
     min-height: 100dvh;
     padding: 18px 24px;
@@ -55,7 +61,7 @@
     --v7-surface-quiet-strong: #1c2722;
     --v7-text: #eef4f1;
     --v7-text-secondary: #aab8b1;
-    --v7-text-muted: #819089;
+    --v7-text-muted: #93a099;
     --v7-border: #2a3430;
     --v7-border-strong: #3b4842;
     --v7-accent: #55b783;
@@ -142,6 +148,7 @@
 }
 
 .themeButton,
+.commandButton,
 .button {
     display: inline-flex;
     min-height: 40px;
@@ -158,11 +165,31 @@
     cursor: pointer;
 }
 
-.themeButton {
-    justify-self: end;
+.headerActions {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.commandButton kbd {
+    margin-left: 2px;
+    border: 1px solid var(--v7-border);
+    border-radius: 4px;
+    padding: 1px 4px;
+    color: var(--v7-text-muted);
+    font-size: 9px;
+}
+
+.commandGlyph {
+    display: none;
+    font-size: 19px;
+    line-height: 1;
 }
 
 .themeButton svg,
+.commandButton svg,
 .button svg {
     width: 17px;
     height: 17px;
@@ -296,6 +323,10 @@
         padding: 0 18px;
     }
 
+    .commandButton kbd {
+        display: none;
+    }
+
     .routeControls {
         justify-content: flex-start;
         overflow-x: auto;
@@ -326,14 +357,20 @@
         display: none;
     }
 
+    .commandButton,
     .themeButton {
         min-width: 40px;
         justify-content: center;
         padding: 0;
     }
 
+    .commandLabel,
     .themeButton span {
         display: none;
+    }
+
+    .commandGlyph {
+        display: inline;
     }
 
     .mobileNavRow {

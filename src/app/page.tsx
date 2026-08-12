@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { MarketDashboardV6 } from '@/components/v6/MarketDashboardV6';
+import { MarketDashboardV7 } from '@/components/v6/MarketDashboardV6';
 
 export const metadata: Metadata = {
     title: 'Signal | Market Conditions',
@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 export const revalidate = 60;
 
 export default function Home() {
-    return <MarketDashboardV6 />;
+    return <MarketDashboardV7 />;
 }

@@ -9,13 +9,16 @@ import { OverviewPanelV6 } from './OverviewPanelV6';
 import { ResearchPanelsV6 } from './ResearchPanelsV6';
 import { ResearchChartV6 } from './ResearchChartV6';
 import {
+    checklistLabelsV6,
     formatPriceV6,
+    getActionReasonV6,
     getResearchActionV6,
     getThemeV6,
     researchTabsV6,
     type ResearchTabV6,
     type ResearchThemeV6,
 } from './research-v6';
+import liveStyles from '@/components/v7/v7-live.module.css';
 import { applyResearchSnapshotV6, parseResearchSnapshotResponse } from './research-snapshot-v6';
 import { ResearchReadinessStripV6 } from './ResearchReadinessStripV6';
 import type { ResearchReadinessDestination } from '@/lib/research/readiness';
@@ -27,7 +30,7 @@ const formatProviderTimestampV6 = (timestamp: string) => new Intl.DateTimeFormat
     minute: '2-digit',
 }).format(new Date(timestamp));
 
-export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQuote, activeTab, startReview, stagedEvidence, workflowTemplateId, saving, saveError, onTabChange, onReadinessNavigate, onSave, onReviewChange, onSnapshot, onDelete }: {
+export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQuote, activeTab, startReview, stagedEvidence, workflowTemplateId, saving, saveError, onTabChange, onReadinessNavigate, onSave, onReviewChange, onSnapshot, onDelete, presentation = 'v6' }: {
     ticker: ResearchWatchlistItem;
     records: readonly ResearchRecord[];
     items: readonly ResearchWatchlistItem[];
@@ -46,6 +49,7 @@ export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQu
     onReviewChange: (editing: boolean) => void;
     onSnapshot: (symbol: string, snapshot: ResearchSnapshot) => void;
     onDelete: () => Promise<void>;
+    presentation?: 'v6' | 'v7';
 }) => {
     const [snapshot, setSnapshot] = useState<ResearchSnapshot | null>(null);
     const [chartHistory, setChartHistory] = useState<ResearchSnapshot['chart'] | null>(null);
@@ -71,6 +75,7 @@ export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQu
     const action = getResearchActionV6(liveTicker);
     const change = liveTicker.dailyChange ?? 0;
     const themeClasses = getThemeV6(theme);
+    const nextCheck = Object.entries(ticker.checklist).find(([, passed]) => !passed)?.[0];
 
     useEffect(() => {
         let active = true;
@@ -142,18 +147,29 @@ export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQu
 
     return (
         <article id="research-detail" tabIndex={-1} className="min-w-0 flex-1 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-500">
-            <header className="flex items-start justify-between gap-5">
+            <header className={presentation === 'v7' ? liveStyles.securityHeaderV7 : 'flex items-start justify-between gap-5'}>
                 <div className="min-w-0">
                     <h2 className={'font-mono text-2xl font-bold leading-none tracking-normal ' + themeClasses.textPrimary}>{ticker.symbol}</h2>
                     <p className={'mt-1 truncate text-sm font-semibold ' + themeClasses.textSecondary}>{liveTicker.name}</p>
+                    {presentation === 'v7' ? <p className={liveStyles.securityMetaV7}>{ticker.market} market · Research reviewed {ticker.lastReviewedAt}</p> : null}
                 </div>
-                <div className="shrink-0 text-right">
+                <div className={(presentation === 'v7' ? liveStyles.securityPriceV7 + ' ' : '') + 'shrink-0 text-right'}>
                     <p aria-live="polite" className={'font-mono text-2xl font-bold leading-none tracking-normal tabular-nums ' + themeClasses.textPrimary}>{providerState === 'loading' ? 'Loading...' : formatPriceV6(liveTicker)}</p>
                     <p className={'mt-1 font-mono text-sm font-semibold tabular-nums ' + (change >= 0 ? themeClasses.positive : themeClasses.risk)}>
                         {change >= 0 ? '+' : ''}{change.toFixed(2)}%
                     </p>
-                    <button type="button" onClick={() => void onDelete()} data-testid="research-remove-ticker" className={'mt-1 min-h-10 rounded px-2 text-xs font-medium transition-colors hover:text-rose-500 ' + themeClasses.textMuted}>Remove</button>
+                    {presentation === 'v6' ? <button type="button" onClick={() => void onDelete()} data-testid="research-remove-ticker" className={'mt-1 min-h-10 rounded px-2 text-xs font-medium transition-colors hover:text-rose-500 ' + themeClasses.textMuted}>Remove</button> : null}
                 </div>
+                {presentation === 'v7' ? (
+                    <div className={liveStyles.decisionSummaryV7}>
+                        <span>Decision · {action}</span>
+                        <strong>{getActionReasonV6(action)}</strong>
+                        <div className={liveStyles.decisionMetaV7}>
+                            <small>{nextCheck ? `Next incomplete check · ${checklistLabelsV6[nextCheck]}` : `Next review · ${record.decisionJournal.nextReviewAt ?? record.lastReviewedAt}`}</small>
+                            <button type="button" onClick={() => void onDelete()} data-testid="research-remove-ticker" className={liveStyles.removeSecurityV7}>Remove security</button>
+                        </div>
+                    </div>
+                ) : null}
             </header>
 
             <ResearchReadinessStripV6 record={record} ticker={ticker} records={records} items={items} theme={theme} onNavigate={onReadinessNavigate} />

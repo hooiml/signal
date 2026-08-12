@@ -34,6 +34,7 @@ type MarketCommandBarV6Props = {
     snapshotDate?: string | null;
     sourceToggleImpact?: SourceToggleImpact;
     theme: ResearchThemeV6;
+    presentation?: 'v6' | 'v7';
 };
 
 export const MarketCommandBarV6 = ({
@@ -51,6 +52,7 @@ export const MarketCommandBarV6 = ({
     snapshotDate,
     sourceToggleImpact,
     theme,
+    presentation = 'v6',
 }: MarketCommandBarV6Props) => {
     const isLight = theme === 'light';
     const tone = isLight
@@ -83,9 +85,9 @@ export const MarketCommandBarV6 = ({
     const segmentClass = (active: boolean) => `min-h-8 rounded-[6px] px-3 text-sm font-semibold transition-colors active:scale-[0.98] ${focusClass} ${active ? 'bg-[var(--fill-success)] text-[var(--on-success)]' : 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--border)] hover:text-[var(--text-primary)]'}`;
 
     return (
-        <div className={`research-scrollbar overflow-x-auto transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-80'}`} aria-label="Market conditions controls">
-            <div className="flex min-w-max items-center gap-8 whitespace-nowrap min-[1200px]:min-w-0 min-[1200px]:justify-between">
-                <div className="flex items-center gap-4">
+        <div data-market-controls={presentation} className={`research-scrollbar overflow-x-auto transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-80'}`} aria-label="Market conditions controls">
+            <div data-market-controls-layout className="flex min-w-max items-center gap-8 whitespace-nowrap min-[1200px]:min-w-0 min-[1200px]:justify-between">
+                <div data-market-control-cluster="primary" className="flex items-center gap-4">
                     <div className="flex items-center gap-2" role="group" aria-label="Region">
                         <span className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${tone.muted}`}>Region</span>
                         <div className="flex min-h-9 items-center rounded-[var(--radius)] border-[0.5px] border-[var(--border)] p-0.5">
@@ -106,10 +108,10 @@ export const MarketCommandBarV6 = ({
 
                     <SignalHeaderDivider />
 
-                    <div role="group" aria-label="Data source" className="flex min-w-0 items-center gap-x-2.5">
+                    <div role="group" aria-label="Data source" className="relative flex min-w-0 items-center gap-x-2.5">
                         <SignalHeaderIcon name="source" />
                         <span className={`text-sm font-semibold ${tone.secondary}`}>{compactSourceLabel}</span>
-                        <label className="inline-flex min-h-9 cursor-pointer select-none items-center rounded-md focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-emerald-500">
+                        <label className="relative inline-flex min-h-9 cursor-pointer select-none items-center rounded-md focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-emerald-500">
                             <input
                                 type="checkbox"
                                 checked={enableSocial}
@@ -123,11 +125,11 @@ export const MarketCommandBarV6 = ({
                             </span>
                         </label>
                         <span id="market-source-description" className="sr-only">{sourceImpactText}</span>
-                        {hasSourceComparison ? <span title={sourceImpactText} className={`text-xs leading-5 ${tone.muted}`}>{sourceImpactLabel}</span> : null}
+                        {hasSourceComparison ? <span data-market-source-impact title={sourceImpactText} className={`text-xs leading-5 ${tone.muted}`}>{sourceImpactLabel}</span> : null}
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div data-market-control-cluster="status" className="flex items-center gap-4">
                     <SignalHeaderDivider />
 
                     <MetaItemV6 label="Conditions as of" value={snapshotDate ? `Conditions as of ${formatSnapshotDateUtc(snapshotDate)} (UTC)` : 'Conditions date unavailable'} tone={tone} icon="clock" />

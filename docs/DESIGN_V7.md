@@ -2,10 +2,18 @@
 
 ## 0. Status
 
-- Status: Proposal.
+- Status: Implemented, promoted, and locally verified.
 - Scope: Presentation and interaction architecture for Market Conditions V7 and Investment Research V7.
-- Proposed routes: `/main-v7` and `/research-v7` until parity and promotion are approved.
-- Current production routes remain unchanged while V7 is developed.
+- Live aliases: `/main-v7` and `/research-v7`.
+- Promoted routes: `/` and `/research` use V7 presentation; `/main-v6` and `/research-v6` remain rollback references.
+- Promotion status: Phases 3-5 implemented and locally verified on 2026-08-13. Deployment remains a separate delivery state.
+- Post-promotion polish: mobile Research prioritizes the selected security before optional overview disclosures; responsive Market controls wrap without horizontal scrolling; reused domain surfaces inherit the V7 surface scale; destructive Research removal is separated from the quote.
+
+### Intentional V7 presentation differences
+
+- Market adds the calmer V7 shell and a live first-reading hierarchy for posture, score, support, conflict, freshness, and conditions date; detailed V6 evidence, calibration, alerts, context, and methodology remain below it.
+- Research adds the shared V7 shell, intent-group controls, and selected-security decision context while retaining the existing workspace identifiers, URL state, persistence, review, evidence, queue, portfolio, backup, notification, and storage boundaries.
+- V7 removes the V6 atmospheric page treatment and uses opaque neutral surfaces. No scoring, provider, API, persistence, or authored-research semantics change.
 - This document does not authorize changes to scoring, data contracts, APIs, persistence, research decision rules, analytics privacy, or notification behavior.
 - Existing behavior remains governed by `docs/PROJECT_OBJECTIVE_AND_FLOWS.md`, `docs/signal-scoring.md`, `docs/ARCHITECTURE.md`, and the current V6 contract in `src/components/v6/DESIGN.md`.
 

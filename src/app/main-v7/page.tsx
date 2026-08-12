@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import { MarketPrototypeV7 } from '@/components/v7/V7Prototype';
+import { MarketDashboardV7 } from '@/components/v6/MarketDashboardV6';
 
 export const metadata: Metadata = {
-    title: 'Market Conditions Prototype | Signal',
-    description: 'A presentation-only prototype for the Signal market conditions workspace.',
+    title: 'Market V7 | Signal',
+    description: 'Live Signal Market V7 experience.',
 };
 
-export default function MarketPrototypePageV7() {
-    return <MarketPrototypeV7 />;
+export default function MarketPageV7() {
+    return <MarketDashboardV7 />;
 }
