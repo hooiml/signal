@@ -671,7 +671,7 @@ const main = async () => {
                 const scenarioStartedAt = Date.now();
                 try {
                     await page.setViewportSize({ width: viewport.width, height: viewport.height });
-                    const navigationResponse = await page.goto(new URL('/', baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+                    const navigationResponse = await page.goto(new URL('/main-v6', baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: timeoutMs });
                     runCheck(scenario.checks, 'document response', navigationResponse?.ok() === true, navigationResponse ? `HTTP ${navigationResponse.status()}` : 'navigation did not return a response');
                     await page.locator('#score-evidence-title').waitFor({ state: 'visible', timeout: timeoutMs });
                     const details = await inspectScoreEvidence(page);
@@ -959,6 +959,9 @@ const main = async () => {
                 await context.clearCookies();
                 await page.setViewportSize({ width: viewport.width, height: viewport.height });
                 await page.goto(new URL('/', baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+                await page.locator('#market-posture-v7').waitFor({ state: 'visible', timeout: timeoutMs });
+                const advancedEvidence = page.getByTestId('market-advanced-evidence');
+                if (await advancedEvidence.getAttribute('open') === null) await advancedEvidence.locator('summary').first().click();
                 await page.locator('#score-evidence-title').waitFor({ state: 'visible', timeout: timeoutMs });
 
                 const waitForRecordedSignal = async (part, startIndex) => {
@@ -992,14 +995,15 @@ const main = async () => {
                 runCheck(scenario.checks, 'disabled source is absent from score drivers', !await page.locator('section[aria-labelledby="drivers-title"]').textContent().then((text) => text?.includes('News Sentiment')), 'News Sentiment should be excluded when its source is off');
                 const coverageText = await page.locator('[data-testid="coverage-adjustment"]').textContent();
                 runCheck(scenario.checks, 'disabled source becomes neutral reserve instead of reweighting', Boolean(coverageText?.includes('35% configured weight') && coverageText.includes('neutral reserve (65% × 50)') && coverageText.includes('not redistributed')), coverageText || 'coverage explanation is missing');
-                const scoreBridgeText = `${await page.locator('[data-testid="market-story-trust"]').textContent()} ${await page.locator('section[aria-labelledby="drivers-title"]').textContent()}`;
+                const scoreBridgeText = `${await page.locator('[data-testid="market-v7"]').textContent()} ${await page.locator('section[aria-labelledby="drivers-title"]').textContent()}`;
                 runCheck(scenario.checks, 'score bridge remains connected after controls', scoreBridgeText.includes('Composite score') && scoreBridgeText.includes('configured weight'), shorten(scoreBridgeText));
 
                 signalResponseMode = 'failure';
                 await page.getByRole('button', { name: /Refresh market conditions/ }).click();
                 await page.waitForFunction(() => document.querySelector('[aria-label="Market conditions controls"]')?.textContent?.includes('Refresh failed'), undefined, { timeout: timeoutMs });
                 const failedStatusText = await page.locator('[aria-label="Market conditions controls"]').textContent();
-                runCheck(scenario.checks, 'failed refresh retains the previous conditions', Boolean(failedStatusText?.includes('Refresh failed') && failedStatusText.includes('Previous conditions retained') && failedStatusText.includes('Attempted') && await page.locator('#market-story-title').isVisible()), shorten(failedStatusText));
+                const failureNotice = page.getByTestId('market-v7').getByRole('alert');
+                runCheck(scenario.checks, 'failed refresh retains the previous conditions', Boolean(failedStatusText?.includes('Refresh failed') && failedStatusText.includes('Previous conditions retained') && failedStatusText.includes('Attempted') && await page.locator('#market-posture-v7').isVisible() && await failureNotice.getByRole('button', { name: 'Retry' }).isVisible()), `${shorten(failedStatusText)} · ${shorten(await failureNotice.textContent())}`);
                 signalResponseMode = 'success';
                 scenario.status = 'passed';
             } catch (error) {

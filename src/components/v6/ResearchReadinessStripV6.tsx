@@ -9,21 +9,19 @@ import {
 } from '@/lib/research/investment-policy-client';
 import {
     buildResearchReadiness,
+    type ResearchReadiness,
     type ResearchReadinessDestination,
     type ResearchReadinessTone,
 } from '@/lib/research/readiness';
 import type { ResearchRecord } from '@/lib/types/research';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 
-export const ResearchReadinessStripV6 = ({ record, ticker, records, items, theme, onNavigate }: {
+export const useResearchReadinessV6 = ({ record, ticker, records, items }: {
     readonly record: ResearchRecord;
     readonly ticker: ResearchWatchlistItem;
     readonly records: readonly ResearchRecord[];
     readonly items: readonly ResearchWatchlistItem[];
-    readonly theme: ResearchThemeV6;
-    readonly onNavigate: (destination: ResearchReadinessDestination) => void;
 }) => {
-    const styles = getThemeV6(theme);
     const [policy, setPolicy] = useState<InvestmentPolicy | null>(null);
 
     useEffect(() => {
@@ -45,6 +43,16 @@ export const ResearchReadinessStripV6 = ({ record, ticker, records, items, theme
         sector: ticker.sector,
         policyAssessment,
     }), [policyAssessment, record, ticker.sector]);
+    return readiness;
+};
+
+export const ResearchReadinessStripV6 = ({ readiness, theme, onNavigate, showNextAction = true }: {
+    readonly readiness: ResearchReadiness;
+    readonly theme: ResearchThemeV6;
+    readonly onNavigate: (destination: ResearchReadinessDestination) => void;
+    readonly showNextAction?: boolean;
+}) => {
+    const styles = getThemeV6(theme);
     const tone = (value: ResearchReadinessTone) => value === 'ready'
         ? styles.positive
         : value === 'attention'
@@ -59,10 +67,10 @@ export const ResearchReadinessStripV6 = ({ record, ticker, records, items, theme
                     <h3 id="research-readiness-title" className={'text-sm font-bold sm:mt-1 ' + styles.textPrimary}>Research readiness</h3>
                     <p className={'mt-1 hidden text-xs sm:block ' + styles.textMuted}>Saved-state gaps only; this is not a recommendation or readiness score.</p>
                 </div>
-                <button data-testid="research-readiness-next" type="button" onClick={() => onNavigate(readiness.nextGap.destination)} className={'min-h-9 max-w-full rounded-md border px-2 text-left text-xs sm:min-h-10 sm:px-3 ' + styles.panelAction}>
+                {showNextAction ? <button data-testid="research-readiness-next" type="button" onClick={() => onNavigate(readiness.nextGap.destination)} className={'min-h-9 max-w-full rounded-md border px-2 text-left text-xs sm:min-h-10 sm:px-3 ' + styles.panelAction}>
                     <span className={'block font-bold ' + styles.textPrimary}>Review next gap: {readiness.nextGap.label}</span>
                     <span className={'mt-0.5 hidden leading-4 sm:block ' + styles.textMuted}>{readiness.nextGap.detail}</span>
-                </button>
+                </button> : null}
             </div>
             <details data-testid="research-readiness-details" className={'group mt-2 border-t pt-1 sm:mt-3 sm:pt-2 ' + styles.divider}>
                 <summary className={'flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold sm:min-h-9 [&::-webkit-details-marker]:hidden ' + styles.textSecondary}>

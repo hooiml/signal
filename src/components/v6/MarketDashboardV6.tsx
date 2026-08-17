@@ -21,6 +21,20 @@ import { V7Shell } from '@/components/v7/foundation/V7Foundation';
 import { MarketBriefingV7 } from '@/components/v7/MarketBriefingV7';
 import liveStyles from '@/components/v7/v7-live.module.css';
 
+const describeMarketConfiguration = (market: 'US' | 'MY', mode: 'standard' | 'contrarian', enableSocial: boolean) =>
+    `${market === 'US' ? 'US' : 'Malaysia'} · ${mode === 'contrarian' ? 'Contrarian' : 'Momentum'} interpretation · sentiment ${enableSocial ? 'included' : 'excluded'}`;
+
+const summarizeMarketUpdate = (previous: MarketSignal, next: MarketSignal) => {
+    const changes: string[] = [];
+    const scoreChange = Math.round((next.composite_score - previous.composite_score) * 10) / 10;
+    if (scoreChange !== 0) changes.push(`Composite score ${scoreChange > 0 ? 'increased' : 'decreased'} by ${Math.abs(scoreChange).toFixed(1)} points`);
+    if (previous.tier !== next.tier) changes.push(`posture changed from ${previous.tier} to ${next.tier}`);
+    const previousFreshness = previous.metadata.signal_quality?.freshness ?? 'unavailable';
+    const nextFreshness = next.metadata.signal_quality?.freshness ?? 'unavailable';
+    if (previousFreshness !== nextFreshness) changes.push(`freshness changed from ${previousFreshness} to ${nextFreshness}`);
+    return changes.length > 0 ? `${changes.join('; ')}.` : 'The headline posture, score, and freshness are unchanged.';
+};
+
 export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentation?: 'v6' | 'v7' }) => {
     const searchParams = useSearchParams();
     const returnsToToday = searchParams.get('returnTo') === 'today';
@@ -31,18 +45,29 @@ export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentati
     const [error, setError] = useState<string | null>(null);
     const [lastAttemptedAt, setLastAttemptedAt] = useState<Date | null>(null);
     const [lastSuccessfulAt, setLastSuccessfulAt] = useState<Date | null>(null);
+    const [updateCause, setUpdateCause] = useState<string | null>(null);
+    const [lastUpdateCause, setLastUpdateCause] = useState<string | null>(null);
+    const [updateSummary, setUpdateSummary] = useState<string | null>(null);
     const requestSequence = useRef(0);
     const activeRequest = useRef<AbortController | null>(null);
+    const signalRef = useRef<MarketSignal | null>(null);
+    const pendingConfigCause = useRef<string | null>(null);
     const { theme, toggleTheme } = useThemeV6();
     const themeClasses = getThemeV6(theme);
 
-    const fetchSignal = useCallback(async (forceRefresh = false) => {
+    const fetchSignal = useCallback(async (forceRefresh = false, requestedCause?: string) => {
         const requestId = ++requestSequence.current;
+        const previousSignal = signalRef.current;
+        const cause = previousSignal ? requestedCause ?? pendingConfigCause.current ?? 'the active configuration' : null;
+        pendingConfigCause.current = null;
         activeRequest.current?.abort();
         const controller = new AbortController();
         activeRequest.current = controller;
         setLoading(true);
         setError(null);
+        setUpdateCause(cause);
+        setUpdateSummary(null);
+        if (cause) setLastUpdateCause(cause);
         try {
             const query = new URLSearchParams({
                 market: config.market,
@@ -57,9 +82,14 @@ export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentati
             const body = await response.json();
             if (!response.ok || !body.success) throw new Error(body.error || 'Failed to fetch signal');
             if (requestId !== requestSequence.current) return;
-            setSignal(body.data);
+            const nextSignal = body.data as MarketSignal;
+            setSignal(nextSignal);
+            signalRef.current = nextSignal;
             setSignalEnableSocial(config.enableSocial);
             setLastSuccessfulAt(new Date());
+            if (previousSignal && cause) {
+                setUpdateSummary(`${describeMarketConfiguration(config.market, config.mode, config.enableSocial)}. ${summarizeMarketUpdate(previousSignal, nextSignal)}`);
+            }
         } catch (requestError) {
             if (controller.signal.aborted || requestId !== requestSequence.current) return;
             setError(requestError instanceof Error ? requestError.message : 'Connection error. Please try again.');
@@ -67,10 +97,16 @@ export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentati
             if (requestId === requestSequence.current) {
                 setLastAttemptedAt(new Date());
                 setLoading(false);
+                setUpdateCause(null);
                 activeRequest.current = null;
             }
         }
     }, [config.enableSocial, config.market, config.mode]);
+
+    const changeConfiguration = useCallback((change: Parameters<typeof updateConfig>[0], cause: string) => {
+        pendingConfigCause.current = cause;
+        updateConfig(change);
+    }, [updateConfig]);
 
     useEffect(() => {
         if (isLoaded) void fetchSignal();
@@ -119,12 +155,12 @@ export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentati
                     ? 'available'
                     : 'unavailable';
     const marketCommands: readonly AppCommandV6[] = [
-        { id: 'market-us', label: 'Use US market', group: 'Market', keywords: ['region'], run: () => updateConfig({ market: 'US' }) },
-        { id: 'market-my', label: 'Use Malaysia market', group: 'Market', keywords: ['region my'], run: () => updateConfig({ market: 'MY' }) },
-        { id: 'mode-momentum', label: 'Use Momentum mode', group: 'Market', keywords: ['standard'], run: () => updateConfig({ mode: 'standard' }) },
-        { id: 'mode-contrarian', label: 'Use Contrarian mode', group: 'Market', run: () => updateConfig({ mode: 'contrarian' }) },
-        { id: 'source-toggle', label: config.enableSocial ? 'Exclude sentiment source' : 'Include sentiment source', group: 'Market', keywords: ['social news'], run: () => updateConfig({ enableSocial: !config.enableSocial }) },
-        { id: 'refresh-market', label: 'Refresh market conditions', group: 'Market', keywords: ['reload'], run: () => void fetchSignal(true) },
+        { id: 'market-us', label: 'Use US market', group: 'Market', keywords: ['region'], run: () => changeConfiguration({ market: 'US' }, 'US market') },
+        { id: 'market-my', label: 'Use Malaysia market', group: 'Market', keywords: ['region my'], run: () => changeConfiguration({ market: 'MY' }, 'Malaysia market') },
+        { id: 'mode-momentum', label: 'Use Momentum mode', group: 'Market', keywords: ['standard'], run: () => changeConfiguration({ mode: 'standard' }, 'Momentum interpretation') },
+        { id: 'mode-contrarian', label: 'Use Contrarian mode', group: 'Market', run: () => changeConfiguration({ mode: 'contrarian' }, 'Contrarian interpretation') },
+        { id: 'source-toggle', label: config.enableSocial ? 'Exclude sentiment source' : 'Include sentiment source', group: 'Market', keywords: ['social news'], run: () => changeConfiguration({ enableSocial: !config.enableSocial }, config.enableSocial ? 'excluding the sentiment source' : 'including the sentiment source') },
+        { id: 'refresh-market', label: 'Refresh market conditions', group: 'Market', keywords: ['reload'], run: () => void fetchSignal(true, 'manual refresh') },
     ];
 
     if (presentation === 'v7') {
@@ -138,16 +174,17 @@ export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentati
                             market={config.market}
                             mode={config.mode}
                             enableSocial={config.enableSocial}
-                            onMarketChange={(market) => updateConfig({ market })}
-                            onModeChange={(mode) => updateConfig({ mode })}
-                            onSocialToggle={(enableSocial) => updateConfig({ enableSocial })}
+                            onMarketChange={(market) => changeConfiguration({ market }, market === 'US' ? 'US market' : 'Malaysia market')}
+                            onModeChange={(mode) => changeConfiguration({ mode }, mode === 'contrarian' ? 'Contrarian interpretation' : 'Momentum interpretation')}
+                            onSocialToggle={(enableSocial) => changeConfiguration({ enableSocial }, enableSocial ? 'including the sentiment source' : 'excluding the sentiment source')}
                             isLoaded={isLoaded}
                             status={briefingStatus}
                             lastAttemptedAt={lastAttemptedAt}
                             lastSuccessfulAt={lastSuccessfulAt}
-                            onRefresh={() => void fetchSignal(true)}
+                            onRefresh={() => void fetchSignal(true, 'manual refresh')}
                             snapshotDate={signal?.metadata.score_delta?.snapshot_date ?? null}
                             sourceToggleImpact={signal?.metadata.counterfactuals?.source_toggle}
+                            updateCause={updateCause}
                             theme={theme}
                             presentation="v7"
                         />
@@ -166,16 +203,16 @@ export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentati
                             <Link href="/research?workspace=today" prefetch={false} className={'inline-flex min-h-10 shrink-0 items-center justify-center rounded border px-4 text-xs font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + themeClasses.selectedRow}>Back to Today</Link>
                         </section>
                     ) : null}
-                    {!signal && loading ? <MarketSkeletonV6 theme={theme} /> : null}
+                    {!signal && loading ? <MarketSkeletonV7 /> : null}
                     {!signal && !loading ? (
                         <section className={'mt-4 rounded-lg border p-6 ' + themeClasses.panel}>
                             <p className={'text-xs font-semibold uppercase tracking-[0.12em] ' + themeClasses.risk}>Signal unavailable</p>
                             <h1 className={'mt-2 text-2xl font-bold ' + themeClasses.textPrimary}>Current market conditions are unavailable</h1>
                             <p className={'mt-2 max-w-2xl text-sm ' + themeClasses.textSecondary}>{error || 'Try another market, mode, or source configuration.'}</p>
-                            <button type="button" onClick={() => void fetchSignal(true)} className="mt-5 min-h-10 rounded-md border border-emerald-500 px-4 text-sm font-bold text-emerald-600">Retry</button>
+                            <button type="button" onClick={() => void fetchSignal(true, 'retrying the failed load')} className="mt-5 min-h-10 rounded-md border border-emerald-500 px-4 text-sm font-bold text-emerald-600">Retry</button>
                         </section>
                     ) : null}
-                    {signal ? <MarketBriefingV7 signal={signal} enableSocial={signalEnableSocial} theme={theme} updating={updating} refreshError={error} /> : null}
+                    {signal ? <MarketBriefingV7 signal={signal} enableSocial={signalEnableSocial} theme={theme} updating={updating} refreshError={error} updateCause={updateCause} failedAction={lastUpdateCause} updateSummary={updateSummary} onRetry={() => void fetchSignal(true, 'retrying the failed update')} /> : null}
                 </main>
             </V7Shell>
         );
@@ -191,16 +228,17 @@ export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentati
                         market={config.market}
                         mode={config.mode}
                         enableSocial={config.enableSocial}
-                        onMarketChange={(market) => updateConfig({ market })}
-                        onModeChange={(mode) => updateConfig({ mode })}
-                        onSocialToggle={(enableSocial) => updateConfig({ enableSocial })}
+                        onMarketChange={(market) => changeConfiguration({ market }, market === 'US' ? 'US market' : 'Malaysia market')}
+                        onModeChange={(mode) => changeConfiguration({ mode }, mode === 'contrarian' ? 'Contrarian interpretation' : 'Momentum interpretation')}
+                        onSocialToggle={(enableSocial) => changeConfiguration({ enableSocial }, enableSocial ? 'including the sentiment source' : 'excluding the sentiment source')}
                         isLoaded={isLoaded}
                         status={briefingStatus}
                         lastAttemptedAt={lastAttemptedAt}
                         lastSuccessfulAt={lastSuccessfulAt}
-                        onRefresh={() => void fetchSignal(true)}
+                        onRefresh={() => void fetchSignal(true, 'manual refresh')}
                         snapshotDate={signal?.metadata.score_delta?.snapshot_date ?? null}
                         sourceToggleImpact={signal?.metadata.counterfactuals?.source_toggle}
+                        updateCause={updateCause}
                         theme={theme}
                     />
                 </AppNavV6>
@@ -227,7 +265,7 @@ export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentati
                             <p className={'text-xs font-semibold uppercase tracking-[0.12em] ' + themeClasses.risk}>Signal unavailable</p>
                             <h1 className={'mt-2 text-2xl font-bold ' + themeClasses.textPrimary}>Current market conditions are unavailable</h1>
                             <p className={'mt-2 max-w-2xl text-sm ' + themeClasses.textSecondary}>{error || 'Try another market, mode, or source configuration.'}</p>
-                            <button type="button" onClick={() => void fetchSignal(true)} className="mt-5 min-h-10 rounded-md border border-emerald-500 px-4 text-sm font-bold text-emerald-600 transition-colors hover:bg-emerald-500/10">Retry</button>
+                            <button type="button" onClick={() => void fetchSignal(true, 'retrying the failed load')} className="mt-5 min-h-10 rounded-md border border-emerald-500 px-4 text-sm font-bold text-emerald-600 transition-colors hover:bg-emerald-500/10">Retry</button>
                         </section>
                     ) : null}
 
@@ -250,7 +288,7 @@ export const MarketDashboardV7 = () => <MarketDashboardV6 presentation="v7" />;
 
 const MarketSkeletonV6 = ({ theme }: { theme: ResearchThemeV6 }) => {
     const themeClasses = getThemeV6(theme);
-    const block = 'animate-pulse rounded-lg border backdrop-blur-md ' + themeClasses.panel;
+    const block = 'motion-safe:animate-pulse rounded-lg border backdrop-blur-md ' + themeClasses.panel;
     return (
         <div className="mt-4 space-y-4" aria-label="Loading market conditions">
             <div className={'h-24 ' + block} />
@@ -264,3 +302,18 @@ const MarketSkeletonV6 = ({ theme }: { theme: ResearchThemeV6 }) => {
         </div>
     );
 };
+
+const MarketSkeletonV7 = () => (
+    <div className={liveStyles.marketSkeleton} role="status" aria-label="Loading market conditions">
+        <div className={liveStyles.marketSkeletonIntro}>
+            <span /><span /><span />
+        </div>
+        <div className={liveStyles.marketSkeletonMetrics}>
+            {[0, 1, 2].map((item) => <span key={item} />)}
+        </div>
+        <div className={liveStyles.marketSkeletonReading}>
+            <span /><span /><span />
+        </div>
+        <span className="sr-only">Loading the first market reading and evidence handoff.</span>
+    </div>
+);

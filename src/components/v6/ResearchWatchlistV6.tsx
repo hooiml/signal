@@ -11,6 +11,12 @@ type ResearchWatchlistV6Props = {
     onAdd: (input: { readonly symbol: string; readonly market: ResearchMarket; readonly companyName: string }) => Promise<void>;
     adding: boolean;
     initiallyOpen?: boolean;
+    presentation?: 'v6' | 'v7';
+    selectedHidden?: boolean;
+    filterSummary?: string | null;
+    quoteStatus?: string | null;
+    onShowSelected?: () => void;
+    onClearFilters?: () => void;
 };
 
 export const ResearchWatchlistV6 = ({
@@ -21,6 +27,12 @@ export const ResearchWatchlistV6 = ({
     onAdd,
     adding,
     initiallyOpen = false,
+    presentation = 'v6',
+    selectedHidden = false,
+    filterSummary = null,
+    quoteStatus = null,
+    onShowSelected,
+    onClearFilters,
 }: ResearchWatchlistV6Props) => {
     const [showAdd, setShowAdd] = useState(initiallyOpen);
     const [symbol, setSymbol] = useState('');
@@ -30,10 +42,14 @@ export const ResearchWatchlistV6 = ({
     const themeClasses = getThemeV6(theme);
     const itemRefs = useRef(new Map<string, HTMLButtonElement>());
     const symbolInputRef = useRef<HTMLInputElement>(null);
+    const previousSelectedSymbol = useRef(selectedSymbol);
 
     useEffect(() => {
         if (!selectedSymbol) return;
-        itemRefs.current.get(selectedSymbol)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        if (previousSelectedSymbol.current === selectedSymbol) return;
+        previousSelectedSymbol.current = selectedSymbol;
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        itemRefs.current.get(selectedSymbol)?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'nearest', inline: 'nearest' });
     }, [selectedSymbol]);
 
     useEffect(() => {
@@ -41,7 +57,7 @@ export const ResearchWatchlistV6 = ({
     }, [showAdd]);
 
     return (
-        <aside className={'min-w-0 border-b pb-4 min-[700px]:w-64 min-[700px]:shrink-0 min-[700px]:border-b-0 min-[700px]:border-r min-[700px]:pb-0 min-[700px]:pr-4 ' + themeClasses.divider}>
+        <aside data-testid="research-watchlist-owner" className={'min-w-0 border-b pb-4 min-[700px]:shrink-0 min-[700px]:border-b-0 min-[700px]:border-r min-[700px]:pb-0 min-[700px]:pr-4 ' + (presentation === 'v7' ? 'min-[700px]:w-auto ' : 'min-[700px]:w-64 ') + themeClasses.divider}>
             <div className={'mb-4 flex items-center justify-between gap-3 border-b px-1 pb-3 ' + themeClasses.divider}>
                 <h2 className={'text-sm font-semibold ' + themeClasses.textMuted}>Watchlist</h2>
                 <button
@@ -55,6 +71,17 @@ export const ResearchWatchlistV6 = ({
                     className={'min-h-10 rounded px-3 text-xs font-bold ' + themeClasses.positive}
                 >{showAdd ? 'Close' : '+ Add'}</button>
             </div>
+            {quoteStatus ? <p data-testid="research-quote-status" role="status" className={'mb-3 rounded-md border px-3 py-2 text-xs leading-5 ' + themeClasses.row + ' ' + themeClasses.risk}>{quoteStatus}</p> : null}
+            {selectedHidden ? (
+                <div data-testid="research-selected-hidden" role="status" aria-live="polite" className={'mb-3 rounded-md border px-3 py-2 text-xs leading-5 ' + themeClasses.panelAction}>
+                    <p className={'font-bold ' + themeClasses.textPrimary}>{selectedSymbol} · Hidden by current filters</p>
+                    <p className={'mt-1 ' + themeClasses.textMuted}>The selected security remains open and has not been replaced.</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {onShowSelected ? <button type="button" onClick={onShowSelected} className={'min-h-10 rounded border px-3 font-bold ' + themeClasses.selectedRow}>Show selected</button> : null}
+                        {onClearFilters ? <button type="button" onClick={onClearFilters} className={'min-h-10 rounded border px-3 font-bold ' + themeClasses.row}>Clear filters</button> : null}
+                    </div>
+                </div>
+            ) : null}
             {showAdd ? (
                 <form id="research-add-company-form" className={'mb-3 space-y-2 rounded-[7px] border p-2 ' + themeClasses.row} onSubmit={(event) => {
                     event.preventDefault();
@@ -102,8 +129,10 @@ export const ResearchWatchlistV6 = ({
                     })}
                 </div>
             ) : (
-                <div className={'rounded-[7px] border px-3 py-5 text-center text-xs font-semibold ' + themeClasses.row + ' ' + themeClasses.textMuted}>
-                    No matching tickers
+                <div data-testid="research-no-results" className={'rounded-[7px] border px-3 py-5 text-center text-xs font-semibold ' + themeClasses.row + ' ' + themeClasses.textMuted}>
+                    <p className={themeClasses.textPrimary}>No matching tickers</p>
+                    <p className="mt-1">{filterSummary ?? 'No active watchlist filters.'}</p>
+                    {onClearFilters ? <button type="button" onClick={onClearFilters} className={'mt-3 min-h-10 rounded border px-3 font-bold ' + themeClasses.selectedRow}>Clear filters</button> : null}
                 </div>
             )}
         </aside>

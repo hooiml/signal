@@ -87,7 +87,8 @@ const runCheck = (checks, name, condition, details) => {
 const inspectHeader = async (page, routePath, viewport) => page.evaluate(({ routePath: currentRoute, viewportWidth }) => {
     const header = document.querySelector('header[aria-label="Signal application header"]');
     const inner = header?.firstElementChild;
-    const nav = header?.querySelector('nav[aria-label="Primary"]');
+    const nav = [...(header?.querySelectorAll('nav[aria-label^="Primary"]') ?? [])]
+        .find((candidate) => candidate.getClientRects().length > 0) ?? null;
     const toggle = header?.querySelector('button[aria-label^="Switch to"]');
     const headerCommand = header?.querySelector('button[aria-label="Open command palette"]');
     const command = header?.querySelector('[aria-label="Market conditions controls"]');
@@ -108,7 +109,8 @@ const inspectHeader = async (page, routePath, viewport) => page.evaluate(({ rout
         : [];
     const headerStyle = header ? getComputedStyle(header) : null;
     const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0);
-    const expectedInnerWidth = Math.min(viewportWidth - 48, 1280);
+    const isV7 = Boolean(header?.closest('[data-testid$="-v7"]'));
+    const expectedInnerWidth = isV7 ? rect(header)?.width ?? 0 : Math.min(viewportWidth - 48, 1280);
     return {
         header: rect(header),
         inner: rect(inner),
@@ -123,6 +125,7 @@ const inspectHeader = async (page, routePath, viewport) => page.evaluate(({ rout
         documentWidth,
         viewportWidth,
         expectedInnerWidth,
+        isV7,
         themePressed: toggle?.getAttribute('aria-pressed') || null,
         themeLabel: toggle?.getAttribute('aria-label') || null,
         routeSurface: currentRoute.startsWith('/research') ? 'research' : currentRoute.startsWith('/start') ? 'start' : 'market',
@@ -209,12 +212,13 @@ const main = async () => {
 
                     const header = page.locator('header[aria-label="Signal application header"]');
                     await header.waitFor({ state: 'visible', timeout: timeoutMs });
-                    await page.locator('nav[aria-label="Primary"] a').nth(2).waitFor({ state: 'visible', timeout: timeoutMs });
+                    await page.locator('nav[aria-label^="Primary"]:visible a').last().waitFor({ state: 'visible', timeout: timeoutMs });
                     const details = await inspectHeader(page, routePath, viewport);
                     const expectedSurface = routePath.startsWith('/research') ? 'research' : routePath.startsWith('/start') ? 'start' : 'market';
                     const linkLabels = details.navLinks.map((link) => link.label);
                     const navBounds = details.nav;
-                    const linksVisible = Boolean(navBounds) && details.navLinks.length === 3 && details.navLinks.every((link) => (
+                    const expectedLinkCount = details.isV7 ? 2 : 3;
+                    const linksVisible = Boolean(navBounds) && details.navLinks.length === expectedLinkCount && details.navLinks.every((link) => (
                         Boolean(link.rect)
                         && link.rect.width > 0
                         && link.rect.left >= navBounds.left - 1
@@ -228,7 +232,8 @@ const main = async () => {
                     runCheck(scenario.checks, 'shared header visible', Boolean(details.header), 'header[aria-label="Signal application header"] is visible');
                     runCheck(scenario.checks, 'header content width', innerWidthDelta <= 2, `inner width ${details.inner?.width ?? 'missing'}; expected ${details.expectedInnerWidth}`);
                     runCheck(scenario.checks, 'bottom hairline', details.borderBottomStyle === 'solid' && details.borderBottomWidth > 0 && details.borderBottomWidth <= 1, `${details.borderBottomStyle} ${details.borderBottomWidth}px`);
-                    runCheck(scenario.checks, 'primary navigation labels', linkLabels.join('|') === 'Start|Market|Research', linkLabels.join('|') || 'no links');
+                    const expectedNavLabels = details.isV7 ? 'Market|Research' : 'Start|Market|Research';
+                    runCheck(scenario.checks, 'primary navigation labels', linkLabels.join('|') === expectedNavLabels, linkLabels.join('|') || 'no links');
                     const selectedLabel = details.navLinks.find((link) => link.ariaCurrent === 'page')?.label;
                     const expectedLabel = expectedSurface === 'market' ? 'Market' : expectedSurface === 'research' ? 'Research' : 'Start';
                     runCheck(scenario.checks, 'primary navigation selected state', selectedLabel === expectedLabel, selectedLabel || 'no selected link');

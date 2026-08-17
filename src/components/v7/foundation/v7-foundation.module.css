@@ -163,6 +163,33 @@
     font-size: 13px;
     font-weight: 650;
     cursor: pointer;
+    transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease, transform 90ms ease, opacity 140ms ease;
+}
+
+.themeButton:hover,
+.commandButton:hover,
+.button:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--v7-accent) 45%, var(--v7-border));
+    background: var(--v7-accent-quiet);
+    color: var(--v7-text);
+}
+
+.themeButton:active,
+.commandButton:active,
+.button:active:not(:disabled),
+.scope a:active {
+    transform: translateY(1px);
+}
+
+.scope button:disabled,
+.scope [aria-disabled='true'] {
+    cursor: not-allowed;
+    opacity: 0.52;
+}
+
+.scope [aria-busy='true'] button,
+.scope [data-pending='true'] {
+    cursor: wait;
 }
 
 .headerActions {
@@ -311,6 +338,11 @@
     outline-offset: 3px;
 }
 
+.primaryNav a:hover,
+.mobileNav a:hover {
+    color: var(--v7-text);
+}
+
 @media (max-width: 920px) {
     .scope {
         --v7-section-gap: 20px;
@@ -430,6 +462,8 @@
     .scope *::before,
     .scope *::after {
         scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
     }
 }

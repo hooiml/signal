@@ -98,11 +98,26 @@ try {
         try {
             await openResearch(page);
             const strip = page.getByTestId('research-readiness-strip');
-            await strip.getByText('Review next gap: Thesis and checklist').waitFor({ state: 'visible', timeout });
+            const nextActions = page.getByTestId('research-readiness-next');
+            if (await nextActions.count() !== 1) throw new Error('Research must expose exactly one readiness next action');
+            await nextActions.getByText('Thesis and checklist').waitFor({ state: 'visible', timeout });
             if (await page.getByTestId('research-readiness-details').getAttribute('open') !== null) throw new Error('readiness details are not collapsed initially');
-            const tabsTop = await page.getByRole('tab', { name: 'Overview' }).evaluate((node) => node.getBoundingClientRect().top);
-            if (tabsTop >= viewport.height) throw new Error(`research tabs start below the first viewport at ${tabsTop}px`);
-            await page.getByTestId('research-readiness-next').click();
+            await page.getByRole('tab', { name: 'Overview' }).waitFor({ state: 'visible', timeout });
+            const nextActionBottom = await nextActions.evaluate((node) => node.getBoundingClientRect().bottom);
+            if (nextActionBottom >= viewport.height) throw new Error(`selected decision action starts below the first viewport at ${nextActionBottom}px`);
+            if (viewport.width <= 620) {
+                const mobileOrder = await page.evaluate(() => {
+                    const detail = document.querySelector('#research-detail > header');
+                    const action = document.querySelector('[data-testid="research-readiness-next"]');
+                    const watchlist = document.querySelector('[data-testid="research-watchlist-owner"]');
+                    const box = (element) => element?.getBoundingClientRect() ?? null;
+                    return { detail: box(detail), action: box(action), watchlist: box(watchlist) };
+                });
+                if (!mobileOrder.detail || !mobileOrder.action || !mobileOrder.watchlist) throw new Error('mobile decision/watchlist geometry is incomplete');
+                if (mobileOrder.detail.bottom > mobileOrder.watchlist.top + 1 || mobileOrder.action.bottom > mobileOrder.watchlist.top + 1) throw new Error('mobile watchlist appears before the selected decision and next action');
+                if (mobileOrder.watchlist.height > 230) throw new Error(`mobile ticker selector is not compact (${mobileOrder.watchlist.height}px)`);
+            }
+            await nextActions.click();
             await page.waitForURL((url) => url.searchParams.get('tab') === 'overview' && url.searchParams.get('review') === 'edit', { timeout });
 
             await openResearch(page);

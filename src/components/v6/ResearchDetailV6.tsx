@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import type { AcceptedResearchEvidence, ResearchRecord } from '@/lib/types/research';
 import type { ResearchWorkflowTemplateId } from '@/lib/research/workflow-queue';
@@ -9,7 +9,6 @@ import { OverviewPanelV6 } from './OverviewPanelV6';
 import { ResearchPanelsV6 } from './ResearchPanelsV6';
 import { ResearchChartV6 } from './ResearchChartV6';
 import {
-    checklistLabelsV6,
     formatPriceV6,
     getActionReasonV6,
     getResearchActionV6,
@@ -20,7 +19,7 @@ import {
 } from './research-v6';
 import liveStyles from '@/components/v7/v7-live.module.css';
 import { applyResearchSnapshotV6, parseResearchSnapshotResponse } from './research-snapshot-v6';
-import { ResearchReadinessStripV6 } from './ResearchReadinessStripV6';
+import { ResearchReadinessStripV6, useResearchReadinessV6 } from './ResearchReadinessStripV6';
 import type { ResearchReadinessDestination } from '@/lib/research/readiness';
 
 const formatProviderTimestampV6 = (timestamp: string) => new Intl.DateTimeFormat(undefined, {
@@ -30,7 +29,7 @@ const formatProviderTimestampV6 = (timestamp: string) => new Intl.DateTimeFormat
     minute: '2-digit',
 }).format(new Date(timestamp));
 
-export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQuote, activeTab, startReview, stagedEvidence, workflowTemplateId, saving, saveError, onTabChange, onReadinessNavigate, onSave, onReviewChange, onSnapshot, onDelete, presentation = 'v6' }: {
+export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQuote, activeTab, startReview, stagedEvidence, workflowTemplateId, saving, saveError, onTabChange, onReadinessNavigate, onSave, onReviewChange, onSnapshot, onDelete, watchlistSlot, presentation = 'v6' }: {
     ticker: ResearchWatchlistItem;
     records: readonly ResearchRecord[];
     items: readonly ResearchWatchlistItem[];
@@ -49,6 +48,7 @@ export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQu
     onReviewChange: (editing: boolean) => void;
     onSnapshot: (symbol: string, snapshot: ResearchSnapshot) => void;
     onDelete: () => Promise<void>;
+    watchlistSlot?: ReactNode;
     presentation?: 'v6' | 'v7';
 }) => {
     const [snapshot, setSnapshot] = useState<ResearchSnapshot | null>(null);
@@ -75,7 +75,7 @@ export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQu
     const action = getResearchActionV6(liveTicker);
     const change = liveTicker.dailyChange ?? 0;
     const themeClasses = getThemeV6(theme);
-    const nextCheck = Object.entries(ticker.checklist).find(([, passed]) => !passed)?.[0];
+    const readiness = useResearchReadinessV6({ record, ticker, records, items });
 
     useEffect(() => {
         let active = true;
@@ -146,7 +146,7 @@ export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQu
     }, [benchmarkChart, benchmarkKey, chartBenchmark.label, chartBenchmark.market, chartBenchmark.symbol, compareBenchmark, ticker.symbol]);
 
     return (
-        <article id="research-detail" tabIndex={-1} className="min-w-0 flex-1 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-500">
+        <article id="research-detail" tabIndex={-1} className={(presentation === 'v7' ? liveStyles.researchDetailLayoutV7 + ' ' : '') + 'min-w-0 flex-1 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-500'}>
             <header className={presentation === 'v7' ? liveStyles.securityHeaderV7 : 'flex items-start justify-between gap-5'}>
                 <div className="min-w-0">
                     <h2 className={'font-mono text-2xl font-bold leading-none tracking-normal ' + themeClasses.textPrimary}>{ticker.symbol}</h2>
@@ -165,18 +165,24 @@ export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQu
                         <span>Decision · {action}</span>
                         <strong>{getActionReasonV6(action)}</strong>
                         <div className={liveStyles.decisionMetaV7}>
-                            <small>{nextCheck ? `Next incomplete check · ${checklistLabelsV6[nextCheck]}` : `Next review · ${record.decisionJournal.nextReviewAt ?? record.lastReviewedAt}`}</small>
+                            <small>Next gap · {readiness.nextGap.label}</small>
                             <button type="button" onClick={() => void onDelete()} data-testid="research-remove-ticker" className={liveStyles.removeSecurityV7}>Remove security</button>
                         </div>
+                        <button data-testid="research-readiness-next" type="button" onClick={() => onReadinessNavigate(readiness.nextGap.destination)} className={liveStyles.decisionActionV7}>
+                            <span>Next action</span>
+                            <strong>{readiness.nextGap.label}</strong>
+                        </button>
                     </div>
                 ) : null}
             </header>
 
-            <ResearchReadinessStripV6 record={record} ticker={ticker} records={records} items={items} theme={theme} onNavigate={onReadinessNavigate} />
+            {watchlistSlot}
+            <div className={presentation === 'v7' ? liveStyles.researchDetailBodyV7 : undefined}>
+            <ResearchReadinessStripV6 readiness={readiness} theme={theme} onNavigate={onReadinessNavigate} showNextAction={presentation !== 'v7'} />
 
             {providerState === 'loading' ? (
                 <div role="status" className={'mt-3 flex items-center gap-2 rounded-md border px-3 py-2 text-xs ' + themeClasses.row + ' ' + themeClasses.textSecondary}>
-                    <span className="inline-block h-2 w-16 animate-pulse rounded-full bg-emerald-400/60" />
+                    <span className="inline-block h-2 w-16 motion-safe:animate-pulse rounded-full bg-emerald-400/60" />
                     Loading live quote and provider facts...
                 </div>
             ) : providerState === 'error' ? (
@@ -259,6 +265,7 @@ export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQu
                 <span>Sources: {snapshot.sources.join(' + ') || 'No provider data'}</span>
                 {snapshot.warnings.map((warning) => <span key={warning}>{warning}</span>)}
             </footer> : null}
+            </div>
         </article>
     );
 };

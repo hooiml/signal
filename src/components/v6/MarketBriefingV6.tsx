@@ -35,6 +35,7 @@ type MarketBriefingV6Props = {
     updating: boolean;
     refreshError: string | null;
     hideStory?: boolean;
+    hideResearchHandoff?: boolean;
 };
 
 type DriverChangeV6 = NonNullable<MarketSignal['metadata']['driver_changes']>[number];
@@ -46,7 +47,7 @@ type SnapshotComparisonV6 = {
     digits: number;
 };
 
-export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refreshError, hideStory = false }: MarketBriefingV6Props) => {
+export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refreshError, hideStory = false, hideResearchHandoff = false }: MarketBriefingV6Props) => {
     const t = getThemeV6(theme);
     const tierTone = getTierTone(signal.tier, theme);
     const posture = getDecisionPostureV6(signal);
@@ -199,7 +200,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
 
             <MarketAlertsV6 signal={signal} enableSocial={enableSocial} theme={theme} />
 
-            <MarketToResearchLinkV6 signal={signal} theme={theme} />
+            {!hideResearchHandoff ? <MarketToResearchLinkV6 signal={signal} theme={theme} /> : null}
 
             <MarketWatchlistExposureV6 signal={signal} theme={theme} />
 
@@ -218,7 +219,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
             </section>
 
             <div className="grid gap-4 lg:grid-cols-2">
-                <DisclosureV6 title="Trust and limitations" theme={theme}>
+                <DisclosureV6 title="Trust and limitations" id="market-trust-limitations" theme={theme}>
                     <dl className="grid gap-4 sm:grid-cols-3">
                         <CompactFactV6 label="Evidence concentration" value={concentration.summary} theme={theme} />
                         <CompactFactV6 label="Coverage" value={capitalize(quality?.source_coverage ?? 'unavailable')} theme={theme} />
@@ -230,7 +231,7 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                     </ul>
                 </DisclosureV6>
 
-                <DisclosureV6 title="Sources and methodology" theme={theme}>
+                <DisclosureV6 title="Sources and methodology" id="market-sources-methodology" theme={theme}>
                     <div className="space-y-4">
                         {Object.values(signal.components).filter((component) => component.enabled).map((component) => (
                             <div key={component.name} className={'grid gap-2 border-b pb-4 last:border-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto] ' + t.divider}>
@@ -688,11 +689,11 @@ const SectionHeadingV6 = ({ eyebrow, title, id, theme }: { eyebrow: string; titl
     );
 };
 
-const DisclosureV6 = ({ title, theme, children, defaultOpen = false }: { title: string; theme: ResearchThemeV6; children: React.ReactNode; defaultOpen?: boolean }) => {
+const DisclosureV6 = ({ title, id, theme, children, defaultOpen = false }: { title: string; id?: string; theme: ResearchThemeV6; children: React.ReactNode; defaultOpen?: boolean }) => {
     const t = getThemeV6(theme);
     return (
         <details open={defaultOpen} className={'group rounded-lg border ' + t.panelSolid} data-surface-tier="utility">
-            <summary className={'flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-bold marker:content-none ' + t.textPrimary}>
+            <summary id={id} className={'flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-bold marker:content-none ' + t.textPrimary}>
                 {title}
                 <span aria-hidden="true" className={'text-lg transition-transform group-open:rotate-45 ' + t.textMuted}>+</span>
             </summary>

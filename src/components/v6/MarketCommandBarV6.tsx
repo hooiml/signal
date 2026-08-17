@@ -33,6 +33,7 @@ type MarketCommandBarV6Props = {
     onRefresh?: () => void;
     snapshotDate?: string | null;
     sourceToggleImpact?: SourceToggleImpact;
+    updateCause?: string | null;
     theme: ResearchThemeV6;
     presentation?: 'v6' | 'v7';
 };
@@ -51,6 +52,7 @@ export const MarketCommandBarV6 = ({
     onRefresh,
     snapshotDate,
     sourceToggleImpact,
+    updateCause = null,
     theme,
     presentation = 'v6',
 }: MarketCommandBarV6Props) => {
@@ -81,7 +83,7 @@ export const MarketCommandBarV6 = ({
     const formatRequestTime = (value: Date | null) => value?.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
     const attemptedLabel = formatRequestTime(lastAttemptedAt);
     const successfulLabel = formatRequestTime(lastSuccessfulAt);
-    const statusContent = getBriefingStatusContent(status, attemptedLabel, successfulLabel);
+    const statusContent = getBriefingStatusContent(status, attemptedLabel, successfulLabel, updateCause);
     const segmentClass = (active: boolean) => `min-h-8 rounded-[6px] px-3 text-sm font-semibold transition-colors active:scale-[0.98] ${focusClass} ${active ? 'bg-[var(--fill-success)] text-[var(--on-success)]' : 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--border)] hover:text-[var(--text-primary)]'}`;
 
     return (
@@ -129,14 +131,14 @@ export const MarketCommandBarV6 = ({
                     </div>
                 </div>
 
-                <div data-market-control-cluster="status" className="flex items-center gap-4">
+                <div data-market-control-cluster="status" className="flex min-w-0 items-center gap-4">
                     <SignalHeaderDivider />
 
                     <MetaItemV6 label="Conditions as of" value={snapshotDate ? `Conditions as of ${formatSnapshotDateUtc(snapshotDate)} (UTC)` : 'Conditions date unavailable'} tone={tone} icon="clock" />
 
                     <SignalHeaderDivider />
 
-                    <div className="flex min-h-10 items-center gap-2">
+                    <div className="flex min-h-10 min-w-0 items-center gap-2">
                         <MetaItemV6 label="Status" value={statusContent.value} tone={tone} status={status} secondary={statusContent.secondary} />
                         {onRefresh ? (
                             <button
@@ -161,18 +163,18 @@ type CommandTone = {
     muted: string;
 };
 
-const getBriefingStatusContent = (status: BriefingStatus, attemptedLabel?: string, successfulLabel?: string) => {
+const getBriefingStatusContent = (status: BriefingStatus, attemptedLabel?: string, successfulLabel?: string, updateCause?: string | null) => {
     if (status === 'loading') return { value: 'Loading conditions', secondary: undefined };
-    if (status === 'updating') return { value: 'Updating', secondary: successfulLabel ? `Previous conditions retained · Retrieved ${successfulLabel}` : 'Retrieving latest market conditions' };
+    if (status === 'updating') return { value: updateCause ? `Updating for ${updateCause}` : 'Updating conditions', secondary: successfulLabel ? `Previous conditions retained · Retrieved ${successfulLabel}` : 'Retrieving latest market conditions' };
     if (status === 'refresh-failed') return { value: 'Refresh failed', secondary: `Previous conditions retained${attemptedLabel ? ` · Attempted ${attemptedLabel}` : ''}` };
     if (status === 'available') return { value: 'Conditions available', secondary: successfulLabel ? `Retrieved ${successfulLabel}` : undefined };
     return { value: 'Conditions unavailable', secondary: attemptedLabel ? `Attempted ${attemptedLabel}` : undefined };
 };
 
 const MetaItemV6 = ({ label, value, tone, status, icon, secondary }: { label: string; value: string; tone: CommandTone; status?: BriefingStatus; icon?: 'clock'; secondary?: string }) => (
-    <div className="flex min-h-10 items-center gap-2">
+    <div className="flex min-h-10 min-w-0 items-center gap-2">
         {icon ? <SignalHeaderIcon name={icon} /> : null}
-        <p aria-live={label === 'Status' ? 'polite' : undefined} className={`flex items-center gap-2 text-sm font-semibold ${tone.secondary}`}>
+        <p aria-live={label === 'Status' ? 'polite' : undefined} className={`flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold ${tone.secondary}`}>
             {status ? <span aria-hidden="true" className={`h-2 w-2 rounded-full ${status === 'loading' || status === 'updating' ? 'animate-pulse bg-sky-400' : status === 'available' ? 'bg-emerald-500' : 'bg-rose-500'}`} /> : null}
             {value}
             {secondary ? <span className={`text-[13px] font-medium ${tone.muted}`}>{secondary}</span> : null}

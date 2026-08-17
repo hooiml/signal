@@ -87,6 +87,7 @@ export const ResearchHeaderV6 = ({
                         <span className="sr-only">Ticker search</span>
                         <input
                             type="search"
+                            maxLength={80}
                             value={query}
                             onChange={(event) => onQueryChange(event.target.value)}
                             placeholder="Search ticker or company"
@@ -146,6 +147,7 @@ export const ResearchHeaderV6 = ({
                             <span className={'px-1 text-xs font-semibold uppercase tracking-[0.16em] ' + textSubtle}>Ticker search</span>
                             <input
                                 type="search"
+                                maxLength={80}
                                 value={query}
                                 onChange={(event) => onQueryChange(event.target.value)}
                                 placeholder="Search symbol or company"

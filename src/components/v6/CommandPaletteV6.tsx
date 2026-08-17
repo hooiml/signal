@@ -39,6 +39,8 @@ export const CommandPaletteV6 = ({ commands, localSearch, theme, open, onOpenCha
     const [query, setQuery] = useState('');
     const [activeIndex, setActiveIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
+    const overlayRef = useRef<HTMLDivElement>(null);
+    const dialogRef = useRef<HTMLElement>(null);
     const triggerRef = useRef<HTMLElement | null>(null);
     const isLight = theme === 'light';
     const localResponse = useMemo(
@@ -90,6 +92,23 @@ export const CommandPaletteV6 = ({ commands, localSearch, theme, open, onOpenCha
                 setQuery('');
                 setActiveIndex(0);
                 onOpenChange(false);
+            } else if (open && event.key === 'Tab') {
+                const dialog = dialogRef.current;
+                if (!dialog) return;
+                const focusable = [...dialog.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])')]
+                    .filter((element) => element.getClientRects().length > 0 && element.getAttribute('aria-hidden') !== 'true');
+                const first = focusable[0];
+                const last = focusable.at(-1);
+                if (!first || !last) {
+                    event.preventDefault();
+                    inputRef.current?.focus();
+                } else if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+                    event.preventDefault();
+                    first.focus();
+                }
             }
         };
         window.addEventListener('keydown', onKeyDown);
@@ -108,6 +127,36 @@ export const CommandPaletteV6 = ({ commands, localSearch, theme, open, onOpenCha
         }
     }, [open]);
 
+    useEffect(() => {
+        if (!open || !overlayRef.current) return;
+        const previousOverflow = document.body.style.overflow;
+        const previousOverscroll = document.body.style.overscrollBehavior;
+        const changed = new Map<HTMLElement, { readonly inert: boolean; readonly ariaHidden: string | null }>();
+        let activeBranch: HTMLElement | null = overlayRef.current;
+        while (activeBranch && activeBranch !== document.body) {
+            const branchParent: HTMLElement | null = activeBranch.parentElement;
+            if (!branchParent) break;
+            for (const sibling of branchParent.children) {
+                if (sibling === activeBranch || !(sibling instanceof HTMLElement) || changed.has(sibling)) continue;
+                changed.set(sibling, { inert: sibling.inert, ariaHidden: sibling.getAttribute('aria-hidden') });
+                sibling.inert = true;
+                sibling.setAttribute('aria-hidden', 'true');
+            }
+            activeBranch = branchParent;
+        }
+        document.body.style.overflow = 'hidden';
+        document.body.style.overscrollBehavior = 'none';
+        return () => {
+            for (const [element, previous] of changed) {
+                element.inert = previous.inert;
+                if (previous.ariaHidden === null) element.removeAttribute('aria-hidden');
+                else element.setAttribute('aria-hidden', previous.ariaHidden);
+            }
+            document.body.style.overflow = previousOverflow;
+            document.body.style.overscrollBehavior = previousOverscroll;
+        };
+    }, [open]);
+
     if (!open) return null;
     const execute = (command: AppCommandV6 | undefined) => {
         if (!command) return;
@@ -118,14 +167,14 @@ export const CommandPaletteV6 = ({ commands, localSearch, theme, open, onOpenCha
     };
 
     return (
-        <div className="fixed inset-0 z-[80] flex items-start justify-center bg-slate-950/55 px-4 pt-[12vh] backdrop-blur-sm" onMouseDown={(event) => {
+        <div ref={overlayRef} className="fixed inset-0 z-[80] flex items-start justify-center bg-slate-950/55 px-4 pt-[12vh] backdrop-blur-sm" onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
                 setQuery('');
                 setActiveIndex(0);
                 onOpenChange(false);
             }
         }}>
-            <section role="dialog" aria-modal="true" aria-label="Signal command palette" className={'w-full max-w-2xl overflow-hidden rounded-xl border shadow-2xl ' + (isLight ? 'border-slate-200 bg-white' : 'border-[#344454] bg-[#0d151d]')}>
+            <section ref={dialogRef} role="dialog" aria-modal="true" aria-label="Signal command palette" className={'w-full max-w-2xl overflow-hidden rounded-xl border shadow-2xl ' + (isLight ? 'border-slate-200 bg-white' : 'border-[#344454] bg-[#0d151d]')}>
                 <label className={'flex items-center gap-3 border-b px-4 ' + (isLight ? 'border-slate-200' : 'border-[#263442]')}>
                     <span aria-hidden="true" className={isLight ? 'text-slate-400' : 'text-slate-500'}>⌕</span>
                     <span className="sr-only">Search commands</span>

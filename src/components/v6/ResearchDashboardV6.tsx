@@ -46,7 +46,16 @@ import {
     RESEARCH_WORKFLOW_QUEUE_STORAGE_KEY,
     type ResearchWorkflowTaskReadResult,
 } from '@/lib/research/workflow-queue-client';
-import { buildResearchRelativeUrl, mergeResearchSearchParams, resolveVisibleResearchSymbol, type ResearchUrlChanges } from '@/lib/research/url-state';
+import {
+    buildResearchRelativeUrl,
+    mergeResearchSearchParams,
+    parseResearchUrlDecision,
+    parseResearchUrlDensity,
+    parseResearchUrlMarket,
+    parseResearchUrlQuery,
+    resolveVisibleResearchSymbol,
+    type ResearchUrlChanges,
+} from '@/lib/research/url-state';
 import {
     clearProductAnalyticsWorkflowSource,
     currentProductAnalyticsWorkflowSource,
@@ -65,8 +74,14 @@ import liveStyles from '@/components/v7/v7-live.module.css';
 
 const workspaceLoading = (label: string) => function ResearchWorkspaceLoadingV6() {
     return (
-        <section role="status" className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
-            <p className="text-sm font-semibold text-[var(--text-muted)]">Loading {label}…</p>
+        <section role="status" className="grid min-h-72 flex-1 content-start gap-4 px-3 py-5" aria-label={`Loading ${label}`}>
+            <div className="h-7 w-44 motion-safe:animate-pulse rounded bg-emerald-400/20" />
+            <div className="h-14 w-full motion-safe:animate-pulse rounded bg-emerald-400/15" />
+            <div className="grid gap-3 sm:grid-cols-2">
+                <div className="h-40 motion-safe:animate-pulse rounded bg-emerald-400/10" />
+                <div className="h-40 motion-safe:animate-pulse rounded bg-emerald-400/10" />
+            </div>
+            <span className="sr-only">Loading {label}…</span>
         </section>
     );
 };
@@ -190,6 +205,10 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     const requestedWorkspace = searchParams.get('workspace');
     const requestedDetailTab = searchParams.get('tab');
     const requestedReview = searchParams.get('review');
+    const requestedQuery = parseResearchUrlQuery(searchParams.get('query'));
+    const requestedMarket = parseResearchUrlMarket(searchParams.get('market'));
+    const requestedAction = parseResearchUrlDecision(searchParams.get('decision'));
+    const requestedDensity = parseResearchUrlDensity(searchParams.get('density'));
     const requestedSetup = searchParams.get('setup') === '1';
     const rawRequestedQueueTask = searchParams.get('queueTask');
     const requestedQueueTask = rawRequestedQueueTask && /^[a-f0-9-]{36}$/i.test(rawRequestedQueueTask)
@@ -202,9 +221,9 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     const [selectedSymbol, setSelectedSymbol] = useState(initialSymbol);
     const [activeDetailTab, setActiveDetailTab] = useState<ResearchTabV6>(initialTab);
     const { theme, toggleTheme } = useThemeV6();
-    const [query, setQuery] = useState('');
-    const [market, setMarket] = useState<ResearchMarketFilterV6>('ALL');
-    const [action, setAction] = useState<ResearchActionFilterV6>('ALL');
+    const [query, setQuery] = useState(requestedQuery);
+    const [market, setMarket] = useState<ResearchMarketFilterV6>(requestedMarket);
+    const [action, setAction] = useState<ResearchActionFilterV6>(requestedAction);
     const [items, setItems] = useState<ResearchWatchlistItem[]>(watchlist);
     const [records, setRecords] = useState<ResearchRecord[]>([]);
     const [recordsLoadState, setRecordsLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -216,7 +235,8 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     const [reviewRequested, setReviewRequested] = useState(requestedReview === 'edit');
     const [stagedEvidence, setStagedEvidence] = useState<AcceptedResearchEvidence | null>(null);
     const [workflowTemplateId, setWorkflowTemplateId] = useState<ResearchWorkflowTemplateId | null>(null);
-    const [density, setDensity] = useState<ResearchLayoutDensity>('comfortable');
+    const [density, setDensity] = useState<ResearchLayoutDensity>(requestedDensity ?? 'comfortable');
+    const [quoteStatus, setQuoteStatus] = useState<string | null>(null);
     const [savedLayouts, setSavedLayouts] = useState<readonly SavedResearchLayout[]>([]);
     const [queueSearchState, setQueueSearchState] = useState<ResearchWorkflowTaskReadResult | null>(null);
     const [watchlistAddRequest, setWatchlistAddRequest] = useState(0);
@@ -239,6 +259,27 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         else router.replace(nextPath, { scroll: false });
     }, [router]);
 
+    const changeQuery = useCallback((nextQuery: string) => {
+        const parsed = parseResearchUrlQuery(nextQuery);
+        setQuery(parsed);
+        updateUrl({ query: parsed || null });
+    }, [updateUrl]);
+
+    const changeMarketFilter = useCallback((nextMarket: ResearchMarketFilterV6) => {
+        setMarket(nextMarket);
+        updateUrl({ market: nextMarket === 'ALL' ? null : nextMarket });
+    }, [updateUrl]);
+
+    const changeActionFilter = useCallback((nextAction: ResearchActionFilterV6) => {
+        setAction(nextAction);
+        updateUrl({ decision: nextAction === 'ALL' ? null : nextAction });
+    }, [updateUrl]);
+
+    const changeDensity = useCallback((nextDensity: ResearchLayoutDensity) => {
+        setDensity(nextDensity);
+        updateUrl({ density: nextDensity });
+    }, [updateUrl]);
+
     const normalizedWorkspace: ResearchWorkspaceV6 = isResearchWorkspaceV6(requestedWorkspace) ? requestedWorkspace : 'research';
     const normalizedDetailTab: ResearchTabV6 = isResearchTabV6(requestedDetailTab) ? requestedDetailTab : 'overview';
     const normalizedReview = requestedReview === 'edit';
@@ -258,6 +299,22 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     useEffect(() => {
         setReviewRequested((current) => current === normalizedReview ? current : normalizedReview);
     }, [normalizedReview]);
+
+    useEffect(() => {
+        setQuery((current) => current === requestedQuery ? current : requestedQuery);
+    }, [requestedQuery]);
+
+    useEffect(() => {
+        setMarket((current) => current === requestedMarket ? current : requestedMarket);
+    }, [requestedMarket]);
+
+    useEffect(() => {
+        setAction((current) => current === requestedAction ? current : requestedAction);
+    }, [requestedAction]);
+
+    useEffect(() => {
+        if (requestedDensity) setDensity((current) => current === requestedDensity ? current : requestedDensity);
+    }, [requestedDensity]);
 
     useEffect(() => {
         trackProductAnalyticsEvent({
@@ -307,17 +364,18 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
 
     useEffect(() => {
         if (urlSearchRef.current !== searchString) return;
-        const nextSymbol = resolveVisibleResearchSymbol(filteredItems, requestedSymbol);
+        const nextSymbol = resolveVisibleResearchSymbol(items, requestedSymbol);
         setSelectedSymbol((current) => current === (nextSymbol ?? '') ? current : nextSymbol ?? '');
         if (nextSymbol === requestedSymbol && (validRequestedTicker || !requestedTicker)) return;
         if (nextSymbol) updateUrl({ ticker: nextSymbol });
         else updateUrl({ ticker: null, tab: null, review: null });
-    }, [filteredItems, requestedSymbol, requestedTicker, searchString, updateUrl, validRequestedTicker]);
+    }, [items, requestedSymbol, requestedTicker, searchString, updateUrl, validRequestedTicker]);
 
     const selected = useMemo(
-        () => filteredItems.find((item) => item.symbol === selectedSymbol) ?? null,
-        [filteredItems, selectedSymbol],
+        () => items.find((item) => item.symbol === selectedSymbol) ?? null,
+        [items, selectedSymbol],
     );
+    const selectedHidden = Boolean(selected && !filteredItems.some((item) => item.symbol === selected.symbol));
     const latestReviewedAt = useMemo(
         () => [...items].sort((left, right) => right.lastReviewedAt.localeCompare(left.lastReviewedAt))[0]?.lastReviewedAt ?? new Date().toISOString().slice(0, 10),
         [items],
@@ -409,7 +467,11 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         if (recordsLoadState !== 'ready') return;
         const itemsToQuote = quoteItems.current.filter((item) =>
             item.symbol !== selectedSymbol && !liveQuotes.current.has(item.symbol));
-        if (itemsToQuote.length === 0) return;
+        if (itemsToQuote.length === 0) {
+            setQuoteStatus(null);
+            return;
+        }
+        setQuoteStatus(null);
         const controller = new AbortController();
         const loadQuotes = async () => {
             try {
@@ -424,12 +486,14 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 const results = parseResearchQuoteBatchResponse(payload);
                 if (controller.signal.aborted) return;
                 const quotes = new Map<string, ResearchSnapshot['quote']>();
+                const failedSymbols: string[] = [];
                 for (const result of results) {
                     if (result.success) {
                         quotes.set(result.data.symbol, result.data.quote);
                         liveQuotes.current.set(result.data.symbol, result.data.quote);
-                    }
+                    } else failedSymbols.push(result.symbol);
                 }
+                if (failedSymbols.length > 0) setQuoteStatus(`Live quotes are unavailable for ${failedSymbols.join(', ')}. Saved research remains visible.`);
                 if (quotes.size === 0) return;
                 setItems((current) => current.map((item) => {
                     const quote = quotes.get(item.symbol);
@@ -437,13 +501,14 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 }));
             } catch {
                 if (controller.signal.aborted) return;
+                setQuoteStatus('Live watchlist quotes are unavailable. Saved research remains visible.');
             }
         };
         void loadQuotes();
         return () => controller.abort();
     }, [quoteTargetKey, recordsLoadState, selectedSymbol]);
 
-    const selectTicker = (symbol: string, focusDetail = false, tab: ResearchTabV6 = 'overview', startReview = false, historyMode: 'push' | 'replace' = 'replace') => {
+    const selectTicker = (symbol: string, focusDetail = false, tab: ResearchTabV6 = 'overview', startReview = false, historyMode: 'push' | 'replace' = 'push') => {
         if (focusDetail) {
             setQuery('');
             setMarket('ALL');
@@ -482,12 +547,31 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         window.localStorage.setItem('signal-research-density-v1', layout.density);
         updateUrl({
             workspace: layout.workspace,
+            query: layout.query || null,
+            market: layout.market === 'ALL' ? null : layout.market,
+            decision: layout.action === 'ALL' ? null : layout.action,
+            density: layout.density,
             ticker: layout.ticker,
             tab: layout.tab === 'overview' ? null : layout.tab,
             review: null,
             queueTask: null,
         }, 'push');
     };
+
+    const clearFilters = useCallback(() => {
+        setQuery('');
+        setMarket('ALL');
+        setAction('ALL');
+        updateUrl({ query: null, market: null, decision: null });
+    }, [updateUrl]);
+
+    const showSelectedSecurity = useCallback(() => {
+        if (!selected) return;
+        setQuery(selected.symbol);
+        setMarket(selected.market);
+        setAction('ALL');
+        updateUrl({ query: selected.symbol, market: selected.market, decision: null });
+    }, [selected, updateUrl]);
 
     const openResearchFrom = (source: ProductAnalyticsSource) => (symbol: string) => {
         setProductAnalyticsWorkflowSource(source);
@@ -675,7 +759,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
             if (!response.ok) throw new ResearchInputError('Unable to remove saved research.');
             setRecords((current) => current.filter((item) => item.symbol !== selected.symbol));
             const remainingItems = items.filter((item) => item.symbol !== selected.symbol);
-            const nextSymbol = resolveVisibleResearchSymbol(filterResearchItems(remainingItems, query, market, action), '');
+            const nextSymbol = resolveVisibleResearchSymbol(remainingItems, '');
             setItems(remainingItems);
             setSelectedSymbol(nextSymbol ?? '');
             setActiveDetailTab('overview');
@@ -771,6 +855,32 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                             : null,
         onSelect: openLocalSearchResult,
     };
+    const activeFilterLabels = [
+        query ? `query “${query}”` : null,
+        market !== 'ALL' ? `market ${market}` : null,
+        action !== 'ALL' ? `decision ${action}` : null,
+    ].filter((value): value is string => Boolean(value));
+    const filterSummary = activeFilterLabels.length > 0
+        ? `Active filters: ${activeFilterLabels.join(' · ')}.${selectedHidden && selected ? ` ${selected.symbol} remains open.` : ''}`
+        : 'No active watchlist filters.';
+    const watchlistOwner = (
+        <ResearchWatchlistV6
+            key={`research-watchlist-${watchlistAddRequest}`}
+            items={filteredItems}
+            selectedSymbol={selected?.symbol ?? ''}
+            theme={theme}
+            onSelect={selectTicker}
+            onAdd={addRecord}
+            adding={adding || recordsLoadState !== 'ready'}
+            initiallyOpen={watchlistAddRequest > 0}
+            presentation={presentation}
+            selectedHidden={selectedHidden}
+            filterSummary={filterSummary}
+            quoteStatus={quoteStatus}
+            onShowSelected={showSelectedSecurity}
+            onClearFilters={clearFilters}
+        />
+    );
 
     const atmosphere = theme === 'light'
         ? 'bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.11),_transparent_28%),radial-gradient(circle_at_80%_10%,_rgba(100,116,139,0.1),_transparent_20%)]'
@@ -809,8 +919,9 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                     density={density}
                     theme={theme}
                     onApply={applySavedLayout}
-                    onDensityChange={setDensity}
+                    onDensityChange={changeDensity}
                     onLayoutsChange={setSavedLayouts}
+                    restoreDensityFromStorage={requestedDensity === null}
                 />
                 {returnsToToday && workspace !== 'today' ? (
                     <section data-testid="today-return-context" className={'mb-3 flex flex-col gap-3 rounded-[10px] border p-3 sm:flex-row sm:items-center sm:justify-between ' + themeClasses.panelUtility}>
@@ -969,23 +1080,14 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                     ) : workspace === 'picker' ? (
                         <ResearchPickerV6 theme={theme} savedSymbols={items.map((item) => item.symbol)} adding={adding || recordsLoadState !== 'ready'} onAdd={addDiscoveryCandidate} onOpen={openResearchFrom('picker')} />
                     ) : (<>
-                    <ResearchWatchlistV6
-                        key={`research-watchlist-${watchlistAddRequest}`}
-                        items={filteredItems}
-                        selectedSymbol={selected?.symbol ?? ''}
-                        theme={theme}
-                        onSelect={selectTicker}
-                        onAdd={addRecord}
-                        adding={adding || recordsLoadState !== 'ready'}
-                        initiallyOpen={watchlistAddRequest > 0}
-                    />
+                    {presentation === 'v6' ? watchlistOwner : null}
                     {selected && selectedRecord ? (
-                        <ResearchDetailV6 key={selected.symbol + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} ticker={selected} records={inboxRecords} items={items} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} activeTab={activeDetailTab} startReview={reviewRequested} stagedEvidence={stagedEvidence?.id.startsWith(selected.symbol + ':') ? stagedEvidence : null} workflowTemplateId={workflowTemplateId} saving={saving || recordsLoadState !== 'ready'} saveError={saveError} onTabChange={changeDetailTab} onReadinessNavigate={openReadinessDestination} onSave={saveRecord} onReviewChange={changeReviewMode} onSnapshot={updateLiveSnapshot} onDelete={deleteRecord} presentation={presentation} />
+                        <ResearchDetailV6 key={selected.symbol + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} ticker={selected} records={inboxRecords} items={items} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} activeTab={activeDetailTab} startReview={reviewRequested} stagedEvidence={stagedEvidence?.id.startsWith(selected.symbol + ':') ? stagedEvidence : null} workflowTemplateId={workflowTemplateId} saving={saving || recordsLoadState !== 'ready'} saveError={saveError} onTabChange={changeDetailTab} onReadinessNavigate={openReadinessDestination} onSave={saveRecord} onReviewChange={changeReviewMode} onSnapshot={updateLiveSnapshot} onDelete={deleteRecord} watchlistSlot={presentation === 'v7' ? watchlistOwner : undefined} presentation={presentation} />
                     ) : (
                         <section className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
                             <div>
                                 <h2 className={'text-lg font-bold ' + themeClasses.textPrimary}>No research matches</h2>
-                                <p className={'mt-2 text-sm ' + themeClasses.textMuted}>Adjust the ticker, market, or decision filter.</p>
+                                <p className={'mt-2 text-sm ' + themeClasses.textMuted}>Add a saved security to begin Research.</p>
                             </div>
                         </section>
                     )}
@@ -1010,9 +1112,9 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                         reviewedLabel={formatSnapshotLabel(latestReviewedAt)}
                         resultCount={filteredItems.length}
                         showResearchControls={workspace === 'research'}
-                        onQueryChange={setQuery}
-                        onMarketChange={setMarket}
-                        onActionChange={setAction}
+                        onQueryChange={changeQuery}
+                        onMarketChange={changeMarketFilter}
+                        onActionChange={changeActionFilter}
                     />
                 }
                 footer="Live Research V7 · Existing review, evidence, persistence, queue, portfolio, backup, notification, and URL-state contracts"
@@ -1042,9 +1144,9 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 reviewedLabel={formatSnapshotLabel(latestReviewedAt)}
                 resultCount={filteredItems.length}
                 showResearchControls={workspace === 'research'}
-                onQueryChange={setQuery}
-                onMarketChange={setMarket}
-                onActionChange={setAction}
+                onQueryChange={changeQuery}
+                onMarketChange={changeMarketFilter}
+                onActionChange={changeActionFilter}
                 onThemeToggle={toggleTheme}
                 commands={researchCommands}
                 localSearch={localSearch}

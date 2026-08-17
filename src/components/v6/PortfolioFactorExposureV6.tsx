@@ -160,7 +160,8 @@ export const PortfolioFactorExposureV6 = ({ records, items, theme, saving, saveE
         selectRecord(symbol);
         window.requestAnimationFrame(() => {
             editorRef.current?.focus();
-            editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            editorRef.current?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
         });
     };
 

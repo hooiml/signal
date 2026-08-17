@@ -29,7 +29,7 @@ export const ResearchControlsV7 = ({ query, market, action, reviewedLabel, resul
         <div className={styles.researchControls}>
             <label className={styles.researchSearch}>
                 <span>Ticker search</span>
-                <input type="search" value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Symbol or company" />
+                <input type="search" maxLength={80} value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Symbol or company" />
             </label>
             <fieldset className={styles.regionControl}>
                 <legend>Region</legend>

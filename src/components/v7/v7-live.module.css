@@ -121,6 +121,16 @@
     color: var(--v7-accent);
 }
 
+.regionControl button:hover,
+.researchSearch input:hover,
+.decisionControl select:hover {
+    border-color: color-mix(in srgb, var(--v7-accent) 38%, var(--v7-border));
+}
+
+.regionControl button:active {
+    transform: translateY(1px);
+}
+
 .researchControlMeta,
 .workspaceControlNote {
     margin: 0 0 11px;
@@ -205,6 +215,69 @@
     margin-top: 3px;
 }
 
+.decisionActionV7 {
+    display: grid;
+    min-height: 42px;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    border: 1px solid color-mix(in srgb, var(--v7-accent) 42%, var(--v7-border));
+    border-radius: var(--v7-radius-control);
+    background: var(--v7-accent-quiet);
+    padding: 7px 10px;
+    color: var(--v7-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.decisionActionV7 > span {
+    color: var(--v7-accent);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.decisionActionV7 > strong {
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.decisionActionV7:hover {
+    border-color: var(--v7-accent);
+}
+
+.decisionActionV7:active {
+    transform: translateY(1px);
+}
+
+.researchDetailLayoutV7 {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(210px, 245px) minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    gap: 0 22px;
+}
+
+.researchDetailLayoutV7 > .securityHeaderV7 {
+    grid-column: 1 / -1;
+    grid-row: 1;
+}
+
+.researchDetailLayoutV7 > :global([data-testid='research-watchlist-owner']) {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+.researchDetailBodyV7 {
+    min-width: 0;
+    grid-column: 2;
+    grid-row: 2;
+}
+
 .removeSecurityV7 {
     min-height: 32px;
     flex: 0 0 auto;
@@ -233,6 +306,10 @@
 }
 
 .refreshNotice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
     margin-bottom: 18px;
     border: 1px solid color-mix(in srgb, var(--v7-caution) 36%, var(--v7-border));
     border-radius: var(--v7-radius-control);
@@ -240,6 +317,151 @@
     padding: 12px 14px;
     color: var(--v7-caution);
     font-size: 13px;
+}
+
+.refreshNotice button {
+    min-height: 40px;
+    flex: 0 0 auto;
+    border: 1px solid currentColor;
+    border-radius: var(--v7-radius-control);
+    background: transparent;
+    padding: 0 14px;
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.updateNotice {
+    margin-bottom: 18px;
+    border: 1px solid color-mix(in srgb, var(--v7-accent) 32%, var(--v7-border));
+    border-radius: var(--v7-radius-control);
+    background: var(--v7-accent-quiet);
+    padding: 12px 14px;
+    color: var(--v7-text-secondary);
+    font-size: 13px;
+}
+
+.updateNotice strong {
+    color: var(--v7-accent);
+}
+
+.marketFirstReadingGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.75fr);
+    gap: 22px;
+    align-items: stretch;
+}
+
+.marketFirstReadingGrid > :global(section) {
+    margin-top: 24px;
+}
+
+.marketFirstReadingGrid a {
+    border-radius: 5px;
+    text-decoration: none;
+}
+
+.marketFirstReadingGrid a:hover strong {
+    color: var(--v7-accent);
+}
+
+.primaryCaveat {
+    margin: 16px 0 0;
+    border-left: 2px solid var(--v7-caution);
+    padding-left: 12px;
+    color: var(--v7-text-secondary);
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.primaryCaveat strong {
+    color: var(--v7-caution);
+}
+
+.advancedEvidence {
+    margin-top: 24px;
+    border-top: 1px solid var(--v7-border);
+}
+
+.advancedEvidence > summary {
+    display: flex;
+    min-height: 58px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    cursor: pointer;
+    list-style: none;
+    color: var(--v7-text);
+}
+
+.advancedEvidence > summary::-webkit-details-marker {
+    display: none;
+}
+
+.advancedEvidence > summary strong,
+.advancedEvidence > summary small {
+    display: block;
+}
+
+.advancedEvidence > summary strong {
+    font-size: 15px;
+}
+
+.advancedEvidence > summary small {
+    margin-top: 3px;
+    color: var(--v7-text-muted);
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.advancedEvidence > summary > span:last-child {
+    color: var(--v7-accent);
+    font-size: 22px;
+}
+
+.marketSkeleton {
+    display: grid;
+    gap: 18px;
+    margin-top: 12px;
+}
+
+.marketSkeletonIntro,
+.marketSkeletonReading {
+    display: grid;
+    gap: 12px;
+    border-bottom: 1px solid var(--v7-border);
+    padding: 20px 0;
+}
+
+.marketSkeletonIntro span,
+.marketSkeletonReading span,
+.marketSkeletonMetrics span {
+    min-height: 14px;
+    border-radius: 6px;
+    background: var(--v7-surface-quiet);
+    animation: v7-skeleton-pulse 1.8s ease-in-out infinite;
+}
+
+.marketSkeletonIntro span:first-child { width: 28%; min-height: 30px; }
+.marketSkeletonIntro span:nth-child(2) { width: 72%; }
+.marketSkeletonIntro span:nth-child(3) { width: 48%; }
+.marketSkeletonReading span:first-child { width: 34%; min-height: 24px; }
+.marketSkeletonReading span:nth-child(2) { width: 88%; min-height: 64px; }
+.marketSkeletonReading span:nth-child(3) { width: 64%; }
+
+.marketSkeletonMetrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.marketSkeletonMetrics span {
+    min-height: 92px;
+}
+
+@keyframes v7-skeleton-pulse {
+    50% { opacity: 0.48; }
 }
 
 .marketDetails {
@@ -268,6 +490,11 @@
     .marketControls {
         width: 100%;
         flex: 0 0 100%;
+    }
+
+    .marketFirstReadingGrid {
+        grid-template-columns: 1fr;
+        gap: 0;
     }
 
     .marketControls :global([data-market-controls='v7']) {
@@ -314,6 +541,19 @@
         padding: 0 0 20px;
     }
 
+    .refreshNotice {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .refreshNotice button {
+        width: 100%;
+    }
+
+    .marketSkeletonMetrics {
+        grid-template-columns: 1fr;
+    }
+
     .researchIdentity {
         padding: 21px 16px 0;
     }
@@ -339,6 +579,27 @@
     .researchContentV7 {
         display: flex;
         flex-direction: column;
+    }
+
+    .researchDetailLayoutV7 {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto auto auto;
+        gap: 14px;
+    }
+
+    .researchDetailLayoutV7 > .securityHeaderV7 {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .researchDetailLayoutV7 > :global([data-testid='research-watchlist-owner']) {
+        grid-column: 1;
+        grid-row: 2;
+    }
+
+    .researchDetailBodyV7 {
+        grid-column: 1;
+        grid-row: 3;
     }
 
     .researchWorkspaceV7 {
@@ -375,7 +636,7 @@
 
     .marketControls :global([data-market-control-cluster='status']) {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: minmax(0, 1fr);
         align-items: start;
     }
 

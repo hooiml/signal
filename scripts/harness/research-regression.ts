@@ -70,7 +70,15 @@ import {
     parseDosmReleaseCalendar,
     parseFomcCalendarHtml,
 } from '../../src/lib/research/macro-calendar';
-import { buildResearchRelativeUrl, mergeResearchSearchParams, resolveVisibleResearchSymbol } from '../../src/lib/research/url-state';
+import {
+    buildResearchRelativeUrl,
+    mergeResearchSearchParams,
+    parseResearchUrlDecision,
+    parseResearchUrlDensity,
+    parseResearchUrlMarket,
+    parseResearchUrlQuery,
+    resolveVisibleResearchSymbol,
+} from '../../src/lib/research/url-state';
 import { nextHorizontalTabIndex } from '../../src/lib/research/tab-navigation';
 import { researchWorkspaceGroupFor, researchWorkspaceGroups } from '../../src/lib/research/workspace-navigation';
 import {
@@ -553,6 +561,15 @@ const runResearchUrlStateTests = () => {
     assertEqual(ticker.get('source'), 'briefing', 'opening a ticker preserves unrelated source context');
     assertEqual(buildResearchRelativeUrl('/research', ticker, '#detail').startsWith('/research?'), true, 'research URL builder includes non-empty query state');
     assertEqual(buildResearchRelativeUrl('/research', new URLSearchParams(), ''), '/research', 'research URL builder omits an empty query marker');
+    assertEqual(parseResearchUrlQuery('cloud infrastructure'), 'cloud infrastructure', 'research URL accepts a bounded search query');
+    assertEqual(parseResearchUrlQuery('x'.repeat(81)), '', 'research URL rejects an overlong search query');
+    assertEqual(parseResearchUrlQuery('unsafe\u0000query'), '', 'research URL rejects control characters in a search query');
+    assertEqual(parseResearchUrlMarket('MY'), 'MY', 'research URL accepts a supported market filter');
+    assertEqual(parseResearchUrlMarket('EU'), 'ALL', 'research URL falls back from an unknown market filter');
+    assertEqual(parseResearchUrlDecision('Wait for price'), 'Wait for price', 'research URL accepts a supported decision filter');
+    assertEqual(parseResearchUrlDecision('Buy now'), 'ALL', 'research URL falls back from an unknown decision filter');
+    assertEqual(parseResearchUrlDensity('compact'), 'compact', 'research URL accepts a supported density');
+    assertEqual(parseResearchUrlDensity('tiny'), null, 'research URL ignores an unknown density so saved preference can recover');
 
     const visibleTickers = [{ symbol: 'MSFT' }, { symbol: 'NVDA' }];
     assertEqual(resolveVisibleResearchSymbol(visibleTickers, 'NVDA'), 'NVDA', 'visible ticker selection preserves the requested symbol');
@@ -1121,6 +1138,10 @@ const runResearchReadinessTests = () => {
     };
     const reviewGap = buildResearchReadiness({ record: monitored, sector: 'Technology', policyAssessment: baseAssessment, today: '2026-07-26' });
     assertEqual(reviewGap.nextGap.label, 'Next review', 'missing next-review date follows configured monitoring');
+    const overdue = { ...monitored, decisionJournal: { ...monitored.decisionJournal, nextReviewAt: '2026-07-25' } };
+    const overdueGap = buildResearchReadiness({ record: overdue, sector: 'Technology', policyAssessment: baseAssessment, today: '2026-07-26' });
+    assertEqual(overdueGap.items.find((item) => item.id === 'review')?.status, 'Overdue', 'readiness labels a past next-review date as overdue');
+    assertEqual(overdueGap.nextGap.label, 'Next review', 'an overdue review remains the single next readiness action');
     const scheduled = { ...monitored, decisionJournal: { ...monitored.decisionJournal, nextReviewAt: '2026-08-01' } };
     const positionGap = buildResearchReadiness({ record: scheduled, sector: 'Technology', policyAssessment: baseAssessment, today: '2026-07-26' });
     assertEqual(positionGap.nextGap.label, 'Position plan', 'incomplete position planning is the final saved-state gap');

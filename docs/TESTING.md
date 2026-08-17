@@ -88,6 +88,16 @@ npm run qa:market -- --scenario controls --no-screenshots
 
 Available scenarios are `all`, `score-evidence`, `controls`, and `smoke`. Pass `--full-page` only when the overall page shell is the subject; section captures are the default to avoid full-page stitching artifacts. Pass `--live` for a separate live-data smoke instead of coupling visual assertions to external Reddit, StockTwits, or provider availability.
 
+### V7 Phase 1 Interaction QA
+
+For the approved Market and Research Phase 1 interaction contract, run the consolidated deterministic Chromium check against one owned local server:
+
+```powershell
+npm run qa:v7-phase1 -- --base-url http://127.0.0.1:3000
+```
+
+The check covers the `1280px`, `768px`, and `375px` light/dark matrix; first-reading evidence and Research handoff; advanced-evidence disclosure and Back restoration; Market pending, success, failure, retry, retained-data, and stale-response states; Research URL, history, hidden-selection, zero-result, partial-quote, saved-view, and mutation-safety behavior; command-palette focus/inert/scroll-lock behavior; reduced motion; rollback-route compatibility; document overflow; request privacy; and fresh screenshots under `.tmp/v7-phase1-interaction-qa/`.
+
 ### Targeted Header QA
 
 For shared header or responsive navigation changes, use the deterministic one-session check instead of rebuilding an ad hoc browser probe:

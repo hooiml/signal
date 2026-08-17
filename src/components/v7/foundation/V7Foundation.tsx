@@ -48,7 +48,7 @@ export const V7Shell = ({ active, controls, children, footer, testId, commands =
     return (
         <div className={styles.scope} data-testid={testId} data-theme={theme}>
             <div className={styles.window}>
-                <header className={styles.header}>
+                <header className={styles.header} aria-label="Signal application header">
                     <div className={styles.headerPrimary}>
                         <Link className={styles.wordmark} href="/" prefetch={false}>Signal</Link>
                         <V7PrimaryNavigation active={active} />
@@ -56,7 +56,7 @@ export const V7Shell = ({ active, controls, children, footer, testId, commands =
                             <button className={styles.commandButton} type="button" onClick={() => setPaletteOpen(true)} aria-label="Open command palette">
                                 <span className={styles.commandGlyph} aria-hidden="true">⌕</span><span className={styles.commandLabel}>Commands</span><kbd>Ctrl K</kbd>
                             </button>
-                            <button className={styles.themeButton} type="button" onClick={toggleTheme} aria-label={`Use ${theme === 'light' ? 'dark' : 'light'} theme`}>
+                            <button className={styles.themeButton} type="button" onClick={toggleTheme} aria-pressed={theme === 'dark'} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}>
                                 <ThemeGlyph theme={theme} />
                                 <span>{theme === 'light' ? 'Light' : 'Dark'}</span>
                             </button>

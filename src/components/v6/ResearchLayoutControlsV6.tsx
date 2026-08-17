@@ -14,13 +14,14 @@ import {
 } from '@/lib/research/saved-layouts';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 
-export const ResearchLayoutControlsV6 = ({ current, density, theme, onApply, onDensityChange, onLayoutsChange }: {
+export const ResearchLayoutControlsV6 = ({ current, density, theme, onApply, onDensityChange, onLayoutsChange, restoreDensityFromStorage = true }: {
     readonly current: Omit<SavedResearchLayout, 'id' | 'name' | 'savedAt' | 'density'>;
     readonly density: ResearchLayoutDensity;
     readonly theme: ResearchThemeV6;
     readonly onApply: (layout: SavedResearchLayout) => void;
     readonly onDensityChange: (density: ResearchLayoutDensity) => void;
     readonly onLayoutsChange: (layouts: readonly SavedResearchLayout[]) => void;
+    readonly restoreDensityFromStorage?: boolean;
 }) => {
     const styles = getThemeV6(theme);
     const [loaded, setLoaded] = useState(false);
@@ -33,14 +34,14 @@ export const ResearchLayoutControlsV6 = ({ current, density, theme, onApply, onD
             const storedDensity = parseResearchLayoutDensity(window.localStorage.getItem(researchDensityStorageKey));
             setLayouts(storedLayouts);
             onLayoutsChange(storedLayouts);
-            onDensityChange(storedDensity);
+            if (restoreDensityFromStorage) onDensityChange(storedDensity);
         } catch {
             setLayouts([]);
             onLayoutsChange([]);
         } finally {
             setLoaded(true);
         }
-    }, [onDensityChange, onLayoutsChange]);
+    }, [onDensityChange, onLayoutsChange, restoreDensityFromStorage]);
 
     const persist = (next: readonly SavedResearchLayout[]) => {
         setLayouts(next);
