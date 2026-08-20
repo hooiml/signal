@@ -28,7 +28,7 @@ import {
     isResearchTabV6,
     type ResearchTabV6,
 } from './research-v6';
-import { useThemeV6 } from './ThemeProviderV6';
+import { ResearchLoadingV6, useThemeV6 } from './ThemeProviderV6';
 import { parseMarketResearchHandoff } from '@/lib/market-research-handoff';
 import { PositionPlanOverviewV6 } from './PositionPlanOverviewV6';
 import { ResearchLayoutControlsV6 } from './ResearchLayoutControlsV6';
@@ -240,6 +240,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     const [savedLayouts, setSavedLayouts] = useState<readonly SavedResearchLayout[]>([]);
     const [queueSearchState, setQueueSearchState] = useState<ResearchWorkflowTaskReadResult | null>(null);
     const [watchlistAddRequest, setWatchlistAddRequest] = useState(0);
+    const [urlStateReady, setUrlStateReady] = useState(presentation === 'v6');
     const liveSnapshots = useRef(new Map<string, ResearchSnapshot>());
     const liveQuotes = useRef(new Map<string, ResearchSnapshot['quote']>());
     const quoteItems = useRef(items);
@@ -287,6 +288,10 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     useEffect(() => {
         urlSearchRef.current = searchString;
     }, [searchString]);
+
+    useEffect(() => {
+        if (presentation === 'v7') setUrlStateReady(true);
+    }, [presentation]);
 
     useEffect(() => {
         setWorkspace((current) => current === normalizedWorkspace ? current : normalizedWorkspace);
@@ -1099,6 +1104,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     );
 
     if (presentation === 'v7') {
+        if (!urlStateReady) return <ResearchLoadingV6 />;
         return (
             <V7Shell
                 active="research"

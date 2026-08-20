@@ -36,6 +36,7 @@ type MarketBriefingV6Props = {
     refreshError: string | null;
     hideStory?: boolean;
     hideResearchHandoff?: boolean;
+    hideScoreHistory?: boolean;
 };
 
 type DriverChangeV6 = NonNullable<MarketSignal['metadata']['driver_changes']>[number];
@@ -47,7 +48,7 @@ type SnapshotComparisonV6 = {
     digits: number;
 };
 
-export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refreshError, hideStory = false, hideResearchHandoff = false }: MarketBriefingV6Props) => {
+export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refreshError, hideStory = false, hideResearchHandoff = false, hideScoreHistory = false }: MarketBriefingV6Props) => {
     const t = getThemeV6(theme);
     const tierTone = getTierTone(signal.tier, theme);
     const posture = getDecisionPostureV6(signal);
@@ -128,12 +129,12 @@ export const MarketBriefingV6 = ({ signal, enableSocial, theme, updating, refres
                         <p className={'text-xs font-semibold uppercase tracking-[0.1em] ' + t.textMuted}>Score explanation</p>
                         <h2 id="score-evidence-title" className={'mt-1 text-xl font-bold ' + t.textPrimary}>Why this score</h2>
                     </div>
-                    <p className={'max-w-xl text-xs leading-5 ' + t.textMuted}>History shows where the score sits; weighted evidence shows what produced it.</p>
+                    <p className={'max-w-xl text-xs leading-5 ' + t.textMuted}>{hideScoreHistory ? 'Weighted evidence shows what produced the score shown in the explorer above.' : 'History shows where the score sits; weighted evidence shows what produced it.'}</p>
                 </div>
-                <div className="mt-5 grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(440px,0.92fr)]">
+                <div className={'mt-5 grid min-w-0 gap-6 ' + (hideScoreHistory ? '' : 'xl:grid-cols-[minmax(0,1.08fr)_minmax(440px,0.92fr)]')}>
                     <div className="min-w-0">
-                        <ScoreHistoryV6 signal={signal} theme={theme} />
-                        <div className={'mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 ' + t.divider}>
+                        {!hideScoreHistory ? <ScoreHistoryV6 signal={signal} theme={theme} /> : null}
+                        <div className={(hideScoreHistory ? '' : 'mt-4 border-t pt-4 ') + 'grid gap-3 sm:grid-cols-2 ' + t.divider}>
                             <CompactFactV6 label="Trend" value={signal.metadata.trend_context?.score_trend ?? 'Not available'} theme={theme} />
                             <CompactFactV6 label="Last signal change" value={signal.metadata.trend_context?.last_signal_change ?? 'Not available'} theme={theme} />
                         </div>

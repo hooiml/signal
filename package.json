@@ -10,6 +10,7 @@
     "qa:header": "node scripts/header-qa.mjs",
     "qa:market": "node scripts/market-qa.mjs",
     "qa:v7-phase1": "node scripts/v7-phase1-interaction-qa.mjs",
+    "qa:v7-phase2": "node scripts/v7-phase2-interaction-qa.mjs",
     "qa:performance": "node scripts/performance-baseline.mjs",
     "qa:portfolio-import": "node scripts/portfolio-import-qa.mjs",
     "qa:portfolio-transactions": "node scripts/portfolio-transaction-import-qa.mjs",

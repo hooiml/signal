@@ -257,6 +257,7 @@ export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQu
                             onRetryBenchmark={() => { setBenchmarkState('idle'); setBenchmarkKey((current) => current + 1); }}
                             onRetryHistory={() => { setChartHistoryState('idle'); setChartHistoryKey((current) => current + 1); }}
                             theme={theme}
+                            presentation={presentation}
                         /> : <div role="status" className={'rounded-lg border p-5 text-sm ' + themeClasses.row + ' ' + themeClasses.textMuted}>Loading chart data...</div>
                     : <ResearchPanelsV6 ticker={liveTicker} tab={activeTab} theme={theme} snapshot={snapshot} />}
             </div>

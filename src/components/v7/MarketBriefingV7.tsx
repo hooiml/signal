@@ -5,6 +5,7 @@ import type { MarketSignal } from '@/lib/types/signal-v2';
 import { getReadLimitations } from '@/components/v2/cockpit-utils';
 import { MarketBriefingV6 } from '@/components/v6/MarketBriefingV6';
 import { MarketToResearchLinkV6 } from '@/components/v6/MarketResearchHandoffV6';
+import { ScoreHistoryV6 } from '@/components/v6/ScoreHistoryV6';
 import { formatCompactDateV6, getDecisionPostureV6, getRankedDriversV6, getScenariosV6 } from '@/components/v6/market-v6';
 import type { ResearchThemeV6 } from '@/components/v6/research-v6';
 import styles from './v7-prototype.module.css';
@@ -173,6 +174,9 @@ export const MarketBriefingV7 = ({ signal, enableSocial, theme, updating, refres
             </section>
 
             <div className={liveStyles.marketFirstReadingGrid} data-testid="market-first-reading">
+                <div className={styles.chartPanel} data-surface-tier="primary">
+                    <ScoreHistoryV6 signal={signal} theme={theme} interactive />
+                </div>
                 <section className={styles.attention} aria-labelledby="market-evidence-v7">
                     <div className={styles.sectionHeading}>
                         <div><p className={styles.eyebrow}>First reading</p><h2 id="market-evidence-v7">What deserves attention now</h2></div>
@@ -190,6 +194,9 @@ export const MarketBriefingV7 = ({ signal, enableSocial, theme, updating, refres
                     </div>
                     <p className={liveStyles.primaryCaveat}><strong>Primary caveat</strong> · {primaryCaveat}</p>
                 </section>
+            </div>
+
+            <div className="mt-6">
                 <MarketToResearchLinkV6 signal={signal} theme={theme} />
             </div>
 
@@ -201,11 +208,11 @@ export const MarketBriefingV7 = ({ signal, enableSocial, theme, updating, refres
                 data-testid="market-advanced-evidence"
             >
                 <summary>
-                    <span><strong>Advanced evidence</strong><small>History, calibration, outcomes, secondary context, glossary, limitations, and methodology</small></span>
+                    <span><strong>Advanced evidence</strong><small>Contribution drivers, calibration, outcomes, secondary context, glossary, limitations, and methodology</small></span>
                     <span aria-hidden="true">{advancedOpen ? '−' : '+'}</span>
                 </summary>
                 <div className={liveStyles.marketDetails}>
-                    <MarketBriefingV6 signal={signal} enableSocial={enableSocial} theme={theme} updating={updating} refreshError={null} hideStory hideResearchHandoff />
+                    <MarketBriefingV6 signal={signal} enableSocial={enableSocial} theme={theme} updating={updating} refreshError={null} hideStory hideResearchHandoff hideScoreHistory />
                 </div>
             </details>
         </div>

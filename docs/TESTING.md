@@ -98,6 +98,16 @@ npm run qa:v7-phase1 -- --base-url http://127.0.0.1:3000
 
 The check covers the `1280px`, `768px`, and `375px` light/dark matrix; first-reading evidence and Research handoff; advanced-evidence disclosure and Back restoration; Market pending, success, failure, retry, retained-data, and stale-response states; Research URL, history, hidden-selection, zero-result, partial-quote, saved-view, and mutation-safety behavior; command-palette focus/inert/scroll-lock behavior; reduced motion; rollback-route compatibility; document overflow; request privacy; and fresh screenshots under `.tmp/v7-phase1-interaction-qa/`.
 
+### V7 Phase 2 Interaction QA
+
+For the approved Market score-history explorer, Research chart explorer, and mobile ticker and Chart controls, run the focused deterministic Chromium check against one owned local server:
+
+```powershell
+npm run qa:v7-phase2 -- --base-url http://127.0.0.1:3000
+```
+
+The check covers the `1280px`, `768px`, and `375px` light/dark matrix; Market range, pointer, keyboard, touch-equivalent, and persistent-readout behavior; Research OHLCV and active-indicator readouts; pointer, keyboard, touch-equivalent, range, setup, indicator, comparison, and anchored-VWAP state; chronological table equivalence; mobile previous/next and picker navigation; URL, reload, unknown-parameter, and Back/Forward restoration; retained short-range data, empty history, provider/history/comparison failure and retry; reduced motion; V6 rollback isolation; request and mutation privacy; document overflow; blocking console/page/request failures; and fresh affected-surface screenshots under `.tmp/v7-phase2-interaction-qa/`.
+
 ### Targeted Header QA
 
 For shared header or responsive navigation changes, use the deterministic one-session check instead of rebuilding an ad hoc browser probe:

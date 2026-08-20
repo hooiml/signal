@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import type { ResearchMarket } from '@/lib/types/research';
 import { formatPriceV6, getActionToneV6, getResearchActionV6, getThemeV6, type ResearchThemeV6 } from './research-v6';
@@ -43,14 +43,22 @@ export const ResearchWatchlistV6 = ({
     const itemRefs = useRef(new Map<string, HTMLButtonElement>());
     const symbolInputRef = useRef<HTMLInputElement>(null);
     const previousSelectedSymbol = useRef(selectedSymbol);
+    const mobileSymbols = useMemo(() => {
+        const visibleSymbols = [...new Set(items.map((item) => item.symbol))];
+        return selectedSymbol && !visibleSymbols.includes(selectedSymbol) ? [selectedSymbol, ...visibleSymbols] : visibleSymbols;
+    }, [items, selectedSymbol]);
+    const mobileIndex = Math.max(0, mobileSymbols.indexOf(selectedSymbol));
+    const previousMobileSymbol = mobileSymbols.length > 1 ? mobileSymbols[(mobileIndex - 1 + mobileSymbols.length) % mobileSymbols.length] : null;
+    const nextMobileSymbol = mobileSymbols.length > 1 ? mobileSymbols[(mobileIndex + 1) % mobileSymbols.length] : null;
 
     useEffect(() => {
         if (!selectedSymbol) return;
         if (previousSelectedSymbol.current === selectedSymbol) return;
         previousSelectedSymbol.current = selectedSymbol;
+        if (presentation === 'v7' && !window.matchMedia('(min-width: 700px)').matches) return;
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         itemRefs.current.get(selectedSymbol)?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'nearest', inline: 'nearest' });
-    }, [selectedSymbol]);
+    }, [presentation, selectedSymbol]);
 
     useEffect(() => {
         if (showAdd) symbolInputRef.current?.focus();
@@ -101,8 +109,36 @@ export const ResearchWatchlistV6 = ({
                     {addError ? <p id="research-add-company-error" role="alert" className={'text-xs leading-5 ' + themeClasses.risk}>{addError}</p> : null}
                 </form>
             ) : null}
+            {presentation === 'v7' && mobileSymbols.length > 0 ? (
+                <div className="grid grid-cols-[40px_minmax(0,1fr)_40px] items-end gap-2 pb-2 min-[700px]:hidden" data-testid="research-mobile-ticker-selector">
+                    <button
+                        type="button"
+                        disabled={!previousMobileSymbol}
+                        onClick={() => previousMobileSymbol && onSelect(previousMobileSymbol)}
+                        aria-label={previousMobileSymbol ? `Previous ticker, ${previousMobileSymbol}` : 'Previous ticker unavailable'}
+                        className={'min-h-10 rounded border text-base font-bold disabled:opacity-40 ' + themeClasses.row}
+                    >←</button>
+                    <label className={'grid min-w-0 gap-1 text-[11px] font-semibold ' + themeClasses.textMuted}>
+                        <span>Ticker picker</span>
+                        <select
+                            value={selectedSymbol}
+                            onChange={(event) => onSelect(event.target.value)}
+                            className={'min-h-10 min-w-0 w-full rounded border bg-transparent px-3 font-mono text-sm font-bold ' + themeClasses.textPrimary}
+                        >
+                            {mobileSymbols.map((tickerSymbol) => <option key={tickerSymbol} value={tickerSymbol}>{tickerSymbol}</option>)}
+                        </select>
+                    </label>
+                    <button
+                        type="button"
+                        disabled={!nextMobileSymbol}
+                        onClick={() => nextMobileSymbol && onSelect(nextMobileSymbol)}
+                        aria-label={nextMobileSymbol ? `Next ticker, ${nextMobileSymbol}` : 'Next ticker unavailable'}
+                        className={'min-h-10 rounded border text-base font-bold disabled:opacity-40 ' + themeClasses.row}
+                    >→</button>
+                </div>
+            ) : null}
             {items.length > 0 ? (
-                <div className="research-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 min-[700px]:flex-col min-[700px]:overflow-visible min-[700px]:pb-0">
+                <div className={'research-scrollbar snap-x snap-mandatory gap-2 overflow-x-auto pb-2 min-[700px]:flex min-[700px]:flex-col min-[700px]:overflow-visible min-[700px]:pb-0 ' + (presentation === 'v7' ? 'hidden ' : 'flex ')}>
                     {items.map((item) => {
                         const selected = item.symbol === selectedSymbol;
                         const action = getResearchActionV6(item);
