@@ -49,8 +49,9 @@ const main = async () => {
             try {
                 const response = await page.goto(`${baseUrl}/learn`, { waitUntil: 'domcontentloaded' });
                 check(response?.ok(), 'Learn route did not load');
-                await page.locator('[data-testid="learn-v0-3"]').waitFor();
-                await page.getByRole('button', { name: /Investment analysis/ }).first().click();
+                const investmentTrack = page.getByRole('button', { name: /Investment analysis/ }).first();
+                await investmentTrack.waitFor();
+                await investmentTrack.click();
                 await page.getByRole('button', { name: /2\.2 · Multiple expansion/ }).click();
                 const multipleLab = page.getByTestId('multiple-change-lab');
                 await multipleLab.waitFor();
