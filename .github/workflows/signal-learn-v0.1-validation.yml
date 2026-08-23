@@ -14,6 +14,27 @@ permissions:
   contents: read
 
 jobs:
+  harness:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://signal_ci:signal_ci@127.0.0.1:5432/signal_ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Repository harness
+        run: npm run harness
+
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -37,11 +58,6 @@ jobs:
 
       - name: Lint
         run: npm run lint
-
-      - name: Harness
-        run: |
-          chmod +x .githooks/commit-msg
-          pwsh -NoProfile -File ./scripts/harness/check-all.ps1
 
       - name: Build
         run: npm run build
