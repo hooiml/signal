@@ -1,9 +1,10 @@
-name: Signal Learn v0.1 validation
+name: Signal Learn validation
 
 on:
   push:
     branches:
       - feature/signal-learn-v0.1
+      - feature/signal-learn-v0.2
   pull_request:
     branches:
       - main
@@ -15,7 +16,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     env:
       DATABASE_URL: postgresql://signal_ci:signal_ci@127.0.0.1:5432/signal_ci
     steps:
@@ -56,10 +57,14 @@ jobs:
           cat /tmp/signal-learn-server.log
           exit 1
 
-      - name: Run Learn browser QA
+      - name: Run v0.1 regression QA
         env:
           SIGNAL_QA_SCREENSHOTS: '0'
         run: npm run qa:learn
+
+      - name: Run v0.2 business QA
+        if: ${{ hashFiles('scripts/learn-v0.2-qa.mjs') != '' }}
+        run: npm run qa:learn-v02
 
       - name: Show server log on failure
         if: failure()
