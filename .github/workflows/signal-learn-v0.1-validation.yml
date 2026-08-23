@@ -5,6 +5,7 @@ on:
     branches:
       - feature/signal-learn-v0.1
       - feature/signal-learn-v0.2
+      - feature/signal-learn-v0.3
   pull_request:
     branches:
       - main
@@ -43,7 +44,7 @@ jobs:
 
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     env:
       DATABASE_URL: postgresql://signal_ci:signal_ci@127.0.0.1:5432/signal_ci
     steps:
@@ -92,6 +93,10 @@ jobs:
       - name: Run v0.2 business QA
         if: ${{ hashFiles('scripts/learn-v0.2-qa.mjs') != '' }}
         run: npm run qa:learn-v02
+
+      - name: Run v0.3 investment QA
+        if: ${{ hashFiles('scripts/learn-v0.3-qa.mjs') != '' }}
+        run: npm run qa:learn-v03
 
       - name: Show server log on failure
         if: failure()
