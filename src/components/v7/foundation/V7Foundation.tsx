@@ -6,7 +6,7 @@ import { useThemeV6 } from '@/components/v6/ThemeProviderV6';
 import { CommandPaletteV6, type AppCommandV6, type AppLocalSearchV6 } from '@/components/v6/CommandPaletteV6';
 import styles from './v7-foundation.module.css';
 
-export type V7Workspace = 'market' | 'research';
+export type V7Workspace = 'market' | 'research' | 'learn';
 export type V7SurfaceTier = 'primary' | 'secondary' | 'utility' | 'action' | 'risk';
 export type V7RowTone = 'neutral' | 'support' | 'caution' | 'risk';
 
@@ -30,17 +30,19 @@ const V7PrimaryNavigation = ({ active, mobile = false }: { readonly active: V7Wo
     <nav className={mobile ? styles.mobileNav : styles.primaryNav} aria-label={mobile ? 'Primary mobile' : 'Primary'}>
         <Link href="/" prefetch={false} aria-current={active === 'market' ? 'page' : undefined}>Market</Link>
         <Link href="/research" prefetch={false} aria-current={active === 'research' ? 'page' : undefined}>Research</Link>
+        {active === 'learn' ? <Link href="/learn" prefetch={false} aria-current="page">Learn</Link> : null}
     </nav>
 );
 
 export const V7Shell = ({ active, controls, children, footer, testId, commands = [], localSearch }: V7ShellProps) => {
     const { theme, toggleTheme } = useThemeV6();
     const [paletteOpen, setPaletteOpen] = useState(false);
-    const workspaceName = active === 'market' ? 'Market' : 'Research';
+    const workspaceName = active === 'market' ? 'Market' : active === 'research' ? 'Research' : 'Learn';
     const allCommands = useMemo<readonly AppCommandV6[]>(() => [
         { id: 'route-start', label: 'Go to Start', group: 'Route', keywords: ['guide onboarding today'], run: () => window.location.assign('/start') },
         { id: 'route-market', label: 'Go to Market', group: 'Route', keywords: ['home'], run: () => window.location.assign('/') },
         { id: 'route-research', label: 'Go to Research', group: 'Route', keywords: ['watchlist'], run: () => window.location.assign('/research') },
+        { id: 'route-learn', label: 'Go to Learn', group: 'Route', keywords: ['education valuation pe replay'], run: () => window.location.assign('/learn') },
         { id: 'theme-toggle', label: `Use ${theme === 'light' ? 'dark' : 'light'} theme`, group: 'Appearance', keywords: ['theme mode'], run: toggleTheme },
         ...commands,
     ], [commands, theme, toggleTheme]);
