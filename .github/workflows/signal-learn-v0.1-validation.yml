@@ -39,8 +39,9 @@ jobs:
         run: npm run lint
 
       - name: Harness
-        shell: pwsh
-        run: ./scripts/harness/check-all.ps1
+        run: |
+          chmod +x .githooks/commit-msg
+          pwsh -NoProfile -File ./scripts/harness/check-all.ps1
 
       - name: Build
         run: npm run build
