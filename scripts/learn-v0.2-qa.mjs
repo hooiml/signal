@@ -35,8 +35,9 @@ const main = async () => {
             try {
                 const response = await page.goto(`${baseUrl}/learn`, { waitUntil: 'domcontentloaded' });
                 check(response?.ok(), 'Learn route did not load');
-                await page.locator('[data-testid="learn-v0-2"]').waitFor();
-                await page.getByRole('button', { name: /Understand the business/ }).first().click();
+                const businessTrack = page.getByRole('button', { name: /Understand the business/ }).first();
+                await businessTrack.waitFor();
+                await businessTrack.click();
                 await page.getByRole('button', { name: /1\.2 · Income statement/ }).click();
                 await page.getByTestId('business-driver-lab').waitFor();
                 await page.getByLabel('Revenue').fill('1200');
