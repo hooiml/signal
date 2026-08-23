@@ -16,6 +16,8 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql://signal_ci:signal_ci@127.0.0.1:5432/signal_ci
     steps:
       - name: Checkout
         uses: actions/checkout@v4
