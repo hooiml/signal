@@ -32,6 +32,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify generated repo map
+        run: |
+          powershell -ExecutionPolicy Bypass -File scripts/harness/generate-repo-map.ps1
+          git diff -- docs/generated/repo-map.md
+          git diff --quiet -- docs/generated/repo-map.md
+
       - name: Repository harness
         run: npm run harness
 
