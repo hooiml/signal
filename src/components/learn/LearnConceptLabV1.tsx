@@ -179,7 +179,7 @@ export const LearnConceptLabV1 = ({ moduleId, completed, onComplete }: {
     readonly completed: boolean;
     readonly onComplete: () => void;
 }) => {
-    const module = useMemo(() => learnModulesV01.find((candidate) => candidate.id === moduleId) ?? learnModulesV01[0], [moduleId]);
+    const selectedModule = useMemo(() => learnModulesV01.find((candidate) => candidate.id === moduleId) ?? learnModulesV01[0], [moduleId]);
     const lesson = moduleId === 'evidence' ? <EvidenceLesson />
         : moduleId === 'eps' ? <EpsLesson />
             : moduleId === 'pe' ? <PeLesson />
@@ -191,9 +191,9 @@ export const LearnConceptLabV1 = ({ moduleId, completed, onComplete }: {
         <section aria-labelledby="learn-concept-title" className="rounded-[11px] border border-[var(--v7-border)] bg-[var(--v7-surface)] p-4 sm:p-5 lg:p-6">
             <div className="flex flex-col gap-4 border-b border-[var(--v7-border)] pb-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--v7-accent)]">Module {module.eyebrow}</p>
-                    <h2 id="learn-concept-title" className="mt-1 text-xl font-bold tracking-tight text-[var(--v7-text)]">{module.title}</h2>
-                    <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--v7-text-secondary)]">{module.objective}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--v7-accent)]">Module {selectedModule.eyebrow}</p>
+                    <h2 id="learn-concept-title" className="mt-1 text-xl font-bold tracking-tight text-[var(--v7-text)]">{selectedModule.title}</h2>
+                    <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--v7-text-secondary)]">{selectedModule.objective}</p>
                 </div>
                 <button
                     type="button"
