@@ -41,6 +41,11 @@ const loadReplay = async (rawSymbol: string, rawMarket: string | null) => {
     return { symbol, market, report, eligible } as const;
 };
 
+const hasReplayError = (
+    loaded: Awaited<ReturnType<typeof loadReplay>>,
+): loaded is Extract<Awaited<ReturnType<typeof loadReplay>>, { readonly error: string }> =>
+    'error' in loaded && typeof loaded.error === 'string';
+
 const introFrom = (
     loaded: Exclude<Awaited<ReturnType<typeof loadReplay>>, { readonly error: string }>,
     replayIndex: number,
@@ -62,7 +67,7 @@ export const GET = async (request: Request, context: RouteContext): Promise<Next
     try {
         const market = new URL(request.url).searchParams.get('market');
         const loaded = await loadReplay(rawSymbol, market);
-        if ('error' in loaded) return replayUnavailable(loaded.error);
+        if (hasReplayError(loaded)) return replayUnavailable(loaded.error);
 
         // Use the newest observation that still has a later annual checkpoint. The response deliberately
         // contains no future observation, future price, later filing, or later metric.
@@ -95,7 +100,7 @@ export const POST = async (request: Request, context: RouteContext): Promise<Nex
         }
 
         const loaded = await loadReplay(rawSymbol, rawMarket);
-        if ('error' in loaded) return replayUnavailable(loaded.error);
+        if (hasReplayError(loaded)) return replayUnavailable(loaded.error);
         const replayIndex = loaded.eligible.findIndex((observation) => observation.id === body.replayId);
         if (replayIndex < 0 || replayIndex >= loaded.eligible.length - 1) {
             return replayUnavailable('This replay checkpoint is unavailable for reveal.', 400);
