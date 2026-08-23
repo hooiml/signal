@@ -38,6 +38,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Harness
+        shell: pwsh
+        run: npm run harness
+
       - name: Build
         run: npm run build
 
