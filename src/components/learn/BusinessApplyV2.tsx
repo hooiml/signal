@@ -62,6 +62,16 @@ export const BusinessApplyV2 = () => {
             {state === 'error' ? <div role="alert" className="mt-4 rounded-[9px] border border-[var(--v7-risk)] bg-[var(--v7-risk-quiet)] p-4 text-sm text-[var(--v7-text-secondary)]">{error}<button type="button" onClick={() => setRetryKey((value) => value + 1)} className="ml-3 min-h-10 rounded border border-[var(--v7-border)] px-3 font-semibold">Retry</button></div> : null}
 
             {state === 'ready' && snapshot ? <>
+                <div data-testid="business-apply-identity" className="mt-4 flex flex-col gap-2 rounded-[11px] border border-[var(--v7-border)] bg-[var(--v7-surface-quiet)] p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                        <p className="truncate text-base font-bold text-[var(--v7-text)]">{snapshot.quote.name ?? symbol}</p>
+                        <p className="mt-1 text-xs text-[var(--v7-text-muted)]">{symbol} · reported period {snapshot.fundamentals.reportingPeriod ?? 'unavailable'}</p>
+                    </div>
+                    <div className="shrink-0 text-left sm:text-right">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--v7-text-muted)]">Current market price</p>
+                        <p className="mt-1 font-mono text-sm font-bold text-[var(--v7-text)]">{money(snapshot.quote.price, currency)}</p>
+                    </div>
+                </div>
                 <div className="mt-4 flex flex-wrap gap-2" aria-label="Business evidence lens">{([
                     ['growth', 'Growth'], ['profitability', 'Profitability'], ['cash', 'Cash generation'], ['balance-sheet', 'Balance sheet'], ['per-share', 'Per-share economics'],
                 ] as const).map(([id, label]) => <button key={id} type="button" aria-pressed={focus === id} onClick={() => setFocus(id)} className={`min-h-10 rounded-[9px] border px-3 text-xs font-semibold ${focus === id ? 'border-[var(--v7-accent)] bg-[var(--v7-accent-quiet)]' : 'border-[var(--v7-border)]'}`}>{label}</button>)}</div>
