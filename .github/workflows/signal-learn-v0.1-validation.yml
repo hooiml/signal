@@ -1,0 +1,61 @@
+name: Signal Learn v0.1 validation
+
+on:
+  push:
+    branches:
+      - feature/signal-learn-v0.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start production server
+        run: |
+          npm run start > /tmp/signal-learn-server.log 2>&1 &
+          echo $! > /tmp/signal-learn-server.pid
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:3000/learn > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/signal-learn-server.log
+          exit 1
+
+      - name: Run Learn browser QA
+        env:
+          SIGNAL_QA_SCREENSHOTS: '0'
+        run: npm run qa:learn
+
+      - name: Show server log on failure
+        if: failure()
+        run: cat /tmp/signal-learn-server.log || true
