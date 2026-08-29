@@ -58,13 +58,14 @@ const runViewport = async (browser, viewport) => {
     await page.goto(`${baseUrl}/research?ticker=MSFT`, { waitUntil: 'domcontentloaded' });
     const panel = page.getByTestId('expectation-reality');
     await panel.waitFor({ state: 'visible', timeout: 30000 });
-    check(await page.getByTestId('research-memory-dock').isVisible(), `${viewport.width}: Decision Memory should remain visible`);
+    const anchor = page.getByTestId('since-last-visit');
+    check(await anchor.isVisible(), `${viewport.width}: Since last visit anchor should remain visible`);
     const order = await page.evaluate(() => {
-        const memory = document.querySelector('[data-testid="research-memory-dock"]');
+        const sinceLastVisit = document.querySelector('[data-testid="since-last-visit"]');
         const expectation = document.querySelector('[data-testid="expectation-reality"]');
-        return Boolean(memory && expectation && (memory.compareDocumentPosition(expectation) & Node.DOCUMENT_POSITION_FOLLOWING));
+        return Boolean(sinceLastVisit && expectation && (sinceLastVisit.compareDocumentPosition(expectation) & Node.DOCUMENT_POSITION_FOLLOWING));
     });
-    check(order, `${viewport.width}: Expectation panel must follow Decision Memory`);
+    check(order, `${viewport.width}: Expectation panel must follow Since last visit in the Research utility flow`);
 
     await panel.getByLabel('Event title').fill('Q1 earnings');
     await panel.getByLabel('Revenue expected').fill('68.4');
