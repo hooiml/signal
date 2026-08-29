@@ -19,6 +19,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node --experimental-strip-types scripts/research-memory-phase1-check.mjs
+      - run: node --experimental-strip-types scripts/research-memory-phase2-check.mjs
       - run: npm run typecheck
       - run: npm run test:research
       - run: npm run build
