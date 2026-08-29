@@ -24,6 +24,7 @@ jobs:
       - run: node --experimental-strip-types scripts/research-memory-phase4-check.mjs
       - run: node --experimental-strip-types scripts/research-memory-phase5-check.mjs
       - run: node --experimental-strip-types scripts/research-memory-phase6-check.mjs
+      - run: node scripts/research-memory-integration-check.mjs
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test:research
