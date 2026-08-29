@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { parseResearchRecord } from '@/lib/research/input';
 import type { ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
+import type { ResearchMemorySnapshot } from '@/lib/research/research-memory';
 import { parseResearchSnapshotResponse } from '@/components/v6/research-snapshot-v6';
 import {
     addSnapshotToState,
@@ -20,6 +21,15 @@ import { describeResearchMemoryDecisionMemory } from '@/lib/research/research-me
 const formatValue = (value: number | undefined, suffix = '') => value === undefined ? 'Unavailable' : `${value.toFixed(2)}${suffix}`;
 const formatDate = (value: string) => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value));
 
+const readServerHistory = async (ticker: string, signal: AbortSignal): Promise<ResearchMemorySnapshot[]> => {
+    const response = await fetch(`/api/research/memory/${encodeURIComponent(ticker)}`, { signal, cache: 'no-store' });
+    const payload: unknown = await response.json();
+    if (!response.ok || typeof payload !== 'object' || payload === null || Array.isArray(payload)) throw new Error('Server memory unavailable.');
+    const data = (payload as Record<string, unknown>).data;
+    if (!Array.isArray(data)) throw new Error('Server memory unavailable.');
+    return data as ResearchMemorySnapshot[];
+};
+
 export const ResearchMemoryDockV7 = () => {
     const searchParams = useSearchParams();
     const requested = searchParams.get('ticker')?.trim().toUpperCase();
@@ -28,7 +38,8 @@ export const ResearchMemoryDockV7 = () => {
     const [snapshot, setSnapshot] = useState<ResearchSnapshot | null>(null);
     const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
     const [message, setMessage] = useState<string | null>(null);
-    const [history, setHistory] = useState<readonly ReturnType<typeof buildResearchMemorySnapshotFromProvider>[]>([]);
+    const [history, setHistory] = useState<readonly ResearchMemorySnapshot[]>([]);
+    const [historySource, setHistorySource] = useState<'server' | 'local'>('server');
     const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
 
     useEffect(() => {
@@ -65,19 +76,27 @@ export const ResearchMemoryDockV7 = () => {
                         setRecord(null);
                         setSnapshot(null);
                         setHistory(readResearchMemoryHistory(ticker));
+                        setHistorySource('local');
                         setStatus('unavailable');
                         setMessage('Save this security to Research before Signal can build persistent decision memory for it.');
                     }
                     return;
                 }
-                const providerResponse = await fetch(`/api/research/symbol/${encodeURIComponent(ticker)}?market=${selected.market}`, { signal: controller.signal, cache: 'no-store' });
+
+                const [providerResponse, memoryResult] = await Promise.all([
+                    fetch(`/api/research/symbol/${encodeURIComponent(ticker)}?market=${selected.market}`, { signal: controller.signal, cache: 'no-store' }),
+                    readServerHistory(ticker, controller.signal)
+                        .then((serverHistory) => ({ source: 'server' as const, history: serverHistory }))
+                        .catch(() => ({ source: 'local' as const, history: readResearchMemoryHistory(ticker) })),
+                ]);
                 const providerPayload: unknown = await providerResponse.json();
                 if (!providerResponse.ok) throw new Error('Current provider snapshot is unavailable.');
                 const current = parseResearchSnapshotResponse(providerPayload);
                 if (active) {
                     setRecord(selected);
                     setSnapshot(current);
-                    setHistory(readResearchMemoryHistory(ticker));
+                    setHistory(memoryResult.history);
+                    setHistorySource(memoryResult.source);
                     setStatus('ready');
                 }
             } catch (error) {
@@ -115,7 +134,12 @@ export const ResearchMemoryDockV7 = () => {
     useEffect(() => {
         if (!model) return;
         writeResearchMemorySnapshot(model.current);
-    }, [model]);
+        void fetch(`/api/research/memory/${encodeURIComponent(ticker)}`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(model.current),
+        }).catch(() => undefined);
+    }, [model, ticker]);
 
     const inResearchFlow = (content: ReactNode) => portalHost ? createPortal(content, portalHost) : null;
 
@@ -148,6 +172,7 @@ export const ResearchMemoryDockV7 = () => {
     const latestTransition = model.workflow.thesisTransitions.at(-1) ?? null;
     const queue = model.workflow.reviewQueue.slice(0, 3);
     const latestDecision = model.workflow.decisionMemory.latestDecision;
+    const historyLabel = historySource === 'server' ? 'synced across devices' : 'local fallback';
 
     return inResearchFlow(
         <section data-testid="research-memory-dock" className="mb-3 w-full" aria-label={`Decision memory for ${ticker}`}>
@@ -156,7 +181,7 @@ export const ResearchMemoryDockV7 = () => {
                     <div>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-500">Decision memory</p>
                         <h2 className="mt-1 text-lg font-bold">{ticker} · What changed and what needs review</h2>
-                        <p className="mt-1 text-xs text-zinc-500">{history.length === 0 ? 'First memory checkpoint. Future visits will compare against this snapshot.' : `Compared with ${formatDate(model.previous?.observedAt ?? model.current.observedAt)} · ${history.length} checkpoint${history.length === 1 ? '' : 's'} retained locally.`}</p>
+                        <p className="mt-1 text-xs text-zinc-500">{history.length === 0 ? 'First memory checkpoint. Future visits will compare against this snapshot.' : `Compared with ${formatDate(model.previous?.observedAt ?? model.current.observedAt)} · ${history.length} checkpoint${history.length === 1 ? '' : 's'} · ${historyLabel}.`}</p>
                     </div>
                     <a href={`/research?ticker=${encodeURIComponent(ticker)}&workspace=replay`} className="min-h-10 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold hover:border-emerald-500 focus-visible:outline-2 focus-visible:outline-emerald-500">Open replay</a>
                 </div>
