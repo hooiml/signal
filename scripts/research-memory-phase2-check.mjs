@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import { createResearchMemoryEvidence } from '../src/lib/research/research-memory.ts';
+import { diffResearchMemorySnapshots, evaluateResearchMemoryTrigger, summarizeResearchMemoryDiff } from '../src/lib/research/research-memory-change.ts';
+
+const priorEvidence = createResearchMemoryEvidence({ id:'quality', ticker:'MSFT', domain:'fundamentals', label:'Cloud growth', detail:'Stable', direction:'supports', strength:.7, observedAt:'2026-08-01', sourceDate:'2026-08-01', freshness:'fresh' });
+const currentEvidence = createResearchMemoryEvidence({ id:'quality', ticker:'MSFT', domain:'fundamentals', label:'Cloud growth', detail:'Accelerated', direction:'supports', strength:.9, observedAt:'2026-08-29', sourceDate:'2026-08-28', freshness:'aging' });
+const newEvidence = createResearchMemoryEvidence({ id:'valuation', ticker:'MSFT', domain:'valuation', label:'Forward P/E', detail:'Expanded', direction:'conflicts', strength:.8, observedAt:'2026-08-29', freshness:'fresh' });
+const previous = { id:'s1', ticker:'MSFT', observedAt:'2026-08-01T00:00:00Z', price:500, forwardPe:30, forwardEps:16, evidence:[priorEvidence] };
+const current = { id:'s2', ticker:'MSFT', observedAt:'2026-08-29T00:00:00Z', price:525, forwardPe:32, forwardEps:16.8, evidence:[currentEvidence,newEvidence] };
+const diff = diffResearchMemorySnapshots(previous,current);
+assert.equal(diff.numericChanges.length,3);
+assert.equal(diff.evidenceChanges.filter(x=>x.kind==='changed').length,1);
+assert.equal(diff.evidenceChanges.filter(x=>x.kind==='added').length,1);
+assert.equal(diff.freshnessChanges.length,1);
+assert.equal(summarizeResearchMemoryDiff(diff).changed,true);
+const priceTrigger = { id:'t1',ticker:'MSFT',type:'price_above',threshold:520,description:'review',createdAt:'2026-08-01T00:00:00Z' };
+assert.equal(evaluateResearchMemoryTrigger(priceTrigger,previous,current).matched,true);
+const epsTrigger = { id:'t2',ticker:'MSFT',type:'forward_eps_change_pct',threshold:4,description:'review',createdAt:'2026-08-01T00:00:00Z' };
+assert.equal(evaluateResearchMemoryTrigger(epsTrigger,previous,current).matched,true);
+assert.throws(()=>diffResearchMemorySnapshots(current,previous),/predates/);
+console.log('research-memory phase 2: ok');
