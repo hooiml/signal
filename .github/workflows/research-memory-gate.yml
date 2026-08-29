@@ -1,0 +1,31 @@
+name: Research Memory Gate
+
+on:
+  push:
+    branches:
+      - 'feat/research-memory-phases-1-6'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    env:
+      DATABASE_URL: postgresql://signal:signal@127.0.0.1:5432/signal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: node --experimental-strip-types scripts/research-memory-phase1-check.mjs
+      - run: node --experimental-strip-types scripts/research-memory-phase2-check.mjs
+      - run: node --experimental-strip-types scripts/research-memory-phase3-check.mjs
+      - run: node --experimental-strip-types scripts/research-memory-phase4-check.mjs
+      - run: node --experimental-strip-types scripts/research-memory-phase5-check.mjs
+      - run: node --experimental-strip-types scripts/research-memory-phase6-check.mjs
+      - run: node scripts/research-memory-integration-check.mjs
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:research
+      - run: npm run build

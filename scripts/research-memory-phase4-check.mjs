@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import { appendResearchMemorySnapshot, createResearchMemoryEvidence, createResearchMemoryState, recordResearchMemoryDecision } from '../src/lib/research/research-memory.ts';
+import { buildResearchMemoryReviewQueue, summarizeResearchMemoryReviewQueue } from '../src/lib/research/research-memory-queue.ts';
+
+let state=createResearchMemoryState('MSFT');
+const oldEvidence=createResearchMemoryEvidence({id:'e1',ticker:'MSFT',domain:'fundamentals',label:'Forward earnings',detail:'Old estimate',direction:'neutral',strength:.5,observedAt:'2026-08-01',freshness:'fresh'});
+const staleEvidence=createResearchMemoryEvidence({id:'e1',ticker:'MSFT',domain:'fundamentals',label:'Forward earnings',detail:'Estimate needs refresh',direction:'neutral',strength:.5,observedAt:'2026-08-29',freshness:'stale'});
+state=appendResearchMemorySnapshot(state,{id:'s1',ticker:'MSFT',observedAt:'2026-08-01',price:520,forwardPe:33,evidence:[oldEvidence]});
+state=appendResearchMemorySnapshot(state,{id:'s2',ticker:'MSFT',observedAt:'2026-08-29',price:485,forwardPe:29,evidence:[staleEvidence]});
+state=recordResearchMemoryDecision(state,{id:'d1',decidedAt:'2026-08-01',decision:'wait',reason:'Expensive',triggers:[{id:'t1',ticker:'MSFT',type:'price_below',threshold:490,description:'Price entered review zone',createdAt:'2026-08-01'}]});
+const queue=buildResearchMemoryReviewQueue({state,previousSnapshot:state.snapshots[0],currentSnapshot:state.snapshots[1],scheduledReviewAt:'2026-08-28',now:'2026-08-29',events:[{id:'earnings',title:'Earnings approaching',detail:'Review expectations',occursAt:'2026-09-01',material:true}]});
+assert.equal(queue[0].reason,'trigger');
+assert.ok(queue.some(x=>x.reason==='change'));
+assert.ok(queue.some(x=>x.reason==='stale_evidence'));
+assert.ok(queue.some(x=>x.reason==='scheduled_review'));
+assert.ok(queue.some(x=>x.reason==='event'));
+const summary=summarizeResearchMemoryReviewQueue(queue);
+assert.equal(summary.critical,1);
+assert.equal(summary.actionable,true);
+console.log('research-memory phase 4: ok');
