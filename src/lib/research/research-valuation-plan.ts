@@ -3,8 +3,8 @@ import {
     calculateResearchMemoryValuation,
     calculateResearchMemoryValuationGap,
     type ResearchMemoryValuationScenario,
-} from './research-memory-valuation';
-import { normalizeResearchMemoryTicker } from './research-memory';
+} from './research-memory-valuation.ts';
+import { normalizeResearchMemoryTicker } from './research-memory.ts';
 
 export type ResearchValuationPlan = {
     readonly ticker: string;
