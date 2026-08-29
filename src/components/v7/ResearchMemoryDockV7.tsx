@@ -111,6 +111,12 @@ export const ResearchMemoryDockV7 = () => {
     }
 
     const changeSummary = model.workflow.changeSummary;
+    const changeCount = changeSummary
+        ? Object.values(changeSummary.counts).reduce((total, count) => total + count, 0)
+        : 0;
+    const evidenceChangeCount = changeSummary
+        ? changeSummary.counts.added + changeSummary.counts.changed + changeSummary.counts.removed + changeSummary.counts.freshness
+        : 0;
     const latestTransition = model.workflow.thesisTransitions.at(-1) ?? null;
     const queue = model.workflow.reviewQueue.slice(0, 3);
     const latestDecision = model.workflow.decisionMemory.latestDecision;
@@ -130,8 +136,8 @@ export const ResearchMemoryDockV7 = () => {
                 <div className="mt-4 grid gap-3 lg:grid-cols-4">
                     <article className="rounded-lg border border-zinc-700/40 p-3">
                         <span className="text-[11px] font-semibold uppercase text-zinc-500">Since last review</span>
-                        <strong className="mt-1 block text-sm">{changeSummary ? `${changeSummary.totalChanges} material change${changeSummary.totalChanges === 1 ? '' : 's'}` : 'Baseline captured'}</strong>
-                        <p className="mt-1 text-xs text-zinc-500">Price {formatValue(model.previous?.price)} → {formatValue(model.current.price)}{changeSummary?.evidenceChanged ? ` · evidence changed` : ''}</p>
+                        <strong className="mt-1 block text-sm">{changeSummary ? `${changeCount} material change${changeCount === 1 ? '' : 's'}` : 'Baseline captured'}</strong>
+                        <p className="mt-1 text-xs text-zinc-500">Price {formatValue(model.previous?.price)} → {formatValue(model.current.price)}{evidenceChangeCount > 0 ? ' · evidence changed' : ''}</p>
                     </article>
                     <article className="rounded-lg border border-zinc-700/40 p-3">
                         <span className="text-[11px] font-semibold uppercase text-zinc-500">Thesis lifecycle</span>
