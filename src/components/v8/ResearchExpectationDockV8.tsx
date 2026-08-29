@@ -14,11 +14,13 @@ export const ResearchExpectationDockV8 = () => {
     useEffect(() => {
         let mountedHost: HTMLElement | null = null;
         const mount = () => {
-            const memoryDock = document.querySelector<HTMLElement>('[data-testid="research-memory-dock"]');
-            if (!memoryDock?.parentElement || mountedHost) return Boolean(mountedHost);
+            const anchor = document.querySelector<HTMLElement>('[data-testid="since-last-visit"]');
+            if (!anchor?.parentElement || mountedHost) return Boolean(mountedHost);
             mountedHost = document.createElement('div');
             mountedHost.dataset.testid = 'expectation-reality-slot';
-            memoryDock.parentElement.insertBefore(mountedHost, memoryDock.nextSibling);
+            const memorySlot = anchor.parentElement.querySelector<HTMLElement>('[data-testid="research-memory-dock-slot"]');
+            if (memorySlot) memorySlot.insertAdjacentElement('afterend', mountedHost);
+            else anchor.insertAdjacentElement('afterend', mountedHost);
             setHost(mountedHost);
             return true;
         };
