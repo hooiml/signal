@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     compareResearchExpectationEvent,
     createResearchExpectationDraft,
@@ -20,7 +20,7 @@ export const ResearchExpectationRealityV8 = ({ ticker }: Props) => {
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
 
-    const load = async () => {
+    const load = useCallback(async () => {
         setLoading(true);
         setMessage(null);
         try {
@@ -37,9 +37,9 @@ export const ResearchExpectationRealityV8 = ({ ticker }: Props) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [ticker]);
 
-    useEffect(() => { void load(); }, [ticker]);
+    useEffect(() => { void load(); }, [load]);
 
     const comparison = useMemo(() => compareResearchExpectationEvent(draft), [draft]);
 
