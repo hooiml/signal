@@ -56,17 +56,25 @@ export const ResearchValuationReasoningV9 = ({ ticker }: Props) => {
 
     useEffect(() => { void load(); }, [load]);
 
-    const result = useMemo(() => evaluateResearchValuationPlan(plan, marketPrice), [plan, marketPrice]);
+    const evaluation = useMemo(() => {
+        try {
+            return { result: evaluateResearchValuationPlan(plan, marketPrice), error: null as string | null };
+        } catch (error) {
+            return { result: null, error: error instanceof Error ? error.message : 'Check the valuation assumptions.' };
+        }
+    }, [plan, marketPrice]);
+    const result = evaluation.result;
 
     const updateShared = (key: 'currentEps' | 'years' | 'annualDiscountRatePct', value: string) => {
-        setPlan((current) => ({
-            ...current,
-            [key]: value.trim() === '' && key === 'currentEps' ? null : Number(value),
-            updatedAt: new Date().toISOString(),
-        }));
+        if (value.trim() === '') {
+            if (key === 'currentEps') setPlan((current) => ({ ...current, currentEps: null, updatedAt: new Date().toISOString() }));
+            return;
+        }
+        setPlan((current) => ({ ...current, [key]: Number(value), updatedAt: new Date().toISOString() }));
     };
 
     const updateScenario = (id: string, key: 'epsCagrPct' | 'terminalPe', value: string) => {
+        if (value.trim() === '') return;
         setPlan((current) => ({
             ...current,
             scenarios: current.scenarios.map((scenario) => scenario.id === id ? { ...scenario, [key]: Number(value) } : scenario),
@@ -112,9 +120,11 @@ export const ResearchValuationReasoningV9 = ({ ticker }: Props) => {
                 <label className="grid gap-1 text-xs"><span className="font-semibold">Discount rate %</span><input aria-label="Discount rate percent" inputMode="decimal" value={plan.annualDiscountRatePct} onChange={(event) => updateShared('annualDiscountRatePct', event.target.value)} className="min-h-10 rounded-lg border border-zinc-700/50 bg-transparent px-3" /></label>
             </div>
 
+            {evaluation.error && <p role="alert" className="mt-2 text-xs text-zinc-500">{evaluation.error} Adjust the assumptions before saving.</p>}
+
             {plan.currentEps === null ? (
                 <div className="mt-3 rounded-lg border border-zinc-700/30 p-3 text-xs text-zinc-500">Enter a current EPS supported by your source before scenario values are calculated. This prevents trailing P/E from being silently re-labeled as forward earnings evidence.</div>
-            ) : (
+            ) : result ? (
                 <div className="mt-3 grid gap-3 lg:grid-cols-3">
                     {plan.scenarios.map((scenario) => {
                         const evaluated = result.scenarioResults.find((item) => item.id === scenario.id);
@@ -130,14 +140,14 @@ export const ResearchValuationReasoningV9 = ({ ticker }: Props) => {
                         );
                     })}
                 </div>
-            )}
+            ) : null}
 
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700/30 p-3">
                 <div className="text-xs">
-                    <strong>{result.impliedEpsCagrPct === null ? 'Implied growth unavailable' : `Market-implied EPS CAGR: ${result.impliedEpsCagrPct.toFixed(1)}%`}</strong>
+                    <strong>{!result || result.impliedEpsCagrPct === null ? 'Implied growth unavailable' : `Market-implied EPS CAGR: ${result.impliedEpsCagrPct.toFixed(1)}%`}</strong>
                     <p className="mt-1 text-zinc-500">Uses the Base terminal P/E, your forecast horizon and discount rate. Change those assumptions to see how sensitive the implied expectation is.</p>
                 </div>
-                <button type="button" onClick={() => void save()} disabled={saving} className="min-h-10 rounded-lg border border-emerald-600 px-4 py-2 text-xs font-semibold disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-emerald-500">{saving ? 'Saving…' : 'Save assumptions'}</button>
+                <button type="button" onClick={() => void save()} disabled={saving || Boolean(evaluation.error)} className="min-h-10 rounded-lg border border-emerald-600 px-4 py-2 text-xs font-semibold disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-emerald-500">{saving ? 'Saving…' : 'Save assumptions'}</button>
             </div>
             {message && <p role="status" className="mt-2 text-xs text-zinc-500">{message}</p>}
         </section>
