@@ -9,6 +9,8 @@ on:
 jobs:
   verify:
     runs-on: windows-latest
+    env:
+      DATABASE_URL: postgresql://signal:signal@127.0.0.1:5432/signal
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
