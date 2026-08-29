@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import { appendResearchMemorySnapshot, appendResearchMemoryThesisVersion, createResearchMemoryState, recordResearchMemoryDecision } from '../src/lib/research/research-memory.ts';
+import { buildResearchMemoryDecisionMemory, compareResearchMemoryTheses, getResearchMemoryThesisTransitions } from '../src/lib/research/research-memory-thesis.ts';
+
+let state=createResearchMemoryState('MSFT');
+state=appendResearchMemorySnapshot(state,{id:'s1',ticker:'MSFT',observedAt:'2026-08-01',price:520,forwardPe:33,forwardEps:16,evidence:[]});
+state=appendResearchMemorySnapshot(state,{id:'s2',ticker:'MSFT',observedAt:'2026-08-29',price:485,forwardPe:29,forwardEps:16.8,evidence:[]});
+state=appendResearchMemoryThesisVersion(state,{id:'tv1',createdAt:'2026-08-01',thesis:'Cloud quality intact',invalidation:['Cloud growth below 20%'],decision:'wait',evidenceIds:['e1'],reason:'Valuation'});
+state=appendResearchMemoryThesisVersion(state,{id:'tv2',createdAt:'2026-08-29',thesis:'Cloud quality intact; valuation improved',invalidation:['Cloud growth below 20%','Margins below 35%'],decision:'watch',evidenceIds:['e1','e2'],reason:'Entry improved'});
+const transition=compareResearchMemoryTheses(state.thesisVersions[0],state.thesisVersions[1]);
+assert.equal(transition.decisionChanged,true);
+assert.deepEqual(transition.invalidationAdded,['Margins below 35%']);
+assert.deepEqual(transition.evidenceAdded,['e2']);
+assert.equal(getResearchMemoryThesisTransitions(state).length,2);
+state=recordResearchMemoryDecision(state,{id:'d1',decidedAt:'2026-08-01',decision:'wait',reason:'Too expensive',triggers:[{id:'p',ticker:'MSFT',type:'price_below',threshold:490,description:'Review below 490',createdAt:'2026-08-01'}]});
+state=recordResearchMemoryDecision(state,{id:'d2',decidedAt:'2026-08-29',decision:'watch',reason:'Valuation improved',triggers:[{id:'pe',ticker:'MSFT',type:'forward_pe_below',threshold:30,description:'Review below 30x',createdAt:'2026-08-29'}]});
+const memory=buildResearchMemoryDecisionMemory(state,state.snapshots[0],state.snapshots[1]);
+assert.equal(memory.changed,true);
+assert.equal(memory.matchedTriggers.length,1);
+assert.equal(memory.latestDecision?.decision,'watch');
+console.log('research-memory phase 3: ok');
