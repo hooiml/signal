@@ -17,3 +17,4 @@ jobs:
       - run: node --experimental-strip-types scripts/research-memory-phase1-check.mjs
       - run: node --experimental-strip-types scripts/research-memory-phase2-check.mjs
       - run: node --experimental-strip-types scripts/research-memory-phase3-check.mjs
+      - run: node --experimental-strip-types scripts/research-memory-phase4-check.mjs
