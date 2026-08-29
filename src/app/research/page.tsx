@@ -1,17 +1,11 @@
-import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { ResearchDashboardV7 } from '@/components/v6/ResearchDashboardV6';
-import { ResearchLoadingV6 } from '@/components/v6/ThemeProviderV6';
+import { ResearchIntegratedPageV7 } from '@/components/v7/ResearchIntegratedPageV7';
 
 export const metadata: Metadata = {
     title: 'Research | Signal',
-    description: 'A focused investment research notebook for thesis and valuation review.',
+    description: 'A focused investment research notebook for thesis, decision memory, and valuation review.',
 };
 
 export default function ResearchPage() {
-    return (
-        <Suspense fallback={<ResearchLoadingV6 />}>
-            <ResearchDashboardV7 />
-        </Suspense>
-    );
+    return <ResearchIntegratedPageV7 />;
 }
