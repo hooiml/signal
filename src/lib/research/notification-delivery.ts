@@ -1,6 +1,7 @@
 import { createHash, createHmac } from 'node:crypto';
 import type { ResearchInboxItem, ResearchInboxResponse } from '../types/research-inbox';
 import type { ResearchNotificationMode } from '../types/research-notification-settings';
+import { researchAttentionRank } from './research-attention-rank';
 
 export type ResearchNotificationDigest = {
     readonly type: 'signal.research.digest.v1';
@@ -42,10 +43,9 @@ export const buildResearchNotificationDigest = (
     dashboardUrl: string,
 ): ResearchNotificationDigest => {
     const urgencyPriority = { action: 0, upcoming: 1 } as const;
-    const kindPriority = { risk: 0, opportunity: 1, stale: 2, catalyst: 3 } as const;
     const prioritized = [...inbox.items].sort((left, right) =>
         urgencyPriority[left.urgency] - urgencyPriority[right.urgency]
-        || kindPriority[left.kind] - kindPriority[right.kind]
+        || researchAttentionRank(left) - researchAttentionRank(right)
         || left.symbol.localeCompare(right.symbol));
     const items = prioritized.slice(0, 20);
     return {
