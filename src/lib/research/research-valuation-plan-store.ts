@@ -20,15 +20,16 @@ const readPayload = (row: unknown, ticker: string): ResearchValuationPlan => {
     return parseResearchValuationPlan(payload);
 };
 
-export const getStoredResearchValuationPlan = async (tickerInput: string): Promise<ResearchValuationPlan> => {
+export const findStoredResearchValuationPlan = async (tickerInput: string): Promise<ResearchValuationPlan | null> => {
     await ensureValuationPlanTable();
     const ticker = normalizeResearchMemoryTicker(tickerInput);
-    const rows = await sql`
-        SELECT payload FROM research_valuation_plans
-        WHERE user_id = 'default' AND ticker = ${ticker}
-        LIMIT 1
-    `;
-    return rows[0] ? readPayload(rows[0], ticker) : createResearchValuationPlan(ticker);
+    const rows = await sql`SELECT payload FROM research_valuation_plans WHERE user_id = 'default' AND ticker = ${ticker} LIMIT 1`;
+    return rows[0] ? readPayload(rows[0], ticker) : null;
+};
+
+export const getStoredResearchValuationPlan = async (tickerInput: string): Promise<ResearchValuationPlan> => {
+    const ticker = normalizeResearchMemoryTicker(tickerInput);
+    return (await findStoredResearchValuationPlan(ticker)) ?? createResearchValuationPlan(ticker);
 };
 
 export const saveStoredResearchValuationPlan = async (input: unknown): Promise<ResearchValuationPlan> => {
