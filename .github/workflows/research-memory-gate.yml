@@ -5,6 +5,7 @@ on:
     branches:
       - 'feat/research-memory-phases-1-6'
       - 'feat/research-memory-server-persistence'
+      - 'feat/research-expectation-vs-reality'
   workflow_dispatch:
 
 jobs:
@@ -27,7 +28,27 @@ jobs:
       - run: node --experimental-strip-types scripts/research-memory-phase6-check.mjs
       - run: node scripts/research-memory-integration-check.mjs
       - run: node scripts/research-memory-phase7-check.mjs
+      - run: node --experimental-strip-types scripts/research-memory-phase8-check.mjs
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test:research
       - run: npm run build
+      - run: npx playwright install chromium
+      - name: Run Phase 8 desktop/mobile browser QA
+        shell: powershell
+        run: |
+          $process = Start-Process -FilePath "npm.cmd" -ArgumentList "start","--","-p","3000" -PassThru
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 60; $i++) {
+              try {
+                $response = Invoke-WebRequest -Uri "http://127.0.0.1:3000/research" -UseBasicParsing -TimeoutSec 2
+                if ($response.StatusCode -eq 200) { $ready = $true; break }
+              } catch {}
+              Start-Sleep -Seconds 1
+            }
+            if (-not $ready) { throw "Signal server did not become ready for browser QA." }
+            node scripts/research-expectation-v8-qa.mjs
+          } finally {
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
