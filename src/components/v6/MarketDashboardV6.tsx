@@ -190,7 +190,7 @@ export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentati
                         />
                     </div>
                 }
-                footer="Live Market V7 · Existing scoring, source, alert, calibration, context, and methodology contracts"
+                footer="Data sources · Methodology · Limitations"
                 testId="market-v7"
             >
                 <main className={liveStyles.marketPage}>

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(path, 'utf8');
 
-const [page, wrapper, dashboard, dock, reviewTools, detail, adapter] = await Promise.all([
+const [page, wrapper, dashboard, dock, reviewTools, detail, adapter, today, controls, marketDashboard, marketCalibration] = await Promise.all([
     read('src/app/research/page.tsx'),
     read('src/components/v7/ResearchIntegratedPageV7.tsx'),
     read('src/components/v6/ResearchDashboardV6.tsx'),
@@ -11,6 +11,10 @@ const [page, wrapper, dashboard, dock, reviewTools, detail, adapter] = await Pro
     read('src/components/v12/ResearchReviewToolsV12.tsx'),
     read('src/components/v6/ResearchDetailV6.tsx'),
     read('src/lib/research/research-memory-integration.ts'),
+    read('src/components/v6/SinceLastVisitBriefingV6.tsx'),
+    read('src/components/v7/ResearchControlsV7.tsx'),
+    read('src/components/v6/MarketDashboardV6.tsx'),
+    read('src/components/v6/MarketCalibrationV6.tsx'),
 ]);
 
 assert.match(page, /ResearchIntegratedPageV7/, 'Research route must mount the integrated V7 page');
@@ -40,5 +44,9 @@ assert.match(adapter, /signal-research-memory-history-v1/, 'Point-in-time histor
 assert.match(adapter, /slice\(-maxSnapshotsPerTicker\)/, 'Local point-in-time history must stay bounded');
 assert.doesNotMatch(adapter, /forwardPe:\s*snapshot\.valuation\.priceEarnings/, 'Trailing provider P\/E must never be relabeled as forward P\/E');
 assert.match(dock, /Forward EPS is not available/, 'Missing forward valuation evidence must be disclosed rather than inferred');
+const productionCopy = [dashboard, dock, today, controls, marketDashboard, marketCalibration].join('\n');
+assert.doesNotMatch(productionCopy, /Live (?:Research|Market) V7|mutation boundary|data owner|(?:provider|scoring|URL-state) contract|validated workflow state|Workspace-specific controls remain/i, 'Production copy must describe user benefit instead of implementation architecture');
+assert.match(dashboard, /footer="Data sources · Methodology · Limitations"/, 'Research footer must direct users to provenance and limitations');
+assert.match(today, /Signal never recommends a trade or changes your research/, 'Today must explain its user-facing safety boundary');
 
 console.log('research-memory V7 integration: ok');

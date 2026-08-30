@@ -61,7 +61,7 @@ const ScoreZonesView = ({ calibration, styles }: { readonly calibration: Calibra
     const month = calibration.horizons.find((horizon) => horizon.days === 30);
     const labels = week?.cohorts ?? month?.cohorts ?? [];
     return <div data-testid="calibration-zones-view">
-        <p className={'mb-4 text-sm leading-6 ' + styles.textSecondary}>Zone boundaries match the live Signal scoring contract. The all-period row is the unconditional market baseline.</p>
+        <p className={'mb-4 text-sm leading-6 ' + styles.textSecondary}>Zone boundaries use the current Signal scoring model. The all-period row is the unconditional market baseline.</p>
         <div className={'overflow-x-auto rounded border ' + styles.divider}>
             <table className="w-full min-w-[760px] border-collapse text-left text-xs">
                 <thead className={styles.row}>
@@ -146,7 +146,7 @@ const MethodologyView = ({ calibration, styles }: { readonly calibration: Calibr
         </ul>
     </div>
     <dl className={'rounded border p-4 text-xs ' + styles.row}>
-        <div><dt className={styles.textMuted}>Current scoring contract</dt><dd className={'mt-1 font-mono font-bold ' + styles.textPrimary}>{calibration.model_version}</dd></div>
+        <div><dt className={styles.textMuted}>Scoring model</dt><dd className={'mt-1 font-mono font-bold ' + styles.textPrimary}>{calibration.model_version}</dd></div>
         <div className="mt-4"><dt className={styles.textMuted}>Historical data window</dt><dd className={'mt-1 font-bold ' + styles.textPrimary}>{compactDate(calibration.data_start_date)} – {compactDate(calibration.data_through_date)}</dd></div>
         <div className="mt-4"><dt className={styles.textMuted}>Provenance</dt><dd className={'mt-1 font-bold ' + styles.textPrimary}>{calibration.observed_snapshot_count} observed · {calibration.reconstructed_snapshot_count} reconstructed</dd></div>
         <div className="mt-4"><dt className={styles.textMuted}>Out-of-sample result</dt><dd className={'mt-1 font-bold ' + styles.textPrimary}>Not yet available</dd><p className={'mt-1 leading-5 ' + styles.textMuted}>A fixed-model holdout or rolling evaluation must be collected before this label can change.</p></div>

@@ -945,7 +945,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                     <section data-testid="today-return-context" className={'mb-3 flex flex-col gap-3 rounded-[10px] border p-3 sm:flex-row sm:items-center sm:justify-between ' + themeClasses.panelUtility}>
                         <div>
                             <p className={'text-xs font-bold uppercase tracking-[0.1em] ' + themeClasses.positive}>Opened from Today</p>
-                            <p className={'mt-1 text-sm ' + themeClasses.textSecondary}>This workspace still owns its data and actions. Return without changing or acknowledging anything automatically.</p>
+                            <p className={'mt-1 text-sm ' + themeClasses.textSecondary}>Review this workspace and return without changing or acknowledging anything automatically.</p>
                         </div>
                         <button
                             type="button"
@@ -1148,7 +1148,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                         onActionChange={changeActionFilter}
                     />
                 }
-                footer="Live Research V7 · Existing review, evidence, persistence, queue, portfolio, backup, notification, and URL-state contracts"
+                footer="Data sources · Methodology · Limitations"
                 testId="research-v7"
             >
                 <div className={liveStyles.researchPage}>
@@ -1159,7 +1159,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                         ) : (
                             <div className={liveStyles.researchIdentityTitle}>{researchWorkspaceGroups.find((group) => group.items.some((item) => item.id === workspace))?.items.find((item) => item.id === workspace)?.label ?? 'Research workspace'}</div>
                         )}
-                        <span>{workspace === 'research' ? 'The saved decision, qualifying evidence, next gap, and owning review workflow stay together.' : 'This workspace retains its existing identifier, deep link, data owner, and mutation boundary.'}</span>
+                        <span>{workspace === 'research' ? 'Review the saved decision, supporting evidence, and next gap for this security.' : 'Review the saved evidence, outstanding work, and next action for this workspace.'}</span>
                     </div>
                     {dashboardBody}
                 </div>

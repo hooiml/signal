@@ -327,8 +327,8 @@ export const SinceLastVisitBriefingV6 = ({
                                 ? `${state.briefing.topActions.length} immediate action${state.briefing.topActions.length === 1 ? '' : 's'} · ${state.briefing.upcomingEvents.length} upcoming`
                                 : changeLabel(state.changes)
                             : variant === 'today'
-                                ? 'Building a bounded action list from existing workflow state'
-                                : 'Open a bounded briefing across research, events, alerts, and source health'}
+                                ? 'Preparing today’s priorities from your saved research'
+                                : 'Open a concise briefing across research, events, alerts, and source health'}
                     </span>
                 </span>
                 <span aria-hidden="true" className={'text-lg transition-transform group-open:rotate-180 ' + styles.textMuted}>⌄</span>
@@ -351,8 +351,8 @@ export const SinceLastVisitBriefingV6 = ({
                         {variant === 'today' ? (
                             <div className={'mb-4 flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between ' + styles.divider}>
                                 <div>
-                                    <p className={'text-xs font-semibold uppercase tracking-[0.12em] ' + styles.positive}>Deterministic action home</p>
-                                    <p className={'mt-1 text-sm leading-6 ' + styles.textSecondary}>Today reuses validated workflow state. It does not recommend a trade or change research, alerts, Queue tasks, or checkpoints automatically.</p>
+                                    <p className={'text-xs font-semibold uppercase tracking-[0.12em] ' + styles.positive}>Today’s research priorities</p>
+                                    <p className={'mt-1 text-sm leading-6 ' + styles.textSecondary}>Review priorities from your saved research. Signal never recommends a trade or changes your research, alerts, Queue tasks, or checkpoints automatically.</p>
                                 </div>
                                 {continuationAction ? (
                                     <button type="button" data-testid="today-continue" onClick={() => onOpenAction(continuationAction)} className={'min-h-11 shrink-0 rounded border px-4 text-left text-xs font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + styles.selectedRow}>

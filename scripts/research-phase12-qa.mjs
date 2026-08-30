@@ -488,6 +488,22 @@ try {
             if (blocking.length > 0) throw new Error(blocking.join(' | '));
             await page.screenshot({ path: path.join(artifactDirectory, `ux-006-${viewport.width}x${viewport.height}.png`), fullPage: true });
             console.log(`PASS UX-006 Accessibility Order ${viewport.width}x${viewport.height}`);
+
+            if (viewport.width >= 700) await page.getByRole('button', { name: 'Today', exact: true }).click();
+            else await sectionControl.selectOption('today');
+            await page.waitForURL((url) => url.searchParams.get('workspace') === 'today', { timeout });
+            await page.getByText(/Signal never recommends a trade or changes your research/).waitFor({ state: 'visible', timeout });
+
+            if (viewport.width >= 700) await page.getByRole('button', { name: 'Watchlist', exact: true }).click();
+            else await sectionControl.selectOption('watchlist');
+            await page.waitForURL((url) => url.searchParams.get('workspace') === 'research', { timeout });
+            await page.getByText('Data sources · Methodology · Limitations', { exact: true }).waitFor({ state: 'visible', timeout });
+            const productionCopy = await page.locator('body').innerText();
+            const architectureCopy = productionCopy.match(/Live (?:Research|Market) V7|mutation boundary|data owner|(?:provider|scoring|URL-state) contract|validated workflow state|Workspace-specific controls remain/gi) ?? [];
+            if (architectureCopy.length > 0) throw new Error(`developer-facing copy remains visible: ${architectureCopy.join(', ')}`);
+            if (blocking.length > 0) throw new Error(blocking.join(' | '));
+            await page.screenshot({ path: path.join(artifactDirectory, `ux-007-${viewport.width}x${viewport.height}.png`), fullPage: true });
+            console.log(`PASS UX-007 Product Copy ${viewport.width}x${viewport.height}`);
         } catch (error) {
             failures.push(`${viewport.width}x${viewport.height}: ${error instanceof Error ? error.message : String(error)}`);
         } finally {

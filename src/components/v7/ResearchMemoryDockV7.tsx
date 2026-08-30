@@ -196,7 +196,7 @@ export const ResearchMemoryDockV7 = ({
                     <article className="rounded-lg border border-zinc-700/40 p-3">
                         <span className="text-[11px] font-semibold uppercase text-zinc-500">Valuation reasoning</span>
                         <strong className="mt-1 block text-sm">Input gap</strong>
-                        <p className="mt-1 text-xs text-zinc-500">Forward EPS is not available in the current provider contract, so Signal does not infer it from trailing P/E.</p>
+                        <p className="mt-1 text-xs text-zinc-500">Forward EPS is not available from the current data sources, so Signal does not infer it from trailing P/E.</p>
                     </article>
                 </div>
 

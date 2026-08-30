@@ -23,7 +23,7 @@ export const ResearchControlsV7 = ({ query, market, action, reviewedLabel, resul
     readonly onMarketChange: (market: ResearchMarketFilterV6) => void;
     readonly onActionChange: (action: ResearchActionFilterV6) => void;
 }) => {
-    if (!showResearchControls) return <p className={styles.workspaceControlNote}>Workspace-specific controls remain with the data they change.</p>;
+    if (!showResearchControls) return <p className={styles.workspaceControlNote}>Review the evidence, outstanding work, and next action in this workspace.</p>;
 
     return (
         <div className={styles.researchControls}>
