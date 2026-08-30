@@ -207,7 +207,11 @@ try {
             if (await memory.count() !== 1) throw new Error('Ticker change created a duplicate Decision Memory surface');
             if (!memoryRequests.includes('GET NVDA') || !memoryRequests.includes('POST NVDA')) throw new Error(`NVDA memory persistence path was incomplete: ${memoryRequests.join(', ')}`);
 
-            await page.getByRole('button', { name: 'Today', exact: true }).click();
+            if (viewport.width >= 700) {
+                await page.getByRole('button', { name: 'Activity', exact: true }).click();
+            } else {
+                await page.getByLabel('Research section').selectOption('activity');
+            }
             await page.waitForURL((url) => url.searchParams.get('workspace') === 'today', { timeout });
             if (await memory.count() !== 0) throw new Error('Decision Memory remained mounted outside the selected-security workspace');
             await page.goBack({ waitUntil: 'domcontentloaded' });
