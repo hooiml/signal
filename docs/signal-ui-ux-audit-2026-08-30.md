@@ -47,7 +47,7 @@ Production screenshots and raw audit artifacts were captured separately during t
 | UX-004 | P1 | Research IA | Too many navigation layers; Today is nested too deeply | ✅ Completed |
 | UX-005 | P1 | Mobile | Review forms still behave like desktop forms | ✅ Completed |
 | UX-006 | P1 | Accessibility | DOM order, heading order, and visual order diverge | ✅ Completed |
-| UX-007 | P1 | Copy | Developer/internal architecture language is visible to users | ⬜ Todo |
+| UX-007 | P1 | Copy | Developer/internal architecture language is visible to users | ✅ Completed |
 | UX-008 | P1 | Today | Secondary status cards are too repetitive and vertically expensive | ⬜ Todo |
 | UX-009 | P2 | Market | Market needs metadata, touch-target, and copy polish | ⬜ Todo |
 
@@ -450,7 +450,7 @@ Visual order = DOM order
 
 **Priority:** P1  
 **Area:** Product copy  
-**Status:** ⬜ Todo
+**Status:** ✅ Completed
 
 ## Examples observed
 
@@ -488,11 +488,18 @@ Data sources · Methodology · Limitations
 
 ## Acceptance criteria
 
-- [ ] Production UI contains no unnecessary “Live V7” copy.
-- [ ] Production UI avoids “mutation boundary”.
-- [ ] Production UI avoids “data owner”.
-- [ ] Production UI avoids architecture “contract” language unless inside technical documentation.
-- [ ] Copy explains user benefit, uncertainty, provenance, or next action.
+- [x] Production UI contains no unnecessary “Live V7” copy.
+- [x] Production UI avoids “mutation boundary”.
+- [x] Production UI avoids “data owner”.
+- [x] Production UI avoids architecture “contract” language unless inside technical documentation.
+- [x] Copy explains user benefit, uncertainty, provenance, or next action.
+
+## Completion evidence
+
+- Source commit: [`64e67ee`](https://github.com/hooiml/signal/commit/64e67ee949c8ed01b16ce6d490a0281535e9d842) (`fix(research): replace architecture-facing copy`).
+- GitHub Actions: [Research Memory Gate run #63](https://github.com/hooiml/signal/actions/runs/33313058555) passed source checks, typecheck, lint, Research regression, production build, Phase 8–11 browser regressions, and Phase 12 QA.
+- Browser evidence: `1440×1000`, `360×800`, `390×844`, and `430×932` showed product-facing Today and Research copy, the provenance/limitations footer, no forbidden architecture wording, no console/page errors, and no page-level overflow.
+- Screenshots: [Phase 12 browser evidence artifact](https://github.com/hooiml/signal/actions/runs/33313058555/artifacts/9732624601).
 
 ---
 
