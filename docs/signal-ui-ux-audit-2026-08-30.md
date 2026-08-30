@@ -45,7 +45,7 @@ Production screenshots and raw audit artifacts were captured separately during t
 | UX-002 | P0 | Research | Core selected-security research is buried below review tools | ✅ Completed |
 | UX-003 | P0 | Architecture | Four portal-based review docks create brittle mount/order behavior | ✅ Completed |
 | UX-004 | P1 | Research IA | Too many navigation layers; Today is nested too deeply | ✅ Completed |
-| UX-005 | P1 | Mobile | Review forms still behave like desktop forms | ⬜ Todo |
+| UX-005 | P1 | Mobile | Review forms still behave like desktop forms | ✅ Completed |
 | UX-006 | P1 | Accessibility | DOM order, heading order, and visual order diverge | ⬜ Todo |
 | UX-007 | P1 | Copy | Developer/internal architecture language is visible to users | ⬜ Todo |
 | UX-008 | P1 | Today | Secondary status cards are too repetitive and vertically expensive | ⬜ Todo |
@@ -344,7 +344,7 @@ Suggested grouping:
 
 **Priority:** P1  
 **Area:** Mobile  
-**Status:** ⬜ Todo
+**Status:** ✅ Completed
 
 ## Observed problem
 
@@ -385,11 +385,18 @@ Outcome     Pending
 
 ## Acceptance criteria
 
-- [ ] No core Research workflow requires horizontal scrolling at 390px.
-- [ ] Core controls meet a 44px minimum touch target where practical.
-- [ ] No actionable label is rendered at 10px.
-- [ ] 360px, 390px, and 430px browser tests show no clipping.
-- [ ] Focus indicators remain visible on all inputs and buttons.
+- [x] No core Research workflow requires horizontal scrolling at 390px.
+- [x] Core controls meet a 44px minimum touch target where practical.
+- [x] No actionable label is rendered at 10px.
+- [x] 360px, 390px, and 430px browser tests show no clipping.
+- [x] Focus indicators remain visible on all inputs and buttons.
+
+## Completion evidence
+
+- Source commit: [`8fd90b1`](https://github.com/hooiml/signal/commit/8fd90b1188fdba14033d358d60cad91d1744563f) (`fix(research): adapt review forms for mobile`).
+- GitHub Actions: [Research Memory Gate run #58](https://github.com/hooiml/signal/actions/runs/33311817371) passed source checks, typecheck, lint, Research regression, production build, Phase 8–11 browser regressions, and Phase 12 QA.
+- Browser evidence: `360×800`, `390×844`, and `430×932` passed card-layout, 44px control, ≥12px actionable-label, visible input-focus, form/page overflow, and clipping checks; `1440×1000` retained the desktop editor and passed regressions.
+- Screenshots: [Phase 12 browser evidence artifact](https://github.com/hooiml/signal/actions/runs/33311817371/artifacts/9732255948).
 
 ---
 
