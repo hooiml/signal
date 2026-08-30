@@ -403,20 +403,32 @@ export const SinceLastVisitBriefingV6 = ({
                         </div>
                         {variant === 'today' ? (
                             <section className={'mt-5 border-t pt-4 ' + styles.divider} aria-labelledby="today-owner-summaries">
-                                <h2 id="today-owner-summaries" className={'text-xs font-bold uppercase tracking-[0.1em] ' + styles.textMuted}>Owning workspace summaries</h2>
-                                <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                                <h2 id="today-owner-summaries" className={'text-xs font-bold uppercase tracking-[0.1em] ' + styles.textMuted}>Research health</h2>
+                                <div data-testid="today-health-list" role="list" className={'mt-2 divide-y overflow-hidden rounded-lg border ' + styles.divider}>
                                     {todaySummaries.map((summary) => {
                                         const unavailable = summary.status === 'unavailable';
-                                        const unit = summary.id === 'queue' ? 'task' : summary.id === 'sources' ? 'source' : summary.id === 'upcoming' ? 'event' : summary.id === 'alerts' ? 'alert' : 'review';
+                                        const quiet = !unavailable && summary.status !== 'partial' && summary.count === 0;
+                                        const countLabel = unavailable
+                                            ? 'Unavailable'
+                                            : summary.id === 'overdue'
+                                                ? `${summary.count} overdue`
+                                                : summary.id === 'upcoming'
+                                                    ? `${summary.count} upcoming`
+                                                    : summary.id === 'alerts'
+                                                        ? `${summary.count} active`
+                                                        : summary.id === 'queue'
+                                                            ? `${summary.count} incomplete`
+                                                            : `${summary.count} degraded`;
                                         const kind: SinceLastVisitAction['kind'] = summary.id === 'sources' ? 'source' : summary.id === 'queue' ? 'queue' : summary.id === 'alerts' ? 'risk-alert' : summary.id === 'upcoming' ? 'earnings' : 'overdue-review';
                                         return (
-                                            <article key={summary.id} data-testid={`today-summary-${summary.id}`} data-status={summary.status} className={'flex min-w-0 flex-col rounded-lg border p-3 ' + styles.panelUtility}>
-                                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                                    <h3 className={'text-xs font-bold ' + styles.textPrimary}>{summary.label}</h3>
-                                                    <span className={'text-[9px] font-bold uppercase tracking-[0.08em] ' + (summary.status === 'partial' || unavailable ? styles.risk : styles.textMuted)}>{summary.status}</span>
+                                            <article key={summary.id} role="listitem" data-testid={`today-summary-${summary.id}`} data-status={summary.status} data-quiet={quiet ? 'true' : 'false'} className="flex min-h-12 min-w-0 items-center gap-3 px-3 py-2">
+                                                <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-4">
+                                                    <div className="flex min-w-0 items-center gap-2 sm:w-1/2">
+                                                        <h3 className={(quiet ? styles.textMuted : styles.textPrimary) + ' truncate text-xs font-bold'}>{summary.label}</h3>
+                                                        {summary.status === 'partial' || unavailable ? <span className={'text-[10px] font-bold uppercase tracking-[0.06em] ' + styles.risk}>{summary.status}</span> : null}
+                                                    </div>
+                                                    <p className={'mt-0.5 text-xs font-semibold sm:mt-0 ' + (quiet ? styles.textMuted : styles.textPrimary)}>{countLabel}</p>
                                                 </div>
-                                                <p className={'mt-2 text-lg font-bold ' + styles.textPrimary}>{unavailable ? 'Unavailable' : `${summary.count} ${unit}${summary.count === 1 ? '' : 's'}`}</p>
-                                                <p className={'mt-1 flex-1 text-xs leading-5 ' + styles.textMuted}>{unavailable ? 'This check failed independently.' : summary.status === 'partial' ? 'Available results are partial.' : 'Open the owning workspace for details.'}</p>
                                                 <button type="button" onClick={() => onOpenAction({
                                                     id: `summary:${summary.id}`,
                                                     kind,
@@ -425,7 +437,7 @@ export const SinceLastVisitBriefingV6 = ({
                                                     detail: `${summary.label} is owned by ${summary.workspace}.`,
                                                     workspace: summary.workspace,
                                                     priority: 0,
-                                                })} className={'mt-3 min-h-10 rounded border px-3 text-xs font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + styles.row}>Open {summary.workspace === 'health' ? 'Sources' : summary.workspace[0].toUpperCase() + summary.workspace.slice(1)}</button>
+                                                })} className={'min-h-11 shrink-0 rounded border px-3 text-xs font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 ' + styles.row}>Open {summary.workspace === 'health' ? 'Sources' : summary.workspace[0].toUpperCase() + summary.workspace.slice(1)}</button>
                                             </article>
                                         );
                                     })}

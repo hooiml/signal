@@ -72,8 +72,8 @@ const createRecord = (symbol, companyName) => ({
     },
     positionPlan: { plannedAllocationPercent: null, averageCost: null, plannedEntryPrice: null, invalidationPrice: null },
     reviewHistory: [],
-    lastReviewedAt: '2026-08-29',
-    updatedAt: '2026-08-29T00:00:00.000Z',
+    lastReviewedAt: '2026-06-01',
+    updatedAt: '2026-06-01T00:00:00.000Z',
     revision: 1,
 });
 
@@ -504,6 +504,46 @@ try {
             if (blocking.length > 0) throw new Error(blocking.join(' | '));
             await page.screenshot({ path: path.join(artifactDirectory, `ux-007-${viewport.width}x${viewport.height}.png`), fullPage: true });
             console.log(`PASS UX-007 Product Copy ${viewport.width}x${viewport.height}`);
+
+            if (viewport.width >= 700) await page.getByRole('button', { name: 'Today', exact: true }).click();
+            else await sectionControl.selectOption('today');
+            await page.waitForURL((url) => url.searchParams.get('workspace') === 'today', { timeout });
+            const healthList = page.getByTestId('today-health-list');
+            await healthList.waitFor({ state: 'visible', timeout });
+            const todayDensity = await page.evaluate(() => {
+                const priorities = document.querySelector('#briefing-priorities');
+                const priorityCards = priorities?.parentElement?.querySelectorAll('ol > li') ?? [];
+                const health = document.querySelector('[data-testid="today-health-list"]');
+                const rows = health?.querySelectorAll('[role="listitem"]') ?? [];
+                const buttons = health?.querySelectorAll('button') ?? [];
+                const quietRows = health?.querySelectorAll('[data-quiet="true"]') ?? [];
+                return {
+                    priorityCardCount: priorityCards.length,
+                    priorityTop: priorities instanceof HTMLElement ? priorities.getBoundingClientRect().top : null,
+                    firstPriorityHeight: priorityCards[0] instanceof HTMLElement ? priorityCards[0].getBoundingClientRect().height : null,
+                    healthTop: health instanceof HTMLElement ? health.getBoundingClientRect().top : null,
+                    healthHeight: health instanceof HTMLElement ? health.getBoundingClientRect().height : null,
+                    firstRowHeight: rows[0] instanceof HTMLElement ? rows[0].getBoundingClientRect().height : null,
+                    rowCount: rows.length,
+                    buttonCount: buttons.length,
+                    quietCount: quietRows.length,
+                };
+            });
+            if (todayDensity.priorityCardCount < 1 || todayDensity.priorityTop === null || todayDensity.healthTop === null || todayDensity.priorityTop >= todayDensity.healthTop) throw new Error(`priority actions are not prominent before Research health: ${JSON.stringify(todayDensity)}`);
+            if (todayDensity.rowCount !== 5 || todayDensity.buttonCount !== 5) throw new Error(`Research health rows do not retain direct workspace actions: ${JSON.stringify(todayDensity)}`);
+            if (todayDensity.quietCount < 1) throw new Error('Today zero states are not visually quiet');
+            if (viewport.width <= 430 && (todayDensity.healthHeight === null || todayDensity.healthHeight > 320 || todayDensity.firstPriorityHeight === null || todayDensity.firstRowHeight === null || todayDensity.firstPriorityHeight <= todayDensity.firstRowHeight)) throw new Error(`secondary status is not materially denser than priority cards: ${JSON.stringify(todayDensity)}`);
+
+            await page.getByTestId('today-summary-overdue').getByRole('button', { name: 'Open Calendar' }).click();
+            await page.waitForURL((url) => url.searchParams.get('workspace') === 'calendar', { timeout });
+            await page.goBack({ waitUntil: 'domcontentloaded' });
+            await page.waitForURL((url) => url.searchParams.get('workspace') === 'today', { timeout });
+            await page.getByTestId('today-health-list').waitFor({ state: 'visible', timeout });
+            const todayOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+            if (todayOverflow > 1) throw new Error(`Today compact status caused page-level horizontal overflow (${todayOverflow}px)`);
+            if (blocking.length > 0) throw new Error(blocking.join(' | '));
+            await page.screenshot({ path: path.join(artifactDirectory, `ux-008-${viewport.width}x${viewport.height}.png`), fullPage: true });
+            console.log(`PASS UX-008 Today Density ${viewport.width}x${viewport.height}`);
         } catch (error) {
             failures.push(`${viewport.width}x${viewport.height}: ${error instanceof Error ? error.message : String(error)}`);
         } finally {

@@ -48,5 +48,8 @@ const productionCopy = [dashboard, dock, today, controls, marketDashboard, marke
 assert.doesNotMatch(productionCopy, /Live (?:Research|Market) V7|mutation boundary|data owner|(?:provider|scoring|URL-state) contract|validated workflow state|Workspace-specific controls remain/i, 'Production copy must describe user benefit instead of implementation architecture');
 assert.match(dashboard, /footer="Data sources · Methodology · Limitations"/, 'Research footer must direct users to provenance and limitations');
 assert.match(today, /Signal never recommends a trade or changes your research/, 'Today must explain its user-facing safety boundary');
+assert.match(today, /data-testid="today-health-list" role="list"/, 'Today secondary status must use one compact Research health list');
+assert.ok(today.indexOf('Top 3 priority actions') < today.indexOf('data-testid="today-health-list"'), 'Priority action cards must remain ahead of secondary Research health');
+assert.match(today, /data-quiet=\{quiet \? 'true' : 'false'\}/, 'Today must distinguish quiet zero-state rows');
 
 console.log('research-memory V7 integration: ok');
