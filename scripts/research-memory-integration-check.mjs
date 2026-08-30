@@ -18,6 +18,8 @@ assert.match(wrapper, /ResearchDashboardV7/, 'Integrated page must preserve the 
 assert.doesNotMatch(wrapper, /ResearchMemoryDockV7/, 'Decision memory must not mount beside the Research dashboard');
 assert.doesNotMatch(wrapper, /ResearchExpectationDockV8|ResearchValuationDockV9|ResearchDecisionCalibrationDockV10/, 'Integrated page must not mount external review docks');
 assert.match(dashboard, /<ResearchReviewToolsV12/, 'Research dashboard must own review tools in source order');
+assert.ok(dashboard.indexOf('<SinceLastVisitBriefingV6') < dashboard.indexOf('<main id='), 'Since last visit must precede the selected-security workspace');
+assert.ok(dashboard.indexOf('<main id=') < dashboard.indexOf('<ResearchReviewToolsV12'), 'Selected-security research must precede secondary review tools in DOM order');
 assert.match(dashboard, /ticker=\{selected\.symbol\}/, 'Dashboard must pass the selected ticker directly');
 assert.match(dashboard, /record=\{savedSelectedRecord\}/, 'Dashboard must pass the selected saved record directly');
 assert.match(dashboard, /snapshot=\{liveSnapshots\.current\.get\(selected\.symbol\)/, 'Dashboard must share the selected provider snapshot');

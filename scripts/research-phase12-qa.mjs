@@ -284,6 +284,24 @@ try {
             await reviewTools.waitFor({ state: 'visible', timeout });
             await reviewTools.getByRole('heading', { name: 'Review tools' }).waitFor({ state: 'visible', timeout });
 
+            await page.evaluate(() => window.scrollTo(0, 0));
+            const selectedSecurity = page.locator('#research-detail');
+            await selectedSecurity.getByRole('heading', { name: 'MSFT', exact: true }).waitFor({ state: 'visible', timeout });
+            const selectedSecurityBox = await selectedSecurity.boundingBox();
+            if (!selectedSecurityBox) throw new Error('selected-security summary has no visible layout box');
+            if (viewport.width === 1440 && selectedSecurityBox.y > 600) throw new Error(`selected-security summary starts at ${selectedSecurityBox.y}px, below the 600px desktop limit`);
+            const primaryOrder = await page.evaluate(() => {
+                const detail = document.querySelector('#research-detail');
+                const tools = document.querySelector('[data-testid="research-review-tools"]');
+                return Boolean(detail && tools && (detail.compareDocumentPosition(tools) & Node.DOCUMENT_POSITION_FOLLOWING));
+            });
+            if (!primaryOrder) throw new Error('selected-security research does not precede Review Tools in DOM order');
+            if ((await page.getByTestId('expectation-reality').count()) + (await page.getByTestId('valuation-reasoning-v9').count()) + (await page.getByTestId('decision-calibration-v10').count()) !== 0) throw new Error('a full review form is expanded by default');
+            await reviewTools.scrollIntoViewIfNeeded();
+            if (viewport.width === 390) await reviewTools.getByText('Selected security · MSFT').waitFor({ state: 'visible', timeout });
+            await page.screenshot({ path: path.join(artifactDirectory, `ux-002-${viewport.width}x${viewport.height}.png`), fullPage: true });
+            console.log(`PASS UX-002 Selected Security ${viewport.width}x${viewport.height}`);
+
             const initialReviewState = await page.evaluate(() => ({
                 shellCount: document.querySelectorAll('[data-testid="research-review-tools"]').length,
                 memoryCount: document.querySelectorAll('[data-testid="research-memory-dock"]').length,

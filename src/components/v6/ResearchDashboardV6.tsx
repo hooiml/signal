@@ -960,7 +960,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                     </section>
                 ) : null}
                 {marketHandoff ? <ResearchMarketContextV6 handoff={marketHandoff} items={items} theme={theme} onOpen={openResearchFrom('market')} /> : null}
-                {workspace === 'research' ? <div className={presentation === 'v7' ? liveStyles.researchUtilitiesV7 : undefined}>
+                {workspace === 'research' ? <div>
                     <h1 className="sr-only">Research workspace</h1>
                     {recordsLoadState === 'ready' ? (
                         <SinceLastVisitBriefingV6
@@ -977,39 +977,6 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                             }}
                         />
                     ) : null}
-                    {selected ? (
-                        <ResearchReviewToolsV12
-                            ticker={selected.symbol}
-                            record={savedSelectedRecord}
-                            recordsState={recordsLoadState}
-                            snapshot={liveSnapshots.current.get(selected.symbol) ?? null}
-                            snapshotState={snapshotStates[selected.symbol]?.state ?? 'idle'}
-                            snapshotMessage={snapshotStates[selected.symbol]?.message ?? null}
-                        />
-                    ) : null}
-                    <details data-testid="research-overview" data-surface-tier="utility" className={'group mb-3 rounded-[10px] border ' + themeClasses.panelSolid}>
-                        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-[10px] px-4 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 [&::-webkit-details-marker]:hidden">
-                            <span>
-                                <span className={'block text-sm font-bold ' + themeClasses.textPrimary}>Research overview</span>
-                                <span className={'block text-xs ' + themeClasses.textMuted}>
-                                    {inboxSummary?.status === 'ready'
-                                        ? `${inboxSummary.attentionCount} attention item${inboxSummary.attentionCount === 1 ? '' : 's'} · ${inboxSummary.unreadCount} unread · Position plan`
-                                        : inboxSummary?.status === 'error'
-                                            ? 'Attention unavailable · Position plan available'
-                                            : 'Checking daily attention · Position plan available'}
-                                </span>
-                            </span>
-                            <span aria-hidden="true" className={'text-lg transition-transform group-open:rotate-180 ' + themeClasses.textMuted}>⌄</span>
-                        </summary>
-                        <div className={'border-t p-3 min-[700px]:p-4 ' + themeClasses.divider}>
-                            <ResearchInboxV6 items={items} records={inboxRecords} theme={theme} onOpen={(symbol, tab) => {
-                                setProductAnalyticsWorkflowSource('inbox');
-                                trackProductAnalyticsEvent({ name: 'review_opened', surface: 'research', workspace: 'research', source: 'inbox' });
-                                selectTicker(symbol, false, tab);
-                            }} onSave={saveRecord} saveError={saveError} onSummaryChange={updateInboxSummary} />
-                            <PositionPlanOverviewV6 records={records} items={items} theme={theme} />
-                        </div>
-                    </details>
                 </div> : null}
                 <main id={`research-workspace-${workspace}`} data-surface-tier="primary" data-density={density} className={'flex flex-col rounded-[10px] border backdrop-blur min-[700px]:flex-row ' + (presentation === 'v7' ? liveStyles.researchWorkspaceV7 + ' ' : '') + (density === 'compact' ? 'gap-2 p-2 min-[700px]:p-3 ' : 'gap-4 p-3 min-[700px]:p-4 ') + themeClasses.panelPrimary}>
                     <ResearchWorkspaceBoundaryV6 workspace={workspace}>
@@ -1122,6 +1089,41 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                     </>)}
                     </ResearchWorkspaceBoundaryV6>
                 </main>
+                {workspace === 'research' ? <div className={presentation === 'v7' ? liveStyles.researchUtilitiesV7 : undefined}>
+                    {selected ? (
+                        <ResearchReviewToolsV12
+                            ticker={selected.symbol}
+                            record={savedSelectedRecord}
+                            recordsState={recordsLoadState}
+                            snapshot={liveSnapshots.current.get(selected.symbol) ?? null}
+                            snapshotState={snapshotStates[selected.symbol]?.state ?? 'idle'}
+                            snapshotMessage={snapshotStates[selected.symbol]?.message ?? null}
+                        />
+                    ) : null}
+                    <details data-testid="research-overview" data-surface-tier="utility" className={'group mb-3 rounded-[10px] border ' + themeClasses.panelSolid}>
+                        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-[10px] px-4 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 [&::-webkit-details-marker]:hidden">
+                            <span>
+                                <span className={'block text-sm font-bold ' + themeClasses.textPrimary}>Research overview</span>
+                                <span className={'block text-xs ' + themeClasses.textMuted}>
+                                    {inboxSummary?.status === 'ready'
+                                        ? `${inboxSummary.attentionCount} attention item${inboxSummary.attentionCount === 1 ? '' : 's'} · ${inboxSummary.unreadCount} unread · Position plan`
+                                        : inboxSummary?.status === 'error'
+                                            ? 'Attention unavailable · Position plan available'
+                                            : 'Checking daily attention · Position plan available'}
+                                </span>
+                            </span>
+                            <span aria-hidden="true" className={'text-lg transition-transform group-open:rotate-180 ' + themeClasses.textMuted}>⌄</span>
+                        </summary>
+                        <div className={'border-t p-3 min-[700px]:p-4 ' + themeClasses.divider}>
+                            <ResearchInboxV6 items={items} records={inboxRecords} theme={theme} onOpen={(symbol, tab) => {
+                                setProductAnalyticsWorkflowSource('inbox');
+                                trackProductAnalyticsEvent({ name: 'review_opened', surface: 'research', workspace: 'research', source: 'inbox' });
+                                selectTicker(symbol, false, tab);
+                            }} onSave={saveRecord} saveError={saveError} onSummaryChange={updateInboxSummary} />
+                            <PositionPlanOverviewV6 records={records} items={items} theme={theme} />
+                        </div>
+                    </details>
+                </div> : null}
             </div>
         </>
     );
