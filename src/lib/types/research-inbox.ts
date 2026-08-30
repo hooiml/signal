@@ -4,7 +4,7 @@ export type ResearchInboxInput = AlertTickerInput & {
     readonly lastReviewedAt: string;
 };
 
-export type ResearchInboxKind = 'risk' | 'opportunity' | 'catalyst' | 'stale';
+export type ResearchInboxKind = 'risk' | 'opportunity' | 'catalyst' | 'stale' | 'expectation' | 'valuation' | 'decision';
 export type ResearchInboxUrgency = 'action' | 'upcoming';
 
 export type ResearchInboxItem = {
@@ -15,7 +15,7 @@ export type ResearchInboxItem = {
     readonly title: string;
     readonly detail: string;
     readonly proximity: string;
-    readonly source: 'Yahoo Finance' | 'Nasdaq earnings calendar' | 'Research journal' | 'Structured trigger';
+    readonly source: 'Yahoo Finance' | 'Nasdaq earnings calendar' | 'Research journal' | 'Structured trigger' | 'Expectation journal' | 'Valuation plan' | 'Decision review';
     readonly eventDate: string | null;
     readonly structuredTriggerRuleId: string | null;
 };
