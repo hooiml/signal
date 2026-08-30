@@ -44,7 +44,7 @@ Production screenshots and raw audit artifacts were captured separately during t
 | UX-001 | P0 | Research | Decision Memory is not rendering reliably in production | ✅ Completed |
 | UX-002 | P0 | Research | Core selected-security research is buried below review tools | ✅ Completed |
 | UX-003 | P0 | Architecture | Four portal-based review docks create brittle mount/order behavior | ✅ Completed |
-| UX-004 | P1 | Research IA | Too many navigation layers; Today is nested too deeply | ⬜ Todo |
+| UX-004 | P1 | Research IA | Too many navigation layers; Today is nested too deeply | ✅ Completed |
 | UX-005 | P1 | Mobile | Review forms still behave like desktop forms | ⬜ Todo |
 | UX-006 | P1 | Accessibility | DOM order, heading order, and visual order diverge | ⬜ Todo |
 | UX-007 | P1 | Copy | Developer/internal architecture language is visible to users | ⬜ Todo |
@@ -261,7 +261,7 @@ Only the selected tool should be expanded or mounted when appropriate.
 
 **Priority:** P1  
 **Area:** Information architecture  
-**Status:** ⬜ Todo
+**Status:** ✅ Completed
 
 ## Observed problem
 
@@ -323,12 +323,20 @@ Suggested grouping:
 
 ## Acceptance criteria
 
-- [ ] Today is reachable in one action from every Research screen.
-- [ ] Mobile does not require selecting both Activity and Today.
-- [ ] Top-level navigation has no more than six visible destinations.
-- [ ] Secondary workspaces remain discoverable through More and command search.
-- [ ] Selected ticker survives navigation where relevant.
-- [ ] Browser back/forward restores workspace state.
+- [x] Today is reachable in one action from every Research screen.
+- [x] Mobile does not require selecting both Activity and Today.
+- [x] Top-level navigation has no more than six visible destinations.
+- [x] Secondary workspaces remain discoverable through More and command search.
+- [x] Selected ticker survives navigation where relevant.
+- [x] Browser back/forward restores workspace state.
+
+## Completion evidence
+
+- Source commit: [`965fd7b`](https://github.com/hooiml/signal/commit/965fd7b8c212abf436640ae035494c108d306749) (`fix(research): make Today a primary destination`).
+- Final verified head: [`12e7b38`](https://github.com/hooiml/signal/commit/12e7b3873f448a778093dece0c647af68a622bd9).
+- GitHub Actions: [Research Memory Gate run #56](https://github.com/hooiml/signal/actions/runs/33311364138) passed source checks, typecheck, lint, Research regression, production build, Phase 8–11 browser regressions, and Phase 12 QA.
+- Browser evidence: `1440×1000` and `390×844` passed six-destination limits, one-action Today navigation, More workspace discovery, ticker retention, Back/Forward restoration, page overflow, and blocking console/page/request checks.
+- Screenshots: [Phase 12 browser evidence artifact](https://github.com/hooiml/signal/actions/runs/33311364138/artifacts/9732112302).
 
 ---
 
