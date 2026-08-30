@@ -416,6 +416,7 @@ try {
             const expectationPanel = page.getByTestId('expectation-reality');
             await expectationPanel.waitFor({ state: 'visible', timeout });
             if (viewport.width <= 430) {
+                await expectationPanel.locator('[data-testid="expectation-metric-cards"] > tr').first().waitFor({ state: 'visible', timeout });
                 const mobileForm = await expectationPanel.evaluate((panel) => ({
                     panelOverflow: panel.scrollWidth - panel.clientWidth,
                     cardCount: panel.querySelectorAll('[data-testid="expectation-metric-cards"] > tr').length,
