@@ -11,7 +11,7 @@ const baseUrl = argument('--base-url', process.env.SIGNAL_QA_URL ?? 'http://127.
 const requestedViewport = argument('--viewport');
 const viewports = requestedViewport
     ? [{ width: Number(requestedViewport), height: Number(argument('--height', '900')) }]
-    : [{ width: 1440, height: 1000 }, { width: 390, height: 844 }];
+    : [{ width: 1440, height: 1000 }, { width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }];
 const timeout = 20_000;
 const baseOrigin = new URL(baseUrl).origin;
 const artifactDirectory = path.resolve('.tmp', 'research-phase12-qa', new Date().toISOString().replace(/[.:]/g, '-'));
@@ -407,6 +407,49 @@ try {
             if (blocking.length > 0) throw new Error(blocking.join(' | '));
             await page.screenshot({ path: path.join(artifactDirectory, `ux-004-${viewport.width}x${viewport.height}.png`), fullPage: true });
             console.log(`PASS UX-004 Today Navigation ${viewport.width}x${viewport.height}`);
+
+            if (viewport.width >= 700) await page.getByRole('button', { name: 'Watchlist', exact: true }).click();
+            else await sectionControl.selectOption('watchlist');
+            await page.waitForURL((url) => url.searchParams.get('workspace') === 'research', { timeout });
+            const mobileReviewTools = page.getByTestId('research-review-tools');
+            await mobileReviewTools.getByRole('button', { name: /Expectation vs Reality/ }).click();
+            const expectationPanel = page.getByTestId('expectation-reality');
+            await expectationPanel.waitFor({ state: 'visible', timeout });
+            if (viewport.width <= 430) {
+                const mobileForm = await expectationPanel.evaluate((panel) => ({
+                    panelOverflow: panel.scrollWidth - panel.clientWidth,
+                    cardCount: panel.querySelectorAll('[data-testid="expectation-metric-cards"] > tr').length,
+                    tableHeaderVisible: (() => {
+                        const header = panel.querySelector('thead');
+                        return header instanceof HTMLElement && getComputedStyle(header).display !== 'none';
+                    })(),
+                    undersizedControls: Array.from(panel.querySelectorAll('button, input, select, textarea'))
+                        .filter((node) => node instanceof HTMLElement && node.getClientRects().length > 0 && node.getBoundingClientRect().height < 43.5)
+                        .map((node) => `${node.tagName}:${node.getAttribute('aria-label') ?? node.textContent?.trim() ?? ''}:${node.getBoundingClientRect().height}`),
+                    tinyActions: Array.from(panel.querySelectorAll('button, label'))
+                        .filter((node) => node instanceof HTMLElement && node.getClientRects().length > 0 && Number.parseFloat(getComputedStyle(node).fontSize) < 12)
+                        .map((node) => `${node.tagName}:${node.textContent?.trim() ?? ''}:${getComputedStyle(node).fontSize}`),
+                }));
+                if (mobileForm.panelOverflow > 1) throw new Error(`Expectation form has ${mobileForm.panelOverflow}px horizontal overflow`);
+                if (mobileForm.cardCount < 2 || mobileForm.tableHeaderVisible) throw new Error(`mobile metric cards did not replace the desktop table header: ${JSON.stringify(mobileForm)}`);
+                if (mobileForm.undersizedControls.length > 0) throw new Error(`review controls below 44px: ${mobileForm.undersizedControls.join(', ')}`);
+                if (mobileForm.tinyActions.length > 0) throw new Error(`actionable labels below 12px: ${mobileForm.tinyActions.join(', ')}`);
+
+                const eventTitle = expectationPanel.getByLabel('Event title');
+                await eventTitle.focus();
+                await page.keyboard.press('Tab');
+                await page.keyboard.press('Shift+Tab');
+                const inputFocus = await eventTitle.evaluate((node) => {
+                    const style = getComputedStyle(node);
+                    return { active: document.activeElement === node, outlineStyle: style.outlineStyle, outlineWidth: Number.parseFloat(style.outlineWidth) };
+                });
+                if (!inputFocus.active || inputFocus.outlineStyle === 'none' || inputFocus.outlineWidth < 1) throw new Error(`review input focus is not visible: ${JSON.stringify(inputFocus)}`);
+            }
+            const reviewFormOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+            if (reviewFormOverflow > 1) throw new Error(`review form caused page-level horizontal overflow (${reviewFormOverflow}px)`);
+            if (blocking.length > 0) throw new Error(blocking.join(' | '));
+            await page.screenshot({ path: path.join(artifactDirectory, `ux-005-${viewport.width}x${viewport.height}.png`), fullPage: true });
+            console.log(`PASS UX-005 Mobile Review Forms ${viewport.width}x${viewport.height}`);
         } catch (error) {
             failures.push(`${viewport.width}x${viewport.height}: ${error instanceof Error ? error.message : String(error)}`);
         } finally {
