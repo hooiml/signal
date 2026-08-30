@@ -43,7 +43,7 @@ Production screenshots and raw audit artifacts were captured separately during t
 | --- | --- | --- | --- | --- |
 | UX-001 | P0 | Research | Decision Memory is not rendering reliably in production | ✅ Completed |
 | UX-002 | P0 | Research | Core selected-security research is buried below review tools | ⬜ Todo |
-| UX-003 | P0 | Architecture | Four portal-based review docks create brittle mount/order behavior | ⬜ Todo |
+| UX-003 | P0 | Architecture | Four portal-based review docks create brittle mount/order behavior | ✅ Completed |
 | UX-004 | P1 | Research IA | Too many navigation layers; Today is nested too deeply | ⬜ Todo |
 | UX-005 | P1 | Mobile | Review forms still behave like desktop forms | ⬜ Todo |
 | UX-006 | P1 | Accessibility | DOM order, heading order, and visual order diverge | ⬜ Todo |
@@ -178,7 +178,7 @@ Review tools
 
 **Priority:** P0  
 **Area:** Frontend architecture / UX reliability  
-**Status:** ⬜ Todo
+**Status:** ✅ Completed
 
 ## Current architecture
 
@@ -232,13 +232,21 @@ Only the selected tool should be expanded or mounted when appropriate.
 
 ## Acceptance criteria
 
-- [ ] No Research review feature uses `document.querySelector` to find its mount location.
-- [ ] No review feature creates arbitrary DOM hosts with `createElement`.
-- [ ] Selected ticker is passed through shared state/props/context.
-- [ ] Selected Research record is not independently fetched by every review module.
-- [ ] Current snapshot can be shared where contracts permit.
-- [ ] Source order equals visual order.
-- [ ] Existing deep links remain valid.
+- [x] No Research review feature uses `document.querySelector` to find its mount location.
+- [x] No review feature creates arbitrary DOM hosts with `createElement`.
+- [x] Selected ticker is passed through shared state/props/context.
+- [x] Selected Research record is not independently fetched by every review module.
+- [x] Current snapshot can be shared where contracts permit.
+- [x] Source order equals visual order.
+- [x] Existing deep links remain valid.
+
+## Completion evidence
+
+- Source commit: [`32c6a6a`](https://github.com/hooiml/signal/commit/32c6a6aad3f6d037cd7911970439db27f722f65d) (`refactor(research): consolidate review tools`).
+- Final verified head: [`9d05956`](https://github.com/hooiml/signal/commit/9d05956b490def7fda70c2c70bc9633ea3493690).
+- GitHub Actions: [Research Memory Gate run #51](https://github.com/hooiml/signal/actions/runs/33310388963) passed source checks, typecheck, lint, Research regression, production build, Phase 8–11 browser regressions, and Phase 12 QA.
+- Browser evidence: `1440×1000` and `390×844` passed single-shell and single-active-tool assertions, deterministic source/control order, inactive-tool API suppression, shared watchlist/snapshot reuse, ticker changes, visible keyboard focus, page overflow, and blocking console/page/request checks.
+- Screenshots: [Phase 12 browser evidence artifact](https://github.com/hooiml/signal/actions/runs/33310388963/artifacts/9731837152).
 
 ---
 
