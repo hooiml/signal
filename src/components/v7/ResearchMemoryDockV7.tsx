@@ -171,7 +171,7 @@ export const ResearchMemoryDockV7 = ({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-500">Decision memory</p>
-                        <h2 className="mt-1 text-lg font-bold">{ticker} · What changed and what needs review</h2>
+                        <h3 className="mt-1 text-lg font-bold">{ticker} · What changed and what needs review</h3>
                         <p className="mt-1 text-xs text-zinc-500">{history.length === 0 ? 'First memory checkpoint. Future visits will compare against this snapshot.' : `Compared with ${formatDate(model.previous?.observedAt ?? model.current.observedAt)} · ${history.length} checkpoint${history.length === 1 ? '' : 's'} · ${historyLabel}.`}</p>
                     </div>
                     <a href={`/research?ticker=${encodeURIComponent(ticker)}&workspace=replay`} className="min-h-10 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold hover:border-emerald-500 focus-visible:outline-2 focus-visible:outline-emerald-500">Open replay</a>

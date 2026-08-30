@@ -12,11 +12,11 @@ assert.equal(summary.strong, 2);
 assert.equal(summary.weak, 1);
 assert.equal(summary.verdict, 'adjust');
 
-const [store, route, panel, dock, wrapper, workflow] = await Promise.all([
+const [store, route, panel, reviewTools, wrapper, workflow] = await Promise.all([
     readFile('src/lib/research/research-decision-calibration-store.ts', 'utf8'),
     readFile('src/app/api/research/calibration/[ticker]/route.ts', 'utf8'),
     readFile('src/components/v10/ResearchDecisionCalibrationV10.tsx', 'utf8'),
-    readFile('src/components/v10/ResearchDecisionCalibrationDockV10.tsx', 'utf8'),
+    readFile('src/components/v12/ResearchReviewToolsV12.tsx', 'utf8'),
     readFile('src/components/v7/ResearchIntegratedPageV7.tsx', 'utf8'),
     readFile('.github/workflows/research-memory-gate.yml', 'utf8'),
 ]);
@@ -27,8 +27,11 @@ assert.match(panel, /data-testid="decision-calibration-v10"/);
 assert.match(panel, /Review the process, not just the return/);
 assert.match(panel, /not an investor score/);
 assert.match(panel, /Hindsight risk/);
-assert.match(dock, /decision-calibration-slot/);
-assert.match(wrapper, /ResearchDecisionCalibrationDockV10/);
+assert.match(reviewTools, /id: 'decision-review'/);
+assert.match(reviewTools, /record=\{record\}/);
+assert.match(reviewTools, /snapshot=\{snapshot\}/);
+assert.doesNotMatch(panel, /\/api\/research\/watchlist|\/api\/research\/symbol\//);
+assert.doesNotMatch(wrapper, /ResearchDecisionCalibrationDockV10/);
 assert.match(workflow, /research-memory-phase10-check\.mjs/);
 assert.match(workflow, /research-decision-calibration-v10-qa\.mjs/);
 console.log('research-memory phase10 decision calibration: ok');

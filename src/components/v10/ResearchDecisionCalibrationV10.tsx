@@ -1,8 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { parseResearchRecord } from '@/lib/research/input';
-import { parseResearchSnapshotResponse } from '@/components/v6/research-snapshot-v6';
 import {
     calibrationRatings,
     createResearchDecisionCalibration,
@@ -13,57 +11,61 @@ import {
     type ResearchDecisionCalibration,
 } from '@/lib/research/research-decision-calibration';
 import type { ResearchRecord, ResearchReviewSnapshot } from '@/lib/types/research';
+import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 
-type Props = { readonly ticker: string };
+type Props = {
+    readonly ticker: string;
+    readonly record: ResearchRecord | null;
+    readonly snapshot: ResearchSnapshot | null;
+};
 const ratingLabels: Record<CalibrationRating, string> = { strong: 'Strong', mixed: 'Mixed', weak: 'Weak', 'not-applicable': 'N/A' };
 const price = (value: number | null) => value === null ? 'Unavailable' : new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(value);
 
-export const ResearchDecisionCalibrationV10 = ({ ticker }: Props) => {
-    const [record, setRecord] = useState<ResearchRecord | null>(null);
+export const ResearchDecisionCalibrationV10 = ({ ticker, record, snapshot }: Props) => {
     const [reviews, setReviews] = useState<ResearchDecisionCalibration[]>([]);
     const [selectedReview, setSelectedReview] = useState<ResearchReviewSnapshot | null>(null);
     const [draft, setDraft] = useState<ResearchDecisionCalibration | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
+    const laterPrice = snapshot?.symbol === ticker ? snapshot.quote.price ?? null : null;
 
     const load = useCallback(async () => {
         setLoading(true); setMessage(null);
+        if (!record || record.symbol !== ticker) {
+            setReviews([]); setSelectedReview(null); setDraft(null);
+            setMessage('Save this security to Research before reviewing decisions.');
+            setLoading(false);
+            return;
+        }
         try {
-            const [watchlistResponse, calibrationResponse] = await Promise.all([
-                fetch('/api/research/watchlist', { cache: 'no-store' }),
-                fetch(`/api/research/calibration/${encodeURIComponent(ticker)}`, { cache: 'no-store' }),
-            ]);
-            const watchlistPayload: unknown = await watchlistResponse.json();
+            const calibrationResponse = await fetch(`/api/research/calibration/${encodeURIComponent(ticker)}`, { cache: 'no-store' });
             const calibrationPayload: unknown = await calibrationResponse.json();
-            if (!watchlistResponse.ok || typeof watchlistPayload !== 'object' || watchlistPayload === null || Array.isArray(watchlistPayload)) throw new Error('Saved research is unavailable.');
-            const rawRecords = (watchlistPayload as Record<string, unknown>).data;
-            if (!Array.isArray(rawRecords)) throw new Error('Saved research is unavailable.');
-            const selectedRecord = rawRecords.map(parseResearchRecord).find((item) => item.symbol === ticker) ?? null;
-            if (!selectedRecord) throw new Error('Save this security to Research before reviewing decisions.');
             const parsedCalibrations = calibrationResponse.ok && typeof calibrationPayload === 'object' && calibrationPayload !== null && !Array.isArray(calibrationPayload) && Array.isArray((calibrationPayload as Record<string, unknown>).data)
                 ? ((calibrationPayload as Record<string, unknown>).data as unknown[]).map(parseResearchDecisionCalibration)
                 : [];
-            let laterPrice: number | null = null;
-            try {
-                const snapshotResponse = await fetch(`/api/research/symbol/${encodeURIComponent(ticker)}?market=${selectedRecord.market}`, { cache: 'no-store' });
-                if (snapshotResponse.ok) laterPrice = parseResearchSnapshotResponse(await snapshotResponse.json()).quote.price ?? null;
-            } catch { /* calibration remains usable without a current price */ }
-            const latestReview = selectedRecord.reviewHistory.at(-1) ?? null;
-            setRecord(selectedRecord); setReviews(parsedCalibrations); setSelectedReview(latestReview);
+            const latestReview = record.reviewHistory.at(-1) ?? null;
+            setReviews(parsedCalibrations); setSelectedReview(latestReview);
             if (latestReview) {
                 const existing = parsedCalibrations.find((entry) => entry.reviewId === latestReview.id);
-                setDraft(existing ?? { ...createResearchDecisionCalibration({ ticker, reviewId: latestReview.id, reviewedAt: latestReview.reviewedAt, originalDecision: latestReview.decisionJournal.decision, originalObservedPrice: latestReview.decisionJournal.observedPrice }), laterPrice });
+                setDraft(existing ?? createResearchDecisionCalibration({ ticker, reviewId: latestReview.id, reviewedAt: latestReview.reviewedAt, originalDecision: latestReview.decisionJournal.decision, originalObservedPrice: latestReview.decisionJournal.observedPrice }));
             } else setDraft(null);
         } catch (error) { setMessage(error instanceof Error ? error.message : 'Decision review is unavailable.'); }
         finally { setLoading(false); }
-    }, [ticker]);
+    }, [record, ticker]);
     useEffect(() => { void load(); }, [load]);
+
+    useEffect(() => {
+        if (laterPrice === null) return;
+        setDraft((current) => current && !reviews.some((entry) => entry.id === current.id)
+            ? { ...current, laterPrice }
+            : current);
+    }, [laterPrice, reviews]);
 
     const selectHistoricalReview = (review: ResearchReviewSnapshot) => {
         setSelectedReview(review);
         const existing = reviews.find((entry) => entry.reviewId === review.id);
-        setDraft(existing ?? createResearchDecisionCalibration({ ticker, reviewId: review.id, reviewedAt: review.reviewedAt, originalDecision: review.decisionJournal.decision, originalObservedPrice: review.decisionJournal.observedPrice }));
+        setDraft(existing ?? { ...createResearchDecisionCalibration({ ticker, reviewId: review.id, reviewedAt: review.reviewedAt, originalDecision: review.decisionJournal.decision, originalObservedPrice: review.decisionJournal.observedPrice }), laterPrice });
         setMessage(null);
     };
 

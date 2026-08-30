@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { parseResearchRecord } from '@/lib/research/input';
-import { parseResearchSnapshotResponse } from '@/components/v6/research-snapshot-v6';
+import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import {
     createResearchValuationPlan,
     evaluateResearchValuationPlan,
@@ -10,14 +9,16 @@ import {
     type ResearchValuationPlan,
 } from '@/lib/research/research-valuation-plan';
 
-type Props = { readonly ticker: string };
+type Props = {
+    readonly ticker: string;
+    readonly snapshot: ResearchSnapshot | null;
+};
 
 const inputNumber = (value: number | null) => value === null ? '' : String(value);
 const money = (value: number) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
 
-export const ResearchValuationReasoningV9 = ({ ticker }: Props) => {
+export const ResearchValuationReasoningV9 = ({ ticker, snapshot }: Props) => {
     const [plan, setPlan] = useState<ResearchValuationPlan>(() => createResearchValuationPlan(ticker));
-    const [marketPrice, setMarketPrice] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
@@ -26,27 +27,10 @@ export const ResearchValuationReasoningV9 = ({ ticker }: Props) => {
         setLoading(true);
         setMessage(null);
         try {
-            const [planResponse, watchlistResponse] = await Promise.all([
-                fetch(`/api/research/valuation-plan/${encodeURIComponent(ticker)}`, { cache: 'no-store' }),
-                fetch('/api/research/watchlist', { cache: 'no-store' }),
-            ]);
+            const planResponse = await fetch(`/api/research/valuation-plan/${encodeURIComponent(ticker)}`, { cache: 'no-store' });
             const planPayload: unknown = await planResponse.json();
-            const watchlistPayload: unknown = await watchlistResponse.json();
             if (!planResponse.ok || typeof planPayload !== 'object' || planPayload === null || Array.isArray(planPayload)) throw new Error('Valuation assumptions are unavailable.');
             setPlan(parseResearchValuationPlan((planPayload as Record<string, unknown>).data));
-            if (watchlistResponse.ok && typeof watchlistPayload === 'object' && watchlistPayload !== null && !Array.isArray(watchlistPayload)) {
-                const data = (watchlistPayload as Record<string, unknown>).data;
-                if (Array.isArray(data)) {
-                    const record = data.map(parseResearchRecord).find((item) => item.symbol === ticker);
-                    if (record) {
-                        const response = await fetch(`/api/research/symbol/${encodeURIComponent(ticker)}?market=${record.market}`, { cache: 'no-store' });
-                        if (response.ok) {
-                            const snapshot = parseResearchSnapshotResponse(await response.json());
-                            setMarketPrice(snapshot.quote.price ?? null);
-                        }
-                    }
-                }
-            }
         } catch (error) {
             setMessage(error instanceof Error ? error.message : 'Valuation assumptions are unavailable.');
         } finally {
@@ -55,6 +39,8 @@ export const ResearchValuationReasoningV9 = ({ ticker }: Props) => {
     }, [ticker]);
 
     useEffect(() => { void load(); }, [load]);
+
+    const marketPrice = snapshot?.symbol === ticker ? snapshot.quote.price ?? null : null;
 
     const evaluation = useMemo(() => {
         try {

@@ -64,7 +64,7 @@ import {
 } from '@/lib/product-analytics-client';
 import type { ProductAnalyticsSource } from '@/lib/types/product-analytics';
 import { SinceLastVisitBriefingV6 } from './SinceLastVisitBriefingV6';
-import { ResearchMemoryDockV7 } from '@/components/v7/ResearchMemoryDockV7';
+import { ResearchReviewToolsV12 } from '@/components/v12/ResearchReviewToolsV12';
 import { createTodayResearchContinuation } from '@/lib/research/since-last-visit';
 import { writeTodayContinuation } from '@/lib/research/since-last-visit-client';
 import { FirstRunSetupV6 } from './FirstRunSetupV6';
@@ -978,7 +978,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                         />
                     ) : null}
                     {selected ? (
-                        <ResearchMemoryDockV7
+                        <ResearchReviewToolsV12
                             ticker={selected.symbol}
                             record={savedSelectedRecord}
                             recordsState={recordsLoadState}

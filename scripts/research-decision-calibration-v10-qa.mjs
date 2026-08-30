@@ -37,6 +37,7 @@ const runViewport = async (browser, viewport) => {
         return json({success:true,data:{}});
     });
     await page.goto(`${baseUrl}/research?ticker=MSFT`, { waitUntil:'domcontentloaded' });
+    await page.getByTestId('research-review-tools').getByRole('button', { name: /Decision review/ }).click();
     const panel=page.getByTestId('decision-calibration-v10'); await panel.waitFor({state:'visible',timeout:30000});
     const text=await panel.textContent();
     check(text?.includes('Wait for price'), `${viewport.width}: original decision missing`);

@@ -51,6 +51,7 @@ const runViewport = async (browser, viewport) => {
     });
 
     await page.goto(`${baseUrl}/research?ticker=MSFT`, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('research-review-tools').getByRole('button', { name: /Valuation/ }).click();
     const panel = page.getByTestId('valuation-reasoning-v9');
     await panel.waitFor({ state: 'visible', timeout: 30000 });
     check((await panel.textContent())?.includes('Market price') && (await panel.textContent())?.includes('$420'), `${viewport.width}: provider market price should be visible`);

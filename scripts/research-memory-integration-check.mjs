@@ -3,11 +3,12 @@ import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(path, 'utf8');
 
-const [page, wrapper, dashboard, dock, detail, adapter] = await Promise.all([
+const [page, wrapper, dashboard, dock, reviewTools, detail, adapter] = await Promise.all([
     read('src/app/research/page.tsx'),
     read('src/components/v7/ResearchIntegratedPageV7.tsx'),
     read('src/components/v6/ResearchDashboardV6.tsx'),
     read('src/components/v7/ResearchMemoryDockV7.tsx'),
+    read('src/components/v12/ResearchReviewToolsV12.tsx'),
     read('src/components/v6/ResearchDetailV6.tsx'),
     read('src/lib/research/research-memory-integration.ts'),
 ]);
@@ -15,13 +16,20 @@ const [page, wrapper, dashboard, dock, detail, adapter] = await Promise.all([
 assert.match(page, /ResearchIntegratedPageV7/, 'Research route must mount the integrated V7 page');
 assert.match(wrapper, /ResearchDashboardV7/, 'Integrated page must preserve the existing Research dashboard');
 assert.doesNotMatch(wrapper, /ResearchMemoryDockV7/, 'Decision memory must not mount beside the Research dashboard');
-assert.match(dashboard, /<ResearchMemoryDockV7/, 'Research dashboard must own decision memory in source order');
+assert.doesNotMatch(wrapper, /ResearchExpectationDockV8|ResearchValuationDockV9|ResearchDecisionCalibrationDockV10/, 'Integrated page must not mount external review docks');
+assert.match(dashboard, /<ResearchReviewToolsV12/, 'Research dashboard must own review tools in source order');
 assert.match(dashboard, /ticker=\{selected\.symbol\}/, 'Dashboard must pass the selected ticker directly');
 assert.match(dashboard, /record=\{savedSelectedRecord\}/, 'Dashboard must pass the selected saved record directly');
 assert.match(dashboard, /snapshot=\{liveSnapshots\.current\.get\(selected\.symbol\)/, 'Dashboard must share the selected provider snapshot');
 assert.match(dock, /data-testid="research-memory-dock"/, 'Decision-memory surface must remain test-addressable');
 assert.doesNotMatch(dock, /createPortal|document\.querySelector|document\.createElement|MutationObserver/, 'Decision memory must remain in the React tree without DOM injection');
 assert.doesNotMatch(dock, /\/api\/research\/watchlist|\/api\/research\/symbol\//, 'Decision memory must reuse dashboard-owned Research state');
+assert.match(reviewTools, /data-testid="research-review-tools"/, 'Review tools must have one integrated owner');
+assert.match(reviewTools, /activeTool === 'memory'/, 'Decision memory must be conditionally mounted by the integrated owner');
+assert.match(reviewTools, /activeTool === 'expectations'/, 'Expectation review must be conditionally mounted by the integrated owner');
+assert.match(reviewTools, /activeTool === 'valuation'/, 'Valuation review must be conditionally mounted by the integrated owner');
+assert.match(reviewTools, /activeTool === 'decision-review'/, 'Decision review must be conditionally mounted by the integrated owner');
+assert.doesNotMatch(reviewTools, /createPortal|document\.querySelector|document\.createElement|MutationObserver/, 'Review tools must remain in deterministic React source order');
 assert.match(detail, /onSnapshotState\(ticker\.symbol, 'error', message\)/, 'Provider failure must become an explicit Decision Memory state');
 assert.match(dock, /workspace=replay/, 'Decision memory must preserve a handoff to the existing Replay workspace');
 assert.match(adapter, /signal-research-memory-history-v1/, 'Point-in-time history must use a versioned storage key');

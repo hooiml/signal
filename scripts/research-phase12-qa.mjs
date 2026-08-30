@@ -79,6 +79,19 @@ const createRecord = (symbol, companyName) => ({
 
 const records = [createRecord('MSFT', 'Microsoft'), createRecord('NVDA', 'NVIDIA')];
 
+const createValuationPlan = (ticker) => ({
+    ticker,
+    currentEps: null,
+    years: 5,
+    annualDiscountRatePct: 10,
+    scenarios: [
+        { id: 'bear', label: 'Bear', currentEps: 1, epsCagrPct: 4, terminalPe: 20, years: 5, annualDiscountRatePct: 10 },
+        { id: 'base', label: 'Base', currentEps: 1, epsCagrPct: 10, terminalPe: 25, years: 5, annualDiscountRatePct: 10 },
+        { id: 'bull', label: 'Bull', currentEps: 1, epsCagrPct: 16, terminalPe: 30, years: 5, annualDiscountRatePct: 10 },
+    ],
+    updatedAt: '2026-08-30T08:00:00.000Z',
+});
+
 const createSnapshot = (symbol) => ({
     symbol,
     market: 'US',
@@ -148,6 +161,9 @@ try {
         const page = await context.newPage();
         const blocking = [];
         const memoryRequests = [];
+        const reviewRequests = [];
+        let watchlistRequestCount = 0;
+        let symbolRequestCount = 0;
 
         page.on('console', (message) => {
             if (message.type() === 'error') blocking.push(`console: ${message.text()}`);
@@ -167,6 +183,7 @@ try {
             const request = route.request();
             const url = new URL(request.url());
             if (url.pathname === '/api/research/watchlist') {
+                watchlistRequestCount += 1;
                 await new Promise((resolve) => setTimeout(resolve, 150));
                 return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: records, archivedSymbols: [] }) });
             }
@@ -174,6 +191,7 @@ try {
                 return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { generatedAt: '2026-08-30T08:00:00.000Z', monitoredCount: records.length, items: [], warnings: [] } }) });
             }
             if (url.pathname.startsWith('/api/research/symbol/')) {
+                symbolRequestCount += 1;
                 await new Promise((resolve) => setTimeout(resolve, 250));
                 const symbol = decodeURIComponent(url.pathname.split('/').at(-1));
                 return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: createSnapshot(symbol) }) });
@@ -182,6 +200,21 @@ try {
                 const symbol = decodeURIComponent(url.pathname.split('/').at(-1));
                 memoryRequests.push(`${request.method()} ${symbol}`);
                 return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: request.method() === 'GET' ? [] : { saved: true } }) });
+            }
+            if (url.pathname.startsWith('/api/research/expectations/')) {
+                const symbol = decodeURIComponent(url.pathname.split('/').at(-1));
+                reviewRequests.push(`${request.method()} expectations ${symbol}`);
+                return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: [] }) });
+            }
+            if (url.pathname.startsWith('/api/research/valuation-plan/')) {
+                const symbol = decodeURIComponent(url.pathname.split('/').at(-1));
+                reviewRequests.push(`${request.method()} valuation ${symbol}`);
+                return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: createValuationPlan(symbol) }) });
+            }
+            if (url.pathname.startsWith('/api/research/calibration/')) {
+                const symbol = decodeURIComponent(url.pathname.split('/').at(-1));
+                reviewRequests.push(`${request.method()} decision-review ${symbol}`);
+                return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: [] }) });
             }
             if (url.pathname === '/api/research/quotes') {
                 const requested = request.postDataJSON();
@@ -244,6 +277,85 @@ try {
 
             await page.screenshot({ path: path.join(artifactDirectory, `ux-001-${viewport.width}x${viewport.height}.png`), fullPage: true });
             console.log(`PASS UX-001 Decision Memory ${viewport.width}x${viewport.height}`);
+
+            await tickerPicker.selectOption('MSFT', { force: true });
+            await page.waitForURL((url) => url.searchParams.get('ticker') === 'MSFT', { timeout });
+            const reviewTools = page.getByTestId('research-review-tools');
+            await reviewTools.waitFor({ state: 'visible', timeout });
+            await reviewTools.getByRole('heading', { name: 'Review tools' }).waitFor({ state: 'visible', timeout });
+
+            const initialReviewState = await page.evaluate(() => ({
+                shellCount: document.querySelectorAll('[data-testid="research-review-tools"]').length,
+                memoryCount: document.querySelectorAll('[data-testid="research-memory-dock"]').length,
+                expectationCount: document.querySelectorAll('[data-testid="expectation-reality"]').length,
+                valuationCount: document.querySelectorAll('[data-testid="valuation-reasoning-v9"]').length,
+                decisionCount: document.querySelectorAll('[data-testid="decision-calibration-v10"]').length,
+                portalSlotCount: document.querySelectorAll('[data-testid$="-slot"]').length,
+                controls: Array.from(document.querySelectorAll('[data-review-tool-control]')).map((node) => node.getAttribute('data-review-tool-control')),
+                expandedCount: document.querySelectorAll('[data-review-tool-control][aria-expanded="true"]').length,
+                followsBriefing: (() => {
+                    const briefing = document.querySelector('[data-testid="since-last-visit"]');
+                    const shell = document.querySelector('[data-testid="research-review-tools"]');
+                    return Boolean(briefing && shell && (briefing.compareDocumentPosition(shell) & Node.DOCUMENT_POSITION_FOLLOWING));
+                })(),
+            }));
+            if (initialReviewState.shellCount !== 1) throw new Error(`expected one Review Tools shell, found ${initialReviewState.shellCount}`);
+            if (initialReviewState.memoryCount !== 1 || initialReviewState.expectationCount + initialReviewState.valuationCount + initialReviewState.decisionCount !== 0) throw new Error(`default Review Tools mount is not Decision Memory only: ${JSON.stringify(initialReviewState)}`);
+            if (initialReviewState.portalSlotCount !== 0) throw new Error(`found ${initialReviewState.portalSlotCount} legacy portal slots`);
+            if (initialReviewState.controls.join(',') !== 'memory,expectations,valuation,decision-review') throw new Error(`review control order is not deterministic: ${initialReviewState.controls.join(',')}`);
+            if (initialReviewState.expandedCount !== 1 || !initialReviewState.followsBriefing) throw new Error(`Review Tools disclosure/source order failed: ${JSON.stringify(initialReviewState)}`);
+            if (reviewRequests.length !== 0) throw new Error(`inactive review tools made API calls: ${reviewRequests.join(', ')}`);
+
+            const expectationControl = reviewTools.getByRole('button', { name: /Expectation vs Reality/ });
+            await expectationControl.click();
+            await page.getByTestId('expectation-reality').waitFor({ state: 'visible', timeout });
+            if ((await page.getByTestId('research-memory-dock').count()) !== 0 || (await page.getByTestId('expectation-reality').count()) !== 1) throw new Error('Expectation activation did not mount exactly one tool');
+            if (reviewRequests.join(',') !== 'GET expectations MSFT') throw new Error(`Expectation activation called unexpected APIs: ${reviewRequests.join(', ')}`);
+
+            const sharedRequestsBeforeValuation = { watchlistRequestCount, symbolRequestCount };
+            await reviewTools.getByRole('button', { name: /Valuation/ }).click();
+            const valuation = page.getByTestId('valuation-reasoning-v9');
+            await valuation.waitFor({ state: 'visible', timeout });
+            await valuation.getByText('$425').waitFor({ state: 'visible', timeout });
+            if ((await page.getByTestId('expectation-reality').count()) !== 0 || (await valuation.count()) !== 1) throw new Error('Valuation activation did not replace the prior tool');
+            if (!reviewRequests.includes('GET valuation MSFT')) throw new Error(`Valuation API was not called: ${reviewRequests.join(', ')}`);
+            if (watchlistRequestCount !== sharedRequestsBeforeValuation.watchlistRequestCount || symbolRequestCount !== sharedRequestsBeforeValuation.symbolRequestCount) throw new Error('Valuation independently refetched dashboard-owned Research state');
+
+            const sharedRequestsBeforeDecisionReview = { watchlistRequestCount, symbolRequestCount };
+            await reviewTools.getByRole('button', { name: /Decision review/ }).click();
+            const decisionReview = page.getByTestId('decision-calibration-v10');
+            await decisionReview.waitFor({ state: 'visible', timeout });
+            if ((await valuation.count()) !== 0 || (await decisionReview.count()) !== 1) throw new Error('Decision review activation did not replace the prior tool');
+            if (!reviewRequests.includes('GET decision-review MSFT')) throw new Error(`Decision review API was not called: ${reviewRequests.join(', ')}`);
+            if (watchlistRequestCount !== sharedRequestsBeforeDecisionReview.watchlistRequestCount || symbolRequestCount !== sharedRequestsBeforeDecisionReview.symbolRequestCount) throw new Error('Decision review independently refetched dashboard-owned Research state');
+
+            const decisionControl = reviewTools.getByRole('button', { name: /Decision review/ });
+            await decisionControl.focus();
+            const reviewFocusState = await decisionControl.evaluate((node) => {
+                const style = getComputedStyle(node);
+                return { active: document.activeElement === node, outlineStyle: style.outlineStyle, outlineWidth: Number.parseFloat(style.outlineWidth) };
+            });
+            if (!reviewFocusState.active || reviewFocusState.outlineStyle === 'none' || reviewFocusState.outlineWidth < 1) throw new Error(`Review Tools keyboard focus is not visible: ${JSON.stringify(reviewFocusState)}`);
+
+            await tickerPicker.selectOption('NVDA', { force: true });
+            await page.waitForURL((url) => url.searchParams.get('ticker') === 'NVDA', { timeout });
+            await decisionReview.getByText('Complete and save at least one Research review before calibrating your decision process.').waitFor({ state: 'visible', timeout });
+            if (!reviewRequests.includes('GET decision-review NVDA')) throw new Error(`active Decision review did not follow ticker state: ${reviewRequests.join(', ')}`);
+            if ((await reviewTools.locator('[data-active-review-tool="decision-review"]').count()) !== 1) throw new Error('active review tool was not preserved across ticker change');
+
+            const reviewLayout = await page.evaluate(() => ({
+                documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+                shellCount: document.querySelectorAll('[data-testid="research-review-tools"]').length,
+                activePanelCount: ['research-memory-dock', 'expectation-reality', 'valuation-reasoning-v9', 'decision-calibration-v10']
+                    .reduce((count, testid) => count + document.querySelectorAll(`[data-testid="${testid}"]`).length, 0),
+                expandedCount: document.querySelectorAll('[data-review-tool-control][aria-expanded="true"]').length,
+            }));
+            if (reviewLayout.documentOverflow > 1) throw new Error(`Review Tools caused page-level horizontal overflow (${reviewLayout.documentOverflow}px)`);
+            if (reviewLayout.shellCount !== 1 || reviewLayout.activePanelCount !== 1 || reviewLayout.expandedCount !== 1) throw new Error(`Review Tools duplication/disclosure failed: ${JSON.stringify(reviewLayout)}`);
+            if (blocking.length > 0) throw new Error(blocking.join(' | '));
+
+            await page.screenshot({ path: path.join(artifactDirectory, `ux-003-${viewport.width}x${viewport.height}.png`), fullPage: true });
+            console.log(`PASS UX-003 Review Tools ${viewport.width}x${viewport.height}`);
         } catch (error) {
             failures.push(`${viewport.width}x${viewport.height}: ${error instanceof Error ? error.message : String(error)}`);
         } finally {
