@@ -42,7 +42,7 @@ Production screenshots and raw audit artifacts were captured separately during t
 | ID | Priority | Area | Finding | Status |
 | --- | --- | --- | --- | --- |
 | UX-001 | P0 | Research | Decision Memory is not rendering reliably in production | ✅ Completed |
-| UX-002 | P0 | Research | Core selected-security research is buried below review tools | ⬜ Todo |
+| UX-002 | P0 | Research | Core selected-security research is buried below review tools | ✅ Completed |
 | UX-003 | P0 | Architecture | Four portal-based review docks create brittle mount/order behavior | ✅ Completed |
 | UX-004 | P1 | Research IA | Too many navigation layers; Today is nested too deeply | ⬜ Todo |
 | UX-005 | P1 | Mobile | Review forms still behave like desktop forms | ⬜ Todo |
@@ -112,7 +112,7 @@ ResearchDashboard
 
 **Priority:** P0  
 **Area:** Research composition  
-**Status:** ⬜ Todo
+**Status:** ✅ Completed
 
 ## Observed evidence
 
@@ -166,11 +166,18 @@ Review tools
 
 ## Acceptance criteria
 
-- [ ] Selected-security summary starts within the first 600px at 1440×1000.
-- [ ] No full review form is expanded by default.
-- [ ] Selected-security research appears before secondary review forms in DOM order.
-- [ ] Review tools remain easily reachable without becoming the dominant first screen.
-- [ ] Mobile keeps ticker context visible while the user moves into deeper tools.
+- [x] Selected-security summary starts within the first 600px at 1440×1000.
+- [x] No full review form is expanded by default.
+- [x] Selected-security research appears before secondary review forms in DOM order.
+- [x] Review tools remain easily reachable without becoming the dominant first screen.
+- [x] Mobile keeps ticker context visible while the user moves into deeper tools.
+
+## Completion evidence
+
+- Source commit: [`b96b20f`](https://github.com/hooiml/signal/commit/b96b20fcf6a40ced39e967bc172d7090f8a4b3c7) (`fix(research): prioritize selected security content`).
+- GitHub Actions: [Research Memory Gate run #53](https://github.com/hooiml/signal/actions/runs/33310848983) passed source checks, typecheck, lint, Research regression, production build, Phase 8–11 browser regressions, and Phase 12 QA.
+- Browser evidence: `1440×1000` and `390×844` passed the desktop `≤600px` selected-summary threshold, selected-security-before-review-tools DOM order, no default expanded full form, mobile ticker context, page overflow, and blocking console/page/request checks.
+- Screenshots: [Phase 12 browser evidence artifact](https://github.com/hooiml/signal/actions/runs/33310848983/artifacts/9731964468).
 
 ---
 
