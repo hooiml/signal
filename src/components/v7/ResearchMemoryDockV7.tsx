@@ -1,13 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
-import { useSearchParams } from 'next/navigation';
-import { parseResearchRecord } from '@/lib/research/input';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import type { ResearchMemorySnapshot } from '@/lib/research/research-memory';
-import { parseResearchSnapshotResponse } from '@/components/v6/research-snapshot-v6';
 import {
     addSnapshotToState,
     buildResearchMemorySnapshotFromProvider,
@@ -20,6 +16,25 @@ import { describeResearchMemoryDecisionMemory } from '@/lib/research/research-me
 
 const formatValue = (value: number | undefined, suffix = '') => value === undefined ? 'Unavailable' : `${value.toFixed(2)}${suffix}`;
 const formatDate = (value: string) => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value));
+const emptyHistory: readonly ResearchMemorySnapshot[] = [];
+
+type ResearchMemoryLoadState = 'idle' | 'loading' | 'ready' | 'error';
+
+type ResearchMemoryDockV7Props = {
+    readonly ticker: string;
+    readonly record: ResearchRecord | null;
+    readonly recordsState: Exclude<ResearchMemoryLoadState, 'idle'>;
+    readonly snapshot: ResearchSnapshot | null;
+    readonly snapshotState: ResearchMemoryLoadState;
+    readonly snapshotMessage: string | null;
+};
+
+type ResearchMemoryHistoryState = {
+    readonly ticker: string;
+    readonly status: 'loading' | 'ready';
+    readonly history: readonly ResearchMemorySnapshot[];
+    readonly source: 'server' | 'local';
+};
 
 const readServerHistory = async (ticker: string, signal: AbortSignal): Promise<ResearchMemorySnapshot[]> => {
     const response = await fetch(`/api/research/memory/${encodeURIComponent(ticker)}`, { signal, cache: 'no-store' });
@@ -30,81 +45,33 @@ const readServerHistory = async (ticker: string, signal: AbortSignal): Promise<R
     return data as ResearchMemorySnapshot[];
 };
 
-export const ResearchMemoryDockV7 = () => {
-    const searchParams = useSearchParams();
-    const requested = searchParams.get('ticker')?.trim().toUpperCase();
-    const ticker = requested && /^[A-Z0-9.-]{1,20}$/.test(requested) ? requested : 'MSFT';
-    const [record, setRecord] = useState<ResearchRecord | null>(null);
-    const [snapshot, setSnapshot] = useState<ResearchSnapshot | null>(null);
-    const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
-    const [message, setMessage] = useState<string | null>(null);
-    const [history, setHistory] = useState<readonly ResearchMemorySnapshot[]>([]);
-    const [historySource, setHistorySource] = useState<'server' | 'local'>('server');
-    const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
+export const ResearchMemoryDockV7 = ({
+    ticker,
+    record,
+    recordsState,
+    snapshot,
+    snapshotState,
+    snapshotMessage,
+}: ResearchMemoryDockV7Props) => {
+    const [historyState, setHistoryState] = useState<ResearchMemoryHistoryState>({
+        ticker,
+        status: 'loading',
+        history: [],
+        source: 'server',
+    });
+    const lastPersistedSnapshot = useRef<string | null>(null);
 
     useEffect(() => {
-        const anchor = document.querySelector<HTMLElement>('[data-testid="since-last-visit"]');
-        if (!anchor?.parentElement) return;
-        const host = document.createElement('div');
-        host.dataset.testid = 'research-memory-dock-slot';
-        anchor.parentElement.insertBefore(host, anchor.nextSibling);
-        setPortalHost(host);
-        return () => {
-            setPortalHost(null);
-            host.remove();
-        };
-    }, []);
+        if (recordsState !== 'ready' || !record) return;
 
-    useEffect(() => {
         let active = true;
         const controller = new AbortController();
         const load = async () => {
-            setStatus('loading');
-            setMessage(null);
-            try {
-                const watchlistResponse = await fetch('/api/research/watchlist', { signal: controller.signal, cache: 'no-store' });
-                const watchlistPayload: unknown = await watchlistResponse.json();
-                if (!watchlistResponse.ok || typeof watchlistPayload !== 'object' || watchlistPayload === null || Array.isArray(watchlistPayload)) {
-                    throw new Error('Saved research is unavailable.');
-                }
-                const data = (watchlistPayload as Record<string, unknown>).data;
-                if (!Array.isArray(data)) throw new Error('Saved research is unavailable.');
-                const parsed = data.map((item) => parseResearchRecord(item));
-                const selected = parsed.find((item) => item.symbol === ticker) ?? null;
-                if (!selected) {
-                    if (active) {
-                        setRecord(null);
-                        setSnapshot(null);
-                        setHistory(readResearchMemoryHistory(ticker));
-                        setHistorySource('local');
-                        setStatus('unavailable');
-                        setMessage('Save this security to Research before Signal can build persistent decision memory for it.');
-                    }
-                    return;
-                }
-
-                const [providerResponse, memoryResult] = await Promise.all([
-                    fetch(`/api/research/symbol/${encodeURIComponent(ticker)}?market=${selected.market}`, { signal: controller.signal, cache: 'no-store' }),
-                    readServerHistory(ticker, controller.signal)
-                        .then((serverHistory) => ({ source: 'server' as const, history: serverHistory }))
-                        .catch(() => ({ source: 'local' as const, history: readResearchMemoryHistory(ticker) })),
-                ]);
-                const providerPayload: unknown = await providerResponse.json();
-                if (!providerResponse.ok) throw new Error('Current provider snapshot is unavailable.');
-                const current = parseResearchSnapshotResponse(providerPayload);
-                if (active) {
-                    setRecord(selected);
-                    setSnapshot(current);
-                    setHistory(memoryResult.history);
-                    setHistorySource(memoryResult.source);
-                    setStatus('ready');
-                }
-            } catch (error) {
-                if (controller.signal.aborted) return;
-                if (active) {
-                    setStatus('unavailable');
-                    setMessage(error instanceof Error ? error.message : 'Research memory is unavailable.');
-                }
+            const memoryResult = await readServerHistory(ticker, controller.signal)
+                .then((history) => ({ source: 'server' as const, history }))
+                .catch(() => ({ source: 'local' as const, history: readResearchMemoryHistory(ticker) }));
+            if (active && !controller.signal.aborted) {
+                setHistoryState({ ticker, status: 'ready', ...memoryResult });
             }
         };
         void load();
@@ -112,11 +79,25 @@ export const ResearchMemoryDockV7 = () => {
             active = false;
             controller.abort();
         };
-    }, [ticker]);
+    }, [record, recordsState, ticker]);
+
+    const localHistory = useMemo(
+        () => recordsState !== 'ready' || !record ? readResearchMemoryHistory(ticker) : [],
+        [record, recordsState, ticker],
+    );
+    const serverHistoryReady = historyState.ticker === ticker && historyState.status === 'ready';
+    const history = recordsState === 'ready' && record
+        ? serverHistoryReady ? historyState.history : emptyHistory
+        : localHistory;
+    const historyStatus = recordsState === 'ready' && record
+        ? serverHistoryReady ? 'ready' as const : 'loading' as const
+        : 'ready' as const;
+    const historySource = recordsState === 'ready' && record && serverHistoryReady ? historyState.source : 'local';
+    const currentSnapshot = snapshot?.symbol === ticker ? snapshot : null;
 
     const model = useMemo(() => {
-        if (!record || !snapshot) return null;
-        const current = buildResearchMemorySnapshotFromProvider(record, snapshot);
+        if (!record || !currentSnapshot || historyStatus !== 'ready') return null;
+        const current = buildResearchMemorySnapshotFromProvider(record, currentSnapshot);
         const previous = history.at(-1) ?? null;
         let state = buildResearchMemoryStateFromRecord(record);
         for (const historical of history) state = addSnapshotToState(state, historical);
@@ -129,10 +110,13 @@ export const ResearchMemoryDockV7 = () => {
             scheduledReviewAt: record.decisionJournal.nextReviewAt,
         });
         return { current, previous, workflow };
-    }, [history, record, snapshot]);
+    }, [currentSnapshot, history, historyStatus, record]);
 
     useEffect(() => {
         if (!model) return;
+        const persistenceKey = `${ticker}:${model.current.id}`;
+        if (lastPersistedSnapshot.current === persistenceKey) return;
+        lastPersistedSnapshot.current = persistenceKey;
         writeResearchMemorySnapshot(model.current);
         void fetch(`/api/research/memory/${encodeURIComponent(ticker)}`, {
             method: 'POST',
@@ -141,24 +125,31 @@ export const ResearchMemoryDockV7 = () => {
         }).catch(() => undefined);
     }, [model, ticker]);
 
-    const inResearchFlow = (content: ReactNode) => portalHost ? createPortal(content, portalHost) : null;
+    const loading = recordsState === 'loading'
+        || (record !== null && historyStatus === 'loading')
+        || (record !== null && (snapshotState === 'idle' || snapshotState === 'loading'));
 
-    if (status === 'loading') {
-        return inResearchFlow(
+    if (loading) {
+        return (
             <section data-testid="research-memory-dock" aria-busy="true" className="mb-3 w-full">
                 <div className="rounded-[10px] border border-zinc-700/40 bg-zinc-900/20 p-4 text-sm text-zinc-500">Building decision memory for {ticker}…</div>
-            </section>,
+            </section>
         );
     }
 
     if (!model || !record) {
-        return inResearchFlow(
+        const message = recordsState === 'error'
+            ? 'Saved research is unavailable, so Decision Memory cannot be loaded.'
+            : !record
+                ? 'Save this security to Research before Signal can build persistent decision memory for it.'
+                : snapshotMessage ?? 'Current provider snapshot is unavailable.';
+        return (
             <section data-testid="research-memory-dock" className="mb-3 w-full">
                 <div className="rounded-[10px] border border-zinc-700/40 bg-zinc-900/20 p-4">
                     <strong className="text-sm">Decision memory · {ticker}</strong>
-                    <p className="mt-1 text-xs text-zinc-500">{message ?? 'No memory is available yet.'}</p>
+                    <p className="mt-1 text-xs text-zinc-500">{message}</p>
                 </div>
-            </section>,
+            </section>
         );
     }
 
@@ -174,7 +165,7 @@ export const ResearchMemoryDockV7 = () => {
     const latestDecision = model.workflow.decisionMemory.latestDecision;
     const historyLabel = historySource === 'server' ? 'synced across devices' : 'local fallback';
 
-    return inResearchFlow(
+    return (
         <section data-testid="research-memory-dock" className="mb-3 w-full" aria-label={`Decision memory for ${ticker}`}>
             <div className="rounded-[10px] border border-zinc-700/40 bg-zinc-950/30 p-4 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -231,6 +222,6 @@ export const ResearchMemoryDockV7 = () => {
                     </div>
                 </details>
             </div>
-        </section>,
+        </section>
     );
 };

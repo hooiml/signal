@@ -29,7 +29,7 @@ const formatProviderTimestampV6 = (timestamp: string) => new Intl.DateTimeFormat
     minute: '2-digit',
 }).format(new Date(timestamp));
 
-export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQuote, activeTab, startReview, stagedEvidence, workflowTemplateId, saving, saveError, onTabChange, onReadinessNavigate, onSave, onReviewChange, onSnapshot, onDelete, watchlistSlot, presentation = 'v6' }: {
+export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQuote, activeTab, startReview, stagedEvidence, workflowTemplateId, saving, saveError, onTabChange, onReadinessNavigate, onSave, onReviewChange, onSnapshot, onSnapshotState, onDelete, watchlistSlot, presentation = 'v6' }: {
     ticker: ResearchWatchlistItem;
     records: readonly ResearchRecord[];
     items: readonly ResearchWatchlistItem[];
@@ -47,6 +47,7 @@ export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQu
     onSave: (record: ResearchRecord) => Promise<boolean>;
     onReviewChange: (editing: boolean) => void;
     onSnapshot: (symbol: string, snapshot: ResearchSnapshot) => void;
+    onSnapshotState: (symbol: string, state: 'loading' | 'ready' | 'error', message: string | null) => void;
     onDelete: () => Promise<void>;
     watchlistSlot?: ReactNode;
     presentation?: 'v6' | 'v7';
@@ -82,6 +83,7 @@ export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQu
         const loadSnapshot = async () => {
             setProviderState('loading');
             setProviderError(null);
+            onSnapshotState(ticker.symbol, 'loading', null);
             try {
                 const response = await fetch(`/api/research/symbol/${encodeURIComponent(ticker.symbol)}?market=${ticker.market}`);
                 const payload: unknown = await response.json();
@@ -92,17 +94,20 @@ export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQu
                     setSnapshot(nextSnapshot);
                     onSnapshot(ticker.symbol, nextSnapshot);
                     setProviderState('ready');
+                    onSnapshotState(ticker.symbol, 'ready', null);
                 }
             } catch (error) {
                 if (active) {
+                    const message = error instanceof Error ? error.message : 'Unable to load free-source data.';
                     setProviderState('error');
-                    setProviderError(error instanceof Error ? error.message : 'Unable to load free-source data.');
+                    setProviderError(message);
+                    onSnapshotState(ticker.symbol, 'error', message);
                 }
             }
         };
         void loadSnapshot();
         return () => { active = false; };
-    }, [onSnapshot, refreshKey, ticker.market, ticker.symbol]);
+    }, [onSnapshot, onSnapshotState, refreshKey, ticker.market, ticker.symbol]);
 
     useEffect(() => {
         if (activeTab !== 'chart' || !snapshot || chartHistory) return;

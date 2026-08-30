@@ -27,6 +27,7 @@
     "qa:research-primary-documents": "node scripts/research-primary-documents-qa.mjs",
     "qa:research-picker": "node scripts/research-picker-qa.mjs",
     "qa:research-readiness": "node scripts/research-readiness-qa.mjs",
+    "qa:research-phase12": "node scripts/research-phase12-qa.mjs",
     "qa:research-factor-exposure": "node scripts/research-factor-exposure-qa.mjs",
     "qa:first-run": "node scripts/first-run-setup-qa.mjs",
     "lint": "eslint",

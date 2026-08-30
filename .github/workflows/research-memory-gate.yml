@@ -9,6 +9,7 @@ on:
       - 'feat/research-valuation-reasoning'
       - 'feat/research-decision-calibration'
       - 'feat/research-attention-engine'
+      - 'feat/phase-12-ui-ux-consolidation'
   workflow_dispatch:
 
 jobs:
@@ -62,6 +63,15 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             node scripts/research-attention-v11-qa.mjs
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            node scripts/research-phase12-qa.mjs
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           } finally {
             if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
           }
+      - name: Upload Phase 12 browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-12-browser-evidence
+          path: .tmp/research-phase12-qa/
+          if-no-files-found: ignore

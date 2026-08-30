@@ -64,6 +64,7 @@ import {
 } from '@/lib/product-analytics-client';
 import type { ProductAnalyticsSource } from '@/lib/types/product-analytics';
 import { SinceLastVisitBriefingV6 } from './SinceLastVisitBriefingV6';
+import { ResearchMemoryDockV7 } from '@/components/v7/ResearchMemoryDockV7';
 import { createTodayResearchContinuation } from '@/lib/research/since-last-visit';
 import { writeTodayContinuation } from '@/lib/research/since-last-visit-client';
 import { FirstRunSetupV6 } from './FirstRunSetupV6';
@@ -237,6 +238,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     const [workflowTemplateId, setWorkflowTemplateId] = useState<ResearchWorkflowTemplateId | null>(null);
     const [density, setDensity] = useState<ResearchLayoutDensity>(requestedDensity ?? 'comfortable');
     const [quoteStatus, setQuoteStatus] = useState<string | null>(null);
+    const [snapshotStates, setSnapshotStates] = useState<Record<string, { readonly state: 'idle' | 'loading' | 'ready' | 'error'; readonly message: string | null }>>({});
     const [savedLayouts, setSavedLayouts] = useState<readonly SavedResearchLayout[]>([]);
     const [queueSearchState, setQueueSearchState] = useState<ResearchWorkflowTaskReadResult | null>(null);
     const [watchlistAddRequest, setWatchlistAddRequest] = useState(0);
@@ -388,6 +390,9 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     const selectedRecord = selected
         ? records.find((record) => record.symbol === selected.symbol) ?? toResearchRecordV6(selected)
         : null;
+    const savedSelectedRecord = selected
+        ? records.find((record) => record.symbol === selected.symbol) ?? null
+        : null;
     const inboxRecords = useMemo(
         () => items.map((item) => records.find((record) => record.symbol === item.symbol) ?? toResearchRecordV6(item)),
         [items, records],
@@ -409,6 +414,14 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
             if (item.symbol !== symbol) return item;
             return applyResearchSnapshotV6(item, snapshot);
         }));
+    }, []);
+
+    const updateSnapshotState = useCallback((symbol: string, state: 'loading' | 'ready' | 'error', message: string | null) => {
+        setSnapshotStates((current) => {
+            const existing = current[symbol];
+            if (existing?.state === state && existing.message === message) return current;
+            return { ...current, [symbol]: { state, message } };
+        });
     }, []);
 
     useEffect(() => {
@@ -964,6 +977,16 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                             }}
                         />
                     ) : null}
+                    {selected ? (
+                        <ResearchMemoryDockV7
+                            ticker={selected.symbol}
+                            record={savedSelectedRecord}
+                            recordsState={recordsLoadState}
+                            snapshot={liveSnapshots.current.get(selected.symbol) ?? null}
+                            snapshotState={snapshotStates[selected.symbol]?.state ?? 'idle'}
+                            snapshotMessage={snapshotStates[selected.symbol]?.message ?? null}
+                        />
+                    ) : null}
                     <details data-testid="research-overview" data-surface-tier="utility" className={'group mb-3 rounded-[10px] border ' + themeClasses.panelSolid}>
                         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-[10px] px-4 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 [&::-webkit-details-marker]:hidden">
                             <span>
@@ -1087,7 +1110,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                     ) : (<>
                     {presentation === 'v6' ? watchlistOwner : null}
                     {selected && selectedRecord ? (
-                        <ResearchDetailV6 key={selected.symbol + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} ticker={selected} records={inboxRecords} items={items} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} activeTab={activeDetailTab} startReview={reviewRequested} stagedEvidence={stagedEvidence?.id.startsWith(selected.symbol + ':') ? stagedEvidence : null} workflowTemplateId={workflowTemplateId} saving={saving || recordsLoadState !== 'ready'} saveError={saveError} onTabChange={changeDetailTab} onReadinessNavigate={openReadinessDestination} onSave={saveRecord} onReviewChange={changeReviewMode} onSnapshot={updateLiveSnapshot} onDelete={deleteRecord} watchlistSlot={presentation === 'v7' ? watchlistOwner : undefined} presentation={presentation} />
+                        <ResearchDetailV6 key={selected.symbol + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} ticker={selected} records={inboxRecords} items={items} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} activeTab={activeDetailTab} startReview={reviewRequested} stagedEvidence={stagedEvidence?.id.startsWith(selected.symbol + ':') ? stagedEvidence : null} workflowTemplateId={workflowTemplateId} saving={saving || recordsLoadState !== 'ready'} saveError={saveError} onTabChange={changeDetailTab} onReadinessNavigate={openReadinessDestination} onSave={saveRecord} onReviewChange={changeReviewMode} onSnapshot={updateLiveSnapshot} onSnapshotState={updateSnapshotState} onDelete={deleteRecord} watchlistSlot={presentation === 'v7' ? watchlistOwner : undefined} presentation={presentation} />
                     ) : (
                         <section className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
                             <div>
