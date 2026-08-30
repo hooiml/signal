@@ -51,8 +51,7 @@ const marketItems = (input: ResearchInboxInput, state: AlertMarketState | null):
         detail: `RSI is ${state.rsi14.toFixed(1)}. Review whether momentum has outrun the thesis.`,
         proximity: `RSI ${state.rsi14.toFixed(1)} · ${(state.rsi14 - upperRsi).toFixed(1)} points above ${upperRsi}`,
     }));
-    const priority = { risk: 0, opportunity: 1, catalyst: 2, stale: 3 } as const;
-    return items.sort((left, right) => priority[left.kind] - priority[right.kind]);
+    return items.sort((left, right) => (left.kind === 'risk' ? 0 : 1) - (right.kind === 'risk' ? 0 : 1));
 };
 
 const catalystItem = (input: ResearchInboxInput, catalyst: DiscoveryCatalyst, now: Date): ResearchInboxItem => ({

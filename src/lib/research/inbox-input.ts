@@ -1,8 +1,8 @@
 import type { ResearchInboxItem, ResearchInboxResponse } from '../types/research-inbox';
 
-const kinds = ['risk', 'opportunity', 'catalyst', 'stale'] as const;
+const kinds = ['risk', 'opportunity', 'catalyst', 'stale', 'expectation', 'valuation', 'decision'] as const;
 const urgencies = ['action', 'upcoming'] as const;
-const sources = ['Yahoo Finance', 'Nasdaq earnings calendar', 'Research journal', 'Structured trigger'] as const;
+const sources = ['Yahoo Finance', 'Nasdaq earnings calendar', 'Research journal', 'Structured trigger', 'Expectation journal', 'Valuation plan', 'Decision review'] as const;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === 'object' && value !== null && !Array.isArray(value);
