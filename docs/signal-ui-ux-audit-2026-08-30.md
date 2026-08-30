@@ -41,7 +41,7 @@ Production screenshots and raw audit artifacts were captured separately during t
 
 | ID | Priority | Area | Finding | Status |
 | --- | --- | --- | --- | --- |
-| UX-001 | P0 | Research | Decision Memory is not rendering reliably in production | ⬜ Todo |
+| UX-001 | P0 | Research | Decision Memory is not rendering reliably in production | ✅ Completed |
 | UX-002 | P0 | Research | Core selected-security research is buried below review tools | ⬜ Todo |
 | UX-003 | P0 | Architecture | Four portal-based review docks create brittle mount/order behavior | ⬜ Todo |
 | UX-004 | P1 | Research IA | Too many navigation layers; Today is nested too deeply | ⬜ Todo |
@@ -57,7 +57,7 @@ Production screenshots and raw audit artifacts were captured separately during t
 
 **Priority:** P0  
 **Area:** Research / Correctness  
-**Status:** ⬜ Todo
+**Status:** ✅ Completed
 
 ## Observed evidence
 
@@ -90,13 +90,21 @@ ResearchDashboard
 
 ## Acceptance criteria
 
-- [ ] `research-memory-dock` is present for a saved security on desktop.
-- [ ] `research-memory-dock` is present for a saved security on mobile.
-- [ ] Unsaved securities show an explicit unavailable state rather than nothing.
-- [ ] Switching ticker updates the same Decision Memory instance.
-- [ ] Navigating between Research workspaces does not create duplicate memory slots.
-- [ ] Exactly one Decision Memory surface exists in the DOM.
-- [ ] Browser QA covers delayed client mounting.
+- [x] `research-memory-dock` is present for a saved security on desktop.
+- [x] `research-memory-dock` is present for a saved security on mobile.
+- [x] Unsaved securities show an explicit unavailable state rather than nothing.
+- [x] Switching ticker updates the same Decision Memory instance.
+- [x] Navigating between Research workspaces does not create duplicate memory slots.
+- [x] Exactly one Decision Memory surface exists in the DOM.
+- [x] Browser QA covers delayed client mounting.
+
+## Completion evidence
+
+- Source commit: [`4a0f3e1`](https://github.com/hooiml/signal/commit/4a0f3e1ffcd7d7596cb2b4c1e402623d53cd4f48) (`fix(research): integrate decision memory rendering`).
+- Final verified head: [`5c094a0`](https://github.com/hooiml/signal/commit/5c094a0ebb41d65b84996c0f09519199adde5b9b).
+- GitHub Actions: [Research Memory Gate run #47](https://github.com/hooiml/signal/actions/runs/33309087019) passed source checks, typecheck, lint, Research regression, production build, Phase 8–11 browser regressions, and Phase 12 QA.
+- Browser evidence: `1440×1000` and `390×844` passed delayed loading, saved and unsaved states, ticker switching, workspace navigation and Back restoration, single-instance assertions, visible keyboard focus, persistence requests, page overflow, and blocking console/page/request checks.
+- Screenshots: [Phase 12 browser evidence artifact](https://github.com/hooiml/signal/actions/runs/33309087019/artifacts/9731444577).
 
 ---
 
