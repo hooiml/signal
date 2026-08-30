@@ -14,6 +14,9 @@ export const researchInboxCategoryLabel = (item: ResearchInboxItem): string => {
     if (item.kind === 'risk') return 'Risk';
     if (item.kind === 'opportunity') return 'Opportunity';
     if (item.kind === 'catalyst') return 'Catalyst';
+    if (item.kind === 'expectation') return 'Expectation';
+    if (item.kind === 'valuation') return 'Valuation';
+    if (item.kind === 'decision') return 'Decision review';
     return 'Stale review';
 };
 
@@ -23,9 +26,11 @@ export const ResearchInboxRowV6 = ({ item, theme, unread, change, onOpen, classN
         ? styles.risk
         : item.kind === 'opportunity'
             ? styles.positive
-            : item.kind === 'catalyst'
+            : item.kind === 'catalyst' || item.kind === 'expectation'
                 ? theme === 'light' ? 'text-amber-700' : 'text-amber-300'
-                : styles.textMuted;
+                : item.kind === 'valuation' || item.kind === 'decision'
+                    ? theme === 'light' ? 'text-sky-700' : 'text-sky-300'
+                    : styles.textMuted;
     return (
         <li className={'rounded border px-3 py-2 ' + styles.divider + ' ' + className}>
             <button type="button" onClick={onOpen} aria-label={`Open ${item.symbol} research: ${item.title}`} className="min-h-10 w-full min-w-0 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500">
