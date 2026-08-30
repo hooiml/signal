@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getResearchInbox } from '@/lib/research/inbox';
+import { enrichResearchInboxWithAttention } from '@/lib/research/research-attention';
 import { parseResearchMonitoringRules, parseResearchUpdateInput, ResearchInputError } from '@/lib/research/input';
 import type { ResearchInboxInput } from '@/lib/types/research-inbox';
 
@@ -41,7 +42,10 @@ export const POST = async (request: Request): Promise<NextResponse> => {
         }
         const inputs = payload.map(parseInput);
         if (inputs.some((input) => input === null)) return NextResponse.json({ success: false, error: 'Invalid research inbox input.' }, { status: 400 });
-        return NextResponse.json({ success: true, data: await getResearchInbox(inputs.filter((input): input is ResearchInboxInput => input !== null)) });
+        const parsed = inputs.filter((input): input is ResearchInboxInput => input !== null);
+        const base = await getResearchInbox(parsed);
+        const enriched = await enrichResearchInboxWithAttention(base, parsed.map((input) => input.symbol));
+        return NextResponse.json({ success: true, data: enriched });
     } catch (error) {
         return NextResponse.json({
             success: false,
