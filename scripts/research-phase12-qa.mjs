@@ -450,6 +450,43 @@ try {
             if (blocking.length > 0) throw new Error(blocking.join(' | '));
             await page.screenshot({ path: path.join(artifactDirectory, `ux-005-${viewport.width}x${viewport.height}.png`), fullPage: true });
             console.log(`PASS UX-005 Mobile Review Forms ${viewport.width}x${viewport.height}`);
+
+            const researchHeadings = await page.evaluate(() => ({
+                h1: Array.from(document.querySelectorAll('h1')).map((node) => node.textContent?.trim()),
+                levels: Array.from(document.querySelectorAll('h1, h2, h3')).map((node) => Number(node.tagName.slice(1))),
+                detailBeforeTools: (() => {
+                    const detail = document.querySelector('#research-detail');
+                    const tools = document.querySelector('[data-testid="research-review-tools"]');
+                    if (!(detail instanceof HTMLElement) || !(tools instanceof HTMLElement)) return false;
+                    return Boolean(detail.compareDocumentPosition(tools) & Node.DOCUMENT_POSITION_FOLLOWING)
+                        && detail.getBoundingClientRect().top <= tools.getBoundingClientRect().top;
+                })(),
+            }));
+            if (researchHeadings.h1.length !== 1 || researchHeadings.h1[0] !== 'Selected security') throw new Error(`Research exposes invalid page headings: ${JSON.stringify(researchHeadings.h1)}`);
+            if (researchHeadings.levels[0] !== 1 || researchHeadings.levels.findIndex((level) => level === 3) < researchHeadings.levels.findIndex((level) => level === 2)) throw new Error(`Research heading hierarchy is invalid: ${researchHeadings.levels.join(',')}`);
+            if (!researchHeadings.detailBeforeTools) throw new Error('Research DOM order and visual order diverge');
+
+            if (viewport.width >= 700) {
+                const watchlistControl = page.getByRole('button', { name: 'Watchlist', exact: true });
+                await watchlistControl.focus();
+                await page.keyboard.press('ArrowRight');
+                const todayControl = page.getByRole('button', { name: 'Today', exact: true });
+                if (!await todayControl.evaluate((node) => document.activeElement === node)) throw new Error('keyboard navigation did not follow the visible top-level order');
+            } else {
+                await sectionControl.selectOption('today');
+            }
+            await page.waitForURL((url) => url.searchParams.get('workspace') === 'today', { timeout });
+            const todayH1 = await page.locator('h1').allTextContents();
+            if (todayH1.length !== 1 || todayH1[0]?.trim() !== 'Today') throw new Error(`Today exposes invalid page headings: ${JSON.stringify(todayH1)}`);
+
+            if (viewport.width >= 700) await page.getByRole('button', { name: 'More', exact: true }).click();
+            else await sectionControl.selectOption('more');
+            await page.waitForURL((url) => url.searchParams.get('workspace') === 'health', { timeout });
+            await page.getByRole('heading', { name: 'Source health and coverage' }).waitFor({ state: 'visible', timeout });
+            if (await page.locator('h1').count() !== 1) throw new Error('More workspace exposes duplicate page headings');
+            if (blocking.length > 0) throw new Error(blocking.join(' | '));
+            await page.screenshot({ path: path.join(artifactDirectory, `ux-006-${viewport.width}x${viewport.height}.png`), fullPage: true });
+            console.log(`PASS UX-006 Accessibility Order ${viewport.width}x${viewport.height}`);
         } catch (error) {
             failures.push(`${viewport.width}x${viewport.height}: ${error instanceof Error ? error.message : String(error)}`);
         } finally {

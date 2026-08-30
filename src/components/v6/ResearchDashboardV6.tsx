@@ -961,7 +961,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 ) : null}
                 {marketHandoff ? <ResearchMarketContextV6 handoff={marketHandoff} items={items} theme={theme} onOpen={openResearchFrom('market')} /> : null}
                 {workspace === 'research' ? <div>
-                    <h1 className="sr-only">Research workspace</h1>
+                    {presentation === 'v6' ? <h1 className="sr-only">Research workspace</h1> : null}
                     {recordsLoadState === 'ready' ? (
                         <SinceLastVisitBriefingV6
                             records={inboxRecords}
@@ -1154,7 +1154,11 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 <div className={liveStyles.researchPage}>
                     <div className={liveStyles.researchIdentity}>
                         <p>Investment research</p>
-                        <h1>{workspace === 'research' ? 'Selected security' : researchWorkspaceGroups.find((group) => group.items.some((item) => item.id === workspace))?.items.find((item) => item.id === workspace)?.label ?? 'Research workspace'}</h1>
+                        {workspace === 'research' ? (
+                            <h1 className={liveStyles.researchIdentityTitle}>Selected security</h1>
+                        ) : (
+                            <div className={liveStyles.researchIdentityTitle}>{researchWorkspaceGroups.find((group) => group.items.some((item) => item.id === workspace))?.items.find((item) => item.id === workspace)?.label ?? 'Research workspace'}</div>
+                        )}
                         <span>{workspace === 'research' ? 'The saved decision, qualifying evidence, next gap, and owning review workflow stay together.' : 'This workspace retains its existing identifier, deep link, data owner, and mutation boundary.'}</span>
                     </div>
                     {dashboardBody}

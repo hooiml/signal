@@ -20,6 +20,8 @@ assert.doesNotMatch(wrapper, /ResearchExpectationDockV8|ResearchValuationDockV9|
 assert.match(dashboard, /<ResearchReviewToolsV12/, 'Research dashboard must own review tools in source order');
 assert.ok(dashboard.indexOf('<SinceLastVisitBriefingV6') < dashboard.indexOf('<main id='), 'Since last visit must precede the selected-security workspace');
 assert.ok(dashboard.indexOf('<main id=') < dashboard.indexOf('<ResearchReviewToolsV12'), 'Selected-security research must precede secondary review tools in DOM order');
+assert.match(dashboard, /presentation === 'v6' \? <h1 className="sr-only">Research workspace<\/h1> : null/, 'Legacy V6 keeps its page heading without duplicating the V7 heading');
+assert.match(dashboard, /<h1 className=\{liveStyles\.researchIdentityTitle\}>Selected security<\/h1>/, 'V7 selected-security state must expose one page heading');
 assert.match(dashboard, /ticker=\{selected\.symbol\}/, 'Dashboard must pass the selected ticker directly');
 assert.match(dashboard, /record=\{savedSelectedRecord\}/, 'Dashboard must pass the selected saved record directly');
 assert.match(dashboard, /snapshot=\{liveSnapshots\.current\.get\(selected\.symbol\)/, 'Dashboard must share the selected provider snapshot');
