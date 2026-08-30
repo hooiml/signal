@@ -46,7 +46,7 @@ Production screenshots and raw audit artifacts were captured separately during t
 | UX-003 | P0 | Architecture | Four portal-based review docks create brittle mount/order behavior | ✅ Completed |
 | UX-004 | P1 | Research IA | Too many navigation layers; Today is nested too deeply | ✅ Completed |
 | UX-005 | P1 | Mobile | Review forms still behave like desktop forms | ✅ Completed |
-| UX-006 | P1 | Accessibility | DOM order, heading order, and visual order diverge | ⬜ Todo |
+| UX-006 | P1 | Accessibility | DOM order, heading order, and visual order diverge | ✅ Completed |
 | UX-007 | P1 | Copy | Developer/internal architecture language is visible to users | ⬜ Todo |
 | UX-008 | P1 | Today | Secondary status cards are too repetitive and vertically expensive | ⬜ Todo |
 | UX-009 | P2 | Market | Market needs metadata, touch-target, and copy polish | ⬜ Todo |
@@ -404,7 +404,7 @@ Outcome     Pending
 
 **Priority:** P1  
 **Area:** Accessibility  
-**Status:** ⬜ Todo
+**Status:** ✅ Completed
 
 ## Observed problem
 
@@ -431,11 +431,18 @@ Visual order = DOM order
 
 ## Acceptance criteria
 
-- [ ] Exactly one visible/semantic `h1` exists per screen state.
-- [ ] Today does not expose duplicate `h1` headings.
-- [ ] Research utilities appear in the same DOM order users see them.
-- [ ] Heading levels are not chosen only for font size.
-- [ ] Keyboard tab order follows visual progression.
+- [x] Exactly one visible/semantic `h1` exists per screen state.
+- [x] Today does not expose duplicate `h1` headings.
+- [x] Research utilities appear in the same DOM order users see them.
+- [x] Heading levels are not chosen only for font size.
+- [x] Keyboard tab order follows visual progression.
+
+## Completion evidence
+
+- Source commits: [`42cf02d`](https://github.com/hooiml/signal/commit/42cf02d898f181db9118f1cfb811823a716e325b) (`fix(research): align heading and content order`) and [`c5e6800`](https://github.com/hooiml/signal/commit/c5e680028a46ff9d06c341b3094fbac720b13ba6) (`test(research): await mobile review metrics`).
+- GitHub Actions: [Research Memory Gate run #61](https://github.com/hooiml/signal/actions/runs/33312594562) passed source checks, typecheck, lint, Research regression, production build, Phase 8–11 browser regressions, and Phase 12 QA.
+- Browser evidence: `1440×1000`, `360×800`, `390×844`, and `430×932` passed one-`h1` Research/Today/More checks, semantic heading-order checks, matching selected-security DOM/visual order, keyboard top-level navigation order, console/page error checks, and page-overflow checks.
+- Screenshots: [Phase 12 browser evidence artifact](https://github.com/hooiml/signal/actions/runs/33312594562/artifacts/9732484226).
 
 ---
 
