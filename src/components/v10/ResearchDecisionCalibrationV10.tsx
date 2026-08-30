@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
     calibrationRatings,
     createResearchDecisionCalibration,
@@ -55,7 +55,7 @@ export const ResearchDecisionCalibrationV10 = ({ ticker, record, snapshot }: Pro
     }, [record, ticker]);
     useEffect(() => { void load(); }, [load]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (laterPrice === null) return;
         setDraft((current) => current && !reviews.some((entry) => entry.id === current.id)
             ? { ...current, laterPrice }
