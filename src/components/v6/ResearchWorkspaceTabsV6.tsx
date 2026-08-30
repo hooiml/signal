@@ -55,7 +55,7 @@ export const ResearchWorkspaceTabsV6 = ({ active, theme, onChange }: {
             <nav
                 aria-label="Research sections"
                 data-surface-tier="utility"
-                className={'hidden grid-cols-7 rounded border p-1 min-[700px]:grid ' + styles.panelUtility}
+                className={'hidden grid-cols-6 rounded border p-1 min-[700px]:grid ' + styles.panelUtility}
             >
                 {researchWorkspaceGroups.map((group, index) => (
                     <button

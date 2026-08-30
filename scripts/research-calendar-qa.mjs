@@ -102,28 +102,28 @@ try {
             return respond();
         });
         const researchSectionSelect = page.getByRole('combobox', { name: 'Research section' });
-        const activityWorkspaceSelect = page.getByRole('combobox', { name: 'Activity workspace' });
+        const todayWorkspaceSelect = page.getByRole('combobox', { name: 'Today workspace' });
         const selectWorkspace = async (name, value) => {
             if (width < 700) {
                 if (name === 'Watchlist') await researchSectionSelect.selectOption('watchlist');
                 else {
-                    await researchSectionSelect.selectOption('activity');
-                    await activityWorkspaceSelect.waitFor({ state: 'visible', timeout });
-                    await activityWorkspaceSelect.selectOption(value);
+                    await researchSectionSelect.selectOption('today');
+                    await todayWorkspaceSelect.waitFor({ state: 'visible', timeout });
+                    await todayWorkspaceSelect.selectOption(value);
                 }
             } else if (name === 'Watchlist') {
                 await page.getByRole('button', { name: 'Watchlist', exact: true }).click();
             } else {
-                await page.getByRole('button', { name: 'Activity', exact: true }).click();
+                await page.getByRole('button', { name: 'Today', exact: true }).click();
                 await page.getByRole('tab', { name, exact: true }).click();
             }
         };
         const expectWorkspace = async (name, value) => {
             if (width < 700) {
                 await researchSectionSelect.waitFor({ state: 'visible', timeout });
-                const expectedSection = name === 'Watchlist' ? 'watchlist' : 'activity';
+                const expectedSection = name === 'Watchlist' ? 'watchlist' : 'today';
                 check(await researchSectionSelect.inputValue() === expectedSection, `${width}: ${name} section was not restored`);
-                if (name !== 'Watchlist') check(await activityWorkspaceSelect.inputValue() === value, `${width}: ${name} workspace was not restored`);
+                if (name !== 'Watchlist') check(await todayWorkspaceSelect.inputValue() === value, `${width}: ${name} workspace was not restored`);
             } else {
                 if (name === 'Watchlist') await page.getByRole('heading', { name: 'Watchlist', exact: true }).waitFor({ state: 'visible', timeout });
                 else {

@@ -2,8 +2,7 @@ import type { ResearchLayoutWorkspace } from './saved-layouts';
 
 export type ResearchWorkspaceGroupId =
     | 'watchlist'
-    | 'discovery'
-    | 'activity'
+    | 'today'
     | 'analyze'
     | 'portfolio'
     | 'review'
@@ -29,17 +28,8 @@ export const researchWorkspaceGroups: readonly ResearchWorkspaceNavigationGroup[
         items: [{ id: 'research', label: 'Watchlist' }],
     },
     {
-        id: 'discovery',
-        label: 'Discovery',
-        defaultWorkspace: 'discovery',
-        items: [
-            { id: 'discovery', label: 'Market scan' },
-            { id: 'picker', label: 'Picker' },
-        ],
-    },
-    {
-        id: 'activity',
-        label: 'Activity',
+        id: 'today',
+        label: 'Today',
         defaultWorkspace: 'today',
         items: [
             { id: 'today', label: 'Today' },
@@ -47,33 +37,36 @@ export const researchWorkspaceGroups: readonly ResearchWorkspaceNavigationGroup[
             { id: 'alerts', label: 'Alerts' },
             { id: 'calendar', label: 'Calendar' },
             { id: 'changes', label: 'Changes' },
-            { id: 'filings', label: 'Filings' },
         ],
     },
     {
         id: 'analyze',
         label: 'Analyze',
-        defaultWorkspace: 'compare',
+        defaultWorkspace: 'discovery',
         items: [
+            { id: 'discovery', label: 'Market scan' },
+            { id: 'picker', label: 'Picker' },
             { id: 'compare', label: 'Compare' },
             { id: 'peers', label: 'Peers' },
+            { id: 'filings', label: 'Filings' },
+            { id: 'evidence', label: 'Evidence' },
             { id: 'relationships', label: 'Map' },
-            { id: 'currency', label: 'Currency' },
         ],
     },
     {
         id: 'portfolio',
         label: 'Portfolio',
         defaultWorkspace: 'portfolio',
-        items: [{ id: 'portfolio', label: 'Portfolio' }],
+        items: [
+            { id: 'portfolio', label: 'Portfolio' },
+            { id: 'currency', label: 'Currency' },
+        ],
     },
     {
         id: 'review',
         label: 'Review',
-        defaultWorkspace: 'evidence',
+        defaultWorkspace: 'outcomes',
         items: [
-            { id: 'evidence', label: 'Evidence' },
-            { id: 'policy', label: 'Policy' },
             { id: 'outcomes', label: 'Outcomes' },
             { id: 'replay', label: 'Replay' },
         ],
@@ -84,6 +77,7 @@ export const researchWorkspaceGroups: readonly ResearchWorkspaceNavigationGroup[
         defaultWorkspace: 'health',
         items: [
             { id: 'health', label: 'Sources' },
+            { id: 'policy', label: 'Policy' },
             { id: 'packets', label: 'Export' },
             { id: 'backup', label: 'Backup' },
             { id: 'usage', label: 'Usage' },

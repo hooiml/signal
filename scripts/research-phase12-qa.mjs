@@ -251,9 +251,9 @@ try {
             }
 
             if (viewport.width >= 700) {
-                await page.getByRole('button', { name: 'Activity', exact: true }).click();
+                await page.getByRole('button', { name: 'Today', exact: true }).click();
             } else {
-                await page.locator('select[aria-label="Research section"]').selectOption('activity');
+                await page.locator('select[aria-label="Research section"]').selectOption('today');
             }
             await page.waitForURL((url) => url.searchParams.get('workspace') === 'today', { timeout });
             if (await memory.count() !== 0) throw new Error('Decision Memory remained mounted outside the selected-security workspace');
@@ -376,6 +376,37 @@ try {
 
             await page.screenshot({ path: path.join(artifactDirectory, `ux-003-${viewport.width}x${viewport.height}.png`), fullPage: true });
             console.log(`PASS UX-003 Review Tools ${viewport.width}x${viewport.height}`);
+
+            const sectionControl = page.locator('select[aria-label="Research section"]');
+            const topLevelCount = viewport.width >= 700
+                ? await page.locator('nav[aria-label="Research sections"] > button').count()
+                : await sectionControl.locator('option').count();
+            if (topLevelCount !== 6) throw new Error(`expected six top-level Research destinations, found ${topLevelCount}`);
+
+            if (viewport.width >= 700) await page.getByRole('button', { name: 'More', exact: true }).click();
+            else await sectionControl.selectOption('more');
+            await page.waitForURL((url) => url.searchParams.get('workspace') === 'health', { timeout });
+            if (new URL(page.url()).searchParams.get('ticker') !== 'NVDA') throw new Error('selected ticker was lost when opening More');
+            const moreLabels = viewport.width >= 700
+                ? await page.getByRole('tablist', { name: 'More workspaces' }).getByRole('tab').allTextContents()
+                : await page.getByLabel('More workspace').locator('option').allTextContents();
+            for (const expected of ['Sources', 'Policy', 'Export', 'Backup', 'Usage']) {
+                if (!moreLabels.includes(expected)) throw new Error(`${expected} is not discoverable through More`);
+            }
+
+            if (viewport.width >= 700) await page.getByRole('button', { name: 'Today', exact: true }).click();
+            else await sectionControl.selectOption('today');
+            await page.waitForURL((url) => url.searchParams.get('workspace') === 'today', { timeout });
+            if (new URL(page.url()).searchParams.get('ticker') !== 'NVDA') throw new Error('selected ticker was lost when opening Today');
+            await page.goBack({ waitUntil: 'domcontentloaded' });
+            await page.waitForURL((url) => url.searchParams.get('workspace') === 'health' && url.searchParams.get('ticker') === 'NVDA', { timeout });
+            await page.goForward({ waitUntil: 'domcontentloaded' });
+            await page.waitForURL((url) => url.searchParams.get('workspace') === 'today' && url.searchParams.get('ticker') === 'NVDA', { timeout });
+            const navigationOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+            if (navigationOverflow > 1) throw new Error(`Research navigation caused page-level horizontal overflow (${navigationOverflow}px)`);
+            if (blocking.length > 0) throw new Error(blocking.join(' | '));
+            await page.screenshot({ path: path.join(artifactDirectory, `ux-004-${viewport.width}x${viewport.height}.png`), fullPage: true });
+            console.log(`PASS UX-004 Today Navigation ${viewport.width}x${viewport.height}`);
         } catch (error) {
             failures.push(`${viewport.width}x${viewport.height}: ${error instanceof Error ? error.message : String(error)}`);
         } finally {
