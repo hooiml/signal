@@ -210,7 +210,7 @@ try {
             if (viewport.width >= 700) {
                 await page.getByRole('button', { name: 'Activity', exact: true }).click();
             } else {
-                await page.getByLabel('Research section').selectOption('activity');
+                await page.locator('select[aria-label="Research section"]').selectOption('activity');
             }
             await page.waitForURL((url) => url.searchParams.get('workspace') === 'today', { timeout });
             if (await memory.count() !== 0) throw new Error('Decision Memory remained mounted outside the selected-security workspace');
