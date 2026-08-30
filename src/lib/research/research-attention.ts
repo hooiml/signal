@@ -1,3 +1,4 @@
+import type { ResearchRecord } from '../types/research';
 import type { ResearchInboxItem, ResearchInboxResponse } from '../types/research-inbox';
 import { listResearchState } from './store';
 import { listStoredResearchExpectationEvents } from './research-expectation-store';
@@ -7,10 +8,8 @@ import { listStoredDecisionCalibrations } from './research-decision-calibration-
 const DAY_MS = 86_400_000;
 const daysUntil = (value: string, now: Date) => Math.ceil((new Date(`${value}T00:00:00Z`).getTime() - now.getTime()) / DAY_MS);
 
-const stateItemsForTicker = async (symbol: string, now: Date): Promise<ResearchInboxItem[]> => {
-    const state = await listResearchState();
-    const record = state.records.find((item) => item.symbol === symbol);
-    if (!record) return [];
+const stateItemsForRecord = async (record: ResearchRecord, now: Date): Promise<ResearchInboxItem[]> => {
+    const symbol = record.symbol;
     const [events, valuationPlan, calibrations] = await Promise.all([
         listStoredResearchExpectationEvents(symbol).catch(() => []),
         findStoredResearchValuationPlan(symbol).catch(() => null),
@@ -65,7 +64,7 @@ const stateItemsForTicker = async (symbol: string, now: Date): Promise<ResearchI
     return items;
 };
 
-const rank = (item: ResearchInboxItem) => {
+export const researchAttentionRank = (item: ResearchInboxItem) => {
     if (item.urgency === 'action' && item.kind === 'risk') return 0;
     if (item.urgency === 'action' && item.kind === 'expectation') return 1;
     if (item.urgency === 'action' && item.kind === 'decision') return 2;
@@ -76,14 +75,18 @@ const rank = (item: ResearchInboxItem) => {
     return 7;
 };
 
+export const rankResearchAttentionItems = (items: readonly ResearchInboxItem[]) =>
+    [...items].sort((a, b) => researchAttentionRank(a) - researchAttentionRank(b) || a.symbol.localeCompare(b.symbol) || a.title.localeCompare(b.title));
+
 export const enrichResearchInboxWithAttention = async (
     base: ResearchInboxResponse,
     symbols: readonly string[],
     now = new Date(base.generatedAt),
 ): Promise<ResearchInboxResponse> => {
-    const enriched = await Promise.all(symbols.map((symbol) => stateItemsForTicker(symbol, now)));
+    const state = await listResearchState();
+    const wanted = new Set(symbols);
+    const enriched = await Promise.all(state.records.filter((record) => wanted.has(record.symbol)).map((record) => stateItemsForRecord(record, now)));
     const deduped = new Map<string, ResearchInboxItem>();
     [...base.items, ...enriched.flat()].forEach((item) => deduped.set(item.id, item));
-    const items = [...deduped.values()].sort((a, b) => rank(a) - rank(b) || a.symbol.localeCompare(b.symbol) || a.title.localeCompare(b.title));
-    return { ...base, items };
+    return { ...base, items: rankResearchAttentionItems([...deduped.values()]) };
 };
