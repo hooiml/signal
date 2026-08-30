@@ -36,10 +36,8 @@ const runViewport = async (browser, viewport) => {
         if(url.pathname.startsWith('/api/signals/')) return json({success:false,error:'not needed'},503);
         return json({success:true,data:{}});
     });
-    await page.goto(`${baseUrl}/research?ticker=MSFT`, {waitUntil:'domcontentloaded'});
-    const todayTab = page.getByRole('button', { name: /^Today(?:\s|$)/ }).first();
-    if (await todayTab.isVisible().catch(() => false)) await todayTab.click();
-    const daily=page.getByText('Daily attention',{exact:true}).filter({ visible: true }); await daily.waitFor({state:'visible',timeout:30000});
+    await page.goto(`${baseUrl}/research?ticker=MSFT&workspace=today`, {waitUntil:'domcontentloaded'});
+    const daily=page.getByText('Daily attention',{exact:true}); await daily.waitFor({state:'visible',timeout:30000});
     const section=daily.locator('xpath=ancestor::section[1]');
     const text=await section.textContent();
     for(const expected of ['Large daily move','Complete expectation vs reality','Review the prior decision process','Complete valuation evidence input','Expectation','Valuation','Decision review']) check(text?.includes(expected), `${viewport.width}: missing ${expected}`);
