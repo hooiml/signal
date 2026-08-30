@@ -196,6 +196,7 @@ try {
         try {
             await page.goto(`${baseUrl}/research?workspace=research&ticker=MSFT`, { waitUntil: 'domcontentloaded', timeout });
             const memory = page.getByTestId('research-memory-dock');
+            await memory.getByText('Building decision memory for MSFT…').waitFor({ state: 'visible', timeout });
             await memory.getByRole('heading', { name: 'MSFT · What changed and what needs review' }).waitFor({ state: 'visible', timeout });
             if (await memory.count() !== 1) throw new Error('Decision Memory did not render exactly once after delayed mounting');
             if (!memoryRequests.includes('GET MSFT') || !memoryRequests.includes('POST MSFT')) throw new Error(`MSFT memory persistence path was incomplete: ${memoryRequests.join(', ')}`);
@@ -206,6 +207,15 @@ try {
             await memory.getByRole('heading', { name: 'NVDA · What changed and what needs review' }).waitFor({ state: 'visible', timeout });
             if (await memory.count() !== 1) throw new Error('Ticker change created a duplicate Decision Memory surface');
             if (!memoryRequests.includes('GET NVDA') || !memoryRequests.includes('POST NVDA')) throw new Error(`NVDA memory persistence path was incomplete: ${memoryRequests.join(', ')}`);
+            const replayLink = memory.getByRole('link', { name: 'Open replay' });
+            await replayLink.focus();
+            const focusState = await replayLink.evaluate((node) => {
+                const style = getComputedStyle(node);
+                return { active: document.activeElement === node, outlineStyle: style.outlineStyle, outlineWidth: Number.parseFloat(style.outlineWidth) };
+            });
+            if (!focusState.active || focusState.outlineStyle === 'none' || focusState.outlineWidth < 1) {
+                throw new Error(`Decision Memory keyboard focus is not visible: ${JSON.stringify(focusState)}`);
+            }
 
             if (viewport.width >= 700) {
                 await page.getByRole('button', { name: 'Activity', exact: true }).click();
