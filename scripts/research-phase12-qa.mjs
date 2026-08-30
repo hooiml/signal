@@ -331,6 +331,8 @@ try {
 
             const decisionControl = reviewTools.getByRole('button', { name: /Decision review/ });
             await decisionControl.focus();
+            await page.keyboard.press('Tab');
+            await page.keyboard.press('Shift+Tab');
             const reviewFocusState = await decisionControl.evaluate((node) => {
                 const style = getComputedStyle(node);
                 return { active: document.activeElement === node, outlineStyle: style.outlineStyle, outlineWidth: Number.parseFloat(style.outlineWidth) };
