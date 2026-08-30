@@ -48,7 +48,7 @@ Production screenshots and raw audit artifacts were captured separately during t
 | UX-005 | P1 | Mobile | Review forms still behave like desktop forms | ✅ Completed |
 | UX-006 | P1 | Accessibility | DOM order, heading order, and visual order diverge | ✅ Completed |
 | UX-007 | P1 | Copy | Developer/internal architecture language is visible to users | ✅ Completed |
-| UX-008 | P1 | Today | Secondary status cards are too repetitive and vertically expensive | ⬜ Todo |
+| UX-008 | P1 | Today | Secondary status cards are too repetitive and vertically expensive | ✅ Completed |
 | UX-009 | P2 | Market | Market needs metadata, touch-target, and copy polish | ⬜ Todo |
 
 ---
@@ -507,7 +507,7 @@ Data sources · Methodology · Limitations
 
 **Priority:** P1  
 **Area:** Today  
-**Status:** ⬜ Todo
+**Status:** ✅ Completed
 
 ## What should be preserved
 
@@ -548,10 +548,17 @@ Keep top-priority work as cards; make secondary health/status information compac
 
 ## Acceptance criteria
 
-- [ ] Top three attention actions remain visually prominent.
-- [ ] Secondary status consumes materially less vertical space on mobile.
-- [ ] Each status row can link directly to its owning workspace.
-- [ ] Zero states are quiet rather than equal-weight cards.
+- [x] Top three attention actions remain visually prominent.
+- [x] Secondary status consumes materially less vertical space on mobile.
+- [x] Each status row can link directly to its owning workspace.
+- [x] Zero states are quiet rather than equal-weight cards.
+
+## Completion evidence
+
+- Source commit: [`c5e8d08`](https://github.com/hooiml/signal/commit/c5e8d08d7adae9c09b01ba93378f5361c1423429) (`fix(research): compact Today status summaries`).
+- GitHub Actions: [Research Memory Gate run #65](https://github.com/hooiml/signal/actions/runs/33313544921) passed source checks, typecheck, lint, Research regression, production build, Phase 8–11 browser regressions, and Phase 12 QA.
+- Browser evidence: `1440×1000`, `360×800`, `390×844`, and `430×932` retained prominent priority cards and a five-row Research health list; mobile verified the list stayed at or below 320px, priority cards remained taller than health rows, quiet zero states rendered, every row exposed a workspace action, the Calendar handoff worked, and no console/page/overflow failures occurred.
+- Screenshots: [Phase 12 browser evidence artifact](https://github.com/hooiml/signal/actions/runs/33313544921/artifacts/9732762801).
 
 ---
 
