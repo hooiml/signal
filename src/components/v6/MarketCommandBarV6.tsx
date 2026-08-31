@@ -175,7 +175,7 @@ export const MarketCommandBarV6 = ({
                                 onClick={onRefresh}
                                 disabled={!isLoaded || status === 'loading' || status === 'updating'}
                                 aria-label={status === 'loading' || status === 'updating' ? 'Refreshing market conditions' : `Refresh market conditions${successfulLabel ? `, last retrieved ${successfulLabel}` : ''}`}
-                                className={`grid place-items-center rounded-full border-[0.5px] border-[var(--border)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] ${focusClass} disabled:cursor-not-allowed disabled:opacity-55 ${presentation === 'v7' ? 'h-11 w-11' : 'h-8 w-8'}`}
+                                className={`grid shrink-0 place-items-center rounded-full border-[0.5px] border-[var(--border)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] ${focusClass} disabled:cursor-not-allowed disabled:opacity-55 ${presentation === 'v7' ? 'h-11 w-11' : 'h-8 w-8'}`}
                             >
                                 <SignalHeaderIcon name="refresh" />
                             </button>
