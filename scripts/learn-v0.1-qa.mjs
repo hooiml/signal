@@ -103,6 +103,7 @@ const main = async () => {
             try {
                 const response = await page.goto(`${baseUrl}/learn`, { waitUntil: 'domcontentloaded' });
                 addCheck(scenario, 'learn route response', response?.ok() === true, response ? `HTTP ${response.status()}` : 'no response');
+                await page.getByRole('button', { name: 'Valuation foundations v0.1' }).click();
                 await page.locator('[data-testid="learn-v0-1"]').waitFor({ state: 'visible' });
                 const nav = page.locator('nav[aria-label^="Primary"]:visible');
                 addCheck(scenario, 'Learn selected in visible navigation', (await nav.locator('a[aria-current="page"]').textContent())?.trim() === 'Learn');
@@ -182,15 +183,16 @@ const main = async () => {
                 addCheck(scenario, 'two curated replay debriefs update mastery', (await page.getByTestId('learn-mastery').innerText()).includes('2/2'));
 
                 await page.reload({ waitUntil: 'domcontentloaded' });
+                await page.getByRole('button', { name: 'Valuation foundations v0.1' }).click();
                 await page.getByTestId('learn-mastery').waitFor();
                 await page.waitForFunction(() => document.querySelector('[data-testid="learn-mastery"]')?.textContent?.includes('2/2'));
                 const masteryAfterReload = await page.getByTestId('learn-mastery').innerText();
                 addCheck(scenario, 'mastery survives reload', masteryAfterReload.includes('1/6') && masteryAfterReload.includes('2/2') && masteryAfterReload.includes('1/1'));
 
                 const themeButton = page.locator('button[aria-label^="Switch to"]');
-                const beforeTheme = await page.locator('[data-testid="learn-v0-1"]').getAttribute('data-theme');
+                const beforeTheme = await page.locator('[data-testid="learn-shell"]').getAttribute('data-theme');
                 await themeButton.click();
-                const afterTheme = await page.locator('[data-testid="learn-v0-1"]').getAttribute('data-theme');
+                const afterTheme = await page.locator('[data-testid="learn-shell"]').getAttribute('data-theme');
                 addCheck(scenario, 'theme toggle changes Learn theme', beforeTheme !== afterTheme, `${beforeTheme} -> ${afterTheme}`);
                 if (captureScreenshots) {
                     const darkPath = path.join(evidenceDir, `learn-${viewport.name}-dark.png`);

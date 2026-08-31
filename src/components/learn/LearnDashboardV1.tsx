@@ -6,6 +6,7 @@ import { LearnConceptLabV1 } from './LearnConceptLabV1';
 import { LearnApplyV1 } from './LearnApplyV1';
 import { LearnCompareV1 } from './LearnCompareV1';
 import { LearnReplayV1 } from './LearnReplayV1';
+import { LearnBusinessWorkspaceV2 } from './LearnBusinessWorkspaceV2';
 import {
     emptyLearnProgressV01,
     learnModulesV01,
@@ -16,10 +17,12 @@ import {
 } from '@/lib/learn/v0-1';
 
 type LearnWorkspace = 'learn' | 'compare' | 'apply' | 'replay';
+type LearnRelease = 'v0.1' | 'v0.2';
 
 const progressKey = 'signal-learn-v0.1-progress';
 
 export const LearnDashboardV1 = () => {
+    const [release, setRelease] = useState<LearnRelease>('v0.2');
     const [workspace, setWorkspace] = useState<LearnWorkspace>('learn');
     const [moduleId, setModuleId] = useState<LearnModuleIdV01>('evidence');
     const [progressState, setProgressState] = useState<LearnProgressV01>(emptyLearnProgressV01);
@@ -66,16 +69,22 @@ export const LearnDashboardV1 = () => {
     const completedCaseIds = progressState.reflections.map((item) => item.caseId);
 
     const commands = [
-        { id: 'learn-concepts', label: 'Open Learn concepts', group: 'Learn', keywords: ['education modules'], run: () => setWorkspace('learn') },
-        { id: 'learn-compare', label: 'Open company comparison', group: 'Learn', keywords: ['peer valuation evidence'], run: () => setWorkspace('compare') },
-        { id: 'learn-apply', label: 'Open Apply Today', group: 'Learn', keywords: ['current market evidence'], run: () => setWorkspace('apply') },
-        { id: 'learn-replay', label: 'Open Historical Replay', group: 'Learn', keywords: ['history hindsight'], run: () => setWorkspace('replay') },
+        { id: 'learn-business', label: 'Open business foundations', group: 'Learn', keywords: ['financial statements cash flow debt roic'], run: () => setRelease('v0.2') },
+        { id: 'learn-concepts', label: 'Open valuation concepts', group: 'Learn', keywords: ['education modules'], run: () => { setRelease('v0.1'); setWorkspace('learn'); } },
+        { id: 'learn-compare', label: 'Open valuation comparison', group: 'Learn', keywords: ['peer valuation evidence'], run: () => { setRelease('v0.1'); setWorkspace('compare'); } },
+        { id: 'learn-apply', label: 'Open valuation Apply Today', group: 'Learn', keywords: ['current market evidence'], run: () => { setRelease('v0.1'); setWorkspace('apply'); } },
+        { id: 'learn-replay', label: 'Open valuation Historical Replay', group: 'Learn', keywords: ['history hindsight'], run: () => { setRelease('v0.1'); setWorkspace('replay'); } },
     ] as const;
 
     return (
-        <V7Shell active="learn" commands={commands} footer="Signal Learn v0.1 · Evidence over shortcuts · Educational analysis, not investment advice" testId="learn-v0-1">
+        <V7Shell active="learn" commands={commands} footer={`Signal Learn ${release} · Evidence over shortcuts · Educational analysis, not investment advice`} testId="learn-shell">
             <main className="min-h-[calc(100dvh-132px)] bg-[var(--v7-surface)] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
                 <div className="mx-auto w-full max-w-[1180px]">
+                    <nav aria-label="Learn release" className="mb-5 inline-flex rounded-[8px] border border-[var(--v7-border)] bg-[var(--v7-surface-quiet)] p-1">
+                        <button type="button" aria-pressed={release === 'v0.2'} onClick={() => setRelease('v0.2')} className={`min-h-10 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.2' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Business foundations v0.2</button>
+                        <button type="button" aria-pressed={release === 'v0.1'} onClick={() => setRelease('v0.1')} className={`min-h-10 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.1' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Valuation foundations v0.1</button>
+                    </nav>
+                    {release === 'v0.2' ? <LearnBusinessWorkspaceV2 /> : <div data-testid="learn-v0-1">
                     <section className="grid gap-5 border-b border-[var(--v7-border)] pb-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
                         <div>
                             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--v7-accent)]">Signal Learn · v0.1</p>
@@ -126,6 +135,7 @@ export const LearnDashboardV1 = () => {
                         <p><strong className="text-[var(--v7-text-secondary)]">Signal Learn rule:</strong> a metric is evidence, not a conclusion. Historical outcomes are used to review reasoning, not to imply the same result will repeat.</p>
                         <p className="mt-2 shrink-0 sm:mt-0">No automatic Buy/Sell score.</p>
                     </section>
+                    </div>}
                 </div>
             </main>
         </V7Shell>

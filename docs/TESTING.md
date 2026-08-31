@@ -118,6 +118,16 @@ npm run qa:learn -- --base-url http://127.0.0.1:3000
 
 The check covers `1280px`, `768px`, and `375px`; shared navigation; P/E calculation and non-positive EPS handling; current-data provenance and unavailable estimates; two-company comparison without an automatic winner; future-data locking before replay commitment; bounded commitment payloads; immutable original reasoning; reflection and mastery persistence; theme switching; document overflow; and blocking console/page errors. Mocked Research and replay APIs keep the acceptance checks deterministic; live provider availability is not treated as visual proof.
 
+### Signal Learn v0.2 QA
+
+For the business-fundamentals modules, Financials Lab, historical business replay, current-company application, and independent mastery contract, run:
+
+```powershell
+npm run qa:learn-v0.2 -- --base-url http://127.0.0.1:3000
+```
+
+The check covers `1280px`, `768px`, and `375px`; the nine-module path; statement manipulation; all six Financials Lab views; row explanations; reported, derived, and unavailable labels; formula inputs; income-versus-cash interpretation; structural comparison warnings; server-side future locking; two replay commitments and reflections; current-company application; independent v0.2 persistence; v0.1 reachability; theme switching; overflow; and blocking browser errors. Mocked current Research and replay responses make the behavior deterministic.
+
 ### Targeted Header QA
 
 For shared header or responsive navigation changes, use the deterministic one-session check instead of rebuilding an ad hoc browser probe:

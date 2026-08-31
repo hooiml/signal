@@ -1,10 +1,11 @@
-name: Signal Learn v0.1 validation
+name: Signal Learn validation
 
 on:
   push:
     branches:
       - main
       - feature/signal-learn-v0.1
+      - feature/signal-learn-v0.2
   pull_request:
     branches:
       - main
@@ -64,6 +65,11 @@ jobs:
         env:
           SIGNAL_QA_SCREENSHOTS: '0'
         run: npm run qa:learn
+
+      - name: Run Learn v0.2 browser QA
+        env:
+          SIGNAL_QA_SCREENSHOTS: '0'
+        run: npm run qa:learn-v0.2
 
       - name: Show server log on failure
         if: failure()
