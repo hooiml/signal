@@ -11,6 +11,9 @@ on:
       - 'feat/research-attention-engine'
       - 'feat/phase-12-ui-ux-consolidation'
       - 'feat/phase-12-ux-009-market-polish'
+  pull_request:
+    branches:
+      - 'feat/phase-12-ui-ux-consolidation'
   workflow_dispatch:
 
 jobs:
