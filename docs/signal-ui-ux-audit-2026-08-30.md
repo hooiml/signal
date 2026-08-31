@@ -1,7 +1,7 @@
 # Signal UI/UX Audit Tracker — 2026-08-30
 
-Status: **Active**  
-Production baseline: `main` @ `98cc46a70a5f141db08cff548600e3eb105bf45a`  
+Status: **Completed**
+Production baseline: `main` @ [`51ee963`](https://github.com/hooiml/signal/commit/51ee9634370f610e97a1255c124dd33138413516)
 Audit scope: **Market, Research, Today — desktop + mobile**
 
 ## Purpose
@@ -34,6 +34,14 @@ Observed runtime state:
 - Research had one transient aborted `/api/research/inbox` request during component replacement; the subsequent request completed successfully.
 
 Production screenshots and raw audit artifacts were captured separately during the audit session.
+
+## Phase 12 closeout — 2026-08-31
+
+- All tracker items UX-001 through UX-009 are completed with item-level source, test, and browser evidence below.
+- [Research Memory Gate run #75](https://github.com/hooiml/signal/actions/runs/33345366237) passed the Phase 1–11 source checks, typecheck, lint, canonical Research regression, production build, existing Phase 8–12 browser regressions, and the UX-009 Market matrix on the final head.
+- Vercel reported the final head ready before merge, and the exact tested commit was fast-forwarded through the stacked Phase 12 branch to `main` without force.
+- Production [`/research`](https://signal-vercel.vercel.app/research?density=comfortable) then loaded saved `MSFT` context with the selected security before one Review Tools shell, exactly one Decision Memory instance, one `h1`, no page-level horizontal overflow, and no application-origin console errors.
+- Task 0 usage observation remains active in [`NEXT_PRODUCT_ROADMAP.md`](NEXT_PRODUCT_ROADMAP.md); it is not unfinished Phase 12 implementation.
 
 ---
 
@@ -651,36 +659,36 @@ The goal is to make the existing system clearer, faster to understand, more reli
 
 ## Phase 12A — Correctness
 
-- [ ] Fix Decision Memory rendering.
-- [ ] Remove one-shot anchor race.
-- [ ] Add deterministic integration/browser regression tests.
-- [ ] Share selected Research state where appropriate.
+- [x] Fix Decision Memory rendering.
+- [x] Remove one-shot anchor race.
+- [x] Add deterministic integration/browser regression tests.
+- [x] Share selected Research state where appropriate.
 
 ## Phase 12B — Composition
 
-- [ ] Put selected security first on desktop.
-- [ ] Consolidate review tools into one shell.
-- [ ] Only one review tool expanded at a time.
-- [ ] Lazy-load inactive review tools where practical.
-- [ ] Promote Today to first-class navigation.
-- [ ] Move Views & density into secondary controls when unused.
+- [x] Put selected security first on desktop.
+- [x] Consolidate review tools into one shell.
+- [x] Only one review tool expanded at a time.
+- [x] Lazy-load inactive review tools where practical.
+- [x] Promote Today to first-class navigation.
+- [x] Move Views & density into secondary controls when unused.
 
 ## Phase 12C — Mobile & accessibility
 
-- [ ] Replace mobile metrics table with cards.
-- [ ] Ensure one `h1` per screen.
-- [ ] Match DOM and visual order.
-- [ ] Improve touch targets.
-- [ ] Increase undersized actionable typography.
-- [ ] Preserve ticker context during long mobile workflows.
+- [x] Replace mobile metrics table with cards.
+- [x] Ensure one `h1` per screen.
+- [x] Match DOM and visual order.
+- [x] Improve touch targets.
+- [x] Increase undersized actionable typography.
+- [x] Preserve ticker context during long mobile workflows.
 
 ## Phase 12D — Copy polish
 
-- [ ] Remove implementation terminology from user-facing UI.
-- [ ] Remove V7/contract footers.
-- [ ] Simplify Market metadata.
-- [ ] Tighten Today status language.
-- [ ] Fix grammar and consistency issues.
+- [x] Remove implementation terminology from user-facing UI.
+- [x] Remove V7/contract footers.
+- [x] Simplify Market metadata.
+- [x] Tighten Today status language.
+- [x] Fix grammar and consistency issues.
 
 ---
 
@@ -712,46 +720,46 @@ Phase 12 should not be considered complete until all of the following pass:
 
 ### Functional
 
-- [ ] Existing Research save/edit flows still work.
-- [ ] Decision Memory works across ticker changes and navigation.
-- [ ] Expectation vs Reality still persists correctly.
-- [ ] Valuation assumptions still persist correctly.
-- [ ] Decision Review/Calibration still persists correctly.
-- [ ] Daily attention still ranks and routes correctly.
+- [x] Existing Research save/edit flows still work.
+- [x] Decision Memory works across ticker changes and navigation.
+- [x] Expectation vs Reality still persists correctly.
+- [x] Valuation assumptions still persist correctly.
+- [x] Decision Review/Calibration still persists correctly.
+- [x] Daily attention still ranks and routes correctly.
 
 ### Desktop UX
 
-- [ ] Selected security is visible in the first viewport.
-- [ ] Review tools no longer dominate the page.
-- [ ] No duplicate review surfaces.
-- [ ] No new horizontal overflow.
+- [x] Selected security is visible in the first viewport.
+- [x] Review tools no longer dominate the page.
+- [x] No duplicate review surfaces.
+- [x] No new horizontal overflow.
 
 ### Mobile UX
 
-- [ ] No core workflow requires horizontal scrolling.
-- [ ] Touch targets are acceptable.
-- [ ] Selected ticker context is maintained.
-- [ ] Long forms use progressive disclosure.
+- [x] No core workflow requires horizontal scrolling.
+- [x] Touch targets are acceptable.
+- [x] Selected ticker context is maintained.
+- [x] Long forms use progressive disclosure.
 
 ### Accessibility
 
-- [ ] One `h1` per screen.
-- [ ] DOM order matches visual order.
-- [ ] Keyboard navigation follows expected sequence.
-- [ ] Visible focus states remain intact.
+- [x] One `h1` per screen.
+- [x] DOM order matches visual order.
+- [x] Keyboard navigation follows expected sequence.
+- [x] Visible focus states remain intact.
 
 ### Runtime
 
-- [ ] TypeScript passes.
-- [ ] Lint passes.
-- [ ] Research regression suite passes.
-- [ ] Production build passes.
-- [ ] Desktop Playwright passes.
-- [ ] Mobile Playwright passes.
-- [ ] No browser console errors.
-- [ ] No uncaught page errors.
-- [ ] Vercel preview is READY before merge.
-- [ ] Production `/research` is verified after merge.
+- [x] TypeScript passes.
+- [x] Lint passes.
+- [x] Research regression suite passes.
+- [x] Production build passes.
+- [x] Desktop Playwright passes.
+- [x] Mobile Playwright passes.
+- [x] No browser console errors.
+- [x] No uncaught page errors.
+- [x] Vercel preview is READY before merge.
+- [x] Production `/research` is verified after merge.
 
 ---
 
@@ -759,12 +767,12 @@ Phase 12 should not be considered complete until all of the following pass:
 
 | Surface | Assessment | Direction |
 | --- | --- | --- |
-| Market | Strong and focused | Polish only |
-| Today | Useful attention workflow | Simplify IA and secondary density |
-| Research desktop | Powerful but over-composed | Major consolidation |
-| Research mobile | Better hierarchy but excessively long | One-tool-at-a-time UX |
-| Accessibility | Good foundation | Heading/order/touch-target pass |
-| Review architecture | Feature-rich but brittle | Replace portal chain |
+| Market | Strong and focused | Maintain the evidence/forecast boundary |
+| Today | First-class attention workflow | Observe Task 0 before changing the default workspace |
+| Research desktop | Selected-security-first and consolidated | Preserve hierarchy and owner workflows |
+| Research mobile | Selected-security-first with progressive review disclosure | Preserve context and regression coverage |
+| Accessibility | Verified Phase 12 baseline | Keep heading, order, focus, and touch checks in CI |
+| Review architecture | Integrated Review Tools shell | Keep one major tool active at a time |
 
 ---
 

@@ -82,7 +82,7 @@ Only one item may have status `In progress` at a time.
 | 1 | Today 2.0 action home | Verified implementation; promotion gated | Make the next useful action obvious | Task 0 promotion gate |
 | 2 | Universal local research search | Verified | Find existing research and workflow state quickly | Reuses the current command palette and validated local owner state |
 | 3 | First-run setup and guided demo | Verified | Help a new user reach a first useful review | Audience expansion explicitly authorized for this bounded setup slice |
-| 4 | Research readiness strip | Proposed | Show what is complete, stale, blocked, or due for one ticker | Reuse existing Evidence, Policy, trigger, and review state |
+| 4 | Research readiness strip | Verified | Show what is complete, stale, blocked, or due for one ticker | Reuses existing Evidence, Policy, trigger, and review state |
 | 5 | Pinned workspaces and attention badges | Proposed | Reduce navigation friction without unstable automatic reordering | Use existing loaded counts; avoid new fetches |
 | 6 | Forward-validation lab | Proposed, discovery required | Build genuine prospective trust evidence for scoring | Freeze a model/version and evaluation policy first |
 | 7 | Corporate-action resolution assistant | Proposed, demand-gated | Resolve common portfolio continuity gaps transparently | Portfolio funnel must show sustained reconciliation use |
@@ -354,7 +354,7 @@ task ahead of Tasks 1 and 2. If not, keep it in the default order.
 
 ### Task 4 — Research Readiness Strip
 
-**Status:** Proposed
+**Status:** Verified
 
 **Problem**
 
@@ -394,6 +394,14 @@ reading a detailed record.
 
 - More reviews fill the highest-priority missing input.
 - Fewer saved reviews retain avoidable evidence, review-date, or position-plan gaps.
+
+**Verification receipt — 2026-08-01**
+
+- Source commit: [`3873890`](https://github.com/hooiml/signal/commit/38738906e037b584a271010d6d7e358eda531904) (`feat(research): surface deterministic readiness gaps`), followed by the V7 interaction refinement in [`48e44b6`](https://github.com/hooiml/signal/commit/48e44b656fd17093ddf4e86cf52b4c058c780c89).
+- The implementation derives seven explicit states from existing saved Research, Evidence, Valuation, browser-local Policy, structured-trigger, Calendar, and position-plan owners. It discloses fixed precedence and introduces no provider request, mutation, recommendation, or composite readiness score.
+- Deterministic Research regression covers identical-input stability, owner coverage, overdue review precedence, and the no-gap fallback. The targeted readiness harness covers the single next action, collapsed details, all owner destinations, ticker preservation, first-viewport placement, responsive overflow, mutation safety, and blocking browser errors at `1280×900`, `768×900`, and `375×812`.
+- The source commit records passing lint, typecheck, full harness, production build, targeted readiness QA, and Research picker QA. Phase 12 production verification on 2026-08-31 confirmed the compact strip and selected-security next action remain present after consolidation.
+- The success signals above remain observational outcomes; implementation verification does not claim that user behavior has changed.
 
 ---
 
