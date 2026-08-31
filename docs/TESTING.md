@@ -108,6 +108,16 @@ npm run qa:v7-phase2 -- --base-url http://127.0.0.1:3000
 
 The check covers the `1280px`, `768px`, and `375px` light/dark matrix; Market range, pointer, keyboard, touch-equivalent, and persistent-readout behavior; Research OHLCV and active-indicator readouts; pointer, keyboard, touch-equivalent, range, setup, indicator, comparison, and anchored-VWAP state; chronological table equivalence; mobile previous/next and picker navigation; URL, reload, unknown-parameter, and Back/Forward restoration; retained short-range data, empty history, provider/history/comparison failure and retry; reduced motion; V6 rollback isolation; request and mutation privacy; document overflow; blocking console/page/request failures; and fresh affected-surface screenshots under `.tmp/v7-phase2-interaction-qa/`.
 
+### Signal Learn v0.1 QA
+
+For the Learn concept, current-evidence, comparison, historical-replay, commitment, reflection, and mastery loop, run the deterministic responsive check against one owned local server:
+
+```powershell
+npm run qa:learn -- --base-url http://127.0.0.1:3000
+```
+
+The check covers `1280px`, `768px`, and `375px`; shared navigation; P/E calculation and non-positive EPS handling; current-data provenance and unavailable estimates; two-company comparison without an automatic winner; future-data locking before replay commitment; bounded commitment payloads; immutable original reasoning; reflection and mastery persistence; theme switching; document overflow; and blocking console/page errors. Mocked Research and replay APIs keep the acceptance checks deterministic; live provider availability is not treated as visual proof.
+
 ### Targeted Header QA
 
 For shared header or responsive navigation changes, use the deterministic one-session check instead of rebuilding an ad hoc browser probe:

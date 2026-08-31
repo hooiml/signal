@@ -32,7 +32,10 @@ const Metric = ({ label, value, note }: { readonly label: string; readonly value
     </article>
 );
 
-export const LearnApplyV1 = () => {
+export const LearnApplyV1 = ({ completed, onComplete }: {
+    readonly completed: boolean;
+    readonly onComplete: () => void;
+}) => {
     const [symbolInput, setSymbolInput] = useState('MSFT');
     const [symbol, setSymbol] = useState('MSFT');
     const [market, setMarket] = useState<ResearchMarket>('US');
@@ -108,6 +111,7 @@ export const LearnApplyV1 = () => {
 
     const counts = useMemo(() => Object.fromEntries((Object.keys(categoryLabels) as EvidenceCategory[]).map((category) => [category, evidence.filter((item) => item.category === category).length])) as Record<EvidenceCategory, number>, [evidence]);
     const currency = snapshot?.quote.currency ?? (market === 'MY' ? 'MYR' : 'USD');
+    const applyReady = Boolean(snapshot && thesis.trim() && invalidation.trim() && counts.supports > 0 && counts.against > 0);
 
     return (
         <div className="grid gap-5">
@@ -190,7 +194,7 @@ export const LearnApplyV1 = () => {
                     <label className="grid gap-1.5 text-sm font-semibold text-[var(--v7-text)]">Current thesis<textarea value={thesis} onChange={(event) => setThesis(event.target.value)} maxLength={1000} rows={5} placeholder="Explain why the valuation may or may not be justified using the evidence above." className="rounded-[9px] border border-[var(--v7-border)] bg-[var(--v7-surface)] p-3 font-normal leading-6 text-[var(--v7-text)]" /></label>
                     <label className="grid gap-1.5 text-sm font-semibold text-[var(--v7-text)]">What would change my mind?<textarea value={invalidation} onChange={(event) => setInvalidation(event.target.value)} maxLength={700} rows={5} placeholder="Name an observable condition that would invalidate or materially weaken the thesis." className="rounded-[9px] border border-[var(--v7-border)] bg-[var(--v7-surface)] p-3 font-normal leading-6 text-[var(--v7-text)]" /></label>
                 </div>
-                {thesis.trim() && invalidation.trim() && counts.against > 0 ? <p role="status" className="mt-3 rounded-[9px] border border-[var(--v7-accent)] bg-[var(--v7-accent-quiet)] p-3 text-sm text-[var(--v7-text-secondary)]">Thesis is review-ready. Signal still does not convert it into a Buy/Sell rating.</p> : <p className="mt-3 text-xs leading-5 text-[var(--v7-text-muted)]">For a stronger thesis, include at least one contrary evidence item and a falsifiable invalidation condition.</p>}
+                {applyReady ? <div role="status" className="mt-3 flex flex-col gap-3 rounded-[9px] border border-[var(--v7-accent)] bg-[var(--v7-accent-quiet)] p-3 text-sm text-[var(--v7-text-secondary)] sm:flex-row sm:items-center sm:justify-between"><span>Thesis is review-ready. Signal still does not convert it into a Buy/Sell rating.</span><button type="button" onClick={onComplete} disabled={completed} className="min-h-10 shrink-0 rounded-[9px] border border-[var(--v7-accent)] px-3 font-semibold text-[var(--v7-text)]">{completed ? 'Applied ✓' : 'Mark Apply complete'}</button></div> : <p className="mt-3 text-xs leading-5 text-[var(--v7-text-muted)]">For a complete exercise, include supporting and contrary evidence, a thesis, and a falsifiable invalidation condition.</p>}
             </section>
         </div>
     );

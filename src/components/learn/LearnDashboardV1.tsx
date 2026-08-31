@@ -4,30 +4,35 @@ import { useEffect, useMemo, useState } from 'react';
 import { V7Shell } from '@/components/v7/foundation/V7Foundation';
 import { LearnConceptLabV1 } from './LearnConceptLabV1';
 import { LearnApplyV1 } from './LearnApplyV1';
+import { LearnCompareV1 } from './LearnCompareV1';
 import { LearnReplayV1 } from './LearnReplayV1';
-import { learnModulesV01, type LearnModuleIdV01 } from '@/lib/learn/v0-1';
+import {
+    emptyLearnProgressV01,
+    learnModulesV01,
+    parseLearnProgressV01,
+    type LearnModuleIdV01,
+    type LearnProgressV01,
+    type LearnReflectionV01,
+} from '@/lib/learn/v0-1';
 
-type LearnWorkspace = 'learn' | 'apply' | 'replay';
+type LearnWorkspace = 'learn' | 'compare' | 'apply' | 'replay';
 
 const progressKey = 'signal-learn-v0.1-progress';
 
 export const LearnDashboardV1 = () => {
     const [workspace, setWorkspace] = useState<LearnWorkspace>('learn');
     const [moduleId, setModuleId] = useState<LearnModuleIdV01>('evidence');
-    const [completed, setCompleted] = useState<LearnModuleIdV01[]>([]);
+    const [progressState, setProgressState] = useState<LearnProgressV01>(emptyLearnProgressV01);
     const [progressReady, setProgressReady] = useState(false);
 
     useEffect(() => {
         const timer = window.setTimeout(() => {
             try {
                 const raw = window.localStorage.getItem(progressKey);
-                const parsed: unknown = raw ? JSON.parse(raw) : [];
-                if (Array.isArray(parsed)) {
-                    setCompleted(parsed.filter((value): value is LearnModuleIdV01 =>
-                        typeof value === 'string' && learnModulesV01.some((module) => module.id === value)));
-                }
+                const parsed: unknown = raw ? JSON.parse(raw) : null;
+                setProgressState(parseLearnProgressV01(parsed));
             } catch {
-                setCompleted([]);
+                setProgressState(emptyLearnProgressV01());
             }
             setProgressReady(true);
         }, 0);
@@ -36,21 +41,33 @@ export const LearnDashboardV1 = () => {
 
     useEffect(() => {
         if (!progressReady) return;
-        window.localStorage.setItem(progressKey, JSON.stringify(completed));
-    }, [completed, progressReady]);
+        window.localStorage.setItem(progressKey, JSON.stringify(progressState));
+    }, [progressReady, progressState]);
 
+    const completed = progressState.completedModules;
     const completedCount = completed.length;
     const progress = Math.round((completedCount / learnModulesV01.length) * 100);
     const nextModule = useMemo(() => learnModulesV01.find((module) => !completed.includes(module.id)) ?? learnModulesV01[learnModulesV01.length - 1], [completed]);
 
     const toggleComplete = () => {
-        setCompleted((current) => current.includes(moduleId)
-            ? current.filter((id) => id !== moduleId)
-            : [...current, moduleId]);
+        setProgressState((current) => ({
+            ...current,
+            completedModules: current.completedModules.includes(moduleId)
+                ? current.completedModules.filter((id) => id !== moduleId)
+                : [...current.completedModules, moduleId],
+        }));
     };
+
+    const completeApply = () => setProgressState((current) => ({ ...current, applyCompleted: true }));
+    const saveReflection = (reflection: LearnReflectionV01) => setProgressState((current) => ({
+        ...current,
+        reflections: [...current.reflections.filter((item) => item.caseId !== reflection.caseId), reflection].slice(-2),
+    }));
+    const completedCaseIds = progressState.reflections.map((item) => item.caseId);
 
     const commands = [
         { id: 'learn-concepts', label: 'Open Learn concepts', group: 'Learn', keywords: ['education modules'], run: () => setWorkspace('learn') },
+        { id: 'learn-compare', label: 'Open company comparison', group: 'Learn', keywords: ['peer valuation evidence'], run: () => setWorkspace('compare') },
         { id: 'learn-apply', label: 'Open Apply Today', group: 'Learn', keywords: ['current market evidence'], run: () => setWorkspace('apply') },
         { id: 'learn-replay', label: 'Open Historical Replay', group: 'Learn', keywords: ['history hindsight'], run: () => setWorkspace('replay') },
     ] as const;
@@ -65,16 +82,18 @@ export const LearnDashboardV1 = () => {
                             <h1 className="mt-2 max-w-3xl text-2xl font-bold tracking-tight text-[var(--v7-text)] sm:text-3xl">Understand the evidence before trusting the indicator.</h1>
                             <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--v7-text-secondary)] sm:text-[15px]">Learn how earnings, P/E, growth, and expectations connect. Then test the same reasoning against point-in-time history and today&apos;s unresolved market.</p>
                         </div>
-                        <div className="rounded-[11px] border border-[var(--v7-border)] bg-[var(--v7-surface-quiet)] p-4">
+                        <div className="rounded-[11px] border border-[var(--v7-border)] bg-[var(--v7-surface-quiet)] p-4" data-testid="learn-mastery">
                             <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-[var(--v7-text-secondary)]">Valuation foundations</span><span className="font-mono text-xs text-[var(--v7-text-muted)]">{completedCount}/{learnModulesV01.length}</span></div>
                             <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--v7-border)]" aria-label={`${progress}% complete`}><div className="h-full rounded-full bg-[var(--v7-accent)] transition-[width] motion-reduce:transition-none" style={{ width: `${progress}%` }} /></div>
                             <p className="mt-3 text-xs leading-5 text-[var(--v7-text-muted)]">Next concept: <button type="button" onClick={() => { setWorkspace('learn'); setModuleId(nextModule.id); }} className="min-h-10 font-semibold text-[var(--v7-text)] underline underline-offset-2">{nextModule.title}</button></p>
+                            <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-[var(--v7-border)] pt-3 text-center"><div><dt className="text-[10px] uppercase text-[var(--v7-text-muted)]">Understand</dt><dd className="mt-1 font-mono text-xs font-bold text-[var(--v7-text)]">{completedCount}/6</dd></div><div><dt className="text-[10px] uppercase text-[var(--v7-text-muted)]">Interpret</dt><dd className="mt-1 font-mono text-xs font-bold text-[var(--v7-text)]">{completedCaseIds.length}/2</dd></div><div><dt className="text-[10px] uppercase text-[var(--v7-text-muted)]">Apply</dt><dd className="mt-1 font-mono text-xs font-bold text-[var(--v7-text)]">{progressState.applyCompleted ? '1/1' : '0/1'}</dd></div></dl>
                         </div>
                     </section>
 
                     <nav aria-label="Learn workspace" className="research-scrollbar -mx-1 mt-5 flex gap-2 overflow-x-auto px-1 pb-1">
                         {([
                             ['learn', 'Learn concepts', 'Build the mental model'],
+                            ['compare', 'Compare', 'No automatic winner'],
                             ['apply', 'Apply today', 'Use unresolved evidence'],
                             ['replay', 'Historical replay', 'Commit before the future'],
                         ] as const).map(([id, label, note]) => {
@@ -98,7 +117,9 @@ export const LearnDashboardV1 = () => {
                                 </aside>
                                 <LearnConceptLabV1 moduleId={moduleId} completed={completed.includes(moduleId)} onComplete={toggleComplete} />
                             </div>
-                        ) : workspace === 'apply' ? <LearnApplyV1 /> : <LearnReplayV1 />}
+                        ) : workspace === 'compare' ? <LearnCompareV1 />
+                            : workspace === 'apply' ? <LearnApplyV1 completed={progressState.applyCompleted} onComplete={completeApply} />
+                                : <LearnReplayV1 completedCaseIds={completedCaseIds} onReflectionSave={saveReflection} />}
                     </div>
 
                     <section className="mt-5 rounded-[11px] border border-[var(--v7-border)] bg-[var(--v7-surface-quiet)] p-4 text-xs leading-5 text-[var(--v7-text-muted)] sm:flex sm:items-start sm:justify-between sm:gap-6">

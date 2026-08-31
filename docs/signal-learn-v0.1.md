@@ -4,7 +4,7 @@ Signal Learn v0.1 is the first evidence-based learning vertical slice inside Sig
 
 ## Product loop
 
-`Learn concepts -> Apply today -> Historical Replay -> Debrief`
+`Learn concepts -> Compare -> Apply today -> Historical Replay -> Debrief -> Reflect`
 
 The release covers:
 
@@ -15,8 +15,10 @@ The release covers:
 - earnings growth;
 - results vs expectations;
 - a current-company evidence workspace;
+- a two-company evidence comparison that never selects a winner;
 - an Evidence Board and falsifiable thesis prompt;
-- point-in-time Historical Replay.
+- two curated point-in-time Historical Replay entry points;
+- browser-local Understand, Interpret, and Apply mastery.
 
 ## Data contracts
 
@@ -66,13 +68,14 @@ Malaysia Historical Replay fails closed because the current repository has no ap
 
 Signal Learn uses the V7 shell and its existing light/dark theme tokens.
 
-The page exposes three clear workspaces:
+The page exposes four clear workspaces:
 
 1. **Learn concepts** — one concept at a time with interactive examples.
-2. **Apply today** — current unresolved evidence, Evidence Board, and thesis framing.
-3. **Historical replay** — point-in-time evidence, commitment, reveal, and debrief.
+2. **Compare** — two current evidence sets with freshness, source, and structural-comparability warnings.
+3. **Apply today** — current unresolved evidence, Evidence Board, and thesis framing.
+4. **Historical replay** — point-in-time evidence, commitment, reveal, debrief, and reflection.
 
-Module progress is stored locally in the browser. No learning-progress server schema is introduced in v0.1.
+Module completion, current-exercise completion, and at most one bounded reflection for each curated replay case are stored locally in the browser. Malformed and legacy progress is parsed into the version-1 contract. No learning-progress server schema is introduced in v0.1.
 
 Learn is available from the V7 command palette on Market and Research. On the Learn surface it is also shown as the selected navigation destination. A wider primary-navigation rollout can be considered after the v0.1 workflow is validated.
 
@@ -86,10 +89,12 @@ Learn is available from the V7 command palette on Market and Research. On the Le
 - P/E calculation behavior;
 - non-positive EPS handling;
 - current-data provenance and unavailable Forward P/E disclosure;
+- two-company comparison without an automatic winner;
 - future-data locking before replay commitment;
 - commitment payload before reveal;
 - immutable original commitment display;
 - post-commit reveal;
+- two curated replay debriefs, reflection, and mastery persistence;
 - light/dark theme switching;
 - browser console/page errors;
 - screenshot capture for visual review.

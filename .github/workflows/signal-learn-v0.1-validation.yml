@@ -3,6 +3,7 @@ name: Signal Learn v0.1 validation
 on:
   push:
     branches:
+      - main
       - feature/signal-learn-v0.1
   pull_request:
     branches:
@@ -36,6 +37,9 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Harness
+        run: npm run harness
 
       - name: Build
         run: npm run build

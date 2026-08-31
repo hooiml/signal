@@ -1,7 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { LearnReplayIntroV01, LearnReplayRevealV01, ReplayCommitmentV01, ReplayViewV01 } from '@/lib/learn/v0-1';
+import {
+    learnModulesV01,
+    learnReplayCasesV01,
+    type LearnModuleIdV01,
+    type LearnReflectionV01,
+    type LearnReplayCaseIdV01,
+    type LearnReplayIntroV01,
+    type LearnReplayRevealV01,
+    type ReplayCommitmentV01,
+    type ReplayViewV01,
+} from '@/lib/learn/v0-1';
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -24,7 +34,11 @@ const ReplayMetric = ({ label, value, note }: { readonly label: string; readonly
     </article>
 );
 
-export const LearnReplayV1 = () => {
+export const LearnReplayV1 = ({ completedCaseIds, onReflectionSave }: {
+    readonly completedCaseIds: readonly LearnReplayCaseIdV01[];
+    readonly onReflectionSave: (reflection: LearnReflectionV01) => void;
+}) => {
+    const [activeCaseId, setActiveCaseId] = useState<LearnReplayCaseIdV01 | null>('premium-growth');
     const [symbolInput, setSymbolInput] = useState('MSFT');
     const [symbol, setSymbol] = useState('MSFT');
     const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -39,6 +53,11 @@ export const LearnReplayV1 = () => {
     const [invalidation, setInvalidation] = useState('');
     const [committed, setCommitted] = useState<ReplayCommitmentV01 | null>(null);
     const [revealing, setRevealing] = useState(false);
+    const [reasoningHeldUp, setReasoningHeldUp] = useState('');
+    const [assumptionToRevise, setAssumptionToRevise] = useState('');
+    const [confidenceFit, setConfidenceFit] = useState('');
+    const [nextCheck, setNextCheck] = useState('');
+    const [revisitConcept, setRevisitConcept] = useState<LearnModuleIdV01>('pe');
 
     useEffect(() => {
         const controller = new AbortController();
@@ -47,6 +66,15 @@ export const LearnReplayV1 = () => {
             setError(null);
             setReveal(null);
             setCommitted(null);
+            setView('neutral');
+            setConfidence(50);
+            setSupportingEvidence('');
+            setContraryEvidence('');
+            setInvalidation('');
+            setReasoningHeldUp('');
+            setAssumptionToRevise('');
+            setConfidenceFit('');
+            setNextCheck('');
             try {
                 const response = await fetch(`/api/learn/replay/${encodeURIComponent(symbol)}?market=US`, { cache: 'no-store', signal: controller.signal });
                 const payload: unknown = await response.json();
@@ -77,6 +105,15 @@ export const LearnReplayV1 = () => {
         }
         if (normalized === symbol) setRetryKey((value) => value + 1);
         else setSymbol(normalized);
+        setActiveCaseId(learnReplayCasesV01.find((item) => item.symbol === normalized)?.id ?? null);
+    };
+
+    const selectCase = (caseId: LearnReplayCaseIdV01) => {
+        const selected = learnReplayCasesV01.find((item) => item.id === caseId) ?? learnReplayCasesV01[0];
+        setActiveCaseId(selected.id);
+        setSymbolInput(selected.symbol);
+        if (selected.symbol === symbol) setRetryKey((value) => value + 1);
+        else setSymbol(selected.symbol);
     };
 
     const revealOutcome = async (event: React.FormEvent) => {
@@ -114,8 +151,29 @@ export const LearnReplayV1 = () => {
         }
     };
 
+    const saveReflection = (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!activeCaseId || !intro || !reveal) return;
+        const reflection: LearnReflectionV01 = {
+            caseId: activeCaseId,
+            symbol: intro.symbol,
+            replayId: intro.replayId,
+            createdAt: new Date().toISOString(),
+            reasoningHeldUp: reasoningHeldUp.trim(),
+            assumptionToRevise: assumptionToRevise.trim(),
+            confidenceFit: confidenceFit.trim(),
+            nextCheck: nextCheck.trim(),
+            revisitConcept,
+        };
+        if (!reflection.reasoningHeldUp || !reflection.assumptionToRevise || !reflection.confidenceFit || !reflection.nextCheck) return;
+        onReflectionSave(reflection);
+    };
+
     return (
         <section aria-labelledby="replay-title" className="rounded-[11px] border border-[var(--v7-border)] bg-[var(--v7-surface)] p-4 sm:p-5 lg:p-6">
+            <div className="mb-4 grid gap-2 sm:grid-cols-2" aria-label="Historical replay cases">
+                {learnReplayCasesV01.map((item) => <button key={item.id} type="button" aria-pressed={activeCaseId === item.id} onClick={() => selectCase(item.id)} className={`min-h-11 rounded-[9px] border p-3 text-left ${activeCaseId === item.id ? 'border-[var(--v7-accent)] bg-[var(--v7-accent-quiet)]' : 'border-[var(--v7-border)] bg-[var(--v7-surface-quiet)]'}`}><span className="flex items-center justify-between gap-2"><span className="text-sm font-bold text-[var(--v7-text)]">{item.title}</span><span className="font-mono text-xs text-[var(--v7-text-muted)]">{item.symbol}</span></span><span className="mt-1 block text-xs leading-5 text-[var(--v7-text-secondary)]">{item.objective}</span><span className="mt-1 block text-[11px] font-semibold text-[var(--v7-accent)]">{completedCaseIds.includes(item.id) ? 'Debrief completed' : 'Future remains locked'}</span></button>)}
+            </div>
             <div className="flex flex-col gap-4 border-b border-[var(--v7-border)] pb-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                     <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--v7-accent)]">Historical Replay</p>
@@ -195,6 +253,18 @@ export const LearnReplayV1 = () => {
                             <li>• Which assumption would you revise with the new information?</li>
                         </ul>
                     </section>
+                    {activeCaseId ? <form onSubmit={saveReflection} className="rounded-[11px] border border-[var(--v7-border)] bg-[var(--v7-surface)] p-4 sm:p-5" aria-labelledby="replay-reflection-title">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--v7-accent)]">Reflection</p>
+                        <h3 id="replay-reflection-title" className="mt-1 font-bold text-[var(--v7-text)]">What I believed then vs. what I know now</h3>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                            <label className="grid gap-1.5 text-sm font-semibold text-[var(--v7-text)]">Which reasoning held up?<textarea value={reasoningHeldUp} onChange={(event) => setReasoningHeldUp(event.target.value)} maxLength={700} rows={3} className="rounded-[9px] border border-[var(--v7-border)] bg-[var(--v7-surface)] p-3 font-normal" /></label>
+                            <label className="grid gap-1.5 text-sm font-semibold text-[var(--v7-text)]">Which assumption would you revise?<textarea value={assumptionToRevise} onChange={(event) => setAssumptionToRevise(event.target.value)} maxLength={700} rows={3} className="rounded-[9px] border border-[var(--v7-border)] bg-[var(--v7-surface)] p-3 font-normal" /></label>
+                            <label className="grid gap-1.5 text-sm font-semibold text-[var(--v7-text)]">Did confidence match evidence quality?<textarea value={confidenceFit} onChange={(event) => setConfidenceFit(event.target.value)} maxLength={700} rows={3} className="rounded-[9px] border border-[var(--v7-border)] bg-[var(--v7-surface)] p-3 font-normal" /></label>
+                            <label className="grid gap-1.5 text-sm font-semibold text-[var(--v7-text)]">What would you check sooner next time?<textarea value={nextCheck} onChange={(event) => setNextCheck(event.target.value)} maxLength={700} rows={3} className="rounded-[9px] border border-[var(--v7-border)] bg-[var(--v7-surface)] p-3 font-normal" /></label>
+                        </div>
+                        <label className="mt-3 grid max-w-sm gap-1.5 text-sm font-semibold text-[var(--v7-text)]">Concept to revisit<select value={revisitConcept} onChange={(event) => setRevisitConcept(event.target.value as LearnModuleIdV01)} className="min-h-10 rounded-[9px] border border-[var(--v7-border)] bg-[var(--v7-surface)] px-3 font-normal">{learnModulesV01.map((module) => <option key={module.id} value={module.id}>{module.title}</option>)}</select></label>
+                        <button type="submit" disabled={completedCaseIds.includes(activeCaseId) || !reasoningHeldUp.trim() || !assumptionToRevise.trim() || !confidenceFit.trim() || !nextCheck.trim()} className="mt-4 min-h-11 rounded-[9px] border border-[var(--v7-accent)] bg-[var(--v7-accent)] px-4 text-sm font-bold text-[var(--v7-on-accent)]">{completedCaseIds.includes(activeCaseId) ? 'Reflection saved ✓' : 'Save reflection'}</button>
+                    </form> : <p className="rounded-[9px] border border-[var(--v7-caution)] bg-[var(--v7-caution-quiet)] p-3 text-xs leading-5 text-[var(--v7-text-secondary)]">Custom ticker replays remain available for practice, but only the two curated cases update v0.1 Interpret mastery.</p>}
                 </div> : null}
             </> : null}
         </section>

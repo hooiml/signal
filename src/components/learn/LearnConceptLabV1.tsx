@@ -204,6 +204,20 @@ export const LearnConceptLabV1 = ({ moduleId, completed, onComplete }: {
                     {completed ? 'Understood ✓' : 'Mark understood'}
                 </button>
             </div>
+            <dl className="grid gap-3 border-b border-[var(--v7-border)] py-5 sm:grid-cols-2 xl:grid-cols-5">
+                {[
+                    ['What it measures', selectedModule.measures],
+                    ['Why investors use it', selectedModule.whyItMatters],
+                    ['What changes it', selectedModule.changesWith],
+                    ['When it misleads', selectedModule.limitation],
+                    ['Connected concept', selectedModule.connectedConcept],
+                ].map(([label, value]) => (
+                    <div key={label} className="rounded-[9px] border border-[var(--v7-border)] bg-[var(--v7-surface-quiet)] p-3">
+                        <dt className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--v7-text-muted)]">{label}</dt>
+                        <dd className="mt-2 text-xs leading-5 text-[var(--v7-text-secondary)]">{value}</dd>
+                    </div>
+                ))}
+            </dl>
             <div className="pt-5">{lesson}</div>
         </section>
     );

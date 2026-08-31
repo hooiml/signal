@@ -3,7 +3,9 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
-const baseUrl = process.env.SIGNAL_QA_URL || 'http://127.0.0.1:3000';
+const baseUrlArgumentIndex = process.argv.indexOf('--base-url');
+const baseUrlArgument = baseUrlArgumentIndex >= 0 ? process.argv[baseUrlArgumentIndex + 1] : undefined;
+const baseUrl = baseUrlArgument || process.env.SIGNAL_QA_URL || 'http://127.0.0.1:3000';
 const timeoutMs = Number(process.env.SIGNAL_QA_TIMEOUT_MS || 15_000);
 const captureScreenshots = process.env.SIGNAL_QA_SCREENSHOTS !== '0';
 const viewports = [
@@ -33,6 +35,16 @@ const researchPayload = {
         sources: ['SEC EDGAR', 'Yahoo Finance'], warnings: [],
     },
 };
+const nvdaResearchPayload = {
+    ...researchPayload,
+    data: {
+        ...researchPayload.data,
+        symbol: 'NVDA',
+        quote: { ...researchPayload.data.quote, name: 'NVIDIA Corporation', price: 190 },
+        fundamentals: { ...researchPayload.data.fundamentals, revenueGrowthPercent: 55, operatingMarginPercent: 62, cash: 54000000000, debt: 11000000000 },
+        valuation: { ...researchPayload.data.valuation, priceEarnings: 46.5, marketCap: 4650000000000 },
+    },
+};
 
 const before = {
     id: 'msft-2023', fiscalPeriodEnd: '2023-06-30', filedAt: '2023-07-27', priceDate: '2023-07-28', price: 338.37,
@@ -45,6 +57,12 @@ const after = {
     marketCapitalization: 3122000000000, filingUrl: 'https://www.sec.gov/example-2024', form: '10-K', gaps: [],
 };
 const replayIntro = { symbol: 'MSFT', companyName: 'Microsoft Corporation', replayId: before.id, knownAsOf: before.priceDate, observation: before, sourceLabels: ['SEC EDGAR', 'Yahoo Finance'], warnings: [] };
+const replayPayloadFor = (symbol) => symbol === 'META'
+    ? {
+        intro: { ...replayIntro, symbol: 'META', companyName: 'Meta Platforms, Inc.', replayId: 'meta-2023', observation: { ...before, id: 'meta-2023', price: 300.21, priceEarnings: 27.4 }, knownAsOf: before.priceDate },
+        after: { ...after, id: 'meta-2024', price: 474.83, priceEarnings: 29.1 },
+    }
+    : { intro: replayIntro, after };
 
 const addCheck = (scenario, name, passed, details = '') => {
     scenario.checks.push({ name, status: passed ? 'passed' : 'failed', details });
@@ -62,18 +80,24 @@ const main = async () => {
             const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height } });
             const page = await context.newPage();
             page.setDefaultTimeout(timeoutMs);
-            let revealBody = null;
+            const revealBodies = [];
             page.on('console', (message) => { if (message.type() === 'error') scenario.issues.push({ type: 'console-error', message: message.text() }); });
             page.on('pageerror', (error) => scenario.issues.push({ type: 'page-error', message: error.message }));
 
-            await page.route('**/api/research/symbol/MSFT?market=US', async (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(researchPayload) }));
-            await page.route('**/api/learn/replay/MSFT*', async (route) => {
+            await page.route('**/api/research/symbol/**', async (route) => {
+                const symbol = new URL(route.request().url()).pathname.split('/').pop();
+                const payload = symbol === 'NVDA' ? nvdaResearchPayload : researchPayload;
+                await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(payload) });
+            });
+            await page.route('**/api/learn/replay/**', async (route) => {
+                const symbol = new URL(route.request().url()).pathname.split('/').pop();
+                const replay = replayPayloadFor(symbol);
                 if (route.request().method() === 'POST') {
-                    revealBody = route.request().postDataJSON();
-                    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { ...replayIntro, nextObservation: after } }) });
+                    revealBodies.push(route.request().postDataJSON());
+                    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { ...replay.intro, nextObservation: replay.after } }) });
                     return;
                 }
-                await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: replayIntro }) });
+                await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: replay.intro }) });
             });
 
             try {
@@ -98,11 +122,30 @@ const main = async () => {
                 addCheck(scenario, 'P/E lab computes ratio', (await page.getByTestId('pe-result').textContent())?.trim() === '20×');
                 await page.getByLabel('EPS').fill('0');
                 addCheck(scenario, 'P/E lab rejects non-positive EPS', (await page.getByTestId('pe-result').textContent())?.trim() === 'Not meaningful');
+                await page.getByRole('button', { name: 'Mark understood' }).click();
+                addCheck(scenario, 'concept mastery updates', (await page.getByTestId('learn-mastery').innerText()).includes('1/6'));
+
+                await page.getByRole('button', { name: /Compare/ }).click();
+                await page.getByText('NVIDIA Corporation', { exact: false }).waitFor();
+                addCheck(scenario, 'comparison loads both companies', await page.getByText('Microsoft Corporation', { exact: false }).count() > 0 && await page.getByText('NVIDIA Corporation', { exact: false }).count() > 0);
+                addCheck(scenario, 'comparison does not select a winner', await page.getByText('No automatic winner', { exact: false }).count() > 0);
+                const comparisonText = await page.getByTestId('learn-compare').innerText();
+                addCheck(scenario, 'comparison exposes timestamps', (comparisonText.match(/Fetched/g) || []).length >= 2);
 
                 await page.getByRole('button', { name: /Apply today/ }).click();
                 await page.getByText('Microsoft Corporation', { exact: false }).first().waitFor();
                 addCheck(scenario, 'current exercise identifies unavailable forward P/E', await page.getByText('No approved analyst-consensus/estimate-history provider exists', { exact: false }).count() > 0);
                 addCheck(scenario, 'current evidence exposes provenance', await page.getByText('Sources and provenance').count() > 0);
+                await page.getByLabel('Evidence category').selectOption('supports');
+                await page.getByPlaceholder('What fact, assumption, risk, or unanswered question matters?').fill('Positive annual earnings support an interpretable P/E.');
+                await page.getByRole('button', { name: 'Add', exact: true }).click();
+                await page.getByLabel('Evidence category').selectOption('against');
+                await page.getByPlaceholder('What fact, assumption, risk, or unanswered question matters?').fill('The multiple still requires durable growth.');
+                await page.getByRole('button', { name: 'Add', exact: true }).click();
+                await page.getByLabel('Current thesis').fill('The current valuation may be justified only if earnings growth remains durable.');
+                await page.getByLabel('What would change my mind?').fill('Earnings growth slows materially without a lower valuation.');
+                await page.getByRole('button', { name: 'Mark Apply complete' }).click();
+                addCheck(scenario, 'current exercise updates Apply mastery', (await page.getByTestId('learn-mastery').innerText()).includes('1/1'));
 
                 await page.getByRole('button', { name: /Historical replay/ }).click();
                 await page.getByTestId('replay-locked-state').waitFor();
@@ -113,9 +156,36 @@ const main = async () => {
                 await page.getByLabel('Invalidation').fill('Earnings weaken while the valuation multiple remains elevated.');
                 await page.getByRole('button', { name: 'Commit view & reveal next checkpoint' }).click();
                 await page.getByTestId('replay-revealed-state').waitFor();
-                addCheck(scenario, 'reveal POST carries commitment', Boolean(revealBody?.commitment?.supportingEvidence && revealBody?.commitment?.contraryEvidence && revealBody?.commitment?.invalidation));
+                addCheck(scenario, 'reveal POST carries commitment', Boolean(revealBodies[0]?.commitment?.supportingEvidence && revealBodies[0]?.commitment?.contraryEvidence && revealBodies[0]?.commitment?.invalidation));
                 addCheck(scenario, 'original commitment remains visible', await page.getByText('Your original commitment · locked').count() > 0);
                 addCheck(scenario, 'future observation appears only after commit', (await page.getByTestId('replay-revealed-state').innerText()).includes('$418.35'));
+                await page.getByLabel('Which reasoning held up?').fill('Earnings and valuation both needed interpretation.');
+                await page.getByLabel('Which assumption would you revise?').fill('I relied too much on one multiple.');
+                await page.getByLabel('Did confidence match evidence quality?').fill('Confidence was higher than the evidence breadth justified.');
+                await page.getByLabel('What would you check sooner next time?').fill('I would inspect growth durability and contrary evidence sooner.');
+                await page.getByRole('button', { name: 'Save reflection' }).click();
+                addCheck(scenario, 'first replay reflection updates mastery', (await page.getByTestId('learn-mastery').innerText()).includes('1/2'));
+
+                await page.getByRole('button', { name: /Expectations and valuation reset/ }).click();
+                await page.getByText('Meta Platforms, Inc.', { exact: false }).waitFor();
+                addCheck(scenario, 'second curated case starts with future locked', await page.getByTestId('replay-revealed-state').count() === 0);
+                await page.getByLabel('Supporting evidence').fill('The filing showed positive annual earnings.');
+                await page.getByLabel('Contrary evidence').fill('Expectations could still reset the multiple.');
+                await page.getByLabel('Invalidation').fill('Earnings and revenue weaken together.');
+                await page.getByRole('button', { name: 'Commit view & reveal next checkpoint' }).click();
+                await page.getByTestId('replay-revealed-state').waitFor();
+                await page.getByLabel('Which reasoning held up?').fill('The evidence required both earnings and valuation context.');
+                await page.getByLabel('Which assumption would you revise?').fill('I underweighted expectation changes.');
+                await page.getByLabel('Did confidence match evidence quality?').fill('The confidence was appropriately limited.');
+                await page.getByLabel('What would you check sooner next time?').fill('I would inspect estimate and margin direction sooner.');
+                await page.getByRole('button', { name: 'Save reflection' }).click();
+                addCheck(scenario, 'two curated replay debriefs update mastery', (await page.getByTestId('learn-mastery').innerText()).includes('2/2'));
+
+                await page.reload({ waitUntil: 'domcontentloaded' });
+                await page.getByTestId('learn-mastery').waitFor();
+                await page.waitForFunction(() => document.querySelector('[data-testid="learn-mastery"]')?.textContent?.includes('2/2'));
+                const masteryAfterReload = await page.getByTestId('learn-mastery').innerText();
+                addCheck(scenario, 'mastery survives reload', masteryAfterReload.includes('1/6') && masteryAfterReload.includes('2/2') && masteryAfterReload.includes('1/1'));
 
                 const themeButton = page.locator('button[aria-label^="Switch to"]');
                 const beforeTheme = await page.locator('[data-testid="learn-v0-1"]').getAttribute('data-theme');
