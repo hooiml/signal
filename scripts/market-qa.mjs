@@ -626,6 +626,8 @@ const main = async () => {
                 }
                 const signal = buildFixtureSignal(route.request().url());
                 if (signalFixtureProfile === 'single-vix-conflict') {
+                    signal.composite_score = 64;
+                    signal.tier = 'neutral';
                     signal.confidence.conflicting_indicators = ['vix'];
                 }
                 await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: signal }) });
