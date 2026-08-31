@@ -49,7 +49,7 @@ Production screenshots and raw audit artifacts were captured separately during t
 | UX-006 | P1 | Accessibility | DOM order, heading order, and visual order diverge | ✅ Completed |
 | UX-007 | P1 | Copy | Developer/internal architecture language is visible to users | ✅ Completed |
 | UX-008 | P1 | Today | Secondary status cards are too repetitive and vertically expensive | ✅ Completed |
-| UX-009 | P2 | Market | Market needs metadata, touch-target, and copy polish | ⬜ Todo |
+| UX-009 | P2 | Market | Market needs metadata, touch-target, and copy polish | ✅ Completed |
 
 ---
 
@@ -566,7 +566,7 @@ Keep top-priority work as cards; make secondary health/status information compac
 
 **Priority:** P2  
 **Area:** Market  
-**Status:** ⬜ Todo
+**Status:** ✅ Completed
 
 ## What should be preserved
 
@@ -628,11 +628,18 @@ The VIX Index does not confirm the majority reading...
 
 ## Acceptance criteria
 
-- [ ] Availability state appears once in the primary Market header area.
-- [ ] Mobile freshness metadata fits within one compact line/group.
-- [ ] Main mobile controls meet touch-target requirements.
-- [ ] No internal V7 architecture footer is shown.
-- [ ] Market screenshots remain visually focused after polish.
+- [x] Availability state appears once in the primary Market header area.
+- [x] Mobile freshness metadata fits within one compact line/group.
+- [x] Main mobile controls meet touch-target requirements.
+- [x] No internal V7 architecture footer is shown.
+- [x] Market screenshots remain visually focused after polish.
+
+## Completion evidence
+
+- Source bundle: [PR #12](https://github.com/hooiml/signal/pull/12), including [`d16f887`](https://github.com/hooiml/signal/commit/d16f887652e7dfb04922a65e31d43955cd034d1b) (`fix(market): polish Phase 12 presentation`) and [`74ead18`](https://github.com/hooiml/signal/commit/74ead186901821d5339368f35312194f92032cf6) (`fix(market): preserve refresh touch target`).
+- GitHub Actions: [Research Memory Gate run #73](https://github.com/hooiml/signal/actions/runs/33345138414) passed Phase 1–11 source checks, typecheck, lint, the Research regression suite, production build, existing Phase 8–12 browser regressions, and the UX-009 Market matrix.
+- Browser evidence: `1440×1000` and `390×844` verified one availability state, one compact freshness group, 44px mobile region/mode/refresh controls, grammatical singular conflict copy, collapsed advanced evidence, keyboard-focusable controls, no internal architecture footer, and no console, page, or horizontal-overflow errors.
+- Screenshots: [UX-009 Market browser evidence artifact](https://github.com/hooiml/signal/actions/runs/33345138414/artifacts/9741786076).
 
 ---
 
