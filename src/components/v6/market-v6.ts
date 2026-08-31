@@ -64,7 +64,11 @@ export const getDecisionPostureV6 = (signal: MarketSignal) => {
     const quality = signal.metadata.signal_quality;
     const cautionParts: string[] = [];
 
-    if (conflicts.length > 0) cautionParts.push(formatNameListV6(conflicts) + ' do not confirm the majority read');
+    if (conflicts.length > 0) {
+        cautionParts.push(conflicts.length === 1
+            ? `The ${conflicts[0]} does not confirm the majority reading`
+            : `${formatNameListV6(conflicts)} do not confirm the majority reading`);
+    }
     if (quality?.freshness === 'mixed') cautionParts.push('source freshness is mixed');
     if (quality?.freshness === 'stale') cautionParts.push('important sources are stale');
     if (quality?.source_coverage === 'limited') cautionParts.push('source coverage is limited');

@@ -154,6 +154,8 @@ export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentati
                 : signal
                     ? 'available'
                     : 'unavailable';
+    const activeInputCount = signal ? Object.values(signal.components).filter((component) => component.enabled).length : undefined;
+    const availableInputCount = signal ? Object.values(signal.components).filter((component) => component.enabled && Number.isFinite(component.score)).length : undefined;
     const marketCommands: readonly AppCommandV6[] = [
         { id: 'market-us', label: 'Use US market', group: 'Market', keywords: ['region'], run: () => changeConfiguration({ market: 'US' }, 'US market') },
         { id: 'market-my', label: 'Use Malaysia market', group: 'Market', keywords: ['region my'], run: () => changeConfiguration({ market: 'MY' }, 'Malaysia market') },
@@ -185,6 +187,8 @@ export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentati
                             snapshotDate={signal?.metadata.score_delta?.snapshot_date ?? null}
                             sourceToggleImpact={signal?.metadata.counterfactuals?.source_toggle}
                             updateCause={updateCause}
+                            availableInputCount={availableInputCount}
+                            activeInputCount={activeInputCount}
                             theme={theme}
                             presentation="v7"
                         />

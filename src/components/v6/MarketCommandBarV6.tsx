@@ -34,6 +34,8 @@ type MarketCommandBarV6Props = {
     snapshotDate?: string | null;
     sourceToggleImpact?: SourceToggleImpact;
     updateCause?: string | null;
+    availableInputCount?: number;
+    activeInputCount?: number;
     theme: ResearchThemeV6;
     presentation?: 'v6' | 'v7';
 };
@@ -53,6 +55,8 @@ export const MarketCommandBarV6 = ({
     snapshotDate,
     sourceToggleImpact,
     updateCause = null,
+    availableInputCount,
+    activeInputCount,
     theme,
     presentation = 'v6',
 }: MarketCommandBarV6Props) => {
@@ -80,11 +84,24 @@ export const MarketCommandBarV6 = ({
         ? (sourceToggleImpact.with_source_score !== null && sourceToggleImpact.without_source_score !== null ? sourceImpactText : 'No comparison data')
         : 'No comparison data';
     const hasSourceComparison = sourceImpactLabel !== 'No comparison data';
-    const formatRequestTime = (value: Date | null) => value?.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+    const formatRequestTime = (value: Date | null) => value
+        ? `${value.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' })} UTC`
+        : undefined;
     const attemptedLabel = formatRequestTime(lastAttemptedAt);
     const successfulLabel = formatRequestTime(lastSuccessfulAt);
     const statusContent = getBriefingStatusContent(status, attemptedLabel, successfulLabel, updateCause);
-    const segmentClass = (active: boolean) => `min-h-8 rounded-[6px] px-3 text-sm font-semibold transition-colors active:scale-[0.98] ${focusClass} ${active ? 'bg-[var(--fill-success)] text-[var(--on-success)]' : 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--border)] hover:text-[var(--text-primary)]'}`;
+    const v7TouchTarget = presentation === 'v7' ? 'min-h-11 min-w-11' : 'min-h-8';
+    const segmentClass = (active: boolean) => `${v7TouchTarget} rounded-[6px] px-3 text-sm font-semibold transition-colors active:scale-[0.98] ${focusClass} ${active ? 'bg-[var(--fill-success)] text-[var(--on-success)]' : 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--border)] hover:text-[var(--text-primary)]'}`;
+    const inputAvailability = typeof availableInputCount === 'number' && typeof activeInputCount === 'number'
+        ? availableInputCount === activeInputCount
+            ? `All ${activeInputCount} inputs available`
+            : `${availableInputCount} of ${activeInputCount} inputs available`
+        : null;
+    const compactMetadata = [
+        snapshotDate ? formatCompactSnapshotDateUtc(snapshotDate) : null,
+        successfulLabel ? `Retrieved ${successfulLabel}` : null,
+        inputAvailability,
+    ].filter(Boolean).join(' · ');
 
     return (
         <div data-market-controls={presentation} className={`research-scrollbar overflow-x-auto transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-80'}`} aria-label="Market conditions controls">
@@ -92,7 +109,7 @@ export const MarketCommandBarV6 = ({
                 <div data-market-control-cluster="primary" className="flex items-center gap-4">
                     <div className="flex items-center gap-2" role="group" aria-label="Region">
                         <span className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${tone.muted}`}>Region</span>
-                        <div className="flex min-h-9 items-center rounded-[var(--radius)] border-[0.5px] border-[var(--border)] p-0.5">
+                        <div className={`flex items-center rounded-[var(--radius)] border-[0.5px] border-[var(--border)] p-0.5 ${presentation === 'v7' ? 'min-h-11' : 'min-h-9'}`}>
                             <button type="button" aria-pressed={market === 'US'} onClick={() => onMarketChange('US')} className={segmentClass(market === 'US')}>US</button>
                             <button type="button" aria-pressed={market === 'MY'} onClick={() => onMarketChange('MY')} className={segmentClass(market === 'MY')}>MY</button>
                         </div>
@@ -102,7 +119,7 @@ export const MarketCommandBarV6 = ({
 
                     <div className="flex items-center gap-2" role="group" aria-label="Interpretation mode">
                         <span className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${tone.muted}`}>Mode</span>
-                        <div className="flex min-h-9 items-center rounded-[var(--radius)] border-[0.5px] border-[var(--border)] p-0.5">
+                        <div className={`flex items-center rounded-[var(--radius)] border-[0.5px] border-[var(--border)] p-0.5 ${presentation === 'v7' ? 'min-h-11' : 'min-h-9'}`}>
                             <button type="button" aria-pressed={mode === 'standard'} onClick={() => onModeChange('standard')} className={segmentClass(mode === 'standard')}>Momentum</button>
                             <button type="button" aria-pressed={mode === 'contrarian'} onClick={() => onModeChange('contrarian')} className={segmentClass(mode === 'contrarian')}>Contrarian</button>
                         </div>
@@ -113,7 +130,7 @@ export const MarketCommandBarV6 = ({
                     <div role="group" aria-label="Data source" className="relative flex min-w-0 items-center gap-x-2.5">
                         <SignalHeaderIcon name="source" />
                         <span className={`text-sm font-semibold ${tone.secondary}`}>{compactSourceLabel}</span>
-                        <label className="relative inline-flex min-h-9 cursor-pointer select-none items-center rounded-md focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-emerald-500">
+                        <label className={`relative inline-flex cursor-pointer select-none items-center rounded-md focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-emerald-500 ${presentation === 'v7' ? 'min-h-11' : 'min-h-9'}`}>
                             <input
                                 type="checkbox"
                                 checked={enableSocial}
@@ -134,19 +151,31 @@ export const MarketCommandBarV6 = ({
                 <div data-market-control-cluster="status" className="flex min-w-0 items-center gap-4">
                     <SignalHeaderDivider />
 
-                    <MetaItemV6 label="Conditions as of" value={snapshotDate ? `Conditions as of ${formatSnapshotDateUtc(snapshotDate)} (UTC)` : 'Conditions date unavailable'} tone={tone} icon="clock" />
-
-                    <SignalHeaderDivider />
+                    {presentation === 'v6' ? (
+                        <>
+                            <MetaItemV6 label="Conditions as of" value={snapshotDate ? `Conditions as of ${formatSnapshotDateUtc(snapshotDate)} (UTC)` : 'Conditions date unavailable'} tone={tone} icon="clock" />
+                            <SignalHeaderDivider />
+                        </>
+                    ) : null}
 
                     <div className="flex min-h-10 min-w-0 items-center gap-2">
-                        <MetaItemV6 label="Status" value={statusContent.value} tone={tone} status={status} secondary={statusContent.secondary} />
+                        <div data-market-freshness-metadata={presentation === 'v7' ? 'compact' : undefined}>
+                            <MetaItemV6
+                                label="Status"
+                                value={statusContent.value}
+                                tone={tone}
+                                status={status}
+                                icon={presentation === 'v7' ? 'clock' : undefined}
+                                secondary={presentation === 'v7' && status === 'available' && compactMetadata ? compactMetadata : statusContent.secondary}
+                            />
+                        </div>
                         {onRefresh ? (
                             <button
                                 type="button"
                                 onClick={onRefresh}
                                 disabled={!isLoaded || status === 'loading' || status === 'updating'}
                                 aria-label={status === 'loading' || status === 'updating' ? 'Refreshing market conditions' : `Refresh market conditions${successfulLabel ? `, last retrieved ${successfulLabel}` : ''}`}
-                                className={`grid h-8 w-8 place-items-center rounded-full border-[0.5px] border-[var(--border)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] ${focusClass} disabled:cursor-not-allowed disabled:opacity-55`}
+                                className={`grid place-items-center rounded-full border-[0.5px] border-[var(--border)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] ${focusClass} disabled:cursor-not-allowed disabled:opacity-55 ${presentation === 'v7' ? 'h-11 w-11' : 'h-8 w-8'}`}
                             >
                                 <SignalHeaderIcon name="refresh" />
                             </button>
@@ -169,6 +198,13 @@ const getBriefingStatusContent = (status: BriefingStatus, attemptedLabel?: strin
     if (status === 'refresh-failed') return { value: 'Refresh failed', secondary: `Previous conditions retained${attemptedLabel ? ` · Attempted ${attemptedLabel}` : ''}` };
     if (status === 'available') return { value: 'Conditions available', secondary: successfulLabel ? `Retrieved ${successfulLabel}` : undefined };
     return { value: 'Conditions unavailable', secondary: attemptedLabel ? `Attempted ${attemptedLabel}` : undefined };
+};
+
+const formatCompactSnapshotDateUtc = (value: string) => {
+    const timestamp = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00.000Z` : value;
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short' });
 };
 
 const MetaItemV6 = ({ label, value, tone, status, icon, secondary }: { label: string; value: string; tone: CommandTone; status?: BriefingStatus; icon?: 'clock'; secondary?: string }) => (

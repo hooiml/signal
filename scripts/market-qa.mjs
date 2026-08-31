@@ -10,11 +10,13 @@ const DEFAULT_BASE_URL = 'http://127.0.0.1:3000';
 const DEFAULT_PORT = 3107;
 const DEFAULT_TIMEOUT_MS = 15_000;
 const VIEWPORTS = new Map([
+    [1440, { name: 'desktop-phase12', width: 1440, height: 1000 }],
     [1280, { name: 'desktop', width: 1280, height: 900 }],
     [768, { name: 'tablet', width: 768, height: 900 }],
+    [390, { name: 'mobile-phase12', width: 390, height: 844 }],
     [375, { name: 'mobile', width: 375, height: 812 }],
 ]);
-const VALID_SCENARIOS = new Set(['all', 'score-evidence', 'controls', 'smoke']);
+const VALID_SCENARIOS = new Set(['all', 'score-evidence', 'controls', 'phase12-polish', 'smoke']);
 
 const args = process.argv.slice(2);
 const getArg = (name) => {
@@ -578,7 +580,7 @@ const inspectCalibrationViews = async (page) => {
 };
 
 const main = async () => {
-    if (!VALID_SCENARIOS.has(requestedScenario)) throw new Error(`Unknown --scenario ${requestedScenario}. Use all, score-evidence, controls, or smoke.`);
+    if (!VALID_SCENARIOS.has(requestedScenario)) throw new Error(`Unknown --scenario ${requestedScenario}. Use all, score-evidence, controls, phase12-polish, or smoke.`);
     if (requestedTheme !== null && requestedTheme !== 'light' && requestedTheme !== 'dark') throw new Error('Theme must be light or dark.');
     if (viewports.length === 0) throw new Error('No valid viewport widths were provided.');
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('Timeout must be a positive number.');
@@ -614,6 +616,7 @@ const main = async () => {
         const page = await context.newPage();
         const signalRequests = [];
         let signalResponseMode = 'success';
+        let signalFixtureProfile = 'default';
 
         if (!useLiveData) {
             await page.route('**/api/signals/v2?**', async (route) => {
@@ -622,6 +625,9 @@ const main = async () => {
                     return;
                 }
                 const signal = buildFixtureSignal(route.request().url());
+                if (signalFixtureProfile === 'single-vix-conflict') {
+                    signal.confidence.conflicting_indicators = ['vix'];
+                }
                 await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: signal }) });
             });
             await page.route('**/api/research/**', async (route) => {
@@ -660,6 +666,7 @@ const main = async () => {
         });
 
         const runLayout = requestedScenario === 'all' || requestedScenario === 'score-evidence' || requestedScenario === 'smoke';
+        const runPhase12Polish = requestedScenario === 'all' || requestedScenario === 'phase12-polish';
         const runControls = requestedScenario === 'all' || requestedScenario === 'controls';
         const layoutViewports = requestedScenario === 'smoke' ? viewports.slice(0, 1) : viewports;
 
@@ -947,6 +954,87 @@ const main = async () => {
                     scenario.durationMs = Date.now() - scenarioStartedAt;
                 }
             }
+        }
+
+        if (runPhase12Polish) {
+            signalFixtureProfile = 'single-vix-conflict';
+            const polishViewports = viewports;
+            for (const viewport of polishViewports) {
+                const scenario = { name: 'phase12-polish', viewport: `${viewport.width}x${viewport.height}`, screenshot: null, checks: [], issues: [], durationMs: 0, status: 'failed' };
+                report.scenarios.push(scenario);
+                currentScenario = scenario;
+                const scenarioStartedAt = Date.now();
+                try {
+                    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+                    const navigationResponse = await page.goto(new URL('/', baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+                    runCheck(scenario.checks, 'document response', navigationResponse?.ok() === true, navigationResponse ? `HTTP ${navigationResponse.status()}` : 'navigation did not return a response');
+                    await page.locator('#market-posture-v7').waitFor({ state: 'visible', timeout: timeoutMs });
+                    const details = await page.evaluate(() => {
+                        const bodyText = document.body.textContent || '';
+                        const compactMetadata = [...document.querySelectorAll('[data-market-freshness-metadata="compact"]')];
+                        const advancedEvidence = document.querySelector('[data-testid="market-advanced-evidence"]');
+                        const footerText = document.querySelector('[data-testid="market-v7"] footer')?.textContent || '';
+                        const focusTargets = [
+                            ...document.querySelectorAll('[role="group"][aria-label="Region"] button'),
+                            ...document.querySelectorAll('[role="group"][aria-label="Interpretation mode"] button'),
+                            document.querySelector('button[aria-label^="Refresh market conditions"]'),
+                        ].filter((element) => element instanceof HTMLElement);
+                        const targetSizes = focusTargets.map((element) => {
+                            const bounds = element.getBoundingClientRect();
+                            element.focus();
+                            return {
+                                label: element.textContent?.trim() || element.getAttribute('aria-label') || '',
+                                width: bounds.width,
+                                height: bounds.height,
+                                focusable: document.activeElement === element,
+                            };
+                        });
+                        return {
+                            availabilityCount: bodyText.match(/Conditions available/g)?.length ?? 0,
+                            compactMetadataCount: compactMetadata.length,
+                            compactMetadataText: compactMetadata[0]?.textContent || '',
+                            compactMetadataHeight: compactMetadata[0]?.getBoundingClientRect().height ?? 0,
+                            footerText,
+                            advancedEvidenceCollapsed: Boolean(advancedEvidence && !advancedEvidence.hasAttribute('open')),
+                            postureText: document.querySelector('[aria-labelledby="market-posture-v7"]')?.textContent || '',
+                            orientationText: document.querySelector('[aria-label="Market orientation metrics"]')?.textContent || '',
+                            firstReadingVisible: Boolean(document.querySelector('[data-testid="market-first-reading"]')?.getClientRects().length),
+                            targetSizes,
+                            documentOverflow: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0) - window.innerWidth,
+                        };
+                    });
+                    runCheck(scenario.checks, 'availability appears once in the primary Market header', details.availabilityCount === 1, `${details.availabilityCount} instances`);
+                    runCheck(scenario.checks, 'freshness metadata is one compact group', details.compactMetadataCount === 1
+                        && details.compactMetadataText.includes('16 Jul')
+                        && details.compactMetadataText.includes('Retrieved')
+                        && details.compactMetadataText.includes('All 5 inputs available')
+                        && (viewport.width > 620 || details.compactMetadataHeight <= 52), JSON.stringify({ text: details.compactMetadataText, height: details.compactMetadataHeight }));
+                    runCheck(scenario.checks, 'singular conflict copy is grammatical', details.postureText.includes('The VIX Index does not confirm the majority reading'), shorten(details.postureText));
+                    runCheck(scenario.checks, 'Market hierarchy remains focused', details.postureText.includes('Conditions are mixed')
+                        && details.orientationText.includes('Composite score')
+                        && details.orientationText.includes('Signal alignment')
+                        && details.firstReadingVisible
+                        && details.advancedEvidenceCollapsed, JSON.stringify(details));
+                    runCheck(scenario.checks, 'footer contains no internal architecture language', details.footerText.trim() === 'Data sources · Methodology · Limitations'
+                        && !/Live Market V7|architecture|contract/i.test(details.footerText), details.footerText);
+                    runCheck(scenario.checks, 'Market controls remain keyboard focusable', details.targetSizes.length === 5 && details.targetSizes.every((target) => target.focusable), JSON.stringify(details.targetSizes));
+                    if (viewport.width <= 620) {
+                        runCheck(scenario.checks, 'mobile Market controls meet 44px touch targets', details.targetSizes.every((target) => target.width >= 44 && target.height >= 44), JSON.stringify(details.targetSizes));
+                    }
+                    runCheck(scenario.checks, 'Market page has no horizontal overflow', details.documentOverflow <= 1, `${details.documentOverflow}px overflow`);
+                    if (captureScreenshots) {
+                        const screenshotPath = path.join(evidenceDir, `market-polish-${viewport.name}-${viewport.width}x${viewport.height}.png`);
+                        await page.screenshot({ path: screenshotPath, fullPage: false });
+                        scenario.screenshot = screenshotPath;
+                    }
+                    scenario.status = 'passed';
+                } catch (error) {
+                    scenario.error = shorten(error instanceof Error ? error.message : error);
+                } finally {
+                    scenario.durationMs = Date.now() - scenarioStartedAt;
+                }
+            }
+            signalFixtureProfile = 'default';
         }
 
         if (runControls) {

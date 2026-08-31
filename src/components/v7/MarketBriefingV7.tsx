@@ -6,7 +6,7 @@ import { getReadLimitations } from '@/components/v2/cockpit-utils';
 import { MarketBriefingV6 } from '@/components/v6/MarketBriefingV6';
 import { MarketToResearchLinkV6 } from '@/components/v6/MarketResearchHandoffV6';
 import { ScoreHistoryV6 } from '@/components/v6/ScoreHistoryV6';
-import { formatCompactDateV6, getDecisionPostureV6, getRankedDriversV6, getScenariosV6 } from '@/components/v6/market-v6';
+import { getDecisionPostureV6, getRankedDriversV6, getScenariosV6 } from '@/components/v6/market-v6';
 import type { ResearchThemeV6 } from '@/components/v6/research-v6';
 import styles from './v7-prototype.module.css';
 import liveStyles from './v7-live.module.css';
@@ -148,8 +148,6 @@ export const MarketBriefingV7 = ({ signal, enableSocial, theme, updating, refres
                     <p>{posture.summary}</p>
                 </div>
                 <div className={styles.marketMeta}>
-                    <strong><span className={styles.statusDot} /> {updating ? `Updating for ${updateCause ?? 'the active configuration'}` : 'Conditions available'}</strong>
-                    <span>Conditions date · {formatCompactDateV6(signal.metadata.score_delta?.snapshot_date)}</span>
                     <span>{signal.mode === 'contrarian' ? 'Contrarian interpretation' : 'Momentum interpretation'} · {enableSocial ? 'social source on' : 'social source off'}</span>
                     <span>Decision support, not a forecast</span>
                 </div>
