@@ -100,8 +100,10 @@ const main = async () => {
             try {
                 const response = await page.goto(`${baseUrl}/learn`, { waitUntil: 'domcontentloaded' });
                 addCheck(scenario, 'learn route response', response?.ok() === true, response ? `HTTP ${response.status()}` : 'no response');
+                addCheck(scenario, 'v0.3 is current while v0.2 remains selectable', await page.getByRole('button', { name: 'Investment analysis v0.3' }).getAttribute('aria-pressed') === 'true');
+                await page.getByRole('button', { name: 'Business foundations v0.2' }).click();
                 await page.getByTestId('learn-v0-2').waitFor();
-                addCheck(scenario, 'v0.2 is current release', await page.getByRole('button', { name: 'Business foundations v0.2' }).getAttribute('aria-pressed') === 'true');
+                addCheck(scenario, 'v0.2 release is selected', await page.getByRole('button', { name: 'Business foundations v0.2' }).getAttribute('aria-pressed') === 'true');
                 const nav = page.locator('nav[aria-label^="Primary"]:visible');
                 addCheck(scenario, 'shared Learn navigation remains selected', (await nav.locator('a[aria-current="page"]').textContent())?.trim() === 'Learn');
                 let overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
@@ -151,6 +153,7 @@ const main = async () => {
                 addCheck(scenario, 'Apply mastery updates', (await page.getByTestId('business-mastery').innerText()).includes('1/1'));
 
                 await page.reload({ waitUntil: 'domcontentloaded' });
+                await page.getByRole('button', { name: 'Business foundations v0.2' }).click();
                 await page.getByTestId('business-mastery').waitFor();
                 await page.waitForFunction(() => document.querySelector('[data-testid="business-mastery"]')?.textContent?.includes('2/2'));
                 const mastery = await page.getByTestId('business-mastery').innerText();

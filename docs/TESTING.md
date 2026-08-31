@@ -128,6 +128,16 @@ npm run qa:learn-v0.2 -- --base-url http://127.0.0.1:3000
 
 The check covers `1280px`, `768px`, and `375px`; the nine-module path; statement manipulation; all six Financials Lab views; row explanations; reported, derived, and unavailable labels; formula inputs; income-versus-cash interpretation; structural comparison warnings; server-side future locking; two replay commitments and reflections; current-company application; independent v0.2 persistence; v0.1 reachability; theme switching; overflow; and blocking browser errors. Mocked current Research and replay responses make the behavior deterministic.
 
+### Signal Learn v0.3 QA
+
+For the investment-analysis modules, Valuation Lens, Macro Context, unified Research workspace, scenarios, portfolio exposure, append-only journal, point-in-time replay, and current exercise, run:
+
+```powershell
+npm run qa:learn-v0.3 -- --base-url http://127.0.0.1:3000
+```
+
+The check covers `1280px`, `768px`, and `375px`; all fourteen modules; alternative-metric applicability; earnings/multiple return decomposition; fact/change/interpretation/uncertainty macro framing; linked supporting and contrary evidence; the complete thesis contract; explicit scenario provenance and non-normalized probabilities; opt-in weighted value; factor concentration; immutable journal originals and appended updates across navigation and reload; server-side future locking with macro and event context; the eleven-field current exercise; deterministic reasoning challenges without recommendations; v0.1/v0.2 reachability; theme switching; overflow; and blocking browser errors. Replay responses are mocked for deterministic browser proof; the route regression and build verify the real boundary.
+
 ### Targeted Header QA
 
 For shared header or responsive navigation changes, use the deterministic one-session check instead of rebuilding an ad hoc browser probe:
