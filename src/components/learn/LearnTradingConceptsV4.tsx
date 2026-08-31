@@ -1,0 +1,8 @@
+'use client';
+
+import { learnModulesV04, type LearnModuleIdV04 } from '@/lib/learn/v0-4';
+
+export const LearnTradingConceptsV4 = ({ moduleId, completed, onComplete }: { readonly moduleId: LearnModuleIdV04; readonly completed: boolean; readonly onComplete: () => void }) => {
+    const lesson = learnModulesV04.find((item) => item.id === moduleId)!;
+    return <article data-testid="trading-concept" className="min-w-0 border-y border-[var(--v7-border)] py-5"><p className="text-[11px] font-bold uppercase text-[var(--v7-accent)]">Module {lesson.eyebrow}</p><h2 className="mt-2 text-xl font-bold text-[var(--v7-text)]">{lesson.title}</h2><p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--v7-text-secondary)]">{lesson.principle}</p><div className="mt-5 grid gap-px overflow-hidden rounded-[8px] border border-[var(--v7-border)] bg-[var(--v7-border)] sm:grid-cols-2">{lesson.concepts.map((concept) => <div key={concept} className="bg-[var(--v7-surface-quiet)] px-4 py-3 text-sm font-medium">{concept}</div>)}</div><div className="mt-5 border-l-2 border-[var(--v7-risk)] pl-4"><p className="text-[10px] font-bold uppercase text-[var(--v7-text-muted)]">Misconception to reject</p><p className="mt-1 text-sm font-semibold text-[var(--v7-text)]">{lesson.misconception}</p></div><textarea aria-label="Trading concept reasoning" placeholder="Explain the context, limitation, and evidence you would require." className="mt-4 min-h-24 w-full rounded-[6px] border border-[var(--v7-border)] bg-[var(--v7-surface)] p-3 text-sm" /><button type="button" onClick={onComplete} className="mt-3 min-h-10 rounded-[6px] bg-[var(--v7-accent)] px-4 text-sm font-bold text-white">{completed ? 'Mark for review' : 'Mark understood'}</button></article>;
+};

@@ -8,6 +8,7 @@ import { LearnCompareV1 } from './LearnCompareV1';
 import { LearnReplayV1 } from './LearnReplayV1';
 import { LearnBusinessWorkspaceV2 } from './LearnBusinessWorkspaceV2';
 import { LearnInvestmentWorkspaceV3 } from './LearnInvestmentWorkspaceV3';
+import { LearnTradingWorkspaceV4 } from './LearnTradingWorkspaceV4';
 import {
     emptyLearnProgressV01,
     learnModulesV01,
@@ -18,12 +19,12 @@ import {
 } from '@/lib/learn/v0-1';
 
 type LearnWorkspace = 'learn' | 'compare' | 'apply' | 'replay';
-type LearnRelease = 'v0.1' | 'v0.2' | 'v0.3';
+type LearnRelease = 'v0.1' | 'v0.2' | 'v0.3' | 'v0.4';
 
 const progressKey = 'signal-learn-v0.1-progress';
 
 export const LearnDashboardV1 = () => {
-    const [release, setRelease] = useState<LearnRelease>('v0.3');
+    const [release, setRelease] = useState<LearnRelease>('v0.4');
     const [workspace, setWorkspace] = useState<LearnWorkspace>('learn');
     const [moduleId, setModuleId] = useState<LearnModuleIdV01>('evidence');
     const [progressState, setProgressState] = useState<LearnProgressV01>(emptyLearnProgressV01);
@@ -70,6 +71,7 @@ export const LearnDashboardV1 = () => {
     const completedCaseIds = progressState.reflections.map((item) => item.caseId);
 
     const commands = [
+        { id: 'learn-trading', label: 'Open trading process', group: 'Learn', keywords: ['price structure risk expectancy replay'], run: () => setRelease('v0.4') },
         { id: 'learn-investment', label: 'Open investment analysis', group: 'Learn', keywords: ['thesis scenarios macro valuation'], run: () => setRelease('v0.3') },
         { id: 'learn-business', label: 'Open business foundations', group: 'Learn', keywords: ['financial statements cash flow debt roic'], run: () => setRelease('v0.2') },
         { id: 'learn-concepts', label: 'Open valuation concepts', group: 'Learn', keywords: ['education modules'], run: () => { setRelease('v0.1'); setWorkspace('learn'); } },
@@ -83,11 +85,12 @@ export const LearnDashboardV1 = () => {
             <main className="min-h-[calc(100dvh-132px)] bg-[var(--v7-surface)] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
                 <div className="mx-auto w-full max-w-[1180px]">
                     <nav aria-label="Learn release" className="research-scrollbar mb-5 flex w-full gap-1 overflow-x-auto rounded-[8px] border border-[var(--v7-border)] bg-[var(--v7-surface-quiet)] p-1 sm:w-fit">
+                        <button type="button" aria-pressed={release === 'v0.4'} onClick={() => setRelease('v0.4')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.4' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Trading process v0.4</button>
                         <button type="button" aria-pressed={release === 'v0.3'} onClick={() => setRelease('v0.3')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.3' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Investment analysis v0.3</button>
                         <button type="button" aria-pressed={release === 'v0.2'} onClick={() => setRelease('v0.2')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.2' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Business foundations v0.2</button>
                         <button type="button" aria-pressed={release === 'v0.1'} onClick={() => setRelease('v0.1')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.1' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Valuation foundations v0.1</button>
                     </nav>
-                    {release === 'v0.3' ? <LearnInvestmentWorkspaceV3 /> : release === 'v0.2' ? <LearnBusinessWorkspaceV2 /> : <div data-testid="learn-v0-1">
+                    {release === 'v0.4' ? <LearnTradingWorkspaceV4 /> : release === 'v0.3' ? <LearnInvestmentWorkspaceV3 /> : release === 'v0.2' ? <LearnBusinessWorkspaceV2 /> : <div data-testid="learn-v0-1">
                     <section className="grid gap-5 border-b border-[var(--v7-border)] pb-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
                         <div>
                             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--v7-accent)]">Signal Learn · v0.1</p>

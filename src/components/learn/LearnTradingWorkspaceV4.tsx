@@ -1,0 +1,39 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { LearnStrategyLabV4 } from './LearnStrategyLabV4';
+import { LearnTradeJournalV4 } from './LearnTradeJournalV4';
+import { LearnTradingChartLabV4 } from './LearnTradingChartLabV4';
+import { LearnTradingConceptsV4 } from './LearnTradingConceptsV4';
+import { LearnTradingPracticeV4 } from './LearnTradingPracticeV4';
+import { LearnTradingReplayV4 } from './LearnTradingReplayV4';
+import { LearnTradingRiskV4, type TradingRiskViewV4 } from './LearnTradingRiskV4';
+import { emptyLearnProgressV04, learnModulesV04, parseLearnProgressV04, type LearnModuleIdV04, type LearnProgressV04 } from '@/lib/learn/v0-4';
+
+type Workspace = 'concepts' | 'chart' | 'construction' | 'risk' | 'expectancy' | 'replay' | 'strategy' | 'journal' | 'practice';
+const progressKey = 'signal-learn-v0.4-progress';
+const workspaces: readonly [Workspace, string, string][] = [['concepts', 'Concept path', '16 trading modules'], ['chart', 'Price lab', 'Structure and transforms'], ['construction', 'Trade plan', 'Context to invalidation'], ['risk', 'Risk', 'Sizing and execution'], ['expectancy', 'Expectancy', 'Win rate and payoff'], ['replay', 'Replay', 'Candle-by-candle'], ['strategy', 'Strategy Lab', 'Costs and robustness'], ['journal', 'Trade Journal', 'Immutable pre-trade plan'], ['practice', 'Practice', 'Observe or plan']];
+
+export const LearnTradingWorkspaceV4 = () => {
+    const [workspace, setWorkspace] = useState<Workspace>('concepts'); const [moduleId, setModuleId] = useState<LearnModuleIdV04>('price-structure'); const [progress, setProgress] = useState<LearnProgressV04>(emptyLearnProgressV04); const [ready, setReady] = useState(false);
+    useEffect(() => { const timer = window.setTimeout(() => { try { const raw = localStorage.getItem(progressKey); setProgress(parseLearnProgressV04(raw ? JSON.parse(raw) : null)); } catch { setProgress(emptyLearnProgressV04()); } setReady(true); }, 0); return () => clearTimeout(timer); }, []); useEffect(() => { if (ready) localStorage.setItem(progressKey, JSON.stringify(progress)); }, [progress, ready]);
+    const completed = progress.completedModules; const completedWorkspaces = progress.completedWorkspaces; const nextModule = useMemo(() => learnModulesV04.find((module) => !completed.includes(module.id)) ?? learnModulesV04.at(-1)!, [completed]); const toggleModule = () => setProgress((current) => ({ ...current, completedModules: current.completedModules.includes(moduleId) ? current.completedModules.filter((id) => id !== moduleId) : [...current.completedModules, moduleId] })); const complete = (id: string) => setProgress((current) => ({ ...current, completedWorkspaces: current.completedWorkspaces.includes(id) ? current.completedWorkspaces : [...current.completedWorkspaces, id] }));
+    return <div data-testid="learn-v0-4"><section className="grid gap-5 border-b border-[var(--v7-border)] pb-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end"><div><p className="text-[11px] font-bold uppercase text-[var(--v7-accent)]">Signal Learn - v0.4</p><h1 className="mt-2 max-w-3xl text-2xl font-bold text-[var(--v7-text)] sm:text-3xl">Practice trading process without chasing signals.</h1><p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--v7-text-secondary)] sm:text-[15px]">Read price behavior, define invalidation, size from allowed risk, account for execution, and evaluate expectancy and robustness. Process quality is separate from one trade&apos;s outcome.</p></div><div data-testid="trading-mastery" className="rounded-[8px] border border-[var(--v7-border)] bg-[var(--v7-surface-quiet)] p-4"><div className="flex justify-between gap-3 text-xs"><span className="font-semibold">Trading process</span><span className="font-mono">{completed.length}/{learnModulesV04.length}</span></div><div className="mt-2 h-2 overflow-hidden rounded bg-[var(--v7-border)]"><div className="h-full bg-[var(--v7-accent)]" style={{ width: `${completed.length / learnModulesV04.length * 100}%` }} /></div><p className="mt-3 text-xs text-[var(--v7-text-muted)]">Next: <button type="button" onClick={() => { setWorkspace('concepts'); setModuleId(nextModule.id); }} className="min-h-10 font-semibold text-[var(--v7-text)] underline">{nextModule.title}</button></p><dl className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--v7-border)] pt-3 text-center"><div><dt className="text-[10px] uppercase text-[var(--v7-text-muted)]">Understand</dt><dd className="mt-1 font-mono text-xs font-bold">{completed.length}/16</dd></div><div><dt className="text-[10px] uppercase text-[var(--v7-text-muted)]">Practice</dt><dd className="mt-1 font-mono text-xs font-bold">{completedWorkspaces.length}/8</dd></div></dl></div></section>
+        <nav aria-label="Trading learning workspace" className="research-scrollbar mt-5 flex gap-2 overflow-x-auto pb-1">{workspaces.map(([id, label, note]) => <button key={id} type="button" aria-pressed={workspace === id} onClick={() => setWorkspace(id)} className={`min-h-11 min-w-[170px] shrink-0 rounded-[8px] border px-4 text-left ${workspace === id ? 'border-[var(--v7-accent)] bg-[var(--v7-accent-quiet)]' : 'border-[var(--v7-border)]'}`}><span className="block text-sm font-bold">{label}</span><span className="mt-0.5 block text-[11px] text-[var(--v7-text-muted)]">{note}</span></button>)}</nav>
+        <div className="mt-5">
+            {workspace === 'concepts' ? <div className="grid min-w-0 gap-4 lg:grid-cols-[250px_minmax(0,1fr)]">
+                <aside className="min-w-0 rounded-[8px] border border-[var(--v7-border)] bg-[var(--v7-surface-quiet)] p-3 lg:self-start">
+                    <p className="px-2 pb-2 text-[11px] font-bold uppercase text-[var(--v7-text-muted)]">v0.4 path</p>
+                    <div className="research-scrollbar flex gap-2 overflow-x-auto lg:grid lg:max-h-[700px] lg:overflow-y-auto">{learnModulesV04.map((module) => <button key={module.id} type="button" aria-pressed={moduleId === module.id} onClick={() => setModuleId(module.id)} className={`min-h-11 min-w-[190px] rounded-[8px] border px-3 py-2 text-left text-xs font-semibold lg:min-w-0 ${moduleId === module.id ? 'border-[var(--v7-accent)] bg-[var(--v7-accent-quiet)]' : 'border-transparent'}`}><span className="flex justify-between gap-2"><span>{module.eyebrow} - {module.title}</span><span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${completed.includes(module.id) ? 'bg-[var(--v7-accent)]' : 'border border-[var(--v7-border-strong)]'}`} /></span></button>)}</div>
+                </aside>
+                <LearnTradingConceptsV4 moduleId={moduleId} completed={completed.includes(moduleId)} onComplete={toggleModule} />
+            </div> : null}
+            {workspace === 'chart' ? <LearnTradingChartLabV4 onComplete={() => complete('chart')} /> : null}
+            {['construction', 'risk', 'expectancy'].includes(workspace) ? <LearnTradingRiskV4 view={workspace as TradingRiskViewV4} onComplete={complete} /> : null}
+            <div className={workspace === 'replay' ? '' : 'hidden'}><LearnTradingReplayV4 onComplete={() => complete('replay')} /></div>
+            {workspace === 'strategy' ? <LearnStrategyLabV4 onComplete={() => complete('strategy')} /> : null}
+            {workspace === 'journal' ? <LearnTradeJournalV4 onComplete={() => complete('journal')} /> : null}
+            {workspace === 'practice' ? <LearnTradingPracticeV4 onComplete={() => complete('practice')} /> : null}
+        </div>
+        <section className="mt-5 rounded-[8px] border border-[var(--v7-border)] bg-[var(--v7-surface-quiet)] p-4 text-xs leading-5 text-[var(--v7-text-muted)] sm:flex sm:justify-between sm:gap-6"><p><strong className="text-[var(--v7-text-secondary)]">Signal Learn rule:</strong> indicators transform historical market data; they do not become deterministic trade signals.</p><p className="mt-2 shrink-0 sm:mt-0">Education only. No execution or alerts.</p></section></div>;
+};

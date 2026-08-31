@@ -3,7 +3,7 @@ import { LearnDashboardV1 } from '@/components/learn/LearnDashboardV1';
 
 export const metadata: Metadata = {
     title: 'Learn | Signal',
-    description: 'Evidence-based investing education using business analysis, valuation, scenarios, current-market evidence, and hindsight-safe historical replay.',
+    description: 'Evidence-based market education using business analysis, valuation, scenarios, trading process, risk, and hindsight-safe replay.',
 };
 
 export default function LearnPage() {

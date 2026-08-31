@@ -35,8 +35,10 @@ const main = async () => {
             try {
                 const response = await page.goto(`${baseUrl}/learn`, { waitUntil: 'domcontentloaded' });
                 addCheck(scenario, 'learn route response', response?.ok() === true, response ? `HTTP ${response.status()}` : 'no response');
+                addCheck(scenario, 'v0.4 is current while v0.3 remains selectable', await page.getByRole('button', { name: 'Trading process v0.4' }).getAttribute('aria-pressed') === 'true');
+                await page.getByRole('button', { name: 'Investment analysis v0.3' }).click();
                 await page.getByTestId('learn-v0-3').waitFor();
-                addCheck(scenario, 'v0.3 is current release', await page.getByRole('button', { name: 'Investment analysis v0.3' }).getAttribute('aria-pressed') === 'true');
+                addCheck(scenario, 'v0.3 release is selected', await page.getByRole('button', { name: 'Investment analysis v0.3' }).getAttribute('aria-pressed') === 'true');
                 const nav = page.locator('nav[aria-label^="Primary"]:visible');
                 addCheck(scenario, 'shared Learn navigation remains selected', (await nav.locator('a[aria-current="page"]').textContent())?.trim() === 'Learn');
                 let overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
@@ -92,7 +94,7 @@ const main = async () => {
                 await page.getByRole('button', { name: /Apply current/ }).click(); await fillCurrent(page); addCheck(scenario, 'current exercise exposes all eleven required inputs', await page.locator('[data-testid="investment-apply"] textarea').count() === 10 && await page.getByLabel('Current analysis confidence').count() === 1); await page.getByRole('button', { name: 'Complete current analysis' }).click();
                 const currentText = await page.getByTestId('investment-apply').innerText(); addCheck(scenario, 'current exercise does not output a recommendation', currentText.includes('No hidden answer key') && !currentText.match(/Buy rating|Sell rating|Recommendation:/i));
 
-                await page.reload({ waitUntil: 'domcontentloaded' }); await page.getByTestId('investment-mastery').waitFor(); await page.waitForFunction(() => document.querySelector('[data-testid="investment-mastery"]')?.textContent?.includes('Replay'));
+                await page.reload({ waitUntil: 'domcontentloaded' }); await page.getByRole('button', { name: 'Investment analysis v0.3' }).click(); await page.getByTestId('investment-mastery').waitFor(); await page.waitForFunction(() => document.querySelector('[data-testid="investment-mastery"]')?.textContent?.includes('Replay'));
                 addCheck(scenario, 'v0.3 mastery persists independently', (await page.getByTestId('investment-mastery').innerText()).includes('1/14'));
                 await page.getByRole('button', { name: /^Journal/ }).first().click(); await page.getByTestId('journal-original').waitFor(); addCheck(scenario, 'immutable journal persists after reload', (await page.getByTestId('journal-original').innerText()).includes('Business evidence is explicit'));
                 await page.getByRole('button', { name: 'Business foundations v0.2' }).click(); addCheck(scenario, 'v0.2 remains reachable', await page.getByTestId('learn-v0-2').count() === 1); await page.getByRole('button', { name: 'Valuation foundations v0.1' }).click(); addCheck(scenario, 'v0.1 remains reachable', await page.getByTestId('learn-v0-1').count() === 1); await page.getByRole('button', { name: 'Investment analysis v0.3' }).click();

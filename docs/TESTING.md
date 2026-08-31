@@ -138,6 +138,16 @@ npm run qa:learn-v0.3 -- --base-url http://127.0.0.1:3000
 
 The check covers `1280px`, `768px`, and `375px`; all fourteen modules; alternative-metric applicability; earnings/multiple return decomposition; fact/change/interpretation/uncertainty macro framing; linked supporting and contrary evidence; the complete thesis contract; explicit scenario provenance and non-normalized probabilities; opt-in weighted value; factor concentration; immutable journal originals and appended updates across navigation and reload; server-side future locking with macro and event context; the eleven-field current exercise; deterministic reasoning challenges without recommendations; v0.1/v0.2 reachability; theme switching; overflow; and blocking browser errors. Replay responses are mocked for deterministic browser proof; the route regression and build verify the real boundary.
 
+### Signal Learn v0.4 QA
+
+For the short-term trading modules, chart lab, trade construction, sizing, expectancy, candle replay, strategy validation, trade journal, and observe-only current practice, run:
+
+```powershell
+npm run qa:learn-v0.4 -- --base-url http://127.0.0.1:3000
+```
+
+The check covers `1280px`, `768px`, and `375px`; all sixteen modules; mobile-readable candles and volume; structure classification before reveal; adjustable SMA/EMA and contextual VWAP; momentum and ATR limitations; spread/slippage examples; complete trade construction; immediate size recalculation and long/short stop validation; expectancy independent of win rate; a valid `No Trade` replay commitment; server-side future-candle locking and one-candle advancement; replay state across panels; process-not-P&L debrief; next-bar backtest outputs, costs, drawdown, warnings, and parameter sensitivity; immutable pre-trade journal persistence; observe-only practice; v0.1-v0.3 reachability; theme switching; overflow; and blocking browser errors. Replay responses are mocked for deterministic browser proof; domain regression and production build verify the real timestamp boundary.
+
 ### Targeted Header QA
 
 For shared header or responsive navigation changes, use the deterministic one-session check instead of rebuilding an ad hoc browser probe:
