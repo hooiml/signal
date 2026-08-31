@@ -1,7 +1,7 @@
 # Signal UI/UX Audit Tracker — 2026-08-30
 
 Status: **Completed**
-Production baseline: `main` @ [`51ee963`](https://github.com/hooiml/signal/commit/51ee9634370f610e97a1255c124dd33138413516)
+Production baseline: `main` @ [`98cc46a`](https://github.com/hooiml/signal/commit/98cc46a70a5f141db08cff548600e3eb105bf45a)
 Audit scope: **Market, Research, Today — desktop + mobile**
 
 ## Purpose
@@ -39,7 +39,7 @@ Production screenshots and raw audit artifacts were captured separately during t
 
 - All tracker items UX-001 through UX-009 are completed with item-level source, test, and browser evidence below.
 - [Research Memory Gate run #75](https://github.com/hooiml/signal/actions/runs/33345366237) passed the Phase 1–11 source checks, typecheck, lint, canonical Research regression, production build, existing Phase 8–12 browser regressions, and the UX-009 Market matrix on the final head.
-- Vercel reported the final head ready before merge, and the exact tested commit was fast-forwarded through the stacked Phase 12 branch to `main` without force.
+- Vercel reported the final head ready before merge, and the exact tested commit [`51ee963`](https://github.com/hooiml/signal/commit/51ee9634370f610e97a1255c124dd33138413516) was fast-forwarded through the stacked Phase 12 branch to `main` without force.
 - Production [`/research`](https://signal-vercel.vercel.app/research?density=comfortable) then loaded saved `MSFT` context with the selected security before one Review Tools shell, exactly one Decision Memory instance, one `h1`, no page-level horizontal overflow, and no application-origin console errors.
 - Task 0 usage observation remains active in [`NEXT_PRODUCT_ROADMAP.md`](NEXT_PRODUCT_ROADMAP.md); it is not unfinished Phase 12 implementation.
 
