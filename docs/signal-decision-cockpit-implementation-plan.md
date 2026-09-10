@@ -1,5 +1,7 @@
 # Signal Decision Cockpit Implementation Plan
 
+Historical plan: the unused V2 presentation components named below were retired on 10 September 2026. Their former data roles remain useful context; see [current architecture](ARCHITECTURE.md) for active owners.
+
 ## Goal
 
 Implement the approved decision-cockpit redesign for the main Signal dashboard without changing scoring semantics.

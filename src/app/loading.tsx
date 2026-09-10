@@ -1,7 +1,7 @@
 export default function Loading() {
     return (
         <main className="min-h-screen bg-[#f4f7fb] text-slate-950 p-4 md:p-8 font-sans">
-            <header className="flex justify-between items-center mb-8 max-w-7xl mx-auto w-full border-b border-slate-200 pb-6">
+            <header className="flex flex-wrap gap-4 justify-between items-center mb-8 max-w-7xl mx-auto w-full border-b border-slate-200 pb-6">
                 <div>
                     <div className="h-10 w-40 bg-white border border-slate-200 rounded-lg animate-pulse mb-2" />
                     <div className="h-4 w-64 bg-slate-200 rounded animate-pulse" />

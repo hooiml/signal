@@ -1,5 +1,7 @@
 # Signal Decision Cockpit Design Brief
 
+Historical brief: the unused V2 presentation components named below were retired on 10 September 2026. Their data requirements are retained as design history; see [current architecture](ARCHITECTURE.md) for active owners.
+
 ## Goal
 
 Redesign the current market signal dashboard into a decision cockpit. The first screen must answer, in order:

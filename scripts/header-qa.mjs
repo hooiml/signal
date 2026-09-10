@@ -22,7 +22,7 @@ const getArg = (name) => {
 const baseUrl = getArg('--base-url') || process.env.SIGNAL_QA_URL || DEFAULT_BASE_URL;
 const timeoutMs = Number(getArg('--timeout') || process.env.SIGNAL_QA_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
 const captureScreenshots = !args.includes('--no-screenshots') && process.env.SIGNAL_QA_SCREENSHOTS !== '0';
-const requestedRoutes = (getArg('--route') || '/start,/,/research')
+const requestedRoutes = (getArg('--route') || '/start,/main-v7,/research')
     .split(',')
     .map((route) => route.trim())
     .filter(Boolean)

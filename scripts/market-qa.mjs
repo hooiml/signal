@@ -968,7 +968,7 @@ const main = async () => {
                 const scenarioStartedAt = Date.now();
                 try {
                     await page.setViewportSize({ width: viewport.width, height: viewport.height });
-                    const navigationResponse = await page.goto(new URL('/', baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+                    const navigationResponse = await page.goto(new URL('/main-v7', baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: timeoutMs });
                     runCheck(scenario.checks, 'document response', navigationResponse?.ok() === true, navigationResponse ? `HTTP ${navigationResponse.status()}` : 'navigation did not return a response');
                     await page.locator('#market-posture-v7').waitFor({ state: 'visible', timeout: timeoutMs });
                     const details = await page.evaluate(() => {
@@ -1048,7 +1048,7 @@ const main = async () => {
             try {
                 await context.clearCookies();
                 await page.setViewportSize({ width: viewport.width, height: viewport.height });
-                await page.goto(new URL('/', baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+                await page.goto(new URL('/main-v7', baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: timeoutMs });
                 await page.locator('#market-posture-v7').waitFor({ state: 'visible', timeout: timeoutMs });
                 const advancedEvidence = page.getByTestId('market-advanced-evidence');
                 if (await advancedEvidence.getAttribute('open') === null) await advancedEvidence.locator('summary').first().click();

@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  async redirects() {
+    return [{ source: "/", destination: "/main-v8", permanent: false }];
+  },
   async headers() {
     return [
       {

@@ -47,7 +47,7 @@ function Format-PathList($paths) {
 }
 
 $topLevel = Get-ChildItem -Path $root -Force |
-    Where-Object { $_.Name -notin @(".antigravitycli", ".codegraph", ".codex-remote-attachments", ".git", ".gitnexus", ".next", ".omx", ".tmp", ".vscode", ".worktree-ports.json", "node_modules", "tsconfig.tsbuildinfo", ".env.local") } |
+    Where-Object { $_.Name -notin @(".antigravitycli", ".codegraph", ".codex-remote-attachments", ".git", ".gitnexus", ".next", ".omx", ".playwright-cli", ".tmp", ".vscode", ".worktree-ports.json", "node_modules", "next-env.d.ts", "output", "tsconfig.tsbuildinfo", ".env.local") } |
     ForEach-Object {
         if ($_.PSIsContainer) {
             "$($_.Name)/"
@@ -100,14 +100,14 @@ $(Format-PathList $topLevel)
 $(Format-PathList $apiRoutes)
 "@
 
-$normalizedContent = $content.TrimEnd() + "`r`n"
+$normalizedContent = ($content -replace "`r`n", "`n").TrimEnd() + "`n"
 
 if ($Check) {
     if (-not (Test-Path $outputPath)) {
         Write-Error "Generated repo map is missing. Run npm run harness:update-map."
     }
 
-    $existing = Get-Content -Raw $outputPath
+    $existing = (Get-Content -Raw $outputPath) -replace "`r`n", "`n"
     if ($existing -ne $normalizedContent) {
         Write-Error "Generated repo map is stale. Run npm run harness:update-map."
     }

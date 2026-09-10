@@ -1,5 +1,7 @@
 # Signal Decision Cockpit Screen Spec
 
+Historical specification: the unused V2 presentation components named below were retired on 10 September 2026. See [current architecture](ARCHITECTURE.md) for active owners.
+
 ## Purpose
 
 This document turns the high-level brief in `docs/signal-decision-cockpit-design-brief.md` into a concrete product design spec for the next Signal dashboard design pass.

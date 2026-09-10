@@ -156,7 +156,9 @@ For shared header or responsive navigation changes, use the deterministic one-se
 npm run qa:header
 ```
 
-The command checks `/start`, `/`, and `/research` at 1280px, 768px, and 375px. It waits for the header and navigation to be visible after `domcontentloaded`, so it does not wait for unrelated upstream API requests. It measures the shared inner width, bottom hairline, navigation clipping, document overflow, command and theme control target sizes, and toggle behavior, and writes a fresh report plus header captures under `.tmp/signal-header-qa/<timestamp>/`.
+The command checks `/start`, `/main-v7`, and `/research` at 1280px, 768px, and 375px. It waits for the header and navigation to be visible after `domcontentloaded`, so it does not wait for unrelated upstream API requests. It measures the shared inner width, bottom hairline, navigation clipping, document overflow, command and theme control target sizes, and toggle behavior, and writes a fresh report plus header captures under `.tmp/signal-header-qa/<timestamp>/`.
+
+The homepage now redirects to V8, whose distinct shell is covered by `node scripts/v8-version-navigation-qa.mjs`. This checks the HTTP redirect, retained V6/V7/V8 Market and Research routes, keyboard version switching, responsive overflow, and retired Gemini routes. Run `node scripts/v8-connected-qa.mjs` for connected Market, `node scripts/v8-research-connected-qa.mjs` for saved Research, and `node scripts/v8-exploration-qa.mjs` for labelled demos. All accept `SIGNAL_QA_URL`; connected suites require populated existing local read APIs. They intercept boundary cases without changing saved records and save evidence under `.tmp/`.
 
 Set `SIGNAL_QA_URL` or pass `--base-url` when the local server uses another port.
 

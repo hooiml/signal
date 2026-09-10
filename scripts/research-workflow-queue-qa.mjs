@@ -110,7 +110,7 @@ try {
 
             if (width === 1280) {
                 await queue.getByRole('button', { name: 'Open Market exposure source' }).click({ noWaitAfter: true });
-                await page.waitForURL(`${baseUrl}/`, { timeout });
+                await page.waitForURL(`${baseUrl}/main-v8`, { timeout });
             }
             console.log(`PASS research workflow Queue source navigation ${width}px`);
         } catch (error) {

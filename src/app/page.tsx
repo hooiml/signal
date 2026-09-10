@@ -1,13 +1,5 @@
-import type { Metadata } from 'next';
-import { MarketDashboardV7 } from '@/components/v6/MarketDashboardV6';
-
-export const metadata: Metadata = {
-    title: 'Signal | Market Conditions',
-    description: 'A story-first view of current market conditions with progressive evidence disclosure.',
-};
-
-export const revalidate = 60;
+import { redirect } from 'next/navigation';
 
 export default function Home() {
-    return <MarketDashboardV7 />;
+    redirect('/main-v8');
 }

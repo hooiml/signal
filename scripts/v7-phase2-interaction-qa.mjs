@@ -177,7 +177,7 @@ const initializeTheme = (theme) => async (context) => {
 };
 
 const exerciseMarketExplorer = async (page, viewport, name, screenshots) => {
-    await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${baseUrl}/main-v7`, { waitUntil: 'domcontentloaded' });
     const explorer = page.getByTestId('market-score-history-explorer');
     await explorer.waitFor({ state: 'visible' });
     await explorer.getByRole('button', { name: 'All', exact: true }).click();

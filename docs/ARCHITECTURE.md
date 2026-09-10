@@ -5,14 +5,15 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 ## User-Facing Routes
 
 - `/start`: guided daily journey from the latest US market score through current Discovery candidates and same-day market context into Research.
-- `/`: primary V7 Market Conditions view, implemented by `MarketDashboardV7` over the shared Market controller and V6 domain surfaces.
+- `/`: redirects to `/main-v8`, the default connected V8 Market experience. The previous homepage used `MarketDashboardV7` and remains available at `/main-v7` without a duplicate V7.1 route.
+- `/main-v8` and `/research-v8`: connected V8 Market and Research; `?demo=1` opens their explicitly illustrative prototypes. A shared, route-scoped UI version bar links between V6, V7 and V8 while retaining the Market/Research experience. Switching versions opens the destination's default view; transient filters, chart selection and drafts are not transferred.
 - `/research`: primary V7 Research workspace, implemented by `ResearchDashboardV7` over the shared Research controller and existing workspace owners.
 - `/learn`: evidence-based financial education using the shared V7 shell. The current v0.4 path teaches price structure, technical transforms, execution, risk sizing, expectancy, point-in-time trading replay, append-only trade review, and cost-aware strategy validation without producing trade signals. The v0.3 investment, v0.2 business, and v0.1 valuation paths remain selectable with separate progress contracts.
 - `/demo`: isolated session-only guided example of Market, Research, and Portfolio. It uses fixed
   local fixtures, labels every surface as example/not live, and has no application API or
   persistence path.
 - `/main-v6` and `/research-v6`: retained V6 rollback references for direct comparison and existing links; removal requires separate approval.
-- `/main-v7` and `/research-v7`: live V7 aliases that use the same shared shell, controllers, and domain surfaces as the promoted routes.
+- `/main-v7` and `/research-v7`: retained live V7 routes; Market preserves the previous homepage and Research uses the same shared controller and domain surfaces as `/research`.
 - The Phase 1 static Market and Research prototypes remain preserved in `src/components/v7/V7Prototype.tsx`; they are no longer mounted by the live V7 aliases.
 - `/backup/main` and `/backup/research`: previous market and research experiences retained as rollback references.
 

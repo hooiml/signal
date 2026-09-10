@@ -190,7 +190,7 @@ try {
             await initializeTheme(theme)(context);
             const page = await preparePage(context, state);
             try {
-                await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
+                await page.goto(`${baseUrl}/main-v7`, { waitUntil: 'domcontentloaded' });
                 await page.locator('#market-posture-v7').waitFor({ state: 'visible' });
                 check(await page.getByTestId('market-v7').getAttribute('data-theme') === theme, `${name}: Market theme did not restore`);
                 check(await page.getByRole('link', { name: /Inspect evidence/ }).count() === 3, `${name}: first-reading inspection links are incomplete`);
@@ -259,7 +259,7 @@ try {
         await initializeTheme('light')(context);
         const page = await preparePage(context, state);
         try {
-            await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
+            await page.goto(`${baseUrl}/main-v7`, { waitUntil: 'domcontentloaded' });
             await page.getByLabel('Loading market conditions').waitFor({ state: 'visible' });
             check(await page.getByTestId('market-v7').isVisible(), 'Market route identity disappeared while loading');
             await page.locator('#market-posture-v7').waitFor({ state: 'visible' });
@@ -314,7 +314,7 @@ try {
         await initializeTheme('dark')(context);
         const page = await preparePage(context, state);
         try {
-            await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
+            await page.goto(`${baseUrl}/main-v7`, { waitUntil: 'domcontentloaded' });
             await page.locator('#market-posture-v7').waitFor({ state: 'visible' });
             state.staleResponses = true;
             await page.getByRole('button', { name: 'MY', exact: true }).click();
@@ -442,7 +442,7 @@ try {
         })(context);
         const page = await preparePage(context, state);
         try {
-            await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
+            await page.goto(`${baseUrl}/main-v7`, { waitUntil: 'domcontentloaded' });
             const skeleton = page.getByLabel('Loading market conditions');
             await skeleton.waitFor({ state: 'visible' });
             const duration = await skeleton.locator('span').first().evaluate((node) => getComputedStyle(node).animationDuration);

@@ -3,6 +3,7 @@ import { Roboto_Mono, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { ThemeProviderV6 } from "@/components/v6/ThemeProviderV6";
 import { PwaLifecycle } from "@/components/pwa/PwaLifecycle";
+import { VersionSwitcher } from "@/components/navigation/VersionSwitcher";
 
 const sourceSans = Source_Sans_3({
   variable: "--font-source-sans",
@@ -45,6 +46,7 @@ export default function RootLayout({
         className={`${sourceSans.variable} ${robotoMono.variable} antialiased`}
       >
         <PwaLifecycle />
+        <VersionSwitcher />
         <ThemeProviderV6>{children}</ThemeProviderV6>
       </body>
     </html>

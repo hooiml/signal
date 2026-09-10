@@ -15,6 +15,7 @@
 /.tmp/
 
 # local visual QA captures belong under .tmp, not the repository root
+/output/
 /*-desktop.png
 /*-mobile.png
 /*-tablet.png

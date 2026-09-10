@@ -1,0 +1,66 @@
+.app { overflow-wrap: anywhere; }
+.app button:disabled { cursor: wait; opacity: .6; }
+.app a { text-underline-offset: 3px; }
+.app .toolbar { display: grid; grid-template-columns: minmax(0, 1fr) 110px auto; align-items: end; }
+.app .toolbar label { width: auto; }
+.app .watchlist { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.mobilePicker { display: none; }
+.tools { padding: 16px 20px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 24px; background: #ffffffa6; font-size: 12px; }
+.tools summary { color: var(--blue); font-weight: 650; }
+.tools > div { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; margin-top: 14px; }
+.tools a { display: block; padding: 8px 0; }
+.dataStatus { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 14px 0; font-size: 12px; color: var(--muted); }
+.warning { padding: 12px 16px; border-left: 3px solid #ba863f; background: #fff8e9; color: #795721; width: 100%; }
+.warning ul { padding-left: 18px; margin: 8px 0; }
+.app .rail { display: block; }
+.readiness { border-top: 1px solid var(--line); padding: 15px 0; font-size: 12px; }
+.readiness summary { display: flex; justify-content: space-between; align-items: baseline; gap: 15px; cursor: pointer; }
+.readiness summary span { color: var(--muted); text-align: right; }
+.readiness summary::before { content: '+'; color: var(--blue); }
+.readiness[open] summary::before { content: '−'; }
+.readiness b { margin-right: auto; }
+.panelContent > h2 { margin: 8px 0 14px; }
+.panelContent > h3 { margin-top: 24px; }
+.panelContent p { font-size: 13px; margin: 10px 0 16px; }
+.authored { white-space: pre-wrap; overflow-wrap: anywhere; }
+.panelContent dd { text-align: right; min-width: 0; }
+.evidence { border-top: 1px solid var(--line); padding: 18px 0; }
+.evidence summary { font-size: 13px; font-weight: 600; color: var(--ink); }
+.evidence small { display: block; color: var(--muted); margin-top: 12px; }
+.editLink { display: inline-block; margin-top: 24px; }
+.priceHistory { margin: 24px 0 32px; padding: 18px; border: 1px solid var(--line); border-radius: 10px; background: #f5f9ff; }
+.chartHeader { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 14px; }
+.chartHeader h3 { margin-top: 4px; }
+.app .chartHeader fieldset { flex: 0 0 auto; }
+.app .chartHeader button { white-space: nowrap; }
+.priceReadout { display: block; color: var(--ink); font-size: 14px; font-weight: 650; }
+.priceChart { display: block; width: 100%; height: auto; margin: 12px 0; overflow: visible; }
+.priceChart text { font: 12px Arial, sans-serif; fill: #49678d; }
+.scrubber { display: grid; gap: 6px; font-size: 11px; color: var(--muted); }
+.scrubber input { width: 100%; min-height: 30px; accent-color: #007c5b; }
+.priceHistory p, .priceHistory summary { font-size: 11px; }
+.tableScroll { overflow: auto; max-height: 360px; margin-top: 14px; }
+.tableScroll table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
+.tableScroll caption { text-align: left; color: var(--muted); margin-bottom: 12px; }
+.tableScroll td, .tableScroll th { padding: 10px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tableScroll small { display: block; font-weight: 400; }
+.checklist { padding: 0; list-style: none; }
+.checklist li { display: flex; gap: 15px; padding: 10px 0; font-size: 12px; border-bottom: 1px solid var(--line); }
+.checklist b { width: 70px; flex-shrink: 0; }
+@media (max-width: 900px) { .app .watchlist { grid-template-columns: repeat(3, minmax(0, 1fr)); } .tools > div { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+    .app .watchlist { display: none; }
+    .app .toolbar { grid-template-columns: minmax(0, 1fr) 90px; }
+    .app .toolbar > label:first-child { grid-column: 1; grid-row: 1; }
+    .app .toolbar > label:nth-child(2) { grid-column: 2; grid-row: 1; }
+    .app .toolbar > button { grid-column: 1 / -1; text-align: left; }
+    .mobilePicker { display: grid; gap: 10px; padding: 14px; background: #ffffffbd; border: 1px solid var(--line); border-radius: 9px; }
+    .mobilePicker label { display: grid; gap: 8px; font-size: 12px; color: var(--muted); }
+    .mobilePicker select { width: 100%; min-width: 0; }
+    .mobilePicker > div { display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
+    .mobilePicker button { min-height: 40px; color: var(--blue); }
+    .mobilePicker button:disabled { cursor: default; }
+    .tools > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .chartHeader { display: block; } .chartHeader fieldset { margin-top: 12px; width: fit-content; }
+    .priceHistory { padding: 12px; } .priceChart text { font-size: 20px; }
+}

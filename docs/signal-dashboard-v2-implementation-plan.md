@@ -1,5 +1,7 @@
 # Signal Dashboard v2.0 - Technical Implementation Plan
 
+Historical plan: the unused `RedditFeed.tsx` presentation component referenced below was retired on 10 September 2026. Existing social-data services remain unchanged.
+
 **Project:** Market Regime Signal Dashboard Enhancement  
 **Target URL:** https://signal-vercel.vercel.app/  
 **Version:** 2.0  
