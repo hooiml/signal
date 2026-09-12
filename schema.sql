@@ -184,6 +184,8 @@ CREATE TABLE IF NOT EXISTS signal_snapshots (
     signal_quality JSONB NOT NULL,
     interpretation_context JSONB NOT NULL,
     metadata_snapshot JSONB NOT NULL,
+    origin VARCHAR(20) NOT NULL DEFAULT 'observed',
+    coverage_note TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT unique_signal_snapshot UNIQUE (market_type, mode, enable_social, snapshot_date)

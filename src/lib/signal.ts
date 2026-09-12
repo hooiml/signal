@@ -61,6 +61,18 @@ export function calculateRedditSentiment(posts: RedditPost[]): number {
 export type MarketType = 'US' | 'MY';
 type MarketMode = 'standard' | 'contrarian';
 
+type SignalTimingStage = 'providers' | 'aura' | 'institutional' | 'snapshot_previous' | 'snapshot_history' | 'snapshot_write' | 'snapshot' | 'calibration';
+export type SignalTimingObserver = (stage: SignalTimingStage, durationMs: number) => void;
+
+async function measureSignalStage<T>(stage: SignalTimingStage, work: () => PromiseLike<T>, onTiming?: SignalTimingObserver): Promise<T> {
+    const started = performance.now();
+    try {
+        return await work();
+    } finally {
+        onTiming?.(stage, performance.now() - started);
+    }
+}
+
 interface SnapshotSummaryRow {
     snapshot_date: string;
     composite_score: number;
@@ -272,49 +284,14 @@ export const fetchRawMarketData = async (
     };
 };
 
-async function ensureSignalSnapshotsTable() {
-    await sql`
-        CREATE TABLE IF NOT EXISTS signal_snapshots (
-            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-            market_type VARCHAR(10) NOT NULL CHECK (market_type IN ('US', 'MY')),
-            mode VARCHAR(20) NOT NULL CHECK (mode IN ('standard', 'contrarian')),
-            enable_social BOOLEAN NOT NULL DEFAULT true,
-            snapshot_date DATE NOT NULL,
-            composite_score INTEGER NOT NULL CHECK (composite_score BETWEEN 0 AND 100),
-            tier VARCHAR(20) NOT NULL,
-            confidence_level VARCHAR(20) NOT NULL,
-            agreement_pct INTEGER NOT NULL,
-            majority_signal VARCHAR(20) NOT NULL,
-            components JSONB NOT NULL,
-            score_drivers JSONB NOT NULL,
-            index_trend JSONB NOT NULL,
-            signal_quality JSONB NOT NULL,
-            interpretation_context JSONB NOT NULL,
-            metadata_snapshot JSONB NOT NULL,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(market_type, mode, enable_social, snapshot_date)
-        )
-    `;
-
-    await sql`
-        CREATE INDEX IF NOT EXISTS idx_signal_snapshots_lookup
-        ON signal_snapshots(market_type, mode, enable_social, snapshot_date DESC)
-    `;
-
-    await sql`ALTER TABLE signal_snapshots ADD COLUMN IF NOT EXISTS origin VARCHAR(20) NOT NULL DEFAULT 'observed'`;
-    await sql`ALTER TABLE signal_snapshots ADD COLUMN IF NOT EXISTS coverage_note TEXT`;
-}
-
 async function persistSignalSnapshot(
     signal: MarketSignal,
-    options: { market: MarketType; mode: MarketMode; enableSocial: boolean }
+    options: { market: MarketType; mode: MarketMode; enableSocial: boolean },
+    onTiming?: SignalTimingObserver,
 ) {
     try {
-        await ensureSignalSnapshotsTable();
-
         const today = new Date().toISOString().slice(0, 10);
-        const previousRows = await sql`
+        const previousRows = await measureSignalStage('snapshot_previous', () => sql`
             SELECT snapshot_date::text as snapshot_date, composite_score, tier, components, score_drivers
             FROM signal_snapshots
             WHERE market_type = ${options.market}
@@ -323,9 +300,9 @@ async function persistSignalSnapshot(
               AND snapshot_date < CURRENT_DATE
             ORDER BY snapshot_date DESC
             LIMIT 1
-        ` as SnapshotSummaryRow[];
+        `, onTiming) as SnapshotSummaryRow[];
 
-        const historyBefore = await sql`
+        const historyBefore = await measureSignalStage('snapshot_history', () => sql`
             SELECT snapshot_date::text as snapshot_date, composite_score, tier, origin, coverage_note
             FROM signal_snapshots
             WHERE market_type = ${options.market}
@@ -333,7 +310,7 @@ async function persistSignalSnapshot(
               AND enable_social = ${options.enableSocial}
             ORDER BY snapshot_date DESC
             LIMIT 89
-        ` as SnapshotSummaryRow[];
+        `, onTiming) as SnapshotSummaryRow[];
 
         const componentsSnapshot = Object.fromEntries(
             Object.entries(signal.components).map(([key, component]) => [
@@ -359,7 +336,7 @@ async function persistSignalSnapshot(
             market_context: signal.metadata.market_context,
         };
 
-        await sql`
+        await measureSignalStage('snapshot_write', () => sql`
             INSERT INTO signal_snapshots (
                 market_type, mode, enable_social, snapshot_date, composite_score, tier,
                 confidence_level, agreement_pct, majority_signal, components, score_drivers,
@@ -397,7 +374,7 @@ async function persistSignalSnapshot(
                 origin = 'observed',
                 coverage_note = NULL,
                 updated_at = NOW()
-        `;
+        `, onTiming);
 
         const previous = previousRows[0];
         const delta = previous ? signal.composite_score - Number(previous.composite_score) : null;
@@ -543,12 +520,12 @@ function injectLiveAuraData(aura: AuraData, marketData: AggregateMarketData) {
 /**
  * Main Orchestrator
  */
-export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard' | 'contrarian' = 'standard', enableSocial: boolean = true) => {
+export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard' | 'contrarian' = 'standard', enableSocial: boolean = true, onTiming?: SignalTimingObserver) => {
     const fetchStart = Date.now();
 
     try {
-        const marketData = await fetchRawMarketData(market, enableSocial, true);
-        const aura = await getAuraAnalysis(marketData, market);
+        const marketData = await measureSignalStage('providers', () => fetchRawMarketData(market, enableSocial, true), onTiming);
+        const aura = await measureSignalStage('aura', () => getAuraAnalysis(marketData, market), onTiming);
 
         const fetchDurationMs = Date.now() - fetchStart;
 
@@ -560,7 +537,7 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
         // V2 INTEGRATION (Hybrid Phase)
         // -----------------------------
         // Fetch Phase 2 Institutional Data
-        const institutionalRaw = (await getLatestInstitutionalData()).filter(entry =>
+        const institutionalRaw = (await measureSignalStage('institutional', () => getLatestInstitutionalData(), onTiming)).filter(entry =>
             !(entry.indicator_name === 'naaim' && marketData.naaimExposure)
         );
 
@@ -878,7 +855,7 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             note: 'Historical score snapshots are needed before this dashboard can show signal changes and hit-rate evidence.'
         };
 
-        const snapshotState = await persistSignalSnapshot(v2Signal, { market, mode, enableSocial });
+        const snapshotState = await measureSignalStage('snapshot', () => persistSignalSnapshot(v2Signal, { market, mode, enableSocial }, onTiming), onTiming);
         if (snapshotState) {
             v2Signal.metadata.score_delta = snapshotState.scoreDelta;
             v2Signal.metadata.score_history = snapshotState.history;
@@ -894,7 +871,7 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                     : 'Daily snapshot logging has started. Trend context will become more useful as history accumulates.'
             };
             try {
-                v2Signal.metadata.historical_validation = await getMarketCalibration({ market, mode, enableSocial });
+                v2Signal.metadata.historical_validation = await measureSignalStage('calibration', () => getMarketCalibration({ market, mode, enableSocial }), onTiming);
             } catch (error) {
                 console.warn('Market calibration is temporarily unavailable:', error instanceof Error ? error.message : String(error));
             }

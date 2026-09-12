@@ -99,6 +99,22 @@ the measurement as an optimization gate.
 
 ### Targeted Market QA
 
+`node scripts/harness/market-request-regression.mjs` executes the real score orchestration,
+scoring, persistence and route with isolated raw providers, SQL, institutional and calibration
+fixtures. It checks all market/mode/social combinations, validation, dependency failures and
+cache hit/bypass/shared behavior. The full harness includes this regression.
+
+For a behavior-preserving optimization, capture the old instrumented implementation before
+editing with `--capture-baseline --output .tmp/market-optimization/before-matrix.json`, then run
+the new implementation with `--compare .tmp/market-optimization/before-matrix.json --output
+.tmp/market-optimization/after-matrix.json`. Baseline DDL is intercepted by the SQL spy; no
+database or provider traffic is permitted. Matched payloads and SQL counts establish behavior
+and removed work, not production latency gains. Schema readiness is checked separately using
+`node scripts/check-market-schema.mjs`; never invoke the score GET as a read-only preflight.
+`--baseline-source <file>` with `--capture-baseline` can execute an archived original `signal.ts`
+against the same fixture when validating a revised dataset. Keep the initial baseline evidence
+and identify the source revision. The fixture also validates successful payloads with the V8 parser.
+
 For Market V6 hierarchy, score-evidence, responsive layout, or control wiring, use the deterministic one-session check:
 
 ```powershell

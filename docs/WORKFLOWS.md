@@ -182,3 +182,23 @@ npm run data:refresh
 ```
 
 The command refreshes AAII first, then warms all eight market, mode, and source-toggle combinations. It fails rather than reporting success if either stage is incomplete. Never commit the secret to `.env` files or scripts.
+
+## Market score request readiness
+
+Before deploying a version that removes request-time snapshot schema maintenance, run
+`node scripts/check-market-schema.mjs` against the intended deployment database. It uses a
+read-only transaction to inspect snapshot columns, insert defaults and valid upsert/lookup
+indexes. Match database identity to deployment configuration separately. If readiness fails,
+stop and document the missing prerequisite; do not call the broad setup endpoint as a preflight.
+`schema.sql` describes fresh provisioning; the existing protected setup route owns upgrades.
+Requests no longer create or upgrade `signal_snapshots`. Application rollback does not require
+removing schema or saved snapshots.
+
+The V2 score response emits `Server-Timing` for providers, stored Aura analysis, institutional
+data, snapshot previous/history reads and write, the whole snapshot operation, calibration,
+cache lookup/wait/load, and handler work before serialization. Timings include network/client
+overhead, not pure SQL execution time. Snapshot stages are nested inside `snapshot`, which is
+nested inside `signal_cache` and `signal`; do not add them together. Calibration includes its
+one-hour cache lookup and any cache-miss work. Score-cache hits and shared waiters report only
+their own cache wait and handler time, without reusing the loader request's stage timings.
+Existing `X-Signal-Cache`, payloads, cache keys/TTL, awaited saving and error behavior are preserved.
