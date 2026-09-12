@@ -1,6 +1,6 @@
 # Signal V8 UI/UX Enhancement Plan
 
-Status: implementation in progress; Batch 1 verified locally, remaining batches pending.
+Status: implementation in progress; Batches 1–2 verified, remaining batches pending.
 Recorded: 2026-09-12.
 Scope: connected `/main-v8` and `/research-v8` experiences.
 
@@ -23,7 +23,7 @@ Work in the order below. Within each batch, inspect prerequisites, implement rel
 | Batch | Items | Purpose | Status |
 | --- | --- | --- | --- |
 | 1. Correctness and accessibility | V8-01, V8-07, V8-08, V8-11 | Semantic colours, outcome-date label, contrast, indicator units | Complete; see execution evidence |
-| 2. Research continuity | V8-02, V8-06 | URL selection, Back/Forward, edit-return refresh | Not started |
+| 2. Research continuity | V8-02, V8-06 | URL selection, Back/Forward, edit-return refresh | Complete; see execution evidence |
 | 3. Loading resilience | V8-04 | Request ownership, timeout budgets, retry, partial history | Not started |
 | 4. Investigation continuity | V8-03, V8-12 | Inspector behaviour, retained state, scenario baseline | Not started |
 | 5. Historical evidence | V8-09, V8-10, V8-15 | Provenance, preview/replay separation, consistent history | Not started |
@@ -236,6 +236,13 @@ Batch: 6. Evidence: proposed improvement; verify actual assessment route/capabil
 - Browser evidence: `.tmp/v8-enhancement/batch1-1789189768937/report.json` and screenshots at 1280/768/375; real local Chromium with captured service responses and deterministic tier/mode/delta variants. All five tiers in both modes, raw-value agreement, tier/accent contrast, date edge cases and document overflow passed; no console errors or unexpected failed requests. Mobile screenshot inspected. These are local checks, not deployment proof.
 - Local target: `http://127.0.0.1:3000`; task-owned dev server left running for following batches. Existing unrelated V6/V7 work and untracked V8 exploration files preserved.
 - GitNexus incremental refresh failed on an inconsistent FTS index; current source and targeted searches supplied ownership evidence instead. No index repair or unrelated configuration changes performed.
+
+### Execution evidence — Batch 2 (2026-09-12)
+
+- Batch 1 pushed and independently confirmed at `fee3438` on `origin/main`.
+- Research now owns ticker/tab in the URL (push security, replace tab), preserves other parameters, handles Back/Forward and unknown selections, and throttles focus/visibility revalidation to five seconds. Revalidation retains saved records on failure and does not change navigation or selection.
+- Passed full lint after correcting declaration ordering via targeted lint, typecheck, harness, production build and `node scripts/v8-continuity-qa.mjs`. Browser checks at 1280/768/375 covered URL/reload/history, tab continuity, unrelated parameters, simulated editor-save server response on return, failed refresh retention, unknown ticker and overflow. No live research writes were performed; actual persisted editor saving was not changed by this batch.
+- Evidence: `.tmp/v8-enhancement/batch2-1789190106207/` plus the final rerun reported by the script. Local server remains `http://127.0.0.1:3000`; deployment is unverified.
 
 
 Select the risk lane from actual scope under AGENTS.md and [TESTING.md](TESTING.md); batch grouping does not lower risk. Shared routes, responsive, async and state changes require the applicable standard checks and affected browser proof. Escalate for contract or other higher-risk changes. Use deterministic edge-case tests for behavioural logic and direct browser/request evidence for interaction claims; static checks alone do not prove them.

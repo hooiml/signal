@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { parseResearchSnapshotResponse } from '@/lib/research/snapshot-input';
 import { buildResearchReadiness } from '@/lib/research/readiness';
 import { researchWorkspaceGroups } from '@/lib/research/workspace-navigation';
@@ -15,18 +15,51 @@ import connected from './research-v8-connected.module.css';
 export function ResearchV8Connected({ initialTicker = '' }: { initialTicker?: string }) {
     const [records, setRecords] = useState<ResearchRecord[] | null>(null);
     const [selected, setSelected] = useState(initialTicker);
-    const [query, setQuery] = useState('');
-    const [market, setMarket] = useState('All');
+    const [tab, setTab] = useState<ResearchTab>('Overview');
     const [reload, setReload] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
+    const lastRead = useRef(0);
+    function navigate(symbol: string, nextTab = tab, push = true) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('ticker', symbol);
+        url.searchParams.set('tab', nextTab.toLowerCase());
+        if (url.href !== window.location.href) window.history[push ? 'pushState' : 'replaceState'](null, '', url);
+        setSelected(symbol); setTab(nextTab);
+    }
     useEffect(() => {
+        const restore = () => {
+            const params = new URLSearchParams(window.location.search);
+            setSelected(params.get('ticker') ?? '');
+            setTab(researchTabs.find(value => value.toLowerCase() === params.get('tab')?.toLowerCase()) ?? 'Overview');
+        };
+        restore(); window.addEventListener('popstate', restore);
+        const revalidate = () => {
+            if (document.visibilityState === 'hidden' || Date.now() - lastRead.current < 5000) return;
+            lastRead.current = Date.now(); setLoading(true); setError(false); setReload(value => value + 1);
+        };
+        window.addEventListener('focus', revalidate);
+        document.addEventListener('visibilitychange', revalidate);
+        return () => { window.removeEventListener('popstate', restore); window.removeEventListener('focus', revalidate); document.removeEventListener('visibilitychange', revalidate); };
+    }, []);
+    const [query, setQuery] = useState('');
+    const [market, setMarket] = useState('All');
+    useEffect(() => {
+        lastRead.current = Date.now();
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 20000);
         let active = true;
         fetch('/api/research/watchlist', { cache: 'no-store', signal: controller.signal })
             .then(async response => { if (!response.ok) throw new Error('Watchlist unavailable'); return parseWatchlist(await response.json()); })
-            .then(next => { if (active) { setRecords(next); setSelected(current => next.some(record => record.symbol === current) ? current : next[0]?.symbol ?? ''); } })
+            .then(next => { if (active) {
+                setRecords(next);
+                const url = new URL(window.location.href);
+                if (!url.searchParams.get('ticker') && next[0]) {
+                    url.searchParams.set('ticker', next[0].symbol);
+                    window.history.replaceState(null, '', url);
+                    setSelected(next[0].symbol);
+                }
+            } })
             .catch(() => { if (active) setError(true); })
             .finally(() => { clearTimeout(timeout); if (active) setLoading(false); });
         return () => { active = false; clearTimeout(timeout); controller.abort(); };
@@ -42,20 +75,20 @@ export function ResearchV8Connected({ initialTicker = '' }: { initialTicker?: st
             <p className={styles.fixtureNotice}>Your existing saved watchlist · provider data loads for the selected security. Editing opens the existing research workspace.</p>
             <div role="status">{loading && <p>Loading saved research…</p>}{error && <p className={connected.warning}>Saved research could not be refreshed. {records ? 'The previously loaded records remain visible.' : 'No example records have been substituted.'} Retry with Reload saved research.</p>}</div>
             {records && records.length === 0 && <section className={styles.emptyWorkspace}><h1>Your research starts here.</h1><p>No active securities are saved. Add a stock or fund using the existing watchlist.</p><a className={base.primaryButton} href="/research?workspace=research">Open watchlist →</a></section>}
-            {records && records.length > 0 && <section className={styles.companySection} aria-label="Saved watchlist"><div className={styles.sectionLabel}><span>Your watchlist <b>{matches.length} of {records.length}</b></span><a className={base.textButton} href="/research?workspace=research">Manage watchlist ↗</a></div><div className={`${styles.companyList} ${connected.watchlist}`}>{matches.map(item => <button className={styles.companyButton} key={item.symbol} aria-pressed={selected === item.symbol} onClick={() => setSelected(item.symbol)}><span className={styles.monogram} aria-hidden="true">{item.symbol[0]}</span><span><b>{item.symbol}</b><small>{item.companyName || item.symbol}</small><small>{item.market} · {item.positionState} · {item.status}</small></span><span className={styles.companyArrow} aria-hidden="true">↗</span></button>)}</div>{!matches.length && <p className={styles.searchEmpty}>No saved securities match these filters. <button className={base.textButton} onClick={() => { setQuery(''); setMarket('All'); }}>Clear filters</button></p>}{record && !matches.includes(record) && <p className={styles.searchHint}>{record.symbol} remains open below and is outside the current filter.</p>}</section>}
-            {!!matches.length && <div className={connected.mobilePicker}><label>Selected saved security<select value={selected} onChange={event => setSelected(event.target.value)}>{selectedIndex < 0 && <option value={selected}>{selected} · outside filter</option>}{matches.map(item => <option key={item.symbol} value={item.symbol}>{item.symbol} · {item.companyName}</option>)}</select></label><div><button disabled={selectedIndex <= 0} onClick={() => setSelected(matches[selectedIndex - 1].symbol)}>← Previous</button><span>{selectedIndex < 0 ? '—' : selectedIndex + 1} / {matches.length}</span><button disabled={selectedIndex >= matches.length - 1} onClick={() => setSelected(matches[selectedIndex + 1].symbol)}>Next →</button></div></div>}
-            {record && <ConnectedCase key={`${record.market}:${record.symbol}`} record={record} />}
-            <footer className={styles.footer}><span>Connected Research V8 · existing Signal records</span><details><summary>Data scope & limitations</summary><p>Saved research is user-authored. Quotes, history and fundamentals come from the existing research service; unavailable values stay unavailable. Retrieval time is not an exchange quote timestamp. Editing, monitoring evaluation and advanced tools open the existing workspace; V8 does not write research records. Reload saved research after editing.</p><a href="/research-v8?demo=1">Open the labelled representative demo →</a></details></footer>
+            {records && records.length > 0 && <section className={styles.companySection} aria-label="Saved watchlist"><div className={styles.sectionLabel}><span>Your watchlist <b>{matches.length} of {records.length}</b></span><a className={base.textButton} href="/research?workspace=research">Manage watchlist ↗</a></div><div className={`${styles.companyList} ${connected.watchlist}`}>{matches.map(item => <button className={styles.companyButton} key={item.symbol} aria-pressed={selected === item.symbol} onClick={() => navigate(item.symbol)}><span className={styles.monogram} aria-hidden="true">{item.symbol[0]}</span><span><b>{item.symbol}</b><small>{item.companyName || item.symbol}</small><small>{item.market} · {item.positionState} · {item.status}</small></span><span className={styles.companyArrow} aria-hidden="true">↗</span></button>)}</div>{!matches.length && <p className={styles.searchEmpty}>No saved securities match these filters. <button className={base.textButton} onClick={() => { setQuery(''); setMarket('All'); }}>Clear filters</button></p>}{record && !matches.includes(record) && <p className={styles.searchHint}>{record.symbol} remains open below and is outside the current filter.</p>}</section>}
+            {!!matches.length && <div className={connected.mobilePicker}><label>Selected saved security<select value={selected} onChange={event => navigate(event.target.value)}>{selectedIndex < 0 && <option value={selected}>{selected} · outside filter</option>}{matches.map(item => <option key={item.symbol} value={item.symbol}>{item.symbol} · {item.companyName}</option>)}</select></label><div><button disabled={selectedIndex <= 0} onClick={() => navigate(matches[selectedIndex - 1].symbol)}>← Previous</button><span>{selectedIndex < 0 ? '—' : selectedIndex + 1} / {matches.length}</span><button disabled={selectedIndex >= matches.length - 1} onClick={() => navigate(matches[selectedIndex + 1].symbol)}>Next →</button></div></div>}
+            {records && selected && !record && <p role="alert">No saved research found for {selected}. Choose a saved security above.</p>}
+            {record && <ConnectedCase key={`${record.market}:${record.symbol}`} record={record} tab={tab} setTab={value => navigate(record.symbol, value, false)} />}
+            <footer className={styles.footer}><span>Connected Research V8 · existing Signal records</span><details><summary>Data scope & limitations</summary><p>Saved research is user-authored. Quotes, history and fundamentals come from the existing research service; unavailable values stay unavailable. Retrieval time is not an exchange quote timestamp. Editing, monitoring evaluation and advanced tools open the existing workspace; V8 does not write research records. Saved research refreshes when you return from editing; you can also reload it manually.</p><a href="/research-v8?demo=1">Open the labelled representative demo →</a></details></footer>
         </main>
     </div>;
 }
 
-function ConnectedCase({ record }: { record: ResearchRecord }) {
+function ConnectedCase({ record, tab, setTab }: { record: ResearchRecord; tab: ResearchTab; setTab: (tab: ResearchTab) => void }) {
     const [snapshot, setSnapshot] = useState<ResearchSnapshot | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
     const [refresh, setRefresh] = useState(0);
-    const [tab, setTab] = useState<ResearchTab>('Overview');
     useEffect(() => {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 30000);
