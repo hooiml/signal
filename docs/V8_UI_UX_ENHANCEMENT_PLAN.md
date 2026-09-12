@@ -1,6 +1,6 @@
 # Signal V8 UI/UX Enhancement Plan
 
-Status: implementation in progress; Batches 1–6 verified; presentation polish pending.
+Status: all seven UI batches implemented and verified; V8-16 currency remains deferred.
 Recorded: 2026-09-12.
 Scope: connected `/main-v8` and `/research-v8` experiences.
 
@@ -28,7 +28,7 @@ Work in the order below. Within each batch, inspect prerequisites, implement rel
 | 4. Investigation continuity | V8-03, V8-12 | Inspector behaviour, retained state, scenario baseline | Complete; see execution evidence |
 | 5. Historical evidence | V8-09, V8-10, V8-15 | Provenance, preview/replay separation, consistent history | Complete; see execution evidence |
 | 6. Research hierarchy | V8-05, V8-17 | Compact security selector and actionable readiness | Complete; see execution evidence |
-| 7. Presentation polish | V8-13, V8-14 | Warning copy, readable metadata, touch targets | Not started |
+| 7. Presentation polish | V8-13, V8-14 | Warning copy, readable metadata, touch targets | Complete; see execution evidence |
 | Deferred, separate task | V8-16 | Persist explicit valuation currency through editor/API | Deferred |
 
 Evidence correctness is a priority: V8-11 ships in Batch 1; provenance and historical scope form a dedicated correctness batch, ahead of hierarchy and polish. Batch numbers represent delivery dependencies, not severity rankings.
@@ -282,6 +282,18 @@ Batch: 6. Evidence: proposed improvement; verify actual assessment route/capabil
 - Passed lint, typecheck, harness, production build, scoped diff check and `node scripts/v8-hierarchy-qa.mjs`. Evidence: `.tmp/v8-enhancement/batch6-1789191821325/report.json` and 1280/768/375 screenshots. Tested 3, 10 and 35 records, stable collapsed research position, no-match/market filtering, keyboard expansion, selection and actual existing policy workspace rendering. Fresh mobile screenshot inspected.
 - Updated continuity/loading/investigation scripts to open the new selector before choosing a security; reran those scenarios to protect earlier batches. Controlled QA records are response fixtures, not saved user data. Local server remains port 3000; deployment unverified.
 
+
+### Execution evidence — Batch 7 (2026-09-12)
+
+- Batch 6 pushed and remotely confirmed at `8ad6d6b`.
+- Simplified primary warning copy and collapsed technical details while keeping the first material quality/provider warning, stale/missing counts, neutral reserve accounting and currency caveat visible. Raised small metadata to 12px, common controls and tools links to 44px, and enabled wrapping without breaking mode labels.
+- Changed `MarketV8Coverage.tsx`, `MarketV8ConnectedPanels.tsx`, `ResearchV8Connected.tsx` and their five existing Market/Research CSS modules; added `scripts/v8-polish-qa.mjs`. No dependencies, scoring changes, persistence changes or currency implementation.
+- Passed full lint, typecheck, harness (including Research regressions), production build and scoped diff checks. Existing harness large-file warnings are informational. The six earlier batch scripts also passed after the shared presentation changes, protecting navigation, request ownership, retained state, provenance and selector behaviour.
+- Final browser evidence: `.tmp/v8-enhancement/batch7-1789192690295/report.json` and screenshots. Local Chromium checked both connected routes at 320, 375, 390, 768, 1024, 1280 and 1440px, all investigation tabs, expanded warnings/saved selector/tools, 12px metadata, 44px controls, and no document overflow or unexpected console/request failures. Tested 200% document zoom/reflow; browser-chrome zoom preferences were not separately tested. Fresh mobile and zoom screenshots visually inspected; visual verdict passed.
+- Responsive checks used live local GET responses; separate controlled warning variants verified that material limitations remain visible when details are collapsed. Earlier edge-case suites use captured/controlled responses. No live saved Research mutations were performed; persisted editor saving and deployed provider behaviour are not newly proven here.
+- Independent review findings were resolved: primary quality warning visibility, provider warning visibility, mobile checkbox height and tool-link height. Final re-review reported no remaining actionable findings.
+- Local target remains `http://127.0.0.1:3000`; the task-owned development server is left running. Unrelated modified/untracked V6/V7 and V8 exploration work is preserved. No manual deployment; remote CI/deployment and production runtime remain unverified.
+- Delivery uses seven separate scoped commits. Earlier batches: `fee3438`, `2845cc9`, `0a4f0f4`, `99051c0`, `9646bd9`, `8ad6d6b`. This evidence belongs to the final `feat(v8): improve warning clarity and touch readability` commit; its resulting hash and remote confirmation are reported at handoff.
 
 Select the risk lane from actual scope under AGENTS.md and [TESTING.md](TESTING.md); batch grouping does not lower risk. Shared routes, responsive, async and state changes require the applicable standard checks and affected browser proof. Escalate for contract or other higher-risk changes. Use deterministic edge-case tests for behavioural logic and direct browser/request evidence for interaction claims; static checks alone do not prove them.
 

@@ -36,16 +36,19 @@ export function MarketCoverageNotices({ signal, inputKeys, date, sourceEnabled, 
     return <div className={styles.notices}>
         {(stale.length > 0 || missing.length > 0 || quality.length > 0) && <section className={styles.quality} aria-label="Data needs attention">
             <div className={styles.heading}><h2>Data needs attention</h2><button onClick={onReview}>Review source coverage ↗</button></div>
+            <p>{quality.length > 0 ? `${quality[0]} ` : ''}{stale.length} stale {stale.length === 1 ? 'input' : 'inputs'} · {missing.length} unavailable.{coverage && coverage.missing_weight > 0 ? ` ${(coverage.missing_weight * 100).toFixed(0)}% of configured weight uses a neutral reserve, not observed evidence.` : ''}</p>
+            <details><summary>Source-quality details</summary>
             <ul>
                 {stale.map(([key, item]) => <li key={key}><b>{item.display_name}: stale observation.</b> Dated {fullDate(item.last_updated)} · still included in the score.</li>)}
                 {missing.length > 0 && <li><b>Current values unavailable:</b> {missing.map(getIndicatorDisplayName).join(', ')}.</li>}
                 {quality.map(text => <li key={text}>{text}</li>)}
             </ul>
             {coverage && coverage.missing_weight > 0 && <p>{(coverage.missing_weight * 100).toFixed(0)}% of configured weight uses the service’s neutral baseline ({coverage.neutral_points.toFixed(2)} points). This is missing-input accounting, not observed neutral evidence.</p>}
+            </details>
         </section>}
         {disagreement.length > 0 && <section className={styles.alignment} aria-label="Indicator disagreement">
             <h2>Indicator disagreement</h2>{disagreement.map(text => <p key={text}>{text}</p>)}
-            <small>Alignment compares indicators with the weighted composite classification. It does not count a majority vote or measure forecast accuracy.</small>
+            <details><summary>How disagreement is assessed</summary><small>Alignment compares indicators with the weighted composite classification. It does not count a majority vote or measure forecast accuracy.</small></details>
         </section>}
     </div>;
 }

@@ -206,7 +206,7 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, sou
         <details className={styles.disclosure}><summary>Normalization rule</summary><p>{normalizationNote(indicatorKey)}</p><p className={styles.muted}>The displayed raw value, normalized score and contribution are read from the payload; this panel does not recompute the service score.</p></details>
         <h3>Source</h3>
         {sourceUrls.length ? <div>{sourceUrls.map((sourceUrl) => <p key={sourceUrl}><a className={styles.textButton} href={sourceUrl} target="_blank" rel="noreferrer">Open source record →</a></p>)}</div> : <p className={styles.muted}>{unavailableText}</p>}
-        {!rawHistory.length ? <p className={styles.muted}>No raw observation series is attached to this payload. A score alone is not expanded into history.</p> : null}
+        {!rawHistory.length ? <p className={styles.muted}>No raw observation history is available. A score alone cannot supply historical readings.</p> : null}
     </>;
 }
 
@@ -218,11 +218,11 @@ function ChangePanel({ signal, onSelect }: { signal: MarketSignal; onSelect: Con
 
     return <>
         <SectionHeading eyebrow="What changed" title="What moved the score?" tag={scoreDelta?.label ?? 'Latest comparison'} />
-        {scoreDelta && finiteNumber(scoreDelta.delta) ? <div className={styles.studyMetrics}><div><span>Current score</span><strong>{signal.composite_score.toFixed(0)}</strong><small>Snapshot {formatDate(scoreDelta.snapshot_date)}</small></div><div><span>Previous score</span><strong>{finiteNumber(scoreDelta.previous_score) ? scoreDelta.previous_score.toFixed(0) : 'Unavailable'}</strong><small>{scoreDelta.previous_date ? formatDate(scoreDelta.previous_date) : 'No prior date'}</small></div><div><span>Score delta</span><strong>{signed(scoreDelta.delta, 0)}</strong><small>Reported comparison</small></div></div> : <Unavailable title="Score change unavailable" detail="The current payload does not include a comparable previous score." />}
+        {scoreDelta && finiteNumber(scoreDelta.delta) ? <div className={styles.studyMetrics}><div><span>Current score</span><strong>{signal.composite_score.toFixed(0)}</strong><small>Snapshot {formatDate(scoreDelta.snapshot_date)}</small></div><div><span>Previous score</span><strong>{finiteNumber(scoreDelta.previous_score) ? scoreDelta.previous_score.toFixed(0) : 'Unavailable'}</strong><small>{scoreDelta.previous_date ? formatDate(scoreDelta.previous_date) : 'No prior date'}</small></div><div><span>Score delta</span><strong>{signed(scoreDelta.delta, 0)}</strong><small>Reported comparison</small></div></div> : <Unavailable title="Score change unavailable" detail="No comparable previous score is available." />}
 
         <section className={styles.calibration} aria-label="Driver changes">
             <h3>Contributors to the change</h3>
-            {hasDriverChanges ? <div className={styles.contextList}>{[...changes].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).map((change) => <button key={change.key} className={styles.contributor} onClick={(event) => onSelect(change.key, event.currentTarget)}><span>{change.name}</span><span className={styles.barTrack}><span className={change.delta < 0 ? styles.negativeBar : styles.positiveBar} style={{ width: `${Math.min(100, Math.abs(change.delta) * 10)}%` }} /></span><b className={change.delta < 0 ? styles.conflict : styles.support}>{signed(change.delta)}</b><span aria-hidden="true">↗</span></button>)}</div> : <div className={styles.unavailable}><b>Driver comparison unavailable.</b><p>{signal.metadata.driver_changes_available === false ? 'The backend did not mark a comparable driver snapshot as available.' : 'No driver delta records are attached to this payload.'}</p></div>}
+            {hasDriverChanges ? <div className={styles.contextList}>{[...changes].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).map((change) => <button key={change.key} className={styles.contributor} onClick={(event) => onSelect(change.key, event.currentTarget)}><span>{change.name}</span><span className={styles.barTrack}><span className={change.delta < 0 ? styles.negativeBar : styles.positiveBar} style={{ width: `${Math.min(100, Math.abs(change.delta) * 10)}%` }} /></span><b className={change.delta < 0 ? styles.conflict : styles.support}>{signed(change.delta)}</b><span aria-hidden="true">↗</span></button>)}</div> : <div className={styles.unavailable}><b>Driver comparison unavailable.</b><p>{signal.metadata.driver_changes_available === false ? 'A comparable earlier indicator reading is unavailable.' : 'No comparable indicator changes are available.'}</p></div>}
         </section>
 
         <ArticleDevelopments articles={articles} />
@@ -234,7 +234,7 @@ function ArticleDevelopments({ articles }: { articles: NonNullable<MarketSignal[
         const href = safeHttpUrl(article.url);
         const content = <><b>{article.title}</b><small>{article.source}{article.pubDate ? ` · ${formatDate(article.pubDate)}` : ''}{article.sentiment ? ` · ${article.sentiment}` : ''}</small></>;
         return <div key={`${article.title}-${article.pubDate ?? index}`}>{href ? <a className={styles.evidenceButton} href={href} target="_blank" rel="noreferrer">{content}</a> : <div className={styles.evidenceButton}>{content}<span className={styles.muted}>URL unavailable</span></div>}</div>;
-    })}</div> : <Unavailable title="Developments unavailable" detail="No article records are attached to this signal payload." />}</section>;
+    })}</div> : <Unavailable title="Developments unavailable" detail="No dated articles are available for this reading." />}</section>;
 }
 
 function configuredRows(signal: MarketSignal) {
@@ -257,7 +257,7 @@ function EvidencePanel({ signal, onSelect }: { signal: MarketSignal; onSelect: C
 
     return <>
         <SectionHeading eyebrow="Evidence" title="The inputs behind the reading" tag={`${active.length} active`} />
-        <p className={styles.panelIntro}>Values, normalized scores and contributions below come from the current signal payload. {configuredWeightLabel(signal)} are shown for the active model; the registry ledger includes configured inputs that are absent from the payload.</p>
+        <p className={styles.panelIntro}>Values, normalized scores and contributions below come from the current reading. {configuredWeightLabel(signal)} are shown for the active model; the input list also shows configured indicators with no current observation.</p>
         <div className={styles.evidenceList}>{rows.map((row) => {
             const name = row.indicator?.display_name ?? row.driver?.name ?? row.registry?.displayName ?? row.key;
             const isActive = row.indicator?.enabled === true;
@@ -307,7 +307,7 @@ function ScenarioPanel({ signal, scenario, setScenario }: Pick<ConnectedPanelsPr
     const effectiveKey = result.drivers.some((driver) => driver.key === selectedKey) ? selectedKey : result.drivers[0]?.key ?? '';
     const selected = result.drivers.find((driver) => driver.key === effectiveKey);
 
-    if (!result.drivers.length) return <Unavailable title="Scenarios unavailable" detail="The current payload has no active score drivers to simulate." />;
+    if (!result.drivers.length) return <Unavailable title="Scenarios unavailable" detail="No active score inputs are available to simulate." />;
     return <>
         <SectionHeading eyebrow="Scenarios" title="What would change the reading?" tag="Hypothetical" />
         {baseline && baseline !== signal && <p role="status">Newer reading available. Your assumptions still use their original reading.</p>}
