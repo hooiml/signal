@@ -357,7 +357,7 @@ export function overviewHistory(signal: MarketSignal): Point[] {
     for (const point of signal.metadata.score_history ?? []) {
         if (!records.has(point.date) || point.origin === 'observed') records.set(point.date, point);
     }
-    return [...records.values()].sort((a,b) => a.date.localeCompare(b.date)).map(row => ({ date: row.date, value: row.score }));
+    return [...records.values()].sort((a,b) => a.date.localeCompare(b.date)).map(row => ({ date: row.date, value: row.score, origin: row.origin }));
 }
 
 export function archivedSeries(key: string, summaries: readonly MarketReplaySummary[], snapshots: Readonly<Record<string, MarketReplaySnapshot>>): Point[][] {

@@ -25,7 +25,7 @@ type ConnectedIndicatorProps = {
     readonly indicatorKey: string;
     readonly onClose: () => void;
     /** Raw observations from the signal history endpoint, when the parent has them. */
-    readonly history?: readonly Point[];
+    readonly history?: readonly (readonly Point[])[];
     readonly sourceEnabled?: boolean;
 };
 
@@ -142,8 +142,9 @@ function Unavailable({ title, detail = unavailableText }: { title: string; detai
     return <div className={styles.unavailable}><h2>{title}</h2><p>{detail}</p></div>;
 }
 
-function RawHistoryChart({ points }: { points: readonly Point[] }) {
-    if (points.length < 2) return <div className={styles.unavailable}><b>Raw history unavailable</b><small>No replacement observations are inferred.</small></div>;
+function RawHistoryChart({ groups }: { groups: readonly (readonly Point[])[] }) {
+    const points = groups.flat();
+    if (!points.length) return <div className={styles.unavailable}><b>Raw history unavailable</b><small>No replacement observations are inferred.</small></div>;
     const values = points.map((point) => point.value);
     const min = Math.min(...values);
     const max = Math.max(...values);
@@ -155,11 +156,12 @@ function RawHistoryChart({ points }: { points: readonly Point[] }) {
         x: ((Date.parse(point.date) - firstDate) / duration) * 160,
         y: 40 - ((point.value - min) / span) * 34,
     }));
-    const path = locations.map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ');
+    const starts = new Set(groups.map(group => group[0]?.date));
+    const path = locations.map((point, index) => `${starts.has(points[index].date) ? 'M' : 'L'}${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ');
     const latest = points.at(-1)!;
     return <div className={styles.chart} aria-label="Archived raw readings">
-        <div className={styles.chartTopline}><span>Archived raw readings</span><output>{formatDate(latest.date)} <b>{latest.value.toFixed(2)}</b></output></div>
-        <svg className={styles.sparkline} viewBox="0 0 160 44" role="img" aria-label={`Archived raw readings through ${formatDate(latest.date)}`}><path d={path} fill="none" stroke="currentColor" strokeWidth="2" /></svg>
+        <div className={styles.chartTopline}><span>All loaded archive segments · gaps retained</span><output>{formatDate(latest.date)} <b>{latest.value.toFixed(2)}</b></output></div>
+        <svg className={styles.sparkline} viewBox="-3 -3 166 50" role="img" aria-label={`Archived raw readings through ${formatDate(latest.date)}`}><path d={path} fill="none" stroke="currentColor" strokeWidth="2" />{locations.map((point,index)=><circle key={points[index].date} cx={point.x} cy={point.y} r="2" fill="currentColor" />)}</svg>
         <div className={styles.chartDates}><span>{formatDate(points[0].date)}</span><span>{formatDate(latest.date)}</span></div>
     </div>;
 }
@@ -171,13 +173,14 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, sou
     const contribution = driver?.contribution ?? (indicator ? indicator.score * indicator.weight : null);
     const normalized = indicator?.score ?? driver?.score;
     const configuredWeight = modelWeights(signal)[indicatorKey];
-    const rawHistory = validHistory(history);
+    const historyGroups = (history ?? []).map(group => validHistory(group)).filter(group => group.length > 0);
+    const rawHistory = historyGroups.flat();
     const sourceUrls = safeHttpUrls(indicator?.metadata?.source_url);
     const sourceBlend = indicator?.metadata?.source_breakdown;
     const status = freshnessStatus(signal, indicator, indicatorKey);
 
     if (!indicator) {
-        return <><div className={styles.railHeading}><span className={styles.eyebrow}>Indicator detail</span><button onClick={onClose} aria-label="Close indicator detail" className={styles.closeButton}>×</button></div><h2>{registry?.displayName ?? indicatorKey}</h2><Unavailable title={(indicatorKey === 'social' || indicatorKey === 'news') && !sourceEnabled ? 'Input switched off' : 'Current value unavailable'} detail={missingInputExplanation(indicatorKey, sourceEnabled)} /><p className={styles.muted}>The current raw value, normalized score and observation date remain unavailable.</p>{rawHistory.length > 0 && <><p className={styles.muted}>Historical readings only · these snapshots do not supply a current value.</p><RawHistoryChart points={rawHistory} /></>}<p className={styles.muted}>Review source coverage for the existing model’s missing-input accounting.</p></>;
+        return <><div className={styles.railHeading}><span className={styles.eyebrow}>Indicator detail</span><button onClick={onClose} aria-label="Close indicator detail" className={styles.closeButton}>×</button></div><h2>{registry?.displayName ?? indicatorKey}</h2><Unavailable title={(indicatorKey === 'social' || indicatorKey === 'news') && !sourceEnabled ? 'Input switched off' : 'Current value unavailable'} detail={missingInputExplanation(indicatorKey, sourceEnabled)} /><p className={styles.muted}>The current raw value, normalized score and observation date remain unavailable.</p>{rawHistory.length > 0 && <><p className={styles.muted}>Historical readings only · these snapshots do not supply a current value.</p><RawHistoryChart groups={historyGroups} /></>}<p className={styles.muted}>Review source coverage for the existing model’s missing-input accounting.</p></>;
     }
 
     return <>
@@ -186,7 +189,7 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, sou
         <div className={styles.tagLine}><span className={styles.tag}>{status}</span><span className={styles.muted}>{registry?.category ?? 'Unclassified'}</span></div>
         <div className={styles.rawValue}>{rawValue(indicator, driver, signal.metadata.market)} <small>{indicator ? '' : 'raw value'}</small></div>
         <p className={styles.muted}>Observed {formatDate(indicator?.last_updated ?? driver?.last_updated)} · {cadence(indicator, indicatorKey)} · horizon {horizon(indicator)}</p>
-        <RawHistoryChart points={rawHistory} />
+        <RawHistoryChart groups={historyGroups} />
 
         <dl className={styles.keyValues}>
             <div><dt>Normalized score</dt><dd>{scoreLabel(normalized)}</dd></div>

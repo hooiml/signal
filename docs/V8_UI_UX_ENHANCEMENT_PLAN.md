@@ -1,6 +1,6 @@
 # Signal V8 UI/UX Enhancement Plan
 
-Status: implementation in progress; Batches 1–4 verified; remaining batches pending.
+Status: implementation in progress; Batches 1–5 verified; remaining batches pending.
 Recorded: 2026-09-12.
 Scope: connected `/main-v8` and `/research-v8` experiences.
 
@@ -26,7 +26,7 @@ Work in the order below. Within each batch, inspect prerequisites, implement rel
 | 2. Research continuity | V8-02, V8-06 | URL selection, Back/Forward, edit-return refresh | Complete; see execution evidence |
 | 3. Loading resilience | V8-04 | Request ownership, timeout budgets, retry, partial history | Complete; see execution evidence |
 | 4. Investigation continuity | V8-03, V8-12 | Inspector behaviour, retained state, scenario baseline | Complete; see execution evidence |
-| 5. Historical evidence | V8-09, V8-10, V8-15 | Provenance, preview/replay separation, consistent history | Not started |
+| 5. Historical evidence | V8-09, V8-10, V8-15 | Provenance, preview/replay separation, consistent history | Complete; see execution evidence |
 | 6. Research hierarchy | V8-05, V8-17 | Compact security selector and actionable readiness | Not started |
 | 7. Presentation polish | V8-13, V8-14 | Warning copy, readable metadata, touch targets | Not started |
 | Deferred, separate task | V8-16 | Persist explicit valuation currency through editor/API | Deferred |
@@ -265,6 +265,14 @@ Batch: 6. Evidence: proposed improvement; verify actual assessment route/capabil
 - Desktop inspector remains non-modal and sticky with focus retained on its trigger, keyboard access and concise live announcement. Mobile modal restores focus; responsive transitions release scroll lock. Runtime QA caught and fixed a scroll jump from the new access control; that control now appears out of document flow on keyboard focus.
 - Passed lint, typecheck, harness, production build and `node scripts/v8-investigation-qa.mjs`; final evidence `.tmp/v8-enhancement/batch4-1789191032617/report.json`. Chromium scenarios cover 1280/768/375 inspectors, modal-to-desktop transition, scenario refresh/reset, History tabs/replay round trip/configuration reset, Research chart date/range retention and reload defaults. Inspected fresh mobile/tablet screenshot. Local server remains on port 3000.
 - Independent review completed: corrected replay overwriting the current selected point; two refresh/reset findings were withdrawn after confirming the full-page reload contract. Final rerun: `.tmp/v8-enhancement/batch4-1789191196279/report.json`. Browser responses are controlled copies of live reads; provider writes and deployment are not part of this proof.
+
+### Execution evidence — Batch 5 (2026-09-12)
+
+- Batch 4 pushed and remotely confirmed at `99051c0`.
+- Main history retains authoritative origin with solid/dashed segments and explicit readout/legend. Pointer, touch and keyboard select a preview; only the explicit snapshot action enters replay. Snapshot availability comes from the archive index; changing preview never changes the current/replay score. Returning restores prior current selection and investigation state, even after a second replay selection.
+- Cards and inspector receive all loaded grouped archive segments and render isolated observations as points; missing snapshots/components break the path. Demo chart confirmation remains separate from connected preview semantics.
+- Passed lint, typecheck, harness, production build, scoped diff check, and `node scripts/v8-history-qa.mjs`. Evidence: `.tmp/v8-enhancement/batch5-1789191465977/report.json` plus fresh screenshots at 1280/768/375. Tests use controlled observed/reconstructed records, missing replay, two separated raw-history points, keyboard/mouse/touch input, and two replay selections followed by return. No page errors or document overflow. Updated prior investigation QA to delegate replay availability tests to this script.
+- Independent review approved with zero findings. Local server remains on port 3000; deployment unverified.
 
 
 Select the risk lane from actual scope under AGENTS.md and [TESTING.md](TESTING.md); batch grouping does not lower risk. Shared routes, responsive, async and state changes require the applicable standard checks and affected browser proof. Escalate for contract or other higher-risk changes. Use deterministic edge-case tests for behavioural logic and direct browser/request evidence for interaction claims; static checks alone do not prove them.

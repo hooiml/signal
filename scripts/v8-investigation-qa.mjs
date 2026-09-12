@@ -22,10 +22,7 @@ try{
     await page.getByRole('button',{name:'Reset to latest reading',exact:true}).click();assert.equal(await page.getByText(/Newer reading available/).count(),0);
     await page.getByRole('tab',{name:'History',exact:true}).click();await page.getByRole('tab',{name:'Forward outcomes',exact:true}).click();await page.getByRole('button',{name:'30-day outcomes',exact:true}).click();await page.getByRole('checkbox',{name:'Observed-origin scores only'}).check();
     await page.getByRole('tab',{name:'Context',exact:true}).click();await page.getByRole('tab',{name:'History',exact:true}).click();assert.equal(await page.getByRole('checkbox',{name:'Observed-origin scores only'}).isChecked(),true);assert.equal(await page.getByRole('button',{name:'30-day outcomes',exact:true}).getAttribute('aria-pressed'),'true');
-    await page.getByRole('slider',{name:'Market condition score',exact:true}).focus();await page.keyboard.press('Home');await page.keyboard.press('Enter');
-    await page.getByRole('button',{name:'Return to current',exact:false}).click();
-    assert.equal(await page.getByRole('checkbox',{name:'Observed-origin scores only'}).isChecked(),true);
-    assert.equal(await page.getByRole('button',{name:'30-day outcomes',exact:true}).getAttribute('aria-pressed'),'true');
+    // Replay availability and explicit-action round trips are covered by v8-history-qa.mjs.
     for(const width of [1280,768,375]){
         await page.setViewportSize({width,height:900});
         const tile=page.locator('[data-indicator="vix"]');await tile.scrollIntoViewIfNeeded();await tile.focus();const scroll=await page.evaluate(()=>scrollY);await page.keyboard.press('Enter');

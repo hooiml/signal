@@ -26,20 +26,25 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
     const minimum = raw ? Math.floor(Math.min(...points.map(p => p.value)) * 0.75) : 0;
     const maximum = raw ? Math.ceil(Math.max(...points.map(p => p.value)) * 1.15) : 100;
     const locations = geometry(points, 800, 226, minimum, maximum);
-    const at = Math.min(cursor, points.length - 1);
+    const selectedIndex = points.findIndex(point => point.date === selectedDate);
+    const at = selectedIndex >= 0 ? selectedIndex : Math.max(0, Math.min(cursor, points.length - 1));
     const position = locations[at];
     const path = locations.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(' ');
+    const origin = points[at].origin ?? 'unavailable';
+    const provenancePaths = points.map((point, i) => ({ point, location: locations[i], previous: points[i - 1], previousLocation: locations[i - 1] }));
     return <div className={styles.chart}>
-        <div className={styles.chartTopline}><span>{sourced ? raw ? 'Raw readings from archived snapshots' : '0–100 composite · stored history' : raw ? 'Raw observations · illustrative' : '0–100 composite · illustrative history'}</span><output aria-live="polite">{dateLabel(points[at].date)} <b>{points[at].value.toFixed(raw ? 2 : 0)}{raw ? '' : ' /100'}</b></output></div>
+        <div className={styles.chartTopline}><span>{sourced ? raw ? 'Raw readings from archived snapshots' : '0–100 composite · stored history' : raw ? 'Raw observations · illustrative' : '0–100 composite · illustrative history'}</span><output aria-live="polite">{dateLabel(points[at].date)} <b>{points[at].value.toFixed(raw ? 2 : 0)}{raw ? '' : ' /100'}</b>{sourced && !raw && <span>Origin: {origin}</span>}</output></div>
+        {sourced && !raw && <p className={styles.chartLegend}>━━ Observed · ┄┄ Reconstructed · breaks separate origins</p>}
         <div className={styles.chartPlot}>
             <div className={styles.axis}>{[maximum, (maximum + minimum) / 2, minimum].map(value => <span key={value}>{value.toFixed(0)}</span>)}</div>
-            <svg viewBox="-3 -8 806 242" preserveAspectRatio="none" role={onSelect ? 'slider' : 'img'} tabIndex={onSelect ? 0 : undefined} aria-label={name} aria-valuemin={onSelect ? 0 : undefined} aria-valuemax={onSelect ? points.length - 1 : undefined} aria-valuenow={onSelect ? at : undefined} aria-valuetext={onSelect ? `${dateLabel(points[at].date)}, score ${points[at].value}. Arrow keys explore, Enter selects.` : undefined}
+            <svg viewBox="-3 -8 806 242" preserveAspectRatio="none" role={onSelect ? 'slider' : 'img'} tabIndex={onSelect ? 0 : undefined} aria-label={name} aria-valuemin={onSelect ? 0 : undefined} aria-valuemax={onSelect ? points.length - 1 : undefined} aria-valuenow={onSelect ? at : undefined} aria-valuetext={onSelect ? `${dateLabel(points[at].date)}, score ${points[at].value}. Arrow keys preview, Enter selects a preview.` : undefined}
                 onKeyDown={event => {
                     if (!onSelect) return;
                     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
                         event.preventDefault();
-                        setCursor(event.key === 'Home' ? 0 : event.key === 'End' ? points.length - 1 : Math.max(0, Math.min(points.length - 1, cursor + (event.key === 'ArrowRight' ? 1 : -1))));
-                    } else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(points[Math.min(cursor, points.length - 1)]); }
+                        const next = event.key === 'Home' ? 0 : event.key === 'End' ? points.length - 1 : Math.max(0, Math.min(points.length - 1, at + (event.key === 'ArrowRight' ? 1 : -1)));
+                        setCursor(next); if (sourced) onSelect(points[next]);
+                    } else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(points[at]); }
                 }}
                 onClick={event => {
                     if (!onSelect) return;
@@ -50,13 +55,15 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                 }}>
                 <defs><linearGradient id={id} x1="0" x2="0" y1="0" y2="1"><stop stopColor="currentColor" stopOpacity=".2" /><stop offset="1" stopColor="currentColor" stopOpacity=".01" /></linearGradient></defs>
                 {[0, 56.5, 113, 169.5, 226].map(y => <line key={y} x1="0" x2="800" y1={y} y2={y} stroke="currentColor" strokeOpacity=".12" strokeDasharray="3 5" />)}
-                <path d={`${path} L800,226 L0,226 Z`} fill={`url(#${id})`} />
-                <path d={path} fill="none" stroke="currentColor" strokeWidth="2.8" vectorEffect="non-scaling-stroke" />
+                {sourced && !raw ? provenancePaths.map(({ point, location, previous, previousLocation }, i) => <g key={point.date} data-origin={point.origin ?? 'unavailable'}>
+                    {previous && previous.origin === point.origin && <path d={`M${previousLocation.x},${previousLocation.y} L${location.x},${location.y}`} fill="none" stroke="currentColor" strokeWidth="2.8" strokeDasharray={point.origin === 'reconstructed' ? '6 5' : undefined} vectorEffect="non-scaling-stroke" />}
+                    {(!previous || previous.origin !== point.origin || points[i + 1]?.origin !== point.origin) && <circle cx={location.x} cy={location.y} r="3" fill="currentColor" />}
+                </g>) : <><path d={`${path} L800,226 L0,226 Z`} fill={`url(#${id})`} /><path d={path} fill="none" stroke="currentColor" strokeWidth="2.8" vectorEffect="non-scaling-stroke" /></>}
                 <line x1={position.x} x2={position.x} y1="0" y2="226" stroke="currentColor" strokeDasharray="4 5" opacity=".5" />
                 <circle cx={position.x} cy={position.y} r="5" fill="white" stroke="currentColor" strokeWidth="3" />
             </svg>
         </div>
         <div className={styles.chartDates}><span>{dateLabel(points[0].date)}</span><span>{dateLabel(points[Math.floor(points.length / 2)].date)}</span><span>{dateLabel(points.at(-1)!.date)} {points.at(-1)!.date.slice(0,4)}</span></div>
-        {onSelect && <span className={styles.chartHint}>Select a date to investigate · keyboard: ← → then Enter</span>}
+        {onSelect && <span className={styles.chartHint}>{sourced ? 'Click, tap or use arrow keys to preview. Use Open historical snapshot to enter replay.' : 'Select a date to investigate · keyboard: ← → then Enter'}</span>}
     </div>;
 }

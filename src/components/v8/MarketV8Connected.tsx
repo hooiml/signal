@@ -31,6 +31,7 @@ export function MarketV8Connected() {
     const [selected, setSelected] = useState<string | null>(null);
     const [historical, setHistorical] = useState<Point | null>(null);
     const [currentPoint, setCurrentPoint] = useState<Point | null>(null);
+    const [replayPoint, setReplayPoint] = useState<Point | null>(null);
     const [range, setRange] = useState('3M');
     const [scenario, setScenario] = useState(emptyScenario);
     const [historyState, setHistoryState] = useState(defaultHistory);
@@ -122,8 +123,8 @@ export function MarketV8Connected() {
         modal.current?.close(); setSelected(null);
         requestAnimationFrame(() => (trigger.current?.isConnected ? trigger.current : document.getElementById('market-content'))?.focus({ preventScroll: true }));
     }
-    function resetView() { modal.current?.close(); setSelected(null); setHistorical(null); setCurrentPoint(null); setTab('What changed'); setScenario(emptyScenario()); setHistoryState(defaultHistory()); setResetNotice('Market configuration changed. Temporary investigation settings and scenario assumptions were reset.'); }
-    function enterReplay(point: Point) { if (!historical) priorView.current = { tab, selected, point: currentPoint, scroll: window.scrollY }; setSelected(null); modal.current?.close(); setHistorical(point); }
+    function resetView() { modal.current?.close(); setSelected(null); setHistorical(null); setReplayPoint(null); setCurrentPoint(null); setTab('What changed'); setScenario(emptyScenario()); setHistoryState(defaultHistory()); setResetNotice('Market configuration changed. Temporary investigation settings and scenario assumptions were reset.'); }
+    function enterReplay(point: Point) { if (!historical) priorView.current = { tab, selected, point: currentPoint, scroll: window.scrollY }; setSelected(null); modal.current?.close(); setHistorical(point); setReplayPoint(point); }
     function returnCurrent() { setHistorical(null); setTab(priorView.current.tab); setSelected(priorView.current.selected); setCurrentPoint(priorView.current.point); requestAnimationFrame(() => window.scrollTo({ top: priorView.current.scroll })); }
     function openIndicator(indicatorKey: string, element: HTMLButtonElement) { trigger.current = element; setSelected(indicatorKey); }
     function openTab(name: InvestigationTab) { setTab(name); requestAnimationFrame(() => { const panel = document.getElementById('investigation-panel'); panel?.scrollIntoView({ block: 'start' }); panel?.focus({ preventScroll: true }); }); }
@@ -148,6 +149,8 @@ export function MarketV8Connected() {
     const cutoff = latest ? new Date(`${latest}T00:00:00Z`) : null;
     if (cutoff) cutoff.setUTCMonth(cutoff.getUTCMonth() - (range === '1M' ? 1 : 3));
     const chartPoints = range === 'All' ? history : history.filter(point => !cutoff || Date.parse(point.date) >= cutoff.getTime());
+    const preview = chartPoints.find(point => point.date === (historical ? replayPoint?.date ?? historical.date : currentPoint?.date));
+    const previewArchive = archiveData?.summaries.find(row => row.date === preview?.date);
     const configured = data ? getIndicatorBaseWeights(market, { highVolatilityOverride: market === 'US' && (data.components.vix?.value ?? 0) > 30 }) : {};
     const inputKeys = [...new Set([...Object.keys(configured).filter(input => configured[input] > 0), ...Object.keys(data?.components ?? {})])];
     const conflictKeys = data?.confidence.conflicting_indicators ?? [];
@@ -158,7 +161,7 @@ export function MarketV8Connected() {
     const archived = historical && replay.date === historical.date ? replay.snapshot : null;
     const score = historical ? archived?.summary.score ?? historical.value : data?.composite_score;
     const hasScore = !!data && Object.keys(data.components).length > 0;
-    const inspector = selected && data ? <ConnectedIndicator signal={data} indicatorKey={selected} onClose={closeInspector} sourceEnabled={social} history={archivedSeries(selected, archiveData?.samples ?? [], archiveData?.snapshots ?? {}).at(-1) ?? []} /> : null;
+    const inspector = selected && data ? <ConnectedIndicator signal={data} indicatorKey={selected} onClose={closeInspector} sourceEnabled={social} history={archivedSeries(selected, archiveData?.samples ?? [], archiveData?.snapshots ?? {})} /> : null;
 
     return <div className={styles.app} onKeyDown={event => { if (event.key === 'Escape' && selected) closeInspector(); }}>
         <a className={styles.skip} href="#market-content">Skip to market conditions</a>
@@ -178,7 +181,8 @@ export function MarketV8Connected() {
                         <section className={styles.scorePanel} aria-label="Market score and history">
                             <div className={styles.scoreStrip}><div className={styles.score}><strong data-testid="connected-score">{score}</strong><span>/100</span></div><span className={`${styles.zone} ${tierClasses[(historical ? archived?.summary.tier : data.tier) ?? 'neutral']}`}>{(historical?archived?.summary.tier:data.tier)?.replaceAll('-',' ') ?? 'Stored score'}</span><div className={`${styles.scoreMeta} ${styles.scoreDelta}`}><b>{!historical && data.metadata.score_delta?.delta != null ? signed(data.metadata.score_delta.delta) : '—'} <small>points</small></b><span>{!historical ? `vs ${fullDate(data.metadata.score_delta?.previous_date)}`:'Current comparison withheld'}</span></div><div className={styles.scoreMeta}><b>{historical?archived?`${archived.agreementPercent.toFixed(0)}%`:'—':`${data.confidence.agreement_pct.toFixed(0)}%`} <small>agreement</small></b><span>Not forecast accuracy</span></div><button className={styles.coverageButton} disabled={!!historical} onClick={()=>openTab('Evidence')}><b>{historical?archived?.components.length ?? '—':`${Object.keys(data.components).length}/${inputKeys.length}`} <small>scored inputs</small></b><span>{!historical?`${Math.round((data.metadata.coverage_adjustment?.active_weight ?? Object.values(data.components).reduce((sum,item)=>sum+item.weight,0))*100)}% included weight ↗`:'Archived evidence only'}</span></button></div>
                             <div className={styles.chartHeader}><h2>Market condition score</h2><div className={styles.range} aria-label="Chart range">{['1M','3M','All'].map(value=><button key={value} aria-pressed={range===value} onClick={()=>setRange(value)}>{value}</button>)}</div></div>
-                            <MarketChart key={`${key}-${range}-${latest}-${historical?.date}`} points={chartPoints} sourced selectedDate={historical?.date ?? currentPoint?.date} onSelect={enterReplay} />
+                            <MarketChart key={`${key}-${range}-${latest}-${historical?.date}`} points={chartPoints} sourced selectedDate={historical ? replayPoint?.date ?? historical.date : currentPoint?.date} onSelect={point => historical ? setReplayPoint(point) : setCurrentPoint(point)} />
+                            <div className={styles.chartFoot}><span>{preview ? `${fullDate(preview.date)} · ${preview.value}/100 · ${preview.origin ?? "Origin unavailable"}` : "Select a point to preview its evidence."}</span><button className={styles.textButton} disabled={!preview || !previewArchive?.hasFullEvidence} onClick={() => preview && enterReplay(preview)}>Open historical snapshot</button><span>{preview && (!archiveData || archiveData.loading) ? "Checking snapshot availability…" : preview && !previewArchive?.hasFullEvidence ? "No full archived snapshot is available for this point." : ""}</span></div>
                             <div className={styles.chartFoot}><span>{chartPoints.length} / {history.length} stored snapshots · observed and reconstructed</span><button className={styles.textButton} disabled={!!historical} onClick={()=>openTab('History')}>Historical calibration →</button><span>{snapshotDate?`Snapshot ${fullDate(snapshotDate)}`:`Retrieved ${fullDate(response.received)} · snapshot date unavailable`}</span></div>
                             {!historical && data.metadata.trend_context && <div className={styles.seriesSummary}><span>{data.metadata.trend_context.score_trend}</span><span>{data.metadata.trend_context.last_signal_change}</span></div>}
                         </section>
@@ -210,7 +214,7 @@ export function MarketV8Connected() {
 function ArchiveSpark({ groups, loading }: { groups: Point[][]; loading: boolean }) {
     const points=groups.flat();
     if (loading && !points.length) return <span className={styles.noHistory}>Loading archived readings…</span>;
-    if (points.length<2) return <span className={styles.noHistory}>History unavailable</span>;
+    if (!points.length) return <span className={styles.noHistory}>History unavailable</span>;
     const first=Date.parse(points[0].date), last=Date.parse(points.at(-1)!.date), values=points.map(point=>point.value);
     const min=Math.min(...values), max=Math.max(...values);
     const x=(point:Point)=>3+(Date.parse(point.date)-first)/(last-first||1)*154;

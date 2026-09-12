@@ -66,14 +66,15 @@
 .range button[aria-pressed=true] { background: #e8f1ff; border: 1px solid #b4cff8; color: #194daf; }
 .chart { padding: 4px 24px 0; color: var(--green); }
 .chartTopline { display: flex; justify-content: space-between; gap: 12px; margin: 4px 0 12px; font-size: 10px; color: var(--muted); align-items: center; }
-.chartTopline output { white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+.chartTopline output { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .chartTopline b { font-size: 13px; color: var(--ink); padding: 2px 6px; background: #eef6ff; border-radius: 3px; }
 .chartPlot { display: flex; gap: 12px; }
 .chartPlot > svg { height: 185px; width: calc(100% - 28px); overflow: visible; touch-action: pan-y; }
 .chartPlot > svg[role=slider] { cursor: crosshair; }
 .axis { display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: var(--muted); min-width: 20px; padding: 3px 0; }
 .chartDates { margin: 10px 0 0 32px; display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; }
-.chartHint { display: none; color: var(--muted); font-size: 10px; margin: 10px 0 0 32px; }
+.chartHint { display: block; color: var(--muted); font-size: 12px; margin: 10px 0 0 32px; }
+.app .chartLegend { font-size: 12px; margin: 0 0 10px; }
 .chartFoot { display: flex; justify-content: space-between; gap: 12px; padding: 8px 24px 16px; align-items: center; }
 .chartFoot > span { font-size: 10px; color: var(--muted); }
 .app .textButton { display: inline-flex; gap: 12px; align-items: center; color: var(--blue); font-size: 12px; font-weight: 600; padding: 8px 0; text-align: left; }
