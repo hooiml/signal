@@ -1,5 +1,5 @@
 .app {
-    --ink: #10234c; --muted: #607394; --green: #008b65; --line: #dce7f4; --blue: #3565c9; --red: #b94461;
+    --ink: #10234c; --muted: #526581; --green-accent: #008b65; --green-text: #006b4c; --green: var(--green-text); --line: #dce7f4; --blue: #3565c9; --red: #a53250;
     min-height: 100vh; background: #f3f8ff; color: var(--ink); font-family: 'Segoe UI', Arial, sans-serif;
     font-size: 14px; line-height: 1.55; color-scheme: light; isolation: isolate;
     background-image: radial-gradient(ellipse at 0 25%, #d9edff80, transparent 48%), radial-gradient(ellipse at 100% 0, #d7ecff90, transparent 45%);
@@ -54,7 +54,10 @@
 .scoreMeta b, .coverageButton b { font-size: 17px; font-weight: 700; white-space: nowrap; }
 .scoreMeta b small, .coverageButton b small { color: var(--muted); font-size: 12px; font-weight: 400; }
 .scoreMeta > span, .coverageButton > span { font-size: 10px; color: var(--muted); }
-.scoreMeta:nth-child(3) b { color: var(--green); }
+.scoreDelta b { color: var(--ink); }
+.tierBuy, .tierStrongBuy { color: #006344; background: #e8fbf4; border-color: #8bcbb5; }
+.tierNeutral { color: #435775; background: #edf2fa; border-color: #c5d2e5; }
+.tierSell, .tierStrongSell { color: #97263f; background: #fff0f3; border-color: #dca2b0; }
 .coverageButton { margin-left: auto; padding: 5px 0; }
 .chartHeader { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px 8px; gap: 12px; }
 .chartHeader h2 { font-size: 16px; letter-spacing: -.3px; }

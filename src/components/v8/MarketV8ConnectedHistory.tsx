@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { getCalibrationZone, selectHistoricalValidationCases, type CalibrationObservation, type CalibrationValidationCase } from '@/lib/market-calibration';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import { MarketV8Timeline } from './MarketV8Timeline';
+import { outcomeWindow } from './outcome-window';
 import styles from './market-v8.module.css';
 
 type Calibration = NonNullable<MarketSignal['metadata']['historical_validation']>;
@@ -82,19 +83,13 @@ function ForwardOutcomes({ calibration, zone, observedOnly, days, onDaysChange, 
     const baseline = outcomeStats(baselineRows, calibration.minimum_sample_size);
     const cases = negativeOnly ? rows.filter((row) => row.forward_return_pct < 0) : rows;
     const cohort = horizon?.cohorts.find((item) => item.zone === zone);
-    const outcomesThrough = (() => {
-        const latestScoreDate = horizon?.observations.at(-1)?.date;
-        if (!latestScoreDate) return null;
-        const date = new Date(`${latestScoreDate}T12:00:00Z`);
-        date.setUTCDate(date.getUTCDate() + days);
-        return date.toISOString().slice(0, 10);
-    })();
+    const window = outcomeWindow((horizon?.observations ?? []).map(row => row.date), days);
 
     if (!horizon) return <div className={styles.unavailable} data-testid="calibration-forward-view"><b>No {days}-day history</b><p>This connected calibration dataset does not provide a {days}-day horizon. No replacement outcomes are inferred.</p></div>;
 
     return <div data-testid="calibration-forward-view">
         <div className={styles.restoreControls}><fieldset className={styles.segment}><legend className={styles.visuallyHidden}>Outcome horizon</legend>{horizons.map((option) => <button key={option} type="button" aria-pressed={days === option} onClick={() => onDaysChange(option)}>{option}-day outcomes</button>)}</fieldset><label className={styles.field}>Score zone<select aria-label="Score zone" value={zone} onChange={(event) => onZoneChange(event.target.value as CalibrationZone)}>{horizon.cohorts.map((item) => <option key={item.zone} value={item.zone}>{item.label}</option>)}</select></label></div>
-        <p className={styles.studyMeta}>{calibration.benchmark_name} forward returns · {stats.count} comparable / {baseline.count} total samples · target window through {dateLabel(outcomesThrough)}</p>
+        <p className={styles.studyMeta}>{calibration.benchmark_name} forward returns · {stats.count} comparable / {baseline.count} total samples · full horizon dataset target window through {dateLabel(window.date)} ({days} calendar days; actual benchmark session may differ).{window.excluded > 0 && ` ${window.excluded} invalid dates excluded from this label only; statistics unchanged.`}</p>
         <div className={styles.studyMetrics} aria-live="polite">
             <div><span>Median subsequent return</span><strong>{stats.sufficient ? signedPercent(stats.median) : '—'}</strong><small>All-zone baseline: {baseline.sufficient ? signedPercent(baseline.median) : '—'}</small></div>
             <div><span>Positive-return frequency</span><strong>{stats.sufficient && stats.positive !== null ? `${stats.positive.toFixed(0)}%` : '—'}</strong><small>Baseline: {baseline.sufficient && baseline.positive !== null ? `${baseline.positive.toFixed(0)}%` : '—'} · descriptive only</small></div>
