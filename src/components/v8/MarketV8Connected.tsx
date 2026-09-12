@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { formatRawValue } from '@/components/v2/cockpit-utils';
+import { readData as read, readPolicies } from './read-data';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import { parseMarketReplayIndex, parseMarketReplaySnapshot, type MarketReplaySnapshot, type MarketReplaySummary } from '@/lib/types/market-replay';
 import { getIndicatorBaseWeights, getIndicatorDisplayName } from '@/lib/indicator-registry';
@@ -14,17 +15,12 @@ import { signed, tabs, type InvestigationTab, type Market, type Mode, type Point
 import styles from './market-v8.module.css';
 
 type ResponseState = { key: string; signal: MarketSignal | null; loading: boolean; error: string; received: string };
-type ArchiveState = { key: string; summaries: readonly MarketReplaySummary[]; samples: readonly MarketReplaySummary[]; snapshots: Record<string, MarketReplaySnapshot>; loading: boolean; error: string };
+type ArchiveState = { key: string; summaries: readonly MarketReplaySummary[]; samples: readonly MarketReplaySummary[]; snapshots: Record<string, MarketReplaySnapshot>; loading: boolean; error: string; states?: Record<string, 'pending' | 'loaded' | 'failed' | 'unavailable'> };
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Data could not be loaded.';
 const tierClasses: Record<MarketSignal['tier'], string> = {
     'strong-buy': styles.tierStrongBuy, buy: styles.tierBuy, neutral: styles.tierNeutral,
     sell: styles.tierSell, 'strong-sell': styles.tierStrongSell,
 };
-async function read(url: string, signal: AbortSignal) {
-    const response = await fetch(url, { signal, cache: 'no-store' });
-    if (!response.ok) throw new Error(`Data request failed (${response.status}).`);
-    return response.json() as Promise<unknown>;
-}
 
 export function MarketV8Connected() {
     const [market, setMarket] = useState<Market>('US');
@@ -50,7 +46,7 @@ export function MarketV8Connected() {
     useEffect(() => {
         const controller = new AbortController();
         setResponse(previous => ({ key, signal: previous.key === key ? previous.signal : null, loading: true, error: '', received: previous.key === key ? previous.received : '' }));
-        setArchive({ key, summaries: [], samples: [], snapshots: {}, loading: true, error: '' });
+        setArchive(previous => previous.key === key ? { ...previous, loading: true, error: '' } : { key, summaries: [], samples: [], snapshots: {}, loading: true, error: '' });
         void (async () => {
             try {
                 const signal = parseConnectedSignal(await read(`/api/signals/v2?${query}`, controller.signal), market, mode);
@@ -61,27 +57,38 @@ export function MarketV8Connected() {
             }
         })();
         void (async () => {
+            const archiveController = new AbortController();
+            const cancelArchive = () => archiveController.abort();
+            controller.signal.addEventListener('abort', cancelArchive, { once: true });
+            const deadline = setTimeout(() => archiveController.abort(), 60000);
             try {
-                const index = parseMarketReplayIndex(await read(`/api/signals/replay?${query}`, controller.signal));
+                const index = parseMarketReplayIndex(await read(`/api/signals/replay?${query}`, archiveController.signal, readPolicies.archive));
                 if (index.market !== market || index.mode !== mode || index.enableSocial !== social) throw new Error('The archive returned a different configuration.');
                 const samples = [...index.summaries].sort((a,b) => b.date.localeCompare(a.date)).slice(0,12);
                 const snapshots: Record<string, MarketReplaySnapshot> = {};
+                const states: NonNullable<ArchiveState['states']> = Object.fromEntries(samples.map(row => [row.date, row.hasFullEvidence ? 'pending' : 'unavailable']));
+                const publish = (loading: boolean) => {
+                    if (!controller.signal.aborted) setArchive(previous => ({ key, summaries: index.summaries, samples, snapshots: { ...(previous.key === key ? previous.snapshots : {}), ...snapshots }, states: { ...states }, loading, error: failures ? `${failures} archived records failed. Available evidence is retained with gaps.` : '' }));
+                };
                 let failures = 0;
+                publish(true);
                 for (let offset = 0; offset < samples.length; offset += 4) {
                     await Promise.all(samples.slice(offset, offset + 4).map(async summary => {
                         if (!summary.hasFullEvidence) return;
                         try {
-                            const snapshot = parseMarketReplaySnapshot(await read(`/api/signals/replay?${query}&date=${summary.date}`, controller.signal));
+                            const snapshot = parseMarketReplaySnapshot(await read(`/api/signals/replay?${query}&date=${summary.date}`, archiveController.signal, readPolicies.archive));
                             if (snapshot.summary.date !== summary.date) throw new Error('Archive date mismatch.');
                             snapshots[summary.date] = snapshot;
-                        } catch { failures++; }
+                            states[summary.date] = 'loaded';
+                        } catch { failures++; states[summary.date] = 'failed'; }
+                        publish(true);
                     }));
                     if (controller.signal.aborted) return;
                 }
-                setArchive({ key, summaries: index.summaries, samples, snapshots, loading: false, error: failures ? `${failures} archived records could not be loaded. Mini-chart gaps are retained.` : '' });
+                publish(false);
             } catch (error) {
-                if (!controller.signal.aborted) setArchive({ key, summaries: [], samples: [], snapshots: {}, loading: false, error: errorText(error) });
-            }
+                if (!controller.signal.aborted) setArchive(previous => ({ ...previous, loading: false, error: errorText(error) }));
+            } finally { clearTimeout(deadline); controller.signal.removeEventListener('abort', cancelArchive); }
         })();
         return () => controller.abort();
     }, [key, query, market, mode, social, revision]);
@@ -94,7 +101,7 @@ export function MarketV8Connected() {
         setReplay({ date, snapshot: cached ?? null, loading: !cached, error: '' });
         if (!cached) void (async () => {
             try {
-                const snapshot = parseMarketReplaySnapshot(await read(`/api/signals/replay?${query}&date=${date}`, controller.signal));
+                const snapshot = parseMarketReplaySnapshot(await read(`/api/signals/replay?${query}&date=${date}`, controller.signal, readPolicies.archive));
                 if (snapshot.summary.date !== date) throw new Error('Archive date mismatch.');
                 if (!controller.signal.aborted) setReplay({ date, snapshot, loading: false, error: '' });
             } catch (error) {
@@ -102,7 +109,9 @@ export function MarketV8Connected() {
             }
         })();
         return () => controller.abort();
-    }, [historical, query, archiveData]);
+    // Archive progress must not restart a replay read or erase its loading/error state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [historical, query, revision]);
 
     function closeInspector() {
         modal.current?.close(); setSelected(null);
@@ -144,7 +153,7 @@ export function MarketV8Connected() {
         <a className={styles.skip} href="#market-content">Skip to market conditions</a>
         <header className={styles.header}><a className={styles.logo} href="/main-v8">∿ Signal<span>V8</span></a><nav aria-label="Primary"><a href="/main-v8" aria-current="page">Market</a><a href="/research-v8">Research ↗</a></nav><span className={styles.headerNote}>Connected to Signal</span></header>
         <div className={styles.canvas}>
-            <div className={styles.toolbar}><div className={styles.marketControls}><label className={styles.visuallyHidden} htmlFor="market-select">Market</label><select id="market-select" value={market} onChange={event => { setMarket(event.target.value as Market); resetView(); }}><option value="US">US Market</option><option value="MY">Malaysia</option></select><fieldset className={styles.segment}><legend className={styles.visuallyHidden}>Interpretation mode</legend>{(['standard','contrarian'] as const).map(value => <button key={value} aria-pressed={mode===value} onClick={() => { setMode(value); resetView(); }}>{value==='standard'?'Momentum':'Contrarian'}</button>)}</fieldset><label className={styles.sourceToggle}><input type="checkbox" checked={social} onChange={event => { setSocial(event.target.checked); resetView(); }} />{market==='MY'?'News input':'Social input'}</label></div><button className={styles.secondaryButton} disabled={loading} onClick={() => { setRevision(value=>value+1); resetView(); }}>{loading?'Loading…':'Reload data'}</button></div>
+            <div className={styles.toolbar}><div className={styles.marketControls}><label className={styles.visuallyHidden} htmlFor="market-select">Market</label><select id="market-select" value={market} onChange={event => { setMarket(event.target.value as Market); resetView(); }}><option value="US">US Market</option><option value="MY">Malaysia</option></select><fieldset className={styles.segment}><legend className={styles.visuallyHidden}>Interpretation mode</legend>{(['standard','contrarian'] as const).map(value => <button key={value} aria-pressed={mode===value} onClick={() => { setMode(value); resetView(); }}>{value==='standard'?'Momentum':'Contrarian'}</button>)}</fieldset><label className={styles.sourceToggle}><input type="checkbox" checked={social} onChange={event => { setSocial(event.target.checked); resetView(); }} />{market==='MY'?'News input':'Social input'}</label></div><button className={styles.secondaryButton} disabled={loading} onClick={() => { setRevision(value=>value+1); }}>{loading?'Loading…':'Reload data'}</button></div>
             <main id="market-content" tabIndex={-1} className={styles.workspace}>
                 <div className={styles.mainColumn}>
                     <div className={styles.hero}><div className={styles.heroKicker}><span>{market==='US'?'United States':'Malaysia'} / {historical?'Historical snapshot':'Market conditions'}</span><span className={styles.fixtureBadge}>Existing Signal data</span></div><h1>{historical ? `Reading on ${fullDate(historical.date)}` : !data ? loading?'Loading the market reading…':'Market data unavailable.' : !hasScore?'No observations. No market call.':data.metadata.interpretation_context?.regime ?? data.interpretation.action}</h1><p>{historical?'Archived scores and evidence are kept separate from the current reading.':data && !hasScore ? 'No current component observations were returned. Stored history remains separate.' : data?.interpretation.reasoning ?? 'Current values will appear when the service returns. No demo values are substituted.'}</p></div>
@@ -160,8 +169,8 @@ export function MarketV8Connected() {
                             <div className={styles.chartFoot}><span>{chartPoints.length} / {history.length} stored snapshots · observed and reconstructed</span><button className={styles.textButton} disabled={!!historical} onClick={()=>openTab('History')}>Historical calibration →</button><span>{snapshotDate?`Snapshot ${fullDate(snapshotDate)}`:`Retrieved ${fullDate(response.received)} · snapshot date unavailable`}</span></div>
                             {!historical && data.metadata.trend_context && <div className={styles.seriesSummary}><span>{data.metadata.trend_context.score_trend}</span><span>{data.metadata.trend_context.last_signal_change}</span></div>}
                         </section>
-                        {historical ? <section className={styles.panel} aria-label="Archived indicator evidence"><h2>Evidence for {fullDate(historical.date)}</h2>{replay.loading?<p role="status">Loading this archived record…</p>:archived?<><p>{archived.summary.coverageNote ?? 'Observed snapshot. Individual source timestamps remain distinct from snapshot capture.'}</p><div className={styles.contextList}>{archived.components.map(item=><details key={item.key}><summary><span><b>{item.displayName}</b><small>Raw {item.rawValue ?? 'unavailable'} · normalized {item.score ?? 'unavailable'}</small></span><span>{fullDate(item.lastUpdated)} ＋</span></summary><p>Stored weight {item.weight===null?'unavailable':`${(item.weight*100).toFixed(0)}%`} · contribution {item.score===null||item.weight===null?'unavailable':`${(item.score*item.weight).toFixed(2)} points`}. Source date: {fullDate(item.lastUpdated)}. No present-day values are used.</p></details>)}</div></>:<div className={styles.unavailable}><b>Historical indicator records unavailable</b><p>{replay.error} This date retains its stored score only. Current context, articles and outcomes are withheld.</p><p>{data.metadata.score_history?.find(point=>point.date===historical.date)?.coverage_note}</p></div>}</section>:<>
-                            <section className={styles.indicators} aria-label="Explore indicators"><div className={styles.sectionHeading}><div><h2>Explore indicators</h2><p>Current raw values and dated evidence from the same configuration.</p></div><button className={styles.textButton} onClick={()=>openTab('Evidence')}>All evidence ↗</button></div><div className={styles.indicatorGrid}>{inputKeys.map(input=>{const item=data.components[input];const groups=archivedSeries(input,archiveData?.samples??[],archiveData?.snapshots??{});const lastArchived=groups.at(-1)?.at(-1);const disabled=(input==='social'||input==='news')&&!social;return <button key={input} data-indicator={input} className={`${styles.indicatorTile} ${selected===input?styles.selectedTile:''}`} aria-pressed={selected===input} onClick={event=>openIndicator(input,event.currentTarget)}><span className={styles.tileName}>{item?.display_name ?? getIndicatorDisplayName(input)}<span>↗</span></span><strong>{item ? formatRawValue(item, market):'—'}</strong><span className={styles.tileUnits}>Raw input · {item?`${Number(item.score.toFixed(2))}/100 normalized`:'not supplied'}</span><ArchiveSpark groups={groups} loading={!archiveData||archiveData.loading} /><span className={indicatorStatus(data,input,date).startsWith('Stale')?styles.conflict:styles.muted}>{disabled?'Disabled by you':!item?'Current value unavailable':indicatorStatus(data,input,date)}</span><small>{item?fullDate(item.last_updated):!archiveData?.loading&&lastArchived?`Historical readings only · last archived snapshot ${fullDate(lastArchived.date)}`:disabled?'Excluded by your setting':'No current observation date'}</small></button>;})}</div><p className={styles.indicatorFootnote}>Mini-charts use the latest {archiveData?.samples.length ?? 0} archived snapshot dates, retaining gaps. They are raw readings stored in snapshots, not continuous provider histories. {archiveData?.error}</p></section>
+                        {historical ? <section className={styles.panel} aria-label="Archived indicator evidence"><h2>Evidence for {fullDate(historical.date)}</h2>{replay.loading?<p role="status">Loading this archived record…</p>:archived?<><p>{archived.summary.coverageNote ?? 'Observed snapshot. Individual source timestamps remain distinct from snapshot capture.'}</p><div className={styles.contextList}>{archived.components.map(item=><details key={item.key}><summary><span><b>{item.displayName}</b><small>Raw {item.rawValue ?? 'unavailable'} · normalized {item.score ?? 'unavailable'}</small></span><span>{fullDate(item.lastUpdated)} ＋</span></summary><p>Stored weight {item.weight===null?'unavailable':`${(item.weight*100).toFixed(0)}%`} · contribution {item.score===null||item.weight===null?'unavailable':`${(item.score*item.weight).toFixed(2)} points`}. Source date: {fullDate(item.lastUpdated)}. No present-day values are used.</p></details>)}</div></>:<div className={styles.unavailable}><b>Historical indicator records unavailable</b><p>{replay.error} <button onClick={() => setRevision(value => value + 1)}>Retry snapshot</button> This date retains its stored score only. Current context, articles and outcomes are withheld.</p><p>{data.metadata.score_history?.find(point=>point.date===historical.date)?.coverage_note}</p></div>}</section>:<>
+                            <section className={styles.indicators} aria-label="Explore indicators"><div className={styles.sectionHeading}><div><h2>Explore indicators</h2><p>Current raw values and dated evidence from the same configuration.</p></div><button className={styles.textButton} onClick={()=>openTab('Evidence')}>All evidence ↗</button></div><div className={styles.indicatorGrid}>{inputKeys.map(input=>{const item=data.components[input];const groups=archivedSeries(input,archiveData?.samples??[],archiveData?.snapshots??{});const lastArchived=groups.at(-1)?.at(-1);const disabled=(input==='social'||input==='news')&&!social;return <button key={input} data-indicator={input} className={`${styles.indicatorTile} ${selected===input?styles.selectedTile:''}`} aria-pressed={selected===input} onClick={event=>openIndicator(input,event.currentTarget)}><span className={styles.tileName}>{item?.display_name ?? getIndicatorDisplayName(input)}<span>↗</span></span><strong>{item ? formatRawValue(item, market):'—'}</strong><span className={styles.tileUnits}>Raw input · {item?`${Number(item.score.toFixed(2))}/100 normalized`:'not supplied'}</span><ArchiveSpark groups={groups} loading={!archiveData||archiveData.loading} /><span className={indicatorStatus(data,input,date).startsWith('Stale')?styles.conflict:styles.muted}>{disabled?'Disabled by you':!item?'Current value unavailable':indicatorStatus(data,input,date)}</span><small>{item?fullDate(item.last_updated):!archiveData?.loading&&lastArchived?`Historical readings only · last archived snapshot ${fullDate(lastArchived.date)}`:disabled?'Excluded by your setting':'No current observation date'}</small></button>;})}</div><p className={styles.indicatorFootnote}>Archive {archiveData?.loading ? "loading; partial history" : "loaded"} · {Object.values(archiveData?.states ?? {}).filter(state => state === "loaded").length} loaded / {Object.values(archiveData?.states ?? {}).filter(state => state === "pending").length} pending / {Object.values(archiveData?.states ?? {}).filter(state => state === "failed").length} failed / {Object.values(archiveData?.states ?? {}).filter(state => state === "unavailable").length} unavailable. Mini-charts use the latest {archiveData?.samples.length ?? 0} archived snapshot dates, retaining gaps. They are raw readings stored in snapshots, not continuous provider histories. {archiveData?.error} {!!archiveData?.error && <button onClick={() => setRevision(value => value + 1)}>Retry archive</button>}</p></section>
                             <section className={styles.confirmation} aria-label="Market confirmation"><div><span className={styles.eyebrow}>Market context · separate from the score</span><h3>Check the wider market.</h3><p>{data.metadata.interpretation_context?.breadth_note ?? 'Review dated benchmark, rates and valuation records alongside the scored inputs.'}</p></div><button className={styles.textButton} onClick={()=>openTab('Context')}>Explore market context →</button></section>
                             <section className={styles.investigation} id="investigation"><div className={styles.tabs} role="tablist" aria-label="Market investigation">{tabs.map((name,index)=><button key={name} id={`tab-${index}`} role="tab" aria-selected={tab===name} aria-controls="investigation-panel" tabIndex={tab===name?0:-1} onClick={()=>setTab(name)} onKeyDown={event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;document.getElementById(`tab-${next}`)?.focus();}}>{name}</button>)}</div><div className={styles.panel} id="investigation-panel" role="tabpanel" tabIndex={-1} aria-labelledby={`tab-${tabs.indexOf(tab)}`} key={`${key}-${tab}`}>{tab==='History'?<ConnectedHistory signal={data}/>:<ConnectedPanels signal={data} tab={tab} onSelect={openIndicator}/>}</div></section>
                         </>}
@@ -187,7 +196,7 @@ export function MarketV8Connected() {
 
 function ArchiveSpark({ groups, loading }: { groups: Point[][]; loading: boolean }) {
     const points=groups.flat();
-    if (loading) return <span className={styles.noHistory}>Loading archived readings…</span>;
+    if (loading && !points.length) return <span className={styles.noHistory}>Loading archived readings…</span>;
     if (points.length<2) return <span className={styles.noHistory}>History unavailable</span>;
     const first=Date.parse(points[0].date), last=Date.parse(points.at(-1)!.date), values=points.map(point=>point.value);
     const min=Math.min(...values), max=Math.max(...values);
