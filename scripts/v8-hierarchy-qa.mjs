@@ -13,13 +13,13 @@ await page.route('**/api/**',route=>{const url=new URL(route.request().url());if
 try{
     for(const width of [1280,768,375])for(const size of [3,10,35]){
         count=size;await page.setViewportSize({width,height:900});await page.goto(`${base}/research-v8?ticker=AAPL`);await page.getByRole('article',{name:'AAPL research'}).waitFor();
-        const selector=page.locator('details').filter({has:page.locator('summary').filter({hasText:/^Saved securities/})});assert.equal(await selector.getAttribute('open'),null);
+        const selector=page.getByRole('button',{name:/^Saved securities/});assert.equal(await selector.getAttribute('aria-expanded'),'false');
         const identity=page.getByRole('region',{name:'Selected research security'});assert.ok(await identity.isVisible());
         const before=await page.getByRole('article',{name:'AAPL research'}).boundingBox();if(size===3)topByWidth[width]=before.y;assert.ok(before.y<700&&Math.abs(before.y-topByWidth[width])<=2,`research position independent of ${size} records: ${before.y}`);
-        await selector.locator(':scope > summary').focus();await page.keyboard.press('Enter');await page.getByRole('searchbox').fill('no-match');assert.equal(new URL(page.url()).searchParams.get('ticker'),'AAPL');await page.getByRole('article',{name:'AAPL research'}).waitFor();
+        await selector.focus();await page.keyboard.press('Enter');await page.getByRole('searchbox').fill('no-match');assert.equal(new URL(page.url()).searchParams.get('ticker'),'AAPL');assert.ok(await page.getByRole('dialog',{name:'Saved securities'}).isVisible());
         await page.getByRole('searchbox').fill('');await page.getByRole('combobox',{name:'Market',exact:true}).selectOption('MY');assert.equal(new URL(page.url()).searchParams.get('ticker'),'AAPL');await page.getByRole('combobox',{name:'Market',exact:true}).selectOption('All');
         const picker=page.getByRole('combobox',{name:'Selected saved security'});if(await picker.isVisible())await picker.selectOption('QA1');else await page.getByRole('region',{name:'Saved watchlist'}).getByRole('button').filter({has:page.getByText('QA1',{exact:true})}).click();
-        await page.getByRole('article',{name:'QA1 research'}).waitFor();assert.equal(new URL(page.url()).searchParams.get('ticker'),'QA1');await selector.locator(':scope > summary').click();
+        await page.getByRole('article',{name:'QA1 research'}).waitFor();assert.equal(new URL(page.url()).searchParams.get('ticker'),'QA1');assert.equal(await page.getByRole('dialog').count(),0);
         const policy=page.locator('details').filter({has:page.locator('summary b').filter({hasText:'Policy guardrails'})});await policy.locator('summary').click();await policy.getByText('Assessment required in Research workspace',{exact:true}).waitFor();
         const href=await policy.getByRole('link').getAttribute('href');assert.ok(href.includes('workspace=policy')&&href.includes('ticker=QA1'));
         assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));ledger.push({width,size,researchTop:before.y,policyHref:href});if(size===35)await page.screenshot({path:`${output}/${width}.png`,fullPage:true});

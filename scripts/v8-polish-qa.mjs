@@ -8,7 +8,7 @@ await page.route('**/api/**',route=>route.request().method()==='GET'?route.conti
 async function geometry(name){
     const result=await page.evaluate(()=>{
         const visible=el=>el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden'&&!el.closest('details:not([open]) :not(summary)');
-        const controls=[...document.querySelectorAll('main button, main select, main summary, main label:has(input[type="checkbox"]), main details[class*="tools"] a')].filter(el=>visible(el)&&!el.closest('dialog:not([open])'));
+        const controls=[...document.querySelectorAll('main button, main select, main summary, main label:has(input[type="checkbox"]), main [class*="tools"] a')].filter(el=>visible(el)&&!el.closest('dialog:not([open])'));
         const small=controls.filter(el=>el.getBoundingClientRect().height<43.5).map(el=>({text:el.textContent.slice(0,50),height:el.getBoundingClientRect().height}));
         const smallText=[...document.querySelectorAll('main small, main time, main [class*="tileUnits"], main [class*="chartDates"]')].filter(visible).filter(el=>parseFloat(getComputedStyle(el).fontSize)<12).map(el=>el.textContent.slice(0,50));
         return {width:innerWidth,scroll:document.documentElement.scrollWidth,small,smallText};
@@ -25,8 +25,8 @@ try{
                 const disclosure=page.getByRole('region',{name:'Data needs attention'}).locator('details');if(await disclosure.count()){assert.equal(await disclosure.getAttribute('open'),null);await disclosure.locator('summary').click();await geometry(`coverage expanded ${width}`);await disclosure.locator('summary').click();}
                 for(const tab of ['Evidence','Scenarios','History']){await page.getByRole('tab',{name:tab,exact:true}).click();await geometry(`${route} ${tab} ${width}`);}await page.getByRole('tab',{name:'What changed',exact:true}).click();
             }else{
-                const tools=page.locator('summary').filter({hasText:'Research tools · existing workspaces'});await tools.click();await geometry(`research tools ${width}`);await tools.click();
-                await page.locator('summary').filter({hasText:/^Saved securities/}).click();await geometry(`saved selector ${width}`);await page.locator('summary').filter({hasText:/^Saved securities/}).click();
+                await page.getByRole('button',{name:'Tools',exact:true}).click();await geometry(`research tools ${width}`);await page.getByRole('button',{name:'Close research panel'}).click();
+                await page.getByRole('button',{name:/^Saved securities/}).click();await geometry(`saved selector ${width}`);await page.getByRole('button',{name:'Close research panel'}).click();
                 for(const tab of ['Financials','Thesis','Valuation','Review']){await page.getByRole('tab',{name:tab,exact:true}).click();await geometry(`${route} ${tab} ${width}`);}await page.getByRole('tab',{name:'Overview',exact:true}).click();
             }
             if(width===375||width===1280){await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:`${output}/${route.split('?')[0]}-${width}.png`});}

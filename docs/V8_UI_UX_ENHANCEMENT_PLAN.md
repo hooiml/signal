@@ -235,6 +235,38 @@ Batch: 6. Evidence: proposed improvement; verify actual assessment route/capabil
 
 ## Verification and handoff
 
+### Follow-up delivery (2026-09-12)
+
+- User authorized committing and pushing the Research hierarchy, indicator-card and chart-colour follow-ups to `main`. Delivery scope is the five owning V8 production files, five V8 QA selector updates and this plan. Unrelated V6/V7 changes and untracked V8 exploration files are excluded.
+- The local-only statements below describe the earlier implementation handoffs. Delivery uses `feat(v8): refine research hierarchy and chart colours`; the resulting commit and remote confirmation are reported in the task handoff. Lint, typecheck, harness and browser evidence below are retained; the final production build is checked again before committing. CI/deployment success requires separate evidence and is not inferred from push success.
+
+### Indicator cards and Research chart colours (2026-09-12)
+
+- Local follow-up in `MarketV8Connected.tsx`, `market-v8.module.css` and `ResearchV8ConnectedPanels.tsx`. Indicator cards stack name, raw value/units, full-width history, model interpretation and freshness. Three columns become two on mobile and one at 360px and below; units no longer split inside words. Following the approved colour correction, raw-history lines and points use green for current buy/strong-buy, red for sell/strong-sell, and true grey for neutral or unavailable interpretation. The returned component signal still supplies the labelled badge; the visible explanation states that colour describes the current interpretation, not historical signals. Disabled and missing interpretations are explicitly labelled.
+- Research price lines and selected-point markers use green/red for the first-to-last returned close in the selected range, with a matching direction explanation. Flat or single-observation ranges use grey; missing history retains the existing empty state. No scoring, data eligibility, saved-record or currency changes.
+- Passed full lint, typecheck, harness (including Research regressions), final production build and scoped diff check. Existing large-file harness warnings remain informational.
+- One in-app Chromium session on `http://127.0.0.1:3000` checked Market cards at 1280/768/375/320px and all five Research tabs at 1280/768/375px. No document overflow; populated MAYBANK financial values fit mobile. Fresh desktop/tablet/mobile screenshots were visually reviewed against the supplied cramped-card screenshot. VIX changed from green buy in Momentum to red sell in Contrarian; stale/missing labels and archive gaps remained visible.
+- Runtime price evidence: AAPL 3M 296.42 to 332.27 rendered green; MAYBANK 3M 10.92 to 10.38 rendered red. The 1M range recalculated, and keyboard Home selected the first dated close. MAYBANK provider refresh returned HTTP 200; captured warning/error logs were empty. Flat/single/empty branches were source-reviewed, not observed with live provider data. Financials has a reported-history table, not a price chart; its values remain neutral.
+- Browser evidence is in this task's in-app screenshots and DOM/CDP results; local visual verdict: `.omx/state/v8-indicator-charts/ralph-progress.json`. Existing standalone browser scripts were not executed in this follow-up. Browser locator-evaluation timeouts were resolved using direct DOM reads and are not counted as passing assertions.
+- Changes remain local and uncommitted/unpushed; no manual deployment. Existing unrelated work and the earlier Research hierarchy refinement are preserved. Development server remains running on port 3000; deployed behaviour is unverified.
+
+### Indicator line colour correction (2026-09-12)
+
+- Updated only `MarketV8Connected.tsx` and this record: its local sparkline receives the current component signal, colours both paths and points, and retains historical values/gaps. Disabled or unavailable interpretation uses grey even when archive readings exist. Research chart behaviour is unchanged.
+- UI-LIGHT verification: targeted ESLint, typecheck, full lint, harness and scoped diff check passed. In-app browser proof confirmed Momentum VIX green (0,99,68), Contrarian VIX red (151,38,63), neutral and unavailable historical readings grey (102,102,102). Fresh desktop/mobile screenshots and 375px overflow check passed; captured browser errors were empty. Existing strong-tier branches were source-reviewed. No full build was repeated for this isolated SVG colour/copy correction.
+- Local changes remain uncommitted/unpushed. Original Momentum view restored; existing workspace server remains at `http://127.0.0.1:3000`. No deployment performed or verified.
+
+### Research hierarchy refinement (2026-09-12)
+
+User-approved follow-up to V8-05, V8-13 and V8-14 after reviewing the completed batches. This supersedes the full-width collapsed Research utility cards; the original seven batch delivery records remain historical evidence.
+
+- Place labelled Saved securities and Tools buttons beside the company identity and Edit research action. Use a native modal panel on desktop and a full-width bottom sheet on mobile. Preserve search, market filtering, selected-security highlighting, counts and existing tool destinations. Selection closes the picker while retaining the current investigation tab. Escape and Close restore focus to the opening control; background scrolling is locked only while open.
+- Remove duplicate company metadata and the generic introduction. Keep decision, price and valuation in one summary, with watchlist status explicitly labelled. Move checklist progress into the next-action context, provider freshness directly under the summary, and investigation tabs immediately after the compact next action. Keep material provider and unknown-currency warnings visible.
+- Show two additional unresolved readiness items by default, excluding the primary next action. View all checks exposes all seven existing checks, with unresolved items first. Readiness methodology and destinations are unchanged.
+- Owning files: `ResearchV8Connected.tsx` and `research-v8-connected.module.css`. Updated the five enhancement QA scripts that depended on the former disclosure controls. No data-contract changes, dependencies or currency implementation.
+- Local verification: lint, typecheck, harness/Research regressions and production build; in-app Chromium at 1280, 768, 375 and 320px. Verified document/panel bounds, 44px header actions, picker input alignment within 1px, empty search without selection changes, MSFT/MAYBANK selection with retained tab, Escape/Close focus restoration, all-checks access and 22 ticker-specific tool links. Provider refresh returned HTTP 200 for `/api/research/symbol/MAYBANK?market=MY`; browser error/warning log was empty. Fresh mobile/tablet/desktop screenshots inspected against the preceding V8 hierarchy. Browser automation timeouts were recovered using the same tab; they are not passing assertions. Updated standalone browser scripts were not rerun in this follow-up; direct in-app checks supplied the interaction evidence.
+- Runtime target: `http://127.0.0.1:3000`, existing workspace dev server retained. This follow-up is a local implementation; no additional commit, push or manual deployment. Unrelated changes remain untouched.
+
 ### Execution evidence — Batch 1 (2026-09-12)
 
 - Implemented explicit returned-tier classes, neutral signed deltas, darker shared text tokens, common card/inspector raw formatting, and order-independent outcome target labels.
