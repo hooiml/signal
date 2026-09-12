@@ -69,7 +69,7 @@ try {
     await page.waitForFunction(()=>!document.querySelector('[aria-label="Provider data status"] button')?.disabled);
     const price=await page.getByTestId('research-price').innerText();hold=true;
     await page.getByRole('button',{name:'Refresh provider data',exact:true}).click();await page.getByText(/Refreshing… Retrieved/).waitFor();assert.equal(await page.getByTestId('research-price').innerText(),price);
-    await page.getByRole('region',{name:'Saved watchlist'}).getByRole('button',{name:/MSFT/}).click();
+    await page.locator('summary').filter({hasText:/^Saved securities/}).click();await page.getByRole('region',{name:'Saved watchlist'}).getByRole('button',{name:/MSFT/}).click();
     await page.getByRole('article',{name:'MSFT research'}).waitFor();hold=false;release?.();
     await page.waitForFunction(()=>!document.querySelector('[aria-label="Provider data status"] button')?.disabled);
     phase='provider-fail';await page.getByRole('button',{name:'Refresh provider data',exact:true}).click();await page.getByText(/Provider refresh failed/).waitFor();assert.equal(await page.getByTestId('research-price').innerText(),price);

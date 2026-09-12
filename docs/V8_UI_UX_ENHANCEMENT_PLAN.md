@@ -1,6 +1,6 @@
 # Signal V8 UI/UX Enhancement Plan
 
-Status: implementation in progress; Batches 1–5 verified; remaining batches pending.
+Status: implementation in progress; Batches 1–6 verified; presentation polish pending.
 Recorded: 2026-09-12.
 Scope: connected `/main-v8` and `/research-v8` experiences.
 
@@ -27,7 +27,7 @@ Work in the order below. Within each batch, inspect prerequisites, implement rel
 | 3. Loading resilience | V8-04 | Request ownership, timeout budgets, retry, partial history | Complete; see execution evidence |
 | 4. Investigation continuity | V8-03, V8-12 | Inspector behaviour, retained state, scenario baseline | Complete; see execution evidence |
 | 5. Historical evidence | V8-09, V8-10, V8-15 | Provenance, preview/replay separation, consistent history | Complete; see execution evidence |
-| 6. Research hierarchy | V8-05, V8-17 | Compact security selector and actionable readiness | Not started |
+| 6. Research hierarchy | V8-05, V8-17 | Compact security selector and actionable readiness | Complete; see execution evidence |
 | 7. Presentation polish | V8-13, V8-14 | Warning copy, readable metadata, touch targets | Not started |
 | Deferred, separate task | V8-16 | Persist explicit valuation currency through editor/API | Deferred |
 
@@ -273,6 +273,14 @@ Batch: 6. Evidence: proposed improvement; verify actual assessment route/capabil
 - Cards and inspector receive all loaded grouped archive segments and render isolated observations as points; missing snapshots/components break the path. Demo chart confirmation remains separate from connected preview semantics.
 - Passed lint, typecheck, harness, production build, scoped diff check, and `node scripts/v8-history-qa.mjs`. Evidence: `.tmp/v8-enhancement/batch5-1789191465977/report.json` plus fresh screenshots at 1280/768/375. Tests use controlled observed/reconstructed records, missing replay, two separated raw-history points, keyboard/mouse/touch input, and two replay selections followed by return. No page errors or document overflow. Updated prior investigation QA to delegate replay availability tests to this script.
 - Independent review approved with zero findings. Local server remains on port 3000; deployment unverified.
+
+### Execution evidence — Batch 6 (2026-09-12)
+
+- Batch 5 pushed and remotely confirmed at `9646bd9`.
+- Added selected-security identity/status/edit action ahead of a collapsed searchable saved-security section, with bounded expanded list height. Search/filter changes never change selection. Empty/error states remain discoverable outside the collapsed list.
+- Policy readiness explicitly requires the existing Research assessment and retains the ticker-specific policy destination; no assessment/compliance result is fabricated.
+- Passed lint, typecheck, harness, production build, scoped diff check and `node scripts/v8-hierarchy-qa.mjs`. Evidence: `.tmp/v8-enhancement/batch6-1789191821325/report.json` and 1280/768/375 screenshots. Tested 3, 10 and 35 records, stable collapsed research position, no-match/market filtering, keyboard expansion, selection and actual existing policy workspace rendering. Fresh mobile screenshot inspected.
+- Updated continuity/loading/investigation scripts to open the new selector before choosing a security; reran those scenarios to protect earlier batches. Controlled QA records are response fixtures, not saved user data. Local server remains port 3000; deployment unverified.
 
 
 Select the risk lane from actual scope under AGENTS.md and [TESTING.md](TESTING.md); batch grouping does not lower risk. Shared routes, responsive, async and state changes require the applicable standard checks and affected browser proof. Escalate for contract or other higher-risk changes. Use deterministic edge-case tests for behavioural logic and direct browser/request evidence for interaction claims; static checks alone do not prove them.
