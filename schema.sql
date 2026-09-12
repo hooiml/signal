@@ -92,9 +92,15 @@ CREATE TABLE IF NOT EXISTS research_records (
     thesis_break TEXT NOT NULL DEFAULT '',
     notes TEXT NOT NULL DEFAULT '',
     checklist JSONB NOT NULL DEFAULT '{}'::jsonb,
+    monitoring_rules JSONB NOT NULL DEFAULT '{}'::jsonb,
+    accepted_evidence JSONB NOT NULL DEFAULT '[]'::jsonb,
+    decision_journal JSONB NOT NULL DEFAULT '{}'::jsonb,
+    position_plan JSONB NOT NULL DEFAULT '{}'::jsonb,
+    review_history JSONB NOT NULL DEFAULT '[]'::jsonb,
     last_reviewed_at DATE NOT NULL DEFAULT CURRENT_DATE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
     PRIMARY KEY (user_id, symbol, market_type)
 );
 

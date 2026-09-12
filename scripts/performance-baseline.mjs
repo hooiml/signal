@@ -2,13 +2,14 @@ import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { researchReadFixture, researchSnapshotFixture } from './harness/research-read-fixture.mjs';
 
 const DEFAULT_BASE_URL = 'http://127.0.0.1:3000';
-const DEFAULT_TIMEOUT_MS = 15_000;
+const DEFAULT_TIMEOUT_MS = 30_000;
 const SETTLE_MS = 5_000;
 const ROUTES = [
-    { id: 'market', path: '/', oppositePath: '/research' },
-    { id: 'research', path: '/research', oppositePath: '/' },
+    { id: 'market', path: '/main-v8', oppositePath: '/research-v8' },
+    { id: 'research', path: '/research-v8', oppositePath: '/main-v8' },
 ];
 
 const args = process.argv.slice(2);
@@ -24,6 +25,9 @@ const timeoutMs = Number(getArg('--timeout') || DEFAULT_TIMEOUT_MS);
 const settleMs = Number(getArg('--settle') || SETTLE_MS);
 const runCount = Number(getArg('--runs') || 2);
 const throttle = !args.includes('--no-throttle');
+const fixtureMode = args.includes('--research-fixture');
+const routeFilter = getArg('--route') || (fixtureMode ? 'research' : 'all');
+const routes = ROUTES.filter(route => routeFilter === 'all' || route.id === routeFilter);
 const timestamp = new Date().toISOString().replace(/[.:]/g, '-');
 const evidenceDir = path.resolve(
     getArg('--output-dir')
@@ -52,6 +56,10 @@ const main = async () => {
     if (!Number.isFinite(timeoutMs) || timeoutMs < 1_000) throw new Error('Invalid timeout.');
     if (!Number.isFinite(settleMs) || settleMs < 0 || settleMs > 30_000) throw new Error('Invalid settle time.');
     if (!Number.isInteger(runCount) || runCount < 1 || runCount > 5) throw new Error('Runs must be between 1 and 5.');
+    if (!routes.length) throw new Error('Route must be market, research or all.');
+    if (fixtureMode && (routeFilter !== 'research' || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(baseUrl).hostname))) {
+        throw new Error('Research fixture mode requires a loopback origin and the research route.');
+    }
 
     await mkdir(evidenceDir, { recursive: true });
     const origin = new URL(baseUrl).origin;
@@ -66,6 +74,7 @@ const main = async () => {
         timeoutMs,
         settleMs,
         runCount,
+        dataMode: fixtureMode ? 'isolated SQL fixture; timings are not production speed evidence' : 'live application GETs (may execute existing writes)',
         throttle: throttle
             ? { latencyMs: 150, downloadBytesPerSecond: 200_000, uploadBytesPerSecond: 100_000, cpuRate: 4 }
             : null,
@@ -75,7 +84,7 @@ const main = async () => {
     };
 
     try {
-        for (const route of ROUTES) {
+        for (const route of routes) {
             const routeRuns = [];
             for (let run = 1; run <= runCount; run += 1) {
                 const context = await browser.newContext({
@@ -84,6 +93,21 @@ const main = async () => {
                 });
                 context.setDefaultTimeout(timeoutMs);
                 const page = await context.newPage();
+                const fixture = researchReadFixture({ allowSchema: args.includes('--baseline-schema') });
+                if (fixtureMode) {
+                    fixture.parseSnapshot(researchSnapshotFixture);
+                    await context.route('**/api/**', async intercepted => {
+                        const request = intercepted.request();
+                        const pathname = new URL(request.url()).pathname;
+                        if (request.method() !== 'GET') return intercepted.abort();
+                        if (pathname === '/api/research/watchlist') {
+                            const response = await fixture.route.GET();
+                            return intercepted.fulfill({ status: response.status, headers: Object.fromEntries(response.headers), body: await response.text() });
+                        }
+                        if (pathname === '/api/research/symbol/AAPL') return intercepted.fulfill({ json: researchSnapshotFixture });
+                        return intercepted.abort();
+                    });
+                }
                 const client = await context.newCDPSession(page);
                 await client.send('Network.enable');
                 await client.send('Network.setCacheDisabled', { cacheDisabled: true });
@@ -99,15 +123,60 @@ const main = async () => {
                 }
 
                 await page.addInitScript(() => {
-                    window.__signalPerformance = { lcpMs: null };
+                    window.__signalPerformance = { lcpMs: null, savedRecordMs: null, quoteReadyMs: null, providerSettledMs: null, marketReadyMs: null };
                     new PerformanceObserver((entries) => {
                         const latest = entries.getEntries().at(-1);
                         if (latest) window.__signalPerformance.lcpMs = latest.startTime;
                     }).observe({ type: 'largest-contentful-paint', buffered: true });
+                    setInterval(() => {
+                        const metrics = window.__signalPerformance;
+                        const expected = window.__signalExpected;
+                        if (!expected) return;
+                        const selected = new URL(location.href).searchParams.get('ticker');
+                        const article = [...document.querySelectorAll('article[aria-label]')].find(element => element.getAttribute('aria-label') === `${expected.symbol} research`);
+                        if (article && selected === expected.symbol) {
+                            metrics.savedRecordMs ??= performance.now();
+                            const status = document.querySelector('[aria-label="Provider data status"]');
+                            if (status && !status.textContent.includes('Loading provider data') && !status.textContent.includes('Refreshing…')) metrics.providerSettledMs ??= performance.now();
+                            if (expected.price && document.querySelector('[data-testid="research-price"]')?.textContent === expected.price) metrics.quoteReadyMs ??= performance.now();
+                        }
+                        if (expected.market && document.querySelector('[aria-label="Market score and history"]')) metrics.marketReadyMs ??= performance.now();
+                    }, 50);
                 });
 
                 const requests = [];
                 const failures = [];
+                const responses = [];
+                const responseJobs = [];
+                let expectedSymbol = null;
+                page.on('pageerror', error => failures.push(error.message));
+                page.on('response', response => {
+                    const url = new URL(response.url());
+                    if (url.origin !== origin) return;
+                    if (response.status() >= 400) failures.push(`HTTP ${response.status()} ${url.pathname}`);
+                    if (!url.pathname.startsWith('/api/')) return;
+                    const job = (async () => {
+                        responses.push({ path: `${url.pathname}${url.search}`, status: response.status(),
+                            serverTiming: response.headers()['server-timing'] ?? null,
+                            applicationCache: response.headers()['x-signal-cache'] ?? null });
+                        if (!response.ok()) return;
+                        const payload = await response.json();
+                        if (url.pathname === '/api/research/watchlist') {
+                            const records = fixture.parseWatchlist(payload);
+                            expectedSymbol = new URL(page.url()).searchParams.get('ticker') || records[0]?.symbol;
+                            if (records.some(record => record.symbol === expectedSymbol)) await page.evaluate(symbol => { window.__signalExpected = { symbol }; }, expectedSymbol);
+                        } else if (url.pathname.startsWith('/api/research/symbol/')) {
+                            const snapshot = fixture.parseSnapshot(payload);
+                            if (snapshot.symbol === expectedSymbol) {
+                                const price = snapshot.quote.price === null ? null : `${snapshot.quote.currency || 'Currency not supplied'} ${snapshot.quote.price.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+                                await page.evaluate(({ symbol, price }) => { window.__signalExpected = { symbol, price, providerValidated: true }; }, { symbol: snapshot.symbol, price });
+                            }
+                        } else if (url.pathname === '/api/signals/v2' && payload.success === true && Number.isFinite(payload.data?.composite_score)) {
+                            await page.evaluate(() => { window.__signalExpected = { market: true }; });
+                        }
+                    })().catch(error => failures.push(`Response validation ${url.pathname}: ${error.message}`));
+                    responseJobs.push(job);
+                });
                 page.on('request', (request) => {
                     const url = new URL(request.url());
                     if (url.origin === origin) {
@@ -130,7 +199,13 @@ const main = async () => {
                     waitUntil: 'domcontentloaded',
                     timeout: timeoutMs,
                 });
+                await page.waitForFunction(id => id === 'research'
+                    ? window.__signalPerformance?.savedRecordMs !== null && window.__signalPerformance?.providerSettledMs !== null
+                        && window.__signalExpected?.providerValidated && (!window.__signalExpected.price || window.__signalPerformance?.quoteReadyMs !== null)
+                    : window.__signalPerformance?.marketReadyMs !== null, route.id, { timeout: timeoutMs })
+                    .catch(() => failures.push('Usable-data readiness deadline exceeded (empty, invalid or failed responses are not counted as ready).'));
                 await page.waitForTimeout(settleMs);
+                await Promise.all(responseJobs);
                 const metrics = await page.evaluate(() => {
                     const resources = performance.getEntriesByType('resource').map((entry) => ({
                         name: entry.name,
@@ -142,7 +217,10 @@ const main = async () => {
                     const scripts = resources.filter((resource) =>
                         resource.initiatorType === 'script' || new URL(resource.name).pathname.endsWith('.js'));
                     return {
-                        lcpMs: window.__signalPerformance?.lcpMs ?? null,
+                        ...window.__signalPerformance,
+                        navigation: performance.getEntriesByType('navigation')[0]?.toJSON(),
+                        paint: performance.getEntriesByType('paint').map(entry => entry.toJSON()),
+                        apiTimings: resources.filter(resource => new URL(resource.name).pathname.startsWith('/api/')).map(resource => ({ path: new URL(resource.name).pathname, durationMs: resource.duration })),
                         scriptTransferBytes: scripts.reduce((sum, resource) => sum + resource.transferSize, 0),
                         scriptEncodedBytes: scripts.reduce((sum, resource) => sum + resource.encodedBodySize, 0),
                         scriptCount: scripts.length,
@@ -157,10 +235,6 @@ const main = async () => {
 
                 const apiRequests = requests.filter((request) => request.path.startsWith('/api/'));
                 const oppositePrefetches = requests.filter((request) => {
-                    if (route.oppositePath === '/') {
-                        return request.resourceType === 'fetch'
-                            && request.path.startsWith('/?_rsc=');
-                    }
                     return request.path.startsWith(`${route.oppositePath}?_rsc=`);
                 });
                 routeRuns.push({
@@ -170,6 +244,8 @@ const main = async () => {
                     requestCount: requests.length,
                     apiRequestCount: apiRequests.length,
                     apiRequests,
+                    responses,
+                    sqlStatements: fixtureMode ? [...fixture.calls] : undefined,
                     oppositeRoutePrefetchCount: oppositePrefetches.length,
                     oppositeRoutePrefetches: oppositePrefetches,
                     failures,
@@ -188,6 +264,9 @@ const main = async () => {
                     medianRequestCount: median(requestCounts),
                     requestCountVariationPercent: variationPercent(requestCounts),
                     medianLcpMs: median(routeRuns.map((item) => item.lcpMs).filter(Number.isFinite)),
+                    medianSavedRecordMs: median(routeRuns.map(item => item.savedRecordMs).filter(Number.isFinite)),
+                    medianQuoteReadyMs: median(routeRuns.map(item => item.quoteReadyMs).filter(Number.isFinite)),
+                    medianMarketReadyMs: median(routeRuns.map(item => item.marketReadyMs).filter(Number.isFinite)),
                     maxApiRequestCount: Math.max(...routeRuns.map((item) => item.apiRequestCount)),
                     maxOppositeRoutePrefetchCount: Math.max(...routeRuns.map((item) => item.oppositeRoutePrefetchCount)),
                     failureCount: routeRuns.reduce((sum, item) => sum + item.failures.length, 0),
@@ -201,6 +280,7 @@ const main = async () => {
                 route.summary.requestCountVariationPercent <= 10),
             totalFailures: report.routes.reduce((sum, route) => sum + route.summary.failureCount, 0),
         };
+        if (report.summary.totalFailures > 0) process.exitCode = 1;
     } catch (error) {
         report.fatalError = error instanceof Error ? error.message : String(error);
         throw error;

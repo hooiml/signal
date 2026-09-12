@@ -15,6 +15,9 @@ try {
     $compiledEntry = Join-Path $outDir "scripts\harness\research-regression.js"
     node $compiledEntry
     if ($LASTEXITCODE -ne 0) { throw "Research regression failed with exit code $LASTEXITCODE" }
+
+    node scripts/harness/research-read-regression.mjs
+    if ($LASTEXITCODE -ne 0) { throw "Research read regression failed with exit code $LASTEXITCODE" }
 }
 finally {
     Pop-Location

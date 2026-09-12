@@ -210,11 +210,20 @@ const updateRecord = async (record: ResearchRecord, expectedRevision: number): P
     return rows[0] ? mapRow(rows[0]) : null;
 };
 
-export const listResearchState = async (): Promise<{ readonly records: ResearchRecord[]; readonly archivedSymbols: string[] }> => {
-    await ensureResearchTable();
+type ResearchReadStage = 'records' | 'archived' | 'mapping';
+
+export const listResearchState = async (
+    onTiming?: (stage: ResearchReadStage, durationMs: number) => void,
+): Promise<{ readonly records: ResearchRecord[]; readonly archivedSymbols: string[] }> => {
+    // Required schema is provisioned before deployment; normal reads never run DDL.
+    let started = performance.now();
     const rows = await sql`SELECT * FROM research_records WHERE user_id = 'default' ORDER BY updated_at DESC`;
+    onTiming?.('records', performance.now() - started);
+    started = performance.now();
     const archivedRows = await sql`SELECT symbol FROM research_archived_symbols WHERE user_id = 'default' ORDER BY archived_at DESC`;
-    return {
+    onTiming?.('archived', performance.now() - started);
+    started = performance.now();
+    const state = {
         records: rows.map(mapRow),
         archivedSymbols: archivedRows.flatMap((raw) => {
             if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return [];
@@ -222,6 +231,8 @@ export const listResearchState = async (): Promise<{ readonly records: ResearchR
             return typeof symbol === 'string' ? [symbol] : [];
         }),
     };
+    onTiming?.('mapping', performance.now() - started);
+    return state;
 };
 
 export const createStoredResearchRecord = async (input: unknown): Promise<ResearchRecord> => {

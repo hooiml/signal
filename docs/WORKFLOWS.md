@@ -19,6 +19,29 @@ npm run harness
 
 Run `npm run build` for route, framework, dependency, or deployment changes.
 
+### Research read schema prerequisite
+
+Before deploying the Research read-path optimization, run `node scripts/check-research-schema.mjs`
+against the intended deployment's database. It loads the configured environment, checks required
+Research columns/types/nullability in a read-only transaction, and returns nonzero on missing
+schema or connection failure. It does not run setup and does not establish database/deployment
+identity: verify that pairing separately. Never replace this preflight with a schema check on every request.
+
+`listResearchState()` now executes only the two ordered SELECTs. The watchlist endpoint,
+Research attention/inbox enrichment, and notification delivery share that read function.
+Other mutation paths retain their existing setup behavior; this is not a removal of all runtime DDL.
+
+Fresh provisioning definitions are in `schema.sql`. Existing databases are not upgraded by
+`CREATE TABLE IF NOT EXISTS`; the protected `src/app/api/admin/setup-db/route.ts` already contains
+the Research upgrades. If preflight fails, stop deployment and obtain authorization for the required
+setup/migration. Do not invoke that endpoint merely to check readiness: it performs broader setup.
+After any separately approved setup, rerun preflight before deploying the read-path change.
+Rollback restores the prior application code and leaves additive schema/data intact; never drop
+columns or overwrite newer research revisions. No setup or migration is part of the read-only preflight.
+
+The watchlist GET emits `Server-Timing` for `records`, `archived`, `mapping`, and `watchlist`
+(handler work before response serialization). Timings contain no symbols, records or connection details.
+
 ## Commit Messages
 
 Every commit subject must use a scoped Conventional Commit:

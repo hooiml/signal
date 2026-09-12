@@ -63,6 +63,34 @@ profile, and records JavaScript transfer, request count, API request paths,
 opposite-route prefetches, LCP, and same-origin request failures. Evidence is
 written under `.tmp/signal-performance/<timestamp>/report.json`.
 
+The routes are `/main-v8` and `/research-v8`. Use `--route research` to isolate the Research
+read path. In addition to LCP, the report records validated saved-selection readiness, provider
+settlement, available-quote readiness, API durations/statuses, and `Server-Timing`/application-cache
+headers. A missing quote remains null, not a successful price measurement. Navigation output keeps
+`responseStart` and `finalResponseHeadersStart` separately; early response headers may be interim.
+Empty/invalid data or a missed readiness deadline is reported as a failed performance scenario.
+
+For a production-build browser check without database or provider access:
+
+```powershell
+node scripts/performance-baseline.mjs --research-fixture --no-throttle --runs 5
+node scripts/research-read-qa.mjs
+```
+
+Both require an already verified local server at `http://127.0.0.1:3000` (the performance probe
+accepts `--base-url`; read QA accepts `SIGNAL_QA_URL`). Fixture mode intercepts all API traffic,
+executes the real Research read handler against synthetic SQL rows, and blocks other API calls.
+`--baseline-schema` allows the old handler's DDL only inside that SQL spy when measuring an old
+checkout; it never executes database DDL. The harness includes a zero-DDL, output and error
+regression via `scripts/harness/research-read-regression.mjs`.
+
+Capture the instrumented baseline before removing schema calls, then compare with the same UI
+build, fixtures, viewport, runs and throttle settings. Fixture timings establish local behavior,
+not database latency or production improvement. Real before/after latency needs the same approved
+environment and database, sufficient repetitions, and explicit cache/provider conditions. The old
+watchlist GET executes schema statements and Market GET can persist snapshots: do not run a live
+baseline under a no-migrations/no-writes boundary. Schema preflight and rollout are in `docs/WORKFLOWS.md`.
+
 Use `--no-throttle` only for a separate fast diagnostic. Before/after claims
 must use the same build, route data, viewport, cache state, run count, settle
 time, and throttle profile. Two baseline runs should remain within 10% for
