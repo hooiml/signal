@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+type ChartStateProps = { chartRange: string; setChartRange: (range: string) => void; chartDate: string | null; setChartDate: (date: string | null) => void };
 import { checklistLabelsV6 } from '@/components/v6/research-v6';
 import type { ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
@@ -18,14 +18,14 @@ function SourceLink({ url, label }: { url: string | null; label: string }) {
     return href ? <a className={base.textButton} href={href} target="_blank" rel="noopener noreferrer">{label} ↗</a> : <span>{label} · no usable source link</span>;
 }
 
-export function ResearchConnectedPanel({ tab, record, snapshot, loading }: { tab: ResearchTab; record: ResearchRecord; snapshot: ResearchSnapshot | null; loading: boolean }) {
+export function ResearchConnectedPanel({ tab, record, snapshot, loading, ...chart }: { tab: ResearchTab; record: ResearchRecord; snapshot: ResearchSnapshot | null; loading: boolean } & ChartStateProps) {
     const fundamentals = snapshot?.fundamentals;
     const currency = fundamentals?.history.find(period => period.reportingPeriod === fundamentals.reportingPeriod)?.currency;
     const valuation = snapshot?.valuation;
     return <div className={connected.panelContent}>
         {tab === 'Overview' && <>
             <span className={base.eyebrow}>USER-AUTHORED · SAVED {date(record.updatedAt)}</span><h2>Why this security is on your list</h2><p className={connected.authored}>{record.whyInterested || 'No research question has been saved yet.'}</p>
-            <PriceHistory snapshot={snapshot} loading={loading} />
+            <PriceHistory snapshot={snapshot} loading={loading} {...chart} />
             <h2>The evidence file</h2><p>Accepted research preserves its original sources and mode. A saved interpretation is not an independently verified fact.</p>
             {!record.acceptedEvidence.length && !record.documentEvidence.citations.length && <p className={styles.gapNote}>No accepted evidence or document citations are saved for this security.</p>}
             {record.acceptedEvidence.map(evidence => <details className={connected.evidence} key={evidence.id}><summary>{evidence.title} · {evidence.tone}</summary><small>Saved {evidence.mode === 'ai' ? 'AI interpretation' : 'evidence'} · accepted {date(evidence.acceptedAt)}</small><p>{evidence.summary}</p>{evidence.sources.map(source => <div key={source.id}><b>{source.label}</b><p>{source.value}</p><small>{source.reportingPeriod || 'Period not supplied'} · {source.source}</small><br /><SourceLink url={source.sourceUrl} label="Original source" /></div>)}</details>)}
@@ -70,14 +70,13 @@ export function ResearchConnectedPanel({ tab, record, snapshot, loading }: { tab
     </div>;
 }
 
-function PriceHistory({ snapshot, loading }: { snapshot: ResearchSnapshot | null; loading: boolean }) {
-    const [range, setRange] = useState('3M');
-    const [selected, setSelected] = useState<number | null>(null);
+function PriceHistory({ snapshot, loading, chartRange: range, setChartRange: setRange, chartDate, setChartDate }: { snapshot: ResearchSnapshot | null; loading: boolean } & ChartStateProps) {
     const all = snapshot?.chart.points ?? [];
     const end = all.length ? Date.parse(all[all.length - 1].time) : 0;
     const days = range === '1M' ? 30 : range === '3M' ? 90 : range === '1Y' ? 365 : Infinity;
     const points = all.filter(point => Date.parse(point.time) >= end - days * 86400000);
-    const index = Math.min(selected ?? points.length - 1, points.length - 1);
+    const selected = points.findIndex(point => point.time === chartDate);
+    const index = selected >= 0 ? selected : points.length - 1;
     const point = points[index];
     const low = Math.min(...points.map(item => item.close));
     const high = Math.max(...points.map(item => item.close));
@@ -85,8 +84,8 @@ function PriceHistory({ snapshot, loading }: { snapshot: ResearchSnapshot | null
     const x = (time: string) => 65 + (Date.parse(time) - start) / (end - start || 1) * 650;
     const y = (value: number) => 180 - (value - low) / (high - low || 1) * 135;
     return <section className={connected.priceHistory} aria-label="Price history">
-        <div className={connected.chartHeader}><div><span className={base.eyebrow}>RETURNED DAILY CLOSES</span><h3>Price history</h3></div><fieldset className={base.segment}><legend className={base.visuallyHidden}>Price history range</legend>{['1M', '3M', '1Y', 'All'].map(value => <button key={value} aria-pressed={range === value} onClick={() => { setRange(value); setSelected(null); }}>{value}</button>)}</fieldset></div>
-        {point ? <><output className={connected.priceReadout} aria-live="polite">{date(point.time)} · close {money(point.close, snapshot?.quote.currency)}</output><svg className={connected.priceChart} viewBox="0 0 750 225" role="img" aria-label={`${snapshot?.symbol} daily closing price, ${date(points[0].time)} to ${date(points[points.length - 1].time)}. Exact values are available in the history table.`}><line x1="65" x2="715" y1="45" y2="45" stroke="#c9daef" /><line x1="65" x2="715" y1="180" y2="180" stroke="#c9daef" /><text x="58" y="49" textAnchor="end">{number(high)}</text><text x="58" y="184" textAnchor="end">{number(low)}</text><polyline fill="none" stroke="#2563bc" strokeWidth="2.5" points={points.map(item => `${x(item.time)},${y(item.close)}`).join(' ')} /><line x1={x(point.time)} x2={x(point.time)} y1="35" y2="190" stroke="#007c5b" strokeDasharray="4 4" /><circle cx={x(point.time)} cy={y(point.close)} r="5" fill="#007c5b" /><text x="65" y="215">{date(points[0].time)}</text><text x="715" y="215" textAnchor="end">{date(points[points.length - 1].time)}</text></svg><label className={connected.scrubber}>Inspect a trading date<input type="range" min="0" max={points.length - 1} value={index} disabled={points.length === 1} onChange={event => setSelected(Number(event.target.value))} aria-valuetext={`${date(point.time)}, close ${money(point.close, snapshot?.quote.currency)}`} /></label><p>{points.length} returned observations · {snapshot?.quote.currency || 'Currency unavailable'}. Lines connect returned closes; missing sessions are not filled. These are historical closes, not the latest quote.</p><details><summary>View exact history values</summary><div className={connected.tableScroll} tabIndex={0} role="region" aria-label="Closing price table"><table><thead><tr><th>Date</th><th>Close ({snapshot?.quote.currency || 'currency unavailable'})</th><th>Volume</th></tr></thead><tbody>{points.map(item => <tr key={item.time}><th>{date(item.time)}</th><td>{number(item.close)}</td><td>{number(item.volume)}</td></tr>)}</tbody></table></div></details></> : <p className={styles.gapNote}>{loading ? 'Loading price history…' : 'No price history returned. No illustrative line is shown.'}</p>}
+        <div className={connected.chartHeader}><div><span className={base.eyebrow}>RETURNED DAILY CLOSES</span><h3>Price history</h3></div><fieldset className={base.segment}><legend className={base.visuallyHidden}>Price history range</legend>{['1M', '3M', '1Y', 'All'].map(value => <button key={value} aria-pressed={range === value} onClick={() => { setRange(value); setChartDate(null); }}>{value}</button>)}</fieldset></div>
+        {point ? <><output className={connected.priceReadout} aria-live="polite">{date(point.time)} · close {money(point.close, snapshot?.quote.currency)}</output><svg className={connected.priceChart} viewBox="0 0 750 225" role="img" aria-label={`${snapshot?.symbol} daily closing price, ${date(points[0].time)} to ${date(points[points.length - 1].time)}. Exact values are available in the history table.`}><line x1="65" x2="715" y1="45" y2="45" stroke="#c9daef" /><line x1="65" x2="715" y1="180" y2="180" stroke="#c9daef" /><text x="58" y="49" textAnchor="end">{number(high)}</text><text x="58" y="184" textAnchor="end">{number(low)}</text><polyline fill="none" stroke="#2563bc" strokeWidth="2.5" points={points.map(item => `${x(item.time)},${y(item.close)}`).join(' ')} /><line x1={x(point.time)} x2={x(point.time)} y1="35" y2="190" stroke="#007c5b" strokeDasharray="4 4" /><circle cx={x(point.time)} cy={y(point.close)} r="5" fill="#007c5b" /><text x="65" y="215">{date(points[0].time)}</text><text x="715" y="215" textAnchor="end">{date(points[points.length - 1].time)}</text></svg><label className={connected.scrubber}>Inspect a trading date<input type="range" min="0" max={points.length - 1} value={index} disabled={points.length === 1} onChange={event => setChartDate(points[Number(event.target.value)]?.time ?? null)} aria-valuetext={`${date(point.time)}, close ${money(point.close, snapshot?.quote.currency)}`} /></label><p>{points.length} returned observations · {snapshot?.quote.currency || 'Currency unavailable'}. Lines connect returned closes; missing sessions are not filled. These are historical closes, not the latest quote.</p><details><summary>View exact history values</summary><div className={connected.tableScroll} tabIndex={0} role="region" aria-label="Closing price table"><table><thead><tr><th>Date</th><th>Close ({snapshot?.quote.currency || 'currency unavailable'})</th><th>Volume</th></tr></thead><tbody>{points.map(item => <tr key={item.time}><th>{date(item.time)}</th><td>{number(item.close)}</td><td>{number(item.volume)}</td></tr>)}</tbody></table></div></details></> : <p className={styles.gapNote}>{loading ? 'Loading price history…' : 'No price history returned. No illustrative line is shown.'}</p>}
         {snapshot && <a className={base.textButton} href={researchHref(snapshot.symbol, 'chart')} target="_blank" rel="noopener noreferrer">Open full chart & technicals ↗</a>}
     </section>;
 }

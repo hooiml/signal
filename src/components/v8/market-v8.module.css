@@ -98,6 +98,13 @@
 .conflict { color: var(--red); }
 .muted { color: var(--muted); }
 .rail { background: linear-gradient(155deg, #ffffffef, #ffffffc9); border: 1px solid #d7e6f8; border-radius: 14px; padding: 23px 21px; margin-top: 2px; min-width: 0; box-shadow: 0 16px 60px -40px #174ba968; }
+.inspectorAccess { position: fixed; left: 24px; top: 48px; z-index: 20; display: flex; gap: 12px; background: white; padding: 12px; clip-path: inset(50%); pointer-events: none; }
+.inspectorAccess:focus-within { clip-path: none; pointer-events: auto; }
+.inspectorAccess button { text-decoration: underline; }
+@media (min-width: 901px) {
+    .railSelected { position: sticky; top: 48px; max-height: calc(100dvh - 64px); overflow-y: auto; overscroll-behavior: contain; }
+}
+@media (max-width: 900px) { .inspectorAccess { display: none; } }
 .railHeading { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; }
 .eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 650; }
 .orbit { color: #92b9e8; font-size: 24px; line-height: 1; }

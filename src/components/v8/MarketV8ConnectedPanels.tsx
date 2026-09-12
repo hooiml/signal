@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, type Dispatch, type SetStateAction } from 'react';
 import { getIndicatorBaseWeights, INDICATOR_REGISTRY } from '@/lib/indicator-registry';
 import { simulateMarketScore } from '@/lib/market-sensitivity';
 import { formatRawValue, getIndicatorCadence } from '@/components/v2/cockpit-utils';
@@ -9,11 +9,15 @@ import styles from './market-v8.module.css';
 import { missingInputExplanation } from './MarketV8Coverage';
 
 type Point = { date: string; value: number };
+export type ScenarioState = { overrides: Record<string, number>; baseline: MarketSignal | null; selectedKey: string };
+export const emptyScenario = (): ScenarioState => ({ overrides: {}, baseline: null, selectedKey: '' });
 
 type ConnectedPanelsProps = {
     readonly signal: MarketSignal;
     readonly tab: string;
     readonly onSelect: (key: string, element: HTMLButtonElement) => void;
+    readonly scenario: ScenarioState;
+    readonly setScenario: Dispatch<SetStateAction<ScenarioState>>;
 };
 
 type ConnectedIndicatorProps = {
@@ -293,12 +297,10 @@ function ContextItem({ label, value, date, href, unavailable = false }: { label:
     return <div className={styles.evidenceButton}><span><b>{label}</b><small>{unavailable ? 'Unavailable' : `${value} · ${formatDate(date)}`}</small></span>{safeHref ? <a className={styles.textButton} href={safeHref} target="_blank" rel="noreferrer">Source →</a> : <span className={styles.muted}>{unavailable ? 'No record' : 'Source unavailable'}</span>}</div>;
 }
 
-function ScenarioPanel({ signal }: { signal: MarketSignal }) {
-    const [overrides, setOverrides] = useState<Record<string, number>>({});
-    const [baseline, setBaseline] = useState<MarketSignal | null>(null);
+function ScenarioPanel({ signal, scenario, setScenario }: Pick<ConnectedPanelsProps, 'signal' | 'scenario' | 'setScenario'>) {
+    const { overrides, baseline, selectedKey } = scenario;
     const reading = baseline ?? signal;
     const result = simulateMarketScore(reading, overrides);
-    const [selectedKey, setSelectedKey] = useState(result.drivers[0]?.key ?? '');
     const effectiveKey = result.drivers.some((driver) => driver.key === selectedKey) ? selectedKey : result.drivers[0]?.key ?? '';
     const selected = result.drivers.find((driver) => driver.key === effectiveKey);
 
@@ -307,19 +309,19 @@ function ScenarioPanel({ signal }: { signal: MarketSignal }) {
         <SectionHeading eyebrow="Scenarios" title="What would change the reading?" tag="Hypothetical" />
         {baseline && baseline !== signal && <p role="status">Newer reading available. Your assumptions still use their original reading.</p>}
         <p className={styles.panelIntro}>Adjust an existing normalized input to inspect sensitivity. Raw observations, weights and reserve accounting remain as supplied by the signal. Nothing is persisted.</p>
-        <div className={styles.scenarioGrid}><div><label className={styles.field}>Input to explore<select aria-label="Scenario input" value={effectiveKey} onChange={(event) => setSelectedKey(event.target.value)}>{result.drivers.map((driver) => <option key={driver.key} value={driver.key}>{driver.name}</option>)}</select></label>{selected ? <><label className={styles.sliderLabel} htmlFor="connected-scenario-score">Hypothetical normalized score <b>{overrides[effectiveKey] ?? selected.baseScore.toFixed(2)}</b></label><input id="connected-scenario-score" type="range" min="0" max="100" step="1" value={overrides[effectiveKey] ?? selected.baseScore} onChange={(event) => { setBaseline(current => current ?? signal); setOverrides((current) => ({ ...current, [effectiveKey]: Number(event.target.value) })); }} /><div className={styles.scaleLabels}><span>0</span><span>50 · neutral</span><span>100</span></div></> : null}<button className={styles.secondaryButton} onClick={() => { setOverrides({}); setBaseline(null); }}>Reset to latest reading</button></div><div className={styles.simulated} aria-live="polite"><span>Simulated score</span><strong>{result.simulatedScore}<small>/100</small></strong><b>{signed(result.scoreDelta, 0)} vs baseline {reading.composite_score}</b><p>{result.simulatedTier} · hypothetical only</p></div></div>
+        <div className={styles.scenarioGrid}><div><label className={styles.field}>Input to explore<select aria-label="Scenario input" value={effectiveKey} onChange={(event) => setScenario(current => ({ ...current, selectedKey: event.target.value }))}>{result.drivers.map((driver) => <option key={driver.key} value={driver.key}>{driver.name}</option>)}</select></label>{selected ? <><label className={styles.sliderLabel} htmlFor="connected-scenario-score">Hypothetical normalized score <b>{overrides[effectiveKey] ?? selected.baseScore.toFixed(2)}</b></label><input id="connected-scenario-score" type="range" min="0" max="100" step="1" value={overrides[effectiveKey] ?? selected.baseScore} onChange={(event) => { setScenario(current => ({ ...current, baseline: current.baseline ?? signal, overrides: { ...current.overrides, [effectiveKey]: Number(event.target.value) } })); }} /><div className={styles.scaleLabels}><span>0</span><span>50 · neutral</span><span>100</span></div></> : null}<button className={styles.secondaryButton} onClick={() => { setScenario(emptyScenario()); }}>Reset to latest reading</button></div><div className={styles.simulated} aria-live="polite"><span>Simulated score</span><strong>{result.simulatedScore}<small>/100</small></strong><b>{signed(result.scoreDelta, 0)} vs baseline {reading.composite_score}</b><p>{result.simulatedTier} · hypothetical only</p></div></div>
         <details className={styles.disclosure}><summary>Active assumptions & accounting</summary>{result.drivers.filter((driver) => driver.baseScore !== driver.simulatedScore).map((driver) => <p key={driver.key}>{driver.name}: {driver.baseScore.toFixed(2)} → {driver.simulatedScore.toFixed(2)} · contribution {signed(driver.contributionDelta)} points.</p>)}<p>Neutral reserve retained: {result.neutralPoints.toFixed(2)} points. This is sensitivity arithmetic only; no raw data, score, or scenario is saved.</p></details>
     </>;
 }
 
-export function ConnectedPanels({ signal, tab, onSelect }: ConnectedPanelsProps) {
+export function ConnectedPanels({ signal, tab, onSelect, scenario, setScenario }: ConnectedPanelsProps) {
     const normalizedTab = tab.trim().toLowerCase();
     const panel = useMemo(() => {
         if (normalizedTab === 'what changed') return <ChangePanel signal={signal} onSelect={onSelect} />;
         if (normalizedTab === 'evidence') return <EvidencePanel signal={signal} onSelect={onSelect} />;
         if (normalizedTab === 'context') return <ContextPanel signal={signal} />;
-        if (normalizedTab === 'scenarios') return <ScenarioPanel signal={signal} />;
+        if (normalizedTab === 'scenarios') return <ScenarioPanel signal={signal} scenario={scenario} setScenario={setScenario} />;
         return <Unavailable title="Panel unavailable" detail={`No connected V8 panel is defined for “${tab}”.`} />;
-    }, [normalizedTab, onSelect, signal, tab]);
+    }, [normalizedTab, onSelect, signal, tab, scenario, setScenario]);
     return <div data-testid={`market-v8-connected-${normalizedTab.replace(/\s+/g, '-')}`}>{panel}</div>;
 }

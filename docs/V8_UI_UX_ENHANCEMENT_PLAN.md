@@ -1,6 +1,6 @@
 # Signal V8 UI/UX Enhancement Plan
 
-Status: implementation in progress; Batches 1–3 verified, remaining batches pending.
+Status: implementation in progress; Batches 1–4 verified; remaining batches pending.
 Recorded: 2026-09-12.
 Scope: connected `/main-v8` and `/research-v8` experiences.
 
@@ -25,7 +25,7 @@ Work in the order below. Within each batch, inspect prerequisites, implement rel
 | 1. Correctness and accessibility | V8-01, V8-07, V8-08, V8-11 | Semantic colours, outcome-date label, contrast, indicator units | Complete; see execution evidence |
 | 2. Research continuity | V8-02, V8-06 | URL selection, Back/Forward, edit-return refresh | Complete; see execution evidence |
 | 3. Loading resilience | V8-04 | Request ownership, timeout budgets, retry, partial history | Complete; see execution evidence |
-| 4. Investigation continuity | V8-03, V8-12 | Inspector behaviour, retained state, scenario baseline | Not started |
+| 4. Investigation continuity | V8-03, V8-12 | Inspector behaviour, retained state, scenario baseline | Complete; see execution evidence |
 | 5. Historical evidence | V8-09, V8-10, V8-15 | Provenance, preview/replay separation, consistent history | Not started |
 | 6. Research hierarchy | V8-05, V8-17 | Compact security selector and actionable readiness | Not started |
 | 7. Presentation polish | V8-13, V8-14 | Warning copy, readable metadata, touch targets | Not started |
@@ -177,7 +177,7 @@ Batch: 4; ownership contract also guides Batch 3. Evidence: proposed improvement
 
 URL owns shareable navigation; fetched records/freshness belong to the data layer; page-level UI state owns temporary choices. Lift state only as needed to survive panel unmounting, rather than keeping every tab mounted. No durable storage.
 
-| State | Investigation tab switch | Security/Market configuration change | Enter/leave replay | Reload |
+| State | Investigation tab switch | Security/Market configuration change | Enter/leave replay | Full page reload |
 | --- | --- | --- | --- | --- |
 | Research ticker/main tab | Preserve | Change ticker; retain supported tab | Not applicable | Restore URL |
 | Research chart range | Preserve | Retain range preference | Not applicable | Default |
@@ -187,6 +187,8 @@ URL owns shareable navigation; fetched records/freshness belong to the data laye
 | Market selected point/indicator | Preserve if applicable | Clear | Separate replay selection; restore current selection | Clear |
 
 Once the user edits a scenario, retain the full baseline needed to reproduce it in memory: inputs, weights, reserve accounting and reference score. New data must not replace that baseline. Show “Newer reading available” and “Reset to latest reading”; reset clears assumptions and adopts the latest reading for the same configuration. Configuration changes clear the scenario as above. Do not add saved versions or a scenario API.
+
+The reload column means browser page reload. In-page “Reload data,” saved-record revalidation and provider refresh retain same-identity investigation choices and pinned assumptions; they do not perform the full-page reset.
 
 Acceptance: every matrix transition; tab unmount/remount; same-configuration refresh during an edited scenario; reset to latest; configuration change; replay round trip; reload clears temporary state. Reproducing a pinned simulation yields the same result despite background refresh.
 
@@ -255,6 +257,14 @@ Batch: 6. Evidence: proposed improvement; verify actual assessment route/capabil
 - Passed lint, typecheck, harness, production build, scoped diff check and `node scripts/v8-loading-qa.mjs`. Evidence: `.tmp/v8-enhancement/batch3-1789190580819/report.json`.
 - Direct helper tests cover retry limit, HTTP non-retry conditions, malformed JSON, operation deadline and cancellation. Chromium at 1280 covers held responses, mode/ticker switches, successful retry, invalid payload, one failed/one pending/one loaded archive record, incremental completion, provider refresh and failure retention. Provider requests used captured valid responses; no user records were mutated. Standard viewport coverage from preceding batches is retained; this batch changes async behaviour, not layout.
 - Replay API returns no top-level configuration identity in a snapshot. Existing server query filters own market/mode/source matching; the UI validates the index identity, request ownership and snapshot date without inventing an API field.
+
+### Execution evidence — Batch 4 (2026-09-12)
+
+- Batch 3 pushed and remotely confirmed at `0a4f0f4`.
+- Lifted scenario assumptions/full baseline and History controls to Market page state; Research range to page state and selected date to the security owner. Tabs can unmount without erasing those values. Configuration/reload resets and replay suspension/restoration follow the reset matrix.
+- Desktop inspector remains non-modal and sticky with focus retained on its trigger, keyboard access and concise live announcement. Mobile modal restores focus; responsive transitions release scroll lock. Runtime QA caught and fixed a scroll jump from the new access control; that control now appears out of document flow on keyboard focus.
+- Passed lint, typecheck, harness, production build and `node scripts/v8-investigation-qa.mjs`; final evidence `.tmp/v8-enhancement/batch4-1789191032617/report.json`. Chromium scenarios cover 1280/768/375 inspectors, modal-to-desktop transition, scenario refresh/reset, History tabs/replay round trip/configuration reset, Research chart date/range retention and reload defaults. Inspected fresh mobile/tablet screenshot. Local server remains on port 3000.
+- Independent review completed: corrected replay overwriting the current selected point; two refresh/reset findings were withdrawn after confirming the full-page reload contract. Final rerun: `.tmp/v8-enhancement/batch4-1789191196279/report.json`. Browser responses are controlled copies of live reads; provider writes and deployment are not part of this proof.
 
 
 Select the risk lane from actual scope under AGENTS.md and [TESTING.md](TESTING.md); batch grouping does not lower risk. Shared routes, responsive, async and state changes require the applicable standard checks and affected browser proof. Escalate for contract or other higher-risk changes. Use deterministic edge-case tests for behavioural logic and direct browser/request evidence for interaction claims; static checks alone do not prove them.

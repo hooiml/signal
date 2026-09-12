@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, type Dispatch, type SetStateAction } from 'react';
 import { getCalibrationZone, selectHistoricalValidationCases, type CalibrationObservation, type CalibrationValidationCase } from '@/lib/market-calibration';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import { MarketV8Timeline } from './MarketV8Timeline';
@@ -21,6 +21,8 @@ type OutcomeStats = {
 };
 
 const views: readonly CalibrationView[] = ['Timeline', 'Forward outcomes', 'Score zones', 'Cases', 'Method'];
+export type HistoryState = { view: CalibrationView; days: 7 | 30; zone: CalibrationZone; observedOnly: boolean; negativeOnly: boolean };
+export const defaultHistory = (): HistoryState => ({ view: 'Timeline', days: 7, zone: 'mixed', observedOnly: false, negativeOnly: false });
 const horizons = [7, 30] as const;
 
 const dateLabel = (date: string | null) => date
@@ -130,14 +132,14 @@ function MethodView({ calibration }: { calibration: Calibration }) {
     </div>;
 }
 
-export function ConnectedHistory({ signal }: { signal: MarketSignal }) {
+export function ConnectedHistory({ signal, state, setState }: { signal: MarketSignal; state: HistoryState; setState: Dispatch<SetStateAction<HistoryState>> }) {
     const calibration = signal.metadata.historical_validation;
-    const [view, setView] = useState<CalibrationView>('Timeline');
-    const [days, setDays] = useState<7 | 30>(7);
-    const initialZone = getCalibrationZone(signal.composite_score);
-    const [zone, setZone] = useState<CalibrationZone>(initialZone ?? 'mixed');
-    const [observedOnly, setObservedOnly] = useState(false);
-    const [negativeOnly, setNegativeOnly] = useState(false);
+    const { view, days, zone, observedOnly, negativeOnly } = state;
+    const setView = (view: CalibrationView) => setState(current => ({ ...current, view }));
+    const setDays = (days: 7 | 30) => setState(current => ({ ...current, days }));
+    const setZone = (zone: CalibrationZone) => setState(current => ({ ...current, zone }));
+    const setObservedOnly = (observedOnly: boolean) => setState(current => ({ ...current, observedOnly }));
+    const setNegativeOnly = (negativeOnly: boolean) => setState(current => ({ ...current, negativeOnly }));
 
     const availableZones = useMemo(() => calibration?.horizons.find((horizon) => horizon.days === days)?.cohorts ?? calibration?.horizons[0]?.cohorts ?? [], [calibration, days]);
     const selectedZone = availableZones.some((item) => item.zone === zone) ? zone : availableZones[0]?.zone ?? 'mixed';
