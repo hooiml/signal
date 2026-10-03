@@ -142,3 +142,21 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 - UI components should render typed signal payloads and avoid duplicating scoring logic.
 - External clients should stay in `src/lib` and expose typed helper functions.
 - Generated docs under `docs/generated` should be updated by scripts, not hand-edited for long-lived facts.
+
+### Guided everyday Research
+
+Research editing keeps one in-memory draft across three steps: Thesis, Evidence,
+and Decision. The first step shows core narrative prompts; extra narrative,
+strategy guidance, assistance, and position planning use native disclosures.
+Step navigation and disclosure toggles never persist a record. Save review uses
+the existing mutation and history path, and Cancel discards the draft. Workflow
+handoffs keep their focused fields and expand the additional narrative section.
+The optional assistant mounts only on first expansion and stays mounted while
+switching steps. Review tools likewise mount on first opening and retain their
+current panel when the outer disclosure closes.
+
+The reading view consolidates readiness details, collapses fundamentals and
+review history, and removes the duplicate checklist/decision card. V8 keeps one
+primary next action and a single collapsed collection of all research checks;
+provider coverage remains visible in one expandable notice. Version navigation
+and every existing workspace destination remain unchanged.

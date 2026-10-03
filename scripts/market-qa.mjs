@@ -886,6 +886,8 @@ const main = async () => {
                     await journal.getByRole('heading', { name: 'Thesis and triggers' }).waitFor({ state: 'visible', timeout: timeoutMs });
                     runCheck(scenario.checks, 'research journal disclosure expands', await journalToggle.getAttribute('aria-expanded') === 'true', 'expected expanded read-only details');
                     await journal.getByTestId('submit-research-review').click();
+                    await journal.getByRole('button', { name: 'Continue to Evidence' }).click();
+                    await journal.getByRole('button', { name: 'Continue to Decision' }).click();
                     const decisionRecord = journal.getByRole('group', { name: 'Decision record' });
                     await decisionRecord.waitFor({ state: 'visible', timeout: timeoutMs });
                     const decisionText = await decisionRecord.textContent();
@@ -893,6 +895,7 @@ const main = async () => {
                     await decisionRecord.getByLabel('Confidence').selectOption('high');
                     await decisionRecord.getByLabel('Next review date').fill('2026-08-15');
                     runCheck(scenario.checks, 'decision journal accepts confidence and review date', await decisionRecord.getByLabel('Confidence').inputValue() === 'high' && await decisionRecord.getByLabel('Next review date').inputValue() === '2026-08-15', 'expected high confidence and 2026-08-15');
+                    await journal.locator('summary').filter({ hasText: 'Optional position plan' }).click();
                     const positionPlan = journal.getByRole('group', { name: 'Position plan' });
                     await positionPlan.getByLabel('Planned allocation %').fill('10');
                     await positionPlan.getByLabel('Planned entry price').fill('100');

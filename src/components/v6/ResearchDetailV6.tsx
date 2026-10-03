@@ -170,20 +170,19 @@ export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQu
                         <span>Decision · {action}</span>
                         <strong>{getActionReasonV6(action)}</strong>
                         <div className={liveStyles.decisionMetaV7}>
-                            <small>Next gap · {readiness.nextGap.label}</small>
                             <button type="button" onClick={() => void onDelete()} data-testid="research-remove-ticker" className={liveStyles.removeSecurityV7}>Remove security</button>
                         </div>
-                        <button data-testid="research-readiness-next" type="button" onClick={() => onReadinessNavigate(readiness.nextGap.destination)} className={liveStyles.decisionActionV7}>
+                        {!startReview ? <button data-testid="research-readiness-next" type="button" onClick={() => onReadinessNavigate(readiness.nextGap.destination)} className={liveStyles.decisionActionV7}>
                             <span>Next action</span>
                             <strong>{readiness.nextGap.label}</strong>
-                        </button>
+                        </button> : null}
                     </div>
                 ) : null}
             </header>
 
             {watchlistSlot}
             <div className={presentation === 'v7' ? liveStyles.researchDetailBodyV7 : undefined}>
-            <ResearchReadinessStripV6 readiness={readiness} theme={theme} onNavigate={onReadinessNavigate} showNextAction={presentation !== 'v7'} />
+            {!startReview ? <ResearchReadinessStripV6 readiness={readiness} theme={theme} onNavigate={onReadinessNavigate} showNextAction={presentation !== 'v7'} /> : null}
 
             {providerState === 'loading' ? (
                 <div role="status" className={'mt-3 flex items-center gap-2 rounded-md border px-3 py-2 text-xs ' + themeClasses.row + ' ' + themeClasses.textSecondary}>

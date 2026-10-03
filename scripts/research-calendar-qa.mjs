@@ -223,6 +223,8 @@ try {
             await page.getByRole('button', { name: /Open MSFT review workflow/i }).first().click();
             await page.waitForURL(/ticker=MSFT.*review=edit/, { timeout });
             await page.getByRole('heading', { name: 'MSFT', exact: true }).waitFor({ state: 'visible', timeout });
+            await page.getByRole('button', { name: 'Continue to Evidence' }).click();
+            await page.getByRole('button', { name: 'Continue to Decision' }).click();
             await page.getByRole('button', { name: 'Save review' }).waitFor({ state: 'visible', timeout });
 
             await page.goto(`${baseUrl}/research?workspace=calendar`, { waitUntil: 'domcontentloaded', timeout });

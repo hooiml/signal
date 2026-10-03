@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type ComponentProps } from 'react';
+import { useMemo, useRef, useState, type ComponentProps } from 'react';
 import type { AcceptedResearchEvidence, ResearchRecord } from '@/lib/types/research';
 import type { ResearchBenchmark } from '@/lib/types/research-snapshot';
 import { calculatePositionPlanRisk } from '@/lib/research/position-plan';
@@ -38,6 +38,8 @@ const workflowTextFields: readonly { readonly key: ResearchWorkflowTextField; re
     { key: 'sellTrigger', label: 'Sell trigger' },
     { key: 'notes', label: 'Review notes' },
 ];
+
+const reviewSteps = ['Thesis', 'Evidence', 'Decision'] as const;
 
 const detailText = (value: string) => value.trim() || 'Not recorded';
 
@@ -80,6 +82,13 @@ const prepareReviewDraft = (initial: ResearchRecord, decision: ResearchActionV6,
 export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decision, observedPrice, observedCurrency = null, benchmark, startEditing = false, stagedEvidence = null, workflowTemplateId = null, onEditingChange }: ResearchEditorV6Props) => {
     const [draft, setDraft] = useState(() => startEditing ? prepareReviewDraft(initial, decision, observedPrice, observedCurrency, benchmark, stagedEvidence) : initial);
     const [isEditing, setIsEditing] = useState(startEditing);
+    const [reviewStep, setReviewStep] = useState(0);
+    const [assistantOpened, setAssistantOpened] = useState(false);
+    const stepHeading = useRef<HTMLHeadingElement>(null);
+    const changeStep = (step: number) => {
+        setReviewStep(step);
+        requestAnimationFrame(() => stepHeading.current?.focus());
+    };
     const [isExpanded, setIsExpanded] = useState(startEditing);
     const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
     const [strategyTemplateId, setStrategyTemplateId] = useState<ResearchStrategyTemplateId>('core');
@@ -148,7 +157,7 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     {isEditing ? (
-                        <h2 className={'text-base font-bold ' + styles.textPrimary}>Research journal</h2>
+                        <h2 className={'text-base font-bold ' + styles.textPrimary}>Review {draft.symbol}</h2>
                     ) : (
                         <button
                             type="button"
@@ -165,12 +174,12 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                         </button>
                     )}
                     <p className={'text-xs leading-5 ' + styles.textMuted}>{isEditing
-                        ? 'Use the assisted findings as a starting point, add your own analysis, then save the review.'
+                        ? 'Update what changed. Existing values are kept, and nothing is saved until you choose Save review.'
                         : `${detailChoice(draft.decisionJournal.decision)} · ${completedChecklist}/${checklistKeys.length} checks · reviewed ${draft.lastReviewedAt}`}</p>
                 </div>
                 {!isEditing ? (
                     <button type="button" onClick={beginReview} data-testid="submit-research-review" className="min-h-10 rounded-md bg-emerald-600 px-4 text-xs font-bold text-white transition-colors hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500">
-                        Start assisted review
+                        Review research
                     </button>
                 ) : null}
             </div>
@@ -254,13 +263,11 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                     </div>
                 </>
             ) : (
-                isEditing ? <div className="mt-4">
-                    <ResearchAssistantV6 symbol={draft.symbol} market={draft.market} theme={theme} onApply={applyFinding} />
-                </div> : null
+                null
             )}
 
             {draft.acceptedEvidence.length > 0 && (isEditing || isExpanded) ? (
-                <section className={'mt-4 border-b pb-4 ' + styles.divider} aria-labelledby="accepted-evidence-title">
+                <section hidden={isEditing && reviewStep !== 1} className={'mt-4 border-b pb-4 ' + styles.divider} aria-labelledby="accepted-evidence-title">
                     <div className="flex items-center justify-between gap-3">
                         <h3 id="accepted-evidence-title" className={'text-sm font-semibold ' + styles.textSecondary}>Accepted evidence</h3>
                         <span className={'text-xs ' + styles.textMuted}>{draft.acceptedEvidence.length} retained finding{draft.acceptedEvidence.length === 1 ? '' : 's'}</span>
@@ -290,12 +297,38 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
             {isEditing && stagedEvidence ? <p role="status" className={'mt-3 rounded border p-3 text-xs leading-5 ' + styles.panelUtility + ' ' + styles.textSecondary}>
                 Staged evidence is attached to this draft. No thesis field was changed; reconcile the relevant wording below, then save or cancel the review.
             </p> : null}
-            {isEditing && workflowTemplate ? <div role="status" className={'mt-3 rounded border p-3 text-xs leading-5 ' + styles.panelUtility}>
+            {isEditing && reviewStep === 0 && workflowTemplate ? <div role="status" className={'mt-3 rounded border p-3 text-xs leading-5 ' + styles.panelUtility}>
                 <p className={'font-bold ' + styles.textPrimary}>{workflowTemplate.name} template</p>
                 <p className={'mt-1 ' + styles.textSecondary}>{workflowTemplate.description}</p>
-                <p className={'mt-1 ' + styles.textMuted}>Focused narrative fields are shown below. Checklist, decision, position plan, and save behavior remain complete.</p>
+                <p className={'mt-1 ' + styles.textMuted}>Use the template guidance to focus your Thesis review; supporting fields remain in More thesis details. Evidence checks and your decision follow in the next steps.</p>
             </div> : null}
             {isEditing ? <>
+            <nav aria-label="Review steps" className="mt-4 grid grid-cols-3 gap-2">
+                {reviewSteps.map((label, index) => <button key={label} type="button" aria-current={reviewStep === index ? 'step' : undefined} disabled={saving} onClick={() => changeStep(index)} className={'min-h-11 rounded-md border px-2 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-emerald-500 ' + (reviewStep === index ? styles.selectedRow : styles.row)}>
+                    <span className="mr-1" aria-hidden="true">{index + 1}.</span>{label}
+                </button>)}
+            </nav>
+            <h3 ref={stepHeading} tabIndex={-1} className={'mt-5 text-base font-semibold outline-none ' + styles.textPrimary}>Step {reviewStep + 1} of 3 · {reviewSteps[reviewStep]}</h3>
+            <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>{reviewStep === 0 ? 'Why does this security interest you, and what would change your mind?' : reviewStep === 1 ? 'Check the evidence you have. Leave a check open when you are unsure.' : 'Review your assessment and choose when to revisit it. Position sizing is optional.'}</p>
+            <fieldset disabled={saving} className="min-w-0">
+            <div hidden={reviewStep !== 0} data-review-step="thesis">
+            <div className="mt-4 grid gap-3 min-[900px]:grid-cols-2">
+                {visibleTextFields.filter(({ key }) => ['whyInterested', 'bullCase', 'thesisBreak'].includes(key)).map((fieldDefinition) => <label key={fieldDefinition.key} className={'text-xs font-medium ' + styles.textMuted}>{fieldDefinition.label}
+                    <span data-strategy-prompt={fieldDefinition.key} className={'mt-1 block min-h-10 text-[11px] font-normal leading-5 ' + styles.textSecondary}>{strategyTemplate.fieldPrompts[fieldDefinition.key]}</span>
+                    <textarea value={draft[fieldDefinition.key]} onChange={(event) => updateText(fieldDefinition.key, event.target.value)} rows={3} className={'mt-1 ' + field} />
+                </label>)}
+            </div>
+            <details open={Boolean(workflowTemplate)} className={'mt-4 rounded-md border p-3 ' + styles.panelUtility}>
+                <summary className="min-h-8 cursor-pointer text-sm font-semibold">More thesis details · risks, triggers and notes</summary>
+            <div className="mt-4 grid gap-3 min-[900px]:grid-cols-2">
+                {visibleTextFields.filter(({ key }) => !['whyInterested', 'bullCase', 'thesisBreak'].includes(key)).map((fieldDefinition) => <label key={fieldDefinition.key} className={'text-xs font-medium ' + styles.textMuted}>{fieldDefinition.label}
+                    <span data-strategy-prompt={fieldDefinition.key} className={'mt-1 block min-h-10 text-[11px] font-normal leading-5 ' + styles.textSecondary}>{strategyTemplate.fieldPrompts[fieldDefinition.key]}</span>
+                    <textarea value={draft[fieldDefinition.key]} onChange={(event) => updateText(fieldDefinition.key, event.target.value)} rows={3} className={'mt-1 ' + field} />
+                </label>)}
+            </div>
+            </details>
+            <details className={'mt-3 rounded-md border p-3 ' + styles.panelUtility}>
+                <summary className="min-h-8 cursor-pointer text-sm font-semibold">Optional strategy guidance</summary>
             <section data-testid="research-strategy-template" className={'mt-3 rounded border p-3 ' + styles.panelUtility} aria-labelledby="strategy-template-title">
                 <div className="grid gap-3 min-[760px]:grid-cols-[minmax(0,220px)_1fr]">
                     <label className={'text-xs font-medium ' + styles.textMuted}><span id="strategy-template-title">Strategy template</span>
@@ -313,12 +346,24 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                     {strategyTemplate.evidenceFocus.map((item) => <span key={item} className={'rounded border px-2 py-1 text-[11px] ' + styles.row + ' ' + styles.textSecondary}>{item}</span>)}
                 </div>
             </section>
-            <div className="mt-4 grid gap-3 min-[900px]:grid-cols-2">
-                {visibleTextFields.map((fieldDefinition) => <label key={fieldDefinition.key} className={'text-xs font-medium ' + styles.textMuted}>{fieldDefinition.label}
-                    <span data-strategy-prompt={fieldDefinition.key} className={'mt-1 block min-h-10 text-[11px] font-normal leading-5 ' + styles.textSecondary}>{strategyTemplate.fieldPrompts[fieldDefinition.key]}</span>
-                    <textarea value={draft[fieldDefinition.key]} onChange={(event) => updateText(fieldDefinition.key, event.target.value)} rows={3} className={'mt-1 ' + field} />
-                </label>)}
+            </details>
             </div>
+            <div hidden={reviewStep !== 1} data-review-step="evidence">
+            <fieldset className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                <legend className={'mb-2 text-xs font-semibold ' + styles.textMuted}>Investment checklist</legend>
+                {checklistKeys.map((key) => (
+                    <label key={key} className={'flex min-h-10 items-start gap-2 text-xs leading-5 ' + styles.textSecondary}>
+                        <input type="checkbox" checked={draft.checklist[key]} onChange={(event) => setDraft((current) => ({ ...current, checklist: { ...current.checklist, [key]: event.target.checked } }))} className="mt-1" />
+                        {checklistLabelsV6[key]}
+                    </label>
+                ))}
+            </fieldset>
+            <details onToggle={(event) => { if (event.currentTarget.open) setAssistantOpened(true); }} className={'mt-4 rounded-md border p-3 ' + styles.panelUtility}>
+                <summary className="min-h-8 cursor-pointer text-sm font-semibold">Find supporting evidence · optional assistant</summary>
+                {assistantOpened ? <ResearchAssistantV6 symbol={draft.symbol} market={draft.market} theme={theme} onApply={applyFinding} /> : null}
+            </details>
+            </div>
+            <div hidden={reviewStep !== 2} data-review-step="decision">
             <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <label className={'text-xs font-medium ' + styles.textMuted}>Thesis strength
                     <select value={draft.thesisStrength} onChange={(event) => setDraft((current) => ({ ...current, thesisStrength: event.target.value === 'high' ? 'high' : event.target.value === 'low' ? 'low' : 'medium' }))} className={'mt-1 ' + field}>
@@ -365,6 +410,9 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                     </label>
                 </> : <p className={'self-end text-xs leading-5 sm:col-span-2 xl:col-span-5 ' + styles.textMuted}>Save the first decision before evaluating an outcome. Later reviews will link their assessment to this snapshot.</p>}
             </fieldset>
+            <details className={'mt-4 rounded-md border p-3 ' + styles.panelUtility}>
+                <summary className="min-h-8 cursor-pointer text-sm font-semibold">Optional position plan · {Object.values(draft.positionPlan).filter(value => value !== null).length} values recorded</summary>
+                <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Use this only if you want to plan allocation and downside. Existing values are kept when this section is closed.</p>
             <fieldset className={'mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 xl:grid-cols-5 ' + styles.divider}>
                 <legend className={'mb-2 text-xs font-semibold ' + styles.textMuted}>Position plan</legend>
                 {([
@@ -377,23 +425,18 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                 </label>)}
                 <p className={'text-xs leading-5 sm:col-span-2 xl:col-span-5 ' + styles.textMuted}>{positionRisk ? `${positionRisk.downsidePercent.toFixed(1)}% downside from ${positionRisk.referencePrice.toFixed(2)} implies approximately ${positionRisk.portfolioRiskPercent.toFixed(2)}% of portfolio at risk.` : 'Portfolio-at-risk appears when allocation, an average cost or planned entry, and a lower invalidation price are set.'}</p>
             </fieldset>
-            <fieldset className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                <legend className={'mb-2 text-xs font-semibold ' + styles.textMuted}>Investment checklist</legend>
-                {checklistKeys.map((key) => (
-                    <label key={key} className={'flex min-h-10 items-start gap-2 text-xs leading-5 ' + styles.textSecondary}>
-                        <input type="checkbox" checked={draft.checklist[key]} onChange={(event) => setDraft((current) => ({ ...current, checklist: { ...current.checklist, [key]: event.target.checked } }))} className="mt-1" />
-                        {checklistLabelsV6[key]}
-                    </label>
-                ))}
+            </details>
+            </div>
             </fieldset>
             <div className={'sticky bottom-3 z-10 mt-4 flex flex-wrap items-center justify-end gap-3 rounded-md border px-3 py-2 backdrop-blur ' + styles.row}>
                 <p role={error ? 'alert' : 'status'} aria-live="polite" className={'mr-auto text-xs ' + (error ? styles.risk : isDirty ? styles.textSecondary : styles.textMuted)}>
                     {error ?? (isDirty ? 'Unsaved changes' : lastSavedAt ? `Saved at ${lastSavedAt}` : 'Saved review')}
                 </p>
                 <button type="button" disabled={saving} onClick={handleCancel} className={'min-h-10 rounded-md border px-4 py-2 text-xs font-bold disabled:opacity-50 ' + styles.row}>Cancel</button>
-                <button type="button" disabled={saving} onClick={() => void handleSave()} className="min-h-10 rounded-md bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 transition-colors hover:bg-emerald-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 active:scale-95 disabled:opacity-50">
+                {reviewStep > 0 ? <button type="button" disabled={saving} onClick={() => changeStep(reviewStep - 1)} className={'min-h-11 rounded-md border px-4 text-xs font-bold ' + styles.row}>Back</button> : null}
+                {reviewStep < 2 ? <button type="button" disabled={saving} onClick={() => changeStep(reviewStep + 1)} className="min-h-11 rounded-md bg-emerald-500 px-4 text-xs font-bold text-slate-950">Continue to {reviewSteps[reviewStep + 1]}</button> : <button type="button" disabled={saving} onClick={() => void handleSave()} className="min-h-10 rounded-md bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 transition-colors hover:bg-emerald-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 active:scale-95 disabled:opacity-50">
                     {saving ? 'Saving...' : 'Save review'}
-                </button>
+                </button>}
             </div>
             </> : null}
         </section>

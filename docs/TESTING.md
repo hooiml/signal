@@ -572,3 +572,20 @@ Use an owned localhost production server and one service-worker-enabled Chromium
 ## Harness And Eval Evidence
 
 Follow `docs/HARNESS.md` for harness design. Future Codex or agent evals should keep raw traces and run artifacts under `.tmp/`, use deterministic checks first, and promote curated fixtures only when they are stable enough to review.
+
+### Guided Research review QA
+
+At desktop, tablet and mobile widths, verify `/research?workspace=research&ticker=MAYBANK`
+and the `review=edit` deep link. Check that only one of Thesis, Evidence, Decision
+is visible, Continue/Back and step buttons retain draft values, the active step
+is announced and its heading receives focus, and Save review appears on Decision.
+Open every optional disclosure; check hidden position values and accepted evidence
+remain intact. Cancel must restore the saved record. A failed save must retain the
+draft and error; a successful save must use the existing review/history API once.
+Use isolated test data for mutations, never alter authored production records for QA.
+Check the normal and workflow-template handoffs, collapsed advanced tools (including
+reopening without losing an unsaved scenario), and keyboard disclosure controls.
+On `/research-v8`, verify the single next action, all seven collapsed research checks,
+provider notices, saved-security selection and every tab. Version switching must be
+unchanged. Record actual tested viewport widths and any unavailable browser capability;
+never report an unrun responsive or persistence scenario as passed.

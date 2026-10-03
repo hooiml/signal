@@ -46,12 +46,17 @@ export const ResearchReviewToolsV12 = ({
     snapshotState,
     snapshotMessage,
 }: ResearchReviewToolsV12Props) => {
+    const [hasOpened, setHasOpened] = useState(false);
     const [activeTool, setActiveTool] = useState<ResearchReviewToolId>('memory');
     const panelId = `research-review-tool-${activeTool}`;
 
     return (
-        <section data-testid="research-review-tools" className="mb-3 rounded-[10px] border border-zinc-700/40 bg-zinc-950/20 p-3" aria-labelledby="research-review-tools-heading">
-            <div className="flex flex-wrap items-end justify-between gap-3">
+        <section data-testid="research-review-tools" className="mb-3 rounded-[10px] border border-zinc-700/40 bg-zinc-950/20 p-3" aria-label="Advanced research tools">
+            <details onToggle={(event) => { if (event.currentTarget.open) setHasOpened(true); }}>
+            <summary className="flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-2 text-sm font-semibold">
+                <span>Advanced research tools</span><span className="text-xs font-normal text-zinc-500">Memory, expectations, valuation and decision review</span>
+            </summary>
+            <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
                 <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-500">Selected security · {ticker}</p>
                     <h2 id="research-review-tools-heading" className="mt-1 text-base font-bold">Review tools</h2>
@@ -79,7 +84,7 @@ export const ResearchReviewToolsV12 = ({
                 })}
             </div>
 
-            <div id={panelId} data-testid="research-review-tool-panel" data-active-review-tool={activeTool}>
+            {hasOpened ? <div id={panelId} data-testid="research-review-tool-panel" data-active-review-tool={activeTool}>
                 {activeTool === 'memory' ? (
                     <ResearchMemoryDockV7
                         key={`memory:${ticker}`}
@@ -94,7 +99,8 @@ export const ResearchReviewToolsV12 = ({
                 {activeTool === 'expectations' ? <ResearchExpectationRealityV8 key={`expectations:${ticker}`} ticker={ticker} /> : null}
                 {activeTool === 'valuation' ? <ResearchValuationReasoningV9 key={`valuation:${ticker}`} ticker={ticker} snapshot={snapshot} /> : null}
                 {activeTool === 'decision-review' ? <ResearchDecisionCalibrationV10 key={`decision-review:${ticker}`} ticker={ticker} record={record} snapshot={snapshot} /> : null}
-            </div>
+            </div> : null}
+            </details>
         </section>
     );
 };

@@ -56,6 +56,7 @@ const runViewport = async (browser, viewport) => {
     });
 
     await page.goto(`${baseUrl}/research?ticker=MSFT`, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('research-review-tools').locator('details > summary').first().click();
     await page.getByTestId('research-review-tools').getByRole('button', { name: /Expectation vs Reality/ }).click();
     const panel = page.getByTestId('expectation-reality');
     await panel.waitFor({ state: 'visible', timeout: 30000 });

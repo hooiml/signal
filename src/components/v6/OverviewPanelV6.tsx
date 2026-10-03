@@ -6,10 +6,6 @@ import { ResearchEditorV6 } from './ResearchEditorV6';
 import { ResearchBenchmarkV6 } from './ResearchBenchmarkV6';
 import { ResearchHistoryV6 } from './ResearchHistoryV6';
 import {
-    checklistLabelsV6,
-    getActionReasonV6,
-    getActionToneV6,
-    getChecklistCountV6,
     getThemeV6,
     type ResearchActionV6,
     type ResearchThemeV6,
@@ -44,15 +40,12 @@ const SnapshotMetric = ({ label, value, themeClasses }: {
 );
 
 export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, observedCurrency, startReview, stagedEvidence, workflowTemplateId, saving, saveError, onSave, onReviewChange }: OverviewPanelV6Props) => {
-    const checkedCount = getChecklistCountV6(ticker);
-    const nextCheck = Object.entries(ticker.checklist).find(([, passed]) => !passed)?.[0];
-    const progress = String((checkedCount / 9) * 360) + 'deg';
-    const decisionReason = getActionReasonV6(action);
     const themeClasses = getThemeV6(theme);
 
     return (
         <div className="space-y-3">
-            <div className="grid gap-3 min-[700px]:grid-cols-[minmax(0,1.35fr)_minmax(190px,0.85fr)]">
+            {!startReview ? <>
+            <div>
                 <section data-surface-tier="secondary" className={'rounded-lg border p-5 backdrop-blur-sm transition-colors duration-300 ' + themeClasses.panelSecondary}>
                     <h2 className={'text-sm font-semibold ' + themeClasses.textSecondary}>Thesis</h2>
                     <dl className="mt-3 space-y-3">
@@ -71,30 +64,12 @@ export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, obse
                     </dl>
                 </section>
 
-                <section data-surface-tier="secondary" className={'flex min-h-[230px] flex-col items-center justify-center rounded-lg border p-5 text-center backdrop-blur-sm transition-colors duration-300 ' + themeClasses.panelSecondary}>
-                    <div
-                        className="grid size-[92px] place-items-center rounded-full"
-                        style={{ background: 'conic-gradient(#10b981 ' + progress + ', ' + themeClasses.ringTrackColor + ' 0deg)' }}
-                        role="img"
-                        aria-label={String(checkedCount) + ' of 9 research checks passed'}
-                    >
-                        <div className={'grid size-[74px] place-items-center rounded-full transition-colors duration-300 ' + themeClasses.ringInner}>
-                            <span className={'text-lg font-extrabold ' + themeClasses.textPrimary}>{checkedCount}/9</span>
-                            <span className={'-mt-5 text-[10px] font-semibold ' + themeClasses.textSecondary}>checks</span>
-                        </div>
-                    </div>
-                    <span className={'mt-3 rounded-full border px-3 py-1 text-xs font-bold ' + themeClasses.statusSurface + ' ' + getActionToneV6(action, theme)}>{action}</span>
-                    <p className={'mt-3 max-w-[240px] text-xs font-semibold leading-5 ' + themeClasses.textSecondary}>{decisionReason}</p>
-                    <p className={'mt-2 max-w-[220px] text-xs leading-4 ' + themeClasses.textMuted}>
-                        {nextCheck ? 'Next: ' + checklistLabelsV6[nextCheck] : 'All research checks are complete.'}
-                    </p>
-                </section>
             </div>
 
             {benchmark ? <ResearchBenchmarkV6 benchmark={benchmark} theme={theme} /> : null}
 
-            <section data-surface-tier="utility" className={'rounded-lg border px-5 py-4 backdrop-blur-sm transition-colors duration-300 ' + themeClasses.panelUtility}>
-                <h2 className={'text-sm font-semibold ' + themeClasses.textSecondary}>Fundamentals snapshot</h2>
+            <details data-surface-tier="utility" className={'rounded-lg border px-5 py-4 backdrop-blur-sm transition-colors duration-300 ' + themeClasses.panelUtility}>
+                <summary className={'min-h-8 cursor-pointer text-sm font-semibold ' + themeClasses.textSecondary}>Fundamentals snapshot</summary>
                 <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-3 min-[700px]:grid-cols-3 xl:grid-cols-5">
                     <SnapshotMetric label="Market cap" value={ticker.marketCap} themeClasses={themeClasses} />
                     <SnapshotMetric label="Revenue" value={ticker.revenueGrowth} themeClasses={themeClasses} />
@@ -102,9 +77,13 @@ export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, obse
                     <SnapshotMetric label="Op margin" value={ticker.operatingMargin} themeClasses={themeClasses} />
                     <SnapshotMetric label="FCF" value={ticker.freeCashFlowTrend} themeClasses={themeClasses} />
                 </dl>
-            </section>
+            </details>
+            </> : null}
             <ResearchEditorV6 key={(record.reviewHistory[0]?.id ?? record.lastReviewedAt) + record.symbol + String(startReview) + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} initial={record} theme={theme} startEditing={startReview} stagedEvidence={stagedEvidence} workflowTemplateId={workflowTemplateId} saving={saving} error={saveError} onSave={onSave} onEditingChange={onReviewChange} decision={action} observedPrice={ticker.price ?? null} observedCurrency={observedCurrency} benchmark={benchmark} />
-            <ResearchHistoryV6 record={record} theme={theme} />
+            {!startReview ? <details className={'rounded-lg border p-4 ' + themeClasses.panelUtility}>
+                <summary className={'min-h-8 cursor-pointer text-sm font-semibold ' + themeClasses.textSecondary}>Review history · {record.reviewHistory.length} saved</summary>
+                <ResearchHistoryV6 record={record} theme={theme} />
+            </details> : null}
         </div>
     );
 };

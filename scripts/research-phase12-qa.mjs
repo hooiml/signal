@@ -228,6 +228,7 @@ try {
 
         try {
             await page.goto(`${baseUrl}/research?workspace=research&ticker=MSFT`, { waitUntil: 'domcontentloaded', timeout });
+            await page.getByTestId('research-review-tools').locator('details > summary').first().click();
             const memory = page.getByTestId('research-memory-dock');
             await memory.getByText('Building decision memory for MSFT…').waitFor({ state: 'visible', timeout });
             await memory.getByRole('heading', { name: 'MSFT · What changed and what needs review' }).waitFor({ state: 'visible', timeout });
@@ -258,6 +259,8 @@ try {
             await page.waitForURL((url) => url.searchParams.get('workspace') === 'today', { timeout });
             if (await memory.count() !== 0) throw new Error('Decision Memory remained mounted outside the selected-security workspace');
             await page.goBack({ waitUntil: 'domcontentloaded' });
+            const collapsedTools = page.getByTestId('research-review-tools').locator('details:not([open]) > summary').first();
+            if (await collapsedTools.count()) await collapsedTools.click();
             await memory.getByRole('heading', { name: 'NVDA · What changed and what needs review' }).waitFor({ state: 'visible', timeout });
             if (await memory.count() !== 1) throw new Error('Back navigation duplicated Decision Memory');
             if (new URL(page.url()).searchParams.get('ticker') !== 'NVDA') throw new Error('Back navigation did not preserve the selected ticker');
@@ -334,7 +337,7 @@ try {
             await reviewTools.getByRole('button', { name: /Valuation/ }).click();
             const valuation = page.getByTestId('valuation-reasoning-v9');
             await valuation.waitFor({ state: 'visible', timeout });
-            await valuation.getByText('$425').waitFor({ state: 'visible', timeout });
+            await valuation.getByText('425.00 USD').waitFor({ state: 'visible', timeout });
             if ((await page.getByTestId('expectation-reality').count()) !== 0 || (await valuation.count()) !== 1) throw new Error('Valuation activation did not replace the prior tool');
             if (!reviewRequests.includes('GET valuation MSFT')) throw new Error(`Valuation API was not called: ${reviewRequests.join(', ')}`);
             if (watchlistRequestCount !== sharedRequestsBeforeValuation.watchlistRequestCount || symbolRequestCount !== sharedRequestsBeforeValuation.symbolRequestCount) throw new Error('Valuation independently refetched dashboard-owned Research state');

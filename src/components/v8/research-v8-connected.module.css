@@ -95,3 +95,14 @@
     .chartHeader { display: block; } .chartHeader fieldset { margin-top: 12px; width: fit-content; }
     .priceHistory { padding: 12px; } .priceChart text { font-size: 20px; }
 }
+
+/* One primary investigation; secondary checks open only when requested. */
+.app .focusedWorkspace { grid-template-columns: minmax(0, 1fr); }
+.researchChecks { margin: 0 0 20px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 8px; }
+.researchChecks > summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; min-height: 32px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.researchChecks > summary span { color: var(--muted); font-size: 12px; font-weight: 400; }
+.researchChecks > p { margin: 12px 0; font-size: 12px; color: var(--muted); }
+.checkGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; }
+.warning summary { cursor: pointer; min-height: 32px; }
+.warning summary span { display: block; margin-top: 5px; font-weight: 600; }
+@media (max-width: 600px) { .checkGrid { grid-template-columns: minmax(0, 1fr); } }

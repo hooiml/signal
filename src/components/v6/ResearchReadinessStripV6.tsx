@@ -60,8 +60,8 @@ export const ResearchReadinessStripV6 = ({ readiness, theme, onNavigate, showNex
             : styles.textMuted;
 
     return (
-        <section data-testid="research-readiness-strip" className={'mt-3 rounded-lg border p-2 sm:mt-4 sm:p-3 ' + styles.panelSecondary} aria-labelledby="research-readiness-title">
-            <div className="flex flex-wrap items-start justify-between gap-3">
+        <section data-testid="research-readiness-strip" className={'mt-3 rounded-lg border p-2 sm:mt-4 sm:p-3 ' + styles.panelSecondary} aria-label="Research readiness">
+            {showNextAction ? <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                     <p className={'hidden text-[10px] font-semibold uppercase tracking-[0.08em] sm:block ' + styles.textMuted}>{readiness.context}</p>
                     <h3 id="research-readiness-title" className={'text-sm font-bold sm:mt-1 ' + styles.textPrimary}>Research readiness</h3>
@@ -71,10 +71,10 @@ export const ResearchReadinessStripV6 = ({ readiness, theme, onNavigate, showNex
                     <span className={'block font-bold ' + styles.textPrimary}>Review next gap: {readiness.nextGap.label}</span>
                     <span className={'mt-0.5 hidden leading-4 sm:block ' + styles.textMuted}>{readiness.nextGap.detail}</span>
                 </button> : null}
-            </div>
-            <details data-testid="research-readiness-details" className={'group mt-2 border-t pt-1 sm:mt-3 sm:pt-2 ' + styles.divider}>
+            </div> : null}
+            <details data-testid="research-readiness-details" className={'group ' + (showNextAction ? 'mt-2 border-t pt-1 sm:mt-3 sm:pt-2 ' : '') + styles.divider}>
                 <summary className={'flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold sm:min-h-9 [&::-webkit-details-marker]:hidden ' + styles.textSecondary}>
-                    <span>Review all 7 readiness signals</span>
+                    <span>All research checks · {readiness.items.filter(item => item.tone !== 'ready').length} need attention</span>
                     <span aria-hidden="true" className={'text-base transition-transform group-open:rotate-45 ' + styles.textMuted}>+</span>
                 </summary>
                 <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
