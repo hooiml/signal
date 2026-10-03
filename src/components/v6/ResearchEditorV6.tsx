@@ -309,7 +309,7 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                 </button>)}
             </nav>
             <h3 ref={stepHeading} tabIndex={-1} className={'mt-5 text-base font-semibold outline-none ' + styles.textPrimary}>Step {reviewStep + 1} of 3 · {reviewSteps[reviewStep]}</h3>
-            <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>{reviewStep === 0 ? 'Why does this security interest you, and what would change your mind?' : reviewStep === 1 ? 'Check the evidence you have. Leave a check open when you are unsure.' : 'Review your assessment and choose when to revisit it. Position sizing is optional.'}</p>
+            <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>{reviewStep === 0 ? 'Why does this security interest you, and what would change your mind?' : reviewStep === 1 ? 'Check the evidence you have. Leave a check open when you are unsure.' : 'Review your personal assessment. Scheduling, outcome tracking and position sizing are optional.'}</p>
             <fieldset disabled={saving} className="min-w-0">
             <div hidden={reviewStep !== 0} data-review-step="thesis">
             <div className="mt-4 grid gap-3 min-[900px]:grid-cols-2">
@@ -383,6 +383,9 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                     <label className={'flex min-h-10 items-center gap-2 text-xs font-medium ' + styles.textSecondary}><input type="checkbox" checked={draft.inBuyZone} onChange={(event) => setDraft((current) => ({ ...current, inBuyZone: event.target.checked }))} />Price is in buy zone</label>
                 </div>
             </div>
+            <details className={'mt-4 rounded-md border p-3 ' + styles.panelUtility}>
+                <summary className="min-h-11 cursor-pointer text-sm font-semibold">Optional decision tracking{draft.decisionJournal.nextReviewAt ? ` · review ${draft.decisionJournal.nextReviewAt}` : ''}</summary>
+                <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Schedule a reminder or record confidence and outcomes only when useful. Existing values are retained while this is closed.</p>
             <fieldset className={'mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 xl:grid-cols-5 ' + styles.divider}>
                 <legend className={'mb-2 text-xs font-semibold ' + styles.textMuted}>Decision record</legend>
                 <label className={'text-xs font-medium ' + styles.textMuted}>Calculated decision
@@ -410,6 +413,7 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                     </label>
                 </> : <p className={'self-end text-xs leading-5 sm:col-span-2 xl:col-span-5 ' + styles.textMuted}>Save the first decision before evaluating an outcome. Later reviews will link their assessment to this snapshot.</p>}
             </fieldset>
+            </details>
             <details className={'mt-4 rounded-md border p-3 ' + styles.panelUtility}>
                 <summary className="min-h-8 cursor-pointer text-sm font-semibold">Optional position plan · {Object.values(draft.positionPlan).filter(value => value !== null).length} values recorded</summary>
                 <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Use this only if you want to plan allocation and downside. Existing values are kept when this section is closed.</p>

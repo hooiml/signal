@@ -589,3 +589,23 @@ On `/research-v8`, verify the single next action, all seven collapsed research c
 provider notices, saved-security selection and every tab. Version switching must be
 unchanged. Record actual tested viewport widths and any unavailable browser capability;
 never report an unrun responsive or persistence scenario as passed.
+
+### Reading-first and Advanced QA
+
+The research regression includes sourced/missing/partial/non-finite/zero/negative annual input
+cases, old and future dates, provider warnings, and immutable provider data for the current-data
+assessment. A price change alone must not change the financial assessment. The assessment never
+consumes authored checklist or decision fields.
+
+At 1280, 768 and 375 pixels verify basic Research has Overview/Financials/Valuation and no completion
+warnings or mandatory authoring. Check the assessment loading, unavailable and retained-error
+states; the Financials disclosures, valuation benchmark, price ranges and source notices; then
+Advanced, Thesis/Review deep links, browser Back, saved-security changes, every workspace link,
+and return to basic. The editor's Optional decision tracking must preserve hidden values.
+`/research` and ticker-only links enter basic; explicit workspace/review/tab/setup links retain
+the original workspace. Use isolated fixtures for saves, never authored production records.
+
+On Market verify all basic tabs and indicator details, Advanced model/source controls, History
+and Scenarios, replay exit, retained scenarios, and return to basic without changing the live
+model or source setting. Test keyboard navigation/disclosures and document overflow. Never
+report unrun responsive widths, provider fixtures or persistence scenarios as passed.

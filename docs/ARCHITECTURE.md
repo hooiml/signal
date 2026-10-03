@@ -7,7 +7,7 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 - `/start`: guided daily journey from the latest US market score through current Discovery candidates and same-day market context into Research.
 - `/`: redirects to `/main-v8`, the default connected V8 Market experience. The previous homepage used `MarketDashboardV7` and remains available at `/main-v7` without a duplicate V7.1 route.
 - `/main-v8` and `/research-v8`: connected V8 Market and Research; `?demo=1` opens their explicitly illustrative prototypes. A shared, route-scoped UI version bar links between V6, V7 and V8 while retaining the Market/Research experience. Switching versions opens the destination's default view; transient filters, chart selection and drafts are not transferred.
-- `/research`: primary V7 Research workspace, implemented by `ResearchDashboardV7` over the shared Research controller and existing workspace owners.
+- `/research`: ordinary entry (including ticker-only links) redirects to the reading-first `/research-v8`. Explicit workspace, review, tab and setup links retain the V7 advanced workspace, implemented by `ResearchDashboardV7` over the shared Research controller and existing workspace owners.
 - `/learn`: evidence-based financial education using the shared V7 shell. The current v0.4 path teaches price structure, technical transforms, execution, risk sizing, expectancy, point-in-time trading replay, append-only trade review, and cost-aware strategy validation without producing trade signals. The v0.3 investment, v0.2 business, and v0.1 valuation paths remain selectable with separate progress contracts.
 - `/demo`: isolated session-only guided example of Market, Research, and Portfolio. It uses fixed
   local fixtures, labels every surface as example/not live, and has no application API or
@@ -160,3 +160,31 @@ review history, and removes the duplicate checklist/decision card. V8 keeps one
 primary next action and a single collapsed collection of all research checks;
 provider coverage remains visible in one expandable notice. Version navigation
 and every existing workspace destination remain unchanged.
+
+## Reading-first Market and Research
+
+The connected V8 pages default to a basic reading with an explicit Advanced tools control.
+Research keeps Overview, Financials and Valuation available without authoring anything.
+Advanced reveals Thesis, Review, saved decisions, optional research checks, and all existing
+workspaces. The URL preserves Research depth (`advanced=1`); existing Thesis/Review deep links
+open Advanced automatically. Switching back selects Overview if an advanced-only tab was active.
+The legacy workspace identifies itself as advanced and links back to the same security's basic view.
+Its decision tracking (confidence, review scheduling and outcomes) is an optional disclosure that
+retains existing values. No user data is migrated or automatically completed.
+
+`src/lib/research/current-assessment.ts` describes three reported annual inputs: revenue growth,
+net income and free cash flow. A named source and valid, non-future reporting period are required.
+Signs are described individually; there is no weighted investment score, inferred fair value,
+trade decision, sector suitability claim or use of authored checklist/thesis fields. Fewer than
+three usable inputs is partial coverage; no usable financial inputs means insufficient data.
+Zero revenue growth is stable, not growth. Financial periods older than 548 days (approximately
+18 months), and responses older than two days or with invalid/future retrieval dates, receive an
+explicit limited assessment. These are display freshness conventions, not predictive thresholds.
+Sources, reporting dates, provider errors and limitations remain accessible in basic view.
+The function is read-only and never writes research records or marks them reviewed.
+
+Market retains its existing score calculation, data configuration and chart. Advanced reveals
+Momentum/Contrarian and source controls, historical calibration/replay and scenarios. Returning
+to basic leaves the current model/source configuration visible and unchanged, exits replay, and
+hides advanced-only tabs; local scenario state is retained. Raw observations and source explanations
+remain accessible, with normalization/weight details disclosed separately. Version switching is unchanged.

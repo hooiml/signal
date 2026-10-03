@@ -1,3 +1,4 @@
+import { assessCurrentResearch } from '../../src/lib/research/current-assessment';
 import { getResearchAction } from '../../src/lib/research/decision';
 import { parsePersistedResearchMonitoringRules, parseResearchCreateInput, parseResearchExpectedRevision, parseResearchRecord, parseResearchUpdateInput, parseResearchUpdateMode } from '../../src/lib/research/input';
 import { appendQuickReviewNote, appendResearchReview, applyResearchUpdate, calculateResearchDecision, createResearchRecord, describeReviewChanges, latestReviewChanges, prepareStoredResearchRecord } from '../../src/lib/research/records';
@@ -3977,6 +3978,29 @@ const runComparisonTests = () => {
         }] },
         sources: ['Yahoo Finance', 'SEC EDGAR'], warnings: [],
     };
+    // Reading-first assessment must remain conservative under missing/stale provider evidence.
+    const assessmentNow = Date.parse('2026-07-12T12:00:00Z');
+    const beforeAssessment = JSON.stringify(snapshot);
+    const assessment = assessCurrentResearch(snapshot, assessmentNow);
+    assertEqual(assessment.coverage, 3, 'assessment counts sourced annual inputs');
+    assertEqual(assessment.supporting.length, 3, 'assessment describes reported positives');
+    assertEqual(assessment.concerns.length, 0, 'positive inputs do not fabricate risks');
+    assertEqual(assessCurrentResearch(null, assessmentNow).headline, 'Not enough financial data', 'no data is not neutral or Watch');
+    const assessWith = (patch: Partial<ResearchSnapshot['fundamentals']>) => assessCurrentResearch({ ...snapshot, fundamentals: { ...snapshot.fundamentals, ...patch } }, assessmentNow);
+    assertEqual(assessWith({ source: null }).coverage, 0, 'unsourced facts cannot form an assessment');
+    assertEqual(assessWith({ reportingPeriod: null }).coverage, 0, 'undated facts cannot form an assessment');
+    assertEqual(assessWith({ reportingPeriod: '2027-01-01' }).coverage, 0, 'future financial facts are excluded');
+    assertEqual(assessWith({ revenueGrowthPercent: NaN, annualNetIncome: null, freeCashFlow: null }).coverage, 0, 'non-finite and missing inputs are not zeros');
+    assertEqual(assessWith({ freeCashFlow: null }).headline, 'Partial financial picture', 'partial evidence cannot produce a complete positive headline');
+    assertEqual(assessWith({ revenueGrowthPercent: -5, annualNetIncome: -100, freeCashFlow: -10 }).concerns.length, 3, 'negative figures remain visible');
+    assertEqual(assessWith({ revenueGrowthPercent: 0 }).headline, 'Stable revenue and positive earnings reported', 'zero growth is not growth');
+    assertEqual(assessWith({ annualNetIncome: 0, freeCashFlow: 0 }).concerns.length, 2, 'zero cash and income are not positive');
+    assertEqual(assessWith({ reportingPeriod: '2023-01-01' }).headline, 'Older data · assessment limited', 'old annual figures limit assessment');
+    assertEqual(assessCurrentResearch({ ...snapshot, fetchedAt: '2026-07-01' }, assessmentNow).headline, 'Older data · assessment limited', 'old retrieval limits assessment');
+    assertEqual(assessCurrentResearch({ ...snapshot, fetchedAt: '2027-01-01' }, assessmentNow).headline, 'Older data · assessment limited', 'future retrieval date is not fresh');
+    assertEqual(assessCurrentResearch({ ...snapshot, quote: { ...snapshot.quote, price: 1 } }, assessmentNow).headline, assessment.headline, 'price alone cannot change business assessment');
+    assertEqual(assessCurrentResearch({ ...snapshot, warnings: ['Provider unavailable'] }, assessmentNow).gaps.some(gap => gap.includes('Provider coverage')), true, 'provider gaps are disclosed');
+    assertEqual(JSON.stringify(snapshot), beforeAssessment, 'assessment never mutates provider inputs');
     const metrics = buildComparisonMetrics(snapshot);
     assertEqual(metrics.price, '$420.50', 'comparison formats US price');
     assertEqual(metrics.revenueGrowth, '14.2%', 'comparison formats revenue growth');

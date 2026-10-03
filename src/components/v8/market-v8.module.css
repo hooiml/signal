@@ -371,3 +371,7 @@
     .app .chartHeader { flex-wrap: wrap; }
 }
 @media (max-width: 600px) { .zoneTable th, .zoneTable td { padding: 12px 6px; } .zoneTable th:first-child { width: 25%; } .caseList li { font-size: 12px; } .calibrationTabs { gap: 0 10px; } .calibrationTabs button { font-size: 12px; } }
+
+.depthActions { display: flex; flex-wrap: wrap; gap: 8px; flex-shrink: 0; }
+.app .disclosure summary { min-height: 44px; cursor: pointer; align-content: center; }
+@media (max-width: 600px) { .depthActions { width: 100%; } .depthActions button { flex: 1; } }

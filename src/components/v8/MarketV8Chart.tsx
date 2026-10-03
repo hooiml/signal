@@ -16,7 +16,7 @@ export function Sparkline({ points, weekly = false }: { points: Point[]; weekly?
     const locations = geometry(points, 160, 44, Math.min(...values), Math.max(...values), 3);
     return <svg className={styles.sparkline} viewBox="0 0 160 44" aria-hidden="true"><path d={locations.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(' ')} fill="none" stroke="currentColor" strokeWidth="2" />{weekly && locations.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="2" fill="currentColor" />)}</svg>;
 }
-export function MarketChart({ points, selectedDate, onSelect, raw = false, name = 'Market condition score', sourced = false }: { points: Point[]; selectedDate?: string; onSelect?: (point: Point) => void; raw?: boolean; name?: string; sourced?: boolean }) {
+export function MarketChart({ points, selectedDate, onSelect, raw = false, name = 'Market condition score', sourced = false, replayAvailable = true }: { points: Point[]; selectedDate?: string; onSelect?: (point: Point) => void; raw?: boolean; name?: string; sourced?: boolean; replayAvailable?: boolean }) {
     const id = useId().replace(/:/g, '');
     const [cursor, setCursor] = useState(() => {
         const initial = points.findIndex(p => p.date === selectedDate);
@@ -64,6 +64,6 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
             </svg>
         </div>
         <div className={styles.chartDates}><span>{dateLabel(points[0].date)}</span><span>{dateLabel(points[Math.floor(points.length / 2)].date)}</span><span>{dateLabel(points.at(-1)!.date)} {points.at(-1)!.date.slice(0,4)}</span></div>
-        {onSelect && <span className={styles.chartHint}>{sourced ? 'Click, tap or use arrow keys to preview. Use Open historical snapshot to enter replay.' : 'Select a date to investigate · keyboard: ← → then Enter'}</span>}
+        {onSelect && <span className={styles.chartHint}>{sourced ? replayAvailable ? 'Click, tap or use arrow keys to preview. Use Open historical snapshot to enter replay.' : 'Click, tap or use arrow keys to inspect a stored score.' : 'Select a date to investigate · keyboard: ← → then Enter'}</span>}
     </div>;
 }

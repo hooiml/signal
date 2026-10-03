@@ -928,6 +928,10 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 />
             </div>
             <div className={'relative z-10 mx-auto w-full max-w-[1280px] px-4 pb-5 pt-4 min-[700px]:px-5 ' + (presentation === 'v7' ? liveStyles.researchContentV7 : '')}>
+                <div className={'mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm ' + themeClasses.panelUtility}>
+                    <span>Advanced research workspace · personal analysis and planning</span>
+                    <a className="inline-flex min-h-11 items-center font-semibold underline" href={`/research-v8${selected?.symbol ? `?ticker=${encodeURIComponent(selected.symbol)}` : ''}`} target={reviewRequested ? '_blank' : undefined} rel={reviewRequested ? 'noopener noreferrer' : undefined}>{reviewRequested ? 'Open basic view in a new tab ↗' : 'Back to basic view →'}</a>
+                </div>
                 <ResearchWorkspaceTabsV6 active={workspace} theme={theme} onChange={changeWorkspace} />
                 <ResearchLayoutControlsV6
                     current={{ workspace, query, market, action, ticker: selected?.symbol ?? null, tab: activeDetailTab }}

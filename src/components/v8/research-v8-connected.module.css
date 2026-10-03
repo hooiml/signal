@@ -106,3 +106,18 @@
 .warning summary { cursor: pointer; min-height: 32px; }
 .warning summary span { display: block; margin-top: 5px; font-weight: 600; }
 @media (max-width: 600px) { .checkGrid { grid-template-columns: minmax(0, 1fr); } }
+
+.assessment { margin: 16px 0; padding: 22px; border: 1px solid var(--line); border-radius: 10px; background: #ffffffd9; }
+.assessment h2 { margin: 8px 0; font-size: 24px; letter-spacing: -.4px; }
+.assessment h3 { font-size: 14px; margin-bottom: 8px; }
+.assessment p, .assessment li { font-size: 13px; line-height: 1.65; }
+.assessment ul { padding-left: 20px; }
+.assessment li + li { margin-top: 6px; }
+.assessmentSource { color: var(--muted); margin: 10px 0; }
+.assessmentGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding: 18px 0; margin: 14px 0; border-block: 1px solid var(--line); }
+.assessmentDetails { margin-top: 12px; }
+.assessmentDetails summary, .panelContent summary { min-height: 44px; cursor: pointer; align-content: center; }
+@media (max-width: 600px) { .assessment { padding: 16px; } .assessmentGrid { grid-template-columns: minmax(0, 1fr); gap: 16px; } .assessment h2 { font-size: 21px; } }
+
+.app .basicSummary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 600px) { .app .basicSummary { grid-template-columns: minmax(0, 1fr); } }

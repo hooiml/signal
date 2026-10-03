@@ -13,6 +13,7 @@ export type ScenarioState = { overrides: Record<string, number>; baseline: Marke
 export const emptyScenario = (): ScenarioState => ({ overrides: {}, baseline: null, selectedKey: '' });
 
 type ConnectedPanelsProps = {
+    readonly advanced?: boolean;
     readonly signal: MarketSignal;
     readonly tab: string;
     readonly onSelect: (key: string, element: HTMLButtonElement) => void;
@@ -21,6 +22,7 @@ type ConnectedPanelsProps = {
 };
 
 type ConnectedIndicatorProps = {
+    readonly advanced?: boolean;
     readonly signal: MarketSignal;
     readonly indicatorKey: string;
     readonly onClose: () => void;
@@ -166,7 +168,7 @@ function RawHistoryChart({ groups }: { groups: readonly (readonly Point[])[] }) 
     </div>;
 }
 
-export function ConnectedIndicator({ signal, indicatorKey, onClose, history, sourceEnabled = true }: ConnectedIndicatorProps) {
+export function ConnectedIndicator({ signal, indicatorKey, onClose, history, sourceEnabled = true, advanced = false }: ConnectedIndicatorProps) {
     const indicator = signal.components[indicatorKey];
     const driver = signal.metadata.score_drivers?.find((item) => item.key === indicatorKey);
     const registry = INDICATOR_REGISTRY[indicatorKey];
@@ -191,17 +193,17 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, sou
         <p className={styles.muted}>Observed {formatDate(indicator?.last_updated ?? driver?.last_updated)} · {cadence(indicator, indicatorKey)} · horizon {horizon(indicator)}</p>
         <RawHistoryChart groups={historyGroups} />
 
-        <dl className={styles.keyValues}>
+        <details className={styles.disclosure} open={advanced}><summary>Scoring details</summary><dl className={styles.keyValues}>
             <div><dt>Normalized score</dt><dd>{scoreLabel(normalized)}</dd></div>
             <div><dt>Contribution</dt><dd>{finiteNumber(contribution) ? `${signed(contribution)} points` : 'Unavailable'}</dd></div>
             <div><dt>Active weight</dt><dd>{finiteNumber(indicator?.weight ?? driver?.weight) ? `${((indicator?.weight ?? driver?.weight) * 100).toFixed(1)}%` : 'Unavailable'}</dd></div>
             <div><dt>{configuredWeightLabel(signal)}</dt><dd>{finiteNumber(configuredWeight) ? `${(configuredWeight * 100).toFixed(1)}%` : 'Unavailable'}</dd></div>
             <div><dt>Historical percentile</dt><dd>{finiteNumber(indicator?.percentile) ? `${indicator.percentile.toFixed(1)}th` : 'Unavailable'}</dd></div>
-        </dl>
+        </dl></details>
 
         {sourceBlend && Object.keys(sourceBlend).length > 0 ? <div className={styles.explanation}><b>Source readings</b><p>{Object.entries(sourceBlend).map(([name, value]) => `${name}: ${finiteNumber(value) ? value.toFixed(3) : 'Unavailable'}`).join(' · ')}</p><p className={styles.muted}>These values are source readings from the payload, not mixture percentages.</p></div> : null}
         <h3>Interpretation context</h3><p>{modeText(signal, indicatorKey)}</p>
-        {driver?.detail ? <p className={styles.muted}>{driver.detail}</p> : null}
+        {advanced && driver?.detail ? <p className={styles.muted}>{driver.detail}</p> : null}
         {indicator?.metadata?.mode_note ? <p className={styles.muted}>{indicator.metadata.mode_note}</p> : null}
         <details className={styles.disclosure}><summary>Normalization rule</summary><p>{normalizationNote(indicatorKey)}</p><p className={styles.muted}>The displayed raw value, normalized score and contribution are read from the payload; this panel does not recompute the service score.</p></details>
         <h3>Source</h3>
@@ -248,7 +250,7 @@ function configuredRows(signal: MarketSignal) {
     }).filter((row) => row.configuredWeight !== 0 || row.indicator || row.driver).sort((a, b) => Math.abs(b.contribution ?? 0) - Math.abs(a.contribution ?? 0));
 }
 
-function EvidencePanel({ signal, onSelect }: { signal: MarketSignal; onSelect: ConnectedPanelsProps['onSelect'] }) {
+function EvidencePanel({ signal, onSelect, advanced }: { signal: MarketSignal; onSelect: ConnectedPanelsProps['onSelect']; advanced: boolean }) {
     const rows = configuredRows(signal);
     const coverage = signal.metadata.coverage_adjustment;
     const active = Object.values(signal.components).filter((component) => component.enabled);
@@ -257,12 +259,12 @@ function EvidencePanel({ signal, onSelect }: { signal: MarketSignal; onSelect: C
 
     return <>
         <SectionHeading eyebrow="Evidence" title="The inputs behind the reading" tag={`${active.length} active`} />
-        <p className={styles.panelIntro}>Values, normalized scores and contributions below come from the current reading. {configuredWeightLabel(signal)} are shown for the active model; the input list also shows configured indicators with no current observation.</p>
+        <p className={styles.panelIntro}>{advanced ? `Values, normalized scores and contributions come from the current reading. ${configuredWeightLabel(signal)} are shown for the active model.` : 'Explore the observations behind the reading. Select an input for its source, history and explanation. Missing inputs are not neutral evidence.'}</p>
         <div className={styles.evidenceList}>{rows.map((row) => {
             const name = row.indicator?.display_name ?? row.driver?.name ?? row.registry?.displayName ?? row.key;
             const isActive = row.indicator?.enabled === true;
             const status = !row.indicator ? 'Reserve' : isActive ? 'Active' : 'Disabled';
-            const button = <button className={styles.evidenceButton} onClick={(event) => onSelect(row.key, event.currentTarget)}><span><b>{name}</b><small>{status} · {configuredWeightLabel(signal)} {row.configuredWeight === null ? 'Unavailable' : `${(row.configuredWeight * 100).toFixed(1)}%`} · applied {row.appliedWeight === null ? 'Unavailable' : `${(row.appliedWeight * 100).toFixed(1)}%`} · {cadence(row.indicator, row.key)}</small><small>{isActive ? `Raw ${rawValue(row.indicator, row.driver, signal.metadata.market)} · contribution ${finiteNumber(row.contribution) ? `${signed(row.contribution)} pts` : 'Unavailable'}` : 'No included contribution'}</small></span><span className={isActive ? styles.support : styles.muted}>{isActive ? `${scoreLabel(row.indicator?.score ?? row.driver?.score)}` : status} ↗</span></button>;
+            const button = <button className={styles.evidenceButton} onClick={(event) => onSelect(row.key, event.currentTarget)}><span><b>{name}</b><small>{advanced ? `${status} · ${configuredWeightLabel(signal)} ${row.configuredWeight === null ? 'Unavailable' : `${(row.configuredWeight * 100).toFixed(1)}%`} · applied ${row.appliedWeight === null ? 'Unavailable' : `${(row.appliedWeight * 100).toFixed(1)}%`}` : freshnessStatus(signal, row.indicator, row.key)} · {cadence(row.indicator, row.key)}</small><small>{isActive ? `Reading: ${rawValue(row.indicator, row.driver, signal.metadata.market)}${advanced ? ` · contribution ${finiteNumber(row.contribution) ? `${signed(row.contribution)} pts` : 'Unavailable'}` : ''}` : 'No included observation'}</small></span><span className={isActive ? styles.support : styles.muted}>{advanced && isActive ? scoreLabel(row.indicator?.score ?? row.driver?.score) : 'Details'} ↗</span></button>;
             return row.indicator || row.driver ? <span key={row.key}>{button}</span> : <div key={row.key} className={styles.evidenceButton}><span><b>{name}</b><small>Registry configured · reserve</small></span><span className={styles.muted}>No supplied input</span></div>;
         })}</div>
         <details className={styles.disclosure}><summary>Coverage, active weight and neutral reserve</summary><dl className={styles.keyValues}><div><dt>Configured registry entries</dt><dd>{rows.filter((row) => (row.configuredWeight ?? 0) > 0).length}</dd></div><div><dt>Active payload inputs</dt><dd>{active.length}</dd></div><div><dt>Active configured weight</dt><dd>{coverage && finiteNumber(coverage.active_weight) ? `${(coverage.active_weight * 100).toFixed(1)}%` : 'Unavailable'}</dd></div><div><dt>Reserve weight</dt><dd>{coverage && finiteNumber(coverage.missing_weight) ? `${(coverage.missing_weight * 100).toFixed(1)}%` : 'Unavailable'}</dd></div><div><dt>Neutral reserve points</dt><dd>{finiteNumber(reserve) ? reserve.toFixed(2) : 'Unavailable'}</dd></div></dl><p>{finiteNumber(reserve) ? `The composite is calculated from ${drivers.length} payload driver${drivers.length === 1 ? '' : 's'} plus ${reserve.toFixed(2)} neutral-reserve points.` : 'The payload does not include neutral-reserve accounting.'} Reserve points are accounting for missing or ineligible configured weight, not market evidence.</p></details>
@@ -317,14 +319,14 @@ function ScenarioPanel({ signal, scenario, setScenario }: Pick<ConnectedPanelsPr
     </>;
 }
 
-export function ConnectedPanels({ signal, tab, onSelect, scenario, setScenario }: ConnectedPanelsProps) {
+export function ConnectedPanels({ signal, tab, onSelect, scenario, setScenario, advanced = false }: ConnectedPanelsProps) {
     const normalizedTab = tab.trim().toLowerCase();
     const panel = useMemo(() => {
         if (normalizedTab === 'what changed') return <ChangePanel signal={signal} onSelect={onSelect} />;
-        if (normalizedTab === 'evidence') return <EvidencePanel signal={signal} onSelect={onSelect} />;
+        if (normalizedTab === 'evidence') return <EvidencePanel advanced={advanced} signal={signal} onSelect={onSelect} />;
         if (normalizedTab === 'context') return <ContextPanel signal={signal} />;
         if (normalizedTab === 'scenarios') return <ScenarioPanel signal={signal} scenario={scenario} setScenario={setScenario} />;
         return <Unavailable title="Panel unavailable" detail={`No connected V8 panel is defined for “${tab}”.`} />;
-    }, [normalizedTab, onSelect, signal, tab, scenario, setScenario]);
+    }, [normalizedTab, onSelect, signal, tab, scenario, setScenario, advanced]);
     return <div data-testid={`market-v8-connected-${normalizedTab.replace(/\s+/g, '-')}`}>{panel}</div>;
 }
