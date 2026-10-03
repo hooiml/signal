@@ -1,7 +1,7 @@
 export const researchMarkets = ['US', 'MY'] as const;
 export const researchStatuses = ['owned', 'watch', 'waiting', 'avoid'] as const;
 export const valuationStates = ['cheap', 'fair', 'expensive', 'unknown'] as const;
-export const thesisStrengths = ['high', 'medium', 'low'] as const;
+export const thesisStrengths = ['high', 'medium', 'low', 'unknown'] as const;
 export const positionStates = ['owned', 'not-owned'] as const;
 export const researchFindingTargets = [
     'whyInterested', 'bullCase', 'bearCase', 'thesisBreak', 'buyTrigger', 'sellTrigger', 'notes',
@@ -21,7 +21,7 @@ export const researchDocumentSourceKinds = [
 ] as const;
 export const researchDocumentCaptureMethods = ['sec-official', 'manual-unverified'] as const;
 export const researchDocumentMigrationStates = ['current', 'migrated-empty', 'invalid-recovered'] as const;
-export const researchDecisionConfidences = ['low', 'medium', 'high'] as const;
+export const researchDecisionConfidences = ['low', 'medium', 'high', 'unrecorded'] as const;
 export const researchDecisionOutcomes = ['unresolved', 'correct', 'mixed', 'incorrect'] as const;
 export const researchStructuredTriggerPurposes = [
     'thesis-invalidation',
@@ -138,7 +138,7 @@ export type ResearchDecisionOutcome = typeof researchDecisionOutcomes[number];
 export type ResearchAction = 'Ready' | 'DCA' | 'Wait for price' | 'Watch' | 'Avoid';
 
 export type ResearchDecisionJournal = {
-    readonly decision: ResearchAction;
+    readonly decision: ResearchAction | 'Not recorded';
     readonly confidence: ResearchDecisionConfidence;
     readonly observedPrice: number | null;
     readonly observedCurrency?: string | null;
@@ -267,7 +267,7 @@ export type ResearchRecord = {
     readonly revision: number;
 };
 
-export type ResearchCreateInput = Pick<ResearchRecord, 'symbol' | 'market' | 'companyName'>;
+export type ResearchCreateInput = Pick<ResearchRecord, 'symbol' | 'market' | 'companyName'> & { readonly saveOnly?: boolean };
 export type ResearchUpdateInput = Partial<Omit<ResearchRecord, 'symbol' | 'market' | 'companyName' | 'lastReviewedAt' | 'updatedAt' | 'revision' | 'checklist' | 'reviewHistory'>> & {
     readonly companyName?: string;
     readonly checklist?: Partial<InvestmentChecklist>;

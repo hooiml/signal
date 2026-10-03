@@ -2,6 +2,7 @@ import type { ResearchSnapshot } from '../types/research-snapshot';
 
 export type CurrentResearchAssessment = {
     headline: string;
+    applicable: boolean;
     summary: string;
     supporting: string[];
     concerns: string[];
@@ -45,8 +46,20 @@ export function assessCurrentResearch(snapshot: ResearchSnapshot | null, now: nu
     if (snapshot?.warnings.length) gaps.push('Provider coverage is limited. Source notices below explain which data could not be supplied.');
     gaps.push('These figures do not establish fair value, debt safety, or suitability. Company measures may not apply to funds or some sectors.');
 
+    // Conservative exclusions, not a sector classifier or a new analytical model.
+    // Legacy payloads lacking instrument metadata fail closed; facts remain available.
+    const type = snapshot?.quote.instrumentType?.toUpperCase();
+    const financialName = /bank|bancorp|financial|insurance|assurance|reit|investment trust/i.test(snapshot?.quote.name ?? '');
+    const applicable = type === 'EQUITY' && !financialName;
+    if (snapshot && !applicable) return {
+        applicable, headline: 'Assessment not supported for this security',
+        summary: type !== 'EQUITY' ? 'This company assessment requires provider identification as an equity. Funds, indices, other instruments and unidentified types are not assessed. Available facts remain below.' : 'The returned name may identify a financial business or property trust. These general company checks are not applied; available facts remain below.',
+        supporting: [], concerns: [], gaps, coverage,
+        watchNext: 'Inspect the sourced facts and issuer report using measures appropriate to this instrument.',
+    };
     const limited = coverage < 3;
     return {
+        applicable,
         headline: !snapshot || coverage === 0 ? 'Not enough financial data' : oldSnapshot || oldPeriod ? 'Older data · assessment limited' : limited ? 'Partial financial picture' : concerns.length ? 'Reported financial pressures' : f?.revenueGrowthPercent === 0 ? 'Stable revenue and positive earnings reported' : 'Growth and positive earnings reported',
         summary: !snapshot ? 'An assessment will appear when provider data is available. No notes or checklist are required.' : 'A rules-based summary of the latest returned annual figures. This is evidence about the business, not a buy or sell decision.',
         supporting, concerns, gaps, coverage,

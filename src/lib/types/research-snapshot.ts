@@ -66,6 +66,8 @@ export type ResearchSnapshot = {
     readonly fetchedAt: string;
     readonly benchmark: ResearchBenchmark;
     readonly quote: {
+        readonly instrumentType?: string | null;
+        readonly observedAt?: string | null;
         readonly name: string | null;
         readonly currency: string | null;
         readonly price: number | null;

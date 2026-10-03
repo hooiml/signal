@@ -144,3 +144,20 @@ Current stale warning behavior treats a component as stale when `last_updated` i
 ## Article Feed Role
 
 The article/feed section is context. It may show sources that also contribute to social/news sentiment, but the cards themselves are not separately weighted as individual score components.
+
+### October 2026 provenance correction
+
+The Malaysian volatility indicator now exposes the actual model input: USD/MYR daily-return
+standard deviation multiplied by 4000 and clamped to 10–80, labelled **scaled model points**.
+Previously the displayed value came from US VIX while the component score used the FX input.
+If the FX proxy is unavailable, the existing US VIX fallback is explicitly labelled. The
+normalizer, weights, missing-input policy and scores are unchanged by this correction.
+The VIX/proxy timestamp is identified as retrieval time, with observation freshness unavailable;
+this does not change scoring eligibility. Previously stored raw values are not rewritten.
+V8 raw volatility mini-charts exclude archived components with a different display name,
+so old mislabeled values and fallback/proxy series are not joined to the corrected input.
+Full archived records remain unchanged.
+
+Research free-cash-flow yield now converts the ratio to percent before rounding to two
+decimal places. E.g. 0.40%, 3.46%, −0.40% no longer become 0%, 3%, 0%. This changes displayed
+valuation precision, not the Market scoring model or raw cash-flow assessment inputs.

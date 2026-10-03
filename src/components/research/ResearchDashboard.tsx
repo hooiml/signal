@@ -7,7 +7,7 @@ import { ThemeModeSwitch } from '@/components/ThemeModeSwitch';
 type Market = 'US' | 'MY';
 type ResearchStatus = 'owned' | 'watch' | 'waiting' | 'avoid';
 type ValuationState = 'cheap' | 'fair' | 'expensive' | 'unknown';
-type ThesisStrength = 'high' | 'medium' | 'low';
+type ThesisStrength = 'high' | 'medium' | 'low' | 'unknown';
 type ReadinessState = 'Ready' | 'Wait for better price' | 'Too uncertain' | 'Avoid';
 type ResearchTheme = 'light' | 'dark';
 type ChecklistKey =
@@ -480,6 +480,7 @@ const valuationLabels: Record<ValuationState, string> = {
 };
 
 const strengthLabels: Record<ThesisStrength, string> = {
+    unknown: 'Not recorded',
     high: 'High',
     medium: 'Medium',
     low: 'Low',

@@ -301,6 +301,8 @@ export function formatRawValue(indicator: IndicatorData, market: 'US' | 'MY') {
         return `${indicator.value.toFixed(1)}% exposure`;
     }
 
+    if (indicator.name === 'vix' && indicator.metadata?.unit) return `${indicator.value.toFixed(2)} ${indicator.metadata.unit}`;
+
     if (indicator.name === 'vix' && market === 'MY') {
         return `${indicator.value.toFixed(2)} volatility proxy`;
     }

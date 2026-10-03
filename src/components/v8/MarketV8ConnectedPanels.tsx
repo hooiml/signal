@@ -119,6 +119,7 @@ function configuredWeightLabel(signal: MarketSignal): string {
 
 function freshnessStatus(signal: MarketSignal, indicator: IndicatorData | undefined, key: string): string {
     if (!indicator) return 'No supplied input';
+    if (indicator.metadata?.timestamp_basis === 'retrieved') return 'Observation date unavailable';
     if (indicator.enabled === false) return 'Disabled';
     const staleAfterDays = INDICATOR_REGISTRY[key]?.staleAfterDays;
     const snapshotDate = signal.metadata.score_delta?.snapshot_date ?? new Date().toISOString();
@@ -190,7 +191,7 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, sou
         <h2>{indicator?.display_name ?? driver?.name ?? registry?.displayName ?? indicatorKey}</h2>
         <div className={styles.tagLine}><span className={styles.tag}>{status}</span><span className={styles.muted}>{registry?.category ?? 'Unclassified'}</span></div>
         <div className={styles.rawValue}>{rawValue(indicator, driver, signal.metadata.market)} <small>{indicator ? '' : 'raw value'}</small></div>
-        <p className={styles.muted}>Observed {formatDate(indicator?.last_updated ?? driver?.last_updated)} · {cadence(indicator, indicatorKey)} · horizon {horizon(indicator)}</p>
+        <p className={styles.muted}>{indicator?.metadata?.timestamp_basis === 'retrieved' ? 'Retrieved' : 'Observed'} {formatDate(indicator?.last_updated ?? driver?.last_updated)} · {cadence(indicator, indicatorKey)} · horizon {horizon(indicator)}</p>
         <RawHistoryChart groups={historyGroups} />
 
         <details className={styles.disclosure} open={advanced}><summary>Scoring details</summary><dl className={styles.keyValues}>

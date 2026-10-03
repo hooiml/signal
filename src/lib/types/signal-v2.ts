@@ -21,6 +21,8 @@ export interface IndicatorData {
 
     // Metadata for debugging/transparency
     metadata?: {
+        timestamp_basis?: 'retrieved' | 'observed';
+        unit?: string;
         raw_source?: unknown;   // Original source data (optional)
         confidence?: number; // 0-1 confidence in this specific data point
         source_breakdown?: Record<string, number>; // e.g. { reddit: 0.6, twitter: 0.4 }

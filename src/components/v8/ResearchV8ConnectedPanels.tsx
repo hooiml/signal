@@ -2,7 +2,7 @@
 
 type ChartStateProps = { chartRange: string; setChartRange: (range: string) => void; chartDate: string | null; setChartDate: (date: string | null) => void };
 import { checklistLabelsV6 } from '@/components/v6/research-v6';
-import type { ResearchRecord } from '@/lib/types/research';
+import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { date, money, number, researchHref, sourceHref, type ResearchTab } from './research-v8-connected-data';
 import base from './market-v8.module.css';
@@ -18,14 +18,14 @@ function SourceLink({ url, label }: { url: string | null; label: string }) {
     return href ? <a className={base.textButton} href={href} target="_blank" rel="noopener noreferrer">{label} ↗</a> : <span>{label} · no usable source link</span>;
 }
 
-export function ResearchConnectedPanel({ tab, record, snapshot, loading, advanced, ...chart }: { advanced: boolean; tab: ResearchTab; record: ResearchRecord; snapshot: ResearchSnapshot | null; loading: boolean } & ChartStateProps) {
+export function ResearchConnectedPanel({ tab, record, market, snapshot, loading, advanced, ...chart }: { advanced: boolean; tab: ResearchTab; record?: ResearchRecord; market: ResearchMarket; snapshot: ResearchSnapshot | null; loading: boolean } & ChartStateProps) {
     const fundamentals = snapshot?.fundamentals;
     const currency = fundamentals?.history.find(period => period.reportingPeriod === fundamentals.reportingPeriod)?.currency;
     const valuation = snapshot?.valuation;
     return <div className={connected.panelContent}>
         {tab === 'Overview' && <>
             <PriceHistory snapshot={snapshot} loading={loading} advanced={advanced} {...chart} />
-            {(advanced || record.whyInterested || record.notes || record.acceptedEvidence.length > 0 || record.documentEvidence.citations.length > 0) && <details className={connected.evidence}><summary>Your saved notes and evidence · optional</summary>
+            {record && (advanced || record.whyInterested || record.notes || record.acceptedEvidence.length > 0 || record.documentEvidence.citations.length > 0) && <details className={connected.evidence}><summary>Your saved notes and evidence · optional</summary>
             <span className={base.eyebrow}>USER-AUTHORED · SAVED {date(record.updatedAt)}</span>{record.whyInterested && <p className={connected.authored}>{record.whyInterested}</p>}{record.notes && <p className={connected.authored}>{record.notes}</p>}
             <h2>The evidence file</h2><p>Accepted research preserves its original sources and mode. A saved interpretation is not an independently verified fact.</p>
             {!record.acceptedEvidence.length && !record.documentEvidence.citations.length && <p className={styles.gapNote}>No accepted evidence or document citations are saved for this security.</p>}
@@ -46,7 +46,7 @@ export function ResearchConnectedPanel({ tab, record, snapshot, loading, advance
             <details><summary>What do these measures tell you?</summary><p>Revenue measures sales. Margins describe the share left after different costs. Free cash flow is cash remaining after capital spending; it can diverge from accounting profit. Debt, cash and changes in share count add context. These measures alone do not establish business quality; company fundamentals may be inapplicable to funds.</p></details>
             <details className={connected.evidence}><summary>Reported financial history</summary>{fundamentals?.history.length ? <div className={connected.tableScroll} tabIndex={0} role="region" aria-label="Reported financial history"><table><caption>Actual periods returned by the service · no interpolated observations</caption><thead><tr><th>Period / source</th><th>Revenue</th><th>Free cash flow</th><th>Net income</th></tr></thead><tbody>{fundamentals.history.map((period, index) => <tr key={`${period.reportingPeriod}-${index}`}><th>{date(period.reportingPeriod)}<small>{period.source}</small></th><td>{money(period.annualRevenue, period.currency)}</td><td>{money(period.freeCashFlow, period.currency)}</td><td>{money(period.annualNetIncome, period.currency)}</td></tr>)}</tbody></table></div> : <p className={styles.gapNote}>{loading ? 'Loading financial history…' : 'No comparable financial history returned. Missing values are not zero.'}</p>}</details>
         </>}
-        {tab === 'Thesis' && <>
+        {tab === 'Thesis' && record && <>
             <span className={base.eyebrow}>YOUR SAVED REASONING</span><h2>A thesis you can test</h2><p>These are your saved judgments, not conclusions generated from the current quote.</p><div className={styles.thesisGrid}>{([['Why interested', record.whyInterested], ['Bull case', record.bullCase], ['Bear case', record.bearCase], ['What would invalidate the thesis?', record.thesisBreak], ['Buy trigger', record.buyTrigger], ['Sell trigger', record.sellTrigger]] as const).map(([label, value]) => <div key={label}><h3>{label}</h3><p className={connected.authored}>{value || 'Not recorded.'}</p></div>)}</div>
             <details className={connected.evidence}><summary>Saved investment checklist · {Object.values(record.checklist).filter(Boolean).length}/9 marked</summary><p>Marked means you selected this check in your saved review; it does not mean the source was independently verified.</p><ul className={connected.checklist}>{Object.entries(record.checklist).map(([key, marked]) => <li key={key}><b>{marked ? 'Marked' : 'Unmarked'}</b><span>{checklistLabelsV6[key] || key}</span></li>)}</ul></details>
         </>}
@@ -56,22 +56,22 @@ export function ResearchConnectedPanel({ tab, record, snapshot, loading, advance
                 ['Latest returned price', money(snapshot?.quote.price, snapshot?.quote.currency)], ['Market capitalization', money(valuation?.marketCap, snapshot?.quote.currency)],
                 ['Price / earnings', number(valuation?.priceEarnings, '×')], ['Price / sales', number(valuation?.priceSales, '×')], ['Free cash flow yield', number(valuation?.freeCashFlowYieldPercent, '%')], ['Net cash', money(valuation?.netCash, currency)],
             ]} />
-            {advanced && <><h3>Your saved valuation & position plan</h3><p>Saved price assumptions below do not carry a currency in the research record; confirm the security’s trading currency before comparing them.</p><Metrics rows={[
+            {advanced && record && <><h3>Your saved valuation & position plan</h3><p>Saved price assumptions below do not carry a currency in the research record; confirm the security’s trading currency before comparing them.</p><Metrics rows={[
                 ['Valuation judgment', record.valuationState], ['Target buy zone', record.targetBuyZone || 'Not recorded'], ['Position', record.positionState],
                 ['Planned allocation', number(record.positionPlan.plannedAllocationPercent, '%')], ['Average cost · saved units', number(record.positionPlan.averageCost)], ['Planned entry · saved units', number(record.positionPlan.plannedEntryPrice)], ['Invalidation · saved units', number(record.positionPlan.invalidationPrice)],
             ]} />
             </>}
-            <details className={connected.evidence}><summary>Compare past returns with the benchmark</summary>{record.market === 'MY' || snapshot?.benchmark.status === 'not-applicable' ? <><h3>Benchmark coverage</h3><p>The existing research snapshot does not supply a comparable Malaysia benchmark. No cross-market comparison is inferred.</p></> : <><h3>Existing benchmark comparison</h3><p>{snapshot?.benchmark.baselineName || 'Vanguard S&P 500 ETF'} (VOO) · 1Y · {snapshot?.benchmark.returnBasis || 'Return basis unavailable'}. Status: {snapshot?.benchmark.status || 'unavailable'}.</p><Metrics rows={[
+            <details className={connected.evidence}><summary>Compare past returns with the benchmark</summary>{market === 'MY' || snapshot?.benchmark.status === 'not-applicable' ? <><h3>Benchmark coverage</h3><p>The existing research snapshot does not supply a comparable Malaysia benchmark. No cross-market comparison is inferred.</p></> : <><h3>Existing benchmark comparison</h3><p>{snapshot?.benchmark.baselineName || 'Vanguard S&P 500 ETF'} (VOO) · 1Y · {snapshot?.benchmark.returnBasis || 'Return basis unavailable'}. Status: {snapshot?.benchmark.status || 'unavailable'}.</p><Metrics rows={[
                 ['Security return', number(snapshot?.benchmark.candidateReturnPercent, '%')], ['Benchmark return', number(snapshot?.benchmark.baselineReturnPercent, '%')], ['Relative return', number(snapshot?.benchmark.relativeReturnPercent, ' percentage points')],
             ]} /></>}</details>
         </>}
-        {tab === 'Review' && <>
+        {tab === 'Review' && record && <>
             <span className={base.eyebrow}>USER-AUTHORED · SAVED RECORD</span><h2>Your working note</h2><p className={styles.noteText}>{record.notes || 'No note has been saved for this security.'}</p><Metrics rows={[
-                ['Last reviewed', date(record.lastReviewedAt)], ['Next review', date(record.decisionJournal.nextReviewAt)], ['Saved decision', record.decisionJournal.decision], ['Decision confidence', record.decisionJournal.confidence], ['Prior outcome', record.decisionJournal.priorOutcome],
+                ['Last reviewed', record.decisionJournal.decision === 'Not recorded' ? 'Not recorded' : date(record.lastReviewedAt)], ['Next review', date(record.decisionJournal.nextReviewAt)], ['Saved decision', record.decisionJournal.decision], ['Decision confidence', record.decisionJournal.confidence], ['Prior outcome', record.decisionJournal.priorOutcome],
             ]} /><p className={connected.authored}>{record.decisionJournal.outcomeNote || 'No outcome note recorded.'}</p>
             <h3>Saved review history</h3>{record.reviewHistory.length ? [...record.reviewHistory].sort((a, b) => b.reviewedAt.localeCompare(a.reviewedAt)).map(review => <details key={review.id} className={connected.evidence}><summary>{date(review.reviewedAt)} · {review.decisionJournal.decision}</summary><p className={connected.authored}>{review.whyInterested || 'No thesis recorded.'}</p><p className={styles.noteText}>{review.notes || 'No note recorded.'}</p><small>Confidence: {review.decisionJournal.confidence} · prior outcome: {review.decisionJournal.priorOutcome}</small></details>) : <p>No earlier review snapshots are saved.</p>}
         </>}
-        {advanced && <a className={`${base.textButton} ${connected.editLink}`} href={researchHref(record.symbol, tab === 'Valuation' ? 'valuation' : 'review')} target="_blank" rel="noopener noreferrer">{tab === 'Valuation' ? 'Open full valuation workspace' : 'Edit saved research'} ↗</a>}
+        {advanced && record && <a className={`${base.textButton} ${connected.editLink}`} href={researchHref(record.symbol, tab === 'Valuation' ? 'valuation' : 'review')} target="_blank" rel="noopener noreferrer">{tab === 'Valuation' ? 'Open full valuation workspace' : 'Edit saved research'} ↗</a>}
     </div>;
 }
 

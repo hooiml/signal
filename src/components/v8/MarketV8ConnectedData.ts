@@ -57,6 +57,8 @@ function validIndicator(value: unknown): boolean {
         || (value.metadata.confidence !== undefined && (!finite(value.metadata.confidence) || value.metadata.confidence < 0 || value.metadata.confidence > 1))
         || (value.metadata.source_breakdown !== undefined && !validSourceBreakdown(value.metadata.source_breakdown))
         || (value.metadata.source_url !== undefined && !httpUrl(value.metadata.source_url))
+        || (value.metadata.timestamp_basis !== undefined && value.metadata.timestamp_basis !== 'retrieved' && value.metadata.timestamp_basis !== 'observed')
+        || !optionalString(value.metadata, 'unit')
         || !optionalString(value.metadata, 'cadence')
         || !optionalString(value.metadata, 'horizon')
         || !optionalString(value.metadata, 'mode_note')) return false;
@@ -343,6 +345,7 @@ const utcCalendarDay = (value: string): number | null => {
 export function indicatorStatus(signal: MarketSignal, key: string, date: string) {
     const indicator = signal.components[key];
     if (!indicator) return 'Not supplied';
+    if (indicator.metadata?.timestamp_basis === 'retrieved') return 'Observation date unavailable';
     const snapshotDay = utcCalendarDay(date);
     const updatedDay = utcCalendarDay(indicator.last_updated);
     if (snapshotDay === null || updatedDay === null) return 'Freshness unknown';
@@ -360,13 +363,13 @@ export function overviewHistory(signal: MarketSignal): Point[] {
     return [...records.values()].sort((a,b) => a.date.localeCompare(b.date)).map(row => ({ date: row.date, value: row.score, origin: row.origin }));
 }
 
-export function archivedSeries(key: string, summaries: readonly MarketReplaySummary[], snapshots: Readonly<Record<string, MarketReplaySnapshot>>): Point[][] {
+export function archivedSeries(key: string, summaries: readonly MarketReplaySummary[], snapshots: Readonly<Record<string, MarketReplaySnapshot>>, currentDisplayName?: string): Point[][] {
     // Break the line at unavailable snapshots/components. Dates are snapshot dates, not publication dates.
     const groups: Point[][] = [];
     let group: Point[] = [];
     for (const summary of [...summaries].sort((a,b) => a.date.localeCompare(b.date))) {
         const item = snapshots[summary.date]?.components.find(component => component.key === key);
-        if (!item || item.rawValue === null) { if (group.length) groups.push(group); group = []; }
+        if (!item || item.rawValue === null || (key === 'vix' && currentDisplayName !== undefined && item.displayName !== currentDisplayName)) { if (group.length) groups.push(group); group = []; }
         else group.push({ date: summary.date, value: item.rawValue });
     }
     if (group.length) groups.push(group);

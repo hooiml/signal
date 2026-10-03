@@ -4,6 +4,8 @@ import { calculateTechnicals, type TechnicalSnapshot } from './technicals';
 import { calculateTechnicalSeries } from './technical-series';
 
 export type YahooResearchResult = {
+    readonly instrumentType?: string | null;
+    readonly observedAt?: string | null;
     readonly name: string | null;
     readonly currency: string | null;
     readonly price: number | null;
@@ -67,7 +69,7 @@ const malaysiaYahooAliases: Readonly<Record<string, string>> = {
 
 export const toYahooSymbol = (symbol: string, market: ResearchMarket) => {
     if (market !== 'MY') return symbol;
-    return malaysiaYahooAliases[symbol.toUpperCase()] ?? `${symbol}.KL`;
+    return malaysiaYahooAliases[symbol.toUpperCase()] ?? (symbol.toUpperCase().endsWith('.KL') ? symbol.toUpperCase() : `${symbol}.KL`);
 };
 
 export const parseYahooResearchChart = (payload: unknown): YahooResearchResult => {
@@ -91,6 +93,8 @@ export const parseYahooResearchChart = (payload: unknown): YahooResearchResult =
     const calculated = calculateTechnicals(closes, numericArray(quote.volume));
     const latest = points.at(-1);
     return {
+        instrumentType: stringValue(meta.instrumentType),
+        observedAt: numberValue(meta.regularMarketTime) !== null && Number.isFinite(new Date(Number(meta.regularMarketTime) * 1000).getTime()) ? new Date(Number(meta.regularMarketTime) * 1000).toISOString() : null,
         name: stringValue(meta.longName) ?? stringValue(meta.shortName) ?? stringValue(meta.symbol),
         currency: stringValue(meta.currency),
         price,

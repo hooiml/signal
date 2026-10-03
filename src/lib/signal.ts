@@ -20,6 +20,7 @@ import { AURA_CACHE_MAX_AGE_DAYS, isAuraCacheFresh } from './aura-cache';
 
 interface AggregateMarketData {
     vixData: { price: number; change: number };
+    fearGauge: { value: number; isFxProxy: boolean };
     marketIndices: YahooMarketData[];
     popularStocks: YahooMarketData[];
     activeStocks: YahooMarketData[];
@@ -266,6 +267,7 @@ export const fetchRawMarketData = async (
 
     return {
         vixData,
+        fearGauge: { value: fearGaugeValue, isFxProxy: market === 'MY' && !!myrVol && myrVol.vol20d > 0 },
         marketIndices: indicesData,
         popularStocks: popularData,
         activeStocks: activeData,
@@ -580,13 +582,22 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
         // Construct IndicatorData for V2 calculator
         const vixIndicator: IndicatorData = {
             name: 'vix',
-            display_name: market === 'MY' ? 'USD/MYR Volatility' : 'VIX Index',
-            value: marketData.vixData.price,
+            display_name: market === 'MY' ? marketData.fearGauge.isFxProxy ? 'USD/MYR volatility proxy (scaled)' : 'US VIX (FX proxy unavailable)' : 'VIX Index',
+            value: marketData.fearGauge.value,
             score: marketData.sentimentOutput.components.vixScore,
             weight: 0, // Will be calculated by V2
             signal: getSignalFromScore(marketData.sentimentOutput.components.vixScore),
             enabled: true,
-            last_updated: new Date().toISOString()
+            last_updated: new Date().toISOString(),
+            metadata: {
+                timestamp_basis: 'retrieved',
+                unit: marketData.fearGauge.isFxProxy ? 'scaled model points' : 'VIX points',
+                cadence: marketData.fearGauge.isFxProxy ? 'Daily closes / tactical' : 'Latest returned quote / tactical',
+                mode_note: marketData.fearGauge.isFxProxy
+                    ? 'USD/MYR daily-return volatility × 4000, clamped to 10–80. This scaled model input is not an exchange rate or a volatility percentage. Timestamp is retrieval time; observation time is unavailable.'
+                    : market === 'MY' ? 'US VIX fallback: local FX volatility was unavailable. Timestamp is retrieval time; observation time is unavailable.' : 'US VIX index points. Timestamp is retrieval time; observation time is unavailable.',
+                source_url: marketData.fearGauge.isFxProxy ? 'https://finance.yahoo.com/quote/USDMYR=X/' : 'https://finance.yahoo.com/quote/%5EVIX/',
+            },
         };
 
         const sourceName = market === 'MY' ? 'news' as const : 'social' as const;

@@ -71,6 +71,8 @@ const isResearchSnapshot = (value: unknown): value is ResearchSnapshot => {
         && hasNullableNumbers(value.benchmark, ['candidateReturnPercent', 'baselineReturnPercent', 'relativeReturnPercent'])
         && (value.benchmark.returnBasis === null || isBenchmarkReturnBasis(value.benchmark.returnBasis))
         && isBenchmarkStatus(value.benchmark.status)
+        && (value.quote.instrumentType === undefined || isNullableString(value.quote.instrumentType))
+        && (value.quote.observedAt === undefined || isNullableString(value.quote.observedAt))
         && isNullableString(value.quote.name)
         && isNullableString(value.quote.currency)
         && hasNullableNumbers(value.quote, ['price', 'dailyChangePercent'])

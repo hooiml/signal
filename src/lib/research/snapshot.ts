@@ -71,6 +71,8 @@ export const getResearchSnapshot = async (symbol: string, market: ResearchMarket
         fetchedAt: new Date().toISOString(),
         benchmark: market === 'US' ? buildResearchBenchmark(yahooData, benchmarkData) : notApplicableResearchBenchmark,
         quote: {
+            instrumentType: yahooData?.instrumentType ?? null,
+            observedAt: yahooData?.observedAt ?? null,
             name: yahooData?.name ?? null,
             currency: yahooData?.currency ?? null,
             price: yahooData?.price ?? null,

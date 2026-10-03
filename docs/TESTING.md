@@ -609,3 +609,26 @@ On Market verify all basic tabs and indicator details, Advanced model/source con
 and Scenarios, replay exit, retained scenarios, and return to basic without changing the live
 model or source setting. Test keyboard navigation/disclosures and document overflow. Never
 report unrun responsive widths, provider fixtures or persistence scenarios as passed.
+
+### Unsaved Research and trust corrections
+
+`node scripts/harness/research-trust-regression.mjs` covers real MY proxy/fallback orchestration,
+yield precision, company-assessment applicability, missing inputs, observation metadata,
+MY symbol suffixes, and bookmark authorship. It uses isolated providers/SQL. `--baseline`
+reproduces the original two defects at `8b492fa` and requires that revision in local git history.
+The normal check is included in the harness.
+
+Against a production local server run `node scripts/research-unsaved-qa.mjs`.
+`SIGNAL_QA_URL` overrides localhost:3101; `CHROME_PATH` can point to an installed Chrome binary.
+The 1280/768/375px matrix intercepts all APIs: US/MY supported readings, partial/missing data,
+ETF/bank/unknown applicability, mismatched/late responses, saved-list failure, explicit saving
+and failed-save retry, delayed-list/save races, unrecorded authorship, geometry and overflow.
+It also checks the Malaysian Market fallback label and observation-date limitation. Evidence goes to
+`.tmp/bounded-slice/browser/`. These are fixture checks, not live SEC/Yahoo or database proof.
+Live supported US fundamentals require a legitimate configured `SEC_USER_AGENT`; never replace
+it with invented operator contact details. Report a blocked supported US case as incomplete.
+
+`node scripts/research-reading-timing.mjs after 3102` records three controlled fixture runs
+per saved/unsaved journey against a local production server. `CHROME_PATH` is optional.
+See `docs/research-trust-implementation-2026-10-03.md` for the measured baseline, live
+provider boundaries, corrections affecting results/eligibility and remaining acceptance gaps.

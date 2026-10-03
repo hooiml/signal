@@ -4,8 +4,8 @@ import { ResearchV8Connected } from '@/components/v8/ResearchV8Connected';
 
 export const metadata: Metadata = { title: 'Company research · Signal V8', robots: { index: false, follow: false } };
 
-export default async function ResearchPageV8({ searchParams }: { searchParams: Promise<{ demo?: string; ticker?: string | string[] }> }) {
+export default async function ResearchPageV8({ searchParams }: { searchParams: Promise<{ demo?: string; market?: string; ticker?: string | string[] }> }) {
     const params = await searchParams;
     const ticker = typeof params.ticker === 'string' ? params.ticker.trim().toUpperCase() : undefined;
-    return params.demo === '1' ? <ResearchV8 /> : <ResearchV8Connected initialTicker={ticker} />;
+    return params.demo === '1' ? <ResearchV8 /> : <ResearchV8Connected initialMarket={params.market === 'MY' ? 'MY' : params.market === 'US' ? 'US' : undefined} initialTicker={ticker} />;
 }

@@ -188,3 +188,29 @@ Momentum/Contrarian and source controls, historical calibration/replay and scena
 to basic leaves the current model/source configuration visible and unchanged, exits replay, and
 hides advanced-only tabs; local scenario state is retained. Raw observations and source explanations
 remain accessible, with normalization/weight details disclosed separately. Version switching is unchanged.
+
+### Unsaved Research reading (October 2026)
+
+V8 accepts `ticker` and `market=US|MY` independently of the watchlist. The keyed
+`market:symbol` reading starts provider work without waiting for saved records; aborted or
+mismatched responses cannot populate a different selection. Missing watchlist access does
+not remove provider evidence. A saved security's market is used for older links without a
+market parameter; otherwise the existing MY aliases/numeric codes are recognized.
+
+Saving is an explicit watchlist POST with `saveOnly: true`. It creates an empty bookmark,
+with thesis strength `unknown`, decision `Not recorded`, confidence `unrecorded`, no notes,
+no scheduled review and no review history. Legacy creation behavior is unchanged. The
+existing non-null `last_reviewed_at` storage column still receives the creation date;
+V8 treats the unrecorded decision as no personal review and does not display that date as
+an authored review. These bookmarks are excluded from outcome attribution until an actual
+review exists. No schema migration is part of this change.
+
+Quote `observedAt` comes from Yahoo's `regularMarketTime`; snapshot `fetchedAt` remains
+retrieval time. Missing observation time stays unavailable. No source freshness thresholds
+or scoring eligibility changed. Company assessment now requires the provider's `EQUITY`
+instrument type. Funds, indices, unknown types and names matching bank/bancorp/financial/
+insurance/assurance/REIT/investment-trust exclusions receive an explicit assessment limit.
+This is a conservative name-based exclusion, not a comprehensive sector classifier:
+unrecognized specialized companies remain a limitation. Facts and financial tables remain
+available even when the assessment is withheld. Existing three-input, source, period and
+age rules still apply. No sector/fund analytical models were added.

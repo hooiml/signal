@@ -23,12 +23,13 @@ const ratio = (numerator: number | null, denominator: number | null): number | n
 
 export const calculateValuation = (inputs: ValuationInputs): ValuationSnapshot => {
     const marketCap = inputs.price === null || inputs.shares === null ? null : inputs.price * inputs.shares;
-    const freeCashFlowYield = ratio(inputs.freeCashFlow, marketCap);
+    const freeCashFlowYield = inputs.freeCashFlow === null || marketCap === null || marketCap <= 0
+        ? null : (inputs.freeCashFlow / marketCap) * 100;
     return {
         marketCap,
         priceEarnings: ratio(marketCap, inputs.annualNetIncome),
         priceSales: ratio(marketCap, inputs.annualRevenue),
-        freeCashFlowYieldPercent: freeCashFlowYield === null ? null : Number((freeCashFlowYield * 100).toFixed(2)),
+        freeCashFlowYieldPercent: freeCashFlowYield === null ? null : Number(freeCashFlowYield.toFixed(2)),
         netCash: inputs.cash === null || inputs.debt === null ? null : inputs.cash - inputs.debt,
     };
 };

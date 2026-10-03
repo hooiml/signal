@@ -3946,7 +3946,7 @@ const runComparisonTests = () => {
             candidateReturnPercent: 30, baselineReturnPercent: 20, relativeReturnPercent: 10,
             returnBasis: 'adjusted close', status: 'outperformed',
         },
-        quote: { name: 'Microsoft', currency: 'USD', price: 420.5, dailyChangePercent: 1.2 },
+        quote: { instrumentType: 'EQUITY', name: 'Microsoft', currency: 'USD', price: 420.5, dailyChangePercent: 1.2 },
         fundamentals: {
             revenueGrowthPercent: 14.2, grossMarginPercent: 68.5, operatingMarginPercent: 44.1,
             freeCashFlow: 70_000_000_000, debt: 40_000_000_000, cash: 80_000_000_000,

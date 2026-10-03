@@ -154,7 +154,7 @@ export const PaperDecisionTrackerV6 = ({ records, theme, onOpen }: {
             note,
             recordedAt,
             horizon,
-            researchDecision: selectedRecord.decisionJournal.decision,
+            researchDecision: selectedRecord.decisionJournal.decision === 'Not recorded' ? null : selectedRecord.decisionJournal.decision,
             confidence: selectedRecord.decisionJournal.confidence,
             benchmark: {
                 symbol: benchmarkSymbol,
