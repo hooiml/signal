@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import type { ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
+import { getThemeV6, type ResearchThemeV6 } from '@/components/v6/research-v6';
 import { ResearchMemoryDockV7 } from '@/components/v7/ResearchMemoryDockV7';
 
 const ResearchExpectationRealityV8 = dynamic(
@@ -24,6 +25,7 @@ type ResearchReviewLoadState = 'idle' | 'loading' | 'ready' | 'error';
 
 type ResearchReviewToolsV12Props = {
     readonly ticker: string;
+    readonly theme: ResearchThemeV6;
     readonly record: ResearchRecord | null;
     readonly recordsState: Exclude<ResearchReviewLoadState, 'idle'>;
     readonly snapshot: ResearchSnapshot | null;
@@ -40,21 +42,23 @@ const tools: readonly { readonly id: ResearchReviewToolId; readonly label: strin
 
 export const ResearchReviewToolsV12 = ({
     ticker,
+    theme,
     record,
     recordsState,
     snapshot,
     snapshotState,
     snapshotMessage,
 }: ResearchReviewToolsV12Props) => {
+    const themeClasses = getThemeV6(theme);
     const [hasOpened, setHasOpened] = useState(false);
     const [activeTool, setActiveTool] = useState<ResearchReviewToolId>('memory');
     const panelId = `research-review-tool-${activeTool}`;
 
     return (
-        <section data-testid="research-review-tools" className="mb-3 rounded-[10px] border border-zinc-700/40 bg-zinc-950/20 p-3" aria-label="Advanced research tools">
-            <details onToggle={(event) => { if (event.currentTarget.open) setHasOpened(true); }}>
+        <section data-testid="research-review-tools" className={'mb-3 rounded-[10px] border p-3 ' + themeClasses.panelUtility} aria-label="Advanced research tools">
+            <details className="group/review-tools" onToggle={(event) => { if (event.currentTarget.open) setHasOpened(true); }}>
             <summary className="flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-2 text-sm font-semibold">
-                <span>Advanced research tools</span><span className="text-xs font-normal text-zinc-500">Memory, expectations, valuation and decision review</span>
+                <span className="flex items-center gap-2"><span aria-hidden="true" className="transition-transform group-open/review-tools:rotate-180">⌄</span>Advanced research tools</span><span className={'text-xs font-normal ' + themeClasses.textMuted}>Memory, expectations, valuation and decision review</span>
             </summary>
             <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
                 <div>

@@ -1096,6 +1096,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 {workspace === 'research' ? <div className={presentation === 'v7' ? liveStyles.researchUtilitiesV7 : undefined}>
                     {selected ? (
                         <ResearchReviewToolsV12
+                            theme={theme}
                             ticker={selected.symbol}
                             record={savedSelectedRecord}
                             recordsState={recordsLoadState}
