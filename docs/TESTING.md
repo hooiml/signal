@@ -4,6 +4,13 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+The harness also verifies price-unit formatting, preservation of currency in new review
+snapshots, and explicit missing currency for legacy records via
+`node scripts/harness/research-currency-regression.mjs`. Market and Research read fixtures
+assert independent reads start together and snapshot writes still wait for their inputs.
+For live-watchlist changes, verify slow loading, failed-read retry, an empty saved list,
+archived exclusions and a deep-linked selected ticker without any demo securities appearing.
+
 ```powershell
 npm run lint
 npm run typecheck

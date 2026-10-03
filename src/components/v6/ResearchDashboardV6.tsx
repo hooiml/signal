@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { watchlist } from '@/components/research/ResearchDashboardV2';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import { parseResearchRecord, ResearchInputError } from '@/lib/research/input';
 import { parseResearchQuoteBatchResponse } from '@/lib/research/snapshot-input';
@@ -225,9 +224,10 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     const [query, setQuery] = useState(requestedQuery);
     const [market, setMarket] = useState<ResearchMarketFilterV6>(requestedMarket);
     const [action, setAction] = useState<ResearchActionFilterV6>(requestedAction);
-    const [items, setItems] = useState<ResearchWatchlistItem[]>(watchlist);
+    const [items, setItems] = useState<ResearchWatchlistItem[]>([]);
     const [records, setRecords] = useState<ResearchRecord[]>([]);
     const [recordsLoadState, setRecordsLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
+    const [recordsReload, setRecordsReload] = useState(0);
     const [saving, setSaving] = useState(false);
     const [adding, setAdding] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -370,13 +370,14 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     const filteredItems = useMemo(() => filterResearchItems(items, query, market, action), [action, items, market, query]);
 
     useEffect(() => {
+        if (recordsLoadState !== 'ready') return;
         if (urlSearchRef.current !== searchString) return;
         const nextSymbol = resolveVisibleResearchSymbol(items, requestedSymbol);
         setSelectedSymbol((current) => current === (nextSymbol ?? '') ? current : nextSymbol ?? '');
         if (nextSymbol === requestedSymbol && (validRequestedTicker || !requestedTicker)) return;
         if (nextSymbol) updateUrl({ ticker: nextSymbol });
         else updateUrl({ ticker: null, tab: null, review: null });
-    }, [items, requestedSymbol, requestedTicker, searchString, updateUrl, validRequestedTicker]);
+    }, [items, recordsLoadState, requestedSymbol, requestedTicker, searchString, updateUrl, validRequestedTicker]);
 
     const selected = useMemo(
         () => items.find((item) => item.symbol === selectedSymbol) ?? null,
@@ -427,6 +428,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     useEffect(() => {
         let active = true;
         const loadRecords = async () => {
+            setRecordsLoadState('loading');
             try {
                 const response = await fetch('/api/research/watchlist');
                 const payload: unknown = await response.json();
@@ -437,16 +439,11 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 const stored = data.map(parseResearchRecord);
                 const archivedSymbols = Array.isArray(archivedData) ? archivedData.filter((item): item is string => typeof item === 'string') : [];
                 if (!active) return;
-                const seeded = watchlist.filter((item) => !archivedSymbols.includes(item.symbol)).map((item) => {
-                    const record = stored.find((candidate) => candidate.symbol === item.symbol);
-                    return record ? applyResearchRecordV6(item, record) : item;
-                });
-                const additions = stored
-                    .filter((record) => !watchlist.some((item) => item.symbol === record.symbol))
-                    .map((record, index) => createWatchlistItemV6(record, 100 + index));
-                setRecords(stored);
+                const activeRecords = stored.filter((record) => !archivedSymbols.includes(record.symbol));
+                setRecords(activeRecords);
+                setSaveError(null);
                 setRecordsLoadState('ready');
-                setItems([...seeded, ...additions].map((item) => {
+                setItems(activeRecords.map((record, index) => createWatchlistItemV6(record, index)).map((item) => {
                     const snapshot = liveSnapshots.current.get(item.symbol);
                     const withSnapshot = snapshot ? applyResearchSnapshotV6(item, snapshot) : item;
                     const quote = liveQuotes.current.get(item.symbol);
@@ -461,7 +458,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         };
         void loadRecords();
         return () => { active = false; };
-    }, []);
+    }, [recordsReload]);
 
     useEffect(() => {
         const refresh = () => setQueueSearchState(readResearchWorkflowTaskState());
@@ -980,6 +977,10 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 </div> : null}
                 <main id={`research-workspace-${workspace}`} data-surface-tier="primary" data-density={density} className={'flex flex-col rounded-[10px] border backdrop-blur min-[700px]:flex-row ' + (presentation === 'v7' ? liveStyles.researchWorkspaceV7 + ' ' : '') + (density === 'compact' ? 'gap-2 p-2 min-[700px]:p-3 ' : 'gap-4 p-3 min-[700px]:p-4 ') + themeClasses.panelPrimary}>
                     <ResearchWorkspaceBoundaryV6 workspace={workspace}>
+                    {recordsLoadState === 'error' ? <section role="alert" className="w-full p-4">
+                        <p className={themeClasses.risk}>Saved research could not be loaded. No example securities are shown.</p>
+                        <button type="button" onClick={() => setRecordsReload((value) => value + 1)} className={'mt-3 min-h-10 rounded border px-4 text-sm font-semibold ' + themeClasses.selectedRow}>Retry saved research</button>
+                    </section> : null}
                     {workspace === 'today' ? recordsLoadState === 'loading' ? (
                         <section role="status" className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
                             <p className={'text-sm font-semibold ' + themeClasses.textMuted}>Loading Today…</p>
@@ -1076,16 +1077,19 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                         <ResearchPickerV6 theme={theme} savedSymbols={items.map((item) => item.symbol)} adding={adding || recordsLoadState !== 'ready'} onAdd={addDiscoveryCandidate} onOpen={openResearchFrom('picker')} />
                     ) : (<>
                     {presentation === 'v6' ? watchlistOwner : null}
-                    {selected && selectedRecord ? (
+                    {recordsLoadState === 'loading' ? (
+                        <section role="status" className="flex min-h-72 flex-1 items-center justify-center px-6 text-center"><p className={themeClasses.textMuted}>Loading saved research…</p></section>
+                    ) : recordsLoadState === 'error' ? null : selected && selectedRecord ? (
                         <ResearchDetailV6 key={selected.symbol + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} ticker={selected} records={inboxRecords} items={items} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} activeTab={activeDetailTab} startReview={reviewRequested} stagedEvidence={stagedEvidence?.id.startsWith(selected.symbol + ':') ? stagedEvidence : null} workflowTemplateId={workflowTemplateId} saving={saving || recordsLoadState !== 'ready'} saveError={saveError} onTabChange={changeDetailTab} onReadinessNavigate={openReadinessDestination} onSave={saveRecord} onReviewChange={changeReviewMode} onSnapshot={updateLiveSnapshot} onSnapshotState={updateSnapshotState} onDelete={deleteRecord} watchlistSlot={presentation === 'v7' ? watchlistOwner : undefined} presentation={presentation} />
-                    ) : (
+                    ) : (<>
+                        {presentation === 'v7' ? watchlistOwner : null}
                         <section className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
                             <div>
                                 <h2 className={'text-lg font-bold ' + themeClasses.textPrimary}>No research matches</h2>
                                 <p className={'mt-2 text-sm ' + themeClasses.textMuted}>Add a saved security to begin Research.</p>
                             </div>
                         </section>
-                    )}
+                    </>)}
                     </>)}
                     </ResearchWorkspaceBoundaryV6>
                 </main>

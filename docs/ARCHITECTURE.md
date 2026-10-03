@@ -126,6 +126,16 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 
 ## Architecture Rules
 
+- Full Research initializes from persisted active records only. Demo watchlist values are
+  never a fallback for loading, empty or failed saved-record reads. Deep-linked ticker
+  selection is resolved only after that read succeeds.
+- New Research review journals retain their observed quote currency. Decision calibration
+  freezes original and later price currencies separately; legacy missing currencies remain
+  explicit, and cross-currency or unknown-currency returns are withheld rather than inferred.
+- V2 score requests omit unused Aura retrieval. Provider/institutional reads and independent
+  snapshot/history reads overlap; snapshot persistence remains awaited. The full orchestration
+  retains Aura by default for existing callers. Saved-record and archive-marker reads overlap.
+
 - API routes must validate external parameters before calling services.
 - Data parsing and normalization belong near the boundary where the data enters the app.
 - Scoring rules belong in calculator/service modules, not in UI components.

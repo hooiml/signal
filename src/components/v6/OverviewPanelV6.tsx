@@ -22,6 +22,7 @@ type OverviewPanelV6Props = {
     theme: ResearchThemeV6;
     record: ResearchRecord;
     benchmark: ResearchBenchmark | null;
+    observedCurrency: string | null;
     startReview: boolean;
     stagedEvidence: AcceptedResearchEvidence | null;
     workflowTemplateId: ResearchWorkflowTemplateId | null;
@@ -42,7 +43,7 @@ const SnapshotMetric = ({ label, value, themeClasses }: {
     </div>
 );
 
-export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, startReview, stagedEvidence, workflowTemplateId, saving, saveError, onSave, onReviewChange }: OverviewPanelV6Props) => {
+export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, observedCurrency, startReview, stagedEvidence, workflowTemplateId, saving, saveError, onSave, onReviewChange }: OverviewPanelV6Props) => {
     const checkedCount = getChecklistCountV6(ticker);
     const nextCheck = Object.entries(ticker.checklist).find(([, passed]) => !passed)?.[0];
     const progress = String((checkedCount / 9) * 360) + 'deg';
@@ -102,7 +103,7 @@ export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, star
                     <SnapshotMetric label="FCF" value={ticker.freeCashFlowTrend} themeClasses={themeClasses} />
                 </dl>
             </section>
-            <ResearchEditorV6 key={(record.reviewHistory[0]?.id ?? record.lastReviewedAt) + record.symbol + String(startReview) + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} initial={record} theme={theme} startEditing={startReview} stagedEvidence={stagedEvidence} workflowTemplateId={workflowTemplateId} saving={saving} error={saveError} onSave={onSave} onEditingChange={onReviewChange} decision={action} observedPrice={ticker.price ?? null} benchmark={benchmark} />
+            <ResearchEditorV6 key={(record.reviewHistory[0]?.id ?? record.lastReviewedAt) + record.symbol + String(startReview) + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} initial={record} theme={theme} startEditing={startReview} stagedEvidence={stagedEvidence} workflowTemplateId={workflowTemplateId} saving={saving} error={saveError} onSave={onSave} onEditingChange={onReviewChange} decision={action} observedPrice={ticker.price ?? null} observedCurrency={observedCurrency} benchmark={benchmark} />
             <ResearchHistoryV6 record={record} theme={theme} />
         </div>
     );

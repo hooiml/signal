@@ -1,4 +1,5 @@
 import { normalizeResearchMemoryTicker } from './research-memory.ts';
+import { researchPriceCurrency } from './price-format';
 
 export const calibrationRatings = ['strong', 'mixed', 'weak', 'not-applicable'] as const;
 export const calibrationVerdicts = ['repeat', 'adjust', 'insufficient-evidence'] as const;
@@ -12,7 +13,9 @@ export type ResearchDecisionCalibration = {
     readonly reviewedAt: string;
     readonly originalDecision: string;
     readonly originalObservedPrice: number | null;
+    readonly originalCurrency?: string | null;
     readonly laterPrice: number | null;
+    readonly laterCurrency?: string | null;
     readonly thesisQuality: CalibrationRating;
     readonly evidenceQuality: CalibrationRating;
     readonly valuationDiscipline: CalibrationRating;
@@ -62,7 +65,9 @@ export const parseResearchDecisionCalibration = (input: unknown): ResearchDecisi
         reviewedAt: timestamp(raw.reviewedAt, 'reviewedAt'),
         originalDecision: text(raw.originalDecision, 'Original decision', 80),
         originalObservedPrice: nullableNumber(raw.originalObservedPrice),
+        originalCurrency: researchPriceCurrency(raw.originalCurrency),
         laterPrice: nullableNumber(raw.laterPrice),
+        laterCurrency: researchPriceCurrency(raw.laterCurrency),
         thesisQuality: rating('thesisQuality'), evidenceQuality: rating('evidenceQuality'),
         valuationDiscipline: rating('valuationDiscipline'), triggerDiscipline: rating('triggerDiscipline'),
         hindsightRisk: raw.hindsightRisk === true,
@@ -74,14 +79,14 @@ export const parseResearchDecisionCalibration = (input: unknown): ResearchDecisi
 };
 
 export const createResearchDecisionCalibration = (input: {
-    ticker: string; reviewId: string; reviewedAt: string; originalDecision: string; originalObservedPrice: number | null;
+    ticker: string; reviewId: string; reviewedAt: string; originalDecision: string; originalObservedPrice: number | null; originalCurrency?: string | null;
 }, now = new Date()): ResearchDecisionCalibration => {
     const time = now.toISOString();
     const ticker = normalizeResearchMemoryTicker(input.ticker);
     return {
         id: `${ticker.toLowerCase()}-${input.reviewId}-calibration`, ticker, reviewId: input.reviewId,
         reviewedAt: new Date(input.reviewedAt).toISOString(), originalDecision: input.originalDecision,
-        originalObservedPrice: input.originalObservedPrice, laterPrice: null,
+        originalObservedPrice: input.originalObservedPrice, originalCurrency: researchPriceCurrency(input.originalCurrency), laterPrice: null, laterCurrency: null,
         thesisQuality: 'mixed', evidenceQuality: 'mixed', valuationDiscipline: 'mixed', triggerDiscipline: 'mixed',
         hindsightRisk: false, unexpectedInformation: '', processVerdict: 'adjust', note: '', createdAt: time, updatedAt: time,
     };

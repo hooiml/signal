@@ -34,7 +34,8 @@ try {
         assert.equal(result.body.data.mode, mode);
         assert.equal(result.cache, 'miss');
         assertTimings(result);
-        assert.equal(fixture.calls.length, baseline ? 8 : 4);
+        if (!baseline) assert.doesNotMatch(result.timing, /(?:^|, )aura;/);
+        assert.equal(fixture.calls.length, baseline ? 8 : 3);
         assert.equal(fixture.calls.filter(c => /^(CREATE|ALTER)/.test(c.query)).length, baseline ? 4 : 0);
         const write = fixture.calls.find(c => c.query.startsWith('INSERT'));
         assert.deepEqual(write.values.slice(0,3), [market, mode, social]);
@@ -47,10 +48,10 @@ try {
         assert.equal(hit.cache, 'hit');
         assert.deepEqual(hit.body, result.body);
         assert.doesNotMatch(hit.timing, /providers|snapshot|calibration/);
-        assert.equal(fixture.calls.length, baseline ? 8 : 4);
+        assert.equal(fixture.calls.length, baseline ? 8 : 3);
         const refresh = await request(fixture, `${query}&refresh=true`);
         assert.equal(refresh.cache, 'bypass');
-        assert.equal(fixture.calls.length, baseline ? 16 : 8);
+        assert.equal(fixture.calls.length, baseline ? 16 : 6);
     }
     for (const failure of ['providers', 'FROM market_signals', 'snapshot_date < CURRENT_DATE', 'LIMIT 89', 'INSERT INTO signal_snapshots', 'calibration']) {
         const fixture = marketRequestFixture(fixtureOptions);
@@ -88,6 +89,28 @@ try {
     assert.deepEqual(owner.body, waiter.body);
     assert.doesNotMatch(waiter.timing, /providers|snapshot|calibration/);
     assert.equal(shared.events.filter(e => e === 'providers').length, 1);
+    if (!baseline) {
+        const concurrent = marketRequestFixture();
+        let releaseProviders;
+        concurrent.setHold(new Promise(resolve => { releaseProviders = resolve; }));
+        const pending = request(concurrent);
+        assert.deepEqual(concurrent.events, ['providers', 'institutional'], 'Start independent inputs together');
+        releaseProviders();
+        await pending;
+        const snapshots = marketRequestFixture();
+        let releaseSql;
+        snapshots.setSqlHold(new Promise(resolve => { releaseSql = resolve; }));
+        const snapshotRequest = request(snapshots);
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(snapshots.calls.filter(c => c.query.includes('FROM signal_snapshots')).length, 2);
+        assert.equal(snapshots.calls.some(c => c.query.startsWith('INSERT')), false, 'Do not write until reads resolve');
+        releaseSql();
+        await snapshotRequest;
+        const legacy = marketRequestFixture();
+        const full = await legacy.signal.getSmartSignal();
+        assert.ok(full.marketAura, 'Legacy callers retain Aura');
+        assert.ok(legacy.calls.some(c => c.query.includes('FROM market_signals')));
+    }
     if (compareIndex >= 0) {
         const before = JSON.parse(await readFile(process.argv[compareIndex+1], 'utf8'));
         assert.equal(before.results.length, results.length);
@@ -95,7 +118,7 @@ try {
             assert.equal(result.scenario, before.results[i].scenario);
             assert.equal(result.status, before.results[i].status);
             assert.deepEqual(result.body, before.results[i].body);
-            if (result.calls) assert.deepEqual(result.calls, before.results[i].calls.filter(c => !/^(CREATE|ALTER)/.test(c.query)));
+            if (result.calls) assert.deepEqual(result.calls, before.results[i].calls.filter(c => !/^(CREATE|ALTER)/.test(c.query) && !c.query.includes('FROM market_signals')));
         }
     }
 } finally {

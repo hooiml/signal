@@ -291,7 +291,8 @@ async function persistSignalSnapshot(
 ) {
     try {
         const today = new Date().toISOString().slice(0, 10);
-        const previousRows = await measureSignalStage('snapshot_previous', () => sql`
+        const [previousRows, historyBefore] = await Promise.all([
+            measureSignalStage('snapshot_previous', () => sql`
             SELECT snapshot_date::text as snapshot_date, composite_score, tier, components, score_drivers
             FROM signal_snapshots
             WHERE market_type = ${options.market}
@@ -300,9 +301,8 @@ async function persistSignalSnapshot(
               AND snapshot_date < CURRENT_DATE
             ORDER BY snapshot_date DESC
             LIMIT 1
-        `, onTiming) as SnapshotSummaryRow[];
-
-        const historyBefore = await measureSignalStage('snapshot_history', () => sql`
+        `, onTiming) as Promise<SnapshotSummaryRow[]>,
+            measureSignalStage('snapshot_history', () => sql`
             SELECT snapshot_date::text as snapshot_date, composite_score, tier, origin, coverage_note
             FROM signal_snapshots
             WHERE market_type = ${options.market}
@@ -310,7 +310,8 @@ async function persistSignalSnapshot(
               AND enable_social = ${options.enableSocial}
             ORDER BY snapshot_date DESC
             LIMIT 89
-        `, onTiming) as SnapshotSummaryRow[];
+        `, onTiming) as Promise<SnapshotSummaryRow[]>,
+        ]);
 
         const componentsSnapshot = Object.fromEntries(
             Object.entries(signal.components).map(([key, component]) => [
@@ -520,12 +521,15 @@ function injectLiveAuraData(aura: AuraData, marketData: AggregateMarketData) {
 /**
  * Main Orchestrator
  */
-export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard' | 'contrarian' = 'standard', enableSocial: boolean = true, onTiming?: SignalTimingObserver) => {
+export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard' | 'contrarian' = 'standard', enableSocial: boolean = true, onTiming?: SignalTimingObserver, options: { includeAura?: boolean } = {}) => {
     const fetchStart = Date.now();
 
     try {
-        const marketData = await measureSignalStage('providers', () => fetchRawMarketData(market, enableSocial, true), onTiming);
-        const aura = await measureSignalStage('aura', () => getAuraAnalysis(marketData, market), onTiming);
+        const [marketData, institutionalData] = await Promise.all([
+            measureSignalStage('providers', () => fetchRawMarketData(market, enableSocial, true), onTiming),
+            measureSignalStage('institutional', () => getLatestInstitutionalData(), onTiming),
+        ]);
+        const aura = options.includeAura === false ? null : await measureSignalStage('aura', () => getAuraAnalysis(marketData, market), onTiming);
 
         const fetchDurationMs = Date.now() - fetchStart;
 
@@ -537,7 +541,7 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
         // V2 INTEGRATION (Hybrid Phase)
         // -----------------------------
         // Fetch Phase 2 Institutional Data
-        const institutionalRaw = (await measureSignalStage('institutional', () => getLatestInstitutionalData(), onTiming)).filter(entry =>
+        const institutionalRaw = institutionalData.filter(entry =>
             !(entry.indicator_name === 'naaim' && marketData.naaimExposure)
         );
 

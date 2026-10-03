@@ -8,11 +8,13 @@ export function researchReadFixture({ allowSchema = false } = {}) {
     const cache = new Map();
     const calls = [];
     let failure = null;
+    let hold = null;
     let rows = [];
     let archived = [{ symbol: 'ARCHIVED' }, { symbol: 123 }];
     const sql = async (strings) => {
         const query = strings.join('?').replace(/\s+/g, ' ').trim();
         calls.push(query);
+        if (hold) await hold;
         if (failure && query.includes(failure.match)) throw new Error(failure.message);
         if (/^(CREATE|ALTER) /.test(query) && allowSchema) return [];
         if (query === "SELECT * FROM research_records WHERE user_id = 'default' ORDER BY updated_at DESC") return structuredClone(rows);
@@ -58,6 +60,7 @@ export function researchReadFixture({ allowSchema = false } = {}) {
         parseWatchlist: load('src/components/v8/research-v8-connected-data.ts').parseWatchlist,
         parseSnapshot: load('src/lib/research/snapshot-input.ts').parseResearchSnapshotResponse,
         setFailure(value) { failure = value; },
+        setHold(value) { hold = value; },
         setRows(value) { rows = value; },
         getRows() { return structuredClone(rows); },
         setArchived(value) { archived = value; },

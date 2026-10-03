@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
         const cacheStarted = performance.now();
         const cachedSignal = await signalCache.get(
             { market: marketParam, mode: modeParam, enableSocial },
-            () => getSmartSignal(marketParam, modeParam, enableSocial, onTiming),
+            () => getSmartSignal(marketParam, modeParam, enableSocial, onTiming, { includeAura: false }),
             { forceRefresh },
         );
         onTiming('signal_cache', performance.now() - cacheStarted);

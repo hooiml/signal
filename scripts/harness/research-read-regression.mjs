@@ -17,7 +17,7 @@ for (let run = 0; run < 5; run++) {
     assert.deepEqual(payload.archivedSymbols, ['ARCHIVED']);
     assert.equal(fixture.calls.length, 2);
     assert.equal(fixture.calls.filter(query => /^(CREATE|ALTER) /.test(query)).length, 0);
-    assert.match(response.headers.get('server-timing'), /records;dur=.*archived;dur=.*mapping;dur=.*watchlist;dur=/);
+    for (const stage of ['records', 'archived', 'mapping', 'watchlist']) assert.match(response.headers.get('server-timing'), new RegExp(stage + ';dur='));
     runs.push({ run: run + 1, elapsedMs: performance.now() - start, sql: [...fixture.calls], serverTiming: response.headers.get('server-timing'), payload });
 }
 {
@@ -41,6 +41,15 @@ for (let run = 0; run < 5; run++) {
     fixture.setFailure(null);
     fixture.setRows([{ ...originalRows[0], symbol: '' }]);
     await assert.rejects(fixture.store.listResearchState());
+}
+{
+    const concurrent = researchReadFixture();
+    let release;
+    concurrent.setHold(new Promise(resolve => { release = resolve; }));
+    const pending = concurrent.store.listResearchState();
+    assert.equal(concurrent.calls.length, 2, 'Both independent reads start before either resolves');
+    release();
+    await pending;
 }
 const outputArg = process.argv.indexOf('--output');
 if (outputArg >= 0) {

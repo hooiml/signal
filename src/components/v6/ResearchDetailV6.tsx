@@ -248,7 +248,7 @@ export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQu
                 className="mt-5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-500"
             >
                 {activeTab === 'overview'
-                    ? <OverviewPanelV6 ticker={liveTicker} action={action} theme={theme} record={record} benchmark={snapshot?.benchmark ?? null} startReview={startReview} stagedEvidence={stagedEvidence} workflowTemplateId={workflowTemplateId} saving={saving} saveError={saveError} onSave={onSave} onReviewChange={onReviewChange} />
+                    ? <OverviewPanelV6 ticker={liveTicker} action={action} theme={theme} record={record} benchmark={snapshot?.benchmark ?? null} observedCurrency={snapshot?.quote.currency ?? liveQuote?.currency ?? null} startReview={startReview} stagedEvidence={stagedEvidence} workflowTemplateId={workflowTemplateId} saving={saving} saveError={saveError} onSave={onSave} onReviewChange={onReviewChange} />
                     : activeTab === 'chart'
                         ? snapshot ? <ResearchChartV6
                             snapshot={snapshot}

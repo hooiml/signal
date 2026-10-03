@@ -1,5 +1,6 @@
 'use client';
 
+import { formatResearchPrice } from '@/lib/research/price-format';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import {
@@ -15,7 +16,7 @@ type Props = {
 };
 
 const inputNumber = (value: number | null) => value === null ? '' : String(value);
-const money = (value: number) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+
 
 export const ResearchValuationReasoningV9 = ({ ticker, snapshot }: Props) => {
     const [plan, setPlan] = useState<ResearchValuationPlan>(() => createResearchValuationPlan(ticker));
@@ -41,6 +42,7 @@ export const ResearchValuationReasoningV9 = ({ ticker, snapshot }: Props) => {
     useEffect(() => { void load(); }, [load]);
 
     const marketPrice = snapshot?.symbol === ticker ? snapshot.quote.price ?? null : null;
+    const currency = snapshot?.symbol === ticker ? snapshot.quote.currency : null;
 
     const evaluation = useMemo(() => {
         try {
@@ -97,11 +99,11 @@ export const ResearchValuationReasoningV9 = ({ ticker, snapshot }: Props) => {
                     <h3 className="mt-1 text-sm font-semibold">What assumptions make today&apos;s price reasonable?</h3>
                     <p className="mt-1 max-w-2xl text-xs text-zinc-500">This is an assumption model, not a fair-value oracle. Current EPS is explicit because Signal does not infer forward earnings from trailing P/E.</p>
                 </div>
-                <div className="text-right text-xs"><span className="block text-zinc-500">Market price</span><strong>{marketPrice ? money(marketPrice) : 'Unavailable'}</strong></div>
+                <div className="text-right text-xs"><span className="block text-zinc-500">Market price</span><strong>{formatResearchPrice(marketPrice, currency)}</strong></div>
             </div>
 
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                <label className="grid gap-1 text-xs"><span className="font-semibold">Current EPS</span><input aria-label="Current EPS" inputMode="decimal" value={inputNumber(plan.currentEps)} onChange={(event) => updateShared('currentEps', event.target.value)} className="min-h-10 rounded-lg border border-zinc-700/50 bg-transparent px-3" placeholder="Enter evidence-backed EPS" /></label>
+                <label className="grid gap-1 text-xs"><span className="font-semibold">Current EPS {currency ? `(${currency})` : '(same currency as market price)'}</span><input aria-label="Current EPS" inputMode="decimal" value={inputNumber(plan.currentEps)} onChange={(event) => updateShared('currentEps', event.target.value)} className="min-h-10 rounded-lg border border-zinc-700/50 bg-transparent px-3" placeholder="Enter evidence-backed EPS" /></label>
                 <label className="grid gap-1 text-xs"><span className="font-semibold">Forecast years</span><input aria-label="Forecast years" type="number" min="1" max="10" value={plan.years} onChange={(event) => updateShared('years', event.target.value)} className="min-h-10 rounded-lg border border-zinc-700/50 bg-transparent px-3" /></label>
                 <label className="grid gap-1 text-xs"><span className="font-semibold">Discount rate %</span><input aria-label="Discount rate percent" inputMode="decimal" value={plan.annualDiscountRatePct} onChange={(event) => updateShared('annualDiscountRatePct', event.target.value)} className="min-h-10 rounded-lg border border-zinc-700/50 bg-transparent px-3" /></label>
             </div>
@@ -116,7 +118,7 @@ export const ResearchValuationReasoningV9 = ({ ticker, snapshot }: Props) => {
                         const evaluated = result.scenarioResults.find((item) => item.id === scenario.id);
                         return (
                             <article key={scenario.id} className="rounded-lg border border-zinc-700/40 p-3">
-                                <div className="flex items-center justify-between gap-2"><strong className="text-sm">{scenario.label}</strong><span className="text-xs text-zinc-500">{evaluated ? money(evaluated.presentValue) : '—'}</span></div>
+                                <div className="flex items-center justify-between gap-2"><strong className="text-sm">{scenario.label}</strong><span className="text-xs text-zinc-500">{evaluated ? formatResearchPrice(evaluated.presentValue, currency) : '—'}</span></div>
                                 <div className="mt-3 grid grid-cols-2 gap-2">
                                     <label className="grid gap-1 text-xs"><span>EPS CAGR %</span><input aria-label={`${scenario.label} EPS CAGR percent`} inputMode="decimal" value={scenario.epsCagrPct} onChange={(event) => updateScenario(scenario.id, 'epsCagrPct', event.target.value)} className="min-h-10 min-w-0 rounded-md border border-zinc-700/50 bg-transparent px-2" /></label>
                                     <label className="grid gap-1 text-xs"><span>Terminal P/E</span><input aria-label={`${scenario.label} terminal PE`} inputMode="decimal" value={scenario.terminalPe} onChange={(event) => updateScenario(scenario.id, 'terminalPe', event.target.value)} className="min-h-10 min-w-0 rounded-md border border-zinc-700/50 bg-transparent px-2" /></label>

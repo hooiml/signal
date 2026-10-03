@@ -216,13 +216,17 @@ export const listResearchState = async (
     onTiming?: (stage: ResearchReadStage, durationMs: number) => void,
 ): Promise<{ readonly records: ResearchRecord[]; readonly archivedSymbols: string[] }> => {
     // Required schema is provisioned before deployment; normal reads never run DDL.
-    let started = performance.now();
-    const rows = await sql`SELECT * FROM research_records WHERE user_id = 'default' ORDER BY updated_at DESC`;
-    onTiming?.('records', performance.now() - started);
-    started = performance.now();
-    const archivedRows = await sql`SELECT symbol FROM research_archived_symbols WHERE user_id = 'default' ORDER BY archived_at DESC`;
-    onTiming?.('archived', performance.now() - started);
-    started = performance.now();
+    const timedRead = async <T>(stage: 'records' | 'archived', read: () => Promise<T>): Promise<T> => {
+        const started = performance.now();
+        const result = await read();
+        onTiming?.(stage, performance.now() - started);
+        return result;
+    };
+    const [rows, archivedRows] = await Promise.all([
+        timedRead('records', () => sql`SELECT * FROM research_records WHERE user_id = 'default' ORDER BY updated_at DESC`),
+        timedRead('archived', () => sql`SELECT symbol FROM research_archived_symbols WHERE user_id = 'default' ORDER BY archived_at DESC`),
+    ]);
+    const started = performance.now();
     const state = {
         records: rows.map(mapRow),
         archivedSymbols: archivedRows.flatMap((raw) => {

@@ -6,7 +6,7 @@ import ts from 'typescript';
 // Real orchestration, scoring, persistence and route; isolated raw providers and SQL.
 export function marketRequestFixture({ allowSchema = false, signalSource } = {}) {
     const modules = new Map(), calls = [], events = [];
-    let failure = '', hold = null;
+    let failure = '', hold = null, sqlHold = null;
     const fixedTime = '2026-09-12T00:00:00.000Z';
     class FixedDate extends Date {
         constructor(...args) { super(...(args.length ? args : [fixedTime])); }
@@ -29,6 +29,7 @@ export function marketRequestFixture({ allowSchema = false, signalSource } = {})
     const sql = async (strings, ...values) => {
         const query = strings.join('?').replace(/\s+/g, ' ').trim();
         calls.push({ query, values });
+        if (sqlHold && query.includes('FROM signal_snapshots')) await sqlHold;
         if (failure && query.includes(failure)) throw new Error('Fixture database unavailable');
         if (/^(CREATE|ALTER) /.test(query)) {
             if (!allowSchema) throw new Error('Unexpected DDL in Market request');
@@ -81,6 +82,7 @@ export function marketRequestFixture({ allowSchema = false, signalSource } = {})
         parseSignal: load('src/components/v8/MarketV8ConnectedData.ts').parseConnectedSignal,
         setFailure(value) { failure = value; },
         setHold(value) { hold = value; },
+        setSqlHold(value) { sqlHold = value; },
         request(query = '') { return new Request(`http://fixture.invalid/api/signals/v2?${query}`); },
     };
 }

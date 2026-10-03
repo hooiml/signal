@@ -1,3 +1,4 @@
+import { researchPriceCurrency } from './price-format';
 import {
     defaultResearchMonitoringRules,
     positionStates,
@@ -200,6 +201,7 @@ const parseDecisionJournal = (value: unknown, label: string): ResearchDecisionJo
         decision: journal.decision === undefined ? emptyDecisionJournal.decision : optionValue(journal.decision, researchActions, `${label}.decision`),
         confidence: journal.confidence === undefined ? emptyDecisionJournal.confidence : optionValue(journal.confidence, researchDecisionConfidences, `${label}.confidence`),
         observedPrice: journal.observedPrice === undefined ? null : nullableNumberValue(journal.observedPrice, `${label}.observedPrice`, 0, 1_000_000_000),
+        ...(journal.observedCurrency === undefined ? {} : { observedCurrency: researchPriceCurrency(journal.observedCurrency) }),
         benchmarkLabel: journal.benchmarkLabel === undefined ? null : nullableStringValue(journal.benchmarkLabel, `${label}.benchmarkLabel`, 120),
         benchmarkReturnPercent: journal.benchmarkReturnPercent === undefined ? null : nullableNumberValue(journal.benchmarkReturnPercent, `${label}.benchmarkReturnPercent`, -100, 100_000),
         nextReviewAt: journal.nextReviewAt === undefined ? null : nullableDateValue(journal.nextReviewAt, `${label}.nextReviewAt`),

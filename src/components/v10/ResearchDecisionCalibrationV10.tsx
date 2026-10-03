@@ -1,5 +1,6 @@
 'use client';
 
+import { formatResearchPrice } from '@/lib/research/price-format';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
     calibrationRatings,
@@ -19,7 +20,7 @@ type Props = {
     readonly snapshot: ResearchSnapshot | null;
 };
 const ratingLabels: Record<CalibrationRating, string> = { strong: 'Strong', mixed: 'Mixed', weak: 'Weak', 'not-applicable': 'N/A' };
-const price = (value: number | null) => value === null ? 'Unavailable' : new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(value);
+
 
 export const ResearchDecisionCalibrationV10 = ({ ticker, record, snapshot }: Props) => {
     const [reviews, setReviews] = useState<ResearchDecisionCalibration[]>([]);
@@ -29,6 +30,7 @@ export const ResearchDecisionCalibrationV10 = ({ ticker, record, snapshot }: Pro
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const laterPrice = snapshot?.symbol === ticker ? snapshot.quote.price ?? null : null;
+    const laterCurrency = snapshot?.symbol === ticker ? snapshot.quote.currency : null;
 
     const load = useCallback(async () => {
         setLoading(true); setMessage(null);
@@ -48,7 +50,7 @@ export const ResearchDecisionCalibrationV10 = ({ ticker, record, snapshot }: Pro
             setReviews(parsedCalibrations); setSelectedReview(latestReview);
             if (latestReview) {
                 const existing = parsedCalibrations.find((entry) => entry.reviewId === latestReview.id);
-                setDraft(existing ?? createResearchDecisionCalibration({ ticker, reviewId: latestReview.id, reviewedAt: latestReview.reviewedAt, originalDecision: latestReview.decisionJournal.decision, originalObservedPrice: latestReview.decisionJournal.observedPrice }));
+                setDraft(existing ?? createResearchDecisionCalibration({ ticker, reviewId: latestReview.id, reviewedAt: latestReview.reviewedAt, originalDecision: latestReview.decisionJournal.decision, originalObservedPrice: latestReview.decisionJournal.observedPrice, originalCurrency: latestReview.decisionJournal.observedCurrency }));
             } else setDraft(null);
         } catch (error) { setMessage(error instanceof Error ? error.message : 'Decision review is unavailable.'); }
         finally { setLoading(false); }
@@ -58,19 +60,19 @@ export const ResearchDecisionCalibrationV10 = ({ ticker, record, snapshot }: Pro
     useLayoutEffect(() => {
         if (laterPrice === null) return;
         setDraft((current) => current && !reviews.some((entry) => entry.id === current.id)
-            ? { ...current, laterPrice }
+            ? { ...current, laterPrice, laterCurrency }
             : current);
-    }, [laterPrice, reviews]);
+    }, [laterPrice, laterCurrency, reviews]);
 
     const selectHistoricalReview = (review: ResearchReviewSnapshot) => {
         setSelectedReview(review);
         const existing = reviews.find((entry) => entry.reviewId === review.id);
-        setDraft(existing ?? { ...createResearchDecisionCalibration({ ticker, reviewId: review.id, reviewedAt: review.reviewedAt, originalDecision: review.decisionJournal.decision, originalObservedPrice: review.decisionJournal.observedPrice }), laterPrice });
+        setDraft(existing ?? { ...createResearchDecisionCalibration({ ticker, reviewId: review.id, reviewedAt: review.reviewedAt, originalDecision: review.decisionJournal.decision, originalObservedPrice: review.decisionJournal.observedPrice, originalCurrency: review.decisionJournal.observedCurrency }), laterPrice, laterCurrency });
         setMessage(null);
     };
 
     const summary = useMemo(() => draft ? summarizeResearchDecisionCalibration(draft) : null, [draft]);
-    const subsequentReturn = draft?.originalObservedPrice && draft.laterPrice
+    const subsequentReturn = draft?.originalObservedPrice && draft.laterPrice && draft.originalCurrency && draft.originalCurrency === draft.laterCurrency
         ? ((draft.laterPrice - draft.originalObservedPrice) / draft.originalObservedPrice) * 100 : null;
     const setRating = (key: 'thesisQuality' | 'evidenceQuality' | 'valuationDiscipline' | 'triggerDiscipline', value: CalibrationRating) => setDraft((current) => current ? ({ ...current, [key]: value, updatedAt: new Date().toISOString() }) : current);
 
@@ -102,8 +104,8 @@ export const ResearchDecisionCalibrationV10 = ({ ticker, record, snapshot }: Pro
 
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
                 <div className="rounded-lg border border-zinc-700/30 p-3 text-xs"><span className="text-zinc-500">Original decision</span><strong className="mt-1 block">{draft.originalDecision}</strong></div>
-                <div className="rounded-lg border border-zinc-700/30 p-3 text-xs"><span className="text-zinc-500">Observed then</span><strong className="mt-1 block">{price(draft.originalObservedPrice)}</strong></div>
-                <div className="rounded-lg border border-zinc-700/30 p-3 text-xs"><span className="text-zinc-500">Later price · context only</span><strong className="mt-1 block">{price(draft.laterPrice)}{subsequentReturn !== null ? ` · ${subsequentReturn >= 0 ? '+' : ''}${subsequentReturn.toFixed(1)}%` : ''}</strong></div>
+                <div className="rounded-lg border border-zinc-700/30 p-3 text-xs"><span className="text-zinc-500">Observed then</span><strong className="mt-1 block">{formatResearchPrice(draft.originalObservedPrice, draft.originalCurrency)}</strong></div>
+                <div className="rounded-lg border border-zinc-700/30 p-3 text-xs"><span className="text-zinc-500">Later price · context only</span><strong className="mt-1 block">{formatResearchPrice(draft.laterPrice, draft.laterCurrency)}{subsequentReturn !== null ? ` · ${subsequentReturn >= 0 ? '+' : ''}${subsequentReturn.toFixed(1)}%` : ''}</strong></div>
             </div>
 
             <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

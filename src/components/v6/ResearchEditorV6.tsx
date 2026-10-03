@@ -51,6 +51,7 @@ type ResearchEditorV6Props = {
     readonly onSave: (record: ResearchRecord) => Promise<boolean>;
     readonly decision: ResearchActionV6;
     readonly observedPrice: number | null;
+    readonly observedCurrency?: string | null;
     readonly benchmark: ResearchBenchmark | null;
     readonly startEditing?: boolean;
     readonly stagedEvidence?: AcceptedResearchEvidence | null;
@@ -58,7 +59,7 @@ type ResearchEditorV6Props = {
     readonly onEditingChange: (editing: boolean) => void;
 };
 
-const prepareReviewDraft = (initial: ResearchRecord, decision: ResearchActionV6, observedPrice: number | null, benchmark: ResearchBenchmark | null, stagedEvidence: AcceptedResearchEvidence | null): ResearchRecord => ({
+const prepareReviewDraft = (initial: ResearchRecord, decision: ResearchActionV6, observedPrice: number | null, observedCurrency: string | null, benchmark: ResearchBenchmark | null, stagedEvidence: AcceptedResearchEvidence | null): ResearchRecord => ({
     ...initial,
     acceptedEvidence: stagedEvidence
         ? [...initial.acceptedEvidence.filter((item) => item.id !== stagedEvidence.id), stagedEvidence].slice(-50)
@@ -67,6 +68,7 @@ const prepareReviewDraft = (initial: ResearchRecord, decision: ResearchActionV6,
         ...initial.decisionJournal,
         decision,
         observedPrice,
+        observedCurrency,
         benchmarkLabel: benchmark?.baselineReturnPercent !== null && benchmark?.baselineReturnPercent !== undefined ? benchmark.baselineName : null,
         benchmarkReturnPercent: benchmark?.baselineReturnPercent ?? null,
         priorReviewId: initial.reviewHistory[0]?.id ?? null,
@@ -75,8 +77,8 @@ const prepareReviewDraft = (initial: ResearchRecord, decision: ResearchActionV6,
     },
 });
 
-export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decision, observedPrice, benchmark, startEditing = false, stagedEvidence = null, workflowTemplateId = null, onEditingChange }: ResearchEditorV6Props) => {
-    const [draft, setDraft] = useState(() => startEditing ? prepareReviewDraft(initial, decision, observedPrice, benchmark, stagedEvidence) : initial);
+export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decision, observedPrice, observedCurrency = null, benchmark, startEditing = false, stagedEvidence = null, workflowTemplateId = null, onEditingChange }: ResearchEditorV6Props) => {
+    const [draft, setDraft] = useState(() => startEditing ? prepareReviewDraft(initial, decision, observedPrice, observedCurrency, benchmark, stagedEvidence) : initial);
     const [isEditing, setIsEditing] = useState(startEditing);
     const [isExpanded, setIsExpanded] = useState(startEditing);
     const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);

@@ -141,6 +141,7 @@ export type ResearchDecisionJournal = {
     readonly decision: ResearchAction;
     readonly confidence: ResearchDecisionConfidence;
     readonly observedPrice: number | null;
+    readonly observedCurrency?: string | null;
     readonly benchmarkLabel: string | null;
     readonly benchmarkReturnPercent: number | null;
     readonly nextReviewAt: string | null;
