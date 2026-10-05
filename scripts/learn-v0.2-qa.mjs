@@ -185,7 +185,7 @@ const main = async () => {
         await writeFile(path.join(evidenceDir, 'report.json'), JSON.stringify(report, null, 2));
     }
     const failed = Boolean(report.fatalError) || report.scenarios.some((scenario) => scenario.status !== 'passed');
-    console.log(JSON.stringify({ evidenceDir, scenarios: report.scenarios.map(({ viewport, status }) => ({ viewport, status })), fatalError: report.fatalError }, null, 2));
+    console.log(JSON.stringify({ evidenceDir, scenarios: report.scenarios.map(({ viewport, status, issues, checks }) => ({ viewport, status, issues, failedChecks: checks.filter(check => check.status !== 'passed') })), fatalError: report.fatalError }, null, 2));
     if (failed) process.exitCode = 1;
 };
 

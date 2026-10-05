@@ -75,3 +75,11 @@ jobs:
       - name: Show server log on failure
         if: failure()
         run: cat /tmp/signal-learn-server.log || true
+
+      - name: Upload Learn browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: learn-browser-diagnostics
+          path: .tmp/signal-learn-*/**/report.json
+          if-no-files-found: warn
