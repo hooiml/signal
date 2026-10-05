@@ -40,7 +40,8 @@ jobs:
         run: npm run lint
 
       - name: Harness
-        run: npm run harness
+        shell: pwsh
+        run: ./scripts/harness/check-all.ps1
 
       - name: Build
         run: npm run build

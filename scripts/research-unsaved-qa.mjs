@@ -28,10 +28,10 @@ try {
  const context=await browser.newContext({viewport:{width,height:900},serviceWorkers:'block'});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!/status of (500|503)/.test(m.text()))errors.push(m.text());});
  page.on('requestfailed',r=>{if(!/ERR_ABORTED/.test(r.failure()?.errorText??''))errors.push(r.failure()?.errorText);});
- const posts=[];let list=[];let release;let held;let watchlistFails=false;let saveFails=false;let listHold;let releaseList;let revisedIncome=false;let providerFails=false;
+ const posts=[];let list=[];let release;let held;let watchlistFails=false;let saveFails=false;let listHold;let releaseList;let revisedIncome=false;let providerFails=false;let marketScoreCase='normal';
  await context.route('**/api/**',async route=>{
   const req=route.request(),u=new URL(req.url());
-  if(u.pathname==='/api/signals/v2'){const f=marketRequestFixture();const response=await f.route.GET(f.request(u.search.slice(1)));return route.fulfill({json:await response.json()});}
+  if(u.pathname==='/api/signals/v2'){const f=marketRequestFixture();const response=await f.route.GET(f.request(u.search.slice(1)));const payload=await response.json();if(marketScoreCase==='unchanged')payload.data.metadata.score_delta.delta=0;if(marketScoreCase==='missing')delete payload.data.metadata.score_delta;return route.fulfill({json:payload});}
   if(u.pathname.startsWith('/api/signals/'))return route.fulfill({status:503,json:{success:false,error:'Fixture archive unavailable'}});
   if(u.pathname==='/api/research/watchlist') {
    if(req.method()==='POST') {const body=req.postDataJSON();posts.push(body);if(saveFails)return route.fulfill({status:500,json:{success:false,error:'fixture save failure'}});const record={...structuredClone(saved),symbol:body.symbol,market:body.market,companyName:body.companyName,thesisStrength:'unknown',whyInterested:'',notes:'',decisionJournal:{...saved.decisionJournal,decision:'Not recorded',confidence:'unrecorded'},reviewHistory:[]};list=[record];return route.fulfill({status:201,json:{success:true,data:record}});}
@@ -86,7 +86,10 @@ try {
  // Failed saved-list reads cannot block independent provider evidence.
  watchlistFails=true;await page.goto(`${base}/research-v8?ticker=5347&market=MY`);await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200');
  await page.goto(`${base}/main-v8`);
- await page.getByLabel('Market',{exact:true}).selectOption('MY');
+ await page.getByRole('region',{name:'Current market assessment',exact:true}).waitFor();
+ marketScoreCase='unchanged';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/Score unchanged.*Individual inputs can still differ/}).waitFor();
+ marketScoreCase='missing';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/No earlier comparable score supplied/}).waitFor();
+ marketScoreCase='normal';await page.getByLabel('Market',{exact:true}).selectOption('MY');
  await page.locator('[data-indicator="vix"]').filter({hasText:'US VIX (FX proxy unavailable)'}).waitFor();
  const marketAssessment=page.getByRole('region',{name:'Current market assessment',exact:true});
  await marketAssessment.getByRole('heading',{name:'What this reading means'}).waitFor();
@@ -99,7 +102,7 @@ try {
  await page.getByRole('heading',{name:'US VIX (FX proxy unavailable)',exact:true}).waitFor();
  assert.ok((await page.getByText('Observation date unavailable',{exact:true}).count())>0);
  await noOverflow();await page.screenshot({path:`${out}/market-${width}.png`,fullPage:true});
- assert.deepEqual(errors,[]);report.push({width,passed:true,scenarios:['financial refresh unchanged/changed/error/retry','visible limitations and evidence states','Market summary keyboard inspector','US unsaved','MY unsaved','partial','missing','ETF/bank/unknown unsupported with facts retained','mismatched response rejected','rapid selection/late response','save failure and explicit retry','no manufactured decision','saved-list failure independence','overflow and control geometry','Market fallback provenance and observation-date limitation'],formBoxes});await context.close();
+ assert.deepEqual(errors,[]);report.push({width,passed:true,scenarios:['financial refresh unchanged/changed/error/retry','visible limitations and evidence states','Market unchanged/unavailable score comparison and keyboard inspector','US unsaved','MY unsaved','partial','missing','ETF/bank/unknown unsupported with facts retained','mismatched response rejected','rapid selection/late response','save failure and explicit retry','no manufactured decision','saved-list failure independence','overflow and control geometry','Market fallback provenance and observation-date limitation'],formBoxes});await context.close();
  }
 } finally {await browser.close();await writeFile(`${out}/report.json`,JSON.stringify({dataMode:'Synthetic API fixtures; no live database writes or provider verification',results:report},null,2));}
 console.log(`Unsaved Research browser QA passed at ${report.map(r=>r.width).join(', ')}px.`);
