@@ -32,7 +32,10 @@ function Get-PropertyValue($object, $name, $fallback = "not detected") {
 
 function Format-ScriptList($scriptsObject) {
     $items = @()
-    foreach ($property in $scriptsObject.PSObject.Properties | Sort-Object Name) {
+    [string[]] $names = @($scriptsObject.PSObject.Properties.Name)
+    [Array]::Sort($names, [StringComparer]::OrdinalIgnoreCase)
+    foreach ($name in $names) {
+        $property = $scriptsObject.PSObject.Properties[$name]
         $items += "- ``$($property.Name)``: ``$($property.Value)``"
     }
     return $items -join "`n"
@@ -43,7 +46,11 @@ function Format-PathList($paths) {
         return "- none"
     }
 
-    return ($paths | Sort-Object | ForEach-Object { "- ``$_``" }) -join "`n"
+    # Culture-sensitive sorting differs between Windows PowerShell and Linux/ICU,
+    # notably for punctuation in package-lock.json and package.json.
+    [string[]] $ordered = @($paths)
+    [Array]::Sort($ordered, [StringComparer]::OrdinalIgnoreCase)
+    return ($ordered | ForEach-Object { "- ``$_``" }) -join "`n"
 }
 
 $topLevel = Get-ChildItem -Path $root -Force |
