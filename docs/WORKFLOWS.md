@@ -211,6 +211,12 @@ workaround preserves fonts and package versions; validate preview builds before 
 
 ## Security lookup and classification
 
+V8 ticker-only legacy links resolve their market from the exact saved record, or established
+Malaysian numeric/suffix/alias forms. Ambiguous tickers wait for saved research and require an
+explicit market choice if no saved identity can be resolved, including failed list reads.
+They never default to a US provider request. Explicit URL/lookup markets take precedence over
+saved records; resolved legacy and default saved selections add their market to the URL.
+
 `GET /api/research/search?q=...&market=US|MY` accepts an explicit company/ticker search,
 1–80 characters. Only US exchange-listed equities/ETFs and Kuala Lumpur `.KL` listings
 are returned, capped at eight. A result identifies company, ticker, exchange, market and

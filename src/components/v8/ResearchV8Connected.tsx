@@ -94,11 +94,20 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
             .then(next => { if (active && version === savedRevision.current) {
                 setRecords(next);
                 const url = new URL(window.location.href);
-                if (!url.searchParams.get('ticker') && next[0]) {
-                    url.searchParams.set('ticker', next[0].symbol);
+                const ticker = url.searchParams.get('ticker')?.trim().toUpperCase();
+                const linkedMarket = url.searchParams.get('market');
+                const savedSelection = ticker ? next.find(item => item.symbol === ticker) : next[0];
+                // Resolve the current URL, not the selection when this read began.
+                // An explicit market always wins over a saved record with the same ticker.
+                if (ticker && (linkedMarket === 'MY' || linkedMarket === 'US')) {
+                    setSelected(ticker);
+                    setSelectedMarket(linkedMarket);
+                } else if (savedSelection) {
+                    url.searchParams.set('ticker', savedSelection.symbol);
+                    url.searchParams.set('market', savedSelection.market);
                     window.history.replaceState(null, '', url);
-                    setSelected(next[0].symbol);
-                    setSelectedMarket(next[0].market);
+                    setSelected(savedSelection.symbol);
+                    setSelectedMarket(savedSelection.market);
                 }
             } })
             .catch(() => { if (active) setError(true); })
@@ -107,8 +116,17 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
     }, [reload]);
     const matches = (records ?? []).filter(record => (market === 'All' || record.market === market) && `${record.symbol} ${record.companyName}`.toLowerCase().includes(query.trim().toLowerCase()));
     const record = records?.find(item => item.symbol === selected && (!selectedMarket || item.market === selectedMarket));
-    const readingMarket: ResearchMarket = selectedMarket ?? record?.market ?? (/^[0-9]+(?:\.KL)?$/.test(selected) || ['MAYBANK', 'KLCI'].includes(selected) || selected.endsWith('.KL') ? 'MY' : 'US');
+    const readingMarket = selectedMarket ?? record?.market ?? (/^[0-9]+(?:\.KL)?$/.test(selected) || ['MAYBANK', 'KLCI'].includes(selected) || selected.endsWith('.KL') ? 'MY' : undefined);
     const validSelection = /^[A-Z0-9.-]{1,15}$/.test(selected);
+    useEffect(() => {
+        if (!record || selectedMarket) return;
+        const url = new URL(window.location.href);
+        const linkedMarket = url.searchParams.get('market');
+        if (url.searchParams.get('ticker')?.trim().toUpperCase() !== selected || linkedMarket === 'US' || linkedMarket === 'MY') return;
+        // Back/Forward can restore a legacy entry after the saved list has loaded.
+        url.searchParams.set('market', record.market);
+        window.history.replaceState(null, '', url);
+    }, [record, selected, selectedMarket]);
     const remember = (saved: ResearchRecord) => {
         savedRevision.current += 1;
         setRecords(previous => [...(previous ?? []).filter(item => item.symbol !== saved.symbol), saved]);
@@ -119,7 +137,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
         <header className={base.header}><a className={base.logo} href="/main-v8">∿ Signal<span>V8</span></a><nav aria-label="Primary"><a href="/main-v8">Market</a><a href="/research-v8" aria-current="page">Research</a></nav><span className={base.headerNote}>Connected to Signal</span></header>
         <main id="v8-content" tabIndex={-1} className={base.canvas}>
             <section className={connected.selectedHeader} aria-label="Selected research security">
-                <div>{record ? <><span>{record.market} · {record.symbol}</span><h1>{record.companyName || record.symbol}</h1></> : <><span>{selected ? `${readingMarket} · ${selected}` : 'Current evidence'}</span><h1>{selected || 'Research'}</h1></>}</div>
+                <div>{record ? <><span>{record.market} · {record.symbol}</span><h1>{record.companyName || record.symbol}</h1></> : <><span>{selected ? `${readingMarket ?? 'Market unresolved'} · ${selected}` : 'Current evidence'}</span><h1>{selected || 'Research'}</h1></>}</div>
                 <div className={connected.headerActions}>
                     <button className={connected.actionButton} aria-haspopup="dialog" aria-expanded={panel === 'saved'} onClick={event => openPanel('saved', event.currentTarget)}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14v17l-7-4-7 4Z" /></svg>Saved securities · {records?.length ?? '…'}<span aria-hidden="true">⌄</span></button>
                     <button className={connected.actionButton} aria-pressed={advanced} onClick={changeDepth}>{advanced ? 'Back to basic view' : 'Advanced tools'}</button>
@@ -144,7 +162,13 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
             </dialog>
             {!selected && <section className={styles.emptyWorkspace}><h2>Read a security without saving it.</h2><p>Enter a ticker and market above, or choose a saved security. Notes and decisions are optional.</p></section>}
             {selected && !validSelection && <p role="alert">Invalid security ticker. Enter a valid ticker above.</p>}
-            {validSelection && <ConnectedCase key={`${readingMarket}:${selected}`} symbol={selected} market={readingMarket} record={record} onSaved={remember} advanced={advanced} tab={tab} setTab={value => navigate(selected, value, false, readingMarket)} chartRange={chartRange} setChartRange={setChartRange} />}
+            {validSelection && !readingMarket && <section className={styles.emptyWorkspace} aria-label="Resolve security market">
+                <h2>{loading ? 'Resolving saved security market…' : 'Choose this security’s market'}</h2>
+                <p>{loading ? 'This link does not specify a market. Checking saved research before requesting provider data.' : 'The market could not be resolved from saved research. Choose the correct market to read this ticker, or find its listing above.'}</p>
+                <button className={base.textButton} onClick={() => navigate(selected, tab, false, 'US')}>Read {selected} in US</button>{' '}
+                <button className={base.textButton} onClick={() => navigate(selected, tab, false, 'MY')}>Read {selected} in Malaysia</button>
+            </section>}
+            {validSelection && readingMarket && <ConnectedCase key={`${readingMarket}:${selected}`} symbol={selected} market={readingMarket} record={record} onSaved={remember} advanced={advanced} tab={tab} setTab={value => navigate(selected, value, false, readingMarket)} chartRange={chartRange} setChartRange={setChartRange} />}
             <footer className={styles.footer}><span>Connected Research V8 · existing Signal records</span><details><summary>Data scope & limitations</summary><p>Saved research is user-authored. Quotes, history and fundamentals come from the existing research service; unavailable values stay unavailable. Retrieval time is not an exchange quote timestamp. Editing, monitoring evaluation and advanced tools open the existing workspace. Saving a security requires the explicit Save security action. It does not record an investment decision or personal review. Saved research refreshes when you return from editing; you can also reload it manually.</p><a href="/research-v8?demo=1">Open the labelled representative demo →</a></details></footer>
         </main>
     </div>;

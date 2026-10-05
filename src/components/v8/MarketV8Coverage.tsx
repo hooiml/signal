@@ -15,7 +15,9 @@ export function MarketCurrentAssessment({ signal, date, onSelect }: {
     const compared = delta?.delta != null && !!delta.previous_date;
     return <section className={styles.assessment} aria-label="Current market assessment">
         <h2>What this reading means</h2>
-        <p>The score describes the configured market indicators on a 0–100 scale. Higher scores lean toward the model’s positive market reading; lower scores lean cautious. It is not a return estimate or a probability of gains.</p>
+        <p>The score describes the configured market indicators on a 0–100 scale. {signal.mode === 'contrarian'
+            ? 'In Contrarian mode, higher scores indicate crowding or greed risk; lower scores indicate fear and potential opportunity.'
+            : 'In Momentum mode, higher scores support positive momentum; lower scores indicate weaker momentum and a more cautious reading.'} It is not a return estimate or a probability of gains.</p>
         <p className={styles.change} data-testid="market-comparison">{compared ? delta.delta === 0 ? `Score unchanged vs ${fullDate(delta.previous_date)}. Individual inputs can still differ.` : `Score ${delta.delta! > 0 ? 'rose' : 'fell'} ${Math.abs(delta.delta!).toFixed(2)} points vs ${fullDate(delta.previous_date)}. This compares scores, not investment returns.` : 'No earlier comparable score supplied. A change cannot be established.'}</p>
         <div className={styles.evidenceGrid}>
             {([[aligned, 'Supporting input'], [conflicting, 'Conflicting input']] as const).map(([entry, label]) => <div key={label}>

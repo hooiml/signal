@@ -14,6 +14,13 @@ database verification. The `Current Assessment QA` workflow runs the standard ga
 this browser matrix on `feat/current-assessment`; it uses a placeholder DB URL and no secrets.
 Live US fundamentals still require the operator's valid `SEC_USER_AGENT` configuration.
 
+The same matrix checks delayed/failed saved-list reads for ticker-only legacy links, exact
+saved-market resolution, explicit-market precedence, unresolved-market choice, canonical URL
+reloads, and newer selections plus Back/Forward while saved records arrive. It asserts that
+ambiguous links never issue a guessed US provider request. The harness also renders the actual
+Market assessment in momentum and contrarian modes via
+`node scripts/harness/market-assessment-regression.mjs` to keep score explanations mode-specific.
+
 The harness also verifies price-unit formatting, preservation of currency in new review
 snapshots, and explicit missing currency for legacy records via
 `node scripts/harness/research-currency-regression.mjs`. Market and Research read fixtures

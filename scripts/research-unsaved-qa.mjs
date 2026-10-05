@@ -29,7 +29,7 @@ try {
  const context=await browser.newContext({viewport:{width,height:900},serviceWorkers:'block'});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!/status of (500|502|503)/.test(m.text()))errors.push(m.text());});
  page.on('requestfailed',r=>{if(!/ERR_ABORTED/.test(r.failure()?.errorText??''))errors.push(r.failure()?.errorText);});
- const posts=[];let list=[];let release;let held;let watchlistFails=false;let saveFails=false;let listHold;let releaseList;let revisedIncome=false;let providerFails=false;let marketScoreCase='normal';let searchFails=false;let searchHold=false;let releaseSearch;const searches=[];
+ const posts=[];const providerReads=[];let list=[];let release;let held;let watchlistFails=false;let saveFails=false;let listHold;let releaseList;let revisedIncome=false;let providerFails=false;let marketScoreCase='normal';let searchFails=false;let searchHold=false;let releaseSearch;const searches=[];
  await context.route('**/api/**',async route=>{
   const req=route.request(),u=new URL(req.url());
   if(u.pathname==='/api/signals/v2'){const f=marketRequestFixture();const response=await f.route.GET(f.request(u.search.slice(1)));const payload=await response.json();if(marketScoreCase==='unchanged')payload.data.metadata.score_delta.delta=0;if(marketScoreCase==='missing')delete payload.data.metadata.score_delta;return route.fulfill({json:payload});}
@@ -47,7 +47,7 @@ try {
    return route.fulfill({status:watchlistFails?500:200,json:{success:!watchlistFails,data:capturedList,archivedSymbols:[]}});
   }
   if(u.pathname.includes('/api/research/symbol/')) {
-   const symbol=decodeURIComponent(u.pathname.split('/').at(-1));
+   const symbol=decodeURIComponent(u.pathname.split('/').at(-1));providerReads.push({symbol,market:u.searchParams.get('market')});
    if(symbol==='SLOW') { held=true;await new Promise(r=>{release=r;}); }
    if(providerFails)return route.fulfill({status:503,json:{success:false,error:'Fixture provider unavailable'}});
    const result=snapshot(symbol,u.searchParams.get('market'));if(revisedIncome)result.data.fundamentals.annualNetIncome=150;
@@ -108,6 +108,51 @@ try {
  list=[];listHold=true;await page.goto(`${base}/research-v8?ticker=AAPL&market=US`);await heading('Growth and positive earnings reported');await page.getByRole('button',{name:'Save security',exact:true}).click();await page.getByRole('button',{name:'Save security',exact:true}).waitFor({state:'detached'});releaseList();listHold=false;await page.waitForTimeout(150);assert.equal(await page.getByRole('button',{name:'Save security',exact:true}).count(),0);
  // Failed saved-list reads cannot block independent provider evidence.
  watchlistFails=true;await page.goto(`${base}/research-v8?ticker=5347&market=MY`);await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200');
+ // Legacy links must resolve an exact saved market before any provider request.
+ const legacyRecord=(symbol,market)=>({...structuredClone(saved),symbol,market,companyName:`Saved ${symbol}`});
+ const unresolved=page.getByRole('region',{name:'Resolve security market',exact:true});
+ async function holdLegacy(symbol,records) {
+  watchlistFails=false;list=records;listHold=true;releaseList=undefined;providerReads.length=0;
+  await page.goto(`${base}/research-v8?ticker=${symbol}&tab=financials&source=legacy`);
+  await unresolved.getByRole('heading',{name:'Resolving saved security market…',exact:true}).waitFor();
+  for(let tries=0;!releaseList&&tries<100;tries++)await page.waitForTimeout(20);
+  assert.equal(typeof releaseList,'function','Saved-list request must be pending');
+  assert.deepEqual(providerReads,[],'Ambiguous legacy links must not guess US while saved records load');
+ }
+ await holdLegacy('CIMB',[legacyRecord('CIMB','MY')]);await noOverflow();await page.screenshot({path:`${out}/legacy-pending-${width}.png`,fullPage:true});
+ listHold=false;releaseList();await heading('Growth and positive earnings reported');
+ assert.deepEqual(providerReads,[{symbol:'CIMB',market:'MY'}]);assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200');
+ assert.equal(new URL(page.url()).searchParams.get('market'),'MY');assert.equal(new URL(page.url()).searchParams.get('source'),'legacy');
+ assert.equal(await page.getByRole('tab',{name:'Financials',exact:true}).getAttribute('aria-selected'),'true');
+ // Canonicalized legacy URLs preserve the resolved market even when a later reload fails.
+ watchlistFails=true;providerReads.length=0;await page.reload();await heading('Growth and positive earnings reported');
+ assert.deepEqual(providerReads,[{symbol:'CIMB',market:'MY'}]);
+ await holdLegacy('AAPL',[legacyRecord('AAPL','US')]);listHold=false;releaseList();await heading('Growth and positive earnings reported');assert.deepEqual(providerReads,[{symbol:'AAPL',market:'US'}]);
+ // Failed and empty saved-list reads both leave an ambiguous ticker unresolved.
+ for(const fail of [true,false]) {
+  watchlistFails=fail;list=[];providerReads.length=0;
+  await page.goto(`${base}/research-v8?ticker=CIMB`);await unresolved.getByRole('heading',{name:'Choose this security’s market',exact:true}).waitFor();
+  assert.deepEqual(providerReads,[]);assert.equal(await page.getByTestId('research-price').count(),0);
+  await noOverflow();if(fail)await page.screenshot({path:`${out}/legacy-market-choice-${width}.png`,fullPage:true});
+  const chosenMarket=fail?'MY':'US';await unresolved.getByRole('button',{name:fail?'Read CIMB in Malaysia':'Read CIMB in US',exact:true}).click();
+  await heading('Growth and positive earnings reported');assert.deepEqual(providerReads,[{symbol:'CIMB',market:chosenMarket}]);assert.equal(new URL(page.url()).searchParams.get('market'),chosenMarket);
+ }
+ // Explicit links start immediately and cannot be overwritten by a conflicting saved market.
+ watchlistFails=false;list=[legacyRecord('CIMB','MY')];listHold=true;releaseList=undefined;providerReads.length=0;
+ await page.goto(`${base}/research-v8?ticker=CIMB&market=US`);await heading('Growth and positive earnings reported');
+ assert.deepEqual(providerReads,[{symbol:'CIMB',market:'US'}]);assert.equal(typeof releaseList,'function');
+ listHold=false;releaseList();await page.waitForTimeout(150);assert.deepEqual(providerReads,[{symbol:'CIMB',market:'US'}]);assert.equal(new URL(page.url()).searchParams.get('market'),'US');assert.equal(await page.locator('h1').innerText(),'CIMB');
+ // A delayed saved response must resolve the current selection, not an older deep link.
+ await holdLegacy('CIMB',[legacyRecord('CIMB','MY')]);await read('MSFT','US');await heading('Growth and positive earnings reported');
+ listHold=false;releaseList();await page.waitForTimeout(150);assert.equal(await page.locator('h1').innerText(),'MSFT');assert.deepEqual(providerReads,[{symbol:'MSFT',market:'US'}]);
+ await page.goBack();await page.getByRole('heading',{name:'Saved CIMB',exact:true}).waitFor();await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200');assert.equal(new URL(page.url()).searchParams.get('market'),'MY');
+ watchlistFails=true;providerReads.length=0;await page.reload();await heading('Growth and positive earnings reported');assert.deepEqual(providerReads,[{symbol:'CIMB',market:'MY'}]);
+ await page.goForward();await page.getByRole('heading',{name:'MSFT',exact:true}).waitFor();await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');
+ // Unambiguous Malaysian ticker forms retain independent reads during a list failure.
+ watchlistFails=true;
+ for(const symbol of ['5347','5347.KL','MAYBANK','KLCI']) {
+  providerReads.length=0;await page.goto(`${base}/research-v8?ticker=${symbol}`);await page.getByTestId('research-price').filter({hasText:'MYR 200'}).waitFor();assert.deepEqual(providerReads,[{symbol,market:'MY'}]);
+ }
  await page.goto(`${base}/main-v8`);
  await page.getByRole('region',{name:'Current market assessment',exact:true}).waitFor();
  marketScoreCase='unchanged';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/Score unchanged.*Individual inputs can still differ/}).waitFor();
@@ -117,6 +162,14 @@ try {
  const marketAssessment=page.getByRole('region',{name:'Current market assessment',exact:true});
  await marketAssessment.getByRole('heading',{name:'What this reading means'}).waitFor();
  await marketAssessment.getByText(/Reading limits:/).waitFor();
+ await marketAssessment.getByText(/In Momentum mode, higher scores support positive momentum/).waitFor();
+ await page.getByRole('button',{name:'Advanced tools',exact:true}).click();
+ for(const mode of ['Contrarian','Momentum','Contrarian','Momentum']) {
+  await page.getByRole('button',{name:mode,exact:true}).click();
+  await marketAssessment.getByText(mode==='Contrarian'?/In Contrarian mode, higher scores indicate crowding or greed risk/:/In Momentum mode, higher scores support positive momentum/).waitFor();
+  if(mode==='Contrarian'){await noOverflow();await page.screenshot({path:`${out}/market-contrarian-${width}.png`,fullPage:true});}
+ }
+ await page.getByRole('button',{name:'Back to basic view',exact:true}).click();
  const evidenceBoxes=await marketAssessment.locator('button').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};}));
  assert.ok(evidenceBoxes.every(r=>r.height>=44&&r.x>=-1&&r.x+r.width<=width+1),'Market evidence buttons must fit and be touch-sized');
  await noOverflow();await page.screenshot({path:`${out}/market-summary-${width}.png`,fullPage:true});
@@ -125,7 +178,7 @@ try {
  await page.getByRole('heading',{name:'US VIX (FX proxy unavailable)',exact:true}).waitFor();
  assert.ok((await page.getByText('Observation date unavailable',{exact:true}).count())>0);
  await noOverflow();await page.screenshot({path:`${out}/market-${width}.png`,fullPage:true});
- assert.deepEqual(errors,[]);report.push({width,passed:true,scenarios:['financial refresh unchanged/changed/error/retry','visible limitations and evidence states','Market unchanged/unavailable score comparison and keyboard inspector','US unsaved','MY unsaved','partial','missing','ETF/bank/unknown unsupported with facts retained','mismatched response rejected','rapid selection/late response','save failure and explicit retry','no manufactured decision','saved-list failure independence','overflow and control geometry','Market fallback provenance and observation-date limitation'],formBoxes});await context.close();
+ assert.deepEqual(errors,[]);report.push({width,passed:true,scenarios:['financial refresh unchanged/changed/error/retry','visible limitations and evidence states','Market unchanged/unavailable score comparison and keyboard inspector','US unsaved','MY unsaved','partial','missing','ETF/bank/unknown unsupported with facts retained','mismatched response rejected','rapid selection/late response','save failure and explicit retry','no manufactured decision','saved-list failure independence','legacy MY/US deferred market resolution','failed/empty legacy links require market choice','explicit market beats conflicting saved record','late saved list preserves newer selection and Back/Forward','canonical legacy link reload failure','unambiguous MY legacy forms','overflow and control geometry','Market fallback provenance and observation-date limitation'],formBoxes});await context.close();
  }
 } finally {await browser.close();await writeFile(`${out}/report.json`,JSON.stringify({dataMode:'Synthetic API fixtures; no live database writes or provider verification',results:report},null,2));}
 console.log(`Unsaved Research browser QA passed at ${report.map(r=>r.width).join(', ')}px.`);

@@ -16,6 +16,8 @@ node (Join-Path $PSScriptRoot "research-currency-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "Research currency regression failed with exit code $LASTEXITCODE" }
 node (Join-Path $PSScriptRoot "market-request-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "Market request regression failed with exit code $LASTEXITCODE" }
+node (Join-Path $PSScriptRoot "market-assessment-regression.mjs")
+if ($LASTEXITCODE -ne 0) { throw "Market assessment regression failed with exit code $LASTEXITCODE" }
 
 node (Join-Path $PSScriptRoot "research-trust-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "Research trust regression failed with exit code $LASTEXITCODE" }
