@@ -229,3 +229,12 @@ This is a conservative name-based exclusion, not a comprehensive sector classifi
 unrecognized specialized companies remain a limitation. Facts and financial tables remain
 available even when the assessment is withheld. Existing three-input, source, period and
 age rules still apply. No sector/fund analytical models were added.
+
+### Research security lookup
+
+`ResearchSecurityLookup` owns transient query/result state and cancellation. `/api/research/search`
+validates inputs; `security-search.ts` validates fixed-origin Yahoo responses and supported listing
+identity. `security-classification.ts` independently resolves exact-ticker sector/industry metadata
+for the snapshot, with a bounded-age cache. Current assessment eligibility consumes that metadata
+and fails closed on missing/unsupported classification. Selection and search never mutate saved
+Research. See WORKFLOWS.md for privacy, caching and stage-timing contracts.

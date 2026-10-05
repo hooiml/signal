@@ -13,6 +13,7 @@ function snapshot(symbol,market) {
  const r=structuredClone(researchSnapshotFixture);
  Object.assign(r.data,{symbol,market,fetchedAt:new Date().toISOString()});
  Object.assign(r.data.quote,{name:symbol==='MAYBANK'?'Malayan Banking Berhad':`Fixture ${symbol}`,price:symbol==='MSFT'?400:200,currency:market==='MY'?'MYR':'USD',instrumentType:symbol==='VOO'?'ETF':'EQUITY',observedAt:'2026-10-02T20:00:00.000Z'});
+ r.data.quote.classification={source:'Yahoo Finance',instrumentType:r.data.quote.instrumentType==='ETF'?'ETF':'EQUITY',sector:symbol==='MAYBANK'?'Financial Services':'Technology',industry:symbol==='MAYBANK'?'Banks—Regional':'Consumer Electronics',retrievedAt:new Date().toISOString()};
  Object.assign(r.data.fundamentals,{source:market==='MY'?'Yahoo Finance':'SEC EDGAR',reportingPeriod:'2025-12-31',revenueGrowthPercent:10,annualRevenue:1000,annualNetIncome:100,freeCashFlow:80});
  r.data.fundamentals.history=[{...r.data.fundamentals,currency:market==='MY'?'MYR':'USD'}];
  r.data.warnings=[];
@@ -26,13 +27,20 @@ function snapshot(symbol,market) {
 try {
  for(const width of [1280,768,375]){
  const context=await browser.newContext({viewport:{width,height:900},serviceWorkers:'block'});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
- page.on('console',m=>{if(m.type()==='error'&&!/status of (500|503)/.test(m.text()))errors.push(m.text());});
+ page.on('console',m=>{if(m.type()==='error'&&!/status of (500|502|503)/.test(m.text()))errors.push(m.text());});
  page.on('requestfailed',r=>{if(!/ERR_ABORTED/.test(r.failure()?.errorText??''))errors.push(r.failure()?.errorText);});
- const posts=[];let list=[];let release;let held;let watchlistFails=false;let saveFails=false;let listHold;let releaseList;let revisedIncome=false;let providerFails=false;let marketScoreCase='normal';
+ const posts=[];let list=[];let release;let held;let watchlistFails=false;let saveFails=false;let listHold;let releaseList;let revisedIncome=false;let providerFails=false;let marketScoreCase='normal';let searchFails=false;let searchHold=false;let releaseSearch;const searches=[];
  await context.route('**/api/**',async route=>{
   const req=route.request(),u=new URL(req.url());
   if(u.pathname==='/api/signals/v2'){const f=marketRequestFixture();const response=await f.route.GET(f.request(u.search.slice(1)));const payload=await response.json();if(marketScoreCase==='unchanged')payload.data.metadata.score_delta.delta=0;if(marketScoreCase==='missing')delete payload.data.metadata.score_delta;return route.fulfill({json:payload});}
   if(u.pathname.startsWith('/api/signals/'))return route.fulfill({status:503,json:{success:false,error:'Fixture archive unavailable'}});
+  if(u.pathname==='/api/research/search') {
+   const q=u.searchParams.get('q'),market=u.searchParams.get('market');searches.push({q,market});
+   if(searchHold)await new Promise(resolve=>{releaseSearch=resolve;});
+   if(searchFails)return route.fulfill({status:502,json:{success:false,error:'Fixture search unavailable'}});
+   const rows=q==='No results'?[]:market==='MY'?[{symbol:'5347.KL',name:'Tenaga Nasional Berhad',market:'MY',exchange:'Kuala Lumpur Stock Exchange',instrumentType:'EQUITY',sector:'Utilities',industry:'Utilities—Regulated Electric'}]:[{symbol:'AAPL',name:'Apple Inc.',market:'US',exchange:'NASDAQ',instrumentType:'EQUITY',sector:'Technology',industry:'Consumer Electronics'},{symbol:'AAPX',name:'Apple leveraged ETF',market:'US',exchange:'BATS Trading',instrumentType:'ETF',sector:null,industry:null}];
+   return route.fulfill({json:{success:true,data:rows}}).catch(()=>{});
+  }
   if(u.pathname==='/api/research/watchlist') {
    if(req.method()==='POST') {const body=req.postDataJSON();posts.push(body);if(saveFails)return route.fulfill({status:500,json:{success:false,error:'fixture save failure'}});const record={...structuredClone(saved),symbol:body.symbol,market:body.market,companyName:body.companyName,thesisStrength:'unknown',whyInterested:'',notes:'',decisionJournal:{...saved.decisionJournal,decision:'Not recorded',confidence:'unrecorded'},reviewHistory:[]};list=[record];return route.fulfill({status:201,json:{success:true,data:record}});}
    const capturedList=structuredClone(list);if(listHold)await new Promise(resolve=>{releaseList=resolve;});
@@ -47,11 +55,26 @@ try {
   }
   assert.equal(req.method(),'GET','No unexpected mutation');return route.fulfill({json:{success:true,data:[]}});
  });
- async function read(symbol,market='US') {await page.getByLabel('Security ticker',{exact:true}).fill(symbol);await page.getByLabel('Lookup market',{exact:true}).selectOption(market);await page.getByRole('button',{name:'Read security',exact:true}).click();}
+ async function read(symbol,market='US') {await page.getByLabel('Company or ticker',{exact:true}).fill(symbol);await page.getByLabel('Lookup market',{exact:true}).selectOption(market);await page.getByRole('button',{name:'Read ticker directly',exact:true}).click();}
  async function heading(text){await page.getByRole('heading',{name:text,exact:true}).waitFor();}
  async function noOverflow(){assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Overflow ${width}`);}
  await page.goto(`${base}/research-v8?ticker=AAPL&market=US`);
  await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 200');assert.equal(posts.length,0);
+ // Name search never navigates or saves until a result is explicitly selected.
+ const searchInput=page.getByLabel('Company or ticker',{exact:true});
+ const find=()=>page.getByRole('button',{name:'Find security',exact:true}).click();
+ await searchInput.fill('Apple');assert.equal(searches.length,0);await find();
+ const results=page.getByRole('list',{name:'Security search results'});await results.getByRole('button',{name:/Apple Inc/}).waitFor();
+ assert.equal(await page.locator('h1').innerText(),'AAPL');assert.equal(posts.length,0);
+ await noOverflow();await page.screenshot({path:`${out}/lookup-${width}.png`,fullPage:true});
+ await results.getByRole('button',{name:/Apple Inc/}).focus();await page.keyboard.press('Enter');await heading('Growth and positive earnings reported');assert.equal(await results.count(),0);
+ await searchInput.fill('Tenaga');await page.getByLabel('Lookup market',{exact:true}).selectOption('MY');await find();await results.getByRole('button',{name:/Tenaga/}).click();await heading('Growth and positive earnings reported');assert.equal(await page.locator('h1').innerText(),'5347.KL');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200');assert.equal(posts.length,0);
+ await searchInput.fill('No results');await find();await page.getByText(/No supported listings found/).waitFor();assert.equal(await page.locator('h1').innerText(),'5347.KL');
+ searchFails=true;await searchInput.fill('Apple');await page.getByLabel('Lookup market',{exact:true}).selectOption('US');await find();await page.getByRole('alert').filter({hasText:'Security search is unavailable'}).waitFor();searchFails=false;await find();await results.getByRole('button',{name:/Apple Inc/}).waitFor();
+ // A late search must not replace a new query/market or direct selection.
+ searchHold=true;await searchInput.fill('Apple');await find();await page.waitForFunction(()=>document.querySelector('button[type="submit"]')?.textContent==='Searching…');await page.waitForTimeout(100);
+ await searchInput.fill('5347');await page.getByLabel('Lookup market',{exact:true}).selectOption('MY');await page.getByRole('button',{name:'Read ticker directly',exact:true}).click();await heading('Growth and positive earnings reported');searchHold=false;releaseSearch();await page.waitForTimeout(150);assert.equal(await results.count(),0);assert.equal(await page.locator('h1').innerText(),'5347');
+ await read('AAPL');await heading('Growth and positive earnings reported');
  await noOverflow();await page.screenshot({path:`${out}/research-${width}.png`,fullPage:true});
  const formBoxes=await page.getByRole('form',{name:'Security lookup'}).locator('input,select,button').evaluateAll(nodes=>nodes.map(node=>{const b=node.getBoundingClientRect();return {x:b.x,y:b.y,width:b.width,height:b.height}}));
  for(let i=0;i<formBoxes.length;i++)for(let j=i+1;j<formBoxes.length;j++){const a=formBoxes[i],b=formBoxes[j];assert.ok(a.x+a.width<=b.x+1||b.x+b.width<=a.x+1||a.y+a.height<=b.y+1||b.y+b.height<=a.y+1,'Lookup controls overlap');}

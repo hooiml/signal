@@ -18,7 +18,14 @@ const isNullableString = (value: unknown) => value === null || typeof value === 
 
 const isResearchQuote = (value: unknown): value is ResearchSnapshot['quote'] => {
     if (!isRecord(value)) return false;
-    return isNullableString(value.name)
+    const classification = value.classification;
+    const validClassification = classification === undefined || classification === null || (isRecord(classification)
+        && classification.source === 'Yahoo Finance'
+        && (classification.instrumentType === 'EQUITY' || classification.instrumentType === 'ETF')
+        && isNullableString(classification.sector) && isNullableString(classification.industry)
+        && typeof classification.retrievedAt === 'string' && Number.isFinite(Date.parse(classification.retrievedAt)));
+    return validClassification && (value.instrumentType === undefined || isNullableString(value.instrumentType))
+        && isNullableString(value.name)
         && isNullableString(value.currency)
         && hasNullableNumbers(value, ['price', 'dailyChangePercent']);
 };

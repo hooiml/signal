@@ -20,4 +20,7 @@ if ($LASTEXITCODE -ne 0) { throw "Market request regression failed with exit cod
 node (Join-Path $PSScriptRoot "research-trust-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "Research trust regression failed with exit code $LASTEXITCODE" }
 
+node (Join-Path $PSScriptRoot "security-search-regression.mjs")
+if ($LASTEXITCODE -ne 0) { throw "Security search regression failed with exit code $LASTEXITCODE" }
+
 Write-Host "Repo harness checks passed."

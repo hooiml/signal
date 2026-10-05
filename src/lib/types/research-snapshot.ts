@@ -67,6 +67,13 @@ export type ResearchSnapshot = {
     readonly benchmark: ResearchBenchmark;
     readonly quote: {
         readonly instrumentType?: string | null;
+        readonly classification?: {
+            readonly source: 'Yahoo Finance';
+            readonly instrumentType: 'EQUITY' | 'ETF';
+            readonly sector: string | null;
+            readonly industry: string | null;
+            readonly retrievedAt: string;
+        } | null;
         readonly observedAt?: string | null;
         readonly name: string | null;
         readonly currency: string | null;

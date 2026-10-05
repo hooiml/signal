@@ -42,12 +42,12 @@ const {archivedSeries,indicatorStatus}=load('src/components/v8/MarketV8Connected
 assert.equal(indicatorStatus(my.v2,'vix','2026-10-03'),'Observation date unavailable');
 assert.deepEqual(archivedSeries('vix',[{date:'2026-10-01'},{date:'2026-10-02'}],{'2026-10-01':{components:[{key:'vix',rawValue:20,displayName:'USD/MYR Volatility'}]},'2026-10-02':{components:[{key:'vix',rawValue:12,displayName:indicator.display_name}]}},indicator.display_name),[[{date:'2026-10-02',value:12}]]);
 const {assessCurrentResearch,compareResearchEvidence}=load('src/lib/research/current-assessment.ts');
-const snapshot=structuredClone(researchSnapshotFixture.data);snapshot.fetchedAt=new Date().toISOString();snapshot.quote.instrumentType='EQUITY';snapshot.quote.name='Fixture Industrial';Object.assign(snapshot.fundamentals,{source:'SEC EDGAR',reportingPeriod:'2025-12-31',revenueGrowthPercent:10,annualNetIncome:100,freeCashFlow:80});snapshot.warnings=[];
+const snapshot=structuredClone(researchSnapshotFixture.data);snapshot.fetchedAt=new Date().toISOString();snapshot.quote.instrumentType='EQUITY';snapshot.quote.name='Fixture Industrial';snapshot.quote.classification={source:'Yahoo Finance',instrumentType:'EQUITY',sector:'Industrials',industry:'Industrial Products',retrievedAt:new Date().toISOString()};Object.assign(snapshot.fundamentals,{source:'SEC EDGAR',reportingPeriod:'2025-12-31',revenueGrowthPercent:10,annualNetIncome:100,freeCashFlow:80});snapshot.warnings=[];
 const assess=()=>assessCurrentResearch(snapshot,Date.now());assert.equal(assess().headline,'Growth and positive earnings reported');
 snapshot.market='MY';snapshot.fundamentals.source='Yahoo Finance';assert.equal(assess().coverage,3);
 snapshot.quote.instrumentType='ETF';assert.equal(assess().applicable,false);assert.equal(snapshot.fundamentals.annualNetIncome,100);
 snapshot.quote.instrumentType=null;assert.equal(assess().applicable,false);
-snapshot.quote.instrumentType='EQUITY';snapshot.quote.name='Malayan Banking Berhad';assert.equal(assess().applicable,false);
+snapshot.quote.instrumentType='EQUITY';snapshot.quote.name='Malayan Banking Berhad';snapshot.quote.classification.sector='Financial Services';assert.equal(assess().applicable,false);snapshot.quote.classification.sector='Industrials';
 snapshot.quote.name='Fixture Industrial';snapshot.fundamentals.freeCashFlow=null;assert.equal(assess().headline,'Partial financial picture');
 snapshot.fundamentals.source=null;assert.equal(assess().headline,'Not enough financial data');
 // Identical headlines must not imply unchanged evidence; fresh retrieval is not new reporting.

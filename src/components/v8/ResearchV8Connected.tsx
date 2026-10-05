@@ -8,6 +8,7 @@ import { researchWorkspaceGroups } from '@/lib/research/workspace-navigation';
 import { parseResearchRecord } from '@/lib/research/input';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
+import { ResearchSecurityLookup } from './ResearchSecurityLookup';
 import { ResearchCurrentAssessment } from './ResearchCurrentAssessment';
 import { ResearchConnectedPanel } from './ResearchV8ConnectedPanels';
 import { date, money, number, parseWatchlist, researchHref, researchTabs, retrievedAt, type ResearchTab } from './research-v8-connected-data';
@@ -19,9 +20,6 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
     const [records, setRecords] = useState<ResearchRecord[] | null>(null);
     const [selected, setSelected] = useState(initialTicker);
     const [selectedMarket, setSelectedMarket] = useState<ResearchMarket | undefined>(initialMarket);
-    const [lookup, setLookup] = useState('');
-    const [lookupMarket, setLookupMarket] = useState<ResearchMarket>(initialMarket ?? 'US');
-    const [lookupError, setLookupError] = useState('');
     const [tab, setTab] = useState<ResearchTab>('Overview');
     const [advanced, setAdvanced] = useState(false);
     const [chartRange, setChartRange] = useState('3M');
@@ -128,17 +126,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                     {advanced && <button className={connected.actionButton} aria-haspopup="dialog" aria-expanded={panel === 'tools'} disabled={!record} onClick={event => openPanel('tools', event.currentTarget)}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h16v12H4zM9 8V4h6v4M4 13h16M10 13v3h4v-3" /></svg>Workspaces<span aria-hidden="true">⌄</span></button>}
                 </div>
             </section>
-            <form className={`${styles.toolbar} ${connected.toolbar}`} aria-label="Security lookup" onSubmit={event => {
-                event.preventDefault();
-                const symbol = lookup.trim().toUpperCase();
-                if (!/^[A-Z0-9.-]{1,15}$/.test(symbol)) { setLookupError('Enter a ticker using letters, numbers, dots or hyphens (up to 15 characters).'); return; }
-                setLookupError(''); navigate(symbol, 'Overview', true, lookupMarket);
-            }}>
-                <label className={styles.search}><span>Security ticker</span><span className={styles.searchField}><input type="search" placeholder="AAPL, 5347, MAYBANK…" value={lookup} onChange={event => setLookup(event.target.value)} /></span></label>
-                <label className={styles.stateControl}>Lookup market<select aria-label="Lookup market" value={lookupMarket} onChange={event => setLookupMarket(event.target.value as ResearchMarket)}><option value="US">US</option><option value="MY">Malaysia</option></select></label>
-                <button className={base.primaryButton} type="submit">Read security</button>
-            </form>
-            {lookupError && <p role="alert">{lookupError}</p>}
+            <ResearchSecurityLookup initialMarket={initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} />
             <div role="status">{loading && <p>Refreshing saved research…</p>}{error && <p className={connected.warning}>Saved research could not be refreshed. {records ? 'The previously loaded records remain visible.' : 'No example records have been substituted.'} Retry with Reload saved research.</p>}</div>
             <dialog ref={panelRef} className={connected.utilityPanel} aria-labelledby="research-utility-title" onClose={() => { setPanel(null); panelTrigger.current?.focus(); }} onKeyDownCapture={event => { if (event.key === 'Escape') { event.preventDefault(); event.currentTarget.close(); } }} onClick={event => {
                 const bounds = event.currentTarget.getBoundingClientRect();

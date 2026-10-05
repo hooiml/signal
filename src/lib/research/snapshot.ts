@@ -4,6 +4,7 @@ import { buildResearchBenchmark, notApplicableResearchBenchmark } from './benchm
 import { fetchSecFundamentals } from './sec-edgar';
 import { fetchYahooResearch } from './yahoo-research';
 import { fetchYahooFundamentalHistory } from './yahoo-fundamentals';
+import { getSecurityClassification } from './security-classification';
 import { calculateValuation } from './valuation';
 
 const emptyFundamentals: ResearchSnapshot['fundamentals'] = {
@@ -37,15 +38,28 @@ const fundamentalsFromHistory = (
 
 const message = (error: unknown) => error instanceof Error ? error.message : 'Unknown provider error.';
 
-export const getResearchSnapshot = async (symbol: string, market: ResearchMarket): Promise<ResearchSnapshot> => {
-    const yahooPromise = fetchYahooResearch(symbol, market);
-    const fundamentalsPromise: Promise<ResearchSnapshot['fundamentals']> = market === 'US'
+export type ResearchSnapshotStage = 'quote' | 'fundamentals' | 'benchmark' | 'classification' | 'assembly';
+
+export const getResearchSnapshot = async (
+    symbol: string,
+    market: ResearchMarket,
+    onTiming?: (stage: ResearchSnapshotStage, durationMs: number) => void,
+): Promise<ResearchSnapshot> => {
+    const measured = async <T>(stage: ResearchSnapshotStage, operation: () => Promise<T>): Promise<T> => {
+        const started = performance.now();
+        try { return await operation(); }
+        finally { onTiming?.(stage, performance.now() - started); }
+    };
+    const yahooPromise = measured('quote', () => fetchYahooResearch(symbol, market));
+    const fundamentalsPromise = measured('fundamentals', () => market === 'US'
         ? fetchSecFundamentals(symbol)
-        : fetchYahooFundamentalHistory(symbol, market).then(fundamentalsFromHistory);
-    const benchmarkPromise = market === 'US' && symbol !== 'VOO' ? fetchYahooResearch('VOO', 'US') : Promise.resolve(null);
-    const [yahoo, fundamentalResult, benchmark] = await Promise.allSettled([yahooPromise, fundamentalsPromise, benchmarkPromise]);
+        : fetchYahooFundamentalHistory(symbol, market).then(fundamentalsFromHistory));
+    const benchmarkPromise = market === 'US' && symbol !== 'VOO' ? measured('benchmark', () => fetchYahooResearch('VOO', 'US')) : Promise.resolve(null);
+    const classificationPromise = measured('classification', () => getSecurityClassification(symbol, market));
+    const [yahoo, fundamentalResult, benchmark, classification] = await Promise.allSettled([yahooPromise, fundamentalsPromise, benchmarkPromise, classificationPromise]);
     if (yahoo.status === 'rejected' && fundamentalResult.status === 'rejected') throw new Error(`Free data sources unavailable: ${message(yahoo.reason)} ${message(fundamentalResult.reason)}`);
 
+    const assemblyStarted = performance.now();
     const warnings: string[] = [];
     if (yahoo.status === 'rejected') warnings.push(message(yahoo.reason));
     if (fundamentalResult.status === 'rejected') warnings.push(message(fundamentalResult.reason));
@@ -65,12 +79,13 @@ export const getResearchSnapshot = async (symbol: string, market: ResearchMarket
         debt: fundamentals.debt,
         cash: fundamentals.cash,
     });
-    return {
+    const snapshot: ResearchSnapshot = {
         symbol,
         market,
         fetchedAt: new Date().toISOString(),
         benchmark: market === 'US' ? buildResearchBenchmark(yahooData, benchmarkData) : notApplicableResearchBenchmark,
         quote: {
+            classification: classification.status === 'fulfilled' ? classification.value : null,
             instrumentType: yahooData?.instrumentType ?? null,
             observedAt: yahooData?.observedAt ?? null,
             name: yahooData?.name ?? null,
@@ -97,4 +112,6 @@ export const getResearchSnapshot = async (symbol: string, market: ResearchMarket
         ].filter((source): source is string => source !== null))],
         warnings,
     };
+    onTiming?.('assembly', performance.now() - assemblyStarted);
+    return snapshot;
 };

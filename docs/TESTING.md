@@ -642,3 +642,16 @@ it with invented operator contact details. Report a blocked supported US case as
 per saved/unsaved journey against a local production server. `CHROME_PATH` is optional.
 See `docs/research-trust-implementation-2026-10-03.md` for the measured baseline, live
 provider boundaries, corrections affecting results/eligibility and remaining acceptance gaps.
+
+### Company lookup and eligibility
+
+`node scripts/harness/security-search-regression.mjs` checks provider allowlists, malformed
+responses, bounded results, exact-symbol classification, missing/stale/unsupported sectors,
+route validation, generic provider errors and parallel snapshot timing. It isolates network
+boundaries. `research-unsaved-qa.mjs` also verifies name search, explicit keyboard selection,
+US/MY result identity, empty/failure/retry states, late searches, direct lookup and no save on search
+at 1280/768/375 widths. Search screenshots are included in the existing browser artifact.
+
+`node scripts/research-provider-probe.mjs` is a read-only live-provider diagnostic for fixed
+public companies. Its output is separate from fixture proof. Success/failure is reported per
+query; its process success alone is not evidence that every provider case passed.

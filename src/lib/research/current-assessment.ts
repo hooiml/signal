@@ -47,21 +47,25 @@ export function assessCurrentResearch(snapshot: ResearchSnapshot | null, now: nu
     if (snapshot?.warnings.length) gaps.push('Provider coverage is limited. Source notices below explain which data could not be supplied.');
     gaps.push('These figures do not establish fair value, debt safety, or suitability. Company measures may not apply to funds or some sectors.');
 
-    // Conservative exclusions, not a sector classifier or a new analytical model.
-    // Legacy payloads lacking instrument metadata fail closed; facts remain available.
     const type = snapshot?.quote.instrumentType?.toUpperCase();
-    const financialName = /bank|bancorp|financial|insurance|assurance|reit|investment trust/i.test(snapshot?.quote.name ?? '');
-    const applicable = type === 'EQUITY' && !financialName;
+    const classification = snapshot?.quote.classification;
+    const classifiedAt = classification ? Date.parse(classification.retrievedAt) : NaN;
+    const knownSector = new Set(['Basic Materials', 'Communication Services', 'Consumer Cyclical',
+        'Consumer Defensive', 'Energy', 'Healthcare', 'Industrials', 'Real Estate', 'Technology', 'Utilities']);
+    const classificationCurrent = classification?.source === 'Yahoo Finance' && Number.isFinite(classifiedAt)
+        && classifiedAt <= now && now - classifiedAt <= 2 * DAY;
+    const applicable = type === 'EQUITY' && classificationCurrent && classification?.instrumentType === type
+        && knownSector.has(classification.sector ?? '') && !!classification.industry && !/^REIT(?:\W|$)/i.test(classification.industry);
     if (snapshot && !applicable) return {
         status: 'unsupported',
-        applicable, headline: 'Assessment not supported for this security',
-        summary: type !== 'EQUITY' ? 'This company assessment requires provider identification as an equity. Funds, indices, other instruments and unidentified types are not assessed. Available facts remain below.' : 'The returned name may identify a financial business or property trust. These general company checks are not applied; available facts remain below.',
+        applicable: !!applicable, headline: 'Assessment not supported for this security',
+        summary: type !== 'EQUITY' ? 'This company assessment requires provider identification as an equity. Funds, indices, other instruments and unidentified types are not assessed. Available facts remain below.' : !classificationCurrent || !classification?.sector || !classification.industry || classification.instrumentType !== type ? 'Current sector and industry classification could not be verified for this listing. Company checks are withheld; available facts remain below.' : 'The provider classification is outside the supported company checks, including financial businesses and REITs. Available facts remain below.',
         supporting: [], concerns: [], gaps, coverage,
         watchNext: 'Inspect the sourced facts and issuer report using measures appropriate to this instrument.',
     };
     const limited = coverage < 3;
     return {
-        applicable,
+        applicable: !!applicable,
         status: !snapshot || coverage === 0 ? 'insufficient' : oldSnapshot || oldPeriod ? 'outdated' : limited ? 'partial' : 'available',
         headline: !snapshot || coverage === 0 ? 'Not enough financial data' : oldSnapshot || oldPeriod ? 'Older data · assessment limited' : limited ? 'Partial financial picture' : concerns.length ? 'Reported financial pressures' : f?.revenueGrowthPercent === 0 ? 'Stable revenue and positive earnings reported' : 'Growth and positive earnings reported',
         summary: !snapshot ? 'An assessment will appear when provider data is available. No notes or checklist are required.' : 'A rules-based summary of the latest returned annual figures. This is evidence about the business, not a buy or sell decision.',
@@ -79,6 +83,7 @@ export function compareResearchEvidence(previous: ResearchSnapshot | null, curre
     if (after.status === 'insufficient') return 'Insufficient financial evidence returned. No unchanged-business conclusion can be drawn.';
     if (after.status === 'outdated') return 'Older or unverifiable data returned. A successful refresh does not establish current financial evidence.';
     if (before.status !== after.status) return 'Assessment coverage or availability changed. Review the evidence and limitations below.';
+    if (JSON.stringify(previous.quote.classification && { sector: previous.quote.classification.sector, industry: previous.quote.classification.industry }) !== JSON.stringify(current.quote.classification && { sector: current.quote.classification.sector, industry: current.quote.classification.industry })) return 'Provider classification changed. Review assessment applicability and source details.';
     const a = previous.fundamentals, b = current.fundamentals;
     if (a.source !== b.source || a.reportingPeriod !== b.reportingPeriod) return 'Financial source or reporting period changed. Review the returned figures; this does not by itself show improvement.';
     if ([a.revenueGrowthPercent !== b.revenueGrowthPercent, a.annualNetIncome !== b.annualNetIncome, a.freeCashFlow !== b.freeCashFlow].some(Boolean)) return 'Financial summary inputs changed since the previous successful read in this session.';
