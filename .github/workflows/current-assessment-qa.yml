@@ -23,6 +23,8 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - name: Inspect public search provider contract
+        run: node scripts/research-provider-probe.mjs
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run harness

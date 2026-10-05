@@ -202,3 +202,9 @@ nested inside `signal_cache` and `signal`; do not add them together. Calibration
 one-hour cache lookup and any cache-miss work. Score-cache hits and shared waiters report only
 their own cache wait and handler time, without reusing the loader request's stage timings.
 Existing `X-Signal-Cache`, payloads, cache keys/TTL, awaited saving and error behavior are preserved.
+
+## Production bundler
+
+`npm run build` explicitly uses Next.js Webpack. Vercel previews at `46616aa` failed in
+Turbopack's Google font import mapping while clean CI builds passed. This reversible
+workaround preserves fonts and package versions; validate preview builds before promotion.
