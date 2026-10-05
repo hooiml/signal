@@ -116,6 +116,16 @@ if ($Check) {
 
     $existing = (Get-Content -Raw $outputPath) -replace "`r`n", "`n"
     if ($existing -ne $normalizedContent) {
+        $expectedLines = $normalizedContent -split "`n"
+        $actualLines = $existing -split "`n"
+        $shown = 0
+        for ($index = 0; $index -lt [Math]::Max($expectedLines.Count, $actualLines.Count); $index++) {
+            if ($expectedLines[$index] -ne $actualLines[$index]) {
+                Write-Host "Map line $($index + 1): expected [$($expectedLines[$index])], committed [$($actualLines[$index])]"
+                $shown++
+                if ($shown -ge 12) { break }
+            }
+        }
         Write-Error "Generated repo map is stale. Run npm run harness:update-map."
     }
 

@@ -26,6 +26,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run harness
+        id: harness
+        continue-on-error: true
       - run: npm run build
       - run: npx playwright install chromium
       - name: Verify fixture journeys at desktop, tablet and mobile widths
@@ -54,3 +56,6 @@ jobs:
           name: current-assessment-browser-evidence
           path: .tmp/current-assessment/browser/
           if-no-files-found: warn
+      - name: Enforce harness result
+        if: always() && steps.harness.outcome != 'success'
+        run: throw "The required harness failed; see its diagnostics above. Browser results do not waive this gate."
