@@ -4,6 +4,16 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For current-assessment and unsaved Research changes, run `node scripts/research-unsaved-qa.mjs`
+against an owned local production server (`SIGNAL_QA_URL`, default port 3101). The synthetic
+API matrix covers 1280px, 768px and 375px, US/Malaysia unsaved readings, explicit save/error/retry,
+rapid selection, partial/missing/old/unsupported data, changed/unchanged refresh evidence,
+visible limitations, Market summary keyboard inspection, control geometry and overflow.
+Evidence is saved under `.tmp/current-assessment/browser/`. This is not live-provider or
+database verification. The `Current Assessment QA` workflow runs the standard gates and
+this browser matrix on `feat/current-assessment`; it uses a placeholder DB URL and no secrets.
+Live US fundamentals still require the operator's valid `SEC_USER_AGENT` configuration.
+
 The harness also verifies price-unit formatting, preservation of currency in new review
 snapshots, and explicit missing currency for legacy records via
 `node scripts/harness/research-currency-regression.mjs`. Market and Research read fixtures

@@ -5,7 +5,7 @@ import { marketRequestFixture } from './harness/market-request-fixture.mjs';
 import { researchReadFixture, researchSnapshotFixture } from './harness/research-read-fixture.mjs';
 const base=process.env.SIGNAL_QA_URL||'http://127.0.0.1:3101';
 assert.ok(['localhost','127.0.0.1'].includes(new URL(base).hostname),'Fixture QA requires localhost');
-const out='.tmp/bounded-slice/browser';await mkdir(out,{recursive:true});
+const out='.tmp/current-assessment/browser';await mkdir(out,{recursive:true});
 const browser=await chromium.launch({headless:true,...(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{}),args:['--no-sandbox']});
 const report=[];
 const fixture=researchReadFixture(); const saved=(await (await fixture.route.GET()).json()).data[0];
@@ -18,6 +18,7 @@ function snapshot(symbol,market) {
  r.data.warnings=[];
  if(symbol==='PARTIAL'){r.data.fundamentals.freeCashFlow=null;r.data.warnings=['Fixture cash flow unavailable'];}
  if(symbol==='MISSING'){for(const key of ['revenueGrowthPercent','annualNetIncome','freeCashFlow'])r.data.fundamentals[key]=null;}
+ if(symbol==='OLD')r.data.fundamentals.reportingPeriod='2020-12-31';
  if(symbol==='UNKNOWN')r.data.quote.instrumentType=null;
  if(symbol==='WRONG')r.data.symbol='AAPL';
  return r;
@@ -27,7 +28,7 @@ try {
  const context=await browser.newContext({viewport:{width,height:900},serviceWorkers:'block'});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!/status of (500|503)/.test(m.text()))errors.push(m.text());});
  page.on('requestfailed',r=>{if(!/ERR_ABORTED/.test(r.failure()?.errorText??''))errors.push(r.failure()?.errorText);});
- const posts=[];let list=[];let release;let held;let watchlistFails=false;let saveFails=false;let listHold;let releaseList;
+ const posts=[];let list=[];let release;let held;let watchlistFails=false;let saveFails=false;let listHold;let releaseList;let revisedIncome=false;let providerFails=false;
  await context.route('**/api/**',async route=>{
   const req=route.request(),u=new URL(req.url());
   if(u.pathname==='/api/signals/v2'){const f=marketRequestFixture();const response=await f.route.GET(f.request(u.search.slice(1)));return route.fulfill({json:await response.json()});}
@@ -40,7 +41,9 @@ try {
   if(u.pathname.includes('/api/research/symbol/')) {
    const symbol=decodeURIComponent(u.pathname.split('/').at(-1));
    if(symbol==='SLOW') { held=true;await new Promise(r=>{release=r;}); }
-   return route.fulfill({json:snapshot(symbol,u.searchParams.get('market'))}).catch(()=>{});
+   if(providerFails)return route.fulfill({status:503,json:{success:false,error:'Fixture provider unavailable'}});
+   const result=snapshot(symbol,u.searchParams.get('market'));if(revisedIncome)result.data.fundamentals.annualNetIncome=150;
+   return route.fulfill({json:result}).catch(()=>{});
   }
   assert.equal(req.method(),'GET','No unexpected mutation');return route.fulfill({json:{success:true,data:[]}});
  });
@@ -52,9 +55,24 @@ try {
  await noOverflow();await page.screenshot({path:`${out}/research-${width}.png`,fullPage:true});
  const formBoxes=await page.getByRole('form',{name:'Security lookup'}).locator('input,select,button').evaluateAll(nodes=>nodes.map(node=>{const b=node.getBoundingClientRect();return {x:b.x,y:b.y,width:b.width,height:b.height}}));
  for(let i=0;i<formBoxes.length;i++)for(let j=i+1;j<formBoxes.length;j++){const a=formBoxes[i],b=formBoxes[j];assert.ok(a.x+a.width<=b.x+1||b.x+b.width<=a.x+1||a.y+a.height<=b.y+1||b.y+b.height<=a.y+1,'Lookup controls overlap');}
+ const assessment=page.getByRole('region',{name:'Current research assessment',exact:true});
+ await assessment.getByText('3 of 3 financial inputs',{exact:true}).waitFor();
+ await assessment.getByText(/Reading limits:/).waitFor();
+ assert.equal(await assessment.getByText(/No new financial evidence/).count(),0);
+ await page.getByRole('button',{name:'Refresh provider data',exact:true}).click();
+ await assessment.getByText(/No new financial evidence returned/).waitFor();
+ revisedIncome=true;await page.getByRole('button',{name:'Refresh provider data',exact:true}).click();
+ await assessment.getByText(/Financial summary inputs changed/).waitFor();await heading('Growth and positive earnings reported');
+ providerFails=true;await page.getByRole('button',{name:'Refresh provider data',exact:true}).click();
+ await heading('Provider refresh failed · assessment limited');assert.equal(await assessment.getByText(/Financial summary inputs changed/).count(),0);assert.equal(await page.getByTestId('research-price').innerText(),'USD 200');
+ providerFails=false;revisedIncome=false;await page.getByRole('button',{name:'Retry provider data',exact:true}).click();await heading('Growth and positive earnings reported');
+ const geometry=await assessment.locator('h2,h3,button,summary,p,li').evaluateAll(nodes=>nodes.filter(n=>n.getClientRects().length).map(n=>{const r=n.getBoundingClientRect();return {text:n.textContent.slice(0,45),left:r.left,right:r.right,width:r.width};}));
+ assert.ok(geometry.every(r=>r.left>=-1&&r.right<=width+1),'Assessment content outside viewport');
  await read('5347','MY');await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200');assert.equal(posts.length,0);await page.getByRole('tab',{name:'Financials',exact:true}).click();await page.locator('dd').filter({hasText:/^MYR 1,000$/}).waitFor();
  await read('PARTIAL');await heading('Partial financial picture');assert.equal(await page.getByTestId('research-price').innerText(),'USD 200');
- await read('MISSING');await heading('Not enough financial data');
+ await read('MISSING');await heading('Not enough financial data');await assessment.getByText('Insufficient evidence',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Refresh provider data',exact:true}).click();await assessment.getByText(/Insufficient financial evidence returned/).waitFor();assert.equal(await assessment.getByText(/No new financial evidence/).count(),0);
+ await read('OLD');await heading('Older data · assessment limited');await assessment.getByText('Data needs updating',{exact:true}).waitFor();
  for(const symbol of ['VOO','MAYBANK','UNKNOWN']){await read(symbol,symbol==='MAYBANK'?'MY':'US');await heading('Assessment not supported for this security');assert.match(await page.getByTestId('research-price').innerText(),/200/);await page.getByRole('tab',{name:'Financials',exact:true}).click();await page.getByRole('heading',{name:'Business performance'}).waitFor();}
  await read('WRONG');await heading('Provider refresh failed · assessment limited');assert.equal(await page.getByTestId('research-price').innerText(),'Unavailable');
  await read('SLOW');await page.waitForFunction(()=>document.querySelector('h1')?.textContent==='SLOW');assert.equal(await page.getByTestId('research-price').innerText(),'Loading…');await page.waitForTimeout(100);assert.equal(held,true);
@@ -70,11 +88,18 @@ try {
  await page.goto(`${base}/main-v8`);
  await page.getByLabel('Market',{exact:true}).selectOption('MY');
  await page.locator('[data-indicator="vix"]').filter({hasText:'US VIX (FX proxy unavailable)'}).waitFor();
- await page.locator('[data-indicator="vix"]').click();
+ const marketAssessment=page.getByRole('region',{name:'Current market assessment',exact:true});
+ await marketAssessment.getByRole('heading',{name:'What this reading means'}).waitFor();
+ await marketAssessment.getByText(/Reading limits:/).waitFor();
+ const evidenceBoxes=await marketAssessment.locator('button').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};}));
+ assert.ok(evidenceBoxes.every(r=>r.height>=44&&r.x>=-1&&r.x+r.width<=width+1),'Market evidence buttons must fit and be touch-sized');
+ await noOverflow();await page.screenshot({path:`${out}/market-summary-${width}.png`,fullPage:true});
+ await marketAssessment.getByRole('button').first().focus();await page.keyboard.press('Enter');
+
  await page.getByRole('heading',{name:'US VIX (FX proxy unavailable)',exact:true}).waitFor();
  assert.ok((await page.getByText('Observation date unavailable',{exact:true}).count())>0);
  await noOverflow();await page.screenshot({path:`${out}/market-${width}.png`,fullPage:true});
- assert.deepEqual(errors,[]);report.push({width,passed:true,scenarios:['US unsaved','MY unsaved','partial','missing','ETF/bank/unknown unsupported with facts retained','mismatched response rejected','rapid selection/late response','save failure and explicit retry','no manufactured decision','saved-list failure independence','overflow and control geometry','Market fallback provenance and observation-date limitation'],formBoxes});await context.close();
+ assert.deepEqual(errors,[]);report.push({width,passed:true,scenarios:['financial refresh unchanged/changed/error/retry','visible limitations and evidence states','Market summary keyboard inspector','US unsaved','MY unsaved','partial','missing','ETF/bank/unknown unsupported with facts retained','mismatched response rejected','rapid selection/late response','save failure and explicit retry','no manufactured decision','saved-list failure independence','overflow and control geometry','Market fallback provenance and observation-date limitation'],formBoxes});await context.close();
  }
 } finally {await browser.close();await writeFile(`${out}/report.json`,JSON.stringify({dataMode:'Synthetic API fixtures; no live database writes or provider verification',results:report},null,2));}
 console.log(`Unsaved Research browser QA passed at ${report.map(r=>r.width).join(', ')}px.`);

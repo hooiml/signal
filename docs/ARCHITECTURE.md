@@ -191,6 +191,21 @@ remain accessible, with normalization/weight details disclosed separately. Versi
 
 ### Unsaved Research reading (October 2026)
 
+The current assessment exposes available, partial, outdated, insufficient and unsupported
+evidence states beside its conclusion, with source/reporting/retrieval dates and visible
+limitations. Refresh compares only the previous successful response for the same mounted
+market/security: identical returned financial inputs/source/period are labelled no new
+financial evidence for the summary. Changed inputs, source/period, coverage and provider
+notices are distinguished. Quote changes alone do not imply new financial evidence.
+Failed or pending refreshes suppress the comparison; selection changes reset it. This
+comparison is session-only and does not write research, generate decisions or change
+assessment eligibility, freshness conventions or calculated values.
+
+Market presents the largest-weight included supporting/conflicting observations beside
+the existing score, with source status and access to the existing inspector. An unchanged
+score is explicitly separate from unchanged inputs. Score semantics, configuration and
+historical replay remain unchanged; the current summary is hidden during historical replay.
+
 V8 accepts `ticker` and `market=US|MY` independently of the watchlist. The keyed
 `market:symbol` reading starts provider work without waiting for saved records; aborted or
 mismatched responses cannot populate a different selection. Missing watchlist access does

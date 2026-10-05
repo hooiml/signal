@@ -181,7 +181,8 @@ function ConnectedCase({ symbol, market, record, onSaved, advanced, tab, setTab,
     }
     const [assessmentTime, setAssessmentTime] = useState(() => Date.now());
     const [chartDate, setChartDate] = useState<string | null>(null);
-    const [snapshot, setSnapshot] = useState<ResearchSnapshot | null>(null);
+    const [readings, setReadings] = useState<{ current: ResearchSnapshot | null; previous: ResearchSnapshot | null }>({ current: null, previous: null });
+    const snapshot = readings.current;
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
     const [refresh, setRefresh] = useState(0);
@@ -190,7 +191,7 @@ function ConnectedCase({ symbol, market, record, onSaved, advanced, tab, setTab,
         let active = true;
         readData(`/api/research/symbol/${encodeURIComponent(symbol)}?market=${market}`, controller.signal, readPolicies.provider)
             .then(parseResearchSnapshotResponse)
-            .then(next => { if (next.symbol !== symbol || next.market !== market) throw new Error('Security mismatch'); if (active) { setSnapshot(next); setAssessmentTime(Date.now()); } })
+            .then(next => { if (next.symbol !== symbol || next.market !== market) throw new Error('Security mismatch'); if (active) { setReadings(previous => ({ current: next, previous: previous.current })); setAssessmentTime(Date.now()); } })
             .catch(() => { if (active) setError(true); })
             .finally(() => { if (active) setLoading(false); });
         return () => { active = false; controller.abort(); };
@@ -211,7 +212,7 @@ function ConnectedCase({ symbol, market, record, onSaved, advanced, tab, setTab,
         <div className={`${styles.workspace} ${connected.focusedWorkspace}`}>
             <article className={styles.case} aria-label={`${symbol} research`}>
                 <section className={`${styles.reading} ${connected.summary} ${!advanced ? connected.basicSummary : ''}`} aria-label="Research status"><div><small>Latest returned price</small><strong data-testid="research-price">{loading && !snapshot ? 'Loading…' : money(snapshot?.quote.price, snapshot?.quote.currency)}</strong><span>Quote observed: {snapshot?.quote.observedAt ? retrievedAt(snapshot.quote.observedAt) : 'Observation time unavailable'}</span><span>Daily change {number(snapshot?.quote.dailyChangePercent, '%')}</span></div><div><small>Financial reporting period</small><b>{date(snapshot?.fundamentals.reportingPeriod)}</b><span>{snapshot?.fundamentals.source || 'Financial source unavailable'}</span></div>{advanced && record && <div><small>Your saved decision · separate from current data</small><b>{record.decisionJournal.decision}</b><span>{record.decisionJournal.decision === 'Not recorded' ? 'Saved for later · no personal review' : `User-authored · ${date(record.lastReviewedAt)}`}</span><span>Saved valuation: {record.valuationState} · thesis: {record.thesisStrength}</span></div>}</section>
-                <ResearchCurrentAssessment snapshot={snapshot} loading={loading} error={error} now={assessmentTime} />
+                <ResearchCurrentAssessment snapshot={snapshot} previous={readings.previous} loading={loading} error={error} now={assessmentTime} />
                 <section className={connected.dataStatus} aria-label="Provider data status"><div role="status">{loading ? snapshot ? `Refreshing… Retrieved ${retrievedAt(snapshot.fetchedAt)}. Previous values remain visible.` : 'Loading provider data… You can browse while it loads.' : error ? `Provider refresh failed. ${snapshot ? `Previous values retrieved ${retrievedAt(snapshot.fetchedAt)} remain visible.` : 'No current assessment is available.'}` : `Retrieved ${retrievedAt(snapshot?.fetchedAt)} · ${snapshot?.sources.join(', ') || 'Source not supplied'}`}</div><button className={base.textButton} disabled={loading} onClick={() => { setLoading(true); setError(false); setRefresh(value => value + 1); }}>{error ? 'Retry provider data' : 'Refresh provider data'}</button>{!!snapshot?.warnings.length && <details className={connected.warning}><summary>Some provider data is unavailable. The assessment may be incomplete. <span>View {snapshot.warnings.length} source notice{snapshot.warnings.length === 1 ? '' : 's'}</span></summary><p>Unavailable inputs are not estimated. Refresh to retry, or inspect these source notices.</p><ul>{snapshot.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></details>}</section>
                 {advanced && record && <>
                 <section className={connected.nextAction} aria-label="Next research gap"><div><span className={base.eyebrow}>OPTIONAL RESEARCH WORKSPACE</span><h2>Build your own research</h2><p>Write a thesis, record a decision or schedule a review when useful to you.</p></div><a className={base.primaryButton} href={researchHref(symbol, 'review')} target="_blank" rel="noopener noreferrer">Open full research review ↗</a></section>

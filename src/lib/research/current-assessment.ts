@@ -2,6 +2,7 @@ import type { ResearchSnapshot } from '../types/research-snapshot';
 
 export type CurrentResearchAssessment = {
     headline: string;
+    status: 'available' | 'partial' | 'outdated' | 'insufficient' | 'unsupported';
     applicable: boolean;
     summary: string;
     supporting: string[];
@@ -52,6 +53,7 @@ export function assessCurrentResearch(snapshot: ResearchSnapshot | null, now: nu
     const financialName = /bank|bancorp|financial|insurance|assurance|reit|investment trust/i.test(snapshot?.quote.name ?? '');
     const applicable = type === 'EQUITY' && !financialName;
     if (snapshot && !applicable) return {
+        status: 'unsupported',
         applicable, headline: 'Assessment not supported for this security',
         summary: type !== 'EQUITY' ? 'This company assessment requires provider identification as an equity. Funds, indices, other instruments and unidentified types are not assessed. Available facts remain below.' : 'The returned name may identify a financial business or property trust. These general company checks are not applied; available facts remain below.',
         supporting: [], concerns: [], gaps, coverage,
@@ -60,9 +62,26 @@ export function assessCurrentResearch(snapshot: ResearchSnapshot | null, now: nu
     const limited = coverage < 3;
     return {
         applicable,
+        status: !snapshot || coverage === 0 ? 'insufficient' : oldSnapshot || oldPeriod ? 'outdated' : limited ? 'partial' : 'available',
         headline: !snapshot || coverage === 0 ? 'Not enough financial data' : oldSnapshot || oldPeriod ? 'Older data · assessment limited' : limited ? 'Partial financial picture' : concerns.length ? 'Reported financial pressures' : f?.revenueGrowthPercent === 0 ? 'Stable revenue and positive earnings reported' : 'Growth and positive earnings reported',
         summary: !snapshot ? 'An assessment will appear when provider data is available. No notes or checklist are required.' : 'A rules-based summary of the latest returned annual figures. This is evidence about the business, not a buy or sell decision.',
         supporting, concerns, gaps, coverage,
         watchNext: limited || oldPeriod || oldSnapshot ? 'Check the latest issuer report and refresh the available data before drawing a conclusion.' : concerns.length ? 'In the next company report, check whether the weaker figures improve and what management says caused them.' : 'In the next company report, check whether revenue, profit and cash flow remain consistent.',
     };
+}
+
+/** Compare only this session's returned assessment evidence, never saved personal research. */
+export function compareResearchEvidence(previous: ResearchSnapshot | null, current: ResearchSnapshot | null, now: number): string | null {
+    if (!previous || !current || previous.symbol !== current.symbol || previous.market !== current.market) return null;
+    const before = assessCurrentResearch(previous, now);
+    const after = assessCurrentResearch(current, now);
+    if (after.status === 'unsupported') return 'Assessment unsupported. A refreshed quote does not make these company checks applicable.';
+    if (after.status === 'insufficient') return 'Insufficient financial evidence returned. No unchanged-business conclusion can be drawn.';
+    if (after.status === 'outdated') return 'Older or unverifiable data returned. A successful refresh does not establish current financial evidence.';
+    if (before.status !== after.status) return 'Assessment coverage or availability changed. Review the evidence and limitations below.';
+    const a = previous.fundamentals, b = current.fundamentals;
+    if (a.source !== b.source || a.reportingPeriod !== b.reportingPeriod) return 'Financial source or reporting period changed. Review the returned figures; this does not by itself show improvement.';
+    if ([a.revenueGrowthPercent !== b.revenueGrowthPercent, a.annualNetIncome !== b.annualNetIncome, a.freeCashFlow !== b.freeCashFlow].some(Boolean)) return 'Financial summary inputs changed since the previous successful read in this session.';
+    if (JSON.stringify([...previous.warnings].sort()) !== JSON.stringify([...current.warnings].sort())) return 'Provider notices changed. The available financial summary inputs are unchanged.';
+    return 'No new financial evidence returned for this summary. The available inputs, source and reporting period are unchanged since the previous read in this session; quote changes are separate.';
 }
