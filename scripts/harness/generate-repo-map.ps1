@@ -54,7 +54,7 @@ function Format-PathList($paths) {
 }
 
 $topLevel = Get-ChildItem -Path $root -Force |
-    Where-Object { $_.Name -notin @(".antigravitycli", ".codegraph", ".codex-remote-attachments", ".git", ".gitnexus", ".next", ".omx", ".playwright-cli", ".tmp", ".vscode", ".worktree-ports.json", "node_modules", "next-env.d.ts", "output", "tsconfig.tsbuildinfo", ".env.local") } |
+    Where-Object { $_.Name -notlike "StartupProfileData-*" -and $_.Name -notin @(".antigravitycli", ".codegraph", ".codex-remote-attachments", ".git", ".gitnexus", ".next", ".omx", ".playwright-cli", ".tmp", ".vscode", ".worktree-ports.json", "node_modules", "next-env.d.ts", "output", "tsconfig.tsbuildinfo", ".env.local") } |
     ForEach-Object {
         if ($_.PSIsContainer) {
             "$($_.Name)/"

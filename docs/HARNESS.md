@@ -23,6 +23,8 @@ For this repo, the harness is the full quality contract around the app and futur
 
 Keep the harness practical. Add checks when they prevent repeated mistakes, not because every preference needs a script.
 
+Generated repository maps exclude PowerShell's temporary `StartupProfileData-*` runtime files. Their presence varies by platform and invocation; they are not repository configuration and must not affect map freshness. The full harness checks the map with a unique temporary profile fixture present and again after its removal.
+
 ## Markdown File System
 
 - `AGENTS.md` is the short map. It should point to the docs, not contain the manual.

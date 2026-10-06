@@ -7,6 +7,17 @@ Write-Host "Running repo harness checks..."
 & (Join-Path $PSScriptRoot "check-docs.ps1")
 & (Join-Path $PSScriptRoot "check-commit-message.ps1")
 & (Join-Path $PSScriptRoot "generate-repo-map.ps1") -Check
+# Runtime-generated files must not make the committed map platform-dependent.
+$profileFixture = Join-Path $root ("StartupProfileData-HarnessFixture-" + [guid]::NewGuid().ToString("N"))
+try {
+    [System.IO.File]::WriteAllText($profileFixture, "Temporary map-invariance fixture.")
+    & (Join-Path $PSScriptRoot "generate-repo-map.ps1") -Check
+}
+finally {
+    if (Test-Path -LiteralPath $profileFixture) { Remove-Item -LiteralPath $profileFixture }
+}
+& (Join-Path $PSScriptRoot "generate-repo-map.ps1") -Check
+Write-Host "Map excludes temporary PowerShell startup profile files."
 & (Join-Path $PSScriptRoot "check-file-size.ps1")
 & (Join-Path $PSScriptRoot "check-learn-v0.2.ps1")
 & (Join-Path $PSScriptRoot "check-learn-v0.3.ps1")
