@@ -100,7 +100,7 @@ export const buildResearchOutcomeAnalytics = (
             const assessedReviewId = assessmentReview.decisionJournal.priorReviewId;
             if (!assessedReviewId) continue;
             const assessedReview = reviews.get(assessedReviewId);
-            if (!assessedReview) continue;
+            if (!assessedReview || assessedReview.decisionJournal.decision === 'Not recorded') continue;
             linkedDecisions += 1;
             const outcome = assessmentReview.decisionJournal.priorOutcome;
             if (outcome === 'unresolved') {

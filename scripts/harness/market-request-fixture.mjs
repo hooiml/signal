@@ -17,7 +17,7 @@ export function marketRequestFixture({ allowSchema = false, signalSource } = {})
         if (hold) await hold;
         if (failure === 'providers') throw new Error('Fixture providers unavailable');
         return {
-            vixData: { price: 20, change: 0 }, marketIndices: [], popularStocks: [], activeStocks: [],
+            vixData: { price: 20, change: 0 }, fearGauge: { value: 20, isFxProxy: false }, marketIndices: [], popularStocks: [], activeStocks: [],
             redditPosts: [], stockTwits: [], newsItems: [], putCallRatio: null, naaimExposure: null,
             buffettIndicator: null,
             marketContext: market === 'US' ? { market, yield_curve: null, financial_conditions: null, breadth: null } : { market, malaysia_rates: null },

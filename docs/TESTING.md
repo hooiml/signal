@@ -4,6 +4,23 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For current-assessment and unsaved Research changes, run `node scripts/research-unsaved-qa.mjs`
+against an owned local production server (`SIGNAL_QA_URL`, default port 3101). The synthetic
+API matrix covers 1280px, 768px and 375px, US/Malaysia unsaved readings, explicit save/error/retry,
+rapid selection, partial/missing/old/unsupported data, changed/unchanged refresh evidence,
+visible limitations, Market summary keyboard inspection, control geometry and overflow.
+Evidence is saved under `.tmp/current-assessment/browser/`. This is not live-provider or
+database verification. The `Current Assessment QA` workflow runs the standard gates and
+this browser matrix on `feat/current-assessment`; it uses a placeholder DB URL and no secrets.
+Live US fundamentals still require the operator's valid `SEC_USER_AGENT` configuration.
+
+The same matrix checks delayed/failed saved-list reads for ticker-only legacy links, exact
+saved-market resolution, explicit-market precedence, unresolved-market choice, canonical URL
+reloads, and newer selections plus Back/Forward while saved records arrive. It asserts that
+ambiguous links never issue a guessed US provider request. The harness also renders the actual
+Market assessment in momentum and contrarian modes via
+`node scripts/harness/market-assessment-regression.mjs` to keep score explanations mode-specific.
+
 The harness also verifies price-unit formatting, preservation of currency in new review
 snapshots, and explicit missing currency for legacy records via
 `node scripts/harness/research-currency-regression.mjs`. Market and Research read fixtures
@@ -609,3 +626,73 @@ On Market verify all basic tabs and indicator details, Advanced model/source con
 and Scenarios, replay exit, retained scenarios, and return to basic without changing the live
 model or source setting. Test keyboard navigation/disclosures and document overflow. Never
 report unrun responsive widths, provider fixtures or persistence scenarios as passed.
+
+### Unsaved Research and trust corrections
+
+`node scripts/harness/research-trust-regression.mjs` covers real MY proxy/fallback orchestration,
+yield precision, company-assessment applicability, missing inputs, observation metadata,
+MY symbol suffixes, and bookmark authorship. It uses isolated providers/SQL. `--baseline`
+reproduces the original two defects at `8b492fa` and requires that revision in local git history.
+The normal check is included in the harness.
+
+Against a production local server run `node scripts/research-unsaved-qa.mjs`.
+`SIGNAL_QA_URL` overrides localhost:3101; `CHROME_PATH` can point to an installed Chrome binary.
+The 1280/768/375px matrix intercepts all APIs: US/MY supported readings, partial/missing data,
+ETF/bank/unknown applicability, mismatched/late responses, saved-list failure, explicit saving
+and failed-save retry, delayed-list/save races, unrecorded authorship, geometry and overflow.
+It also checks the Malaysian Market fallback label and observation-date limitation. Evidence goes to
+`.tmp/bounded-slice/browser/`. These are fixture checks, not live SEC/Yahoo or database proof.
+Live supported US fundamentals require a legitimate configured `SEC_USER_AGENT`; never replace
+it with invented operator contact details. Report a blocked supported US case as incomplete.
+
+`node scripts/research-reading-timing.mjs after 3102` records three controlled fixture runs
+per saved/unsaved journey against a local production server. `CHROME_PATH` is optional.
+See `docs/research-trust-implementation-2026-10-03.md` for the measured baseline, live
+provider boundaries, corrections affecting results/eligibility and remaining acceptance gaps.
+
+### Company lookup and eligibility
+
+`node scripts/harness/security-search-regression.mjs` checks provider allowlists, malformed
+responses, bounded results, exact-symbol classification, missing/stale/unsupported sectors,
+route validation, generic provider errors and parallel snapshot timing. It isolates network
+boundaries. `research-unsaved-qa.mjs` also verifies name search, explicit keyboard selection,
+US/MY result identity, empty/failure/retry states, late searches, direct lookup and no save on search
+at 1280/768/375 widths. Search screenshots are included in the existing browser artifact.
+
+`node scripts/research-provider-probe.mjs` is a read-only live-provider diagnostic for fixed
+public companies. Its output is separate from fixture proof. Success/failure is reported per
+query; its process success alone is not evidence that every provider case passed.
+
+### Current evidence and optional reads
+
+The full harness includes `node scripts/harness/research-improvements-regression.mjs`.
+It verifies nonadjacent annual endpoints, diluted-average versus outstanding shares,
+dated common-session benchmark alignment, missing sessions, short listings, and deferred
+snapshot work using isolated provider fixtures. `node scripts/research-improvements-qa.mjs`
+uses an owned local production server (`SIGNAL_QA_URL`) and intercepts every API. It checks
+claim disclosures, optional benchmark retries, delayed/interrupted archive loading,
+Basic/Advanced navigation, and responsive overflow; it records two cold fixture samples
+per route with API response bytes, request counts and assessment visibility timing.
+These bounded local measurements do not establish live-provider or database latency.
+
+Yahoo annual revenue and diluted-average-share changes require endpoints 350–380 days
+apart (including 52/53-week fiscal years); skipped years retain endpoints with null growth.
+Malaysia current-price ratios require positive quote outstanding shares; annual diluted
+averages are labelled and never substituted. SEC valuation semantics remain unchanged.
+Benchmarks use common dated positive observations on the same adjusted-close basis when
+coverage allows, otherwise common closes. They require 20 common sessions, 30 calendar
+days and at least 80% of approximate weekday coverage. These are conservative display
+eligibility rules: roughly one trading month avoids conclusions from a few sessions,
+and the coverage floor rejects sparse series while allowing holidays and occasional
+missing sessions. They are not an exchange-calendar model, a statistical significance
+claim or an investment threshold. The tests include 19/20 sessions and 29/30 days.
+The display shows actual endpoints;
+`period: 1Y` remains the requested Yahoo range for compatibility, not an actual-window claim.
+Legacy undated histories cannot generate a comparison. Basic score calculation is unchanged.
+Market archive work starts when indicators enter the viewport or Advanced opens; the score
+request remains independent. Research V8 requests essential snapshots with `benchmark=defer`
+and loads optional US comparison through `/api/research/benchmark/[symbol]` on disclosure.
+That optional request refetches dated candidate history and VOO and performs no database work.
+Basic claims reveal annual amounts/currency, reporting dates and comparison basis. Yahoo links
+are explicitly provider pages; SEC document links are shown only when a source URL is supplied,
+with no guessed issuer identity or filing. The separate save and SEC configuration blockers remain.

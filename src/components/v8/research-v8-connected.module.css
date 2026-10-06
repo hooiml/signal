@@ -114,6 +114,12 @@
 .assessment ul { padding-left: 20px; }
 .assessment li + li { margin-top: 6px; }
 .assessmentSource { color: var(--muted); margin: 10px 0; }
+.assessmentHeading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.assessmentBadge { border: 1px solid var(--line); border-radius: 20px; padding: 4px 10px; font-size: 12px; background: #edf2fa; }
+.assessmentBadge[data-state=available] { background: #e8fbf4; color: #006344; border-color: #8bcbb5; }
+.assessmentBadge[data-state=partial], .assessmentBadge[data-state=outdated], .assessmentBadge[data-state=error] { background: #fff9ec; color: #76521c; border-color: #ead9b1; }
+.assessment .assessmentLimit { margin-top: 12px; padding-left: 12px; border-left: 3px solid #b7c9e2; }
+.assessment .assessmentChange { margin-top: 12px; padding: 10px 12px; background: #edf3fc; border-radius: 6px; }
 .assessmentGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding: 18px 0; margin: 14px 0; border-block: 1px solid var(--line); }
 .assessmentDetails { margin-top: 12px; }
 .assessmentDetails summary, .panelContent summary { min-height: 44px; cursor: pointer; align-content: center; }
@@ -121,3 +127,18 @@
 
 .app .basicSummary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 600px) { .app .basicSummary { grid-template-columns: minmax(0, 1fr); } }
+
+.lookup { margin-bottom: 20px; }
+.lookup > div[role="status"] p { margin: 8px 0; font-size: 13px; }
+.lookupHeading { font-size: 16px; margin: 12px 0; }
+.lookupResults ul { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; padding: 0; margin: 0; list-style: none; }
+.lookupResults button { width: 100%; min-height: 64px; padding: 12px 16px; border: 1px solid #c4d5e2; border-radius: 10px; background: #fff; color: #16364c; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.lookupResults strong, .lookupResults span { display: block; }
+.lookupResults span { margin-top: 5px; font-size: 12px; line-height: 1.5; }
+.lookupResults button:hover { background: #edf5f9; }
+.lookupResults button:focus-visible { outline: 3px solid #19755c; outline-offset: 2px; }
+@media (max-width: 600px) { .lookupResults ul { grid-template-columns: 1fr; } }
+
+.app .lookup .toolbar { grid-template-columns: minmax(0,1fr) 110px auto; }
+.app .lookup .toolbar > button:last-child:not([type="submit"]) { grid-column: 1 / -1; justify-self: start; min-height: 44px; }
+@media (max-width: 600px) { .app .lookup .toolbar { grid-template-columns: minmax(0,1fr); } }

@@ -202,3 +202,43 @@ nested inside `signal_cache` and `signal`; do not add them together. Calibration
 one-hour cache lookup and any cache-miss work. Score-cache hits and shared waiters report only
 their own cache wait and handler time, without reusing the loader request's stage timings.
 Existing `X-Signal-Cache`, payloads, cache keys/TTL, awaited saving and error behavior are preserved.
+
+## Production bundler
+
+`npm run build` explicitly uses Next.js Webpack. Vercel previews at `46616aa` failed in
+Turbopack's Google font import mapping while clean CI builds passed. This reversible
+workaround preserves fonts and package versions; validate preview builds before promotion.
+
+## Security lookup and classification
+
+V8 ticker-only legacy links resolve their market from the exact saved record, or established
+Malaysian numeric/suffix/alias forms. Ambiguous tickers wait for saved research and require an
+explicit market choice if no saved identity can be resolved, including failed list reads.
+They never default to a US provider request. Explicit URL/lookup markets take precedence over
+saved records; resolved legacy and default saved selections add their market to the URL.
+
+`GET /api/research/search?q=...&market=US|MY` accepts an explicit company/ticker search,
+1–80 characters. Only US exchange-listed equities/ETFs and Kuala Lumpur `.KL` listings
+are returned, capped at eight. A result identifies company, ticker, exchange, market and
+instrument; selecting opens a reading without saving. Direct ticker entry remains available.
+
+The adapter uses the existing Yahoo provider at a fixed HTTPS origin with redirects disabled,
+an eight-second deadline, bounded returned fields and no application logging of search text.
+Only the explicitly submitted public company/ticker query is sent; saved notes and other
+Research records are never included. No new credentials or dependencies are required. Browser
+requests go through the same-origin API, use no-store, and are cancelled on query/market
+changes and unmount; stale completions cannot replace new state. Provider failure is explicit.
+
+Assessment classification is separately resolved server-side by exact provider ticker and
+market, never trusted from a selected search result. Metadata is cached for 24 hours and its
+retrieval date retained. Missing, conflicting, older-than-two-day or unknown classification
+withholds the company assessment. Financial Services and REIT industries are excluded;
+other recognized provider sectors with a supplied industry and matching EQUITY type are eligible.
+This changes assessment eligibility; name matching is removed. Financial formulas are unchanged.
+Classification is provider metadata, not an official issuer classification or a sector valuation model.
+
+The symbol route emits privacy-safe `Server-Timing` stages: quote, fundamentals, benchmark
+(when requested), classification, assembly and research. Independent providers start together;
+the response still waits for all to settle. Classification includes its cache lookup/miss work;
+provider stages overlap and must not be summed. `research` includes handler work before JSON
+serialization. No speed improvement is claimed until comparable measurements establish one.

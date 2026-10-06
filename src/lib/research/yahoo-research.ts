@@ -4,6 +4,9 @@ import { calculateTechnicals, type TechnicalSnapshot } from './technicals';
 import { calculateTechnicalSeries } from './technical-series';
 
 export type YahooResearchResult = {
+    readonly instrumentType?: string | null;
+    readonly sharesOutstanding?: number | null;
+    readonly observedAt?: string | null;
     readonly name: string | null;
     readonly currency: string | null;
     readonly price: number | null;
@@ -14,6 +17,7 @@ export type YahooResearchResult = {
         readonly points: readonly ResearchChartPoint[];
     };
     readonly history: {
+        readonly observations?: readonly { readonly date: string; readonly close: number | null; readonly adjustedClose: number | null }[];
         readonly closes: readonly number[];
         readonly adjustedCloses: readonly number[];
         readonly volumes: readonly number[];
@@ -67,7 +71,7 @@ const malaysiaYahooAliases: Readonly<Record<string, string>> = {
 
 export const toYahooSymbol = (symbol: string, market: ResearchMarket) => {
     if (market !== 'MY') return symbol;
-    return malaysiaYahooAliases[symbol.toUpperCase()] ?? `${symbol}.KL`;
+    return malaysiaYahooAliases[symbol.toUpperCase()] ?? (symbol.toUpperCase().endsWith('.KL') ? symbol.toUpperCase() : `${symbol}.KL`);
 };
 
 export const parseYahooResearchChart = (payload: unknown): YahooResearchResult => {
@@ -91,6 +95,9 @@ export const parseYahooResearchChart = (payload: unknown): YahooResearchResult =
     const calculated = calculateTechnicals(closes, numericArray(quote.volume));
     const latest = points.at(-1);
     return {
+        instrumentType: stringValue(meta.instrumentType),
+        sharesOutstanding: numberValue(meta.sharesOutstanding) !== null && Number(meta.sharesOutstanding) > 0 ? Number(meta.sharesOutstanding) : null,
+        observedAt: numberValue(meta.regularMarketTime) !== null && Number.isFinite(new Date(Number(meta.regularMarketTime) * 1000).getTime()) ? new Date(Number(meta.regularMarketTime) * 1000).toISOString() : null,
         name: stringValue(meta.longName) ?? stringValue(meta.shortName) ?? stringValue(meta.symbol),
         currency: stringValue(meta.currency),
         price,
@@ -106,7 +113,11 @@ export const parseYahooResearchChart = (payload: unknown): YahooResearchResult =
             macd: latest?.macd ?? calculated.macd,
         },
         chart: { interval: '1d', points },
-        history: { closes, adjustedCloses, volumes: numericArray(quote.volume) },
+        history: { closes, adjustedCloses, volumes: numericArray(quote.volume), observations: rawArray(result.timestamp).flatMap((timestamp, index) => {
+            const seconds = numberValue(timestamp);
+            if (seconds === null || !Number.isFinite(new Date(seconds * 1000).getTime())) return [];
+            return [{ date: new Date(seconds * 1000).toISOString().slice(0, 10), close: numberValue(rawArray(quote.close)[index]), adjustedClose: numberValue(rawArray(adjustedClose?.adjclose)[index]) }];
+        }) },
     };
 };
 

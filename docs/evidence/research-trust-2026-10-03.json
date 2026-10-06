@@ -1,0 +1,282 @@
+{
+  "baselineRevision": "8b492fa664f39e91f693b4fc379f3d8f1098feec",
+  "verificationDate": "2026-10-03",
+  "timings": {
+    "before": {
+      "phase": "before",
+      "conditions": "Production build, Chromium, 1280x900, fresh browser contexts, fixed watchlist 250ms/provider 300ms fixtures, no network throttle, no live providers",
+      "results": [
+        {
+          "symbol": "AAPL",
+          "run": 1,
+          "firstContentMs": 309.1389959999999,
+          "evidenceMs": 1122.719341,
+          "assessmentMs": 1129.0552039999998,
+          "providerRequested": true,
+          "errors": []
+        },
+        {
+          "symbol": "AAPL",
+          "run": 2,
+          "firstContentMs": 217.41208900000038,
+          "evidenceMs": 1029.2897580000003,
+          "assessmentMs": 1035.450878,
+          "providerRequested": true,
+          "errors": []
+        },
+        {
+          "symbol": "AAPL",
+          "run": 3,
+          "firstContentMs": 199.39242599999943,
+          "evidenceMs": 992.7265669999997,
+          "assessmentMs": 998.7120989999994,
+          "providerRequested": true,
+          "errors": []
+        },
+        {
+          "symbol": "MSFT",
+          "run": 1,
+          "firstContentMs": 203.4075210000001,
+          "evidenceMs": null,
+          "assessmentMs": null,
+          "providerRequested": false,
+          "errors": []
+        },
+        {
+          "symbol": "MSFT",
+          "run": 2,
+          "firstContentMs": 185.84643099999994,
+          "evidenceMs": null,
+          "assessmentMs": null,
+          "providerRequested": false,
+          "errors": []
+        },
+        {
+          "symbol": "MSFT",
+          "run": 3,
+          "firstContentMs": 202.09891699999935,
+          "evidenceMs": null,
+          "assessmentMs": null,
+          "providerRequested": false,
+          "errors": []
+        }
+      ]
+    },
+    "after": {
+      "phase": "after",
+      "conditions": "Production build, Chromium, 1280x900, fresh browser contexts, fixed watchlist 250ms/provider 300ms fixtures, no network throttle, no live providers",
+      "results": [
+        {
+          "symbol": "AAPL",
+          "run": 1,
+          "firstContentMs": 277.774396,
+          "evidenceMs": 1082.790774,
+          "assessmentMs": 1091.090327,
+          "providerRequested": true,
+          "errors": []
+        },
+        {
+          "symbol": "AAPL",
+          "run": 2,
+          "firstContentMs": 278.6579899999997,
+          "evidenceMs": 1107.305679,
+          "assessmentMs": 1113.982286,
+          "providerRequested": true,
+          "errors": []
+        },
+        {
+          "symbol": "AAPL",
+          "run": 3,
+          "firstContentMs": 210.3373819999997,
+          "evidenceMs": 1028.1922809999996,
+          "assessmentMs": 1037.2363099999993,
+          "providerRequested": true,
+          "errors": []
+        },
+        {
+          "symbol": "MSFT",
+          "run": 1,
+          "firstContentMs": 241.28214599999956,
+          "evidenceMs": 1058.2588559999995,
+          "assessmentMs": 1064.2626759999994,
+          "providerRequested": true,
+          "errors": []
+        },
+        {
+          "symbol": "MSFT",
+          "run": 2,
+          "firstContentMs": 262.308086,
+          "evidenceMs": 1069.3083459999998,
+          "assessmentMs": 1074.6451210000005,
+          "providerRequested": true,
+          "errors": []
+        },
+        {
+          "symbol": "MSFT",
+          "run": 3,
+          "firstContentMs": 213.99422500000037,
+          "evidenceMs": 1017.6442270000007,
+          "assessmentMs": 1024.5990519999996,
+          "providerRequested": true,
+          "errors": []
+        }
+      ]
+    }
+  },
+  "browserFixtures": {
+    "dataMode": "Synthetic API fixtures; no live database writes or provider verification",
+    "results": [
+      {
+        "width": 1280,
+        "passed": true,
+        "scenarios": [
+          "US unsaved",
+          "MY unsaved",
+          "partial",
+          "missing",
+          "ETF/bank/unknown unsupported with facts retained",
+          "mismatched response rejected",
+          "rapid selection/late response",
+          "save failure and explicit retry",
+          "no manufactured decision",
+          "saved-list failure independence",
+          "overflow and control geometry",
+          "Market fallback provenance and observation-date limitation"
+        ],
+        "formBoxes": [
+          {
+            "x": 45,
+            "y": 324.90625,
+            "width": 899.484375,
+            "height": 44
+          },
+          {
+            "x": 981.484375,
+            "y": 325.90625,
+            "width": 124,
+            "height": 44
+          },
+          {
+            "x": 1115.484375,
+            "y": 325.90625,
+            "width": 132.515625,
+            "height": 44
+          }
+        ]
+      },
+      {
+        "width": 768,
+        "passed": true,
+        "scenarios": [
+          "US unsaved",
+          "MY unsaved",
+          "partial",
+          "missing",
+          "ETF/bank/unknown unsupported with facts retained",
+          "mismatched response rejected",
+          "rapid selection/late response",
+          "save failure and explicit retry",
+          "no manufactured decision",
+          "saved-list failure independence",
+          "overflow and control geometry",
+          "Market fallback provenance and observation-date limitation"
+        ],
+        "formBoxes": [
+          {
+            "x": 37,
+            "y": 326.90625,
+            "width": 403.484375,
+            "height": 44
+          },
+          {
+            "x": 477.484375,
+            "y": 327.90625,
+            "width": 124,
+            "height": 44
+          },
+          {
+            "x": 611.484375,
+            "y": 327.90625,
+            "width": 132.515625,
+            "height": 44
+          }
+        ]
+      },
+      {
+        "width": 375,
+        "passed": true,
+        "scenarios": [
+          "US unsaved",
+          "MY unsaved",
+          "partial",
+          "missing",
+          "ETF/bank/unknown unsupported with facts retained",
+          "mismatched response rejected",
+          "rapid selection/late response",
+          "save failure and explicit retry",
+          "no manufactured decision",
+          "saved-list failure independence",
+          "overflow and control geometry",
+          "Market fallback provenance and observation-date limitation"
+        ],
+        "formBoxes": [
+          {
+            "x": 26,
+            "y": 400.90625,
+            "width": 219,
+            "height": 44
+          },
+          {
+            "x": 269,
+            "y": 401.90625,
+            "width": 90,
+            "height": 44
+          },
+          {
+            "x": 16,
+            "y": 455.90625,
+            "width": 343,
+            "height": 44
+          }
+        ]
+      }
+    ]
+  },
+  "liveProviderBrowser": {
+    "environment": "Changed local production build, real provider requests; only watchlist mocked empty to avoid personal database access. No save actions.",
+    "results": [
+      {
+        "symbol": "5347",
+        "market": "MY",
+        "price": "MYR 12.96",
+        "assessment": "Reported financial pressures",
+        "status": "Retrieved 3 Oct 2026, 10:37 UTC \u00b7 Yahoo Finance\nRefresh provider data",
+        "errors": []
+      },
+      {
+        "symbol": "AAPL",
+        "market": "US",
+        "price": "USD 333.69",
+        "assessment": "Not enough financial data",
+        "status": "Retrieved 3 Oct 2026, 10:37 UTC \u00b7 Yahoo Finance\nRefresh provider data\nSome provider data is unavailable. The assessment may be incomplete.\nView 1 source notice",
+        "errors": []
+      },
+      {
+        "symbol": "MAYBANK",
+        "market": "MY",
+        "price": "MYR 10.02",
+        "assessment": "Assessment not supported for this security",
+        "status": "Retrieved 3 Oct 2026, 10:37 UTC \u00b7 Yahoo Finance\nRefresh provider data",
+        "errors": []
+      },
+      {
+        "symbol": "VOO",
+        "market": "US",
+        "price": "USD 707.54",
+        "assessment": "Assessment not supported for this security",
+        "status": "Retrieved 3 Oct 2026, 10:37 UTC \u00b7 Yahoo Finance\nRefresh provider data\nSome provider data is unavailable. The assessment may be incomplete.\nView 1 source notice",
+        "errors": []
+      }
+    ]
+  }
+}

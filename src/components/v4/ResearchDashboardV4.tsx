@@ -19,6 +19,7 @@ import {
 type AnalysisSection = 'valuation' | 'checklist' | 'feed' | 'technical';
 
 const strengthLabel: Record<ResearchWatchlistItem['thesisStrength'], string> = {
+    unknown: 'No thesis recorded',
     high: 'High thesis',
     medium: 'Med thesis',
     low: 'Low thesis',

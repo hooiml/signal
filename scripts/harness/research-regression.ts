@@ -3019,8 +3019,9 @@ const runTechnicalTests = () => {
 };
 
 const runBenchmarkTests = () => {
-    const candidate = { history: { closes: [100, 130], adjustedCloses: [100, 130], volumes: [] } };
-    const baseline = { history: { closes: [100, 120], adjustedCloses: [100, 120], volumes: [] } };
+    const observations = (last: number) => Array.from({ length: 40 }, (_, i) => ({ date: new Date(Date.UTC(2026, 0, i + 1)).toISOString().slice(0, 10), close: 100 + (last - 100) * i / 39, adjustedClose: 100 + (last - 100) * i / 39 }));
+    const candidate = { history: { closes: [100, 130], adjustedCloses: [100, 130], volumes: [], observations: observations(130) } };
+    const baseline = { history: { closes: [100, 120], adjustedCloses: [100, 120], volumes: [], observations: observations(120) } };
     const benchmark = buildResearchBenchmark(candidate, baseline);
     assertEqual(benchmark.candidateReturnPercent, 30, 'benchmark calculates candidate return from adjusted closes');
     assertEqual(benchmark.baselineReturnPercent, 20, 'benchmark calculates passive baseline return from adjusted closes');
@@ -3946,7 +3947,7 @@ const runComparisonTests = () => {
             candidateReturnPercent: 30, baselineReturnPercent: 20, relativeReturnPercent: 10,
             returnBasis: 'adjusted close', status: 'outperformed',
         },
-        quote: { name: 'Microsoft', currency: 'USD', price: 420.5, dailyChangePercent: 1.2 },
+        quote: { instrumentType: 'EQUITY', classification: { source: 'Yahoo Finance', instrumentType: 'EQUITY', sector: 'Technology', industry: 'Consumer Electronics', retrievedAt: '2026-07-12T00:00:00Z' }, name: 'Microsoft', currency: 'USD', price: 420.5, dailyChangePercent: 1.2 },
         fundamentals: {
             revenueGrowthPercent: 14.2, grossMarginPercent: 68.5, operatingMarginPercent: 44.1,
             freeCashFlow: 70_000_000_000, debt: 40_000_000_000, cash: 80_000_000_000,

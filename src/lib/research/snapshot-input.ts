@@ -18,7 +18,14 @@ const isNullableString = (value: unknown) => value === null || typeof value === 
 
 const isResearchQuote = (value: unknown): value is ResearchSnapshot['quote'] => {
     if (!isRecord(value)) return false;
-    return isNullableString(value.name)
+    const classification = value.classification;
+    const validClassification = classification === undefined || classification === null || (isRecord(classification)
+        && classification.source === 'Yahoo Finance'
+        && (classification.instrumentType === 'EQUITY' || classification.instrumentType === 'ETF')
+        && isNullableString(classification.sector) && isNullableString(classification.industry)
+        && typeof classification.retrievedAt === 'string' && Number.isFinite(Date.parse(classification.retrievedAt)));
+    return validClassification && (value.instrumentType === undefined || isNullableString(value.instrumentType))
+        && isNullableString(value.name)
         && isNullableString(value.currency)
         && hasNullableNumbers(value, ['price', 'dailyChangePercent']);
 };
@@ -33,6 +40,11 @@ const isFundamentalPeriod = (value: unknown): value is ResearchSnapshot['fundame
     isRecord(value)
     && typeof value.reportingPeriod === 'string'
     && /^\d{4}-\d{2}-\d{2}$/.test(value.reportingPeriod)
+    && (value.comparisonPeriod === undefined || value.comparisonPeriod === null || (typeof value.comparisonPeriod === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.comparisonPeriod)))
+    && (value.comparableAnnual === undefined || typeof value.comparableAnnual === 'boolean')
+    && (value.shareBasis === undefined || value.shareBasis === 'diluted average' || value.shareBasis === 'outstanding')
+    && (value.sourceUrl === undefined || isNullableString(value.sourceUrl))
+    && ['comparisonRevenue', 'comparisonShares'].every(key => value[key] === undefined || isNullableNumber(value[key]))
     && typeof value.currency === 'string'
     && value.currency.length >= 3
     && value.currency.length <= 8
@@ -62,15 +74,20 @@ const isResearchChart = (value: unknown): value is ResearchSnapshot['chart'] => 
 const isResearchSnapshot = (value: unknown): value is ResearchSnapshot => {
     if (!isRecord(value) || !isRecord(value.benchmark) || !isRecord(value.quote) || !isRecord(value.fundamentals)
         || !isRecord(value.valuation) || !isRecord(value.technicals) || !isRecord(value.chart)) return false;
+    const benchmark = value.benchmark;
     return typeof value.symbol === 'string'
         && (value.market === 'US' || value.market === 'MY')
         && typeof value.fetchedAt === 'string'
         && value.benchmark.baselineSymbol === 'VOO'
         && value.benchmark.baselineName === 'Vanguard S&P 500 ETF'
         && value.benchmark.period === '1Y'
+        && ['windowStart', 'windowEnd'].every(key => benchmark[key] === undefined || benchmark[key] === null || (typeof benchmark[key] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(benchmark[key])))
+        && (value.benchmark.commonSessions === undefined || (Number.isInteger(value.benchmark.commonSessions) && Number(value.benchmark.commonSessions) >= 0))
         && hasNullableNumbers(value.benchmark, ['candidateReturnPercent', 'baselineReturnPercent', 'relativeReturnPercent'])
         && (value.benchmark.returnBasis === null || isBenchmarkReturnBasis(value.benchmark.returnBasis))
         && isBenchmarkStatus(value.benchmark.status)
+        && (value.quote.instrumentType === undefined || isNullableString(value.quote.instrumentType))
+        && (value.quote.observedAt === undefined || isNullableString(value.quote.observedAt))
         && isNullableString(value.quote.name)
         && isNullableString(value.quote.currency)
         && hasNullableNumbers(value.quote, ['price', 'dailyChangePercent'])

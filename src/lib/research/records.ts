@@ -50,14 +50,14 @@ export const emptyPositionPlan: ResearchRecord['positionPlan'] = {
     invalidationPrice: null,
 };
 
-export const createResearchRecord = (input: ResearchCreateInput): ResearchRecord => ({
+export const createResearchRecord = ({ saveOnly, ...input }: ResearchCreateInput): ResearchRecord => ({
     ...input,
     positionState: 'not-owned',
     inBuyZone: false,
     status: 'watch',
     targetBuyZone: '',
     valuationState: 'unknown',
-    thesisStrength: 'medium',
+    thesisStrength: saveOnly ? 'unknown' : 'medium',
     whyInterested: '',
     bullCase: '',
     bearCase: '',
@@ -70,7 +70,7 @@ export const createResearchRecord = (input: ResearchCreateInput): ResearchRecord
     acceptedEvidence: [],
     documentEvidence: defaultResearchDocumentEvidenceSet,
     factorAssumptions: defaultResearchFactorAssumptionSet,
-    decisionJournal: emptyDecisionJournal,
+    decisionJournal: saveOnly ? { ...emptyDecisionJournal, decision: 'Not recorded', confidence: 'unrecorded' } : emptyDecisionJournal,
     positionPlan: emptyPositionPlan,
     reviewHistory: [],
     lastReviewedAt: new Date().toISOString().slice(0, 10),
@@ -80,7 +80,7 @@ export const createResearchRecord = (input: ResearchCreateInput): ResearchRecord
 
 type ResearchDecisionInput = Pick<ResearchRecord, 'checklist' | 'thesisStrength' | 'valuationState' | 'positionState' | 'inBuyZone'>;
 
-export const calculateResearchDecision = (record: ResearchDecisionInput): ResearchRecord['decisionJournal']['decision'] => {
+export const calculateResearchDecision = (record: ResearchDecisionInput): Exclude<ResearchRecord['decisionJournal']['decision'], 'Not recorded'> => {
     const count = Object.values(record.checklist).filter(Boolean).length;
     const qualityPassed = record.checklist.understandBusiness
         && record.checklist.revenueGrowingOrStable

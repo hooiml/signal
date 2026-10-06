@@ -1,0 +1,63 @@
+name: Current Assessment QA
+
+on:
+  push:
+    branches: ['feat/current-assessment']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://signal:signal@127.0.0.1:5432/signal
+      NEXT_TELEMETRY_DISABLED: '1'
+      SIGNAL_QA_URL: http://127.0.0.1:3101
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Inspect public search provider contract
+        run: node scripts/research-provider-probe.mjs
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run harness
+        id: harness
+        continue-on-error: true
+      - run: npm run build
+      - run: npx playwright install chromium
+      - name: Verify fixture journeys at desktop, tablet and mobile widths
+        shell: powershell
+        run: |
+          $server = Start-Process -FilePath "node.exe" -ArgumentList "node_modules/next/dist/bin/next","start","-H","127.0.0.1","-p","3101" -PassThru
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 30; $i++) {
+              try {
+                $response = Invoke-WebRequest -Uri "$env:SIGNAL_QA_URL/research-v8" -UseBasicParsing -TimeoutSec 2
+                if ($response.StatusCode -eq 200) { $ready = $true; break }
+              } catch {}
+              Start-Sleep -Seconds 1
+            }
+            if (-not $ready) { throw "Signal server did not become ready" }
+            node scripts/research-unsaved-qa.mjs
+            if ($LASTEXITCODE -ne 0) { throw "Assessment browser QA failed" }
+          } finally {
+            if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force }
+          }
+      - name: Upload fixture browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-assessment-browser-evidence
+          path: .tmp/current-assessment/browser/
+          if-no-files-found: warn
+      - name: Enforce harness result
+        if: always() && steps.harness.outcome != 'success'
+        run: throw "The required harness failed; see its diagnostics above. Browser results do not waive this gate."

@@ -32,7 +32,10 @@ function Get-PropertyValue($object, $name, $fallback = "not detected") {
 
 function Format-ScriptList($scriptsObject) {
     $items = @()
-    foreach ($property in $scriptsObject.PSObject.Properties | Sort-Object Name) {
+    [string[]] $names = @($scriptsObject.PSObject.Properties.Name)
+    [Array]::Sort($names, [StringComparer]::OrdinalIgnoreCase)
+    foreach ($name in $names) {
+        $property = $scriptsObject.PSObject.Properties[$name]
         $items += "- ``$($property.Name)``: ``$($property.Value)``"
     }
     return $items -join "`n"
@@ -43,11 +46,15 @@ function Format-PathList($paths) {
         return "- none"
     }
 
-    return ($paths | Sort-Object | ForEach-Object { "- ``$_``" }) -join "`n"
+    # Culture-sensitive sorting differs between Windows PowerShell and Linux/ICU,
+    # notably for punctuation in package-lock.json and package.json.
+    [string[]] $ordered = @($paths)
+    [Array]::Sort($ordered, [StringComparer]::OrdinalIgnoreCase)
+    return ($ordered | ForEach-Object { "- ``$_``" }) -join "`n"
 }
 
 $topLevel = Get-ChildItem -Path $root -Force |
-    Where-Object { $_.Name -notin @(".antigravitycli", ".codegraph", ".codex-remote-attachments", ".git", ".gitnexus", ".next", ".omx", ".playwright-cli", ".tmp", ".vscode", ".worktree-ports.json", "node_modules", "next-env.d.ts", "output", "tsconfig.tsbuildinfo", ".env.local") } |
+    Where-Object { $_.Name -notlike "StartupProfileData-*" -and $_.Name -notin @(".antigravitycli", ".codegraph", ".codex-remote-attachments", ".git", ".gitnexus", ".next", ".omx", ".playwright-cli", ".tmp", ".vscode", ".worktree-ports.json", "node_modules", "next-env.d.ts", "output", "tsconfig.tsbuildinfo", ".env.local") } |
     ForEach-Object {
         if ($_.PSIsContainer) {
             "$($_.Name)/"
@@ -109,6 +116,16 @@ if ($Check) {
 
     $existing = (Get-Content -Raw $outputPath) -replace "`r`n", "`n"
     if ($existing -ne $normalizedContent) {
+        $expectedLines = $normalizedContent -split "`n"
+        $actualLines = $existing -split "`n"
+        $shown = 0
+        for ($index = 0; $index -lt [Math]::Max($expectedLines.Count, $actualLines.Count); $index++) {
+            if ($expectedLines[$index] -ne $actualLines[$index]) {
+                Write-Host "Map line $($index + 1): expected [$($expectedLines[$index])], committed [$($actualLines[$index])]"
+                $shown++
+                if ($shown -ge 12) { break }
+            }
+        }
         Write-Error "Generated repo map is stale. Run npm run harness:update-map."
     }
 

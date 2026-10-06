@@ -719,7 +719,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                     surface: 'research',
                     workspace: 'research',
                     source,
-                    attributes: { decision: saved.decisionJournal.decision, result: 'success' },
+                    attributes: { decision: saved.decisionJournal.decision === 'Not recorded' ? undefined : saved.decisionJournal.decision, result: 'success' },
                 });
                 clearProductAnalyticsWorkflowSource();
             }
@@ -731,7 +731,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                     surface: 'research',
                     workspace: 'research',
                     source: currentProductAnalyticsWorkflowSource(),
-                    attributes: { decision: record.decisionJournal.decision, result: 'failure' },
+                    attributes: { decision: record.decisionJournal.decision === 'Not recorded' ? undefined : record.decisionJournal.decision, result: 'failure' },
                 });
             }
             setSaveError(error instanceof Error ? error.message : 'Unable to save research.');

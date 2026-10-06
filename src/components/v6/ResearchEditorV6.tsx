@@ -366,8 +366,8 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
             <div hidden={reviewStep !== 2} data-review-step="decision">
             <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <label className={'text-xs font-medium ' + styles.textMuted}>Thesis strength
-                    <select value={draft.thesisStrength} onChange={(event) => setDraft((current) => ({ ...current, thesisStrength: event.target.value === 'high' ? 'high' : event.target.value === 'low' ? 'low' : 'medium' }))} className={'mt-1 ' + field}>
-                        <option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
+                    <select value={draft.thesisStrength} onChange={(event) => setDraft((current) => ({ ...current, thesisStrength: event.target.value === 'unknown' ? 'unknown' : event.target.value === 'high' ? 'high' : event.target.value === 'low' ? 'low' : 'medium' }))} className={'mt-1 ' + field}>
+                        <option value="unknown">Not recorded</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
                     </select>
                 </label>
                 <label className={'text-xs font-medium ' + styles.textMuted}>Valuation
@@ -392,8 +392,8 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                     <input value={draft.decisionJournal.decision} readOnly className={'mt-1 ' + field} />
                 </label>
                 <label className={'text-xs font-medium ' + styles.textMuted}>Confidence
-                    <select value={draft.decisionJournal.confidence} onChange={(event) => setDraft((current) => ({ ...current, decisionJournal: { ...current.decisionJournal, confidence: event.target.value === 'high' ? 'high' : event.target.value === 'low' ? 'low' : 'medium' } }))} className={'mt-1 ' + field}>
-                        <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+                    <select value={draft.decisionJournal.confidence} onChange={(event) => setDraft((current) => ({ ...current, decisionJournal: { ...current.decisionJournal, confidence: event.target.value === 'unrecorded' ? 'unrecorded' : event.target.value === 'high' ? 'high' : event.target.value === 'low' ? 'low' : 'medium' } }))} className={'mt-1 ' + field}>
+                        <option value="unrecorded">Not recorded</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
                     </select>
                 </label>
                 <label className={'text-xs font-medium ' + styles.textMuted}>Observed price

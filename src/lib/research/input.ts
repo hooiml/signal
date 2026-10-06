@@ -193,7 +193,7 @@ const nullableDateValue = (value: unknown, label: string): string | null => {
     return date;
 };
 
-const researchActions = ['Ready', 'DCA', 'Wait for price', 'Watch', 'Avoid'] as const;
+const researchActions = ['Not recorded', 'Ready', 'DCA', 'Wait for price', 'Watch', 'Avoid'] as const;
 
 const parseDecisionJournal = (value: unknown, label: string): ResearchDecisionJournal => {
     const journal = objectValue(value, label);
@@ -305,12 +305,14 @@ const parseReviewHistory = (value: unknown): readonly ResearchReviewSnapshot[] =
 
 export const parseResearchCreateInput = (value: unknown): ResearchCreateInput => {
     const body = objectValue(value, 'Request body');
+    if (body.saveOnly !== undefined && typeof body.saveOnly !== 'boolean') throw new ResearchInputError('saveOnly must be boolean.');
     const symbol = stringValue(body.symbol, 'symbol', 20).toUpperCase();
     if (!/^[A-Z0-9.-]+$/.test(symbol)) throw new ResearchInputError('symbol contains unsupported characters.');
     return {
         symbol,
         market: optionValue(body.market, researchMarkets, 'market'),
         companyName: stringValue(body.companyName, 'companyName', 120),
+        ...(body.saveOnly === true ? { saveOnly: true } : {}),
     };
 };
 

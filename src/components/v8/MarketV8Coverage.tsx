@@ -3,6 +3,32 @@ import type { MarketSignal } from '@/lib/types/signal-v2';
 import { fullDate, indicatorStatus } from './MarketV8ConnectedData';
 import styles from './market-v8-coverage.module.css';
 
+export function MarketCurrentAssessment({ signal, date, onSelect }: {
+    signal: MarketSignal; date: string; onSelect: (key: string, element: HTMLButtonElement) => void;
+}) {
+    const conflicts = signal.confidence.conflicting_indicators;
+    const entries = Object.entries(signal.components).filter(([, item]) => item.enabled && item.weight > 0).sort(([, a], [, b]) => b.weight - a.weight);
+    const disagrees = ([key, item]: typeof entries[number]) => conflicts.includes(key) || conflicts.includes(item.display_name);
+    const aligned = entries.find(entry => !disagrees(entry));
+    const conflicting = entries.find(disagrees);
+    const delta = signal.metadata.score_delta;
+    const compared = delta?.delta != null && !!delta.previous_date;
+    return <section className={styles.assessment} aria-label="Current market assessment">
+        <h2>What this reading means</h2>
+        <p>The score describes the configured market indicators on a 0–100 scale. {signal.mode === 'contrarian'
+            ? 'In Contrarian mode, higher scores indicate crowding or greed risk; lower scores indicate fear and potential opportunity.'
+            : 'In Momentum mode, higher scores support positive momentum; lower scores indicate weaker momentum and a more cautious reading.'} It is not a return estimate or a probability of gains.</p>
+        <p className={styles.change} data-testid="market-comparison">{compared ? delta.delta === 0 ? `Score unchanged vs ${fullDate(delta.previous_date)}. Individual inputs can still differ.` : `Score ${delta.delta! > 0 ? 'rose' : 'fell'} ${Math.abs(delta.delta!).toFixed(2)} points vs ${fullDate(delta.previous_date)}. This compares scores, not investment returns.` : 'No earlier comparable score supplied. A change cannot be established.'}</p>
+        <div className={styles.evidenceGrid}>
+            {([[aligned, 'Supporting input'], [conflicting, 'Conflicting input']] as const).map(([entry, label]) => <div key={label}>
+                <h3>{label}</h3>
+                {entry ? <button onClick={event => onSelect(entry[0], event.currentTarget)}><strong>{entry[1].display_name} ↗</strong><span>{indicatorStatus(signal, entry[0], date)} · {fullDate(entry[1].last_updated)}</span><span>{label === 'Supporting input' ? 'Largest included weight aligned with this reading.' : 'Largest included weight that disagrees with this reading.'}</span></button> : <p>{label === 'Supporting input' ? 'No aligned input is identified in the included observations.' : conflicts.length ? 'Conflicts were reported, but a matching included observation is unavailable.' : 'No disagreement identified among returned inputs. Missing evidence can still limit the reading.'}</p>}
+            </div>)}
+        </div>
+        <p><strong>Reading limits:</strong> {signal.metadata.interpretation_context?.limitation ?? 'Indicator agreement is descriptive and does not establish forecast accuracy.'} Source gaps and older observations remain part of the coverage notices.</p>
+    </section>;
+}
+
 export const overallReadingText = (text: string) => text
     .replace(/majority (BUY|SELL|NEUTRAL) read/g, 'overall $1 reading')
     .replace(/component majority/g, 'overall reading');
