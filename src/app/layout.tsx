@@ -1,20 +1,24 @@
 import type { Metadata, Viewport } from "next";
-import { Roboto_Mono, Source_Sans_3 } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProviderV6 } from "@/components/v6/ThemeProviderV6";
 import { PwaLifecycle } from "@/components/pwa/PwaLifecycle";
 import { VersionSwitcher } from "@/components/navigation/VersionSwitcher";
 
-const sourceSans = Source_Sans_3({
+const sourceSans = localFont({
+  src: "./fonts/SourceSans3-Variable.woff2",
   variable: "--font-source-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: "400 800",
+  style: "normal",
+  display: "swap",
 });
 
-const robotoMono = Roboto_Mono({
+const robotoMono = localFont({
+  src: "./fonts/RobotoMono-Variable.woff2",
   variable: "--font-roboto-mono",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: "400 700",
+  style: "normal",
+  display: "swap",
 });
 
 export const metadata: Metadata = {

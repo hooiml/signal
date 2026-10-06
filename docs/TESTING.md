@@ -56,6 +56,16 @@ Run this before completing framework, route, dependency, or deployment-related c
 npm run build
 ```
 
+The root layout uses bundled Source Sans 3 and Roboto Mono variable WOFF2 files via
+`next/font/local`; builds must not require Google Fonts. Provenance, font versions and
+SIL licenses are in `src/app/fonts/README.md`. For font changes, compare loaded text
+metrics at each supported weight and fresh Market/Research screenshots at
+1280/768/375px. Check that font requests are same-origin and successful, no Google
+Fonts requests occur, and claim disclosures and controls retain their geometry.
+An empty `NEXT_FONT_GOOGLE_MOCKED_RESPONSES` module may be used for a local build
+check: any remaining Google-font loader invocation then fails instead of fetching.
+This is a test-process override, not deployment configuration.
+
 ## Browser Verification
 
 For UI changes:
