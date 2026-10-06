@@ -17,7 +17,7 @@ export const GET = async (request: Request, context: RouteContext): Promise<Next
     const headers = () => ({ 'Server-Timing': [...timings, `research;dur=${(performance.now() - started).toFixed(1)}`].join(', ') });
     try {
         const researchMarket: ResearchMarket = market;
-        const data = await getResearchSnapshot(symbol, researchMarket, (stage, duration) => timings.push(`${stage};dur=${duration.toFixed(1)}`));
+        const data = await getResearchSnapshot(symbol, researchMarket, (stage, duration) => timings.push(`${stage};dur=${duration.toFixed(1)}`), new URL(request.url).searchParams.get('benchmark') !== 'defer');
         return NextResponse.json({ success: true, data }, { headers: headers() });
     } catch (error) {
         return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Free data sources unavailable.' }, { status: 502, headers: headers() });

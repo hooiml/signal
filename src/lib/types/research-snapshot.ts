@@ -9,7 +9,10 @@ export type ResearchBenchmarkReturnBasis = typeof researchBenchmarkReturnBases[n
 export type ResearchBenchmark = {
     readonly baselineSymbol: 'VOO';
     readonly baselineName: 'Vanguard S&P 500 ETF';
-    readonly period: '1Y';
+    readonly period: '1Y'; // Requested provider range; use window dates for the actual comparison.
+    readonly windowStart?: string | null;
+    readonly windowEnd?: string | null;
+    readonly commonSessions?: number;
     readonly candidateReturnPercent: number | null;
     readonly baselineReturnPercent: number | null;
     readonly relativeReturnPercent: number | null;
@@ -46,6 +49,12 @@ export type ResearchChartPoint = {
 
 export type ResearchFundamentalPeriod = {
     readonly reportingPeriod: string;
+    readonly sourceUrl?: string | null;
+    readonly comparisonPeriod?: string | null;
+    readonly comparisonRevenue?: number | null;
+    readonly comparisonShares?: number | null;
+    readonly comparableAnnual?: boolean;
+    readonly shareBasis?: 'diluted average' | 'outstanding';
     readonly currency: string;
     readonly source: 'SEC EDGAR' | 'Yahoo Finance';
     readonly annualRevenue: number | null;
@@ -67,6 +76,7 @@ export type ResearchSnapshot = {
     readonly benchmark: ResearchBenchmark;
     readonly quote: {
         readonly instrumentType?: string | null;
+        readonly sharesOutstanding?: number | null;
         readonly classification?: {
             readonly source: 'Yahoo Finance';
             readonly instrumentType: 'EQUITY' | 'ETF';
@@ -96,6 +106,7 @@ export type ResearchSnapshot = {
         readonly history: readonly ResearchFundamentalPeriod[];
     };
     readonly valuation: {
+        readonly shareBasis?: string | null;
         readonly marketCap: number | null;
         readonly priceEarnings: number | null;
         readonly priceSales: number | null;

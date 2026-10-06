@@ -24,6 +24,8 @@ const tierClasses: Record<MarketSignal['tier'], string> = {
 
 export function MarketV8Connected() {
     const [advanced, setAdvanced] = useState(false);
+    const [archiveRequested, setArchiveRequested] = useState(false);
+    const indicatorsRef = useRef<HTMLElement>(null);
     const visibleTabs = tabs.filter(name => advanced || (name !== 'History' && name !== 'Scenarios'));
     const [market, setMarket] = useState<Market>('US');
     const [mode, setMode] = useState<Mode>('standard');
@@ -54,7 +56,6 @@ export function MarketV8Connected() {
     useEffect(() => {
         const controller = new AbortController();
         setResponse(previous => ({ key, signal: previous.key === key ? previous.signal : null, loading: true, error: '', received: previous.key === key ? previous.received : '' }));
-        setArchive(previous => previous.key === key ? { ...previous, loading: true, error: '' } : { key, summaries: [], samples: [], snapshots: {}, loading: true, error: '' });
         void (async () => {
             try {
                 const signal = parseConnectedSignal(await read(`/api/signals/v2?${query}`, controller.signal), market, mode);
@@ -64,6 +65,20 @@ export function MarketV8Connected() {
                 if (!controller.signal.aborted) setResponse(previous => ({ ...previous, loading: false, error: errorText(error) }));
             }
         })();
+        return () => controller.abort();
+    }, [key, query, market, mode, social, revision]);
+
+    useEffect(() => {
+        if (!data || loading) return;
+        const observer = new IntersectionObserver(entries => { if (entries.some(entry => entry.isIntersecting)) setArchiveRequested(true); });
+        if (indicatorsRef.current) observer.observe(indicatorsRef.current);
+        return () => observer.disconnect();
+    }, [data, loading]);
+
+    useEffect(() => {
+        if (loading || (!advanced && !archiveRequested)) return;
+        const controller = new AbortController();
+        setArchive(previous => previous.key === key ? { ...previous, loading: true, error: '' } : { key, summaries: [], samples: [], snapshots: {}, loading: true, error: '' });
         void (async () => {
             const archiveController = new AbortController();
             const cancelArchive = () => archiveController.abort();
@@ -83,6 +98,8 @@ export function MarketV8Connected() {
                 for (let offset = 0; offset < samples.length; offset += 4) {
                     await Promise.all(samples.slice(offset, offset + 4).map(async summary => {
                         if (!summary.hasFullEvidence) return;
+                        const cached = archiveData?.snapshots[summary.date];
+                        if (cached) { snapshots[summary.date] = cached; states[summary.date] = 'loaded'; return; }
                         try {
                             const snapshot = parseMarketReplaySnapshot(await read(`/api/signals/replay?${query}&date=${summary.date}`, archiveController.signal, readPolicies.archive));
                             if (snapshot.summary.date !== summary.date) throw new Error('Archive date mismatch.');
@@ -99,7 +116,9 @@ export function MarketV8Connected() {
             } finally { clearTimeout(deadline); controller.signal.removeEventListener('abort', cancelArchive); }
         })();
         return () => controller.abort();
-    }, [key, query, market, mode, social, revision]);
+    // Archive progress must not restart its own batch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [key, query, market, mode, social, revision, advanced, archiveRequested, loading]);
 
     useEffect(() => {
         if (!historical) return;
@@ -128,7 +147,7 @@ export function MarketV8Connected() {
     function resetView() { modal.current?.close(); setSelected(null); setHistorical(null); setReplayPoint(null); setCurrentPoint(null); setTab('What changed'); setScenario(emptyScenario()); setHistoryState(defaultHistory()); setResetNotice('Market configuration changed. Temporary investigation settings and scenario assumptions were reset.'); }
     function enterReplay(point: Point) { if (!historical) priorView.current = { tab, selected, point: currentPoint, scroll: window.scrollY }; setSelected(null); modal.current?.close(); setHistorical(point); setReplayPoint(point); }
     function returnCurrent() { setHistorical(null); setTab(priorView.current.tab); setSelected(priorView.current.selected); setCurrentPoint(priorView.current.point); requestAnimationFrame(() => window.scrollTo({ top: priorView.current.scroll })); }
-    function openIndicator(indicatorKey: string, element: HTMLButtonElement) { trigger.current = element; setSelected(indicatorKey); }
+    function openIndicator(indicatorKey: string, element: HTMLButtonElement) { trigger.current = element; setSelected(indicatorKey); setArchiveRequested(true); }
     function openTab(name: InvestigationTab) { setTab(name); requestAnimationFrame(() => { const panel = document.getElementById('investigation-panel'); panel?.scrollIntoView({ block: 'start' }); panel?.focus({ preventScroll: true }); }); }
     useEffect(() => {
         if (!selected) return;
@@ -187,7 +206,7 @@ export function MarketV8Connected() {
                             {!historical && data.metadata.trend_context && <div className={styles.seriesSummary}><span>{data.metadata.trend_context.score_trend}</span><span>{data.metadata.trend_context.last_signal_change}</span></div>}
                         </section>
                         {historical ? <section className={styles.panel} aria-label="Archived indicator evidence"><h2>Evidence for {fullDate(historical.date)}</h2>{replay.loading?<p role="status">Loading this archived record…</p>:archived?<><p>{archived.summary.coverageNote ?? 'Observed snapshot. Individual source timestamps remain distinct from snapshot capture.'}</p><div className={styles.contextList}>{archived.components.map(item=><details key={item.key}><summary><span><b>{item.displayName}</b><small>Raw {item.rawValue ?? 'unavailable'} · normalized {item.score ?? 'unavailable'}</small></span><span>{fullDate(item.lastUpdated)} ＋</span></summary><p>Stored weight {item.weight===null?'unavailable':`${(item.weight*100).toFixed(0)}%`} · contribution {item.score===null||item.weight===null?'unavailable':`${(item.score*item.weight).toFixed(2)} points`}. Source date: {fullDate(item.lastUpdated)}. No present-day values are used.</p></details>)}</div></>:<div className={styles.unavailable}><b>Historical indicator records unavailable</b><p>{replay.error} <button onClick={() => setRevision(value => value + 1)}>Retry snapshot</button> This date retains its stored score only. Current context, articles and outcomes are withheld.</p><p>{data.metadata.score_history?.find(point=>point.date===historical.date)?.coverage_note}</p></div>}</section>:<>
-                            <section className={`${styles.indicators} ${styles.connectedIndicators}`} aria-label="Explore indicators"><div className={styles.sectionHeading}><div><h2>Explore indicators</h2><p>Lines show raw history. Line and badge colours reflect the current model interpretation, not historical signals.</p></div><button className={styles.textButton} onClick={()=>openTab('Evidence')}>All evidence ↗</button></div><div className={styles.indicatorGrid}>{inputKeys.map(input=>{const item=data.components[input];const groups=archivedSeries(input,archiveData?.samples??[],archiveData?.snapshots??{},item?.display_name);const lastArchived=groups.at(-1)?.at(-1);const disabled=(input==='social'||input==='news')&&!social;return <button key={input} data-indicator={input} className={`${styles.indicatorTile} ${selected===input?styles.selectedTile:''}`} aria-pressed={selected===input} onClick={event=>openIndicator(input,event.currentTarget)}><span className={styles.tileName}>{item?.display_name ?? getIndicatorDisplayName(input)}<span>↗</span></span><strong>{item ? formatRawValue(item, market):'—'}</strong>{advanced && <span className={styles.tileUnits}>Raw input · {item?`${Number(item.score.toFixed(2))}/100 normalized`:'not supplied'}</span>}<ArchiveSpark groups={groups} loading={!archiveData||archiveData.loading} signal={disabled ? undefined : item?.signal} /><span className={`${styles.interpretationBadge} ${item && !disabled ? tierClasses[item.signal] : styles.tierNeutral}`}>{disabled ? 'Interpretation: disabled' : item ? advanced ? `Model: ${item.signal.replaceAll('-', ' ')}` : `Model reading: ${item.signal.includes('buy') ? 'positive' : item.signal.includes('sell') ? 'cautious' : 'mixed'}` : 'Interpretation unavailable'}</span><span className={indicatorStatus(data,input,date).startsWith('Stale')?styles.conflict:styles.muted}>{disabled?'Disabled by you':!item?'Current value unavailable':indicatorStatus(data,input,date)}</span><small>{item?`${item.metadata?.timestamp_basis === 'retrieved' ? 'Retrieved ' : ''}${fullDate(item.last_updated)}`:!archiveData?.loading&&lastArchived?`Historical readings only · last archived snapshot ${fullDate(lastArchived.date)}`:disabled?'Excluded by your setting':'No current observation date'}</small></button>;})}</div><details className={styles.disclosure}><summary>About indicator history{archiveData?.error ? ' · some history unavailable' : ''}</summary><p className={styles.indicatorFootnote}>Archive {archiveData?.loading ? "loading; partial history" : "loaded"} · {Object.values(archiveData?.states ?? {}).filter(state => state === "loaded").length} loaded / {Object.values(archiveData?.states ?? {}).filter(state => state === "pending").length} pending / {Object.values(archiveData?.states ?? {}).filter(state => state === "failed").length} failed / {Object.values(archiveData?.states ?? {}).filter(state => state === "unavailable").length} unavailable. Mini-charts use the latest {archiveData?.samples.length ?? 0} archived snapshot dates, retaining gaps. They are raw readings stored in snapshots, not continuous provider histories. {archiveData?.error} {!!archiveData?.error && <button onClick={() => setRevision(value => value + 1)}>Retry archive</button>}</p></details></section>
+                            <section ref={indicatorsRef} className={`${styles.indicators} ${styles.connectedIndicators}`} aria-label="Explore indicators"><div className={styles.sectionHeading}><div><h2>Explore indicators</h2><p>Lines show raw history. Line and badge colours reflect the current model interpretation, not historical signals.</p></div><button className={styles.textButton} onClick={()=>openTab('Evidence')}>All evidence ↗</button></div><div className={styles.indicatorGrid}>{inputKeys.map(input=>{const item=data.components[input];const groups=archivedSeries(input,archiveData?.samples??[],archiveData?.snapshots??{},item?.display_name);const lastArchived=groups.at(-1)?.at(-1);const disabled=(input==='social'||input==='news')&&!social;return <button key={input} data-indicator={input} className={`${styles.indicatorTile} ${selected===input?styles.selectedTile:''}`} aria-pressed={selected===input} onClick={event=>openIndicator(input,event.currentTarget)}><span className={styles.tileName}>{item?.display_name ?? getIndicatorDisplayName(input)}<span>↗</span></span><strong>{item ? formatRawValue(item, market):'—'}</strong>{advanced && <span className={styles.tileUnits}>Raw input · {item?`${Number(item.score.toFixed(2))}/100 normalized`:'not supplied'}</span>}<ArchiveSpark groups={groups} loading={!archiveData||archiveData.loading} signal={disabled ? undefined : item?.signal} /><span className={`${styles.interpretationBadge} ${item && !disabled ? tierClasses[item.signal] : styles.tierNeutral}`}>{disabled ? 'Interpretation: disabled' : item ? advanced ? `Model: ${item.signal.replaceAll('-', ' ')}` : `Model reading: ${item.signal.includes('buy') ? 'positive' : item.signal.includes('sell') ? 'cautious' : 'mixed'}` : 'Interpretation unavailable'}</span><span className={indicatorStatus(data,input,date).startsWith('Stale')?styles.conflict:styles.muted}>{disabled?'Disabled by you':!item?'Current value unavailable':indicatorStatus(data,input,date)}</span><small>{item?`${item.metadata?.timestamp_basis === 'retrieved' ? 'Retrieved ' : ''}${fullDate(item.last_updated)}`:!archiveData?.loading&&lastArchived?`Historical readings only · last archived snapshot ${fullDate(lastArchived.date)}`:disabled?'Excluded by your setting':'No current observation date'}</small></button>;})}</div><details className={styles.disclosure}><summary>About indicator history{archiveData?.error ? ' · some history unavailable' : ''}</summary><p className={styles.indicatorFootnote}>Archive {archiveData?.loading ? "loading; partial history" : "loaded"} · {Object.values(archiveData?.states ?? {}).filter(state => state === "loaded").length} loaded / {Object.values(archiveData?.states ?? {}).filter(state => state === "pending").length} pending / {Object.values(archiveData?.states ?? {}).filter(state => state === "failed").length} failed / {Object.values(archiveData?.states ?? {}).filter(state => state === "unavailable").length} unavailable. Mini-charts use the latest {archiveData?.samples.length ?? 0} archived snapshot dates, retaining gaps. They are raw readings stored in snapshots, not continuous provider histories. {archiveData?.error} {!!archiveData?.error && <button onClick={() => setRevision(value => value + 1)}>Retry archive</button>}</p></details></section>
                             <section className={styles.confirmation} aria-label="Market confirmation"><div><span className={styles.eyebrow}>Market context · separate from the score</span><h3>Check the wider market.</h3><p>{data.metadata.interpretation_context?.breadth_note ?? 'Review dated benchmark, rates and valuation records alongside the scored inputs.'}</p></div><button className={styles.textButton} onClick={()=>openTab('Context')}>Explore market context →</button></section>
                             <section className={styles.investigation} id="investigation"><div className={styles.tabs} role="tablist" aria-label="Market investigation">{visibleTabs.map((name,index)=><button key={name} id={`tab-${index}`} role="tab" aria-selected={tab===name} aria-controls="investigation-panel" tabIndex={tab===name?0:-1} onClick={()=>setTab(name)} onKeyDown={event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?visibleTabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+visibleTabs.length)%visibleTabs.length;document.getElementById(`tab-${next}`)?.focus();}}>{name}</button>)}</div><div className={styles.panel} id="investigation-panel" role="tabpanel" tabIndex={-1} aria-labelledby={`tab-${visibleTabs.indexOf(tab)}`} key={`${key}-${tab}`}>{tab==='History'?<ConnectedHistory signal={data} state={historyState} setState={setHistoryState}/>:<ConnectedPanels advanced={advanced} signal={data} tab={tab} onSelect={openIndicator} scenario={scenario} setScenario={setScenario}/>}</div></section>
                         </>}

@@ -662,3 +662,37 @@ at 1280/768/375 widths. Search screenshots are included in the existing browser 
 `node scripts/research-provider-probe.mjs` is a read-only live-provider diagnostic for fixed
 public companies. Its output is separate from fixture proof. Success/failure is reported per
 query; its process success alone is not evidence that every provider case passed.
+
+### Current evidence and optional reads
+
+The full harness includes `node scripts/harness/research-improvements-regression.mjs`.
+It verifies nonadjacent annual endpoints, diluted-average versus outstanding shares,
+dated common-session benchmark alignment, missing sessions, short listings, and deferred
+snapshot work using isolated provider fixtures. `node scripts/research-improvements-qa.mjs`
+uses an owned local production server (`SIGNAL_QA_URL`) and intercepts every API. It checks
+claim disclosures, optional benchmark retries, delayed/interrupted archive loading,
+Basic/Advanced navigation, and responsive overflow; it records two cold fixture samples
+per route with API response bytes, request counts and assessment visibility timing.
+These bounded local measurements do not establish live-provider or database latency.
+
+Yahoo annual revenue and diluted-average-share changes require endpoints 350–380 days
+apart (including 52/53-week fiscal years); skipped years retain endpoints with null growth.
+Malaysia current-price ratios require positive quote outstanding shares; annual diluted
+averages are labelled and never substituted. SEC valuation semantics remain unchanged.
+Benchmarks use common dated positive observations on the same adjusted-close basis when
+coverage allows, otherwise common closes. They require 20 common sessions, 30 calendar
+days and at least 80% of approximate weekday coverage. These are conservative display
+eligibility rules: roughly one trading month avoids conclusions from a few sessions,
+and the coverage floor rejects sparse series while allowing holidays and occasional
+missing sessions. They are not an exchange-calendar model, a statistical significance
+claim or an investment threshold. The tests include 19/20 sessions and 29/30 days.
+The display shows actual endpoints;
+`period: 1Y` remains the requested Yahoo range for compatibility, not an actual-window claim.
+Legacy undated histories cannot generate a comparison. Basic score calculation is unchanged.
+Market archive work starts when indicators enter the viewport or Advanced opens; the score
+request remains independent. Research V8 requests essential snapshots with `benchmark=defer`
+and loads optional US comparison through `/api/research/benchmark/[symbol]` on disclosure.
+That optional request refetches dated candidate history and VOO and performs no database work.
+Basic claims reveal annual amounts/currency, reporting dates and comparison basis. Yahoo links
+are explicitly provider pages; SEC document links are shown only when a source URL is supplied,
+with no guessed issuer identity or filing. The separate save and SEC configuration blockers remain.

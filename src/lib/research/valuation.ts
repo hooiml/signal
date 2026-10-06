@@ -22,7 +22,7 @@ const ratio = (numerator: number | null, denominator: number | null): number | n
         : Number((numerator / denominator).toFixed(2));
 
 export const calculateValuation = (inputs: ValuationInputs): ValuationSnapshot => {
-    const marketCap = inputs.price === null || inputs.shares === null ? null : inputs.price * inputs.shares;
+    const marketCap = inputs.price === null || inputs.shares === null || !Number.isFinite(inputs.price) || !Number.isFinite(inputs.shares) || inputs.price <= 0 || inputs.shares <= 0 ? null : inputs.price * inputs.shares;
     const freeCashFlowYield = inputs.freeCashFlow === null || marketCap === null || marketCap <= 0
         ? null : (inputs.freeCashFlow / marketCap) * 100;
     return {

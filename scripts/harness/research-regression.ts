@@ -3019,8 +3019,9 @@ const runTechnicalTests = () => {
 };
 
 const runBenchmarkTests = () => {
-    const candidate = { history: { closes: [100, 130], adjustedCloses: [100, 130], volumes: [] } };
-    const baseline = { history: { closes: [100, 120], adjustedCloses: [100, 120], volumes: [] } };
+    const observations = (last: number) => Array.from({ length: 40 }, (_, i) => ({ date: new Date(Date.UTC(2026, 0, i + 1)).toISOString().slice(0, 10), close: 100 + (last - 100) * i / 39, adjustedClose: 100 + (last - 100) * i / 39 }));
+    const candidate = { history: { closes: [100, 130], adjustedCloses: [100, 130], volumes: [], observations: observations(130) } };
+    const baseline = { history: { closes: [100, 120], adjustedCloses: [100, 120], volumes: [], observations: observations(120) } };
     const benchmark = buildResearchBenchmark(candidate, baseline);
     assertEqual(benchmark.candidateReturnPercent, 30, 'benchmark calculates candidate return from adjusted closes');
     assertEqual(benchmark.baselineReturnPercent, 20, 'benchmark calculates passive baseline return from adjusted closes');

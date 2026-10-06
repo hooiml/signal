@@ -90,13 +90,22 @@ export const parseYahooFundamentalTimeseries = (
         .sort(([left], [right]) => right.localeCompare(left))
         .slice(0, 5);
     return sorted.map(([reportingPeriod, period], index): ResearchFundamentalPeriod => {
-        const previous = sorted[index + 1]?.[1] ?? null;
+        const previousEntry = sorted[index + 1];
+        const previous = previousEntry?.[1] ?? null;
+        const elapsedDays = previousEntry ? (Date.parse(reportingPeriod) - Date.parse(previousEntry[0])) / 86_400_000 : NaN;
+        // Allow 52/53-week fiscal years, but never a missing year or changed short period.
+        const comparableAnnual = elapsedDays >= 350 && elapsedDays <= 380;
         return {
             reportingPeriod,
+            comparisonPeriod: previousEntry?.[0] ?? null,
+            comparisonRevenue: previous?.annualRevenue ?? null,
+            comparisonShares: previous?.shares ?? null,
+            comparableAnnual,
+            shareBasis: 'diluted average',
             currency: expectedCurrency,
             source: 'Yahoo Finance',
             annualRevenue: period.annualRevenue,
-            revenueGrowthPercent: change(period.annualRevenue, previous?.annualRevenue ?? null),
+            revenueGrowthPercent: comparableAnnual ? change(period.annualRevenue, previous?.annualRevenue ?? null) : null,
             grossMarginPercent: ratio(period.grossProfit, period.annualRevenue),
             operatingMarginPercent: ratio(period.operatingIncome, period.annualRevenue),
             annualNetIncome: period.annualNetIncome,
@@ -104,7 +113,7 @@ export const parseYahooFundamentalTimeseries = (
             debt: period.debt,
             cash: period.cash,
             shares: period.shares,
-            shareChangePercent: change(period.shares, previous?.shares ?? null),
+            shareChangePercent: comparableAnnual ? change(period.shares, previous?.shares ?? null) : null,
         };
     });
 };

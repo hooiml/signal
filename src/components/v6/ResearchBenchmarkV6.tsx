@@ -48,7 +48,7 @@ export const ResearchBenchmarkV6 = ({ benchmark, theme }: { readonly benchmark: 
                     <dd className={'mt-1 font-mono text-sm font-bold tabular-nums ' + tone}>{formatReturn(benchmark.relativeReturnPercent)}</dd>
                 </div>
             </dl>
-            <p className={'mt-3 text-[11px] leading-5 ' + styles.textMuted}>{benchmark.baselineName} · {benchmark.period} · {basis} This is evidence for review, not a recommendation.</p>
+            <p className={'mt-3 text-[11px] leading-5 ' + styles.textMuted}>{benchmark.baselineName} · {benchmark.windowStart && benchmark.windowEnd ? `${benchmark.windowStart} to ${benchmark.windowEnd} · ${benchmark.commonSessions} common sessions` : 'Comparison window unavailable'} · {basis} This is evidence for review, not a recommendation.</p>
         </section>
     );
 };

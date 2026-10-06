@@ -194,20 +194,37 @@ function ConnectedCase({ symbol, market, record, onSaved, advanced, tab, setTab,
     const [assessmentTime, setAssessmentTime] = useState(() => Date.now());
     const [chartDate, setChartDate] = useState<string | null>(null);
     const [readings, setReadings] = useState<{ current: ResearchSnapshot | null; previous: ResearchSnapshot | null }>({ current: null, previous: null });
-    const snapshot = readings.current;
+    const [optionalBenchmark, setOptionalBenchmark] = useState<ResearchSnapshot['benchmark'] | null>(null);
+    const snapshot = readings.current && optionalBenchmark ? { ...readings.current, benchmark: optionalBenchmark } : readings.current;
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
     const [refresh, setRefresh] = useState(0);
     useEffect(() => {
         const controller = new AbortController();
         let active = true;
-        readData(`/api/research/symbol/${encodeURIComponent(symbol)}?market=${market}`, controller.signal, readPolicies.provider)
+        readData(`/api/research/symbol/${encodeURIComponent(symbol)}?market=${market}&benchmark=defer`, controller.signal, readPolicies.provider)
             .then(parseResearchSnapshotResponse)
             .then(next => { if (next.symbol !== symbol || next.market !== market) throw new Error('Security mismatch'); if (active) { setReadings(previous => ({ current: next, previous: previous.current })); setAssessmentTime(Date.now()); } })
             .catch(() => { if (active) setError(true); })
             .finally(() => { if (active) setLoading(false); });
         return () => { active = false; controller.abort(); };
     }, [symbol, market, refresh]);
+    const [benchmarkRequested, setBenchmarkRequested] = useState(0);
+    const [benchmarkError, setBenchmarkError] = useState(false);
+    const [benchmarkLoading, setBenchmarkLoading] = useState(false);
+    useEffect(() => {
+        if (!benchmarkRequested || market !== 'US') return;
+        const controller = new AbortController();
+        setBenchmarkError(false); setBenchmarkLoading(true);
+        readData(`/api/research/benchmark/${encodeURIComponent(symbol)}?market=${market}`, controller.signal, readPolicies.provider)
+            .then(value => { if (!value || typeof value !== 'object' || !('data' in value)) throw new Error('Invalid benchmark'); return parseResearchSnapshotResponse({ success: true, data: { ...readings.current, benchmark: value.data } }); })
+            .then(next => { if (!controller.signal.aborted) setOptionalBenchmark(next.benchmark); })
+            .catch(() => { if (!controller.signal.aborted) setBenchmarkError(true); })
+            .finally(() => { if (!controller.signal.aborted) setBenchmarkLoading(false); });
+        return () => controller.abort();
+    // Benchmark is optional and must not rerun on assessment/quote updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [benchmarkRequested, symbol, market, refresh]);
     const visibleTabs = researchTabs.filter(value => (advanced && record) || (value !== 'Thesis' && value !== 'Review'));
     const readiness = record ? buildResearchReadiness({ record, sector: '', policyAssessment: null }) : null;
     const visibleChecks = [...(readiness?.items ?? [])].sort((a, b) => Number(a.tone === 'ready') - Number(b.tone === 'ready'));
@@ -237,7 +254,7 @@ function ConnectedCase({ symbol, market, record, onSaved, advanced, tab, setTab,
 
                 </>}
 
-                <section className={styles.investigation} aria-label="Company investigation"><div className={`${base.tabs} ${styles.tabs}`} role="tablist" aria-label="Research investigation" onKeyDown={tabKeys}>{visibleTabs.map(value => <button id={`connected-tab-${value}`} role="tab" aria-selected={activeTab === value} aria-controls="connected-panel" tabIndex={activeTab === value ? 0 : -1} key={value} onClick={() => setTab(value)}>{value}</button>)}</div><div id="connected-panel" role="tabpanel" aria-labelledby={`connected-tab-${activeTab}`} tabIndex={0} className={`${base.panel} ${styles.panel}`}><ResearchConnectedPanel advanced={advanced} tab={activeTab} record={record} market={market} snapshot={snapshot} loading={loading} chartRange={chartRange} setChartRange={setChartRange} chartDate={chartDate} setChartDate={setChartDate} /></div></section>
+                <section className={styles.investigation} aria-label="Company investigation"><div className={`${base.tabs} ${styles.tabs}`} role="tablist" aria-label="Research investigation" onKeyDown={tabKeys}>{visibleTabs.map(value => <button id={`connected-tab-${value}`} role="tab" aria-selected={activeTab === value} aria-controls="connected-panel" tabIndex={activeTab === value ? 0 : -1} key={value} onClick={() => setTab(value)}>{value}</button>)}</div><div id="connected-panel" role="tabpanel" aria-labelledby={`connected-tab-${activeTab}`} tabIndex={0} className={`${base.panel} ${styles.panel}`}><ResearchConnectedPanel onBenchmarkRequest={() => setBenchmarkRequested(value => value + 1)} benchmarkError={benchmarkError} benchmarkLoading={benchmarkLoading} advanced={advanced} tab={activeTab} record={record} market={market} snapshot={snapshot} loading={loading} chartRange={chartRange} setChartRange={setChartRange} chartDate={chartDate} setChartDate={setChartDate} /></div></section>
             </article>
 
         </div>

@@ -24,17 +24,18 @@ export function assessCurrentResearch(snapshot: ResearchSnapshot | null, now: nu
     const period = f?.reportingPeriod ? Date.parse(f.reportingPeriod) : NaN;
     const validPeriod = Number.isFinite(period) && period <= now;
     const sourced = !!f?.source && validPeriod;
-    const coverage = sourced ? [f?.revenueGrowthPercent, f?.annualNetIncome, f?.freeCashFlow].filter(finite).length : 0;
+    const growthComparable = f?.history.find(row => row.reportingPeriod === f.reportingPeriod)?.comparableAnnual !== false;
+    const coverage = sourced ? [growthComparable ? f?.revenueGrowthPercent : null, f?.annualNetIncome, f?.freeCashFlow].filter(finite).length : 0;
     const oldPeriod = validPeriod && now - period > 548 * DAY;
     const retrieved = snapshot ? Date.parse(snapshot.fetchedAt) : NaN;
     const oldSnapshot = !!snapshot && (!Number.isFinite(retrieved) || retrieved > now || now - retrieved > 2 * DAY);
 
     if (!sourced) gaps.push('Financial source or reporting period is unavailable. Company performance cannot be assessed from the price alone.');
     else {
-        if (finite(f?.revenueGrowthPercent)) {
+        if (growthComparable && finite(f?.revenueGrowthPercent)) {
             const growth = f.revenueGrowthPercent;
             (growth < 0 ? concerns : supporting).push(growth === 0 ? 'Reported revenue was unchanged year over year.' : `Reported revenue ${growth > 0 ? 'grew' : 'fell'} ${Math.abs(growth).toFixed(1)}% year over year.`);
-        } else gaps.push('Revenue growth is unavailable.');
+        } else gaps.push(growthComparable ? 'Revenue growth is unavailable.' : 'Comparable annual revenue periods are unavailable; year-over-year growth is withheld.');
         if (finite(f?.annualNetIncome)) {
             (f.annualNetIncome > 0 ? supporting : concerns).push(f.annualNetIncome > 0 ? 'The latest annual period reported a net profit.' : f.annualNetIncome < 0 ? 'The latest annual period reported a net loss.' : 'The latest annual period reported no net profit.');
         } else gaps.push('Annual net income is unavailable.');
