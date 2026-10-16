@@ -154,6 +154,10 @@ try {
         console.log('Selected history:', await chart.getAttribute('aria-valuetext'), 'details:', JSON.stringify(chartFootText));
         assert.match(chartFootText, /Historical source-weight percentage unavailable/, 'Selected older point must not inherit today’s weight coverage.');
         await noOverflow('Market current and historical');
+        if (width !== 768) {
+            await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
+            await page.screenshot({ path: output + '/market-' + width + '.png', fullPage: true });
+        }
 
         if (width === 1280) {
             unknownDate = true;
@@ -174,6 +178,7 @@ try {
         await page.goto(base + '/research-v8?ticker=VOO&market=US');
         const assessment = page.getByRole('region', { name: 'Current research assessment' });
         await assessment.getByRole('heading', { name: 'Assessment not supported for this security' }).waitFor();
+        if (width !== 768) await page.screenshot({ path: output + '/research-compact-' + width + '.png', fullPage: true });
         assert.equal(await assessment.locator('[class*="assessmentGrid"]').count(), 0);
         await assessment.locator('summary').first().click();
         await assessment.getByText(/Financial source:/).waitFor();
