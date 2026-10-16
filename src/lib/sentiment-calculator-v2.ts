@@ -1,5 +1,6 @@
 import { IndicatorData, MarketSignal, SignalTier, ConfidenceMetrics, SignalAction } from './types/signal-v2';
 import { getIndicatorBaseWeights, isScoredIndicator } from './indicator-registry';
+import { MARKET_SCORE_TIER_THRESHOLDS } from './market-score-thresholds';
 
 /**
  * V2 Calculator: Coverage-Aware Weighting & Soft-Min Logic
@@ -57,10 +58,10 @@ export function calculateCompositeScoreV2(
     // Standard: High Score = Momentum = Buy
     const isContrarian = mode === 'contrarian';
 
-    if (compositeScore >= 85) tier = isContrarian ? 'strong-sell' : 'strong-buy';
-    else if (compositeScore >= 65) tier = isContrarian ? 'sell' : 'buy';
-    else if (compositeScore >= 40) tier = 'neutral';
-    else if (compositeScore >= 20) tier = isContrarian ? 'buy' : 'sell';
+    if (compositeScore >= MARKET_SCORE_TIER_THRESHOLDS.strongPositive) tier = isContrarian ? 'strong-sell' : 'strong-buy';
+    else if (compositeScore >= MARKET_SCORE_TIER_THRESHOLDS.neutralUpper) tier = isContrarian ? 'sell' : 'buy';
+    else if (compositeScore >= MARKET_SCORE_TIER_THRESHOLDS.neutralLower) tier = 'neutral';
+    else if (compositeScore >= MARKET_SCORE_TIER_THRESHOLDS.strongNegative) tier = isContrarian ? 'buy' : 'sell';
     else tier = isContrarian ? 'strong-buy' : 'strong-sell';
 
     // 6. Generate Interpretation
@@ -70,10 +71,10 @@ export function calculateCompositeScoreV2(
     const scoredIndicators = activeIndicators.map(ind => {
         const isContr = mode === 'contrarian';
         let indTier: SignalTier = 'neutral';
-        if (ind.score >= 85) indTier = isContr ? 'strong-sell' : 'strong-buy';
-        else if (ind.score >= 65) indTier = isContr ? 'sell' : 'buy';
-        else if (ind.score >= 40) indTier = 'neutral';
-        else if (ind.score >= 20) indTier = isContr ? 'buy' : 'sell';
+        if (ind.score >= MARKET_SCORE_TIER_THRESHOLDS.strongPositive) indTier = isContr ? 'strong-sell' : 'strong-buy';
+        else if (ind.score >= MARKET_SCORE_TIER_THRESHOLDS.neutralUpper) indTier = isContr ? 'sell' : 'buy';
+        else if (ind.score >= MARKET_SCORE_TIER_THRESHOLDS.neutralLower) indTier = 'neutral';
+        else if (ind.score >= MARKET_SCORE_TIER_THRESHOLDS.strongNegative) indTier = isContr ? 'buy' : 'sell';
         else indTier = isContr ? 'strong-buy' : 'strong-sell';
         return {
             ...ind,

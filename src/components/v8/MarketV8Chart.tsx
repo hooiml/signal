@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { dateLabel, type Point } from './market-v8-fixtures';
+import { MARKET_SCORE_TIER_THRESHOLDS } from '@/lib/market-score-thresholds';
 import styles from './market-v8.module.css';
 
 function geometry(points: Point[], width: number, height: number, min: number, max: number, pad = 0) {
@@ -34,7 +35,7 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
     const provenancePaths = points.map((point, i) => ({ point, location: locations[i], previous: points[i - 1], previousLocation: locations[i - 1] }));
     return <div className={styles.chart}>
         <div className={styles.chartTopline}><span>{sourced ? raw ? 'Raw readings from archived snapshots' : '0–100 composite · stored history' : raw ? 'Raw observations · illustrative' : '0–100 composite · illustrative history'}</span><output aria-live="polite">{dateLabel(points[at].date)} <b>{points[at].value.toFixed(raw ? 2 : 0)}{raw ? '' : ' /100'}</b>{sourced && !raw && <span>Origin: {origin}</span>}</output></div>
-        {sourced && !raw && <p className={styles.chartLegend}>━━ Observed · ┄┄ Reconstructed · breaks separate origins</p>}
+        {sourced && !raw && <p className={styles.chartLegend}>━━ Observed · ┄┄ Reconstructed · breaks separate origins · shaded band = neutral score tier {MARKET_SCORE_TIER_THRESHOLDS.neutralLower}–{MARKET_SCORE_TIER_THRESHOLDS.neutralUpper - 1}</p>}
         <div className={styles.chartPlot}>
             <div className={styles.axis}>{[maximum, (maximum + minimum) / 2, minimum].map(value => <span key={value}>{value.toFixed(0)}</span>)}</div>
             <svg viewBox="-3 -8 806 242" preserveAspectRatio="none" role={onSelect ? 'slider' : 'img'} tabIndex={onSelect ? 0 : undefined} aria-label={name} aria-valuemin={onSelect ? 0 : undefined} aria-valuemax={onSelect ? points.length - 1 : undefined} aria-valuenow={onSelect ? at : undefined} aria-valuetext={onSelect ? `${dateLabel(points[at].date)}, score ${points[at].value}. Arrow keys preview, Enter selects a preview.` : undefined}
@@ -54,7 +55,9 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                     setCursor(nearest); onSelect(points[nearest]);
                 }}>
                 <defs><linearGradient id={id} x1="0" x2="0" y1="0" y2="1"><stop stopColor="currentColor" stopOpacity=".2" /><stop offset="1" stopColor="currentColor" stopOpacity=".01" /></linearGradient></defs>
+                {!raw && <rect x="0" y={(1 - MARKET_SCORE_TIER_THRESHOLDS.neutralUpper / 100) * 226} width="800" height={(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper - MARKET_SCORE_TIER_THRESHOLDS.neutralLower) / 100 * 226} fill="#d8e8f8" fillOpacity=".4" />}
                 {[0, 56.5, 113, 169.5, 226].map(y => <line key={y} x1="0" x2="800" y1={y} y2={y} stroke="currentColor" strokeOpacity=".12" strokeDasharray="3 5" />)}
+                {!raw && [MARKET_SCORE_TIER_THRESHOLDS.neutralLower, MARKET_SCORE_TIER_THRESHOLDS.neutralUpper].map(threshold => <line key={threshold} x1="0" x2="800" y1={(1 - threshold / 100) * 226} y2={(1 - threshold / 100) * 226} stroke="#567b9e" strokeOpacity=".6" strokeDasharray="2 7" />)}
                 {sourced && !raw ? provenancePaths.map(({ point, location, previous, previousLocation }, i) => <g key={point.date} data-origin={point.origin ?? 'unavailable'}>
                     {previous && previous.origin === point.origin && <path d={`M${previousLocation.x},${previousLocation.y} L${location.x},${location.y}`} fill="none" stroke="currentColor" strokeWidth="2.8" strokeDasharray={point.origin === 'reconstructed' ? '6 5' : undefined} vectorEffect="non-scaling-stroke" />}
                     {(!previous || previous.origin !== point.origin || points[i + 1]?.origin !== point.origin) && <circle cx={location.x} cy={location.y} r="3" fill="currentColor" />}
