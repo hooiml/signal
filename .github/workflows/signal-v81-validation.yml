@@ -1,0 +1,50 @@
+name: Signal V8.1 browser verification
+
+on:
+  push:
+    branches:
+      - feat/signal-v81-market-evidence
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql://signal_ci:signal_ci@127.0.0.1:5432/signal_ci
+      NEXT_TELEMETRY_DISABLED: '1'
+      SIGNAL_QA_URL: http://127.0.0.1:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run qa:v81-evidence
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Run V8.1 responsive fixture browser checks
+        run: |
+          npm run start -- --hostname 127.0.0.1 > /tmp/signal-v81-server.log 2>&1 &
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:3000/main-v8 >/dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/v81-ui-qa.mjs
+      - name: Show app errors
+        if: failure()
+        run: cat /tmp/signal-v81-server.log || true
+      - name: Upload screenshots and assertions
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: signal-v81-browser
+          path: .tmp/v81/browser/
+          if-no-files-found: warn

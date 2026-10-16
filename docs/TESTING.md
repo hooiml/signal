@@ -706,3 +706,11 @@ That optional request refetches dated candidate history and VOO and performs no 
 Basic claims reveal annual amounts/currency, reporting dates and comparison basis. Yahoo links
 are explicitly provider pages; SEC document links are shown only when a source URL is supplied,
 with no guessed issuer identity or filing. The separate save and SEC configuration blockers remain.
+
+
+### Signal V8.1 evidence and hierarchy
+
+`npm run qa:v81-evidence` runs the deterministic Market data contract suite without providers or database. It asserts the exclusive configured-weight partition (fresh/stale/fallback), unknown dates, non-scored context-only inputs, weight mismatches, missing aggregates, and high-volatility weight overrides. This suite also runs within `npm run harness`. Score-tier reference lines come from `src/lib/market-score-thresholds.ts`; these are **score tiers**, not the independent breadth/VIX-informed market-regime classifier. Historical coverage percentages must come from historical snapshots, never today's configuration.
+
+For responsive Market/Research V8.1 review, verify 1280px, 768px and 375px widths, including no horizontal overflow, keyboard focus-only skip links, the Market score/evidence/drivers hero, dated source notices, active-only indicator cards, accessible unavailable inputs, chart provenance styles, Research compact unsupported-assessment details, and Market-to-Research market selection. Do not claim visual QA from lint, typecheck or build alone.
+

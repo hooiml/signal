@@ -391,3 +391,62 @@
 @media (max-width: 600px) { .loadingSkeleton { grid-template-columns: 1fr 1fr; } .loadingSkeleton > div:last-child { grid-column: 1 / -1; } }
 @media (prefers-reduced-motion: reduce) { .skeletonLine { animation: none; } }
 
+
+
+/* Signal V8.1: compact decision context; retain full methodology and warnings in disclosures. */
+.v81Hero { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--line); }
+.v81HeroCell { min-width: 0; display: flex; flex-direction: column; gap: 9px; padding: 19px 18px 17px; }
+.v81HeroCell + .v81HeroCell { border-left: 1px solid var(--line); }
+.v81HeroCell > p { font-size: 12px; line-height: 1.5; }
+.v81ScoreLine { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.v81ScoreLine > strong { font-size: clamp(38px, 4vw, 54px); font-variant-numeric: tabular-nums; letter-spacing: -2px; line-height: 1.1; }
+.v81ScoreLine > span:nth-child(2) { color: var(--muted); font-size: 17px; }
+.v81ScoreLine .zone { font-size: 11px; margin-left: 4px; }
+.v81Spectrum { position: relative; width: 100%; height: 10px; margin-top: 10px; background: #dce6f1; border-radius: 8px; }
+.v81NeutralBand { position: absolute; inset-block: 0; background: #a6d8cc; }
+.v81ScorePin, .v81PreviousPin { position: absolute; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; }
+.v81ScorePin { width: 14px; height: 14px; border: 3px solid #125e4f; background: white; z-index: 1; }
+.v81PreviousPin { width: 12px; height: 20px; border: 2px solid #77889f; opacity: .7; background: transparent; }
+.v81SpectrumLegend { display: flex; justify-content: space-between; gap: 6px; color: var(--muted); font-size: 12px; }
+.v81Metric { font-size: clamp(28px, 3vw, 38px); font-weight: 750; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.v81Metric small { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; font-weight: 500; }
+.v81CoverageBar { display: flex; width: 100%; height: 10px; border-radius: 8px; overflow: hidden; background: #e9edf5; margin-top: 4px; }
+.v81Fresh { background: #078568; }
+.v81Stale { background: #c38d32; }
+.v81Observed { background: #517aa0; }
+.v81Fallback { background: #c5ceda; }
+.v81CoverageLegend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; color: var(--muted); font-size: 12px; }
+.v81Minor { font-size: 12px !important; color: var(--muted); }
+.v81HeroCell > .textButton { margin-top: auto; align-self: flex-start; }
+.v81Drivers { display: grid; gap: 12px; margin: 8px 0; }
+.v81Driver { display: grid; grid-template-columns: minmax(65px, 1fr) minmax(35px, 60px) 46px; gap: 7px; align-items: center; font-size: 12px; }
+.v81Driver strong { font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+.v81DriverTrack { position: relative; height: 7px; border-radius: 4px; background: #edf2f7; }
+.v81DriverTrack::after { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; border-left: 1px solid #8d9db1; }
+.v81DriverTrack > span { display: block; position: absolute; top: 0; height: 100%; border-radius: 4px; }
+.v81DriverDown { right: 50%; background: #b36a69; }
+.v81DriverUp { left: 50%; background: #078568; }
+.v81Disclosure, .v81Warnings { border-bottom: 1px solid var(--line); }
+.v81Disclosure > summary, .v81Warnings > summary { padding: 10px 22px; min-height: 44px; display: flex; align-items: center; color: var(--muted); font-size: 12px; font-weight: 650; }
+.v81Warnings > summary { background: #fff9ea; color: #76521c; }
+.v81Disclosure > section { border-top: 1px solid var(--line); }
+.v81Warnings > div { padding: 15px 18px 0; }
+.v81Warnings > div:not(:empty) { border-top: 1px solid var(--line); }
+.v81PreviewCoverage { font-size: 12px; color: var(--muted); }
+@media (max-width: 1180px) {
+    .v81Hero { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .v81HeroCell:nth-child(3) { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); }
+}
+@media (max-width: 600px) {
+    .v81Hero { grid-template-columns: minmax(0, 1fr); }
+    .v81HeroCell + .v81HeroCell { grid-column: auto; border-left: 0; border-top: 1px solid var(--line); }
+    .v81HeroCell { padding: 16px; }
+    .v81Disclosure > summary, .v81Warnings > summary { padding: 12px 16px; }
+    .v81Warnings > div { padding: 12px 14px 0; }
+}
+
+.tileWeight { display: block; font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* Prevent bounded 0–100 chart labels from wrapping into misleading split digits. */
+.app .axis { flex: 0 0 32px; min-width: 32px; white-space: nowrap; text-align: right; }
+.app .chartPlot > svg { flex: 1 1 auto; min-width: 0; width: auto; }
