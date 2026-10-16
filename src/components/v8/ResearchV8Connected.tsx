@@ -97,7 +97,8 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                 const url = new URL(window.location.href);
                 const ticker = url.searchParams.get('ticker')?.trim().toUpperCase();
                 const linkedMarket = url.searchParams.get('market');
-                const savedSelection = ticker ? next.find(item => item.symbol === ticker) : next[0];
+                const marketPreference = linkedMarket === 'MY' || linkedMarket === 'US' ? linkedMarket : undefined;
+                const savedSelection = ticker ? next.find(item => item.symbol === ticker) : marketPreference ? next.find(item => item.market === marketPreference) : next[0];
                 // Resolve the current URL, not the selection when this read began.
                 // An explicit market always wins over a saved record with the same ticker.
                 if (ticker && (linkedMarket === 'MY' || linkedMarket === 'US')) {
@@ -109,6 +110,10 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                     window.history.replaceState(null, '', url);
                     setSelected(savedSelection.symbol);
                     setSelectedMarket(savedSelection.market);
+                } else if (!ticker && marketPreference) {
+                    // Preserve the requested lookup market even when its saved list is empty.
+                    setSelected('');
+                    setSelectedMarket(marketPreference);
                 }
             } })
             .catch(() => { if (active) setError(true); })
