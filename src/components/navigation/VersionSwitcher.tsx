@@ -13,13 +13,13 @@ const routes = {
     '/research-v8': { version: 8, experience: 'Research' },
 } as const;
 
-export function VersionSwitcher() {
+export function VersionSwitcher({ placement = 'top' }: { placement?: 'top' | 'footer' } = {}) {
     const pathname = usePathname();
     const current = routes[pathname as keyof typeof routes];
-    if (!current) return null;
+    if (!current || (current.version === 8 && placement === 'top') || (current.version !== 8 && placement === 'footer')) return null;
 
     const prefix = current.experience === 'Research' ? 'research' : 'main';
-    return <nav className={styles.bar} aria-label="UI versions">
+    return <nav className={`${styles.bar} ${placement === 'footer' ? styles.footer : ''}`} aria-label="UI versions">
         <div className={styles.inner}>
             <span className={styles.label}>{current.experience}<span> · UI version</span></span>
             <div className={styles.versions}>

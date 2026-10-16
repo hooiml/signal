@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 type InstallPromptEvent = Event & {
     readonly prompt: () => Promise<void>;
@@ -10,6 +11,7 @@ type InstallPromptEvent = Event & {
 const LAST_ONLINE_KEY = 'signal-pwa-last-online-v1';
 
 export const PwaLifecycle = () => {
+    const pathname = usePathname();
     const [online, setOnline] = useState(true);
     const [lastOnlineAt, setLastOnlineAt] = useState<string | null>(null);
     const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
@@ -62,7 +64,7 @@ export const PwaLifecycle = () => {
                     setWaitingWorker(value.waiting);
                     value.addEventListener('updatefound', updateFound);
                 })
-                .catch(() => setMessage('Offline support could not be registered in this browser.'));
+                .catch(() => { /* Optional offline registration failure must not cover active research controls. */ });
         }
         return () => {
             window.clearTimeout(initialize);
@@ -101,11 +103,12 @@ export const PwaLifecycle = () => {
 
     if (online && !waitingWorker && !installPrompt && !message) return null;
     const hasPriorityNotice = !online || waitingWorker !== null;
+    const compactOptional = !hasPriorityNotice && (pathname === '/main-v8' || pathname === '/research-v8');
     return (
         <aside
             data-testid="pwa-lifecycle"
             data-priority={hasPriorityNotice ? 'essential' : 'optional'}
-            className={'relative z-[100] w-full border-b px-3 py-3 text-xs text-slate-100 ' + (hasPriorityNotice
+            className={(compactOptional ? 'fixed bottom-4 right-4 z-[100] w-[calc(100vw-2rem)] max-w-[380px] rounded-xl border px-4 py-3 shadow-xl text-xs text-slate-100 ' : 'relative z-[100] w-full border-b px-3 py-3 text-xs text-slate-100 ') + (hasPriorityNotice
                 ? 'border-amber-400/50 bg-[#101820] shadow-md'
                 : 'border-slate-700 bg-[#071019]')}
             aria-live="polite"

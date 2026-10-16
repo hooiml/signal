@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { VersionSwitcher } from '@/components/navigation/VersionSwitcher';
 import { parseResearchSnapshotResponse } from '@/lib/research/snapshot-input';
 import { readData, readPolicies } from './read-data';
 import { buildResearchReadiness } from '@/lib/research/readiness';
@@ -134,8 +135,9 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
     const selectedIndex = matches.findIndex(item => item.symbol === selected);
     return <div className={`${base.app} ${styles.app} ${connected.app}`}>
         <a className={base.skip} href="#v8-content">Skip to content</a>
-        <header className={base.header}><a className={base.logo} href="/main-v8">∿ Signal<span>V8</span></a><nav aria-label="Primary"><a href="/main-v8">Market</a><a href="/research-v8" aria-current="page">Research</a></nav><span className={base.headerNote}>Connected to Signal</span></header>
+        <header className={base.header}><a className={base.logo} href="/main-v8">∿ Signal<span>V8</span></a><nav aria-label="Primary"><a href="/main-v8">Market</a><a href="/research-v8" aria-current="page">Research</a></nav></header>
         <main id="v8-content" tabIndex={-1} className={base.canvas}>
+            <ResearchSecurityLookup initialMarket={initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} />
             <section className={connected.selectedHeader} aria-label="Selected research security">
                 <div>{record ? <><span>{record.market} · {record.symbol}</span><h1>{record.companyName || record.symbol}</h1></> : <><span>{selected ? `${readingMarket ?? 'Market unresolved'} · ${selected}` : 'Current evidence'}</span><h1>{selected || 'Research'}</h1></>}</div>
                 <div className={connected.headerActions}>
@@ -144,7 +146,6 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                     {advanced && <button className={connected.actionButton} aria-haspopup="dialog" aria-expanded={panel === 'tools'} disabled={!record} onClick={event => openPanel('tools', event.currentTarget)}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h16v12H4zM9 8V4h6v4M4 13h16M10 13v3h4v-3" /></svg>Workspaces<span aria-hidden="true">⌄</span></button>}
                 </div>
             </section>
-            <ResearchSecurityLookup initialMarket={initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} />
             <div role="status">{loading && <p>Refreshing saved research…</p>}{error && <p className={connected.warning}>Saved research could not be refreshed. {records ? 'The previously loaded records remain visible.' : 'No example records have been substituted.'} Retry with Reload saved research.</p>}</div>
             <dialog ref={panelRef} className={connected.utilityPanel} aria-labelledby="research-utility-title" onClose={() => { setPanel(null); panelTrigger.current?.focus(); }} onKeyDownCapture={event => { if (event.key === 'Escape') { event.preventDefault(); event.currentTarget.close(); } }} onClick={event => {
                 const bounds = event.currentTarget.getBoundingClientRect();
@@ -169,7 +170,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                 <button className={base.textButton} onClick={() => navigate(selected, tab, false, 'MY')}>Read {selected} in Malaysia</button>
             </section>}
             {validSelection && readingMarket && <ConnectedCase key={`${readingMarket}:${selected}`} symbol={selected} market={readingMarket} record={record} onSaved={remember} advanced={advanced} tab={tab} setTab={value => navigate(selected, value, false, readingMarket)} chartRange={chartRange} setChartRange={setChartRange} />}
-            <footer className={styles.footer}><span>Connected Research V8 · existing Signal records</span><details><summary>Data scope & limitations</summary><p>Saved research is user-authored. Quotes, history and fundamentals come from the existing research service; unavailable values stay unavailable. Retrieval time is not an exchange quote timestamp. Editing, monitoring evaluation and advanced tools open the existing workspace. Saving a security requires the explicit Save security action. It does not record an investment decision or personal review. Saved research refreshes when you return from editing; you can also reload it manually.</p><a href="/research-v8?demo=1">Open the labelled representative demo →</a></details></footer>
+            <footer className={styles.footer}><span>Research · provider facts and saved records remain separate</span><details><summary>Data scope & limitations</summary><p>Saved research is user-authored. Quotes, history and fundamentals come from the existing research service; unavailable values stay unavailable. Retrieval time is not an exchange quote timestamp. Editing, monitoring evaluation and advanced tools open the existing workspace. Saving a security requires the explicit Save security action. It does not record an investment decision or personal review. Saved research refreshes when you return from editing; you can also reload it manually.</p><a href="/research-v8?demo=1">Open the labelled representative demo →</a></details><VersionSwitcher placement="footer" /></footer>
         </main>
     </div>;
 }
