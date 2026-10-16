@@ -64,7 +64,7 @@ export const PwaLifecycle = () => {
                     setWaitingWorker(value.waiting);
                     value.addEventListener('updatefound', updateFound);
                 })
-                .catch(() => setMessage('Offline support could not be registered in this browser.'));
+                .catch(() => { /* Optional offline registration failure must not cover active research controls. */ });
         }
         return () => {
             window.clearTimeout(initialize);
