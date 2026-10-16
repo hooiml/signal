@@ -139,7 +139,7 @@ try {
         const rect = await skip.boundingBox();
         assert.ok(rect && rect.width > 90 && rect.y < 80, 'Skip link must become visible when focused.');
         await page.locator('main').click({ position: { x: 10, y: 10 }, force: true }).catch(() => {});
-        await page.locator('details[class*="v81Warnings"] summary').click();
+        await page.locator('details[class*="v81Warnings"] > summary').click();
         const quality = page.getByRole('region', { name: 'Data needs attention' });
         await quality.waitFor();
         await quality.locator('details summary').click();
