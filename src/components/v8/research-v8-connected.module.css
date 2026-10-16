@@ -151,3 +151,4 @@
 .app .assessmentCompact .assessmentDetails { margin-top: 6px; }
 .app .assessmentCompact .assessmentDetails summary { font-size: 12px; color: var(--blue); }
 
+.reviewHeading { flex-wrap: wrap; }

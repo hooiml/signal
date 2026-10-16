@@ -72,6 +72,8 @@
 .chartPlot { display: flex; gap: 12px; }
 .chartPlot > svg { height: 185px; width: calc(100% - 28px); overflow: visible; touch-action: pan-y; }
 .chartPlot > svg[role=slider] { cursor: crosshair; }
+.app .chartPlot:has(> svg:focus-visible) { outline: 3px solid #245dd0; outline-offset: 4px; border-radius: 5px; }
+.app .chartPlot > svg:focus-visible { outline: none; }
 .axis { display: flex; flex-direction: column; justify-content: space-between; font-size: 12px; color: var(--muted); min-width: 20px; padding: 3px 0; }
 .chartDates { margin: 10px 0 0 32px; display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
 .chartHint { display: block; color: var(--muted); font-size: 12px; margin: 10px 0 0 32px; }
@@ -366,8 +368,8 @@
 .chartTopline, .chartFoot { flex-wrap: wrap; }
 .header nav a[aria-current]::after, .liveDot { background: var(--green-accent); }
 @media (max-width: 600px) {
-    .app .tabs { gap: 4px; flex-wrap: wrap; overflow: visible; }
-    .app .tabs button { flex: 1 0 auto; padding: 8px; }
+    .app .tabs { gap: 4px; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; }
+    .app .tabs button { flex: 0 0 auto; padding: 8px; max-width: none; white-space: nowrap; }
     .app .chartHeader { flex-wrap: wrap; }
 }
 @media (max-width: 600px) { .zoneTable th, .zoneTable td { padding: 12px 6px; } .zoneTable th:first-child { width: 25%; } .caseList li { font-size: 12px; } .calibrationTabs { gap: 0 10px; } .calibrationTabs button { font-size: 12px; } }

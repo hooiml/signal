@@ -1,7 +1,8 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { dateLabel, type Point } from './market-v8-fixtures';
+import type { Point } from './market-v8-fixtures';
+import { fullDate } from './MarketV8ConnectedData';
 import { MARKET_SCORE_TIER_THRESHOLDS } from '@/lib/market-score-thresholds';
 import styles from './market-v8.module.css';
 
@@ -34,11 +35,11 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
     const origin = points[at].origin ?? 'unavailable';
     const provenancePaths = points.map((point, i) => ({ point, location: locations[i], previous: points[i - 1], previousLocation: locations[i - 1] }));
     return <div className={styles.chart}>
-        <div className={styles.chartTopline}><span>{sourced ? raw ? 'Raw readings from archived snapshots' : '0–100 composite · stored history' : raw ? 'Raw observations · illustrative' : '0–100 composite · illustrative history'}</span><output aria-live="polite">{dateLabel(points[at].date)} <b>{points[at].value.toFixed(raw ? 2 : 0)}{raw ? '' : ' /100'}</b>{sourced && !raw && <span>Origin: {origin}</span>}</output></div>
+        <div className={styles.chartTopline}><span>{sourced ? raw ? 'Raw readings from archived snapshots' : '0–100 composite · stored history' : raw ? 'Raw observations · illustrative' : '0–100 composite · illustrative history'}</span><output aria-live="polite">{fullDate(points[at].date)} <b>{points[at].value.toFixed(raw ? 2 : 0)}{raw ? '' : ' /100'}</b>{sourced && !raw && <span>Origin: {origin}</span>}</output></div>
         {sourced && !raw && <p className={styles.chartLegend}>━━ Observed · ┄┄ Reconstructed · breaks separate origins · shaded band = neutral score tier {MARKET_SCORE_TIER_THRESHOLDS.neutralLower}–{MARKET_SCORE_TIER_THRESHOLDS.neutralUpper - 1}</p>}
         <div className={styles.chartPlot}>
             <div className={styles.axis}>{[maximum, (maximum + minimum) / 2, minimum].map(value => <span key={value}>{value.toFixed(0)}</span>)}</div>
-            <svg viewBox="-3 -8 806 242" preserveAspectRatio="none" role={onSelect ? 'slider' : 'img'} tabIndex={onSelect ? 0 : undefined} aria-label={name} aria-valuemin={onSelect ? 0 : undefined} aria-valuemax={onSelect ? points.length - 1 : undefined} aria-valuenow={onSelect ? at : undefined} aria-valuetext={onSelect ? `${dateLabel(points[at].date)}, score ${points[at].value}. Arrow keys preview, Enter selects a preview.` : undefined}
+            <svg viewBox="-8 -8 816 242" preserveAspectRatio="none" role={onSelect ? 'slider' : 'img'} tabIndex={onSelect ? 0 : undefined} aria-label={name} aria-valuemin={onSelect ? 0 : undefined} aria-valuemax={onSelect ? points.length - 1 : undefined} aria-valuenow={onSelect ? at : undefined} aria-valuetext={onSelect ? `${fullDate(points[at].date)}, score ${points[at].value}. Arrow keys preview, Enter selects a preview.` : undefined}
                 onKeyDown={event => {
                     if (!onSelect) return;
                     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
@@ -50,7 +51,7 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                 onClick={event => {
                     if (!onSelect) return;
                     const box = event.currentTarget.getBoundingClientRect();
-                    const x = (event.clientX - box.left) / box.width * 800;
+                    const x = (event.clientX - box.left) / box.width * 816 - 8;
                     const nearest = locations.reduce((best, p, i) => Math.abs(p.x - x) < Math.abs(locations[best].x - x) ? i : best, 0);
                     setCursor(nearest); onSelect(points[nearest]);
                 }}>
@@ -66,7 +67,7 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                 <circle cx={position.x} cy={position.y} r="5" fill="white" stroke="currentColor" strokeWidth="3" />
             </svg>
         </div>
-        <div className={styles.chartDates}><span>{dateLabel(points[0].date)}</span><span>{dateLabel(points[Math.floor(points.length / 2)].date)}</span><span>{dateLabel(points.at(-1)!.date)} {points.at(-1)!.date.slice(0,4)}</span></div>
+        <div className={styles.chartDates}><span>{fullDate(points[0].date)}</span><span>{fullDate(points[Math.floor(points.length / 2)].date)}</span><span>{fullDate(points.at(-1)!.date)}</span></div>
         {onSelect && <span className={styles.chartHint}>{sourced ? replayAvailable ? 'Click, tap or use arrow keys to preview. Use Open historical snapshot to enter replay.' : 'Click, tap or use arrow keys to inspect a stored score.' : 'Select a date to investigate · keyboard: ← → then Enter'}</span>}
     </div>;
 }

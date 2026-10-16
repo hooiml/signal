@@ -7,6 +7,7 @@ import { formatRawValue, getIndicatorCadence } from '@/components/v2/cockpit-uti
 import type { IndicatorData, MarketSignal } from '@/lib/types/signal-v2';
 import styles from './market-v8.module.css';
 import { missingInputExplanation } from './MarketV8Coverage';
+import { fullDate, formatMarketDates } from './MarketV8ConnectedData';
 
 type Point = { date: string; value: number };
 export type ScenarioState = { overrides: Record<string, number>; baseline: MarketSignal | null; selectedKey: string };
@@ -61,7 +62,7 @@ function formatDate(value: string | null | undefined): string {
     const date = new Date(value);
     return Number.isNaN(date.getTime())
         ? value
-        : new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(date);
+        : fullDate(value);
 }
 
 function signed(value: number | null | undefined, digits = 2): string {
@@ -181,6 +182,9 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, sou
     const sourceUrls = safeHttpUrls(indicator?.metadata?.source_url);
     const sourceBlend = indicator?.metadata?.source_breakdown;
     const status = freshnessStatus(signal, indicator, indicatorKey);
+    const interpretationNotes = [modeText(signal, indicatorKey), advanced ? driver?.detail : undefined, indicator?.metadata?.mode_note]
+        .filter((text): text is string => !!text)
+        .filter((text, index, notes) => notes.findIndex(note => note.trim().replace(/\s+/g, ' ') === text.trim().replace(/\s+/g, ' ')) === index);
 
     if (!indicator) {
         return <><div className={styles.railHeading}><span className={styles.eyebrow}>Indicator detail</span><button onClick={onClose} aria-label="Close indicator detail" className={styles.closeButton}>×</button></div><h2>{registry?.displayName ?? indicatorKey}</h2><Unavailable title={(indicatorKey === 'social' || indicatorKey === 'news') && !sourceEnabled ? 'Input switched off' : 'Current value unavailable'} detail={missingInputExplanation(indicatorKey, sourceEnabled)} /><p className={styles.muted}>The current raw value, normalized score and observation date remain unavailable.</p>{rawHistory.length > 0 && <><p className={styles.muted}>Historical readings only · these snapshots do not supply a current value.</p><RawHistoryChart groups={historyGroups} /></>}<p className={styles.muted}>Review source coverage for the existing model’s missing-input accounting.</p></>;
@@ -203,9 +207,7 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, sou
         </dl></details>
 
         {sourceBlend && Object.keys(sourceBlend).length > 0 ? <div className={styles.explanation}><b>Source readings</b><p>{Object.entries(sourceBlend).map(([name, value]) => `${name}: ${finiteNumber(value) ? value.toFixed(3) : 'Unavailable'}`).join(' · ')}</p><p className={styles.muted}>These values are source readings from the payload, not mixture percentages.</p></div> : null}
-        <h3>Interpretation context</h3><p>{modeText(signal, indicatorKey)}</p>
-        {advanced && driver?.detail ? <p className={styles.muted}>{driver.detail}</p> : null}
-        {indicator?.metadata?.mode_note ? <p className={styles.muted}>{indicator.metadata.mode_note}</p> : null}
+        <h3>Interpretation context</h3>{interpretationNotes.map((text, index) => <p key={text} className={index ? styles.muted : undefined}>{text}</p>)}
         <details className={styles.disclosure}><summary>Normalization rule</summary><p>{normalizationNote(indicatorKey)}</p><p className={styles.muted}>The displayed raw value, normalized score and contribution are read from the payload; this panel does not recompute the service score.</p></details>
         <h3>Source</h3>
         {sourceUrls.length ? <div>{sourceUrls.map((sourceUrl) => <p key={sourceUrl}><a className={styles.textButton} href={sourceUrl} target="_blank" rel="noreferrer">Open source record →</a></p>)}</div> : <p className={styles.muted}>{unavailableText}</p>}
@@ -217,27 +219,18 @@ function ChangePanel({ signal, onSelect }: { signal: MarketSignal; onSelect: Con
     const scoreDelta = signal.metadata.score_delta;
     const changes = signal.metadata.driver_changes ?? [];
     const hasDriverChanges = signal.metadata.driver_changes_available === true && changes.length > 0;
-    const articles = signal.metadata.articles ?? [];
 
     return <>
-        <SectionHeading eyebrow="What changed" title="What moved the score?" tag={scoreDelta?.label ?? 'Latest comparison'} />
+        <SectionHeading eyebrow="What changed" title="Reported score changes" tag={formatMarketDates(scoreDelta?.label ?? 'Latest comparison')} />
         {scoreDelta && finiteNumber(scoreDelta.delta) ? <div className={styles.studyMetrics}><div><span>Current score</span><strong>{signal.composite_score.toFixed(0)}</strong><small>Snapshot {formatDate(scoreDelta.snapshot_date)}</small></div><div><span>Previous score</span><strong>{finiteNumber(scoreDelta.previous_score) ? scoreDelta.previous_score.toFixed(0) : 'Unavailable'}</strong><small>{scoreDelta.previous_date ? formatDate(scoreDelta.previous_date) : 'No prior date'}</small></div><div><span>Score delta</span><strong>{signed(scoreDelta.delta, 0)}</strong><small>Reported comparison</small></div></div> : <Unavailable title="Score change unavailable" detail="No comparable previous score is available." />}
 
         <section className={styles.calibration} aria-label="Driver changes">
-            <h3>Contributors to the change</h3>
+            <h3>Reported contribution changes</h3>
             {hasDriverChanges ? <div className={styles.contextList}>{[...changes].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).map((change) => <button key={change.key} className={styles.contributor} onClick={(event) => onSelect(change.key, event.currentTarget)}><span>{change.name}</span><span className={styles.barTrack}><span className={change.delta < 0 ? styles.negativeBar : styles.positiveBar} style={{ width: `${Math.min(100, Math.abs(change.delta) * 10)}%` }} /></span><b className={change.delta < 0 ? styles.conflict : styles.support}>{signed(change.delta)}</b><span aria-hidden="true">↗</span></button>)}</div> : <div className={styles.unavailable}><b>Driver comparison unavailable.</b><p>{signal.metadata.driver_changes_available === false ? 'A comparable earlier indicator reading is unavailable.' : 'No comparable indicator changes are available.'}</p></div>}
         </section>
 
-        <ArticleDevelopments articles={articles} />
+        <p className={styles.studyNotice}>Changes are in normalized-score × weight points, not current directional readings. The service omits unchanged rows. Rounded composite deltas and neutral fallback can differ from this list; a complete snapshot reconciliation is not supplied.</p>
     </>;
-}
-
-function ArticleDevelopments({ articles }: { articles: NonNullable<MarketSignal['metadata']['articles']> }) {
-    return <section className={styles.calibration} aria-label="Developments"><SectionHeading eyebrow="Developments" title="Latest source updates" tag={`${articles.length} record${articles.length === 1 ? '' : 's'}`} />{articles.length ? <div className={styles.contextList}>{articles.map((article, index) => {
-        const href = safeHttpUrl(article.url);
-        const content = <><b>{article.title}</b><small>{article.source}{article.pubDate ? ` · ${formatDate(article.pubDate)}` : ''}{article.sentiment ? ` · ${article.sentiment}` : ''}</small></>;
-        return <div key={`${article.title}-${article.pubDate ?? index}`}>{href ? <a className={styles.evidenceButton} href={href} target="_blank" rel="noreferrer">{content}</a> : <div className={styles.evidenceButton}>{content}<span className={styles.muted}>URL unavailable</span></div>}</div>;
-    })}</div> : <Unavailable title="Developments unavailable" detail="No dated articles are available for this reading." />}</section>;
 }
 
 function configuredRows(signal: MarketSignal) {
@@ -286,7 +279,7 @@ function ContextPanel({ signal }: { signal: MarketSignal }) {
 
         <section className={styles.calibration} aria-label="Market context"><h3>Market context</h3>{context ? <ContextData context={context} /> : <Unavailable title="Market context unavailable" />}</section>
         <section className={styles.calibration} aria-label="Index trend"><h3>Index trend</h3>{indices.length ? <div className={styles.contextList}>{indices.map((index) => <div key={index.symbol} className={styles.evidenceButton}><span><b>{index.symbol}</b><small>{finiteNumber(index.price) ? `Price ${index.price.toFixed(2)}` : 'Price unavailable'} · {index.trend}</small></span><span className={index.changePercent >= 0 ? styles.support : styles.conflict}>{signed(index.changePercent)}%</span></div>)}</div> : <Unavailable title="Index trend unavailable" />}</section>
-        <ArticleDevelopments articles={signal.metadata.articles ?? []} />
+        <section className={styles.calibration} aria-label="Market headlines"><h3>Market headlines</h3><p>Headlines are withheld here because market relevance has not been verified. They are not score-attribution evidence.</p></section>
     </>;
 }
 

@@ -66,12 +66,12 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
             ]} /></>}</details>
         </>}
         {tab === 'Review' && record && <>
-            <span className={base.eyebrow}>USER-AUTHORED · SAVED RECORD</span><h2>Your working note</h2><p className={styles.noteText}>{record.notes || 'No note has been saved for this security.'}</p><Metrics rows={[
+            <div className={`${base.sectionHeading} ${connected.reviewHeading}`}><div><span className={base.eyebrow}>USER-AUTHORED · SAVED RECORD</span><h2>Your working note</h2></div><a className={base.textButton} href={researchHref(record.symbol, 'review')} target="_blank" rel="noopener noreferrer">Open full research review ↗</a></div><p className={styles.noteText}>{record.notes || 'No note has been saved for this security.'}</p><Metrics rows={[
                 ['Last reviewed', record.decisionJournal.decision === 'Not recorded' ? 'Not recorded' : date(record.lastReviewedAt)], ['Next review', date(record.decisionJournal.nextReviewAt)], ['Saved decision', record.decisionJournal.decision], ['Decision confidence', record.decisionJournal.confidence], ['Prior outcome', record.decisionJournal.priorOutcome],
             ]} /><p className={connected.authored}>{record.decisionJournal.outcomeNote || 'No outcome note recorded.'}</p>
             <h3>Saved review history</h3>{record.reviewHistory.length ? [...record.reviewHistory].sort((a, b) => b.reviewedAt.localeCompare(a.reviewedAt)).map(review => <details key={review.id} className={connected.evidence}><summary>{date(review.reviewedAt)} · {review.decisionJournal.decision}</summary><p className={connected.authored}>{review.whyInterested || 'No thesis recorded.'}</p><p className={styles.noteText}>{review.notes || 'No note recorded.'}</p><small>Confidence: {review.decisionJournal.confidence} · prior outcome: {review.decisionJournal.priorOutcome}</small></details>) : <p>No earlier review snapshots are saved.</p>}
         </>}
-        {advanced && record && <a className={`${base.textButton} ${connected.editLink}`} href={researchHref(record.symbol, tab === 'Valuation' ? 'valuation' : 'review')} target="_blank" rel="noopener noreferrer">{tab === 'Valuation' ? 'Open full valuation workspace' : 'Edit saved research'} ↗</a>}
+        {advanced && record && tab !== 'Review' && <a className={`${base.textButton} ${connected.editLink}`} href={researchHref(record.symbol, tab === 'Valuation' ? 'valuation' : 'review')} target="_blank" rel="noopener noreferrer">{tab === 'Valuation' ? 'Open full valuation workspace' : 'Edit saved research'} ↗</a>}
     </div>;
 }
 

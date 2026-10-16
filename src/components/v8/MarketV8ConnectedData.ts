@@ -335,6 +335,14 @@ export function parseConnectedSignal(payload: unknown, market: string, mode: str
 export const fullDate = (value: string | null | undefined) => value && Number.isFinite(Date.parse(value))
     ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(value)) : 'Date unavailable';
 
+// Only calendar dates in service labels are reformatted; timestamps keep their time/zone.
+export const formatMarketDates = (text: string) => text.replace(/\b\d{4}-\d{2}-\d{2}\b(?!T)/g, value => fullDate(value));
+
+export const indicatorReadingLabel = (tier: MarketSignal['tier']) => ({
+    'strong-buy': 'strongly positive', buy: 'positive', neutral: 'neutral',
+    sell: 'negative', 'strong-sell': 'strongly negative',
+})[tier];
+
 const utcCalendarDay = (value: string): number | null => {
     const day = value.slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;

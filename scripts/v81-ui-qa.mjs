@@ -144,7 +144,7 @@ try {
         await quality.waitFor();
         await quality.locator('details summary').click();
         await quality.getByText('AAII Sentiment: stale observation.', { exact: true }).waitFor();
-        await hero.getByRole('button', { name: /Investigate all contributors/ }).click();
+        await hero.getByRole('button', { name: /Inspect reported changes/ }).click();
         assert.equal(await page.getByRole('tab', { name: 'What changed' }).getAttribute('aria-selected'), 'true');
         const chart = page.getByRole('slider', { name: 'Market condition score' });
         // The investigation shortcut queues a requestAnimationFrame focus transfer. Wait for it
