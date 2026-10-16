@@ -35,7 +35,7 @@ export function MarketV81Hero({ signal, snapshotDate, tierClass, onEvidence, onD
             <p className={styles.v81Minor}>{signal.confidence.agreement_pct.toFixed(0)}% indicator agreement · not forecast accuracy</p>
         </section>
         <section className={styles.v81HeroCell} aria-label="Observed evidence weight">
-            <span className={styles.eyebrow}>Observed evidence weight</span>
+            <span className={styles.eyebrow}>{coverage.verifiedPartition ? "Observed evidence weight" : "Scored input weight"}</span>
             <div className={styles.v81Metric}>{observed === null ? '—' : pct(observed)}<small>{observed === null ? 'Unverified weight' : fallback && fallback > 0.01 ? 'Partial coverage' : 'Fully scored'}</small></div>
             <p>{coverage.scoredCount}/{coverage.configuredCount} configured inputs scored</p>
             {observed !== null && fallback !== null ? <>
@@ -60,7 +60,7 @@ export function MarketV81Hero({ signal, snapshotDate, tierClass, onEvidence, onD
         <section className={styles.v81HeroCell} aria-label="What moved the score">
             <span className={styles.eyebrow}>What moved the score?</span>
             <p>{deltaAvailable ? 'vs ' + fullDate(change!.previous_date) + ' (' + signed(change!.delta!) + ' points)' : 'Comparable earlier reading unavailable'}</p>
-            {contributors.length ? <div className={styles.v81Drivers}>{contributors.map(driver => <div className={styles.v81Driver} key={driver.key}><span>{driver.name}</span><div className={styles.v81DriverTrack}><span className={driver.delta < 0 ? styles.v81DriverDown : styles.v81DriverUp} style={{ width: Math.min(100, Math.abs(driver.delta) * 12) + '%' }} /></div><strong>{signed(driver.delta)}</strong></div>)}</div>
+            {contributors.length ? <div className={styles.v81Drivers}>{contributors.map(driver => <div className={styles.v81Driver} key={driver.key}><span>{driver.name}</span><div className={styles.v81DriverTrack}><span className={driver.delta < 0 ? styles.v81DriverDown : styles.v81DriverUp} style={{ width: Math.min(50, Math.abs(driver.delta) * 12) + '%' }} /></div><strong>{signed(driver.delta)}</strong></div>)}</div>
                 : <p className={styles.v81Minor}>No comparable driver contributions were returned.</p>}
             <p className={styles.v81Minor}>{contributors.length ? 'Largest reported drivers · not a complete score reconciliation.' : 'A score change alone does not establish its cause.'}</p>
             {!!conflict.length && <p className={styles.v81Minor}>Conflicting evidence: {conflict.map(key => signal.components[key]?.display_name ?? key).join(', ')}</p>}

@@ -140,8 +140,10 @@ try {
         assert.ok(rect && rect.width > 90 && rect.y < 80, 'Skip link must become visible when focused.');
         await page.locator('main').click({ position: { x: 10, y: 10 }, force: true }).catch(() => {});
         await page.locator('details[class*="v81Warnings"] summary').click();
-        await page.getByRole('region', { name: 'Data needs attention' }).waitFor();
-        await page.getByText('AAII Sentiment: stale observation.', { exact: true }).waitFor();
+        const quality = page.getByRole('region', { name: 'Data needs attention' });
+        await quality.waitFor();
+        await quality.locator('details summary').click();
+        await quality.getByText('AAII Sentiment: stale observation.', { exact: true }).waitFor();
         await hero.getByRole('button', { name: /Investigate all contributors/ }).click();
         assert.equal(await page.getByRole('tab', { name: 'What changed' }).getAttribute('aria-selected'), 'true');
         const chart = page.getByRole('slider', { name: 'Market condition score' });
