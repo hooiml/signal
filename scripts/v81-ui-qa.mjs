@@ -126,7 +126,7 @@ try {
         await page.getByTestId('connected-score').waitFor();
         const hero = page.getByLabel('Current score, evidence weight and primary score drivers');
         assert.equal(await hero.getByTestId('connected-score').innerText(), '62');
-        await hero.getByText('65.0%', { exact: true }).waitFor();
+        assert.match(await hero.locator('[class*="v81Metric"]').innerText(), /^65\.0%/);
         await hero.getByText('Fresh 45.0%', { exact: true }).waitFor();
         await hero.getByText('Stale 20.0%', { exact: true }).waitFor();
         await hero.getByText('Fallback 35.0%', { exact: true }).waitFor();
