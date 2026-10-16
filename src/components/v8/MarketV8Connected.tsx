@@ -183,7 +183,7 @@ export function MarketV8Connected() {
     const currentCoverage = data ? marketEvidenceCoverage(data, snapshotDate) : null;
     const previewCoverage = !preview ? null : snapshotDate && preview.date === snapshotDate && preview.origin === 'observed' && currentCoverage?.observedPct !== null && currentCoverage?.observedPct !== undefined
         ? `Scored weight ${currentCoverage.observedPct.toFixed(1)}% (${currentCoverage.scoredCount}/${currentCoverage.configuredCount}) · ${currentCoverage.verifiedPartition ? 'Freshness partition verified' : 'Fresh/stale split not fully verifiable'}`
-        : 'Point-in-time weight coverage is not stored for this historical score.';
+        : 'Historical source-weight percentage unavailable for this point.';
     const archived = historical && replay.date === historical.date ? replay.snapshot : null;
     const score = historical ? archived?.summary.score ?? historical.value : data?.composite_score;
     const hasScore = !!data && Object.keys(data.components).length > 0;

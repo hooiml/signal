@@ -407,7 +407,7 @@
 .v81ScorePin, .v81PreviousPin { position: absolute; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; }
 .v81ScorePin { width: 14px; height: 14px; border: 3px solid #125e4f; background: white; z-index: 1; }
 .v81PreviousPin { width: 12px; height: 20px; border: 2px solid #77889f; opacity: .7; background: transparent; }
-.v81SpectrumLegend { display: flex; justify-content: space-between; gap: 6px; color: var(--muted); font-size: 11px; }
+.v81SpectrumLegend { display: flex; justify-content: space-between; gap: 6px; color: var(--muted); font-size: 12px; }
 .v81Metric { font-size: clamp(28px, 3vw, 38px); font-weight: 750; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .v81Metric small { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; font-weight: 500; }
 .v81CoverageBar { display: flex; width: 100%; height: 10px; border-radius: 8px; overflow: hidden; background: #e9edf5; margin-top: 4px; }
@@ -415,11 +415,11 @@
 .v81Stale { background: #c38d32; }
 .v81Observed { background: #517aa0; }
 .v81Fallback { background: #c5ceda; }
-.v81CoverageLegend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; color: var(--muted); font-size: 11px; }
-.v81Minor { font-size: 11px !important; color: var(--muted); }
+.v81CoverageLegend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; color: var(--muted); font-size: 12px; }
+.v81Minor { font-size: 12px !important; color: var(--muted); }
 .v81HeroCell > .textButton { margin-top: auto; align-self: flex-start; }
 .v81Drivers { display: grid; gap: 12px; margin: 8px 0; }
-.v81Driver { display: grid; grid-template-columns: minmax(65px, 1fr) minmax(35px, 60px) 46px; gap: 7px; align-items: center; font-size: 11px; }
+.v81Driver { display: grid; grid-template-columns: minmax(65px, 1fr) minmax(35px, 60px) 46px; gap: 7px; align-items: center; font-size: 12px; }
 .v81Driver strong { font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
 .v81DriverTrack { position: relative; height: 7px; border-radius: 4px; background: #edf2f7; }
 .v81DriverTrack::after { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; border-left: 1px solid #8d9db1; }
@@ -445,4 +445,4 @@
     .v81Warnings > div { padding: 12px 14px 0; }
 }
 
-.tileWeight { display: block; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.tileWeight { display: block; font-size: 12px; color: var(--muted); margin-top: 4px; }

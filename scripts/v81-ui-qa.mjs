@@ -149,7 +149,7 @@ try {
         const chart = page.getByRole('slider', { name: 'Market condition score' });
         await chart.focus();
         await page.keyboard.press('Home');
-        await page.getByText(/Point-in-time weight coverage is not stored/).waitFor();
+        await page.getByText(/Historical source-weight percentage unavailable/).waitFor();
         await noOverflow('Market current and historical');
 
         if (width === 1280) {

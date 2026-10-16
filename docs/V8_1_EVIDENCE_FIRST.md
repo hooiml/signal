@@ -25,7 +25,7 @@ Maintain a research tool, not a trading terminal. The priority order is: current
 - Promote the score + weight coverage + leading reported drivers above methodology and notices. The two preview drivers are not necessarily a complete reconciliation of the score delta; preserve all drivers in "What changed".
 - Use fixed 0–100 score history with neutral **score-tier** reference lines from \`src/lib/market-score-thresholds.ts\`. The separate market-regime label still depends on volatility and market breadth; do not present score tiers as its precise regime thresholds.
 - Preserve the existing solid observed/dashed reconstructed line convention. Do not encode coverage with the same stroke styles.
-- Current-snapshot coverage may be displayed only if the selected date matches the current observed snapshot. Historical points without original coverage metadata must show "Point-in-time weight coverage is not stored for this historical score."
+- Current-snapshot coverage may be displayed only if the selected date matches the current observed snapshot. Historical points without original coverage metadata must show "Historical source-weight percentage unavailable for this point."
 - Never use today's weights or source ages to reconstruct past snapshot evidence.
 
 ## Deferred or explicitly outside this slice
