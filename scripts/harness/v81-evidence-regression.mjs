@@ -8,8 +8,8 @@ const cache = new Map();
 function load(filename) {
     const file = path.resolve(filename);
     if (cache.has(file)) return cache.get(file).exports;
-    const module = { exports: {} };
-    cache.set(file, module);
+    const compiledModule = { exports: {} };
+    cache.set(file, compiledModule);
     const compiled = ts.transpileModule(readFileSync(file, 'utf8'), {
         compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
         fileName: file,
@@ -18,8 +18,8 @@ function load(filename) {
         assert.ok(id.startsWith('.'), 'Unexpected module import: ' + id);
         return load(path.resolve(path.dirname(file), id) + '.ts');
     };
-    new Function('require', 'module', 'exports', compiled)(require, module, module.exports);
-    return module.exports;
+    new Function('require', 'module', 'exports', compiled)(require, compiledModule, compiledModule.exports);
+    return compiledModule.exports;
 }
 const { marketEvidenceCoverage } = load('src/lib/market-evidence-coverage.ts');
 const { calculateCompositeScoreV2 } = load('src/lib/sentiment-calculator-v2.ts');
