@@ -9,6 +9,7 @@ import { MarketChart, Sparkline } from './MarketV8Chart';
 import { IndicatorInspector, InvestigationPanel } from './MarketV8Panels';
 import { archiveDate, currentDate, dateLabel, indicatorsFor, scoreHistory, signalFor, signed, stance, tabs, zoneLabel, type Example, type InvestigationTab, type Market, type Mode, type Point } from './market-v8-fixtures';
 import styles from './market-v8.module.css';
+import { VersionSwitcher } from '@/components/navigation/VersionSwitcher';
 
 export function MarketV8({ demo = false }: { demo?: boolean }) {
     return demo ? <MarketV8Demo /> : <MarketV8Connected />;
@@ -141,7 +142,7 @@ function MarketV8Demo() {
                     </>}
                 </aside>
             </main>
-            <footer className={styles.footer}><span><span className={styles.liveDot} />V8 exploration · synthetic data · nothing is saved <a href="/main-v8">Return to connected Market →</a></span><details><summary>Prototype scope & limitations</summary><p>Interactive Market exploration. No live feeds, API changes, persistence, notifications or financial recommendations. Fixture normalized scores use the existing calculator; scenarios use the existing sensitivity helper. Context observations and calibration outcomes are synthetic, with no provider evidence. Calibration is separate from score history. Research opens the existing V8 exploration. The fixed snapshot date is 4 September 2026.</p><button className={styles.secondaryButton} onClick={() => setRefreshed(true)}>Recheck fixture</button><p role="status">{refreshed ? 'Fixture unchanged. No live request was sent.' : ''}</p></details></footer>
+            <footer className={styles.footer}><span><span className={styles.liveDot} />V8 exploration · synthetic data · nothing is saved <a href="/main-v8">Return to connected Market →</a></span><details><summary>Prototype scope & limitations</summary><p>Interactive Market exploration. No live feeds, API changes, persistence, notifications or financial recommendations. Fixture normalized scores use the existing calculator; scenarios use the existing sensitivity helper. Context observations and calibration outcomes are synthetic, with no provider evidence. Calibration is separate from score history. Research opens the existing V8 exploration. The fixed snapshot date is 4 September 2026.</p><button className={styles.secondaryButton} onClick={() => setRefreshed(true)}>Recheck fixture</button><p role="status">{refreshed ? 'Fixture unchanged. No live request was sent.' : ''}</p></details><VersionSwitcher placement="footer" /></footer>
         </div>
         <dialog className={styles.mobileInspector} ref={modal} onCancel={e => { e.preventDefault(); closeInspector(); }} onKeyDown={e => {
             if (e.key !== 'Tab') return;

@@ -142,3 +142,12 @@
 .app .lookup .toolbar { grid-template-columns: minmax(0,1fr) 110px auto; }
 .app .lookup .toolbar > button:last-child:not([type="submit"]) { grid-column: 1 / -1; justify-self: start; min-height: 44px; }
 @media (max-width: 600px) { .app .lookup .toolbar { grid-template-columns: minmax(0,1fr); } }
+
+
+/* An unsupported financial assessment is a disclosure, not a substitute for price evidence. */
+.app .assessmentCompact { padding: 14px 18px; margin: 12px 0; background: #f7faff; }
+.app .assessmentCompact h2 { font-size: 16px; margin: 6px 0 4px; }
+.app .assessmentCompact p { line-height: 1.5; margin: 4px 0; }
+.app .assessmentCompact .assessmentDetails { margin-top: 6px; }
+.app .assessmentCompact .assessmentDetails summary { font-size: 12px; color: var(--blue); }
+

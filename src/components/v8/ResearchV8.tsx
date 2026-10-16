@@ -5,6 +5,7 @@ import { companies, researchEvidence, type Company, type FixtureState } from './
 import { FinancialCoverageV8, ResearchChecksV8, ResearchToolsV8, ReviewCheckpointV8, researchV8Tabs as tabs, type ResearchV8Tab as Tab } from './ResearchV8Workflow';
 import base from './market-v8.module.css';
 import styles from './research-v8.module.css';
+import { VersionSwitcher } from '@/components/navigation/VersionSwitcher';
 
 type EvidenceFilter = 'All' | 'Supports' | 'Challenges' | 'Gaps';
 
@@ -48,7 +49,7 @@ export function ResearchV8() {
                 </section>
                 <ResearchCase key={selected.id} company={selected} state={state} />
             </>}
-            <footer className={styles.footer}><span>Signal V8 · research exploration</span><details><summary>Data scope & limitations</summary><p>No real report or live quote is attached. Financial observations are synthetic; interpretations are examples, not recommendations. Your notes and review acknowledgement reset on reload, route or company changes, or entering Empty. Saved research, alerts and task creation are not connected.</p></details></footer>
+            <footer className={styles.footer}><span>Signal V8 · research exploration</span><details><summary>Data scope & limitations</summary><p>No real report or live quote is attached. Financial observations are synthetic; interpretations are examples, not recommendations. Your notes and review acknowledgement reset on reload, route or company changes, or entering Empty. Saved research, alerts and task creation are not connected.</p></details><VersionSwitcher placement="footer" /></footer>
         </main>
     </div>;
 }

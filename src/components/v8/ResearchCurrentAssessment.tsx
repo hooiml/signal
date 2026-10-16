@@ -11,6 +11,18 @@ export function ResearchCurrentAssessment({ snapshot, previous = null, loading, 
     const assessment = assessCurrentResearch(snapshot, now);
     const labels = { available: '3 of 3 financial inputs', partial: 'Partial evidence', outdated: 'Data needs updating', insufficient: 'Insufficient evidence', unsupported: 'Assessment unsupported' };
     const comparison = !loading && !error ? compareResearchEvidence(previous, snapshot, now) : null;
+    // Unsupported or wholly absent fundamentals should not push valid price history below a long empty assessment.
+    if (snapshot && !loading && !error && (assessment.status === 'unsupported' || assessment.coverage === 0)) {
+        return <section className={`${styles.assessment} ${styles.assessmentCompact}`} aria-label="Current research assessment">
+            <div className={styles.assessmentHeading}><span className={base.eyebrow}>CURRENT DATA ASSESSMENT · AUTOMATIC</span><span className={styles.assessmentBadge} data-state={assessment.status}>{labels[assessment.status]}</span></div>
+            <h2>{assessment.headline}</h2><p>{assessment.summary} No conclusion is inferred from unavailable financial inputs.</p>
+            <details className={styles.assessmentDetails}><summary>Why the financial assessment is limited · {assessment.coverage}/3 inputs</summary>
+                <p>Financial source: {snapshot.fundamentals.source || 'Unavailable'} · reporting period {date(snapshot.fundamentals.reportingPeriod)} · retrieved {retrievedAt(snapshot.fetchedAt)}.</p>
+                <ul>{assessment.gaps.map(gap => <li key={gap}>{gap}</li>)}</ul>
+                <p>{assessment.watchNext}</p>
+            </details>
+        </section>;
+    }
     return <section className={styles.assessment} aria-label="Current research assessment" aria-busy={loading}>
         <div className={styles.assessmentHeading}><span className={base.eyebrow}>CURRENT DATA ASSESSMENT · AUTOMATIC</span><span className={styles.assessmentBadge} data-state={error ? 'error' : loading ? 'loading' : assessment.status}>{error ? 'Refresh failed' : loading ? snapshot ? 'Refreshing previous reading' : 'Reading evidence' : labels[assessment.status]}</span></div>
         <h2>{loading && !snapshot ? 'Reading the available evidence…' : error ? 'Provider refresh failed · assessment limited' : assessment.headline}</h2>
