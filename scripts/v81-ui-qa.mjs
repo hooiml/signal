@@ -184,6 +184,8 @@ try {
         assert.equal(await assessment.locator('[class*="assessmentGrid"]').count(), 0);
         await assessment.locator('summary').first().click();
         await assessment.getByText(/Financial source:/).waitFor();
+        await assessment.getByText('Fixture: fundamentals unavailable.', { exact: true }).waitFor();
+        assert.equal(await page.getByRole('status', { name: 'Provider data status' }).locator('details[class*="warning"]').count(), 0, 'Source notices for unsupported assessments must not appear twice.');
         await page.getByRole('region', { name: 'Price history' }).waitFor();
         await noOverflow('Research unsupported price history');
         if (width !== 768) {
