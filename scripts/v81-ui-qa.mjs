@@ -149,7 +149,10 @@ try {
         const chart = page.getByRole('slider', { name: 'Market condition score' });
         await chart.focus();
         await page.keyboard.press('Home');
-        await page.getByText(/Historical source-weight percentage unavailable/).waitFor();
+        await page.waitForTimeout(150);
+        const chartFootText = await page.locator('[class*="chartFoot"]').first().innerText();
+        console.log('Selected history:', await chart.getAttribute('aria-valuetext'), 'details:', JSON.stringify(chartFootText));
+        assert.match(chartFootText, /Historical source-weight percentage unavailable/, 'Selected older point must not inherit today’s weight coverage.');
         await noOverflow('Market current and historical');
 
         if (width === 1280) {
