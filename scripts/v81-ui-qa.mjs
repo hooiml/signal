@@ -147,9 +147,11 @@ try {
         await hero.getByRole('button', { name: /Investigate all contributors/ }).click();
         assert.equal(await page.getByRole('tab', { name: 'What changed' }).getAttribute('aria-selected'), 'true');
         const chart = page.getByRole('slider', { name: 'Market condition score' });
-        await chart.focus();
-        await page.keyboard.press('Home');
-        await page.waitForTimeout(150);
+        // The investigation shortcut queues a requestAnimationFrame focus transfer. Wait for it
+        // before pressing Home so the chart—not the scrolling document—receives the keystroke.
+        await page.waitForFunction(() => document.activeElement?.id === 'investigation-panel');
+        await chart.press('Home');
+        await page.waitForFunction(() => document.querySelector('[role="slider"][aria-label="Market condition score"]')?.getAttribute('aria-valuetext')?.includes('10 Oct'));
         const chartFootText = await page.locator('[class*="chartFoot"]').first().innerText();
         console.log('Selected history:', await chart.getAttribute('aria-valuetext'), 'details:', JSON.stringify(chartFootText));
         assert.match(chartFootText, /Historical source-weight percentage unavailable/, 'Selected older point must not inherit today’s weight coverage.');
