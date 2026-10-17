@@ -131,9 +131,9 @@ try {
         await page.getByTestId('connected-score').waitFor();
         const hero = page.getByRole('region', { name: 'Market assessment', exact: true });
         assert.equal(await hero.getByTestId('connected-score').innerText(), '62');
-        assert.match(await hero.innerText(), /65\.0% weight/);
+        assert.match(await hero.innerText(), /65\.0% configured weight/);
         await hero.getByText('Fresh 45.0% · stale 20.0% of model weight.', { exact: true }).waitFor();
-        await hero.getByText('35.0% weight uses neutral fallback.', { exact: true }).waitFor();
+        await hero.getByText('35.0% of configured weight uses neutral fallback for missing inputs.', { exact: true }).waitFor();
         assert.equal(await page.locator('[data-indicator]').count(), 6);
         if (width <= 900) await page.getByRole('button', { name: 'Show all 6 inputs' }).click();
         await page.getByRole('button', { name: /BofA SSI/ }).waitFor();
@@ -168,14 +168,14 @@ try {
             unknownDate = true;
             await page.reload();
             await page.getByTestId('connected-score').waitFor();
-            await hero.getByText('65.0% weight', { exact: true }).waitFor();
+            await hero.getByText('65.0% configured weight', { exact: true }).waitFor();
             await hero.getByText(/Put\/call ratio: Observation date unknown/).waitFor();
             await noOverflow('Market unknown date');
             missingSnapshot = true; unknownDate = false; contextOnly = true;
             await page.reload(); await page.getByTestId('connected-score').waitFor();
             await page.locator('[data-indicator="put_call"]').getByText('Freshness unknown', { exact: true }).waitFor();
             await page.locator('[data-indicator="vix"]').getByText('Context · not scored', { exact: true }).waitFor();
-            assert.doesNotMatch(await page.locator('[data-indicator="vix"]').innerText(), /Model reading/);
+            assert.doesNotMatch(await page.locator('[data-indicator="vix"]').innerText(), /Momentum:|Contrarian:/);
             await page.locator('[data-indicator="put_call"]').click();
             const inspector = page.getByRole('complementary', { name: 'Selected indicator', exact: true });
             await inspector.getByText('Freshness unavailable', { exact: true }).waitFor();

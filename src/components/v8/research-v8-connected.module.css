@@ -160,3 +160,14 @@
 .app .assessmentCompact .assessmentDetails summary { font-size: 13px; color: var(--blue); }
 
 .reviewHeading { flex-wrap: wrap; }
+
+.financialSummary > div { min-width: 0; }
+.financialSummary dd { overflow-wrap: break-word; }
+.financialSummary details { margin-top: 8px; font-size: 13px; }
+.financialSummary summary { cursor: pointer; min-height: 44px; padding: 10px 0; }
+.financialSummary details p { margin: 8px 0; overflow-wrap: break-word; }
+.financialChange { margin-top: 8px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.savedReadingActions { display: flex !important; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.financialSummary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.financialSummary .financialDetail { font-size: 13px; font-weight: 400; margin: 0; }
+@media (max-width: 900px) { .financialSummary { grid-template-columns: 1fr; } }

@@ -49,14 +49,14 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
         navigate(symbol, tab, true, records?.find(item => item.symbol === symbol)?.market);
         panelRef.current?.close();
     }
-    function navigate(symbol: string, nextTab = tab, push = true, nextMarket = selectedMarket) {
+    function navigate(symbol: string, nextTab = tab, push = true, nextMarket = selectedMarket, nextAdvanced = advanced) {
         const url = new URL(window.location.href);
         url.searchParams.set('ticker', symbol);
         if (nextMarket) url.searchParams.set('market', nextMarket); else url.searchParams.delete('market');
         url.searchParams.set('tab', nextTab.toLowerCase());
-        if (advanced) url.searchParams.set('advanced', '1'); else url.searchParams.delete('advanced');
+        if (nextAdvanced) url.searchParams.set('advanced', '1'); else url.searchParams.delete('advanced');
         if (url.href !== window.location.href) window.history[push ? 'pushState' : 'replaceState'](null, '', url);
-        setSelected(symbol); setSelectedMarket(nextMarket); setTab(nextTab);
+        setSelected(symbol); setSelectedMarket(nextMarket); setTab(nextTab); setAdvanced(nextAdvanced);
     }
     useEffect(() => {
         const restore = () => {
@@ -147,8 +147,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                 <div>{record ? <><span>{record.market} · {record.symbol}</span><h1>{record.companyName || record.symbol}</h1></> : <><span>{selected ? `${readingMarket ?? 'Market unresolved'} · ${selected}` : 'Current evidence'}</span><h1>{selected || 'Research'}</h1></>}</div>
                 <div className={connected.headerActions}>
                     <button className={connected.actionButton} aria-haspopup="dialog" aria-expanded={panel === 'saved'} onClick={event => openPanel('saved', event.currentTarget)}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14v17l-7-4-7 4Z" /></svg>Saved securities · {records?.length ?? '…'}<span aria-hidden="true">⌄</span></button>
-                    <button className={connected.actionButton} aria-pressed={advanced} onClick={changeDepth}>{advanced ? 'Back to basic view' : 'Advanced tools'}</button>
-                    {advanced && <button className={connected.actionButton} aria-haspopup="dialog" aria-expanded={panel === 'tools'} disabled={!record} onClick={event => openPanel('tools', event.currentTarget)}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h16v12H4zM9 8V4h6v4M4 13h16M10 13v3h4v-3" /></svg>Workspaces<span aria-hidden="true">⌄</span></button>}
+                    <button className={connected.actionButton} aria-haspopup="dialog" aria-expanded={panel === 'tools'} onClick={event => openPanel('tools', event.currentTarget)}>Saved research<span aria-hidden="true">⌄</span></button>
                 </div>
             </section>
             {validSelection ? <details className={connected.lookupDisclosure}><summary>Change security</summary><ResearchSecurityLookup initialMarket={initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} /></details> : <ResearchSecurityLookup initialMarket={initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} />}
@@ -157,7 +156,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                 const bounds = event.currentTarget.getBoundingClientRect();
                 if (event.target === event.currentTarget && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) event.currentTarget.close();
             }}>
-                <div className={connected.utilityHeading}><h2 id="research-utility-title">{panel === 'tools' ? 'Research tools' : 'Saved securities'}</h2><button className={base.textButton} onClick={() => panelRef.current?.close()} aria-label="Close research panel">Close ×</button></div>
+                <div className={connected.utilityHeading}><h2 id="research-utility-title">{panel === 'tools' ? 'Saved research' : 'Saved securities'}</h2><button className={base.textButton} onClick={() => panelRef.current?.close()} aria-label="Close research panel">Close ×</button></div>
                 {panel === 'saved' && <div className={connected.savedSelector}>
             <div role="status">{loading && <p>Refreshing saved research…</p>}{error && <p className={connected.warning}>Saved research could not be refreshed. Use Reload saved research to retry.</p>}{records?.length === 0 && <p>No active securities are saved. <a href="/research?workspace=research">Open watchlist ↗</a></p>}</div>
             <div className={`${styles.toolbar} ${connected.toolbar}`}><label className={styles.search}><span>Find a saved security</span><span className={styles.searchField}><input type="search" placeholder="Apple, MSFT, Maybank…" value={query} onChange={event => setQuery(event.target.value)} /></span></label><label className={styles.stateControl}>Market<select value={market} onChange={event => setMarket(event.target.value)}><option>All</option><option>US</option><option>MY</option></select></label><button className={base.textButton} disabled={loading} onClick={() => { setLoading(true); setError(false); setReload(value => value + 1); }}>Reload saved research</button></div>
@@ -165,7 +164,13 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
             {records && records.length > 0 && <section className={styles.companySection} aria-label="Saved watchlist"><div className={styles.sectionLabel}><span>Your watchlist <b>{matches.length} of {records.length}</b></span><a className={base.textButton} href="/research?workspace=research">Manage watchlist ↗</a></div><div className={`${styles.companyList} ${connected.watchlist}`}>{matches.map(item => <button className={styles.companyButton} key={item.symbol} aria-pressed={selected === item.symbol} onClick={() => chooseSecurity(item.symbol)}><span className={styles.monogram} aria-hidden="true">{item.symbol[0]}</span><span><b>{item.symbol}</b><small>{item.companyName || item.symbol}</small><small>{item.market}{advanced ? ` · ${item.positionState} · ${item.status}` : ''}</small></span><span className={styles.companyArrow} aria-hidden="true">↗</span></button>)}</div>{!matches.length && <p className={styles.searchEmpty}>No saved securities match these filters. <button className={base.textButton} onClick={() => { setQuery(''); setMarket('All'); }}>Clear filters</button></p>}{record && !matches.includes(record) && <p className={styles.searchHint}>{record.symbol} remains open below and is outside the current filter.</p>}</section>}
             {!!matches.length && <div className={connected.mobilePicker}><label>Selected saved security<select value={selected} onChange={event => chooseSecurity(event.target.value)}>{selectedIndex < 0 && <option value={selected}>{selected} · outside filter</option>}{matches.map(item => <option key={item.symbol} value={item.symbol}>{item.symbol} · {item.companyName}</option>)}</select></label><div><button disabled={selectedIndex <= 0} onClick={() => chooseSecurity(matches[selectedIndex - 1].symbol)}>← Previous</button><span>{selectedIndex < 0 ? '—' : selectedIndex + 1} / {matches.length}</span><button disabled={selectedIndex >= matches.length - 1} onClick={() => chooseSecurity(matches[selectedIndex + 1].symbol)}>Next →</button></div></div>}
                 </div>}
-                {panel === 'tools' && record && <div className={connected.tools}><p>Open a workspace for {record.symbol} in a new tab.</p><div>{researchWorkspaceGroups.map(group => <section key={group.id}><h3>{group.label}</h3>{group.items.map(item => <a key={item.id} href={researchHref(record.symbol, item.id)} target="_blank" rel="noopener noreferrer">{item.label} ↗</a>)}</section>)}</div></div>}
+                {panel === 'tools' && <div className={connected.tools}>
+                    <p>{record ? `Your saved research for ${record.symbol}. These are your records, not provider conclusions.` : 'No saved record is open. Reading financial and price information does not require saving or writing notes.'}</p>
+                    {record && <div className={connected.savedReadingActions}>{(['Thesis', 'Review'] as const).map(destination => <button key={destination} className={connected.actionButton} onClick={() => { navigate(selected, destination, true, readingMarket, true); panelRef.current?.close(); }}>Read saved {destination.toLowerCase()}</button>)}<a className={base.textButton} href={researchHref(record.symbol, 'review')} target="_blank" rel="noopener noreferrer">Edit saved research ↗</a></div>}
+                    <button className={connected.actionButton} aria-pressed={advanced} onClick={() => { changeDepth(); panelRef.current?.close(); }}>{advanced ? 'Back to basic view' : 'Advanced tools'}</button>
+                    <p>Advanced view exposes additional reading tabs and chart links. It does not change provider data.</p>
+                    {record && <details><summary>All research workspaces</summary><p>Open a workspace for {record.symbol} in a new tab.</p><div>{researchWorkspaceGroups.map(group => <section key={group.id}><h3>{group.label}</h3>{group.items.map(item => <a key={item.id} href={researchHref(record.symbol, item.id)} target="_blank" rel="noopener noreferrer">{item.label} ↗</a>)}</section>)}</div></details>}
+                </div>}
             </dialog>
             {!selected && <section className={styles.emptyWorkspace}><h2>Read a security without saving it.</h2><p>Enter a ticker and market above, or choose a saved security. Notes and decisions are optional.</p></section>}
             {selected && !validSelection && <p role="alert">Invalid security ticker. Enter a valid ticker above.</p>}

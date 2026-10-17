@@ -58,7 +58,11 @@ try {
  async function openLookup(){const disclosure=page.locator('details').filter({has:page.getByText('Change security',{exact:true})});if(await disclosure.count()&&!(await disclosure.getAttribute('open')!==null))await disclosure.locator(':scope > summary').click();}
  async function read(symbol,market='US') {await openLookup();await page.getByLabel('Company or ticker',{exact:true}).fill(symbol);await page.getByLabel('Lookup market',{exact:true}).selectOption(market);await page.getByRole('button',{name:'Read ticker directly',exact:true}).click();}
  async function heading(text){
-  if(text==='Growth and positive earnings reported' && await page.getByRole('tab',{name:'Financials',exact:true}).getAttribute('aria-selected')==='true') {await page.getByRole('region',{name:'Financial assessment status',exact:true}).getByText('3 of 3 financial inputs',{exact:true}).waitFor();return;}
+  if(text==='Growth and positive earnings reported') {
+   // Wait for provider data and URL restoration before choosing the tab-specific assertion.
+   await page.getByRole('region',{name:'Financial assessment status',exact:true}).getByText('3 of 3 financial inputs',{exact:true}).waitFor();
+   if(await page.getByRole('tab',{name:'Overview',exact:true}).getAttribute('aria-selected')!=='true') return;
+  }
   const compactStatus=text==='Assessment not supported for this security'?'Assessment unsupported':text==='Not enough financial data'?'Insufficient evidence':null;
   if(!compactStatus){await page.getByRole('heading',{name:text,exact:true}).waitFor();return;}
   await page.getByRole('region',{name:'Financial assessment status',exact:true}).getByText(compactStatus,{exact:true}).waitFor();
@@ -109,7 +113,7 @@ try {
  await read('MSFT');await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');release();await page.waitForTimeout(150);assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');assert.equal(await page.locator('h1').innerText(),'MSFT');
  saveFails=true;await page.getByRole('button',{name:'Save security',exact:true}).click();await page.getByRole('alert').filter({hasText:'could not be saved'}).waitFor();assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');saveFails=false;
  await page.getByRole('button',{name:'Save security',exact:true}).click();await page.getByRole('button',{name:'Save security',exact:true}).waitFor({state:'detached'});assert.equal(posts.length,2);assert.deepEqual(posts[1],{symbol:'MSFT',market:'US',companyName:'Fixture MSFT',saveOnly:true});
- await page.getByRole('button',{name:'Advanced tools',exact:true}).click();await page.getByText('No personal review recorded.',{exact:true}).waitFor();assert.ok((await page.getByRole('tab',{name:'Review',exact:true}).count())===1);
+ await page.getByRole('button',{name:'Saved research',exact:true}).click();await page.getByRole('button',{name:'Advanced tools',exact:true}).click();await page.getByText('No personal review recorded.',{exact:true}).waitFor();assert.ok((await page.getByRole('tab',{name:'Review',exact:true}).count())===1);
  await page.getByRole('tab',{name:'Review',exact:true}).click();await page.getByRole('heading',{name:'Your working note',exact:true}).waitFor();await noOverflow();
  // A late list read must not discard an explicit save completed in the meantime.
  list=[];listHold=true;await page.goto(`${base}/research-v8?ticker=AAPL&market=US`);await heading('Growth and positive earnings reported');await page.getByRole('button',{name:'Save security',exact:true}).click();await page.getByRole('button',{name:'Save security',exact:true}).waitFor({state:'detached'});releaseList();listHold=false;await page.waitForTimeout(150);assert.equal(await page.getByRole('button',{name:'Save security',exact:true}).count(),0);

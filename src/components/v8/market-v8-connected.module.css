@@ -61,3 +61,8 @@
     .history svg[role=slider] { height: 235px; }
     .evidenceRows .evidenceRow { padding: 12px; gap: 10px; }
 }
+
+/* Keep agreement secondary to the reading and material coverage limitations. */
+.alignment { margin-top: 12px; font-size: 13px; }
+.alignment > summary { cursor: pointer; min-height: 44px; padding: 10px 0; }
+.alignment p { margin: 6px 0; color: var(--muted); }
