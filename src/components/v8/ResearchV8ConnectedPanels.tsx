@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { nearestPricePoint, priceRangeChange } from '@/lib/research/reading-display';
+import { ResearchDataAvailability } from './ResearchDataAvailability';
 import { ResearchFinancialSummary } from './ResearchFinancialSummary';
 type ChartStateProps = { chartRange: string; setChartRange: (range: string) => void; chartDate: string | null; setChartDate: (date: string | null) => void };
 import { checklistLabelsV6 } from '@/components/v6/research-v6';
@@ -20,7 +22,7 @@ function SourceLink({ url, label }: { url: string | null; label: string }) {
     return href ? <a className={base.textButton} href={href} target="_blank" rel="noopener noreferrer">{label} ↗</a> : <span>{label} · no usable source link</span>;
 }
 
-export function ResearchConnectedPanel({ tab, record, market, snapshot, loading, advanced, onBenchmarkRequest, benchmarkError, benchmarkLoading, ...chart }: { onBenchmarkRequest: () => void; benchmarkError: boolean; benchmarkLoading: boolean; advanced: boolean; tab: ResearchTab; record?: ResearchRecord; market: ResearchMarket; snapshot: ResearchSnapshot | null; loading: boolean } & ChartStateProps) {
+export function ResearchConnectedPanel({ tab, record, market, snapshot, loading, providerError = false, advanced, onBenchmarkRequest, benchmarkError, benchmarkLoading, ...chart }: { onBenchmarkRequest: () => void; benchmarkError: boolean; benchmarkLoading: boolean; advanced: boolean; tab: ResearchTab; record?: ResearchRecord; market: ResearchMarket; snapshot: ResearchSnapshot | null; loading: boolean; providerError?: boolean } & ChartStateProps) {
     const fundamentals = snapshot?.fundamentals;
     const currency = fundamentals?.history.find(period => period.reportingPeriod === fundamentals.reportingPeriod)?.currency;
     const valuation = snapshot?.valuation;
@@ -37,6 +39,7 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
         </>}
         {tab === 'Financials' && <>
             <span className={base.eyebrow}>PROVIDER-REPORTED DATA</span><h2>Business performance</h2><p>{fundamentals?.source || 'Source unavailable'} · reporting period {date(fundamentals?.reportingPeriod)}. Financial currency is shown only when supplied for the matching period.</p>
+            <ResearchDataAvailability snapshot={snapshot} section="Financials" loading={loading} error={providerError} />
             <ResearchFinancialSummary fundamentals={fundamentals} />
             <details className={connected.evidence}><summary>More financial measures</summary><Metrics rows={[
                 ['Gross margin', number(fundamentals?.grossMarginPercent, '%')], ['Operating margin', number(fundamentals?.operatingMarginPercent, '%')],
@@ -51,6 +54,7 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
         </>}
         {tab === 'Valuation' && <>
             <span className={base.eyebrow}>SEPARATE THE MARKET PRICE FROM YOUR PLAN</span><h2>Price, value and downside</h2><p>Provider ratios are derived measures, not a fair-value conclusion. {valuation?.source || 'Valuation source unavailable'} · period {date(valuation?.reportingPeriod)}.</p>
+            <ResearchDataAvailability snapshot={snapshot} section="Valuation" loading={loading} error={providerError} />
             <Metrics rows={[
                 ['Latest returned price', money(snapshot?.quote.price, snapshot?.quote.currency)], ['Market capitalization', money(valuation?.marketCap, snapshot?.quote.currency)],
                 ['Price / earnings', number(valuation?.priceEarnings, '×')], ['Price / sales', number(valuation?.priceSales, '×')], ['Free cash flow yield', number(valuation?.freeCashFlowYieldPercent, '%')], ['Net cash', money(valuation?.netCash, currency)],
@@ -92,9 +96,10 @@ function PriceHistory({ snapshot, loading, advanced, chartRange: range, setChart
     const point = points[index];
     const low = Math.min(...points.map(item => item.close));
     const high = Math.max(...points.map(item => item.close));
-    const change = points.length > 1 ? points[points.length - 1].close - points[0].close : null;
+    const periodChange = priceRangeChange(points);
+    const change = periodChange?.amount ?? null;
     const lineColor = change === null || change === 0 ? '#526581' : change > 0 ? '#006344' : '#97263f';
-    const movement = change === null ? 'One observation; no period change available' : change === 0 ? 'Unchanged over selected period' : `${change > 0 ? 'Rose' : 'Fell'} over selected period`;
+    const movement = change === null ? points.length === 1 ? 'One observation; no period change available' : 'A comparable period change is unavailable' : change === 0 ? 'Unchanged over selected period' : `${change > 0 ? 'Rose' : 'Fell'} over selected period`;
     const start = points.length ? Date.parse(points[0].time) : 0;
     const chart = mobileChart
         ? { width: 375, height: 260, left: 58, right: 360, top: 48, bottom: 205, labelSize: 16 }
@@ -103,12 +108,23 @@ function PriceHistory({ snapshot, loading, advanced, chartRange: range, setChart
     const y = (value: number) => chart.bottom - (value - low) / (high - low || 1) * (chart.bottom - chart.top);
     return <section className={connected.priceHistory} aria-label="Price history">
         <div className={connected.chartHeader}><div><span className={base.eyebrow}>RETURNED DAILY CLOSES</span><h3>Price history</h3></div><fieldset className={base.segment}><legend className={base.visuallyHidden}>Price history range</legend>{['1M', '3M', '1Y', 'All'].map(value => <button key={value} aria-pressed={range === value} onClick={() => { setRange(value); setChartDate(null); }}>{value}</button>)}</fieldset></div>
-        {point ? <><output className={connected.priceReadout} aria-live="polite">{date(point.time)} · close {money(point.close, snapshot?.quote.currency)}</output><svg className={connected.priceChart} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label={`${snapshot?.symbol} daily closing price, ${date(points[0].time)} to ${date(points[points.length - 1].time)}. Exact values are available in the history table.`}>
+        {point ? <><output className={connected.priceReadout} aria-live="polite">{date(point.time)} · close {money(point.close, snapshot?.quote.currency)}</output><svg className={connected.priceChart} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" onClick={event => {
+            const matrix = event.currentTarget.getScreenCTM();
+            if (!matrix) return;
+            const local = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+            const fraction = Math.max(0, Math.min(1, (local.x - chart.left) / (chart.right - chart.left)));
+            const nearest = nearestPricePoint(points, start + fraction * (end - start));
+            if (nearest !== null) setChartDate(points[nearest].time);
+        }} aria-label={`${snapshot?.symbol} daily closing price, ${date(points[0].time)} to ${date(points[points.length - 1].time)}. Exact values are available in the history table.`}>
             <line x1={chart.left} x2={chart.right} y1={chart.top} y2={chart.top} stroke="#c9daef" /><line x1={chart.left} x2={chart.right} y1={chart.bottom} y2={chart.bottom} stroke="#c9daef" />
             <text x={chart.left - 8} y={chart.top + 4} textAnchor="end" style={{ fontSize: chart.labelSize }}>{number(high)}</text><text x={chart.left - 8} y={chart.bottom + 4} textAnchor="end" style={{ fontSize: chart.labelSize }}>{number(low)}</text>
             <polyline data-testid="research-price-line" fill="none" stroke={lineColor} strokeWidth="2.5" points={points.map(item => `${x(item.time)},${y(item.close)}`).join(' ')} /><line x1={x(point.time)} x2={x(point.time)} y1={chart.top - 10} y2={chart.bottom + 8} stroke="#526581" strokeDasharray="4 4" /><circle cx={x(point.time)} cy={y(point.close)} r="5" fill={lineColor} />
             <text x={chart.left} y={chart.height - 10} style={{ fontSize: chart.labelSize }}>{date(points[0].time)}</text><text x={chart.right} y={chart.height - 10} textAnchor="end" style={{ fontSize: chart.labelSize }}>{date(points[points.length - 1].time)}</text>
-        </svg><label className={connected.scrubber}>Inspect a trading date<input type="range" min="0" max={points.length - 1} value={index} disabled={points.length === 1} onChange={event => setChartDate(points[Number(event.target.value)]?.time ?? null)} aria-valuetext={`${date(point.time)}, close ${money(point.close, snapshot?.quote.currency)}`} /></label><p data-testid="research-period-direction" style={{ color: lineColor }}>{movement}. Colour compares the first and last returned closes in this range.</p><p>{points.length} returned observations · {snapshot?.quote.currency || 'Currency unavailable'}. Lines connect returned closes; missing sessions are not filled. These are historical closes, not the latest quote.</p><details><summary>View exact history values</summary><div className={connected.tableScroll} tabIndex={0} role="region" aria-label="Closing price table"><table><thead><tr><th>Date</th><th>Close ({snapshot?.quote.currency || 'currency unavailable'})</th><th>Volume</th></tr></thead><tbody>{points.map(item => <tr key={item.time}><th>{date(item.time)}</th><td>{number(item.close)}</td><td>{number(item.volume)}</td></tr>)}</tbody></table></div></details></> : <p className={styles.gapNote}>{loading ? 'Loading price history…' : 'No price history returned. No illustrative line is shown.'}</p>}
+        </svg><p className={connected.chartInteractionHint}>Tap or click the chart, or use the date slider to inspect a returned close.</p><label className={connected.scrubber}>Inspect a trading date<input type="range" min="0" max={points.length - 1} value={index} disabled={points.length === 1} onChange={event => setChartDate(points[Number(event.target.value)]?.time ?? null)} aria-valuetext={`${date(point.time)}, close ${money(point.close, snapshot?.quote.currency)}`} /></label><div className={connected.rangeChange} data-testid="research-range-change">{periodChange ? <>
+            <strong>Selected-period price change: {periodChange.amount > 0 ? '+' : ''}{money(periodChange.amount, snapshot?.quote.currency)}{periodChange.percentage !== null ? ` (${periodChange.percentage > 0 ? '+' : ''}${number(periodChange.percentage, '%')})` : ' · percentage unavailable: starting close is zero'}</strong>
+            <span>{date(periodChange.start)} → {date(periodChange.end)} · first and last returned closes.</span>
+            <span>Price change only; not total return. This is separate from the quote’s daily change.</span>
+        </> : <p>{movement}</p>}</div><p data-testid="research-period-direction" style={{ color: lineColor }}>{movement}. Colour compares the first and last returned closes in this range.</p><p>{points.length} returned observations · {snapshot?.quote.currency || 'Currency unavailable'}. Lines connect returned closes; missing sessions are not filled. These are historical closes, not the latest quote.</p><details><summary>View exact history values</summary><div className={connected.tableScroll} tabIndex={0} role="region" aria-label="Closing price table"><table><thead><tr><th>Date</th><th>Close ({snapshot?.quote.currency || 'currency unavailable'})</th><th>Volume</th></tr></thead><tbody>{points.map(item => <tr key={item.time}><th>{date(item.time)}</th><td>{number(item.close)}</td><td>{number(item.volume)}</td></tr>)}</tbody></table></div></details></> : <p className={styles.gapNote}>{loading ? 'Loading price history…' : 'No price history returned. No illustrative line is shown.'}</p>}
         {snapshot && advanced && <a className={base.textButton} href={researchHref(snapshot.symbol, 'chart')} target="_blank" rel="noopener noreferrer">Open full chart & technicals ↗</a>}
     </section>;
 }

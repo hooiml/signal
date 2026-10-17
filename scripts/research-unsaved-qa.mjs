@@ -76,15 +76,15 @@ try {
  const find=()=>page.getByRole('button',{name:'Find security',exact:true}).click();
  await openLookup();await searchInput.fill('Apple');assert.equal(searches.length,0);await find();
  const results=page.getByRole('list',{name:'Security search results'});await results.getByRole('button',{name:/Apple Inc/}).waitFor();
- assert.equal(await page.locator('h1').innerText(),'AAPL');assert.equal(posts.length,0);
+ assert.equal(await page.locator('h1').innerText(),'Fixture AAPL');assert.equal(posts.length,0);
  await noOverflow();await page.screenshot({path:`${out}/lookup-${width}.png`,fullPage:true});
  await results.getByRole('button',{name:/Apple Inc/}).focus();await page.keyboard.press('Enter');await heading('Growth and positive earnings reported');assert.equal(await results.count(),0);
- await searchInput.fill('Tenaga');await page.getByLabel('Lookup market',{exact:true}).selectOption('MY');await find();await results.getByRole('button',{name:/Tenaga/}).click();await heading('Growth and positive earnings reported');assert.equal(await page.locator('h1').innerText(),'5347.KL');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200');assert.equal(posts.length,0);
- await searchInput.fill('No results');await find();await page.getByText(/No supported listings found/).waitFor();assert.equal(await page.locator('h1').innerText(),'5347.KL');
+ await searchInput.fill('Tenaga');await page.getByLabel('Lookup market',{exact:true}).selectOption('MY');await find();await results.getByRole('button',{name:/Tenaga/}).click();await heading('Growth and positive earnings reported');assert.equal(await page.locator('h1').innerText(),'Fixture 5347.KL');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200');assert.equal(posts.length,0);
+ await searchInput.fill('No results');await find();await page.getByText(/No supported listings found/).waitFor();assert.equal(await page.locator('h1').innerText(),'Fixture 5347.KL');
  searchFails=true;await searchInput.fill('Apple');await page.getByLabel('Lookup market',{exact:true}).selectOption('US');await find();await page.getByRole('alert').filter({hasText:'Security search is unavailable'}).waitFor();searchFails=false;await find();await results.getByRole('button',{name:/Apple Inc/}).waitFor();
  // A late search must not replace a new query/market or direct selection.
  searchHold=true;await searchInput.fill('Apple');await find();await page.waitForFunction(()=>document.querySelector('button[type="submit"]')?.textContent==='Searching…');await page.waitForTimeout(100);
- await searchInput.fill('5347');await page.getByLabel('Lookup market',{exact:true}).selectOption('MY');await page.getByRole('button',{name:'Read ticker directly',exact:true}).click();await heading('Growth and positive earnings reported');searchHold=false;releaseSearch();await page.waitForTimeout(150);assert.equal(await results.count(),0);assert.equal(await page.locator('h1').innerText(),'5347');
+ await searchInput.fill('5347');await page.getByLabel('Lookup market',{exact:true}).selectOption('MY');await page.getByRole('button',{name:'Read ticker directly',exact:true}).click();await heading('Growth and positive earnings reported');searchHold=false;releaseSearch();await page.waitForTimeout(150);assert.equal(await results.count(),0);assert.equal(await page.locator('h1').innerText(),'Fixture 5347');
  await read('AAPL');await heading('Growth and positive earnings reported');
  await noOverflow();await page.screenshot({path:`${out}/research-${width}.png`,fullPage:true});
  const formBoxes=await page.getByRole('form',{name:'Security lookup'}).locator('input,select,button').evaluateAll(nodes=>nodes.map(node=>{const b=node.getBoundingClientRect();return {x:b.x,y:b.y,width:b.width,height:b.height}}));
@@ -110,7 +110,7 @@ try {
  for(const symbol of ['VOO','MAYBANK','UNKNOWN']){await read(symbol,symbol==='MAYBANK'?'MY':'US');await heading('Assessment not supported for this security');assert.match(await page.getByTestId('research-price').innerText(),/200/);await page.getByRole('tab',{name:'Financials',exact:true}).click();await page.getByRole('heading',{name:'Business performance'}).waitFor();}
  await read('WRONG');await heading('Provider refresh failed · assessment limited');assert.equal(await page.getByTestId('research-price').innerText(),'Unavailable');
  await read('SLOW');await page.waitForFunction(()=>document.querySelector('h1')?.textContent==='SLOW');assert.equal(await page.getByTestId('research-price').innerText(),'Loading…');await page.waitForTimeout(100);assert.equal(held,true);
- await read('MSFT');await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');release();await page.waitForTimeout(150);assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');assert.equal(await page.locator('h1').innerText(),'MSFT');
+ await read('MSFT');await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');release();await page.waitForTimeout(150);assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');assert.equal(await page.locator('h1').innerText(),'Fixture MSFT');
  saveFails=true;await page.getByRole('button',{name:'Save security',exact:true}).click();await page.getByRole('alert').filter({hasText:'could not be saved'}).waitFor();assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');saveFails=false;
  await page.getByRole('button',{name:'Save security',exact:true}).click();await page.getByRole('button',{name:'Save security',exact:true}).waitFor({state:'detached'});assert.equal(posts.length,2);assert.deepEqual(posts[1],{symbol:'MSFT',market:'US',companyName:'Fixture MSFT',saveOnly:true});
  await page.getByRole('button',{name:'Saved research',exact:true}).click();await page.getByRole('button',{name:'Advanced tools',exact:true}).click();await page.getByText('No personal review recorded.',{exact:true}).waitFor();assert.ok((await page.getByRole('tab',{name:'Review',exact:true}).count())===1);
@@ -152,13 +152,13 @@ try {
  watchlistFails=false;list=[legacyRecord('CIMB','MY')];listHold=true;releaseList=undefined;providerReads.length=0;
  await page.goto(`${base}/research-v8?ticker=CIMB&market=US`);await heading('Growth and positive earnings reported');
  assert.deepEqual(providerReads,[{symbol:'CIMB',market:'US'}]);assert.equal(typeof releaseList,'function');
- listHold=false;releaseList();await page.waitForTimeout(150);assert.deepEqual(providerReads,[{symbol:'CIMB',market:'US'}]);assert.equal(new URL(page.url()).searchParams.get('market'),'US');assert.equal(await page.locator('h1').innerText(),'CIMB');
+ listHold=false;releaseList();await page.waitForTimeout(150);assert.deepEqual(providerReads,[{symbol:'CIMB',market:'US'}]);assert.equal(new URL(page.url()).searchParams.get('market'),'US');assert.equal(await page.locator('h1').innerText(),'Fixture CIMB');
  // A delayed saved response must resolve the current selection, not an older deep link.
  await holdLegacy('CIMB',[legacyRecord('CIMB','MY')]);await read('MSFT','US');await heading('Growth and positive earnings reported');
- listHold=false;releaseList();await page.waitForTimeout(150);assert.equal(await page.locator('h1').innerText(),'MSFT');assert.deepEqual(providerReads,[{symbol:'MSFT',market:'US'}]);
+ listHold=false;releaseList();await page.waitForTimeout(150);assert.equal(await page.locator('h1').innerText(),'Fixture MSFT');assert.deepEqual(providerReads,[{symbol:'MSFT',market:'US'}]);
  await page.goBack();await page.getByRole('heading',{name:'Saved CIMB',exact:true}).waitFor();await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200');assert.equal(new URL(page.url()).searchParams.get('market'),'MY');
  watchlistFails=true;providerReads.length=0;await page.reload();await heading('Growth and positive earnings reported');assert.deepEqual(providerReads,[{symbol:'CIMB',market:'MY'}]);
- await page.goForward();await page.getByRole('heading',{name:'MSFT',exact:true}).waitFor();await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');
+ await page.goForward();await page.getByRole('heading',{name:'Fixture MSFT',exact:true}).waitFor();await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');
  // Unambiguous Malaysian ticker forms retain independent reads during a list failure.
  watchlistFails=true;
  for(const symbol of ['5347','5347.KL','MAYBANK','KLCI']) {

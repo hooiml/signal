@@ -9,6 +9,7 @@ import { researchWorkspaceGroups } from '@/lib/research/workspace-navigation';
 import { parseResearchRecord } from '@/lib/research/input';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
+import { researchIdentityName, type ProviderResearchIdentity } from '@/lib/research/reading-display';
 import { ResearchSecurityLookup } from './ResearchSecurityLookup';
 import { ResearchCurrentAssessment } from './ResearchCurrentAssessment';
 import { assessCurrentResearch } from '@/lib/research/current-assessment';
@@ -19,6 +20,7 @@ import styles from './research-v8.module.css';
 import connected from './research-v8-connected.module.css';
 
 export function ResearchV8Connected({ initialTicker = '', initialMarket }: { initialTicker?: string; initialMarket?: ResearchMarket }) {
+    const [providerIdentity, setProviderIdentity] = useState<ProviderResearchIdentity | null>(null);
     const [records, setRecords] = useState<ResearchRecord[] | null>(null);
     const [selected, setSelected] = useState(initialTicker);
     const [selectedMarket, setSelectedMarket] = useState<ResearchMarket | undefined>(initialMarket);
@@ -144,7 +146,10 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
         <header className={base.header}><a className={base.logo} href="/main-v8">∿ Signal<span>V8</span></a><nav aria-label="Primary"><a href={readingMarket ? `/main-v8?market=${readingMarket}` : '/main-v8'}>Market</a><a href="/research-v8" aria-current="page">Research</a></nav></header>
         <main id="v8-content" tabIndex={-1} className={base.canvas}>
             <section className={connected.selectedHeader} aria-label="Selected research security">
-                <div>{record ? <><span>{record.market} · {record.symbol}</span><h1>{record.companyName || record.symbol}</h1></> : <><span>{selected ? `${readingMarket ?? 'Market unresolved'} · ${selected}` : 'Current evidence'}</span><h1>{selected || 'Research'}</h1></>}</div>
+                <div data-testid="selected-security-identity" data-symbol={selected} data-market={readingMarket}>
+                    <span>{selected ? `${readingMarket ?? 'Market unresolved'} · ${selected}` : 'Current evidence'}</span>
+                    <h1>{record?.companyName || researchIdentityName(providerIdentity, selected, readingMarket) || selected || 'Research'}</h1>
+                </div>
                 <div className={connected.headerActions}>
                     <button className={connected.actionButton} aria-haspopup="dialog" aria-expanded={panel === 'saved'} onClick={event => openPanel('saved', event.currentTarget)}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14v17l-7-4-7 4Z" /></svg>Saved securities · {records?.length ?? '…'}<span aria-hidden="true">⌄</span></button>
                     <button className={connected.actionButton} aria-haspopup="dialog" aria-expanded={panel === 'tools'} onClick={event => openPanel('tools', event.currentTarget)}>Saved research<span aria-hidden="true">⌄</span></button>
@@ -180,13 +185,13 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                 <button className={base.textButton} onClick={() => navigate(selected, tab, false, 'US')}>Read {selected} in US</button>{' '}
                 <button className={base.textButton} onClick={() => navigate(selected, tab, false, 'MY')}>Read {selected} in Malaysia</button>
             </section>}
-            {validSelection && readingMarket && <ConnectedCase key={`${readingMarket}:${selected}`} symbol={selected} market={readingMarket} record={record} onSaved={remember} advanced={advanced} tab={tab} setTab={value => navigate(selected, value, false, readingMarket)} chartRange={chartRange} setChartRange={setChartRange} />}
+            {validSelection && readingMarket && <ConnectedCase key={`${readingMarket}:${selected}`} symbol={selected} market={readingMarket} record={record} onSaved={remember} onIdentity={setProviderIdentity} advanced={advanced} tab={tab} setTab={value => navigate(selected, value, false, readingMarket)} chartRange={chartRange} setChartRange={setChartRange} />}
             <footer className={styles.footer}><span>Research · provider facts and saved records remain separate</span><details><summary>Data scope & limitations</summary><p>Saved research is user-authored. Quotes, history and fundamentals come from the existing research service; unavailable values stay unavailable. Retrieval time is not an exchange quote timestamp. Editing, monitoring evaluation and advanced tools open the existing workspace. Saving a security requires the explicit Save security action. It does not record an investment decision or personal review. Saved research refreshes when you return from editing; you can also reload it manually.</p><a href="/research-v8?demo=1">Open the labelled representative demo →</a></details><VersionSwitcher placement="footer" /></footer>
         </main>
     </div>;
 }
 
-function ConnectedCase({ symbol, market, record, onSaved, advanced, tab, setTab, chartRange, setChartRange }: { symbol: string; market: ResearchMarket; record?: ResearchRecord; onSaved: (record: ResearchRecord) => void; advanced: boolean; tab: ResearchTab; setTab: (tab: ResearchTab) => void; chartRange: string; setChartRange: (range: string) => void }) {
+function ConnectedCase({ symbol, market, record, onSaved, onIdentity, advanced, tab, setTab, chartRange, setChartRange }: { symbol: string; market: ResearchMarket; record?: ResearchRecord; onSaved: (record: ResearchRecord) => void; onIdentity: (identity: ProviderResearchIdentity) => void; advanced: boolean; tab: ResearchTab; setTab: (tab: ResearchTab) => void; chartRange: string; setChartRange: (range: string) => void }) {
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
     const savePending = useRef(false);
@@ -216,11 +221,11 @@ function ConnectedCase({ symbol, market, record, onSaved, advanced, tab, setTab,
         let active = true;
         readData(`/api/research/symbol/${encodeURIComponent(symbol)}?market=${market}&benchmark=defer`, controller.signal, readPolicies.provider)
             .then(parseResearchSnapshotResponse)
-            .then(next => { if (next.symbol !== symbol || next.market !== market) throw new Error('Security mismatch'); if (active) { setReadings(previous => ({ current: next, previous: previous.current })); setAssessmentTime(Date.now()); } })
+            .then(next => { if (next.symbol !== symbol || next.market !== market) throw new Error('Security mismatch'); if (active) { setReadings(previous => ({ current: next, previous: previous.current })); onIdentity({ symbol, market, name: next.quote.name }); setAssessmentTime(Date.now()); } })
             .catch(() => { if (active) setError(true); })
             .finally(() => { if (active) setLoading(false); });
         return () => { active = false; controller.abort(); };
-    }, [symbol, market, refresh]);
+    }, [symbol, market, refresh, onIdentity]);
     const [benchmarkRequested, setBenchmarkRequested] = useState(0);
     const [benchmarkError, setBenchmarkError] = useState(false);
     const [benchmarkLoading, setBenchmarkLoading] = useState(false);
@@ -261,7 +266,7 @@ function ConnectedCase({ symbol, market, record, onSaved, advanced, tab, setTab,
                 <ResearchCurrentAssessment snapshot={snapshot} previous={readings.previous} loading={loading} error={error} now={assessmentTime} compact />
                 <section className={connected.dataStatus} aria-label="Provider data status"><div role="status">{loading ? snapshot ? `Refreshing provider data. Previous values retrieved ${retrievedAt(snapshot.fetchedAt)} remain visible.` : 'Loading provider data… You can browse while it loads.' : error ? `Provider refresh failed. ${snapshot ? `Previous values retrieved ${retrievedAt(snapshot.fetchedAt)} remain visible.` : 'No current assessment is available.'}` : `Provider sources: ${snapshot?.sources.join(', ') || 'Source not supplied'}`}</div><button className={base.textButton} disabled={loading} onClick={() => { setLoading(true); setError(false); setRefresh(value => value + 1); }}>{error ? 'Retry provider data' : 'Refresh provider data'}</button>{!!snapshot?.warnings.length && !compactFinancialAssessment && <details className={connected.warning}><summary>Some provider data is unavailable. The assessment may be incomplete. <span>View {snapshot.warnings.length} source notice{snapshot.warnings.length === 1 ? '' : 's'}</span></summary><p>Unavailable inputs are not estimated. Refresh to retry, or inspect these source notices.</p><ul>{snapshot.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></details>}</section>
 
-                <section className={styles.investigation} aria-label="Company investigation"><div className={`${base.tabs} ${styles.tabs}`} role="tablist" aria-label="Research investigation" onKeyDown={tabKeys}>{visibleTabs.map(value => <button id={`connected-tab-${value}`} role="tab" aria-selected={activeTab === value} aria-controls="connected-panel" tabIndex={activeTab === value ? 0 : -1} key={value} onClick={() => setTab(value)}>{value}</button>)}</div><div id="connected-panel" role="tabpanel" aria-labelledby={`connected-tab-${activeTab}`} tabIndex={0} className={`${base.panel} ${styles.panel}`}>{activeTab === 'Overview' && <ResearchCurrentAssessment snapshot={snapshot} previous={readings.previous} loading={loading} error={error} now={assessmentTime} />}<ResearchConnectedPanel onBenchmarkRequest={() => setBenchmarkRequested(value => value + 1)} benchmarkError={benchmarkError} benchmarkLoading={benchmarkLoading} advanced={advanced} tab={activeTab} record={record} market={market} snapshot={snapshot} loading={loading} chartRange={chartRange} setChartRange={setChartRange} chartDate={chartDate} setChartDate={setChartDate} /></div></section>
+                <section className={styles.investigation} aria-label="Company investigation"><div className={`${base.tabs} ${styles.tabs}`} role="tablist" aria-label="Research investigation" onKeyDown={tabKeys}>{visibleTabs.map(value => <button id={`connected-tab-${value}`} role="tab" aria-selected={activeTab === value} aria-controls="connected-panel" tabIndex={activeTab === value ? 0 : -1} key={value} onClick={() => setTab(value)}>{value}</button>)}</div><div id="connected-panel" role="tabpanel" aria-labelledby={`connected-tab-${activeTab}`} tabIndex={0} className={`${base.panel} ${styles.panel}`}>{activeTab === 'Overview' && <ResearchCurrentAssessment snapshot={snapshot} previous={readings.previous} loading={loading} error={error} now={assessmentTime} />}<ResearchConnectedPanel providerError={error} onBenchmarkRequest={() => setBenchmarkRequested(value => value + 1)} benchmarkError={benchmarkError} benchmarkLoading={benchmarkLoading} advanced={advanced} tab={activeTab} record={record} market={market} snapshot={snapshot} loading={loading} chartRange={chartRange} setChartRange={setChartRange} chartDate={chartDate} setChartDate={setChartDate} /></div></section>
 
                 {advanced && record && <details className={connected.researchChecks}>
                     <summary><b>Optional research tools <span aria-hidden="true">⌄</span></b><span>Thesis, evidence, planning and reminders</span></summary>
