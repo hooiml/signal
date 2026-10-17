@@ -28,16 +28,26 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run qa:v81-evidence
+      - run: node scripts/harness/display-clarity-regression.mjs
+      - run: node scripts/harness/research-reading-regression.mjs
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - name: Run V8.1 responsive fixture browser checks
         run: |
-          npm run start -- --hostname 127.0.0.1 > /tmp/signal-v81-server.log 2>&1 &
+          set -euo pipefail
+          node node_modules/next/dist/bin/next start --hostname 127.0.0.1 > /tmp/signal-v81-server.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          ready=false
           for attempt in {1..60}; do
-            if curl --fail --silent http://127.0.0.1:3000/main-v8 >/dev/null; then break; fi
+            if curl --fail --silent http://127.0.0.1:3000/main-v8 >/dev/null; then ready=true; break; fi
             sleep 1
           done
+          if [ "$ready" != true ]; then echo "Local server did not become ready"; exit 1; fi
           node scripts/v81-ui-qa.mjs
+          node scripts/v8-display-qa.mjs
+          node scripts/research-reading-qa.mjs
+          node scripts/research-unsaved-qa.mjs
       - name: Show app errors
         if: failure()
         run: cat /tmp/signal-v81-server.log || true
@@ -46,5 +56,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: signal-v81-browser
-          path: .tmp/v81/browser/
+          path: |
+            .tmp/v81/browser/
+            .tmp/display-clarity/after/
+            .tmp/research-reading/after/
+            .tmp/current-assessment/browser/
           if-no-files-found: warn

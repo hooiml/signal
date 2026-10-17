@@ -171,3 +171,13 @@
 .financialSummary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .financialSummary .financialDetail { font-size: 13px; font-weight: 400; margin: 0; }
 @media (max-width: 900px) { .financialSummary { grid-template-columns: 1fr; } }
+
+/* Reading-specific disclosure and chart context; no changes to analytical meaning. */
+.availabilityNote { margin: 16px 0; padding: 14px 16px; border-left: 3px solid #b7c9e2; background: #f5f9ff; border-radius: 6px; }
+.availabilityNote h3 { margin: 0; font-size: 15px; }
+.availabilityNote p { margin: 8px 0; }
+.availabilityNote summary { cursor: pointer; min-height: 44px; font-size: 13px; }
+.rangeChange { display: grid; gap: 6px; margin: 14px 0; font-size: 13px; }
+.rangeChange > span { color: var(--muted); }
+.priceChart { cursor: crosshair; }
+.chartInteractionHint { color: var(--muted); }

@@ -78,3 +78,39 @@ The Research header now has separate Saved securities (selection) and Saved rese
 reading, editing links, the existing Advanced tools switch, and all existing workspace
 links. Legacy advanced/tab URLs still restore. No notes are created by opening these
 controls; unsaved reading remains available.
+
+## Research Reading Experience
+
+Research V8 shows a provider-returned name for an unsaved security only when its
+symbol and market match the active selection. A saved company name remains
+user-authored; missing names fall back to the ticker. No exchange is inferred.
+Late requests must not replace another security's identity or quote.
+
+Price chart clicks/taps select the closest returned observation by elapsed time,
+including irregularly spaced dates. The native date slider and exact-values table
+remain available. Selected-period change uses the first/last returned closes and
+shows their actual dates separately from daily quote change; it is not total return.
+Single observations, invalid or reversed dates and non-finite values cannot produce
+a range comparison. A zero starting close permits an amount change but no percentage.
+
+Financial/valuation availability notes describe missing snapshot fields and the
+existing calculator dependencies. They do not infer provider outages or guarantee
+that retrying will help. Zero cash flow and negative net cash remain valid values;
+non-positive earnings can withhold P/E without implying a failed request. MY quote
+outstanding shares and US SEC shares remain separate; annual diluted averages are
+not substituted for MY outstanding shares. Retained-response gaps remain labelled.
+
+`node scripts/harness/research-reading-regression.mjs` runs in the repo harness.
+`node scripts/research-reading-qa.mjs` runs against an owned production-mode local
+server via `SIGNAL_QA_URL`, uses intercepted read-only fixtures and covers identity,
+late responses, chart pointer/touch/keyboard selection, range changes, missing/flat/
+single-point history and valuation dependencies at 1440/768/390/320px. `--before`
+captures comparable baseline states. Evidence is in `.tmp/research-reading/`.
+Run the existing display, V8.1 presentation and unsaved Research matrices too.
+The V8.1 PR workflow now runs the display and reading suites and uploads their
+artifacts. These are fixture tests, not provider-availability or user-comprehension
+measurements. Hardware touch assistive-technology testing remains a release check.
+
+This slice does not implement authentication, modify provider contracts, broaden
+instrument assessment eligibility, or create cross-visit persistence. Those remain
+separate changes with their own access, data and baseline-identity requirements.
