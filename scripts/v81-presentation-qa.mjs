@@ -150,14 +150,14 @@ try {
                 const card = page.locator('[data-indicator="vix"]');
                 const text = await card.innerText();
                 if (phase === 'after') {
-                    assert.match(text, mode === 'standard' ? /Model reading: positive/ : /Model reading: negative/);
+                    assert.match(text, mode === 'standard' ? /Momentum: positive/ : /Contrarian: negative/);
                     assert.doesNotMatch(text, /Model: (buy|sell)/);
                     const agreement = await page.getByRole('region', { name: 'Market assessment', exact: true }).innerText();
-                    assert.match(agreement, /2 of 3 scored inputs match the overall classification/);
+                    assert.match(agreement, /2 of 3 match this reading/);
                     const coverage = await page.getByRole('region', { name: 'Observed evidence weight', exact: true }).innerText();
-                    assert.match(coverage, /3 of 6 inputs scored/);
-                    assert.match(coverage, /65.0% weight/);
-                    assert.match(coverage, /35.0% weight uses neutral fallback/);
+                    assert.match(coverage, /3 of 6 inputs included/);
+                    assert.match(coverage, /65.0% configured weight/);
+                    assert.match(coverage, /35.0% of configured weight uses neutral fallback/);
                     assert.match(coverage, /VIX Index: Observation date unknown/);
                     const evidenceBox = await page.getByRole('region', { name: 'Explore indicators' }).boundingBox();
                     const chartBox = await page.getByRole('region', { name: 'Market score and history' }).boundingBox();

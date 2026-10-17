@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ResearchFinancialSummary } from './ResearchFinancialSummary';
 type ChartStateProps = { chartRange: string; setChartRange: (range: string) => void; chartDate: string | null; setChartDate: (date: string | null) => void };
 import { checklistLabelsV6 } from '@/components/v6/research-v6';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
@@ -36,10 +37,7 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
         </>}
         {tab === 'Financials' && <>
             <span className={base.eyebrow}>PROVIDER-REPORTED DATA</span><h2>Business performance</h2><p>{fundamentals?.source || 'Source unavailable'} · reporting period {date(fundamentals?.reportingPeriod)}. Financial currency is shown only when supplied for the matching period.</p>
-            <Metrics rows={[
-                ['Annual revenue', money(fundamentals?.annualRevenue, currency)], ['Revenue growth', number(fundamentals?.revenueGrowthPercent, '%')],
-                ['Annual net income', money(fundamentals?.annualNetIncome, currency)], ['Free cash flow', money(fundamentals?.freeCashFlow, currency)],
-            ]} />
+            <ResearchFinancialSummary fundamentals={fundamentals} />
             <details className={connected.evidence}><summary>More financial measures</summary><Metrics rows={[
                 ['Gross margin', number(fundamentals?.grossMarginPercent, '%')], ['Operating margin', number(fundamentals?.operatingMarginPercent, '%')],
                 ['Debt', money(fundamentals?.debt, currency)], ['Cash', money(fundamentals?.cash, currency)], [fundamentals?.source === 'Yahoo Finance' ? 'Annual diluted average shares' : 'Shares outstanding', number(fundamentals?.shares)], ['Share count change', number(fundamentals?.shareChangePercent, '%')],

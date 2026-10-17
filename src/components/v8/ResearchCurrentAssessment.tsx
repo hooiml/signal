@@ -19,9 +19,9 @@ export function ResearchCurrentAssessment({ snapshot, previous = null, loading, 
                 ? assessment.summary
                 : assessment.coverage === 0
                     ? assessment.gaps[0] || 'No required financial inputs are available.'
-                    : `${assessment.coverage}/3 summary inputs · these checks do not assess fair value, debt safety or investment suitability.`;
+                    : `${assessment.coverage}/3 annual inputs available. A limited financial snapshot, not an overall company rating.`;
         return <section className={`${styles.assessment} ${styles.assessmentCompact}`} aria-label="Financial assessment status" aria-busy={loading}>
-            <div className={styles.assessmentHeading}><span className={base.eyebrow}>AUTOMATIC FINANCIAL ASSESSMENT</span><span className={styles.assessmentBadge} data-state={error ? 'error' : loading ? 'loading' : assessment.status}>{status}</span></div>
+            <div className={styles.assessmentHeading}><span className={base.eyebrow}>Financial snapshot · revenue, profit and cash flow</span><span className={styles.assessmentBadge} data-state={error ? 'error' : loading ? 'loading' : assessment.status}>{status}</span></div>
             <p>{error && snapshot ? `Refresh failed; previous values remain visible. ${limitation}` : limitation}</p>
         </section>;
     }
@@ -40,7 +40,7 @@ export function ResearchCurrentAssessment({ snapshot, previous = null, loading, 
         </section>;
     }
     return <section className={styles.assessment} aria-label="Current research assessment" aria-busy={loading}>
-        <div className={styles.assessmentHeading}><span className={base.eyebrow}>CURRENT DATA ASSESSMENT · AUTOMATIC</span><span className={styles.assessmentBadge} data-state={error ? 'error' : loading ? 'loading' : assessment.status}>{error ? 'Refresh failed' : loading ? snapshot ? 'Refreshing previous reading' : 'Reading evidence' : labels[assessment.status]}</span></div>
+        <div className={styles.assessmentHeading}><span className={base.eyebrow}>Financial snapshot · revenue, profit and cash flow</span><span className={styles.assessmentBadge} data-state={error ? 'error' : loading ? 'loading' : assessment.status}>{error ? 'Refresh failed' : loading ? snapshot ? 'Refreshing previous reading' : 'Reading evidence' : labels[assessment.status]}</span></div>
         <h2>{loading && !snapshot ? 'Reading the available evidence…' : error ? 'Provider refresh failed · assessment limited' : assessment.headline}</h2>
         <p>{error ? snapshot ? 'The previous response remains below. Its dates still apply.' : 'No replacement assessment has been invented. Retry provider data below.' : assessment.summary}</p>
         {snapshot && <>

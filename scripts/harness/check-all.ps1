@@ -41,4 +41,7 @@ if ($LASTEXITCODE -ne 0) { throw "Security search regression failed with exit co
 node (Join-Path $PSScriptRoot "research-improvements-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "Research improvements regression failed with exit code $LASTEXITCODE" }
 
+node (Join-Path $PSScriptRoot "display-clarity-regression.mjs")
+if ($LASTEXITCODE -ne 0) { throw "Display clarity regression failed with exit code $LASTEXITCODE" }
+
 Write-Host "Repo harness checks passed."

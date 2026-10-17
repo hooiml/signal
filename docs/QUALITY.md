@@ -50,3 +50,31 @@ The harness currently checks:
 - large source files are visible as warnings
 
 Harness checks should start deterministic and small. Keep early quality signals warning-first unless the failure is stable, actionable, and safe to block on.
+
+## V8 Display Clarity
+
+
+`node scripts/harness/display-clarity-regression.mjs` is included in the harness.
+It checks display-only tier labels in both modes, single-source/unknown agreement,
+compact monetary amounts, retained signs/unknown currencies, and annual comparisons.
+Comparisons require a unique matching current period, matching current summary values,
+matching source/currency, and adjacent annual endpoints 350–380 days apart. Missing,
+ambiguous, incompatible and non-finite inputs are withheld. A zero/negative prior amount
+permits an amount change but never a percentage. No scoring or assessment eligibility
+rules change. Summary financial cards keep exact amounts and provider-reported growth
+inside an explicit disclosure; quote and ratio formatting remain unchanged.
+
+Run `node scripts/v8-display-qa.mjs` against an owned local production server
+(`SIGNAL_QA_URL`, default localhost:3000). It blocks service workers and intercepts every
+API with fixtures, rejects mutations, and captures Market, populated/missing Research,
+Financials and saved-research navigation at 1440/768/390/320px. `--before` captures the
+same baseline states without expecting the new copy and navigation. Output is in
+`.tmp/display-clarity/before` or `after`. These are controlled local checks, not production
+provider validation or usability-test results. Also run the existing `v81-ui-qa.mjs`,
+`v81-presentation-qa.mjs` and `research-unsaved-qa.mjs` matrices.
+
+The Research header now has separate Saved securities (selection) and Saved research
+(current-security content) entry points. Saved research opens direct Thesis/Review
+reading, editing links, the existing Advanced tools switch, and all existing workspace
+links. Legacy advanced/tab URLs still restore. No notes are created by opening these
+controls; unsaved reading remains available.
