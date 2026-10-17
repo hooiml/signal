@@ -7,17 +7,31 @@ import { date, retrievedAt } from './research-v8-connected-data';
 import base from './market-v8.module.css';
 import styles from './research-v8-connected.module.css';
 
-export function ResearchCurrentAssessment({ snapshot, previous = null, loading, error, now }: { snapshot: ResearchSnapshot | null; previous?: ResearchSnapshot | null; loading: boolean; error: boolean; now: number }) {
+export function ResearchCurrentAssessment({ snapshot, previous = null, loading, error, now, compact = false }: { snapshot: ResearchSnapshot | null; previous?: ResearchSnapshot | null; loading: boolean; error: boolean; now: number; compact?: boolean }) {
     const assessment = assessCurrentResearch(snapshot, now);
     const labels = { available: '3 of 3 financial inputs', partial: 'Partial evidence', outdated: 'Data needs updating', insufficient: 'Insufficient evidence', unsupported: 'Assessment unsupported' };
     const comparison = !loading && !error ? compareResearchEvidence(previous, snapshot, now) : null;
-    // Unsupported or wholly absent fundamentals should not push valid price history below a long empty assessment.
+    if (compact) {
+        const status = error ? 'Refresh failed' : loading ? snapshot ? 'Refreshing previous reading' : 'Reading evidence' : labels[assessment.status];
+        const limitation = !snapshot
+            ? error ? 'No current assessment is available. Retry provider data to refresh this reading.' : 'Provider evidence is still loading; no assessment has been inferred.'
+            : assessment.status === 'unsupported'
+                ? assessment.summary
+                : assessment.coverage === 0
+                    ? assessment.gaps[0] || 'No required financial inputs are available.'
+                    : `${assessment.coverage}/3 summary inputs · these checks do not assess fair value, debt safety or investment suitability.`;
+        return <section className={`${styles.assessment} ${styles.assessmentCompact}`} aria-label="Financial assessment status" aria-busy={loading}>
+            <div className={styles.assessmentHeading}><span className={base.eyebrow}>AUTOMATIC FINANCIAL ASSESSMENT</span><span className={styles.assessmentBadge} data-state={error ? 'error' : loading ? 'loading' : assessment.status}>{status}</span></div>
+            <p>{error && snapshot ? `Refresh failed; previous values remain visible. ${limitation}` : limitation}</p>
+        </section>;
+    }
+    // Keep unavailable assessments inspectable without pushing the returned price history down the page.
     if (snapshot && (assessment.status === 'unsupported' || assessment.coverage === 0)) {
         return <section className={`${styles.assessment} ${styles.assessmentCompact}`} aria-label="Current research assessment" aria-busy={loading}>
-            <div className={styles.assessmentHeading}><span className={base.eyebrow}>CURRENT DATA ASSESSMENT · AUTOMATIC</span><span className={styles.assessmentBadge} data-state={error ? 'error' : loading ? 'loading' : assessment.status}>{error ? 'Refresh failed' : loading ? 'Refreshing previous reading' : labels[assessment.status]}</span></div>
-            <h2>{error ? 'Provider refresh failed · assessment limited' : assessment.headline}</h2><p>{error ? 'The previous provider response remains visible with its original dates.' : assessment.summary} No conclusion is inferred from unavailable financial inputs.</p>
-            {comparison && <p className={styles.assessmentChange} role="status">{comparison}</p>}
-            <details className={styles.assessmentDetails}><summary>Why the financial assessment is limited · {assessment.coverage}/3 inputs</summary>
+            <details className={styles.assessmentDetails}>
+                <summary>Assessment evidence and limitations · {labels[assessment.status]} · {assessment.coverage}/3 inputs</summary>
+                <p>{error ? 'Provider refresh failed. The previous response remains visible with its original dates.' : assessment.summary}</p>
+                {comparison && <p className={styles.assessmentChange} role="status">{comparison}</p>}
                 <p>Financial source: {snapshot.fundamentals.source || 'Unavailable'} · reporting period {date(snapshot.fundamentals.reportingPeriod)} · retrieved {retrievedAt(snapshot.fetchedAt)}.</p>
                 <ul>{assessment.gaps.map(gap => <li key={gap}>{gap}</li>)}</ul>
                 {!!snapshot.warnings.length && <><h3>Provider source notices</h3><ul>{snapshot.warnings.map((notice, index) => <li key={index}>{notice}</li>)}</ul></>}

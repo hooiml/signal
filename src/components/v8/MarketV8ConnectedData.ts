@@ -1,4 +1,5 @@
 import type { MarketSignal } from '@/lib/types/signal-v2';
+import { hasRetrievalTimestamp } from '@/lib/market-evidence-coverage';
 import { INDICATOR_REGISTRY } from '@/lib/indicator-registry';
 import type { MarketReplaySnapshot, MarketReplaySummary } from '@/lib/types/market-replay';
 import type { Point } from './market-v8-fixtures';
@@ -353,11 +354,12 @@ const utcCalendarDay = (value: string): number | null => {
 export function indicatorStatus(signal: MarketSignal, key: string, date: string) {
     const indicator = signal.components[key];
     if (!indicator) return 'Not supplied';
-    if (indicator.metadata?.timestamp_basis === 'retrieved') return 'Observation date unavailable';
+    if (hasRetrievalTimestamp(indicator)) return 'Observation date unavailable';
     const snapshotDay = utcCalendarDay(date);
     const updatedDay = utcCalendarDay(indicator.last_updated);
     if (snapshotDay === null || updatedDay === null) return 'Freshness unknown';
     const age = (snapshotDay - updatedDay) / 86400000;
+    if (age < 0) return 'Freshness unknown';
     if (age > (INDICATOR_REGISTRY[key]?.staleAfterDays ?? 1)) return 'Stale · included by service';
     return 'Included';
 }

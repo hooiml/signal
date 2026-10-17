@@ -1,5 +1,11 @@
 import { getIndicatorBaseWeights, INDICATOR_REGISTRY } from './indicator-registry';
-import type { MarketSignal } from './types/signal-v2';
+import type { IndicatorData, MarketSignal } from './types/signal-v2';
+
+export function hasRetrievalTimestamp(indicator: IndicatorData | undefined): boolean {
+    // signal.ts creates social/news timestamps at retrieval. Older responses omit the basis.
+    return indicator?.metadata?.timestamp_basis === 'retrieved'
+        || (indicator?.metadata?.timestamp_basis === undefined && (indicator?.name === 'social' || indicator?.name === 'news'));
+}
 
 /** Values are weight percentages, not input counts. Unknown observation dates are never marked fresh. */
 export interface MarketEvidenceCoverage {
@@ -43,7 +49,7 @@ export function marketEvidenceCoverage(signal: MarketSignal, snapshotDate: strin
     const unknownDateKeys: string[] = [];
     for (const key of scored) {
         const item = signal.components[key];
-        const state = freshness(item.last_updated, snapshotDate, item.metadata?.timestamp_basis, INDICATOR_REGISTRY[key]?.staleAfterDays);
+        const state = freshness(item.last_updated, snapshotDate, hasRetrievalTimestamp(item) ? 'retrieved' : item.metadata?.timestamp_basis, INDICATOR_REGISTRY[key]?.staleAfterDays);
         if (state === 'fresh') freshWeight += item.weight;
         else if (state === 'stale') { staleWeight += item.weight; staleKeys.push(key); }
         else unknownDateKeys.push(key);

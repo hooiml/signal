@@ -55,15 +55,22 @@ try {
   }
   assert.equal(req.method(),'GET','No unexpected mutation');return route.fulfill({json:{success:true,data:[]}});
  });
- async function read(symbol,market='US') {await page.getByLabel('Company or ticker',{exact:true}).fill(symbol);await page.getByLabel('Lookup market',{exact:true}).selectOption(market);await page.getByRole('button',{name:'Read ticker directly',exact:true}).click();}
- async function heading(text){await page.getByRole('heading',{name:text,exact:true}).waitFor();}
+ async function openLookup(){const disclosure=page.locator('details').filter({has:page.getByText('Change security',{exact:true})});if(await disclosure.count()&&!(await disclosure.getAttribute('open')!==null))await disclosure.locator(':scope > summary').click();}
+ async function read(symbol,market='US') {await openLookup();await page.getByLabel('Company or ticker',{exact:true}).fill(symbol);await page.getByLabel('Lookup market',{exact:true}).selectOption(market);await page.getByRole('button',{name:'Read ticker directly',exact:true}).click();}
+ async function heading(text){
+  if(text==='Growth and positive earnings reported' && await page.getByRole('tab',{name:'Financials',exact:true}).getAttribute('aria-selected')==='true') {await page.getByRole('region',{name:'Financial assessment status',exact:true}).getByText('3 of 3 financial inputs',{exact:true}).waitFor();return;}
+  const compactStatus=text==='Assessment not supported for this security'?'Assessment unsupported':text==='Not enough financial data'?'Insufficient evidence':null;
+  if(!compactStatus){await page.getByRole('heading',{name:text,exact:true}).waitFor();return;}
+  await page.getByRole('region',{name:'Financial assessment status',exact:true}).getByText(compactStatus,{exact:true}).waitFor();
+  await page.getByRole('region',{name:'Current research assessment',exact:true}).locator('summary').click();
+ }
  async function noOverflow(){assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Overflow ${width}`);}
  await page.goto(`${base}/research-v8?ticker=AAPL&market=US`);
  await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 200');assert.equal(posts.length,0);
  // Name search never navigates or saves until a result is explicitly selected.
  const searchInput=page.getByLabel('Company or ticker',{exact:true});
  const find=()=>page.getByRole('button',{name:'Find security',exact:true}).click();
- await searchInput.fill('Apple');assert.equal(searches.length,0);await find();
+ await openLookup();await searchInput.fill('Apple');assert.equal(searches.length,0);await find();
  const results=page.getByRole('list',{name:'Security search results'});await results.getByRole('button',{name:/Apple Inc/}).waitFor();
  assert.equal(await page.locator('h1').innerText(),'AAPL');assert.equal(posts.length,0);
  await noOverflow();await page.screenshot({path:`${out}/lookup-${width}.png`,fullPage:true});
@@ -93,7 +100,7 @@ try {
  assert.ok(geometry.every(r=>r.left>=-1&&r.right<=width+1),'Assessment content outside viewport');
  await read('5347','MY');await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200');assert.equal(posts.length,0);await page.getByRole('tab',{name:'Financials',exact:true}).click();await page.locator('dd').filter({hasText:/^MYR 1,000$/}).waitFor();
  await read('PARTIAL');await heading('Partial financial picture');assert.equal(await page.getByTestId('research-price').innerText(),'USD 200');
- await read('MISSING');await heading('Not enough financial data');await assessment.getByText('Insufficient evidence',{exact:true}).waitFor();
+ await read('MISSING');await heading('Not enough financial data');await page.getByRole('region',{name:'Financial assessment status',exact:true}).getByText('Insufficient evidence',{exact:true}).waitFor();
  await page.getByRole('button',{name:'Refresh provider data',exact:true}).click();await assessment.getByText(/Insufficient financial evidence returned/).waitFor();assert.equal(await assessment.getByText(/No new financial evidence/).count(),0);
  await read('OLD');await heading('Older data · assessment limited');await assessment.getByText('Data needs updating',{exact:true}).waitFor();
  for(const symbol of ['VOO','MAYBANK','UNKNOWN']){await read(symbol,symbol==='MAYBANK'?'MY':'US');await heading('Assessment not supported for this security');assert.match(await page.getByTestId('research-price').innerText(),/200/);await page.getByRole('tab',{name:'Financials',exact:true}).click();await page.getByRole('heading',{name:'Business performance'}).waitFor();}
@@ -102,7 +109,7 @@ try {
  await read('MSFT');await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');release();await page.waitForTimeout(150);assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');assert.equal(await page.locator('h1').innerText(),'MSFT');
  saveFails=true;await page.getByRole('button',{name:'Save security',exact:true}).click();await page.getByRole('alert').filter({hasText:'could not be saved'}).waitFor();assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');saveFails=false;
  await page.getByRole('button',{name:'Save security',exact:true}).click();await page.getByRole('button',{name:'Save security',exact:true}).waitFor({state:'detached'});assert.equal(posts.length,2);assert.deepEqual(posts[1],{symbol:'MSFT',market:'US',companyName:'Fixture MSFT',saveOnly:true});
- await page.getByRole('button',{name:'Advanced tools',exact:true}).click();await page.getByText('Saved for later · no personal review',{exact:true}).waitFor();assert.ok((await page.getByRole('tab',{name:'Review',exact:true}).count())===1);
+ await page.getByRole('button',{name:'Advanced tools',exact:true}).click();await page.getByText('No personal review recorded.',{exact:true}).waitFor();assert.ok((await page.getByRole('tab',{name:'Review',exact:true}).count())===1);
  await page.getByRole('tab',{name:'Review',exact:true}).click();await page.getByRole('heading',{name:'Your working note',exact:true}).waitFor();await noOverflow();
  // A late list read must not discard an explicit save completed in the meantime.
  list=[];listHold=true;await page.goto(`${base}/research-v8?ticker=AAPL&market=US`);await heading('Growth and positive earnings reported');await page.getByRole('button',{name:'Save security',exact:true}).click();await page.getByRole('button',{name:'Save security',exact:true}).waitFor({state:'detached'});releaseList();listHold=false;await page.waitForTimeout(150);assert.equal(await page.getByRole('button',{name:'Save security',exact:true}).count(),0);
@@ -154,11 +161,13 @@ try {
   providerReads.length=0;await page.goto(`${base}/research-v8?ticker=${symbol}`);await page.getByTestId('research-price').filter({hasText:'MYR 200'}).waitFor();assert.deepEqual(providerReads,[{symbol,market:'MY'}]);
  }
  await page.goto(`${base}/main-v8`);
+ await page.getByText('How to read this assessment · supporting inputs and limits',{exact:true}).click();
  await page.getByRole('region',{name:'Current market assessment',exact:true}).waitFor();
  marketScoreCase='unchanged';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/Score unchanged.*Individual inputs can still differ/}).waitFor();
  marketScoreCase='missing';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/No earlier comparable score supplied/}).waitFor();
  marketScoreCase='normal';await page.getByLabel('Market',{exact:true}).selectOption('MY');
  await page.locator('[data-indicator="vix"]').filter({hasText:'US VIX (FX proxy unavailable)'}).waitFor();
+ await page.getByText('How to read this assessment · supporting inputs and limits',{exact:true}).click();
  const marketAssessment=page.getByRole('region',{name:'Current market assessment',exact:true});
  await marketAssessment.getByRole('heading',{name:'What this reading means'}).waitFor();
  await marketAssessment.getByText(/Reading limits:/).waitFor();
@@ -166,6 +175,8 @@ try {
  await page.getByRole('button',{name:'Advanced tools',exact:true}).click();
  for(const mode of ['Contrarian','Momentum','Contrarian','Momentum']) {
   await page.getByRole('button',{name:mode,exact:true}).click();
+  await page.getByTestId('connected-score').waitFor();
+  await page.getByText('How to read this assessment · supporting inputs and limits',{exact:true}).click();
   await marketAssessment.getByText(mode==='Contrarian'?/In Contrarian mode, higher scores indicate crowding or greed risk/:/In Momentum mode, higher scores support positive momentum/).waitFor();
   if(mode==='Contrarian'){await noOverflow();await page.screenshot({path:`${out}/market-contrarian-${width}.png`,fullPage:true});}
  }

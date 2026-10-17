@@ -21,7 +21,7 @@ function load(filename) {
     new Function('require', 'module', 'exports', compiled)(require, compiledModule, compiledModule.exports);
     return compiledModule.exports;
 }
-const { marketEvidenceCoverage } = load('src/lib/market-evidence-coverage.ts');
+const { marketEvidenceCoverage, hasRetrievalTimestamp } = load('src/lib/market-evidence-coverage.ts');
 const { calculateCompositeScoreV2 } = load('src/lib/sentiment-calculator-v2.ts');
 const { MARKET_SCORE_TIER_THRESHOLDS } = load('src/lib/market-score-thresholds.ts');
 assert.deepEqual(MARKET_SCORE_TIER_THRESHOLDS, {
@@ -65,6 +65,19 @@ assert.equal(unknown.freshPct, null);
 assert.deepEqual(unknown.unknownDateKeys, ['put_call']);
 assert.equal(unknown.observedPct, 65);
 assert.equal(unknown.fallbackPct, 35);
+
+for (const [name, market] of [['social', 'US'], ['news', 'MY']]) {
+    const legacy = structuredClone(sample);
+    legacy.metadata.market = market;
+    const input = mk(name, .2);
+    delete input.metadata.timestamp_basis;
+    legacy.components[name] = input;
+    assert.equal(hasRetrievalTimestamp(input), true);
+    assert.ok(marketEvidenceCoverage(legacy, date).unknownDateKeys.includes(name));
+    assert.equal(marketEvidenceCoverage(legacy, date).freshPct, null);
+    input.metadata.timestamp_basis = 'observed';
+    assert.equal(hasRetrievalTimestamp(input), false, 'Explicit observation provenance takes precedence.');
+}
 
 const misweighted = structuredClone(sample);
 misweighted.components.vix.weight = .34;

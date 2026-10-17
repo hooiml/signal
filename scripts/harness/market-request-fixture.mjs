@@ -40,7 +40,7 @@ export function marketRequestFixture({ allowSchema = false, signalSource } = {})
         if (query.startsWith('INSERT INTO signal_snapshots')) return [];
         throw new Error(`Unexpected SQL: ${query}`);
     };
-    const safeModules = new Set(['signal', 'signal-cache', 'sentiment-calculator', 'sentiment-calculator-v2', 'market-score-thresholds', 'social-sentiment', 'indicator-registry', 'signal-change', 'source-indicator', 'market-calibration', 'market-indicators', 'aura-cache', 'MarketV8ConnectedData']);
+    const safeModules = new Set(['signal', 'signal-cache', 'sentiment-calculator', 'sentiment-calculator-v2', 'market-score-thresholds', 'market-evidence-coverage', 'social-sentiment', 'indicator-registry', 'signal-change', 'source-indicator', 'market-calibration', 'market-indicators', 'aura-cache', 'MarketV8ConnectedData']);
     function load(file) {
         const absolute = path.resolve(file);
         if (modules.has(absolute)) return modules.get(absolute).exports;

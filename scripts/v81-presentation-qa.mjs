@@ -19,6 +19,7 @@ function load(file) {
     if (cache.has(absolute)) return cache.get(absolute).exports;
     const mod = { exports: {} }; cache.set(absolute, mod);
     const require = id => {
+        if (id === '@/lib/market-evidence-coverage') return load('src/lib/market-evidence-coverage.ts');
         if (id === '@/lib/indicator-registry') return load('src/lib/indicator-registry.ts');
         assert.ok(id.startsWith('.'), 'Unexpected calculation dependency: ' + id);
         return load(path.resolve(path.dirname(absolute), id) + '.ts');
@@ -151,13 +152,24 @@ try {
                 if (phase === 'after') {
                     assert.match(text, mode === 'standard' ? /Model reading: positive/ : /Model reading: negative/);
                     assert.doesNotMatch(text, /Model: (buy|sell)/);
-                    if (advanced) assert.match(text, /78.7\/100 normalized/);
-                    const agreement = await page.getByRole('region', { name: 'Composite reading', exact: true }).innerText();
+                    const agreement = await page.getByRole('region', { name: 'Market assessment', exact: true }).innerText();
                     assert.match(agreement, /2 of 3 scored inputs match the overall classification/);
-                    const coverage = await page.getByRole('complementary', { name: 'Reading context', exact: true }).innerText();
-                    assert.match(coverage, /3 of 6 configured inputs scored/);
-                    assert.match(coverage, /65.0% of model weight is scored; 35.0% uses neutral fallback/);
-                    assert.match(coverage, /1 scored input\(s\) have unknown observation freshness/);
+                    const coverage = await page.getByRole('region', { name: 'Observed evidence weight', exact: true }).innerText();
+                    assert.match(coverage, /3 of 6 inputs scored/);
+                    assert.match(coverage, /65.0% weight/);
+                    assert.match(coverage, /35.0% weight uses neutral fallback/);
+                    assert.match(coverage, /VIX Index: Observation date unknown/);
+                    const evidenceBox = await page.getByRole('region', { name: 'Explore indicators' }).boundingBox();
+                    const chartBox = await page.getByRole('region', { name: 'Market score and history' }).boundingBox();
+                    assert.ok(width <= 900 ? evidenceBox.y < chartBox.y : Math.abs(evidenceBox.y - chartBox.y) < 2, 'Evidence precedes chart on mobile and aligns beside it on desktop.');
+                    if (width <= 900) assert.ok(await card.evaluate(el => !!(el.compareDocumentPosition(document.querySelector('svg[role="slider"]')) & Node.DOCUMENT_POSITION_FOLLOWING)), 'Mobile DOM order follows evidence before history.');
+                    if (advanced) {
+                        await card.click();
+                        const detail = page.getByRole(width <= 900 ? 'dialog' : 'complementary', { name: width <= 900 ? 'Indicator detail' : 'Selected indicator', exact: true });
+                        await detail.getByText('78.70 / 100', { exact: true }).waitFor();
+                        await detail.getByRole('button', { name: 'Close indicator detail', exact: true }).click();
+                        await page.waitForFunction(() => document.activeElement?.getAttribute('data-indicator') === 'vix');
+                    }
                 }
                 await card.scrollIntoViewIfNeeded();
                 await shot(`market-${mode}-${advanced ? 'advanced' : 'basic'}-indicators`, width);
@@ -166,7 +178,7 @@ try {
                 })));
                 if (phase === 'after') assert.ok(tabs.every(tab => tab.whiteSpace === 'nowrap'));
                 if (phase === 'after') assert.ok(Math.max(...tabs.map(tab => tab.height)) - Math.min(...tabs.map(tab => tab.height)) <= 1);
-                const color = await card.locator('[class*="interpretationBadge"]').evaluate(el => getComputedStyle(el).color);
+                const color = await card.locator('[data-direction]').evaluate(el => getComputedStyle(el).color);
                 matrix.push({ mode, advanced, score, badge: text.match(/Model[^\n]*/)?.[0], color, tabs });
                 await page.getByRole('tab', { name: 'What changed', exact: true }).click();
                 await shot(`market-${mode}-${advanced ? 'advanced' : 'basic'}-changes`, width);
@@ -227,7 +239,6 @@ try {
         await trigger.scrollIntoViewIfNeeded();
         const priorScroll = await page.evaluate(() => scrollY);
         await trigger.click();
-        if (width > 900) assert.equal(await page.evaluate(() => scrollY), priorScroll, 'Desktop opening preserves scroll context.');
         const inspector = page.getByRole(width <= 900 ? 'dialog' : 'complementary', { name: width <= 900 ? 'Indicator detail' : 'Selected indicator', exact: true });
         await inspector.waitFor();
         if (width > 900) await inspector.scrollIntoViewIfNeeded();
@@ -237,9 +248,9 @@ try {
         assert.match(await inspector.innerText(), /Observation date unavailable/);
         await inspector.getByRole('button', { name: 'Close indicator detail', exact: true }).click();
         if (width > 900) {
-            // The screenshot intentionally exposed the rail; closing must preserve that scroll, not restore a fabricated position.
             await page.waitForFunction(() => document.activeElement?.getAttribute('data-indicator') === 'vix', undefined, { timeout: 5000 });
             assert.equal(await trigger.evaluate(el => el === document.activeElement), true);
+            assert.ok(Math.abs(await page.evaluate(() => scrollY) - priorScroll) <= 1, 'Closing returns to the originating scroll context.');
         }
         await page.getByRole('tab', { name: 'Context', exact: true }).click();
         await shot('market-context', width);
@@ -255,7 +266,8 @@ try {
             assert.equal(await page.getByRole('region', { name: 'Next research gap' }).count(), 0);
             assert.equal(await page.getByRole('link', { name: 'Open full research review ↗', exact: true }).count(), 1);
         }
-        assert.match(await page.getByRole('region', { name: 'Research status' }).innerText(), /15 Oct 2026, 20:00 UTC/);
+        assert.match(await page.getByRole('region', { name: 'Current provider quote' }).innerText(), /15 Oct 2026, 20:00 UTC/);
+        assert.equal(await page.getByRole('tabpanel').getByRole('region', { name: 'Current research assessment' }).count(), 0, 'Full automatic assessment must not repeat in Review.');
         await geometry('Research ' + width);
     }
     // Both the calculator and formatter must retain non-integer data and UTC calendar semantics.
@@ -273,12 +285,14 @@ try {
     assert.equal(formatterModule.exports.money(342, 'USD'), 'USD 342');
     assert.equal(formatterModule.exports.retrievedAt('2026-10-15T20:00:00Z'), '15 Oct 2026, 20:00 UTC');
     if (phase === 'after') {
-        const { fullDate, formatMarketDates, indicatorReadingLabel } = load('src/components/v8/MarketV8ConnectedData.ts');
+        const { fullDate, formatMarketDates, indicatorReadingLabel, indicatorStatus } = load('src/components/v8/MarketV8ConnectedData.ts');
         assert.equal(fullDate('2026-10-16T00:00:00Z'), '16 Oct 2026');
         assert.equal(formatMarketDates('Compared with 2026-10-10'), 'Compared with 10 Oct 2026');
         assert.equal(formatMarketDates('2026-10-16T00:00:00Z'), '2026-10-16T00:00:00Z');
         assert.equal(indicatorReadingLabel('neutral'), 'neutral');
         assert.equal(indicatorReadingLabel('sell'), 'negative');
+        assert.equal(indicatorStatus(standard.data, 'put_call', ''), 'Freshness unknown');
+        assert.equal(indicatorStatus(standard.data, 'put_call', '2026-10-15'), 'Freshness unknown');
     }
     assert.deepEqual(report.errors, []);
     assert.deepEqual(report.failedRequests, []);

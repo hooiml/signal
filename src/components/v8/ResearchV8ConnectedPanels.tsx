@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 type ChartStateProps = { chartRange: string; setChartRange: (range: string) => void; chartDate: string | null; setChartDate: (date: string | null) => void };
 import { checklistLabelsV6 } from '@/components/v6/research-v6';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
@@ -76,6 +77,14 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
 }
 
 function PriceHistory({ snapshot, loading, advanced, chartRange: range, setChartRange: setRange, chartDate, setChartDate }: { snapshot: ResearchSnapshot | null; loading: boolean; advanced: boolean } & ChartStateProps) {
+    const [mobileChart, setMobileChart] = useState(false);
+    useEffect(() => {
+        const media = window.matchMedia('(max-width: 600px)');
+        const update = () => setMobileChart(media.matches);
+        update();
+        media.addEventListener('change', update);
+        return () => media.removeEventListener('change', update);
+    }, []);
     const all = snapshot?.chart.points ?? [];
     const end = all.length ? Date.parse(all[all.length - 1].time) : 0;
     const days = range === '1M' ? 30 : range === '3M' ? 90 : range === '1Y' ? 365 : Infinity;
@@ -89,11 +98,19 @@ function PriceHistory({ snapshot, loading, advanced, chartRange: range, setChart
     const lineColor = change === null || change === 0 ? '#526581' : change > 0 ? '#006344' : '#97263f';
     const movement = change === null ? 'One observation; no period change available' : change === 0 ? 'Unchanged over selected period' : `${change > 0 ? 'Rose' : 'Fell'} over selected period`;
     const start = points.length ? Date.parse(points[0].time) : 0;
-    const x = (time: string) => 65 + (Date.parse(time) - start) / (end - start || 1) * 650;
-    const y = (value: number) => 180 - (value - low) / (high - low || 1) * 135;
+    const chart = mobileChart
+        ? { width: 375, height: 260, left: 58, right: 360, top: 48, bottom: 205, labelSize: 16 }
+        : { width: 750, height: 225, left: 65, right: 715, top: 45, bottom: 180, labelSize: 12 };
+    const x = (time: string) => chart.left + (Date.parse(time) - start) / (end - start || 1) * (chart.right - chart.left);
+    const y = (value: number) => chart.bottom - (value - low) / (high - low || 1) * (chart.bottom - chart.top);
     return <section className={connected.priceHistory} aria-label="Price history">
         <div className={connected.chartHeader}><div><span className={base.eyebrow}>RETURNED DAILY CLOSES</span><h3>Price history</h3></div><fieldset className={base.segment}><legend className={base.visuallyHidden}>Price history range</legend>{['1M', '3M', '1Y', 'All'].map(value => <button key={value} aria-pressed={range === value} onClick={() => { setRange(value); setChartDate(null); }}>{value}</button>)}</fieldset></div>
-        {point ? <><output className={connected.priceReadout} aria-live="polite">{date(point.time)} · close {money(point.close, snapshot?.quote.currency)}</output><svg className={connected.priceChart} viewBox="0 0 750 225" role="img" aria-label={`${snapshot?.symbol} daily closing price, ${date(points[0].time)} to ${date(points[points.length - 1].time)}. Exact values are available in the history table.`}><line x1="65" x2="715" y1="45" y2="45" stroke="#c9daef" /><line x1="65" x2="715" y1="180" y2="180" stroke="#c9daef" /><text x="58" y="49" textAnchor="end">{number(high)}</text><text x="58" y="184" textAnchor="end">{number(low)}</text><polyline data-testid="research-price-line" fill="none" stroke={lineColor} strokeWidth="2.5" points={points.map(item => `${x(item.time)},${y(item.close)}`).join(' ')} /><line x1={x(point.time)} x2={x(point.time)} y1="35" y2="190" stroke="#526581" strokeDasharray="4 4" /><circle cx={x(point.time)} cy={y(point.close)} r="5" fill={lineColor} /><text x="65" y="215">{date(points[0].time)}</text><text x="715" y="215" textAnchor="end">{date(points[points.length - 1].time)}</text></svg><label className={connected.scrubber}>Inspect a trading date<input type="range" min="0" max={points.length - 1} value={index} disabled={points.length === 1} onChange={event => setChartDate(points[Number(event.target.value)]?.time ?? null)} aria-valuetext={`${date(point.time)}, close ${money(point.close, snapshot?.quote.currency)}`} /></label><p data-testid="research-period-direction" style={{ color: lineColor }}>{movement}. Colour compares the first and last returned closes in this range.</p><p>{points.length} returned observations · {snapshot?.quote.currency || 'Currency unavailable'}. Lines connect returned closes; missing sessions are not filled. These are historical closes, not the latest quote.</p><details><summary>View exact history values</summary><div className={connected.tableScroll} tabIndex={0} role="region" aria-label="Closing price table"><table><thead><tr><th>Date</th><th>Close ({snapshot?.quote.currency || 'currency unavailable'})</th><th>Volume</th></tr></thead><tbody>{points.map(item => <tr key={item.time}><th>{date(item.time)}</th><td>{number(item.close)}</td><td>{number(item.volume)}</td></tr>)}</tbody></table></div></details></> : <p className={styles.gapNote}>{loading ? 'Loading price history…' : 'No price history returned. No illustrative line is shown.'}</p>}
+        {point ? <><output className={connected.priceReadout} aria-live="polite">{date(point.time)} · close {money(point.close, snapshot?.quote.currency)}</output><svg className={connected.priceChart} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label={`${snapshot?.symbol} daily closing price, ${date(points[0].time)} to ${date(points[points.length - 1].time)}. Exact values are available in the history table.`}>
+            <line x1={chart.left} x2={chart.right} y1={chart.top} y2={chart.top} stroke="#c9daef" /><line x1={chart.left} x2={chart.right} y1={chart.bottom} y2={chart.bottom} stroke="#c9daef" />
+            <text x={chart.left - 8} y={chart.top + 4} textAnchor="end" style={{ fontSize: chart.labelSize }}>{number(high)}</text><text x={chart.left - 8} y={chart.bottom + 4} textAnchor="end" style={{ fontSize: chart.labelSize }}>{number(low)}</text>
+            <polyline data-testid="research-price-line" fill="none" stroke={lineColor} strokeWidth="2.5" points={points.map(item => `${x(item.time)},${y(item.close)}`).join(' ')} /><line x1={x(point.time)} x2={x(point.time)} y1={chart.top - 10} y2={chart.bottom + 8} stroke="#526581" strokeDasharray="4 4" /><circle cx={x(point.time)} cy={y(point.close)} r="5" fill={lineColor} />
+            <text x={chart.left} y={chart.height - 10} style={{ fontSize: chart.labelSize }}>{date(points[0].time)}</text><text x={chart.right} y={chart.height - 10} textAnchor="end" style={{ fontSize: chart.labelSize }}>{date(points[points.length - 1].time)}</text>
+        </svg><label className={connected.scrubber}>Inspect a trading date<input type="range" min="0" max={points.length - 1} value={index} disabled={points.length === 1} onChange={event => setChartDate(points[Number(event.target.value)]?.time ?? null)} aria-valuetext={`${date(point.time)}, close ${money(point.close, snapshot?.quote.currency)}`} /></label><p data-testid="research-period-direction" style={{ color: lineColor }}>{movement}. Colour compares the first and last returned closes in this range.</p><p>{points.length} returned observations · {snapshot?.quote.currency || 'Currency unavailable'}. Lines connect returned closes; missing sessions are not filled. These are historical closes, not the latest quote.</p><details><summary>View exact history values</summary><div className={connected.tableScroll} tabIndex={0} role="region" aria-label="Closing price table"><table><thead><tr><th>Date</th><th>Close ({snapshot?.quote.currency || 'currency unavailable'})</th><th>Volume</th></tr></thead><tbody>{points.map(item => <tr key={item.time}><th>{date(item.time)}</th><td>{number(item.close)}</td><td>{number(item.volume)}</td></tr>)}</tbody></table></div></details></> : <p className={styles.gapNote}>{loading ? 'Loading price history…' : 'No price history returned. No illustrative line is shown.'}</p>}
         {snapshot && advanced && <a className={base.textButton} href={researchHref(snapshot.symbol, 'chart')} target="_blank" rel="noopener noreferrer">Open full chart & technicals ↗</a>}
     </section>;
 }

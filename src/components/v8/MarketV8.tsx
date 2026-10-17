@@ -11,8 +11,8 @@ import { archiveDate, currentDate, dateLabel, indicatorsFor, scoreHistory, signa
 import styles from './market-v8.module.css';
 import { VersionSwitcher } from '@/components/navigation/VersionSwitcher';
 
-export function MarketV8({ demo = false }: { demo?: boolean }) {
-    return demo ? <MarketV8Demo /> : <MarketV8Connected />;
+export function MarketV8({ demo = false, initialMarket = 'US' }: { demo?: boolean; initialMarket?: Market }) {
+    return demo ? <MarketV8Demo /> : <MarketV8Connected initialMarket={initialMarket} />;
 }
 
 function MarketV8Demo() {

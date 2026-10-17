@@ -1,5 +1,6 @@
 'use client';
 
+import { hasRetrievalTimestamp } from '@/lib/market-evidence-coverage';
 import { useMemo, type Dispatch, type SetStateAction } from 'react';
 import { getIndicatorBaseWeights, INDICATOR_REGISTRY } from '@/lib/indicator-registry';
 import { simulateMarketScore } from '@/lib/market-sensitivity';
@@ -120,10 +121,11 @@ function configuredWeightLabel(signal: MarketSignal): string {
 
 function freshnessStatus(signal: MarketSignal, indicator: IndicatorData | undefined, key: string): string {
     if (!indicator) return 'No supplied input';
-    if (indicator.metadata?.timestamp_basis === 'retrieved') return 'Observation date unavailable';
+    if (hasRetrievalTimestamp(indicator)) return 'Observation date unavailable';
     if (indicator.enabled === false) return 'Disabled';
     const staleAfterDays = INDICATOR_REGISTRY[key]?.staleAfterDays;
-    const snapshotDate = signal.metadata.score_delta?.snapshot_date ?? new Date().toISOString();
+    const snapshotDate = signal.metadata.score_delta?.snapshot_date;
+    if (!snapshotDate) return 'Freshness unavailable';
     const age = Date.parse(snapshotDate.slice(0,10)) - Date.parse(indicator.last_updated.slice(0,10));
     if (!finiteNumber(staleAfterDays) || !Number.isFinite(age) || age < 0) return 'Freshness unavailable';
     return age / 86_400_000 > staleAfterDays ? 'Stale · included by service' : 'Included by service';
@@ -195,7 +197,7 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, sou
         <h2>{indicator?.display_name ?? driver?.name ?? registry?.displayName ?? indicatorKey}</h2>
         <div className={styles.tagLine}><span className={styles.tag}>{status}</span><span className={styles.muted}>{registry?.category ?? 'Unclassified'}</span></div>
         <div className={styles.rawValue}>{rawValue(indicator, driver, signal.metadata.market)} <small>{indicator ? '' : 'raw value'}</small></div>
-        <p className={styles.muted}>{indicator?.metadata?.timestamp_basis === 'retrieved' ? 'Retrieved' : 'Observed'} {formatDate(indicator?.last_updated ?? driver?.last_updated)} · {cadence(indicator, indicatorKey)} · horizon {horizon(indicator)}</p>
+        <p className={styles.muted}>{hasRetrievalTimestamp(indicator) ? 'Retrieved' : 'Observed'} {formatDate(indicator?.last_updated ?? driver?.last_updated)} · {cadence(indicator, indicatorKey)} · horizon {horizon(indicator)}</p>
         <RawHistoryChart groups={historyGroups} />
 
         <details className={styles.disclosure} open={advanced}><summary>Scoring details</summary><dl className={styles.keyValues}>

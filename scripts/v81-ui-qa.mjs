@@ -96,12 +96,17 @@ try {
         const page = await context.newPage();
         const errors = [];
         let unknownDate = false;
+        let missingSnapshot = false;
+        let contextOnly = false;
         const providerReads = [];
         page.on('pageerror', error => errors.push(error.message));
         await context.route('**/api/**', async route => {
             const url = new URL(route.request().url());
             if (url.pathname === '/api/signals/v2') {
-                return route.fulfill({ json: url.searchParams.get('market') === 'MY' ? my : marketPayload(unknownDate) });
+                const body = url.searchParams.get('market') === 'MY' ? structuredClone(my) : marketPayload(unknownDate);
+                if (missingSnapshot) delete body.data.metadata.score_delta;
+                if (contextOnly) body.data.components.vix.weight = 0;
+                return route.fulfill({ json: body });
             }
             if (url.pathname.startsWith('/api/signals/')) {
                 return route.fulfill({ status: 503, json: { success: false, error: 'Fixture archive unavailable' } });
@@ -124,27 +129,25 @@ try {
 
         await page.goto(base + '/main-v8');
         await page.getByTestId('connected-score').waitFor();
-        const hero = page.getByLabel('Current score, evidence weight and primary score drivers');
+        const hero = page.getByRole('region', { name: 'Market assessment', exact: true });
         assert.equal(await hero.getByTestId('connected-score').innerText(), '62');
-        assert.match(await hero.locator('[class*="v81Metric"]').innerText(), /^65\.0%/);
-        await hero.getByText('Fresh 45.0%', { exact: true }).waitFor();
-        await hero.getByText('Stale 20.0%', { exact: true }).waitFor();
-        await hero.getByText('Fallback 35.0%', { exact: true }).waitFor();
-        await hero.getByText('-1.51', { exact: true }).waitFor();
-        assert.equal(await page.locator('[data-indicator]').count(), 3);
-        await page.locator('details[class*="unavailableIndicatorSummary"] summary').click();
+        assert.match(await hero.innerText(), /65\.0% weight/);
+        await hero.getByText('Fresh 45.0% · stale 20.0% of model weight.', { exact: true }).waitFor();
+        await hero.getByText('35.0% weight uses neutral fallback.', { exact: true }).waitFor();
+        assert.equal(await page.locator('[data-indicator]').count(), 6);
+        if (width <= 900) await page.getByRole('button', { name: 'Show all 6 inputs' }).click();
         await page.getByRole('button', { name: /BofA SSI/ }).waitFor();
         const skip = page.locator('a[href="#market-content"]');
         await skip.focus();
         const rect = await skip.boundingBox();
         assert.ok(rect && rect.width > 90 && rect.y < 80, 'Skip link must become visible when focused.');
         await page.locator('main').click({ position: { x: 10, y: 10 }, force: true }).catch(() => {});
-        await page.locator('details[class*="v81Warnings"] > summary').click();
+        await page.getByText('How to read this assessment · supporting inputs and limits', { exact: true }).click();
         const quality = page.getByRole('region', { name: 'Data needs attention' });
         await quality.waitFor();
         await quality.locator('details summary').click();
         await quality.getByText('AAII Sentiment: stale observation.', { exact: true }).waitFor();
-        await hero.getByRole('button', { name: /Inspect reported changes/ }).click();
+        await hero.getByRole('button', { name: /points vs/ }).click();
         assert.equal(await page.getByRole('tab', { name: 'What changed' }).getAttribute('aria-selected'), 'true');
         const chart = page.getByRole('slider', { name: 'Market condition score' });
         // The investigation shortcut queues a requestAnimationFrame focus transfer. Wait for it
@@ -165,9 +168,19 @@ try {
             unknownDate = true;
             await page.reload();
             await page.getByTestId('connected-score').waitFor();
-            await page.getByText('Scored 65.0%', { exact: true }).waitFor();
-            await page.getByText(/1 scored input\(s\) lack a verifiable observation date/).waitFor();
+            await hero.getByText('65.0% weight', { exact: true }).waitFor();
+            await hero.getByText(/Put\/call ratio: Observation date unknown/).waitFor();
             await noOverflow('Market unknown date');
+            missingSnapshot = true; unknownDate = false; contextOnly = true;
+            await page.reload(); await page.getByTestId('connected-score').waitFor();
+            await page.locator('[data-indicator="put_call"]').getByText('Freshness unknown', { exact: true }).waitFor();
+            await page.locator('[data-indicator="vix"]').getByText('Context · not scored', { exact: true }).waitFor();
+            assert.doesNotMatch(await page.locator('[data-indicator="vix"]').innerText(), /Model reading/);
+            await page.locator('[data-indicator="put_call"]').click();
+            const inspector = page.getByRole('complementary', { name: 'Selected indicator', exact: true });
+            await inspector.getByText('Freshness unavailable', { exact: true }).waitFor();
+            await inspector.getByRole('button', { name: 'Close indicator detail' }).click();
+            missingSnapshot = false; contextOnly = false;
         }
 
         providerReads.length = 0;
@@ -178,8 +191,9 @@ try {
         assert.equal(providerReads.length, 0, 'No US provider read for an MY-only handoff.');
 
         await page.goto(base + '/research-v8?ticker=VOO&market=US');
+        const status = page.getByRole('region', { name: 'Financial assessment status' });
+        await status.getByText('Assessment unsupported', { exact: true }).waitFor();
         const assessment = page.getByRole('region', { name: 'Current research assessment' });
-        await assessment.getByRole('heading', { name: 'Assessment not supported for this security' }).waitFor();
         if (width !== 768) await page.screenshot({ path: output + '/research-compact-' + width + '.png', fullPage: true });
         assert.equal(await assessment.locator('[class*="assessmentGrid"]').count(), 0);
         await assessment.locator('summary').first().click();

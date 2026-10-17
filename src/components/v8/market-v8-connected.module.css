@@ -1,0 +1,63 @@
+.layout { display: block; }
+.assessment { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; padding: 22px; margin-bottom: 22px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 2px 3px #10234c08; }
+.assessmentReading { min-width: 0; align-content: center; }
+.scoreLine { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 14px 0; }
+.scoreLine h1 { margin: 0; font-size: 23px; line-height: 1.4; letter-spacing: -.4px; text-transform: capitalize; }
+.scoreLine > strong { font-size: 32px; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.scoreLine > strong small { font-size: 14px; color: var(--muted); }
+.scoreLine .changeLink { color: var(--blue); font-size: 13px; min-height: 44px; text-align: left; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; }
+.scoreLine > span { font-size: 13px; color: var(--muted); }
+.assessmentReading > p { margin-top: 8px; }
+.assessmentReading .agreement { font-size: 13px; margin-top: 14px; }
+.coverage { border: 1px solid var(--line); border-radius: 9px; padding: 14px; background: #f7faff; align-self: start; }
+.coverageHeading { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; font-size: 13px; }
+.coverage p { margin-top: 6px; font-size: 13px; }
+.coverage .caution, .caution { color: #875216; }
+.analysisGrid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-bottom: 22px; }
+.analysisGrid > * { min-width: 0; }
+.history { overflow: visible; grid-column: 1; grid-row: 1; }
+.evidenceSlot { grid-column: 2; grid-row: 1; }
+.history svg[role=slider] { height: 260px; }
+.historyDetails { border-top: 1px solid var(--line); margin-top: 16px; }
+.historyDetails > summary { min-height: 44px; padding: 12px 24px; color: var(--green); cursor: pointer; font-size: 13px; }
+.evidence, .inspector { padding: 20px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.evidence h2 { font-size: 17px; }
+.evidenceRows { display: grid; gap: 8px; }
+.evidenceRows .evidenceRow { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; gap: 12px; width: 100%; padding: 13px; text-align: left; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.evidenceRow:hover { border-color: var(--blue); }
+.evidenceRow[data-available=false] { background: #f7f9fc; border-style: dashed; }
+.evidenceRow > span { min-width: 0; display: grid; gap: 4px; }
+.evidenceRow b, .evidenceRow strong { font-size: 14px; }
+.evidenceRow strong { font-variant-numeric: tabular-nums; }
+.evidenceRow small { font-size: 12px; color: var(--muted); }
+.evidenceRow .caution { color: #875216; }
+.direction { justify-self: start; font-size: 12px; border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px; }
+.direction[data-direction$=positive] { color: #006344; border-color: #8bcbb5; background: #e8fbf4; }
+.direction[data-direction$=negative] { color: #97263f; border-color: #dca2b0; background: #fff0f3; }
+.evidence .evidenceNote { margin-top: 12px; font-size: 12px; }
+.evidence .expandEvidence { display: none; }
+.readingDetails { margin: 20px 0; border: 1px solid var(--line); border-radius: 8px; background: #ffffffb8; }
+.readingDetails > summary { cursor: pointer; padding: 12px 18px; min-height: 44px; color: var(--green); }
+.readingDetails > div { padding: 0 18px 18px; }
+.archiveNote { margin-top: 12px; font-size: 12px; }
+.archiveNote summary { min-height: 44px; cursor: pointer; }
+.archiveNote p { margin-top: 8px; }
+.inspector { scroll-margin-top: 16px; }
+@media (max-width: 900px) {
+    .assessment { gap: 18px; }
+    .analysisGrid { grid-template-columns: minmax(0, 1fr); }
+    .evidenceSlot { grid-column: 1; grid-row: 1; }
+    .history { grid-column: 1; grid-row: 2; }
+    .desktopInspector { display: none; }
+    .evidenceRows[data-expanded=false] .evidenceRow[data-overflow=true] { display: none; }
+    .evidence .expandEvidence { display: inline-flex; }
+}
+@media (min-width: 901px) { .evidenceSlot[data-inspecting=true] .evidenceList { display: none; } }
+@media (max-width: 600px) {
+    .assessment { grid-template-columns: minmax(0, 1fr); padding: 16px; gap: 14px; }
+    .scoreLine { gap: 8px; }
+    .scoreLine .changeLink { padding-left: 0; border: 0; flex-basis: 100%; }
+    .evidence, .inspector { padding: 14px; }
+    .history svg[role=slider] { height: 235px; }
+    .evidenceRows .evidenceRow { padding: 12px; gap: 10px; }
+}

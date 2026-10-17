@@ -3,7 +3,7 @@ import { MarketV8 } from '@/components/v8/MarketV8';
 
 export const metadata: Metadata = { title: 'Market overview · Signal V8', robots: { index: false, follow: false } };
 
-export default async function MarketPageV8({ searchParams }: { searchParams: Promise<{ demo?: string }> }) {
+export default async function MarketPageV8({ searchParams }: { searchParams: Promise<{ demo?: string; market?: string }> }) {
     const params = await searchParams;
-    return <MarketV8 demo={params.demo === '1'} />;
+    return <MarketV8 demo={params.demo === '1'} initialMarket={params.market === 'MY' ? 'MY' : 'US'} />;
 }
