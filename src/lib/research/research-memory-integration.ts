@@ -78,7 +78,7 @@ export const buildResearchMemoryStateFromRecord = (record: ResearchRecord): Rese
         ticker: record.symbol,
         type: 'price_below' as const,
         threshold: record.positionPlan.plannedEntryPrice,
-        description: `Review when price reaches planned entry ${record.positionPlan.plannedEntryPrice}`,
+        description: `Review when price reaches planned entry ${record.positionPlan.plannedEntryPrice}${record.positionPlan.currency ? ` ${record.positionPlan.currency}` : ''}`,
         createdAt: record.lastReviewedAt,
     });
 

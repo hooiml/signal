@@ -1,6 +1,6 @@
 # Signal V8.1 Evidence-First UI Enhancements
 
-Status: Phase 1 and Phase 2 implementation branches are under review (draft PRs #16 and #17). Do not treat these branches as deployed production behavior until tested and merged.
+Status: Phase 1 and Phase 2 are merged to `main` (PRs #16 and #17), followed by the 2026-10-19 readability follow-up below. Deployed behavior is not verified by this document.
 
 ## Goals
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { nearestPricePoint, priceRangeChange } from '@/lib/research/reading-display';
+import { formatResearchPrice, researchPriceCurrency } from '@/lib/research/price-format';
 import { ResearchDataAvailability } from './ResearchDataAvailability';
 import { ResearchFinancialSummary } from './ResearchFinancialSummary';
 type ChartStateProps = { chartRange: string; setChartRange: (range: string) => void; chartDate: string | null; setChartDate: (date: string | null) => void };
@@ -12,6 +13,16 @@ import { date, money, number, researchHref, sourceHref, type ResearchTab } from 
 import base from './market-v8.module.css';
 import styles from './research-v8.module.css';
 import connected from './research-v8-connected.module.css';
+
+const planPrice = (value: number | null, currency: string | null | undefined) => value === null ? 'Unavailable' : formatResearchPrice(value, currency);
+
+function planCurrencyNote(planCurrency: string | null | undefined, quoteCurrency: string | null | undefined) {
+    const plan = researchPriceCurrency(planCurrency);
+    if (!plan) return 'Saved price assumptions below do not carry a currency in the research record; confirm the security’s trading currency before comparing them.';
+    const quote = researchPriceCurrency(quoteCurrency);
+    if (quote && quote !== plan) return `Saved prices are in ${plan}; the latest quote is in ${quote}. No currency conversion is applied, so compare them only after converting yourself.`;
+    return `Saved prices are recorded in ${plan}.`;
+}
 
 function Metrics({ rows }: { rows: readonly (readonly [string, string])[] }) {
     return <dl className={styles.valuationInputs}>{rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>;
@@ -59,9 +70,9 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
                 ['Latest returned price', money(snapshot?.quote.price, snapshot?.quote.currency)], ['Market capitalization', money(valuation?.marketCap, snapshot?.quote.currency)],
                 ['Price / earnings', number(valuation?.priceEarnings, '×')], ['Price / sales', number(valuation?.priceSales, '×')], ['Free cash flow yield', number(valuation?.freeCashFlowYieldPercent, '%')], ['Net cash', money(valuation?.netCash, currency)],
             ]} />
-            <p>Share basis: {valuation?.shareBasis || 'Compatible outstanding shares unavailable; share-based valuation withheld.'}. Annual financials and current market price cover different dates.</p>{advanced && record && <><h3>Your saved valuation & position plan</h3><p>Saved price assumptions below do not carry a currency in the research record; confirm the security’s trading currency before comparing them.</p><Metrics rows={[
+            <p>Share basis: {valuation?.shareBasis || 'Compatible outstanding shares unavailable; share-based valuation withheld.'}. Annual financials and current market price cover different dates.</p>{advanced && record && <><h3>Your saved valuation & position plan</h3><p>{planCurrencyNote(record.positionPlan.currency, snapshot?.quote.currency)}</p><Metrics rows={[
                 ['Valuation judgment', record.valuationState], ['Target buy zone', record.targetBuyZone || 'Not recorded'], ['Position', record.positionState],
-                ['Planned allocation', number(record.positionPlan.plannedAllocationPercent, '%')], ['Average cost · saved units', number(record.positionPlan.averageCost)], ['Planned entry · saved units', number(record.positionPlan.plannedEntryPrice)], ['Invalidation · saved units', number(record.positionPlan.invalidationPrice)],
+                ['Planned allocation', number(record.positionPlan.plannedAllocationPercent, '%')], ['Average cost', planPrice(record.positionPlan.averageCost, record.positionPlan.currency)], ['Planned entry', planPrice(record.positionPlan.plannedEntryPrice, record.positionPlan.currency)], ['Invalidation', planPrice(record.positionPlan.invalidationPrice, record.positionPlan.currency)],
             ]} />
             </>}
             <details className={connected.evidence} onToggle={event => { if (event.currentTarget.open) onBenchmarkRequest(); }}><summary>Compare past returns with the benchmark</summary>{benchmarkLoading && <p role="status">Loading optional benchmark comparison…</p>}{benchmarkError && <p>Benchmark request failed. Close and reopen this comparison to retry.</p>}{market === 'MY' || snapshot?.benchmark.status === 'not-applicable' ? <><h3>Benchmark coverage</h3><p>The existing research snapshot does not supply a comparable Malaysia benchmark. No cross-market comparison is inferred.</p></> : <><h3>Existing benchmark comparison</h3><p>{snapshot?.benchmark.baselineName || 'Vanguard S&P 500 ETF'} (VOO) · {snapshot?.benchmark.windowStart && snapshot.benchmark.windowEnd ? `${date(snapshot.benchmark.windowStart)} to ${date(snapshot.benchmark.windowEnd)} · ${snapshot.benchmark.commonSessions} common sessions` : 'Comparison window unavailable'} · {snapshot?.benchmark.returnBasis || 'Return basis unavailable'}. Status: {snapshot?.benchmark.status || 'unavailable'}.</p><Metrics rows={[

@@ -39,6 +39,8 @@ export type CurrencyPerformanceResult = {
     readonly dividendsPercent: number;
     readonly feesPercent: number;
     readonly available: boolean;
+    /** True when the saved plan currency differs from the quote currency; no conversion is attempted. */
+    readonly costCurrencyMismatch: boolean;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -85,7 +87,9 @@ export const calculateCurrencyPerformance = (
     const dividendsPercent = adjustment?.dividendsPercent ?? 0;
     const feesPercent = adjustment?.feesPercent ?? 0;
     const costBasis = record.positionPlan.averageCost ?? record.positionPlan.plannedEntryPrice;
-    const validCost = costBasis !== null && Number.isFinite(costBasis) && costBasis > 0;
+    const planCurrency = record.positionPlan.currency ?? null;
+    const costCurrencyMismatch = planCurrency !== null && planCurrency !== quoteCurrency;
+    const validCost = !costCurrencyMismatch && costBasis !== null && Number.isFinite(costBasis) && costBasis > 0;
     const validPrice = currentPrice !== null && Number.isFinite(currentPrice) && currentPrice > 0;
     if (!validCost || !validPrice) return {
         symbol: record.symbol,
@@ -101,6 +105,7 @@ export const calculateCurrencyPerformance = (
         dividendsPercent,
         feesPercent,
         available: false,
+        costCurrencyMismatch,
     };
     const priceFactor = currentPrice / costBasis;
     const fxFactor = quoteCurrency === parsed.baseCurrency
@@ -126,5 +131,6 @@ export const calculateCurrencyPerformance = (
         dividendsPercent,
         feesPercent,
         available: true,
+        costCurrencyMismatch: false,
     };
 };

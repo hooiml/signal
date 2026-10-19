@@ -1,4 +1,4 @@
-import { researchPriceCurrency } from './price-format';
+import { normalizeCurrencyCode, researchPriceCurrency } from './price-format';
 import {
     defaultResearchMonitoringRules,
     positionStates,
@@ -193,6 +193,15 @@ const nullableDateValue = (value: unknown, label: string): string | null => {
     return date;
 };
 
+const nullableCurrencyValue = (value: unknown, label: string): string | null => {
+    if (value === null) return null;
+    if (typeof value !== 'string') throw new ResearchInputError(`${label} must be a string or null.`);
+    if (value.trim() === '') return null;
+    const currency = normalizeCurrencyCode(value);
+    if (currency === null) throw new ResearchInputError(`${label} must be a three-letter currency code.`);
+    return currency;
+};
+
 const researchActions = ['Not recorded', 'Ready', 'DCA', 'Wait for price', 'Watch', 'Avoid'] as const;
 
 const parseDecisionJournal = (value: unknown, label: string): ResearchDecisionJournal => {
@@ -218,6 +227,7 @@ const parsePositionPlan = (value: unknown, label: string): ResearchPositionPlan 
         averageCost: plan.averageCost === undefined ? null : nullableNumberValue(plan.averageCost, `${label}.averageCost`, 0, 1_000_000_000),
         plannedEntryPrice: plan.plannedEntryPrice === undefined ? null : nullableNumberValue(plan.plannedEntryPrice, `${label}.plannedEntryPrice`, 0, 1_000_000_000),
         invalidationPrice: plan.invalidationPrice === undefined ? null : nullableNumberValue(plan.invalidationPrice, `${label}.invalidationPrice`, 0, 1_000_000_000),
+        ...(plan.currency === undefined ? {} : { currency: nullableCurrencyValue(plan.currency, `${label}.currency`) }),
     };
 };
 

@@ -113,6 +113,7 @@ export const buildResearchDecisionPacket = ({
         `- Average cost: ${valueOrUnavailable(position.averageCost)}`,
         `- Planned entry price: ${valueOrUnavailable(position.plannedEntryPrice)}`,
         `- Invalidation price: ${valueOrUnavailable(position.invalidationPrice)}`,
+        `- Price currency: ${position.currency || 'Not recorded.'}`,
         '',
         `## Checklist (${completedChecklist}/${checklist.length})`,
         '',

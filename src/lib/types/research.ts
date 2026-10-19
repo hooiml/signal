@@ -155,6 +155,8 @@ export type ResearchPositionPlan = {
     readonly averageCost: number | null;
     readonly plannedEntryPrice: number | null;
     readonly invalidationPrice: number | null;
+    /** Currency of the saved prices. Absent or null means it was never recorded; it is never inferred. */
+    readonly currency?: string | null;
 };
 
 export type ResearchEvidence = {
