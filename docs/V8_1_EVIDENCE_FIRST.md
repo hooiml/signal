@@ -23,7 +23,7 @@ Maintain a research tool, not a trading terminal. The priority order is: current
 - Partition observed scored weight into fresh and stale only when each active input's observation date and registry cadence threshold can be verified. A retrieval-only timestamp is **unknown**, never fresh.
 - Verify \`fresh + stale + fallback = 100%\` using unrounded weights and a small floating-point tolerance; round only labels. If the three-way partition cannot be verified, display **scored versus fallback**, and explicitly disclose the unavailable freshness split.
 - Promote the score + weight coverage + leading reported drivers above methodology and notices. The two preview drivers are not necessarily a complete reconciliation of the score delta; preserve all drivers in "What changed".
-- Use fixed 0–100 score history with neutral **score-tier** reference lines from \`src/lib/market-score-thresholds.ts\`. The separate market-regime label still depends on volatility and market breadth; do not present score tiers as its precise regime thresholds.
+- Score history is zoomed to the returned values (snapped to tens inside 0–100, at least 40 points tall, always including the neutral band) and labels its axis range; keep neutral **score-tier** reference lines from \`src/lib/market-score-thresholds.ts\`. The separate market-regime label still depends on volatility and market breadth; do not present score tiers as its precise regime thresholds.
 - Preserve the existing solid observed/dashed reconstructed line convention. Do not encode coverage with the same stroke styles.
 - Current-snapshot coverage may be displayed only if the selected date matches the current observed snapshot. Historical points without original coverage metadata must show "Historical source-weight percentage unavailable for this point."
 - Never use today's weights or source ages to reconstruct past snapshot evidence.
@@ -38,3 +38,10 @@ Maintain a research tool, not a trading terminal. The priority order is: current
 - \`npm run lint\`, \`npm run typecheck\`, \`npm run harness\`, and \`npm run build\` pass.
 - Browser fixture checks at desktop/tablet/mobile widths verify layout, keyboard navigation, no overflow, failure/partial-loading behavior and no fictional provenance.
 - Existing chart and Research behaviors remain functional, or tests are explicitly updated with a justified behavior change.
+
+## 2026-10-19 readability follow-up
+
+- Market: the score chart axis zooms to the data (see above); the Momentum/Contrarian toggle carries a one-line reading of each mode; wider-market context names each tracked index and its latest move and sits beneath the chart. It remains separate from the score.
+- Research: provider-returned price context (52-week range, 50/200-day averages, RSI, 20-day average volume) is shown beneath the quote when supplied, and hidden when absent. It is descriptive, not a trading signal.
+- Current assessment tolerates up to 10 minutes of server-ahead clock skew before treating a classification or retrieval as future-dated.
+- The optional install offer remembers "Not now" (or a browser dismissal) for 30 days.

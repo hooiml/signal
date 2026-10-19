@@ -66,3 +66,17 @@
 .alignment { margin-top: 12px; font-size: 13px; }
 .alignment > summary { cursor: pointer; min-height: 44px; padding: 10px 0; }
 .alignment p { margin: 6px 0; color: var(--muted); }
+/* Wider-market context fills the space beneath the score chart; evidence spans both rows. */
+.analysisGrid > .evidenceSlot { grid-row: 1 / span 2; }
+.contextCard { grid-column: 1; grid-row: 2; padding: 18px 20px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.contextCard h3 { margin: 6px 0 10px; font-size: 16px; }
+.contextCard p { margin: 10px 0 6px; font-size: 13px; color: var(--muted); }
+.indexList { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.indexList li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
+.indexList b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.indexList li[data-trend=positive] b { color: #006344; }
+.indexList li[data-trend=negative] b { color: #97263f; }
+@media (max-width: 900px) {
+    .analysisGrid > .evidenceSlot { grid-row: 1; }
+    .contextCard { grid-row: 3; }
+}

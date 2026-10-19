@@ -14,6 +14,8 @@ export type CurrentResearchAssessment = {
 
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const DAY = 86_400_000;
+/** Server timestamps can lead the browser clock; allow small skew before treating a reading as future-dated. */
+const CLOCK_SKEW_TOLERANCE = 10 * 60_000;
 
 /** Describes reported facts only. Never consumes authored records or generates a trade decision. */
 export function assessCurrentResearch(snapshot: ResearchSnapshot | null, now: number): CurrentResearchAssessment {
@@ -28,7 +30,7 @@ export function assessCurrentResearch(snapshot: ResearchSnapshot | null, now: nu
     const coverage = sourced ? [growthComparable ? f?.revenueGrowthPercent : null, f?.annualNetIncome, f?.freeCashFlow].filter(finite).length : 0;
     const oldPeriod = validPeriod && now - period > 548 * DAY;
     const retrieved = snapshot ? Date.parse(snapshot.fetchedAt) : NaN;
-    const oldSnapshot = !!snapshot && (!Number.isFinite(retrieved) || retrieved > now || now - retrieved > 2 * DAY);
+    const oldSnapshot = !!snapshot && (!Number.isFinite(retrieved) || retrieved > now + CLOCK_SKEW_TOLERANCE || now - retrieved > 2 * DAY);
 
     if (!sourced) gaps.push('Financial source or reporting period is unavailable. Company performance cannot be assessed from the price alone.');
     else {
@@ -54,7 +56,7 @@ export function assessCurrentResearch(snapshot: ResearchSnapshot | null, now: nu
     const knownSector = new Set(['Basic Materials', 'Communication Services', 'Consumer Cyclical',
         'Consumer Defensive', 'Energy', 'Healthcare', 'Industrials', 'Real Estate', 'Technology', 'Utilities']);
     const classificationCurrent = classification?.source === 'Yahoo Finance' && Number.isFinite(classifiedAt)
-        && classifiedAt <= now && now - classifiedAt <= 2 * DAY;
+        && classifiedAt <= now + CLOCK_SKEW_TOLERANCE && now - classifiedAt <= 2 * DAY;
     const applicable = type === 'EQUITY' && classificationCurrent && classification?.instrumentType === type
         && knownSector.has(classification.sector ?? '') && !!classification.industry && !/^REIT(?:\W|$)/i.test(classification.industry);
     if (snapshot && !applicable) return {

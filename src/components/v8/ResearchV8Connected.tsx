@@ -14,6 +14,7 @@ import { ResearchSecurityLookup } from './ResearchSecurityLookup';
 import { ResearchCurrentAssessment } from './ResearchCurrentAssessment';
 import { assessCurrentResearch } from '@/lib/research/current-assessment';
 import { ResearchConnectedPanel } from './ResearchV8ConnectedPanels';
+import { ResearchPriceContext } from './ResearchPriceContext';
 import { date, money, number, parseWatchlist, researchHref, researchTabs, retrievedAt, type ResearchTab } from './research-v8-connected-data';
 import base from './market-v8.module.css';
 import styles from './research-v8.module.css';
@@ -261,6 +262,7 @@ function ConnectedCase({ symbol, market, record, onSaved, onIdentity, advanced, 
                     {snapshot && (snapshot.fundamentals.reportingPeriod || snapshot.fundamentals.source) && <div><small>Financial reporting period</small><b>{date(snapshot.fundamentals.reportingPeriod)}</b><span>{snapshot.fundamentals.source || 'Financial source unavailable'}</span></div>}
                     {record && <div className={connected.savedDecision} aria-label="Saved user-authored decision"><span className={base.eyebrow}>USER-AUTHORED · SAVED</span><strong>{record.decisionJournal.decision}</strong><span>{record.decisionJournal.decision === 'Not recorded' ? 'No personal review recorded.' : `Last reviewed ${date(record.lastReviewedAt)}.`}</span><a className={base.textButton} href={researchHref(record.symbol, 'review')} target="_blank" rel="noopener noreferrer">Open saved review ↗</a></div>}
                 </section>
+                <ResearchPriceContext snapshot={snapshot} />
                 {!record && <div className={connected.dataStatus}><span>Reading without a saved record</span><button className={base.textButton} disabled={saving || !snapshot} onClick={saveSecurity}>{saving ? 'Saving…' : 'Save security'}</button></div>}
                 {saveError && <p role="alert">{saveError}</p>}
                 <ResearchCurrentAssessment snapshot={snapshot} previous={readings.previous} loading={loading} error={error} now={assessmentTime} compact />

@@ -9,6 +9,21 @@ type InstallPromptEvent = Event & {
 };
 
 const LAST_ONLINE_KEY = 'signal-pwa-last-online-v1';
+const INSTALL_DEFERRED_KEY = 'signal-pwa-install-deferred-v1';
+const INSTALL_DEFER_DAYS = 30;
+
+/** "Not now" is remembered so the optional install offer does not reappear on every page load. */
+const installDeferred = () => {
+    try {
+        const deferredAt = Date.parse(window.localStorage.getItem(INSTALL_DEFERRED_KEY) ?? '');
+        return Number.isFinite(deferredAt) && Date.now() - deferredAt < INSTALL_DEFER_DAYS * 86_400_000;
+    } catch {
+        return false;
+    }
+};
+const rememberInstallDeferred = () => {
+    try { window.localStorage.setItem(INSTALL_DEFERRED_KEY, new Date().toISOString()); } catch { /* Storage may be unavailable; the offer simply returns later. */ }
+};
 
 export const PwaLifecycle = () => {
     const pathname = usePathname();
@@ -37,6 +52,7 @@ export const PwaLifecycle = () => {
 
         const beforeInstall = (event: Event) => {
             event.preventDefault();
+            if (installDeferred()) return;
             setInstallPrompt(event as InstallPromptEvent);
         };
         window.addEventListener('beforeinstallprompt', beforeInstall);
@@ -82,10 +98,12 @@ export const PwaLifecycle = () => {
         await installPrompt.prompt();
         const choice = await installPrompt.userChoice;
         setInstallPrompt(null);
+        if (choice.outcome === 'dismissed') rememberInstallDeferred();
         setMessage(choice.outcome === 'accepted' ? 'Signal installation started.' : 'Installation was dismissed.');
     };
 
     const deferInstall = () => {
+        rememberInstallDeferred();
         setInstallPrompt(null);
         setMessage(null);
     };

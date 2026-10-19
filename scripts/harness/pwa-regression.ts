@@ -203,6 +203,8 @@ assert.match(lifecycle, /window\.confirm\([\s\S]+unsaved research/);
 assert.match(rootLayout, /<PwaLifecycle \/>[\s\S]+<ThemeProviderV6>/);
 assert.match(lifecycle, /data-testid="pwa-lifecycle"/);
 assert.match(lifecycle, />Not now<\/button>/);
+assert.match(lifecycle, /const deferInstall = \(\) => \{\s+rememberInstallDeferred\(\);/);
+assert.match(lifecycle, /if \(installDeferred\(\)\) return;/);
 assert.doesNotMatch(lifecycle, /className="fixed/);
 for (const label of ['Retry connection', 'Review and apply update', 'Install Signal', 'Not now', 'Dismiss notice']) {
     assert.match(lifecycle, new RegExp(`min-h-10[^>]*>${label}<\\/button>`));

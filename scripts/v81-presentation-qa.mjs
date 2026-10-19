@@ -139,7 +139,7 @@ try {
             if (mode === 'contrarian') {
                 await page.getByRole('button', { name: 'Advanced tools', exact: true }).click();
                 await page.getByRole('button', { name: 'Contrarian', exact: true }).click();
-                await page.getByText('Contrarian reading · Social on', { exact: true }).waitFor();
+                await page.getByText('Contrarian: high scores read as crowding risk, low scores as opportunity · Social on', { exact: true }).waitFor();
                 await page.getByRole('button', { name: 'Back to basic view', exact: true }).click();
             }
             for (const advanced of [false, true]) {

@@ -3999,6 +3999,8 @@ const runComparisonTests = () => {
     assertEqual(assessWith({ reportingPeriod: '2023-01-01' }).headline, 'Older data · assessment limited', 'old annual figures limit assessment');
     assertEqual(assessCurrentResearch({ ...snapshot, fetchedAt: '2026-07-01' }, assessmentNow).headline, 'Older data · assessment limited', 'old retrieval limits assessment');
     assertEqual(assessCurrentResearch({ ...snapshot, fetchedAt: '2027-01-01' }, assessmentNow).headline, 'Older data · assessment limited', 'future retrieval date is not fresh');
+    const skewedClassification = { ...snapshot.quote.classification!, retrievedAt: new Date(assessmentNow + 90_000).toISOString() };
+    assertEqual(assessCurrentResearch({ ...snapshot, fetchedAt: new Date(assessmentNow + 90_000).toISOString(), quote: { ...snapshot.quote, classification: skewedClassification } }, assessmentNow).applicable, true, 'small server-ahead clock skew keeps a fresh classification applicable');
     assertEqual(assessCurrentResearch({ ...snapshot, quote: { ...snapshot.quote, price: 1 } }, assessmentNow).headline, assessment.headline, 'price alone cannot change business assessment');
     assertEqual(assessCurrentResearch({ ...snapshot, warnings: ['Provider unavailable'] }, assessmentNow).gaps.some(gap => gap.includes('Provider coverage')), true, 'provider gaps are disclosed');
     assertEqual(JSON.stringify(snapshot), beforeAssessment, 'assessment never mutates provider inputs');
