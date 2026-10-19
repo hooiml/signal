@@ -1,6 +1,6 @@
 # Signal V8 UI/UX Enhancement Plan
 
-Status: all seven UI batches implemented and verified; V8-16 currency remains deferred.
+Status: all seven UI batches implemented and verified; V8-16 plan currency implemented on 2026-10-19 (see its section).
 Recorded: 2026-09-12.
 Scope: connected `/main-v8` and `/research-v8` experiences.
 
@@ -29,7 +29,7 @@ Work in the order below. Within each batch, inspect prerequisites, implement rel
 | 5. Historical evidence | V8-09, V8-10, V8-15 | Provenance, preview/replay separation, consistent history | Complete; see execution evidence |
 | 6. Research hierarchy | V8-05, V8-17 | Compact security selector and actionable readiness | Complete; see execution evidence |
 | 7. Presentation polish | V8-13, V8-14 | Warning copy, readable metadata, touch targets | Complete; see execution evidence |
-| Deferred, separate task | V8-16 | Persist explicit valuation currency through editor/API | Deferred |
+| Separate task | V8-16 | Persist explicit valuation currency through editor/API | Implemented 2026-10-19; see V8-16 |
 
 Evidence correctness is a priority: V8-11 ships in Batch 1; provenance and historical scope form a dedicated correctness batch, ahead of hierarchy and polish. Batch numbers represent delivery dependencies, not severity rankings.
 
@@ -216,7 +216,7 @@ Batch: 5. Evidence: proposed improvement; verify grouped history passed to each 
 - If preflight establishes a constraint preventing that contract, explicitly re-scope before implementation; the alternative is a clearly labelled “Latest continuous history segment,” never an implication that all history is absent.
 - Acceptance: earlier-only data, recent gaps, multiple segments and empty history; card and inspector accurately describe their scope, with no invented continuity.
 
-### V8-16 — Explicit valuation currency (deferred)
+### V8-16 — Explicit valuation currency
 
 Batch: none; separately scoped data-contract task. Evidence: proposed improvement; persisted monetary fields require inspection.
 
@@ -224,6 +224,16 @@ Batch: none; separately scoped data-contract task. Evidence: proposed improvemen
 - New monetary assumptions record explicit currency. Legacy currency stays unknown until explicitly supplied; no inferred migration or automatic relabelling.
 - Exclude FX conversion. Preserve the current unknown-currency disclosure throughout all seven UI batches.
 - Separate acceptance: editor/API round trip and legacy compatibility, validation, affected consumers and appropriate migration/rollback proof. This task is not a condition for completing the 16 UI items.
+
+Implementation (2026-10-19):
+
+- Monetary assumptions inspected: the position plan's average cost, planned entry and invalidation price. The decision journal already records `observedCurrency` from the quote; free-text `targetBuyZone` is unchanged. There is no separate fair-value field.
+- `positionPlan.currency` is optional (`string | null`) in `src/lib/types/research.ts`. Absent or `null` means not recorded. The API accepts a three-letter code; all-lowercase input is upper-cased, mixed-case provider units such as `GBp` are kept, and anything else is rejected with HTTP 400.
+- The existing review editor has a "Price currency" field. For a plan with no saved prices, entering the first price suggests the current quote currency in that visible field. Legacy prices get no suggestion. Saving is blocked only when a price is new or changed without a currency, so unchanged legacy records still save.
+- Consumers: the V8 Valuation panel and the editor summary show prices with their currency (or "currency not recorded") and warn when the plan and quote currencies differ; the decision packet adds a price-currency line; planned-entry memory triggers name the currency; currency performance withholds a result when the plan currency differs from the quote currency instead of converting it.
+- Migration and rollback: the plan is stored in the existing `position_plan` JSONB column, so no schema migration is needed. Older code drops the unknown key on its next save of that record, which returns it to the unknown state, never to a wrong currency.
+- Evidence: `runPositionPlanCurrencyTests` in `scripts/harness/research-regression.ts` covers parsing, rejection, stored round trip, legacy compatibility, editor save rules and the currency-performance mismatch.
+- Not changed: FX conversion, portfolio simulation (which still uses plan prices with holding prices as before), and the Research memory trigger threshold value.
 
 ### V8-17 — Actionable Policy Guardrail readiness
 

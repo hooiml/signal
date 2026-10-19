@@ -3,7 +3,8 @@
 import { useMemo, useRef, useState, type ComponentProps } from 'react';
 import type { AcceptedResearchEvidence, ResearchRecord } from '@/lib/types/research';
 import type { ResearchBenchmark } from '@/lib/types/research-snapshot';
-import { calculatePositionPlanRisk } from '@/lib/research/position-plan';
+import { calculatePositionPlanRisk, positionPlanCurrencyIssue, positionPlanPriceFields, positionPlanValueCount } from '@/lib/research/position-plan';
+import { formatResearchPrice, researchPriceCurrency } from '@/lib/research/price-format';
 import type { ResearchFindingTarget } from '@/lib/types/research-assistant';
 import {
     getResearchWorkflowTemplate,
@@ -91,6 +92,7 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
     };
     const [isExpanded, setIsExpanded] = useState(startEditing);
     const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+    const [showPlanCurrencyIssue, setShowPlanCurrencyIssue] = useState(false);
     const [strategyTemplateId, setStrategyTemplateId] = useState<ResearchStrategyTemplateId>('core');
     const styles = getThemeV6(theme);
     const workflowTemplate = workflowTemplateId ? getResearchWorkflowTemplate(workflowTemplateId) : null;
@@ -101,6 +103,10 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
     const isDirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(initial), [draft, initial]);
     const completedChecklist = checklistKeys.filter((key) => draft.checklist[key]).length;
     const positionRisk = calculatePositionPlanRisk(draft.positionPlan, observedPrice);
+    const planCurrencyIssue = positionPlanCurrencyIssue(initial.positionPlan, draft.positionPlan);
+    const planPrice = (value: number | null) => value === null ? 'Not set' : formatResearchPrice(value, draft.positionPlan.currency);
+    // Suggest the quote currency only for a plan that had no saved prices; legacy prices stay unlabelled until the user chooses.
+    const suggestedPlanCurrency = positionPlanPriceFields.every((key) => initial.positionPlan[key] === null) ? researchPriceCurrency(observedCurrency) : null;
     const field = 'w-full rounded-md border px-3 py-2 text-sm outline-none focus:border-emerald-500 ' + (theme === 'light' ? 'border-slate-300 bg-white text-slate-950' : 'border-[#334354] bg-[#0b1118] text-[#eef2f7]');
     const updateText = (key: 'whyInterested' | 'bullCase' | 'bearCase' | 'buyTrigger' | 'sellTrigger' | 'thesisBreak' | 'targetBuyZone' | 'notes', value: string) => setDraft((current) => ({ ...current, [key]: value }));
 
@@ -125,6 +131,10 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
         };
     });
     const handleSave = async () => {
+        if (planCurrencyIssue) {
+            setShowPlanCurrencyIssue(true);
+            return;
+        }
         const saved = await onSave(draft);
         if (saved) {
             setLastSavedAt(new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date()));
@@ -137,6 +147,7 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
     const handleCancel = () => {
         setDraft(initial);
         setLastSavedAt(null);
+        setShowPlanCurrencyIssue(false);
         setStrategyTemplateId('core');
         setIsEditing(false);
         setIsExpanded(false);
@@ -239,9 +250,9 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                         <div className="flex flex-wrap items-center justify-between gap-2"><h3 id="position-plan-title" className={'text-sm font-semibold ' + styles.textSecondary}>Position plan</h3><span className={'text-xs ' + styles.textMuted}>Planning only · no transaction tracking</span></div>
                         <dl className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                             {renderDetail('Planned allocation', draft.positionPlan.plannedAllocationPercent === null ? 'Not set' : `${draft.positionPlan.plannedAllocationPercent}%`)}
-                            {renderDetail('Average cost', draft.positionPlan.averageCost === null ? 'Not set' : String(draft.positionPlan.averageCost))}
-                            {renderDetail('Planned entry', draft.positionPlan.plannedEntryPrice === null ? 'Not set' : String(draft.positionPlan.plannedEntryPrice))}
-                            {renderDetail('Invalidation price', draft.positionPlan.invalidationPrice === null ? 'Not set' : String(draft.positionPlan.invalidationPrice))}
+                            {renderDetail('Average cost', planPrice(draft.positionPlan.averageCost))}
+                            {renderDetail('Planned entry', planPrice(draft.positionPlan.plannedEntryPrice))}
+                            {renderDetail('Invalidation price', planPrice(draft.positionPlan.invalidationPrice))}
                             {renderDetail('Portfolio at risk', positionRisk ? `${positionRisk.portfolioRiskPercent}%` : 'Needs allocation, reference, and lower invalidation')}
                         </dl>
                     </section>
@@ -415,7 +426,7 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
             </fieldset>
             </details>
             <details className={'mt-4 rounded-md border p-3 ' + styles.panelUtility}>
-                <summary className="min-h-8 cursor-pointer text-sm font-semibold">Optional position plan · {Object.values(draft.positionPlan).filter(value => value !== null).length} values recorded</summary>
+                <summary className="min-h-8 cursor-pointer text-sm font-semibold">Optional position plan · {positionPlanValueCount(draft.positionPlan)} values recorded</summary>
                 <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Use this only if you want to plan allocation and downside. Existing values are kept when this section is closed.</p>
             <fieldset className={'mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 xl:grid-cols-5 ' + styles.divider}>
                 <legend className={'mb-2 text-xs font-semibold ' + styles.textMuted}>Position plan</legend>
@@ -425,16 +436,24 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                     ['plannedEntryPrice', 'Planned entry price', 1_000_000_000],
                     ['invalidationPrice', 'Invalidation price', 1_000_000_000],
                 ] as const).map(([key, label, max]) => <label key={key} className={'text-xs font-medium ' + styles.textMuted}>{label}
-                    <input type="number" min="0" max={max} step="0.01" value={draft.positionPlan[key] ?? ''} onChange={(event) => setDraft((current) => ({ ...current, positionPlan: { ...current.positionPlan, [key]: event.target.value === '' ? null : Number(event.target.value) } }))} className={'mt-1 ' + field} />
+                    <input type="number" min="0" max={max} step="0.01" value={draft.positionPlan[key] ?? ''} onChange={(event) => setDraft((current) => {
+                        const value = event.target.value === '' ? null : Number(event.target.value);
+                        const suggestCurrency = key !== 'plannedAllocationPercent' && value !== null && !current.positionPlan.currency && suggestedPlanCurrency;
+                        return { ...current, positionPlan: { ...current.positionPlan, [key]: value, ...(suggestCurrency ? { currency: suggestedPlanCurrency } : {}) } };
+                    })} className={'mt-1 ' + field} />
                 </label>)}
+                <label className={'text-xs font-medium ' + styles.textMuted}>Price currency
+                    <input value={draft.positionPlan.currency ?? ''} maxLength={3} placeholder="e.g. USD" autoComplete="off" aria-invalid={showPlanCurrencyIssue && planCurrencyIssue !== null} aria-describedby="position-plan-currency-help" onChange={(event) => setDraft((current) => ({ ...current, positionPlan: { ...current.positionPlan, currency: event.target.value.trim() === '' ? null : event.target.value } }))} className={'mt-1 ' + field} />
+                </label>
+                <p id="position-plan-currency-help" className={'text-xs leading-5 sm:col-span-2 xl:col-span-5 ' + (showPlanCurrencyIssue && planCurrencyIssue ? styles.risk : styles.textMuted)}>{showPlanCurrencyIssue && planCurrencyIssue ? planCurrencyIssue : 'Applies to average cost, planned entry and invalidation. Signal never converts between currencies; older prices without a currency stay marked as not recorded.'}</p>
                 <p className={'text-xs leading-5 sm:col-span-2 xl:col-span-5 ' + styles.textMuted}>{positionRisk ? `${positionRisk.downsidePercent.toFixed(1)}% downside from ${positionRisk.referencePrice.toFixed(2)} implies approximately ${positionRisk.portfolioRiskPercent.toFixed(2)}% of portfolio at risk.` : 'Portfolio-at-risk appears when allocation, an average cost or planned entry, and a lower invalidation price are set.'}</p>
             </fieldset>
             </details>
             </div>
             </fieldset>
             <div className={'sticky bottom-3 z-10 mt-4 flex flex-wrap items-center justify-end gap-3 rounded-md border px-3 py-2 backdrop-blur ' + styles.row}>
-                <p role={error ? 'alert' : 'status'} aria-live="polite" className={'mr-auto text-xs ' + (error ? styles.risk : isDirty ? styles.textSecondary : styles.textMuted)}>
-                    {error ?? (isDirty ? 'Unsaved changes' : lastSavedAt ? `Saved at ${lastSavedAt}` : 'Saved review')}
+                <p role={error || (showPlanCurrencyIssue && planCurrencyIssue) ? 'alert' : 'status'} aria-live="polite" className={'mr-auto text-xs ' + (error || (showPlanCurrencyIssue && planCurrencyIssue) ? styles.risk : isDirty ? styles.textSecondary : styles.textMuted)}>
+                    {error ?? (showPlanCurrencyIssue && planCurrencyIssue ? planCurrencyIssue : isDirty ? 'Unsaved changes' : lastSavedAt ? `Saved at ${lastSavedAt}` : 'Saved review')}
                 </p>
                 <button type="button" disabled={saving} onClick={handleCancel} className={'min-h-10 rounded-md border px-4 py-2 text-xs font-bold disabled:opacity-50 ' + styles.row}>Cancel</button>
                 {reviewStep > 0 ? <button type="button" disabled={saving} onClick={() => changeStep(reviewStep - 1)} className={'min-h-11 rounded-md border px-4 text-xs font-bold ' + styles.row}>Back</button> : null}

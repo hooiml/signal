@@ -1,4 +1,21 @@
 import type { ResearchPositionPlan, ResearchRecord } from '../types/research';
+import { normalizeCurrencyCode } from './price-format';
+
+export const positionPlanPriceFields = ['averageCost', 'plannedEntryPrice', 'invalidationPrice'] as const;
+
+export const positionPlanValueCount = (plan: ResearchPositionPlan): number =>
+    [plan.plannedAllocationPercent, ...positionPlanPriceFields.map((field) => plan[field])].filter((value) => value !== null).length;
+
+/**
+ * New or changed plan prices must carry an explicit currency. Unchanged legacy prices may stay
+ * without one, so older records still save; their currency remains unknown rather than inferred.
+ */
+export const positionPlanCurrencyIssue = (initial: ResearchPositionPlan, draft: ResearchPositionPlan): string | null => {
+    const entered = draft.currency?.trim() ?? '';
+    if (entered !== '' && normalizeCurrencyCode(entered) === null) return 'Use a three-letter currency code, such as USD or MYR.';
+    const changedPrice = positionPlanPriceFields.some((field) => draft[field] !== null && draft[field] !== initial[field]);
+    return changedPrice && entered === '' ? 'Record the currency of the position plan prices before saving.' : null;
+};
 
 export type PositionPlanRisk = {
     readonly referencePrice: number;

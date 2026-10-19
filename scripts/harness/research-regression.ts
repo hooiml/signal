@@ -60,7 +60,7 @@ import { inboxItemChange, inboxItemSignature, parseInboxState, snapshotInboxItem
 import { buildResearchHandoffHref, getMarketResearchEmphasis, parseMarketResearchHandoff, type MarketResearchHandoff } from '../../src/lib/market-research-handoff';
 import { buildResearchNotificationDigest, deliverResearchNotification, executeResearchNotificationDelivery, filterResearchNotificationItems, researchNotificationDigestKey, signResearchNotification, validateNotificationEndpoint } from '../../src/lib/research/notification-delivery';
 import { compareDiscoveryVisits, parseSavedDiscoveryViews, removeSavedDiscoveryView, upsertSavedDiscoveryView, type DiscoveryVisitSnapshot } from '../../src/lib/research/discovery-workspace';
-import { calculatePositionPlanRisk, calculateSectorConcentration } from '../../src/lib/research/position-plan';
+import { calculatePositionPlanRisk, calculateSectorConcentration, positionPlanCurrencyIssue, positionPlanValueCount } from '../../src/lib/research/position-plan';
 import { buildResearchCalendar, filterResearchCalendarEvents, getResearchCalendar } from '../../src/lib/research/calendar';
 import { parseResearchCalendarInputs, parseResearchCalendarQuery } from '../../src/lib/research/calendar-input';
 import { parseResearchCalendarResponse } from '../../src/lib/research/calendar-response';
@@ -1196,6 +1196,36 @@ const runCurrencyPerformanceTests = () => {
 
     const unavailable = calculateCurrencyPerformance(base, null, defaultCurrencyPerformanceSettings);
     assertEqual(unavailable.available, false, 'currency performance keeps missing cost and price inputs unavailable');
+};
+
+const runPositionPlanCurrencyTests = () => {
+    const base = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
+    const update = parseResearchUpdateInput({ positionPlan: { averageCost: 100, plannedEntryPrice: 95, currency: ' usd ' } });
+    assertEqual(update.positionPlan?.currency, 'USD', 'position plan normalizes an explicit lowercase currency code');
+    assertEqual(parseResearchUpdateInput({ positionPlan: { averageCost: 100, currency: 'GBp' } }).positionPlan?.currency, 'GBp', 'position plan keeps provider minor-unit currency codes');
+    assertEqual(parseResearchUpdateInput({ positionPlan: { averageCost: 100, currency: null } }).positionPlan?.currency, null, 'position plan accepts an explicitly unknown currency');
+    assertEqual('currency' in (parseResearchUpdateInput({ positionPlan: { averageCost: 100 } }).positionPlan ?? {}), false, 'legacy position plan input leaves currency absent rather than inferred');
+    assertThrows(() => parseResearchUpdateInput({ positionPlan: { averageCost: 100, currency: 'US$' } }), 'position plan rejects a malformed currency code');
+    assertThrows(() => parseResearchUpdateInput({ positionPlan: { averageCost: 100, currency: 840 } }), 'position plan rejects a numeric currency code');
+
+    const saved = applyResearchUpdate(base, update);
+    const roundTrip = parseResearchRecord(JSON.parse(JSON.stringify(saved)));
+    assertEqual(roundTrip.positionPlan.currency, 'USD', 'position plan currency survives a stored-record round trip');
+    const legacy = parseResearchRecord(JSON.parse(JSON.stringify({ ...base, positionPlan: { plannedAllocationPercent: 5, averageCost: 100, plannedEntryPrice: null, invalidationPrice: 90 } })));
+    assertEqual(legacy.positionPlan.currency, undefined, 'legacy stored position plan keeps an unknown currency');
+    assertEqual(positionPlanValueCount({ ...legacy.positionPlan, currency: 'USD' }), 3, 'position plan value count ignores the currency label');
+
+    assertEqual(positionPlanCurrencyIssue(legacy.positionPlan, legacy.positionPlan) === null, true, 'unchanged legacy prices may be saved without a currency');
+    assertEqual(positionPlanCurrencyIssue(legacy.positionPlan, { ...legacy.positionPlan, averageCost: 101 }) !== null, true, 'changed prices require an explicit currency');
+    assertEqual(positionPlanCurrencyIssue(base.positionPlan, { ...base.positionPlan, plannedEntryPrice: 50, currency: 'MYR' }) === null, true, 'new prices with a currency are accepted');
+    assertEqual(positionPlanCurrencyIssue(base.positionPlan, { ...base.positionPlan, currency: 'dollars' }) !== null, true, 'malformed editor currency is rejected');
+    assertEqual(positionPlanCurrencyIssue(base.positionPlan, { ...base.positionPlan, plannedAllocationPercent: 5 }) === null, true, 'allocation alone does not require a currency');
+
+    const mismatch = calculateCurrencyPerformance({ ...base, positionPlan: { ...base.positionPlan, averageCost: 100, currency: 'MYR' } }, 110, defaultCurrencyPerformanceSettings);
+    assertEqual(mismatch.available, false, 'currency performance withholds a cost basis recorded in another currency');
+    assertEqual(mismatch.costCurrencyMismatch, true, 'currency performance reports the plan currency mismatch');
+    const matching = calculateCurrencyPerformance({ ...base, positionPlan: { ...base.positionPlan, averageCost: 100, currency: 'USD' } }, 110, defaultCurrencyPerformanceSettings);
+    assertEqual(matching.priceReturnPercent, 10, 'currency performance uses a cost basis in the quote currency');
 };
 
 const runEvidenceDocumentDiffTests = () => {
@@ -4553,6 +4583,7 @@ const main = async () => {
     runInvestmentPolicyTests();
     runResearchReadinessTests();
     runCurrencyPerformanceTests();
+    runPositionPlanCurrencyTests();
     runEvidenceDocumentDiffTests();
     runScenarioLibraryTests();
     runPaperDecisionTests();
