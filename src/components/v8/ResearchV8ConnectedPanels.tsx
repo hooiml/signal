@@ -39,7 +39,7 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
     const valuation = snapshot?.valuation;
     return <div className={connected.panelContent}>
         {tab === 'Overview' && <>
-            <PriceHistory snapshot={snapshot} loading={loading} advanced={advanced} {...chart} />
+            <PriceHistory snapshot={snapshot} loading={loading} advanced={advanced} savedMarket={record?.market ?? null} {...chart} />
             {record && (advanced || record.whyInterested || record.notes || record.acceptedEvidence.length > 0 || record.documentEvidence.citations.length > 0) && <details className={connected.evidence}><summary>Your saved notes and evidence · optional</summary>
             <span className={base.eyebrow}>USER-AUTHORED · SAVED {date(record.updatedAt)}</span>{record.whyInterested && <p className={connected.authored}>{record.whyInterested}</p>}{record.notes && <p className={connected.authored}>{record.notes}</p>}
             <h2>The evidence file</h2><p>Accepted research preserves its original sources and mode. A saved interpretation is not an independently verified fact.</p>
@@ -89,7 +89,7 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
     </div>;
 }
 
-function PriceHistory({ snapshot, loading, advanced, chartRange: range, setChartRange: setRange, chartDate, setChartDate }: { snapshot: ResearchSnapshot | null; loading: boolean; advanced: boolean } & ChartStateProps) {
+function PriceHistory({ snapshot, loading, advanced, savedMarket, chartRange: range, setChartRange: setRange, chartDate, setChartDate }: { snapshot: ResearchSnapshot | null; loading: boolean; advanced: boolean; savedMarket: ResearchMarket | null } & ChartStateProps) {
     const [mobileChart, setMobileChart] = useState(false);
     useEffect(() => {
         const media = window.matchMedia('(max-width: 600px)');
@@ -136,6 +136,9 @@ function PriceHistory({ snapshot, loading, advanced, chartRange: range, setChart
             <span>{date(periodChange.start)} → {date(periodChange.end)} · first and last returned closes.</span>
             <span>Price change only; not total return. This is separate from the quote’s daily change.</span>
         </> : <p>{movement}</p>}</div><p data-testid="research-period-direction" style={{ color: lineColor }}>{movement}. Colour compares the first and last returned closes in this range.</p><p>{points.length} returned observations · {snapshot?.quote.currency || 'Currency unavailable'}. Lines connect returned closes; missing sessions are not filled. These are historical closes, not the latest quote.</p><details><summary>View exact history values</summary><div className={connected.tableScroll} tabIndex={0} role="region" aria-label="Closing price table"><table><thead><tr><th>Date</th><th>Close ({snapshot?.quote.currency || 'currency unavailable'})</th><th>Volume</th></tr></thead><tbody>{points.map(item => <tr key={item.time}><th>{date(item.time)}</th><td>{number(item.close)}</td><td>{number(item.volume)}</td></tr>)}</tbody></table></div></details></> : <p className={styles.gapNote}>{loading ? 'Loading price history…' : 'No price history returned. No illustrative line is shown.'}</p>}
-        {snapshot && advanced && <a className={base.textButton} href={researchHref(snapshot.symbol, 'chart')} target="_blank" rel="noopener noreferrer">Open full chart & technicals ↗</a>}
+        {/* The full chart workspace opens saved securities only; an unsaved reading must not hand off to a different saved company. */}
+        {snapshot && advanced && (savedMarket
+            ? <a className={base.textButton} href={researchHref(snapshot.symbol, 'chart', savedMarket)} target="_blank" rel="noopener noreferrer">Open full chart & technicals ↗</a>
+            : <p className={styles.gapNote}>Full chart & technicals open from saved research. Save {snapshot.symbol} to use them; this reading is unchanged.</p>)}
     </section>;
 }

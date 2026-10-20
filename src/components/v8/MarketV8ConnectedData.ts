@@ -60,6 +60,7 @@ function validIndicator(value: unknown): boolean {
         || (value.metadata.source_url !== undefined && !httpUrl(value.metadata.source_url))
         || (value.metadata.timestamp_basis !== undefined && value.metadata.timestamp_basis !== 'retrieved' && value.metadata.timestamp_basis !== 'observed')
         || !optionalString(value.metadata, 'unit')
+        || !optionalString(value.metadata, 'retrieved_at')
         || !optionalString(value.metadata, 'cadence')
         || !optionalString(value.metadata, 'horizon')
         || !optionalString(value.metadata, 'mode_note')) return false;
@@ -73,6 +74,28 @@ function validScoreHistory(value: unknown): boolean {
         && isTier(item.tier)
         && (item.origin === undefined || isOrigin(item.origin))
         && optionalNullableString(item, 'coverage_note'));
+}
+
+const nullableFinite = (value: unknown) => value === null || finite(value);
+const nullableDate = (value: unknown) => value === null || (typeof value === 'string' && Number.isFinite(Date.parse(value)));
+const componentChangeStatuses = ['changed', 'unchanged', 'became-available', 'became-unavailable'];
+
+function validChangeReconciliation(value: unknown): boolean {
+    if (!object(value) || !finite(value.previous_score) || !finite(value.current_score) || !finite(value.reported_delta)
+        || !finite(value.component_delta) || !finite(value.rounding_residual) || typeof value.weights_changed !== 'boolean'
+        || !object(value.neutral_fallback) || !object(value.model_version) || !Array.isArray(value.components)) return false;
+    const neutral = value.neutral_fallback;
+    const model = value.model_version;
+    if (!['previous_missing_weight', 'current_missing_weight', 'previous_points', 'current_points', 'delta'].every((key) => finite(neutral[key]))) return false;
+    if (typeof model.current !== 'string' || (model.previous !== null && typeof model.previous !== 'string')
+        || (model.changed !== null && typeof model.changed !== 'boolean')) return false;
+    return value.components.every((row) => object(row)
+        && typeof row.key === 'string' && typeof row.name === 'string'
+        && componentChangeStatuses.includes(String(row.status))
+        && ['previous_score', 'current_score', 'previous_weight', 'current_weight', 'previous_raw_value', 'current_raw_value', 'score_effect', 'weight_effect'].every((key) => nullableFinite(row[key]))
+        && nullableDate(row.previous_observed_at) && nullableDate(row.current_observed_at)
+        && (row.new_observation === null || typeof row.new_observation === 'boolean')
+        && finite(row.delta));
 }
 
 function validDriverChanges(value: unknown): boolean {
@@ -312,6 +335,8 @@ function validMetadata(value: Record<string, unknown>, market: string): boolean 
     if (value.score_history !== undefined && !validScoreHistory(value.score_history)) return false;
     if (value.driver_changes !== undefined && !validDriverChanges(value.driver_changes)) return false;
     if (value.driver_changes_available !== undefined && typeof value.driver_changes_available !== 'boolean') return false;
+    if (value.change_reconciliation !== undefined && value.change_reconciliation !== null && !validChangeReconciliation(value.change_reconciliation)) return false;
+    if (value.change_reconciliation_note !== undefined && value.change_reconciliation_note !== null && typeof value.change_reconciliation_note !== 'string') return false;
     if (value.trend_context !== undefined && !validTrendContext(value.trend_context)) return false;
     if (value.score_drivers !== undefined && !validScoreDrivers(value.score_drivers)) return false;
     if (value.historical_validation !== undefined && value.historical_validation !== null && !validCalibration(value.historical_validation)) return false;

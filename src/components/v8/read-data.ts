@@ -5,9 +5,12 @@ export const readPolicies = {
     provider: { attemptMs: 20000, budgetMs: 30000 },
 } as const;
 
-class ReadFailure extends Error {
+export class ReadFailure extends Error {
     constructor(readonly status: number) { super(`Data request failed (${status}).`); }
 }
+
+/** Saved-research reads answer 401 until this browser holds the owner access cookie. */
+export const isOwnerAccessLocked = (error: unknown): boolean => error instanceof ReadFailure && error.status === 401;
 
 /** Two attempts maximum; transport recovery never retries parsed-data validation. */
 export async function readData(url: string, signal: AbortSignal, policy: { attemptMs: number; budgetMs: number } = readPolicies.score): Promise<unknown> {

@@ -1,3 +1,4 @@
+import type { ScoreChangeReconciliation } from '../signal-change';
 
 // Phase 1: Core Type Definitions for Signal v2.0 DSS
 // ==================================================
@@ -22,6 +23,7 @@ export interface IndicatorData {
     // Metadata for debugging/transparency
     metadata?: {
         timestamp_basis?: 'retrieved' | 'observed';
+        retrieved_at?: string; // Retrieval time when last_updated is the provider observation time
         unit?: string;
         raw_source?: unknown;   // Original source data (optional)
         confidence?: number; // 0-1 confidence in this specific data point
@@ -168,6 +170,8 @@ export interface MarketSignal {
             delta: number;
         }>;
         driver_changes_available?: boolean;
+        change_reconciliation?: ScoreChangeReconciliation | null;
+        change_reconciliation_note?: string | null;
         trend_context?: {
             score_trend: string;
             last_signal_change: string;

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireOwnerAccess } from '@/lib/owner-access';
 import { parseResearchExpectedRevision, parseResearchUpdateInput, parseResearchUpdateMode, ResearchInputError } from '@/lib/research/input';
 import { deleteStoredResearchRecord, ResearchStaleWriteError, updateStoredResearchRecord } from '@/lib/research/store';
 import { ResearchDocumentEvidenceError } from '@/lib/research/document-evidence';
@@ -12,6 +13,8 @@ const parseSymbol = (value: string) => {
 };
 
 export const PATCH = async (request: Request, context: RouteContext) => {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     try {
         const symbol = parseSymbol((await context.params).symbol);
         const payload: unknown = await request.json();
@@ -26,7 +29,9 @@ export const PATCH = async (request: Request, context: RouteContext) => {
     }
 };
 
-export const DELETE = async (_request: Request, context: RouteContext) => {
+export const DELETE = async (request: Request, context: RouteContext) => {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     try {
         const symbol = parseSymbol((await context.params).symbol);
         const deleted = await deleteStoredResearchRecord(symbol);

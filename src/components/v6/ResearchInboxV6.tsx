@@ -10,6 +10,7 @@ import type { ResearchInboxItem, ResearchInboxResponse, ResearchInboxUrgency } f
 import { ResearchInboxWorkflowV6 } from './ResearchInboxWorkflowV6';
 import { ResearchInboxRowV6, researchInboxCategoryLabel } from './ResearchInboxRowV6';
 import { getThemeV6, type ResearchThemeV6, type ResearchTabV6 } from './research-v6';
+import { reviewMonitoringRules } from '@/lib/research/review-lifecycle';
 
 type InboxFilter = 'all' | 'snoozed' | ResearchInboxUrgency;
 export type ResearchInboxSummaryV6 = {
@@ -99,7 +100,7 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave, saveErr
         targetBuyZone,
         lastReviewedAt,
         acceptedEvidence: recordBySymbol.get(symbol)?.acceptedEvidence ?? [],
-        monitoringRules: recordBySymbol.get(symbol)?.monitoringRules ?? defaultResearchMonitoringRules,
+        monitoringRules: (() => { const record = recordBySymbol.get(symbol); return record ? reviewMonitoringRules(record) : defaultResearchMonitoringRules; })(),
     })));
 
     useEffect(() => {

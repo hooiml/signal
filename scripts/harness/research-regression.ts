@@ -178,6 +178,8 @@ import {
     parseInvestmentPolicy,
 } from '../../src/lib/research/investment-policy';
 import { buildResearchReadiness } from '../../src/lib/research/readiness';
+import { checkOwnerAccess, issueOwnerAccessToken, ownerAccessCookieName, ownerAccessMaxAgeSeconds, ownerSecretMatches, readOwnerAccessSecret, verifyOwnerAccessToken } from '../../src/lib/owner-access';
+import { hasPersonalReview, personalReviewDate, reviewAgeCountdownDays } from '../../src/lib/research/review-lifecycle';
 import {
     calculateCurrencyPerformance,
     defaultCurrencyPerformanceSettings,
@@ -576,6 +578,8 @@ const runResearchUrlStateTests = () => {
     assertEqual(resolveVisibleResearchSymbol(visibleTickers, 'NVDA'), 'NVDA', 'visible ticker selection preserves the requested symbol');
     assertEqual(resolveVisibleResearchSymbol(visibleTickers, 'AAPL'), 'MSFT', 'filtered ticker selection falls back to the first visible symbol');
     assertEqual(resolveVisibleResearchSymbol([], 'MSFT'), null, 'empty filtered ticker selection clears the selected symbol');
+    assertEqual(resolveVisibleResearchSymbol([{ symbol: 'MSFT' }], 'NVDA', true), null, 'an explicitly linked unsaved ticker never falls back to a different saved company');
+    assertEqual(resolveVisibleResearchSymbol([{ symbol: 'MSFT' }, { symbol: 'NVDA' }], 'NVDA', true), 'NVDA', 'an explicitly linked saved ticker is selected');
 
     assertEqual(nextHorizontalTabIndex(0, 'ArrowRight', 5), 1, 'right arrow advances the active tab');
     assertEqual(nextHorizontalTabIndex(0, 'ArrowLeft', 5), 4, 'left arrow wraps to the final tab');
@@ -1062,6 +1066,45 @@ const runInvestmentPolicyTests = () => {
     }], defaultInvestmentPolicy, '2026-07-26')[0];
     assertEqual(evidenceAndAge?.violations.some((item) => item.kind === 'evidence-coverage'), true, 'investment policy flags evidence coverage below the configured minimum');
     assertEqual(evidenceAndAge?.violations.some((item) => item.kind === 'review-age'), true, 'investment policy flags an overdue saved review');
+};
+
+const runOwnerAccessTests = async () => {
+    const secret = 'owner-test-secret-0123456789abcdefghij';
+    const environment = { OWNER_ACCESS_SECRET: secret };
+    const now = Date.parse('2026-10-21T00:00:00.000Z');
+    const request = (cookie?: string) => new Request('http://localhost/api/research/watchlist', { headers: cookie ? { cookie } : {} });
+    assertEqual(await checkOwnerAccess(request(), {}, now), 'unconfigured', 'owner access fails closed when no secret is configured');
+    assertEqual(await checkOwnerAccess(request(), { OWNER_ACCESS_SECRET: 'short' }, now), 'unconfigured', 'owner access rejects a weak configured secret');
+    assertEqual(await checkOwnerAccess(request(), environment, now), 'unauthorized', 'an unauthenticated request cannot read saved research');
+    const token = await issueOwnerAccessToken(secret, now);
+    assertEqual(await checkOwnerAccess(request(`theme=dark; ${ownerAccessCookieName}=${token}`), environment, now), null, 'a signed owner cookie grants access');
+    assertEqual(await checkOwnerAccess(request(`${ownerAccessCookieName}=${token}`), { OWNER_ACCESS_SECRET: `${secret}-rotated` }, now), 'unauthorized', 'rotating the secret revokes existing cookies');
+    const tampered = token.replace(/\.(\d+)\./, (_, issued: string) => `.${Number(issued) + 1}.`);
+    assertEqual(await verifyOwnerAccessToken(tampered, secret, now), false, 'a tampered issue time is rejected');
+    assertEqual(await verifyOwnerAccessToken(token, secret, now + (ownerAccessMaxAgeSeconds + 1) * 1000), false, 'an expired owner cookie is rejected');
+    assertEqual(await verifyOwnerAccessToken(await issueOwnerAccessToken(secret, now + 60 * 60 * 1000), secret, now), false, 'a future-dated owner cookie is rejected');
+    assertEqual(await ownerSecretMatches(secret, secret), true, 'the configured secret unlocks');
+    assertEqual(await ownerSecretMatches(`${secret}x`, secret), false, 'a different secret does not unlock');
+    assertEqual(await ownerSecretMatches(42, secret), false, 'a non-string secret does not unlock');
+    assertEqual(readOwnerAccessSecret(environment), secret, 'a strong configured secret is accepted');
+};
+
+const runReviewLifecycleTests = () => {
+    const bookmark = { ...createResearchRecord({ symbol: 'NVDA', market: 'US', companyName: 'NVIDIA', saveOnly: true }), lastReviewedAt: '2026-01-01' };
+    assertEqual(hasPersonalReview(bookmark), false, 'a save-only bookmark is not a personal review');
+    assertEqual(personalReviewDate(bookmark), null, 'a save-only bookmark makes no last-reviewed claim');
+    assertEqual(reviewAgeCountdownDays(bookmark), null, 'a save-only bookmark starts no age-based countdown');
+    const bookmarkReadiness = buildResearchReadiness({ record: bookmark, sector: 'Technology', policyAssessment: null, today: '2026-07-26' });
+    assertEqual(bookmarkReadiness.items.find((item) => item.id === 'review')?.detail.includes('No personal review recorded'), true, 'readiness labels a bookmark as unreviewed');
+    assertEqual(bookmarkReadiness.items.some((item) => item.detail.includes('2026-01-01')), false, 'readiness never shows the bookmark creation date as a review');
+    const overdue = buildSinceLastVisitChanges([bookmark], null, '2026-07-26T00:00:00.000Z').overdueReviewSymbols;
+    assertEqual(overdue.length, 0, 'a bookmark is not overdue from its creation date');
+    const scheduled = { ...bookmark, decisionJournal: { ...bookmark.decisionJournal, nextReviewAt: '2026-07-01' } };
+    assertEqual(buildSinceLastVisitChanges([scheduled], null, '2026-07-26T00:00:00.000Z').overdueReviewSymbols.join(','), 'NVDA', 'an explicit first-review schedule still becomes overdue');
+    const reviewed = appendResearchReview(bookmark, '2026-03-01T00:00:00.000Z');
+    assertEqual(hasPersonalReview(reviewed), true, 'saving an actual review establishes a personal review');
+    const legacy = { ...createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' }), lastReviewedAt: '2026-01-01' };
+    assertEqual(buildSinceLastVisitChanges([legacy], null, '2026-07-26T00:00:00.000Z').overdueReviewSymbols.join(','), 'MSFT', 'legacy authored records keep their review-age countdown');
 };
 
 const runResearchReadinessTests = () => {
@@ -3125,12 +3168,16 @@ const runAlertTests = () => {
         symbol: 'MAYBANK', market: 'MY', targetBuyZone: 'RM9.20 - RM9.60', lastReviewedAt: '2026-07-02',
     }], [{
         symbol: 'MSFT', lastReviewedAt: '2026-07-20', acceptedEvidence: [], monitoringRules,
+        decisionJournal: createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' }).decisionJournal, reviewHistory: [],
     }]);
     assertEqual(request[0]?.lastReviewedAt, '2026-07-20', 'alert request uses the saved record review date');
     assertEqual(request[0]?.acceptedEvidence.length, 0, 'alert request includes accepted evidence');
     assertEqual(request[0]?.monitoringRules.reviewAgeDays, 14, 'alert request includes saved monitoring rules');
     assertEqual(request[1]?.lastReviewedAt, '2026-07-02', 'alert request falls back to the watchlist review date');
     assertEqual(request[1]?.monitoringRules.reviewAgeDays, defaultResearchMonitoringRules.reviewAgeDays, 'alert request includes default monitoring rules without a saved record');
+    const bookmarkRequest = buildResearchAlertRequest([{ symbol: 'NVDA', market: 'US', targetBuyZone: '', lastReviewedAt: '2026-07-01' }],
+        [{ ...createResearchRecord({ symbol: 'NVDA', market: 'US', companyName: 'NVIDIA', saveOnly: true }), monitoringRules }]);
+    assertEqual(bookmarkRequest[0]?.monitoringRules.reviewAgeDays, null, 'a save-only bookmark does not start an age-based stale-review countdown');
 };
 
 const runStructuredTriggerTests = () => {
@@ -3561,6 +3608,28 @@ const runSecCompanyFactsTests = () => {
     assertEqual(parsed.operatingMarginPercent, 60.4, 'margin uses the matching latest revenue concept');
     assertEqual(parsed.history.map((period) => period.reportingPeriod).join(','), '2026-01-25,2025-01-26,2022-01-30', 'SEC history keeps distinct annual periods across concept changes');
     assertEqual(parsed.history[0]?.revenueGrowthPercent, 65.5, 'SEC history calculates period-over-period revenue growth');
+
+    const mismatched = parseSecCompanyFacts({ facts: { 'us-gaap': {
+        Revenues: { units: { USD: [
+            annual('2023-01-01', '2023-12-31', 1_000, '2024-02-20'),
+            annual('2024-01-01', '2024-12-31', 1_200, '2025-02-20'),
+        ] } },
+        GrossProfit: { units: { USD: [annual('2023-01-01', '2023-12-31', 600, '2024-02-20')] } },
+        NetCashProvidedByUsedInOperatingActivities: { units: { USD: [
+            annual('2023-01-01', '2023-12-31', 300, '2024-02-20'),
+            annual('2024-01-01', '2024-12-31', 400, '2025-02-20'),
+        ] } },
+        PaymentsToAcquirePropertyPlantAndEquipment: { units: { USD: [annual('2023-01-01', '2023-12-31', 100, '2024-02-20')] } },
+        NetIncomeLoss: { units: { USD: [
+            annual('2024-01-01', '2024-12-31', 150, '2025-02-20'),
+            annual('2024-01-01', '2024-12-31', 140, '2025-06-01'),
+        ] } },
+    } } });
+    assertEqual(mismatched.reportingPeriod, '2024-12-31', 'SEC summary period is the latest annual revenue period');
+    assertEqual(mismatched.freeCashFlow, null, 'SEC FCF stays unavailable when latest-period capex is missing instead of borrowing an older year');
+    assertEqual(mismatched.grossMarginPercent, null, 'SEC gross margin stays unavailable when latest-period gross profit is missing');
+    assertEqual(mismatched.history[1]?.freeCashFlow, 200, 'SEC history still computes FCF for the year whose inputs match');
+    assertEqual(mismatched.annualNetIncome, 140, 'SEC summary uses the latest amended filing for the matching period');
 
     const yahoo = parseYahooFundamentalTimeseries({
         timeseries: {
@@ -4582,6 +4651,8 @@ const main = async () => {
     runEvidenceCoverageTests();
     runInvestmentPolicyTests();
     runResearchReadinessTests();
+    runReviewLifecycleTests();
+    await runOwnerAccessTests();
     runCurrencyPerformanceTests();
     runPositionPlanCurrencyTests();
     runEvidenceDocumentDiffTests();

@@ -1,5 +1,5 @@
 import { calculateCompositeScoreV2 } from '../../src/lib/sentiment-calculator-v2';
-import { calculateDriverChanges, parseStoredComponentContributions, parseStoredDriverContributions } from '../../src/lib/signal-change';
+import { calculateDriverChanges, parseStoredComponentContributions, parseStoredComponentReadings, parseStoredDriverContributions, reconcileScoreChange } from '../../src/lib/signal-change';
 import { IndicatorData } from '../../src/lib/types/signal-v2';
 import { buildBuffettIndicator, normalizeNaaimExposure, normalizePutCallRatio, parseCboePutCallRatio, parseFredLatestObservation, parseNaaimExposure } from '../../src/lib/market-indicators';
 import { buildBreadthContext, buildFinancialConditionsContext, buildYieldCurveContext, parseFredSeriesObservation, parseMalaysiaBenchmarkPage } from '../../src/lib/market-context';
@@ -273,6 +273,27 @@ function runDriverChangeTests() {
     );
     assertNear(fractionalChanges[0]?.delta ?? 0, 0.3, 0.001, 'fractional contribution shifts are preserved');
     assertEqual(calculateDriverChanges(current, current).length, 0, 'unchanged contributions produce no attribution');
+
+    const reading = (key: string, score: number, weight: number, raw: number, observed: string) => ({ key, name: key.toUpperCase(), score, weight, raw_value: raw, last_updated: observed });
+    const before = [reading('vix', 40, 0.5, 22, '2026-10-20T20:00:00.000Z'), reading('aaii', 60, 0.2, 35, '2026-10-16T00:00:00.000Z'), reading('naaim', 55, 0.1, 70, '2026-10-15T00:00:00.000Z')];
+    const after = [reading('vix', 47, 0.6, 18.4, '2026-10-21T20:00:00.000Z'), reading('aaii', 60, 0.2, 35, '2026-10-16T00:00:00.000Z'), reading('put_call', 30, 0.1, 1.1, '2026-10-21T21:00:00.000Z')];
+    const rawBefore = 40 * 0.5 + 60 * 0.2 + 55 * 0.1 + (1 - 0.8) * 50;
+    const rawAfter = 47 * 0.6 + 60 * 0.2 + 30 * 0.1 + (1 - 0.9) * 50;
+    const accounting = reconcileScoreChange({ current: after, previous: before, currentScore: Math.round(rawAfter), previousScore: Math.round(rawBefore), currentModelVersion: '2.0.0', previousModelVersion: null });
+    const total = accounting.component_delta + accounting.neutral_fallback.delta + accounting.rounding_residual;
+    assertNear(total, accounting.reported_delta, 1e-6, 'component, neutral-fallback and residual rows reconcile to the reported delta');
+    assertNear(accounting.neutral_fallback.delta, -5, 1e-6, 'neutral fallback shrinks when missing weight falls from 20% to 10%');
+    assertNear(accounting.rounding_residual, Math.round(rawAfter) - Math.round(rawBefore) - (rawAfter - rawBefore), 1e-6, 'rounding residual is explicit');
+    const vixRow = accounting.components.find((row) => row.key === 'vix');
+    assertNear((vixRow?.score_effect ?? 0) + (vixRow?.weight_effect ?? 0), vixRow?.delta ?? NaN, 1e-6, 'score and weight effects decompose a component delta');
+    assertEqual(vixRow?.new_observation, true, 'a later observation timestamp is identified as a new observation');
+    assertEqual(accounting.components.find((row) => row.key === 'aaii')?.status, 'unchanged', 'an identical reading is unchanged');
+    assertEqual(accounting.components.find((row) => row.key === 'aaii')?.new_observation, false, 'the same observation timestamp is not a new observation');
+    assertEqual(accounting.components.find((row) => row.key === 'put_call')?.status, 'became-available', 'a new input is reported as available');
+    assertEqual(accounting.components.find((row) => row.key === 'naaim')?.status, 'became-unavailable', 'a dropped input is reported as unavailable');
+    assertEqual(accounting.weights_changed, true, 'applied weight changes are flagged');
+    assertEqual(accounting.model_version.changed, null, 'a missing earlier model version is not presumed unchanged');
+    assertEqual(parseStoredComponentReadings({ vix: { display_name: 'VIX', score: 40 } }), null, 'archived components without weights cannot be reconciled');
 
     const stored = parseStoredDriverContributions([
         { key: 'vix', name: 'Volatility Index', contribution: 10.25 },

@@ -2,13 +2,15 @@ import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { addOwnerCookie, ownerHeaders } from './qa-owner-access.mjs';
 const base = process.env.SIGNAL_QA_URL ?? 'http://127.0.0.1:3000';
 const out = `.tmp/version-navigation/qa-${Date.now()}`;
 await mkdir(out, { recursive: true });
-const before = await (await fetch(`${base}/api/research/watchlist`)).text();
+const before = await (await fetch(`${base}/api/research/watchlist`, { headers: await ownerHeaders(base) })).text();
 const digest = text => createHash('sha256').update(text).digest('hex');
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block', reducedMotion: 'reduce' });
+await addOwnerCookie(context, base);
 const page = await context.newPage();
 page.setDefaultTimeout(15000);
 const checks = [], errors = [], requestFailures = [];
@@ -71,7 +73,7 @@ try {
     }
     await page.goto(`${base}/offline`, { waitUntil: 'domcontentloaded' });
     assert.equal(await nav.count(), 0); checks.push('Switcher absent outside versioned experiences');
-    const after = await (await fetch(`${base}/api/research/watchlist`)).text();
+    const after = await (await fetch(`${base}/api/research/watchlist`, { headers: await ownerHeaders(base) })).text();
     assert.equal(digest(before), digest(after)); checks.push('Saved watchlist unchanged');
     assert.deepEqual(errors, []); assert.deepEqual(requestFailures, []);
     await writeFile(`${out}/report.json`, JSON.stringify({ checks, errors, requestFailures, savedWatchlistHash: digest(after) }, null, 2));

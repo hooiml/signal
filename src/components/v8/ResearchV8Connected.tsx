@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { VersionSwitcher } from '@/components/navigation/VersionSwitcher';
 import { parseResearchSnapshotResponse } from '@/lib/research/snapshot-input';
-import { readData, readPolicies } from './read-data';
+import { isOwnerAccessLocked, readData, readPolicies } from './read-data';
 import { buildResearchReadiness } from '@/lib/research/readiness';
 import { researchWorkspaceGroups } from '@/lib/research/workspace-navigation';
 import { parseResearchRecord } from '@/lib/research/input';
@@ -31,6 +31,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
     const [reload, setReload] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
+    const [locked, setLocked] = useState(false);
     const lastRead = useRef(0);
     const savedRevision = useRef(0);
     const [panel, setPanel] = useState<'saved' | 'tools' | null>(null);
@@ -120,7 +121,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                     setSelectedMarket(marketPreference);
                 }
             } })
-            .catch(() => { if (active) setError(true); })
+            .catch(failure => { if (active) { setError(true); setLocked(isOwnerAccessLocked(failure)); } })
             .finally(() => { if (active) setLoading(false); });
         return () => { active = false; controller.abort(); };
     }, [reload]);
@@ -157,14 +158,14 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                 </div>
             </section>
             {validSelection ? <details className={connected.lookupDisclosure}><summary>Change security</summary><ResearchSecurityLookup initialMarket={initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} /></details> : <ResearchSecurityLookup initialMarket={initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} />}
-            <div role="status">{loading && <p>Refreshing saved research…</p>}{error && <p className={connected.warning}>Saved research could not be refreshed. {records ? 'The previously loaded records remain visible.' : 'No example records have been substituted.'} Retry with Reload saved research.</p>}</div>
+            <div role="status">{loading && <p>Refreshing saved research…</p>}{error && locked && <p className={connected.warning}>Saved research is locked on this browser. <a href="/unlock?next=%2Fresearch">Unlock Signal</a></p>}{error && !locked && <p className={connected.warning}>Saved research could not be refreshed. {records ? 'The previously loaded records remain visible.' : 'No example records have been substituted.'} Retry with Reload saved research.</p>}</div>
             <dialog ref={panelRef} className={connected.utilityPanel} aria-labelledby="research-utility-title" onClose={() => { setPanel(null); panelTrigger.current?.focus(); }} onKeyDownCapture={event => { if (event.key === 'Escape') { event.preventDefault(); event.currentTarget.close(); } }} onClick={event => {
                 const bounds = event.currentTarget.getBoundingClientRect();
                 if (event.target === event.currentTarget && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) event.currentTarget.close();
             }}>
                 <div className={connected.utilityHeading}><h2 id="research-utility-title">{panel === 'tools' ? 'Saved research' : 'Saved securities'}</h2><button className={base.textButton} onClick={() => panelRef.current?.close()} aria-label="Close research panel">Close ×</button></div>
                 {panel === 'saved' && <div className={connected.savedSelector}>
-            <div role="status">{loading && <p>Refreshing saved research…</p>}{error && <p className={connected.warning}>Saved research could not be refreshed. Use Reload saved research to retry.</p>}{records?.length === 0 && <p>No active securities are saved. <a href="/research?workspace=research">Open watchlist ↗</a></p>}</div>
+            <div role="status">{loading && <p>Refreshing saved research…</p>}{error && locked && <p className={connected.warning}>Saved research is locked on this browser. <a href="/unlock?next=%2Fresearch">Unlock Signal</a></p>}{error && !locked && <p className={connected.warning}>Saved research could not be refreshed. Use Reload saved research to retry.</p>}{records?.length === 0 && <p>No active securities are saved. <a href="/research?workspace=research">Open watchlist ↗</a></p>}</div>
             <div className={`${styles.toolbar} ${connected.toolbar}`}><label className={styles.search}><span>Find a saved security</span><span className={styles.searchField}><input type="search" placeholder="Apple, MSFT, Maybank…" value={query} onChange={event => setQuery(event.target.value)} /></span></label><label className={styles.stateControl}>Market<select value={market} onChange={event => setMarket(event.target.value)}><option>All</option><option>US</option><option>MY</option></select></label><button className={base.textButton} disabled={loading} onClick={() => { setLoading(true); setError(false); setReload(value => value + 1); }}>Reload saved research</button></div>
             <p className={styles.fixtureNotice}>Choose a saved security to read its current data. No research form is required.</p>
             {records && records.length > 0 && <section className={styles.companySection} aria-label="Saved watchlist"><div className={styles.sectionLabel}><span>Your watchlist <b>{matches.length} of {records.length}</b></span><a className={base.textButton} href="/research?workspace=research">Manage watchlist ↗</a></div><div className={`${styles.companyList} ${connected.watchlist}`}>{matches.map(item => <button className={styles.companyButton} key={item.symbol} aria-pressed={selected === item.symbol} onClick={() => chooseSecurity(item.symbol)}><span className={styles.monogram} aria-hidden="true">{item.symbol[0]}</span><span><b>{item.symbol}</b><small>{item.companyName || item.symbol}</small><small>{item.market}{advanced ? ` · ${item.positionState} · ${item.status}` : ''}</small></span><span className={styles.companyArrow} aria-hidden="true">↗</span></button>)}</div>{!matches.length && <p className={styles.searchEmpty}>No saved securities match these filters. <button className={base.textButton} onClick={() => { setQuery(''); setMarket('All'); }}>Clear filters</button></p>}{record && !matches.includes(record) && <p className={styles.searchHint}>{record.symbol} remains open below and is outside the current filter.</p>}</section>}

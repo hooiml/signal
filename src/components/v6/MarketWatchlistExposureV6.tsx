@@ -61,6 +61,7 @@ export const MarketWatchlistExposureV6 = ({ signal, theme }: {
                     throw new ResearchInputError('Invalid research API response.');
                 }
                 const body = Object.fromEntries(Object.entries(payload));
+                if (response.status === 401) throw new ResearchInputError('Saved research is locked; open /unlock to include it.');
                 if (!response.ok || !Array.isArray(body.data)) throw new ResearchInputError('Unable to load saved research.');
                 const saved = body.data.map(parseResearchRecord);
                 const archivedSymbols = Array.isArray(body.archivedSymbols)

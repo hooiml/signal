@@ -11,7 +11,7 @@ import { getLatestInstitutionalData } from './institutional-service';
 import { BuffettIndicatorData, fetchBuffettIndicator, fetchCboePutCallRatio, fetchNaaimExposure, normalizeNaaimExposure, normalizePutCallRatio, NaaimExposureData, PutCallRatioData } from './market-indicators';
 import { fetchMarketContext } from './market-context';
 import { getIndicatorDisplayName } from './indicator-registry';
-import { calculateDriverChanges, parseStoredComponentContributions, parseStoredDriverContributions } from './signal-change';
+import { calculateDriverChanges, parseStoredComponentContributions, parseStoredComponentReadings, parseStoredDriverContributions, reconcileScoreChange } from './signal-change';
 import type { MarketContextData } from './types/market-context';
 import { getSourceIndicatorCount, shouldEnableSourceIndicator } from './source-indicator';
 import { getMarketCalibration } from './market-calibration-service';
@@ -20,7 +20,7 @@ import { AURA_CACHE_MAX_AGE_DAYS, isAuraCacheFresh } from './aura-cache';
 
 interface AggregateMarketData {
     vixData: { price: number; change: number };
-    fearGauge: { value: number; isFxProxy: boolean };
+    fearGauge: { value: number; isFxProxy: boolean; observedAt: Date | null };
     marketIndices: YahooMarketData[];
     popularStocks: YahooMarketData[];
     activeStocks: YahooMarketData[];
@@ -82,6 +82,7 @@ interface SnapshotSummaryRow {
     coverage_note?: string | null;
     components?: unknown;
     score_drivers?: unknown;
+    metadata_snapshot?: { scoring_model_version?: unknown } | null;
 }
 
 export const CONFIG = {
@@ -267,7 +268,10 @@ export const fetchRawMarketData = async (
 
     return {
         vixData,
-        fearGauge: { value: fearGaugeValue, isFxProxy: market === 'MY' && !!myrVol && myrVol.vol20d > 0 },
+        fearGauge: (() => {
+            const isFxProxy = market === 'MY' && !!myrVol && myrVol.vol20d > 0;
+            return { value: fearGaugeValue, isFxProxy, observedAt: (isFxProxy ? myrVol?.observedAt : vixData.observedAt) ?? null };
+        })(),
         marketIndices: indicesData,
         popularStocks: popularData,
         activeStocks: activeData,
@@ -295,7 +299,7 @@ async function persistSignalSnapshot(
         const today = new Date().toISOString().slice(0, 10);
         const [previousRows, historyBefore] = await Promise.all([
             measureSignalStage('snapshot_previous', () => sql`
-            SELECT snapshot_date::text as snapshot_date, composite_score, tier, components, score_drivers
+            SELECT snapshot_date::text as snapshot_date, composite_score, tier, components, score_drivers, metadata_snapshot
             FROM signal_snapshots
             WHERE market_type = ${options.market}
               AND mode = ${options.mode}
@@ -324,6 +328,8 @@ async function persistSignalSnapshot(
                     weight: component.weight,
                     signal: component.signal,
                     last_updated: component.last_updated,
+                    timestamp_basis: component.metadata?.timestamp_basis ?? null,
+                    retrieved_at: component.metadata?.retrieved_at ?? null,
                     display_name: component.display_name,
                 }
             ])
@@ -389,6 +395,21 @@ async function persistSignalSnapshot(
         const driverChanges = driverChangesAvailable
             ? calculateDriverChanges(signal.metadata.score_drivers ?? [], previousContributions)
             : [];
+        const previousReadings = previous ? parseStoredComponentReadings(previous.components) : null;
+        const currentReadings = parseStoredComponentReadings(componentsSnapshot);
+        const previousModelVersion = typeof previous?.metadata_snapshot?.scoring_model_version === 'string'
+            ? previous.metadata_snapshot.scoring_model_version
+            : null;
+        const changeReconciliation = previous && previousReadings && currentReadings
+            ? reconcileScoreChange({
+                current: currentReadings,
+                previous: previousReadings,
+                currentScore: signal.composite_score,
+                previousScore: Number(previous.composite_score),
+                currentModelVersion: MARKET_SCORE_MODEL_VERSION,
+                previousModelVersion,
+            })
+            : null;
         const history = [
             { snapshot_date: today, composite_score: signal.composite_score, tier: signal.tier },
             ...historyBefore.filter(row => row.snapshot_date !== today)
@@ -408,6 +429,10 @@ async function persistSignalSnapshot(
             },
             driverChanges,
             driverChangesAvailable,
+            changeReconciliation,
+            changeReconciliationNote: changeReconciliation ? null
+                : !previous ? 'No earlier snapshot is available for comparison.'
+                : 'The earlier snapshot did not archive per-component score and weight, so a complete accounting is unavailable.',
             history: history
                 .reverse()
                 .map(row => ({
@@ -579,7 +604,11 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             };
         });
 
-        // Construct IndicatorData for V2 calculator
+        // Construct IndicatorData for V2 calculator. last_updated is the provider observation
+        // time when supplied; retrieval time is kept separately and never presented as observation.
+        const vixRetrievedAt = new Date().toISOString();
+        const vixObservedAt = marketData.fearGauge.observedAt?.toISOString() ?? null;
+        const vixTimestampNote = vixObservedAt ? 'Timestamp is the provider observation time.' : 'Timestamp is retrieval time; observation time is unavailable.';
         const vixIndicator: IndicatorData = {
             name: 'vix',
             display_name: market === 'MY' ? marketData.fearGauge.isFxProxy ? 'USD/MYR volatility proxy (scaled)' : 'US VIX (FX proxy unavailable)' : 'VIX Index',
@@ -588,14 +617,15 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             weight: 0, // Will be calculated by V2
             signal: getSignalFromScore(marketData.sentimentOutput.components.vixScore),
             enabled: true,
-            last_updated: new Date().toISOString(),
+            last_updated: vixObservedAt ?? vixRetrievedAt,
             metadata: {
-                timestamp_basis: 'retrieved',
+                timestamp_basis: vixObservedAt ? 'observed' : 'retrieved',
+                retrieved_at: vixRetrievedAt,
                 unit: marketData.fearGauge.isFxProxy ? 'scaled model points' : 'VIX points',
                 cadence: marketData.fearGauge.isFxProxy ? 'Daily closes / tactical' : 'Latest returned quote / tactical',
                 mode_note: marketData.fearGauge.isFxProxy
-                    ? 'USD/MYR daily-return volatility × 4000, clamped to 10–80. This scaled model input is not an exchange rate or a volatility percentage. Timestamp is retrieval time; observation time is unavailable.'
-                    : market === 'MY' ? 'US VIX fallback: local FX volatility was unavailable. Timestamp is retrieval time; observation time is unavailable.' : 'US VIX index points. Timestamp is retrieval time; observation time is unavailable.',
+                    ? 'USD/MYR daily-return volatility × 4000, clamped to 10–80. This scaled model input is not an exchange rate or a volatility percentage. ' + vixTimestampNote
+                    : market === 'MY' ? 'US VIX fallback: local FX volatility was unavailable. ' + vixTimestampNote : 'US VIX index points. ' + vixTimestampNote,
                 source_url: marketData.fearGauge.isFxProxy ? 'https://finance.yahoo.com/quote/USDMYR=X/' : 'https://finance.yahoo.com/quote/%5EVIX/',
             },
         };
@@ -876,6 +906,8 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             v2Signal.metadata.score_history = snapshotState.history;
             v2Signal.metadata.driver_changes = snapshotState.driverChanges;
             v2Signal.metadata.driver_changes_available = snapshotState.driverChangesAvailable;
+            v2Signal.metadata.change_reconciliation = snapshotState.changeReconciliation;
+            v2Signal.metadata.change_reconciliation_note = snapshotState.changeReconciliationNote;
             v2Signal.metadata.trend_context = {
                 score_trend: snapshotState.scoreDelta.label,
                 last_signal_change: snapshotState.scoreDelta.previous_date

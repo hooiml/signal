@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { mkdir,writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
+import { addOwnerCookie, ownerHeaders } from './qa-owner-access.mjs';
 const base=process.env.SIGNAL_QA_URL||'http://127.0.0.1:3000';const output=`.tmp/v8-enhancement/batch6-${Date.now()}`;await mkdir(output,{recursive:true});
-const read=async path=>{const r=await fetch(base+path,{signal:AbortSignal.timeout(60000)});assert.equal(r.status,200);return r.json();};
+const read=async path=>{const r=await fetch(base+path,{headers:await ownerHeaders(base),signal:AbortSignal.timeout(60000)});assert.equal(r.status,200);return r.json();};
 const [watchlist,provider]=await Promise.all([read('/api/research/watchlist'),read('/api/research/symbol/AAPL?market=US')]);
 let count=3;const source=watchlist.data.find(r=>r.symbol==='AAPL');assert.ok(source);
-const browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1280,height:900},serviceWorkers:'block'});const page=await context.newPage();const errors=[],ledger=[],topByWidth={};page.on('pageerror',e=>errors.push(e.message));
+const browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1280,height:900},serviceWorkers:'block'});await addOwnerCookie(context,base);const page=await context.newPage();const errors=[],ledger=[],topByWidth={};page.on('pageerror',e=>errors.push(e.message));
 await page.route('**/api/**',route=>{const url=new URL(route.request().url());if(route.request().method()!=='GET')return route.fulfill({json:{success:true}});
     if(url.pathname.endsWith('/watchlist'))return route.fulfill({json:{success:true,data:Array.from({length:count},(_,i)=>({...source,symbol:i===0?'AAPL':`QA${i}`,companyName:i===0?'Apple Inc.':`Saved company ${i}`})),archivedSymbols:[]}});
     if(url.pathname.includes('/symbol/')){const copy=structuredClone(provider);copy.data.symbol=url.pathname.split('/').at(-1);return route.fulfill({json:copy});}return route.continue();

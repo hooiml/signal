@@ -1,5 +1,6 @@
 import type { InvestmentPolicyAssessment } from './investment-policy';
 import { buildEvidenceCoverage } from './evidence-coverage';
+import { personalReviewDate } from './review-lifecycle';
 import type { ResearchRecord } from '../types/research';
 
 export const researchReadinessDestinations = [
@@ -62,6 +63,7 @@ export const buildResearchReadiness = ({ record, sector, policyAssessment, today
     const enabledTriggers = record.monitoringRules.structuredTriggers.rules.filter((rule) => rule.enabled).length;
     const configuredTriggers = record.monitoringRules.structuredTriggers.rules.length;
     const reviewState = dateState(record.decisionJournal.nextReviewAt, today);
+    const reviewedOn = personalReviewDate(record);
     const positionComplete = positionFields.filter((field) => {
         const value = record.positionPlan[field];
         return value !== null && value > 0;
@@ -83,7 +85,7 @@ export const buildResearchReadiness = ({ record, sector, policyAssessment, today
         {
             id: 'valuation', label: 'Saved valuation',
             status: record.valuationState === 'unknown' ? 'Unknown' : record.valuationState,
-            detail: `Saved review state · last reviewed ${record.lastReviewedAt}`,
+            detail: reviewedOn ? `Saved review state · last reviewed ${reviewedOn}` : 'Saved review state · no personal review recorded',
             tone: record.valuationState === 'unknown' ? 'unavailable' : 'ready', destination: 'valuation',
         },
         {
@@ -101,7 +103,7 @@ export const buildResearchReadiness = ({ record, sector, policyAssessment, today
         {
             id: 'review', label: 'Next review',
             status: reviewState === 'scheduled' ? record.decisionJournal.nextReviewAt ?? 'Scheduled' : reviewState === 'overdue' ? 'Overdue' : 'Not scheduled',
-            detail: `Saved review ${record.lastReviewedAt} · calendar dates use UTC`,
+            detail: `${reviewedOn ? `Saved review ${reviewedOn}` : 'No personal review recorded'} · calendar dates use UTC`,
             tone: reviewState === 'scheduled' ? 'ready' : 'attention', destination: 'calendar',
         },
         {

@@ -55,8 +55,17 @@ export function researchReadFixture({ allowSchema = false } = {}) {
         review_history: [], last_reviewed_at: '2026-09-01', created_at: '2026-09-01T00:00:00.000Z',
         updated_at: '2026-09-12T00:00:00.000Z', revision: 7,
     }];
+    // Route reads go through the real owner-access boundary with a fixture-only secret.
+    process.env.OWNER_ACCESS_SECRET ??= 'fixture-owner-secret-0123456789abcdef';
+    const ownerAccess = load('src/lib/owner-access.ts');
+    const watchlistRoute = load('src/app/api/research/watchlist/route.ts');
+    const ownerRequest = async () => new Request('http://localhost/api/research/watchlist', {
+        headers: { cookie: `${ownerAccess.ownerAccessCookieName}=${await ownerAccess.issueOwnerAccessToken(process.env.OWNER_ACCESS_SECRET)}` },
+    });
     return {
-        store: load('src/lib/research/store.ts'), route: load('src/app/api/research/watchlist/route.ts'), calls,
+        store: load('src/lib/research/store.ts'), calls,
+        route: { GET: async (request) => watchlistRoute.GET(request ?? await ownerRequest()) },
+        unauthenticatedGet: () => watchlistRoute.GET(new Request('http://localhost/api/research/watchlist')),
         parseWatchlist: load('src/components/v8/research-v8-connected-data.ts').parseWatchlist,
         parseSnapshot: load('src/lib/research/snapshot-input.ts').parseResearchSnapshotResponse,
         setFailure(value) { failure = value; },

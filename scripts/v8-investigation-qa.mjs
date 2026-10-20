@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { mkdir,writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
+import { addOwnerCookie, ownerHeaders } from './qa-owner-access.mjs';
 const base=process.env.SIGNAL_QA_URL||'http://127.0.0.1:3000';const output=`.tmp/v8-enhancement/batch4-${Date.now()}`;await mkdir(output,{recursive:true});
-const read=async path=>{const r=await fetch(base+path,{signal:AbortSignal.timeout(60000)});assert.equal(r.status,200);return r.json();};
+const read=async path=>{const r=await fetch(base+path,{headers:await ownerHeaders(base),signal:AbortSignal.timeout(60000)});assert.equal(r.status,200);return r.json();};
 const [us,records,provider]=await Promise.all([read('/api/signals/v2?market=US&mode=standard&enableSocial=true'),read('/api/research/watchlist'),read('/api/research/symbol/AAPL?market=US')]);
-const browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1280,height:900},serviceWorkers:'block'});const page=await context.newPage();
+const browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1280,height:900},serviceWorkers:'block'});await addOwnerCookie(context,base);const page=await context.newPage();
 const errors=[],ledger=[];page.on('pageerror',e=>errors.push(e.message));let newer=false;
 await page.route('**/api/**',route=>{const url=new URL(route.request().url());
     if(url.pathname.endsWith('/v2')){const copy=structuredClone(us);copy.data.mode=url.searchParams.get('mode');if(copy.data.metadata.historical_validation)copy.data.metadata.historical_validation.mode=copy.data.mode;if(newer)copy.data.composite_score+=5;return route.fulfill({json:copy});}

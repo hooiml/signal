@@ -1,5 +1,5 @@
 import { parseResearchRecord } from '@/lib/research/input';
-import type { ResearchRecord } from '@/lib/types/research';
+import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 
 export const researchTabs = ['Overview', 'Financials', 'Thesis', 'Valuation', 'Review'] as const;
 export type ResearchTab = typeof researchTabs[number];
@@ -12,8 +12,9 @@ export function parseWatchlist(payload: unknown): ResearchRecord[] {
     return records.sort((a, b) => a.symbol.localeCompare(b.symbol));
 }
 
-export function researchHref(symbol: string, destination = 'review') {
+export function researchHref(symbol: string, destination = 'review', market?: ResearchMarket) {
     const params = new URLSearchParams({ workspace: ['review', 'valuation', 'chart'].includes(destination) ? 'research' : destination, ticker: symbol });
+    if (market) params.set('market', market);
     if (destination === 'review') params.set('review', 'edit');
     if (destination === 'valuation' || destination === 'chart') params.set('tab', destination);
     return `/research?${params}`;

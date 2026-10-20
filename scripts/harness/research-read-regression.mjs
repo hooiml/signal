@@ -3,6 +3,12 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { researchReadFixture } from './research-read-fixture.mjs';
 
 const fixture = researchReadFixture();
+{
+    const denied = await fixture.unauthenticatedGet();
+    assert.equal(denied.status, 401);
+    assert.equal((await denied.json()).success, false);
+    assert.equal(fixture.calls.length, 0, 'unauthenticated watchlist reads never reach storage');
+}
 const runs = [];
 for (let run = 0; run < 5; run++) {
     fixture.calls.length = 0;
