@@ -197,7 +197,7 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, sou
         <h2>{indicator?.display_name ?? driver?.name ?? registry?.displayName ?? indicatorKey}</h2>
         <div className={styles.tagLine}><span className={styles.tag}>{status}</span><span className={styles.muted}>{registry?.category ?? 'Unclassified'}</span></div>
         <div className={styles.rawValue}>{rawValue(indicator, driver, signal.metadata.market)} <small>{indicator ? '' : 'raw value'}</small></div>
-        <p className={styles.muted}>{hasRetrievalTimestamp(indicator) ? 'Retrieved' : 'Observed'} {formatDate(indicator?.last_updated ?? driver?.last_updated)} · {cadence(indicator, indicatorKey)} · horizon {horizon(indicator)}</p>
+        <p className={styles.muted}>{hasRetrievalTimestamp(indicator) ? 'Retrieved' : 'Observed'} {formatDate(indicator?.last_updated ?? driver?.last_updated)}{indicator?.metadata?.timestamp_basis === 'observed' && indicator.metadata.retrieved_at ? ` · retrieved ${formatDate(indicator.metadata.retrieved_at)}` : ''} · {cadence(indicator, indicatorKey)} · horizon {horizon(indicator)}</p>
         <RawHistoryChart groups={historyGroups} />
 
         <details className={styles.disclosure} open={advanced}><summary>Scoring details</summary><dl className={styles.keyValues}>
@@ -231,8 +231,49 @@ function ChangePanel({ signal, onSelect }: { signal: MarketSignal; onSelect: Con
             {hasDriverChanges ? <div className={styles.contextList}>{[...changes].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).map((change) => <button key={change.key} className={styles.contributor} onClick={(event) => onSelect(change.key, event.currentTarget)}><span>{change.name}</span><span className={styles.barTrack}><span className={change.delta < 0 ? styles.negativeBar : styles.positiveBar} style={{ width: `${Math.min(100, Math.abs(change.delta) * 10)}%` }} /></span><b className={change.delta < 0 ? styles.conflict : styles.support}>{signed(change.delta)}</b><span aria-hidden="true">↗</span></button>)}</div> : <div className={styles.unavailable}><b>Driver comparison unavailable.</b><p>{signal.metadata.driver_changes_available === false ? 'A comparable earlier indicator reading is unavailable.' : 'No comparable indicator changes are available.'}</p></div>}
         </section>
 
-        <p className={styles.studyNotice}>Changes are in normalized-score × weight points, not current directional readings. The service omits unchanged rows. Rounded composite deltas and neutral fallback can differ from this list; a complete snapshot reconciliation is not supplied.</p>
+        <ChangeAccounting signal={signal} />
     </>;
+}
+
+const statusLabels = { changed: 'Changed', unchanged: 'Unchanged', 'became-available': 'Became available', 'became-unavailable': 'Became unavailable' } as const;
+
+function observationText(row: NonNullable<MarketSignal['metadata']['change_reconciliation']>['components'][number]) {
+    if (row.status === 'became-available') return `New input · observed ${formatDate(row.current_observed_at)}`;
+    if (row.status === 'became-unavailable') return `No current reading · last observed ${formatDate(row.previous_observed_at)}`;
+    if (row.new_observation === null) return 'Observation timing unavailable for at least one snapshot';
+    return row.new_observation ? `New observation · ${formatDate(row.previous_observed_at)} → ${formatDate(row.current_observed_at)}` : `Same observation · ${formatDate(row.current_observed_at)}`;
+}
+
+function ChangeAccounting({ signal }: { signal: MarketSignal }) {
+    const accounting = signal.metadata.change_reconciliation;
+    if (!accounting) {
+        return <p className={styles.studyNotice}>Changes are in normalized-score × weight points. A complete accounting is unavailable: {signal.metadata.change_reconciliation_note ?? 'the earlier snapshot is missing the archived inputs needed to reconcile.'}</p>;
+    }
+    const moved = accounting.components.filter(row => row.status !== 'unchanged');
+    const unchanged = accounting.components.length - moved.length;
+    return <section className={styles.calibration} aria-label="Complete score change accounting">
+        <h3>Complete accounting</h3>
+        <dl className={styles.keyValues}>
+            <div><dt>Component contributions</dt><dd>{signed(accounting.component_delta)} points</dd></div>
+            <div><dt>Neutral fallback for missing inputs</dt><dd>{signed(accounting.neutral_fallback.delta)} points</dd></div>
+            <div><dt>Rounding and clamp residual</dt><dd>{signed(accounting.rounding_residual)} points</dd></div>
+            <div><dt>Reported score delta</dt><dd>{signed(accounting.reported_delta, 0)} points</dd></div>
+        </dl>
+        <p className={styles.muted}>Missing input weight {(accounting.neutral_fallback.previous_missing_weight * 100).toFixed(1)}% → {(accounting.neutral_fallback.current_missing_weight * 100).toFixed(1)}%, scored at the neutral 50. {accounting.weights_changed ? 'Applied weights changed between snapshots; weight effects are shown per input.' : 'Applied weights were unchanged.'} {accounting.model_version.changed === null ? 'The earlier snapshot did not record its model version.' : accounting.model_version.changed ? `Model version changed ${accounting.model_version.previous} → ${accounting.model_version.current}.` : `Model version ${accounting.model_version.current} in both snapshots.`}</p>
+        {moved.map(row => <details key={row.key} className={styles.disclosure}>
+            <summary>{row.name} · {statusLabels[row.status]} · {signed(row.delta)} points</summary>
+            <dl className={styles.keyValues}>
+                <div><dt>Raw value</dt><dd>{finiteNumber(row.previous_raw_value) ? row.previous_raw_value.toFixed(2) : 'Unavailable'} → {finiteNumber(row.current_raw_value) ? row.current_raw_value.toFixed(2) : 'Unavailable'}</dd></div>
+                <div><dt>Score</dt><dd>{scoreLabel(row.previous_score)} → {scoreLabel(row.current_score)}</dd></div>
+                <div><dt>Applied weight</dt><dd>{finiteNumber(row.previous_weight) ? `${(row.previous_weight * 100).toFixed(1)}%` : 'Not applied'} → {finiteNumber(row.current_weight) ? `${(row.current_weight * 100).toFixed(1)}%` : 'Not applied'}</dd></div>
+                {row.score_effect !== null && <div><dt>Score effect</dt><dd>{signed(row.score_effect)} points</dd></div>}
+                {row.weight_effect !== null && <div><dt>Weight effect</dt><dd>{signed(row.weight_effect)} points</dd></div>}
+            </dl>
+            <p className={styles.muted}>{observationText(row)}</p>
+        </details>)}
+        {unchanged > 0 && <p className={styles.muted}>{unchanged} input{unchanged === 1 ? '' : 's'} unchanged between snapshots.</p>}
+        <p className={styles.studyNotice}>Points are normalized score × applied weight. Component, neutral-fallback and residual rows sum to the reported delta.</p>
+    </section>;
 }
 
 function configuredRows(signal: MarketSignal) {

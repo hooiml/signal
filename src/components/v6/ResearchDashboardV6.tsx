@@ -227,6 +227,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     const [items, setItems] = useState<ResearchWatchlistItem[]>([]);
     const [records, setRecords] = useState<ResearchRecord[]>([]);
     const [recordsLoadState, setRecordsLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
+    const [recordsLocked, setRecordsLocked] = useState(false);
     const [recordsReload, setRecordsReload] = useState(0);
     const [saving, setSaving] = useState(false);
     const [adding, setAdding] = useState(false);
@@ -372,9 +373,11 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     useEffect(() => {
         if (recordsLoadState !== 'ready') return;
         if (urlSearchRef.current !== searchString) return;
-        const nextSymbol = resolveVisibleResearchSymbol(items, requestedSymbol);
+        const nextSymbol = resolveVisibleResearchSymbol(items, requestedSymbol, validRequestedTicker);
         setSelectedSymbol((current) => current === (nextSymbol ?? '') ? current : nextSymbol ?? '');
         if (nextSymbol === requestedSymbol && (validRequestedTicker || !requestedTicker)) return;
+        // Keep an unsaved linked ticker in the URL so the page can name it instead of substituting another company.
+        if (!nextSymbol && validRequestedTicker) return;
         if (nextSymbol) updateUrl({ ticker: nextSymbol });
         else updateUrl({ ticker: null, tab: null, review: null });
     }, [items, recordsLoadState, requestedSymbol, requestedTicker, searchString, updateUrl, validRequestedTicker]);
@@ -383,6 +386,9 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         () => items.find((item) => item.symbol === selectedSymbol) ?? null,
         [items, selectedSymbol],
     );
+    const unsavedRequestedTicker = recordsLoadState === 'ready' && validRequestedTicker && requestedTicker && !items.some((item) => item.symbol === requestedTicker)
+        ? requestedTicker
+        : null;
     const selectedHidden = Boolean(selected && !filteredItems.some((item) => item.symbol === selected.symbol));
     const latestReviewedAt = useMemo(
         () => [...items].sort((left, right) => right.lastReviewedAt.localeCompare(left.lastReviewedAt))[0]?.lastReviewedAt ?? new Date().toISOString().slice(0, 10),
@@ -431,10 +437,12 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
             setRecordsLoadState('loading');
             try {
                 const response = await fetch('/api/research/watchlist');
+                if (active) setRecordsLocked(response.status === 401);
                 const payload: unknown = await response.json();
                 if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) throw new ResearchInputError('Invalid research API response.');
                 const data = Object.fromEntries(Object.entries(payload)).data;
                 const archivedData = Object.fromEntries(Object.entries(payload)).archivedSymbols;
+                if (response.status === 401) throw new ResearchInputError('Saved research is locked. Open /unlock to unlock Signal on this browser.');
                 if (!response.ok || !Array.isArray(data)) throw new ResearchInputError('Unable to load saved research.');
                 const stored = data.map(parseResearchRecord);
                 const archivedSymbols = Array.isArray(archivedData) ? archivedData.filter((item): item is string => typeof item === 'string') : [];
@@ -982,7 +990,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 <main id={`research-workspace-${workspace}`} data-surface-tier="primary" data-density={density} className={'flex flex-col rounded-[10px] border backdrop-blur min-[700px]:flex-row ' + (presentation === 'v7' ? liveStyles.researchWorkspaceV7 + ' ' : '') + (density === 'compact' ? 'gap-2 p-2 min-[700px]:p-3 ' : 'gap-4 p-3 min-[700px]:p-4 ') + themeClasses.panelPrimary}>
                     <ResearchWorkspaceBoundaryV6 workspace={workspace}>
                     {recordsLoadState === 'error' ? <section role="alert" className="w-full p-4">
-                        <p className={themeClasses.risk}>Saved research could not be loaded. No example securities are shown.</p>
+                        <p className={themeClasses.risk}>{recordsLocked ? <>Saved research is locked on this browser. <a href={'/unlock?next=' + encodeURIComponent('/research' + (searchString ? '?' + searchString : ''))} className="underline">Unlock Signal</a></> : 'Saved research could not be loaded.'} No example securities are shown.</p>
                         <button type="button" onClick={() => setRecordsReload((value) => value + 1)} className={'mt-3 min-h-10 rounded border px-4 text-sm font-semibold ' + themeClasses.selectedRow}>Retry saved research</button>
                     </section> : null}
                     {workspace === 'today' ? recordsLoadState === 'loading' ? (
@@ -1089,8 +1097,14 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                         {presentation === 'v7' ? watchlistOwner : null}
                         <section className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
                             <div>
-                                <h2 className={'text-lg font-bold ' + themeClasses.textPrimary}>No research matches</h2>
-                                <p className={'mt-2 text-sm ' + themeClasses.textMuted}>Add a saved security to begin Research.</p>
+                                {unsavedRequestedTicker ? <>
+                                    <h2 className={'text-lg font-bold ' + themeClasses.textPrimary}>{unsavedRequestedTicker} is not saved</h2>
+                                    <p className={'mt-2 text-sm ' + themeClasses.textMuted}>This workspace, including the full chart and technicals, opens saved securities only. No other company has been substituted.</p>
+                                    <a href={'/research-v8?' + new URLSearchParams({ ticker: unsavedRequestedTicker, ...(requestedMarket !== 'ALL' ? { market: requestedMarket } : {}) }).toString()} className={'mt-3 inline-flex min-h-10 items-center rounded border px-4 text-sm font-semibold ' + themeClasses.selectedRow}>Return to {unsavedRequestedTicker} reading</a>
+                                </> : <>
+                                    <h2 className={'text-lg font-bold ' + themeClasses.textPrimary}>No research matches</h2>
+                                    <p className={'mt-2 text-sm ' + themeClasses.textMuted}>Add a saved security to begin Research.</p>
+                                </>}
                             </div>
                         </section>
                     </>)}

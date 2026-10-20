@@ -1,3 +1,4 @@
+import { reviewAgeCountdownDays } from './review-lifecycle';
 import type { ResearchRecord } from '../types/research';
 import type { SignalTier } from '../types/signal-v2';
 
@@ -388,8 +389,9 @@ const reviewDueAt = (record: ResearchRecord): number | null => {
     if (record.decisionJournal.nextReviewAt) {
         return Date.parse(`${record.decisionJournal.nextReviewAt}T23:59:59.999Z`);
     }
-    if (record.monitoringRules.reviewAgeDays === null) return null;
-    return Date.parse(record.lastReviewedAt) + record.monitoringRules.reviewAgeDays * 86_400_000;
+    const reviewAgeDays = reviewAgeCountdownDays(record);
+    if (reviewAgeDays === null) return null;
+    return Date.parse(record.lastReviewedAt) + reviewAgeDays * 86_400_000;
 };
 
 export const buildSinceLastVisitChanges = (

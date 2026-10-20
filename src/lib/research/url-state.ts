@@ -23,12 +23,15 @@ export const parseResearchUrlDecision = (value: string | null): ResearchUrlDecis
 export const parseResearchUrlDensity = (value: string | null): ResearchLayoutDensity | null =>
     value !== null && researchUrlDensities.some((density) => density === value) ? value as ResearchLayoutDensity : null;
 
+// An explicitly linked ticker that is not saved resolves to no selection, so a handoff
+// never opens a different saved company in its place.
 export const resolveVisibleResearchSymbol = (
     items: readonly { readonly symbol: string }[],
     requestedSymbol: string,
+    explicitRequest = false,
 ): string | null => items.some((item) => item.symbol === requestedSymbol)
     ? requestedSymbol
-    : items[0]?.symbol ?? null;
+    : explicitRequest ? null : items[0]?.symbol ?? null;
 
 export const mergeResearchSearchParams = (
     current: URLSearchParams,

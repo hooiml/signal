@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireOwnerAccess } from '@/lib/owner-access';
 import {
     getResearchNotificationSettings,
     listResearchNotificationHistory,
@@ -15,7 +16,9 @@ const responseData = async () => ({
     history: await listResearchNotificationHistory(),
 });
 
-export const GET = async (): Promise<NextResponse> => {
+export const GET = async (request: Request): Promise<NextResponse> => {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     try {
         return NextResponse.json({ success: true, data: await responseData() });
     } catch (error) {
@@ -24,6 +27,8 @@ export const GET = async (): Promise<NextResponse> => {
 };
 
 export const PUT = async (request: Request): Promise<NextResponse> => {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     try {
         await saveResearchNotificationSettings(await request.json());
         return NextResponse.json({ success: true, data: await responseData() });

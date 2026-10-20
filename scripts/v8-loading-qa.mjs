@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import ts from 'typescript';
 import { chromium } from 'playwright';
+import { addOwnerCookie, ownerHeaders } from './qa-owner-access.mjs';
 const base=process.env.SIGNAL_QA_URL||'http://127.0.0.1:3000';
 const output=`.tmp/v8-enhancement/batch3-${Date.now()}`;await mkdir(output,{recursive:true});
 const source=await readFile('src/components/v8/read-data.ts','utf8');
@@ -18,11 +19,11 @@ try {
     const started=Date.now();await assert.rejects(readData('/test',new AbortController().signal,{attemptMs:20,budgetMs:90}),/deadline/);assert.ok(Date.now()-started<250);
     const cancel=new AbortController();cancel.abort();await assert.rejects(readData('/test',cancel.signal));
 }finally{globalThis.fetch=originalFetch;}
-const read=async path=>{const r=await fetch(base+path,{signal:AbortSignal.timeout(60000)});assert.equal(r.status,200);return r.json();};
+const read=async path=>{const r=await fetch(base+path,{headers:await ownerHeaders(base),signal:AbortSignal.timeout(60000)});assert.equal(r.status,200);return r.json();};
 const [us,watchlist,provider,index]=await Promise.all([read('/api/signals/v2?market=US&mode=standard&enableSocial=true'),read('/api/research/watchlist'),read('/api/research/symbol/AAPL?market=US'),read('/api/signals/replay?market=US&mode=standard&enableSocial=true')]);
 const summary=index.data.summaries.find(row=>row.hasFullEvidence);
 const snapshot=summary?await read(`/api/signals/replay?market=US&mode=standard&enableSocial=true&date=${summary.date}`):null;
-const browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1280,height:900},serviceWorkers:'block'});const page=await context.newPage();
+const browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1280,height:900},serviceWorkers:'block'});await addOwnerCookie(context,base);const page=await context.newPage();
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 let hold=false,release,releaseArchive,phase='normal',count=0;
 const archiveRows=index.data.summaries.filter(row=>row.hasFullEvidence).slice(0,3);

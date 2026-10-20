@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { reviewMonitoringRules } from '@/lib/research/review-lifecycle';
 import { requireAnyBearerSecret } from '@/lib/route-auth';
 import { getResearchInbox } from '@/lib/research/inbox';
 import {
@@ -57,7 +58,7 @@ export const GET = async (request: Request): Promise<NextResponse> => {
             targetBuyZone: record.targetBuyZone,
             lastReviewedAt: record.lastReviewedAt,
             acceptedEvidence: record.acceptedEvidence,
-            monitoringRules: record.monitoringRules,
+            monitoringRules: reviewMonitoringRules(record),
         }));
         if (inputs.length === 0) return NextResponse.json({ success: true, delivered: false, reason: 'empty-watchlist' });
 

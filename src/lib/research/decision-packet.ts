@@ -1,3 +1,4 @@
+import { personalReviewDate } from './review-lifecycle';
 import type { MarketReplaySnapshot } from '../types/market-replay';
 import type { InvestmentChecklist, ResearchRecord } from '../types/research';
 
@@ -79,7 +80,7 @@ export const buildResearchDecisionPacket = ({
         `- Market: ${record.market}`,
         `- Status: ${record.status}`,
         `- Position: ${record.positionState}`,
-        `- Last reviewed: ${record.lastReviewedAt}`,
+        `- Last reviewed: ${personalReviewDate(record) ?? 'No personal review recorded'}`,
         `- Saved record updated: ${record.updatedAt}`,
         `- Generated: ${generatedAt}`,
         '',

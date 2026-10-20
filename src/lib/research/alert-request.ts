@@ -1,8 +1,9 @@
 import type { AlertTickerInput } from '../types/research-alert';
 import { defaultResearchMonitoringRules, type ResearchRecord } from '../types/research';
+import { reviewMonitoringRules } from './review-lifecycle';
 
 type ResearchAlertRequestItem = Pick<AlertTickerInput, 'symbol' | 'market' | 'targetBuyZone' | 'lastReviewedAt'>;
-type ResearchAlertRequestRecord = Pick<ResearchRecord, 'symbol' | 'lastReviewedAt' | 'acceptedEvidence' | 'monitoringRules'>;
+type ResearchAlertRequestRecord = Pick<ResearchRecord, 'symbol' | 'lastReviewedAt' | 'acceptedEvidence' | 'monitoringRules' | 'decisionJournal' | 'reviewHistory'>;
 
 export const buildResearchAlertRequest = (
     items: readonly ResearchAlertRequestItem[],
@@ -18,7 +19,7 @@ export const buildResearchAlertRequest = (
             targetBuyZone: item.targetBuyZone,
             lastReviewedAt: record?.lastReviewedAt ?? item.lastReviewedAt,
             acceptedEvidence: record?.acceptedEvidence ?? [],
-            monitoringRules: record?.monitoringRules ?? defaultResearchMonitoringRules,
+            monitoringRules: record ? reviewMonitoringRules(record) : defaultResearchMonitoringRules,
         };
     });
 };

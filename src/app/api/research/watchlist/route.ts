@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
+import { requireOwnerAccess } from '@/lib/owner-access';
 import { ResearchInputError } from '@/lib/research/input';
 import { createStoredResearchRecord, listResearchState, ResearchConflictError } from '@/lib/research/store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export const GET = async () => {
+export const GET = async (request: Request) => {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     const started = performance.now();
     const timings: string[] = [];
     const headers = () => ({ 'Server-Timing': [...timings, `watchlist;dur=${(performance.now() - started).toFixed(1)}`].join(', ') });
@@ -19,6 +22,8 @@ export const GET = async () => {
 };
 
 export const POST = async (request: Request) => {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     try {
         const record = await createStoredResearchRecord(await request.json());
         return NextResponse.json({ success: true, data: record }, { status: 201 });

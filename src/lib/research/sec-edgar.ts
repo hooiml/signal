@@ -53,11 +53,6 @@ const latest = (values: readonly FactValue[], annualOnly = false): number | null
     return [...eligible].sort((left, right) => right.end.localeCompare(left.end) || right.filed.localeCompare(left.filed))[0]?.value ?? null;
 };
 
-const latestPeriod = (values: readonly FactValue[]): string | null => {
-    const annual = values.filter((item) => isAnnualFiling(item) && isAnnualDuration(item));
-    return [...annual].sort((left, right) => right.end.localeCompare(left.end) || right.filed.localeCompare(left.filed))[0]?.end ?? null;
-};
-
 const annualPair = (values: readonly FactValue[], durationOnly = true): readonly [number, number] | null => {
     const annual = values.filter((item) => isAnnualFiling(item) && (!durationOnly || item.start === null || isAnnualDuration(item)));
     const byEnd = new Map<string, FactValue>();
@@ -98,13 +93,6 @@ export const parseSecCompanyFacts = (payload: unknown): SecFundamentals => {
     const usGaap = objectValue(facts?.['us-gaap']);
     if (!usGaap) throw new Error('SEC EDGAR returned an invalid company facts response.');
     const revenue = factValues(usGaap, ['RevenueFromContractWithCustomerExcludingAssessedTax', 'Revenues', 'SalesRevenueNet'], 'USD');
-    const revenueLatest = latest(revenue, true);
-    const pair = annualPair(revenue);
-    const grossProfit = latest(factValues(usGaap, ['GrossProfit'], 'USD'), true);
-    const operatingIncome = latest(factValues(usGaap, ['OperatingIncomeLoss'], 'USD'), true);
-    const netIncome = latest(factValues(usGaap, ['NetIncomeLoss', 'ProfitLoss'], 'USD'), true);
-    const operatingCash = latest(factValues(usGaap, ['NetCashProvidedByUsedInOperatingActivities'], 'USD'), true);
-    const capex = latest(factValues(usGaap, ['PaymentsToAcquirePropertyPlantAndEquipment'], 'USD'), true);
     const debt = totalDebt(usGaap);
     const shares = factValues(usGaap, ['EntityCommonStockSharesOutstanding', 'CommonStockSharesOutstanding'], 'shares');
     const sharePair = annualPair(shares, false);
@@ -145,17 +133,20 @@ export const parseSecCompanyFacts = (payload: unknown): SecFundamentals => {
             shareChangePercent: change(sharesValue, previousPeriod ? periodValue(sharesByPeriod, previousPeriod) : null),
         };
     });
+    // Income-statement and cash-flow figures all come from the latest annual revenue period.
+    // A metric missing from that period stays unavailable rather than borrowing an older year.
+    const current = history[0] ?? null;
     return {
-        revenueGrowthPercent: pair === null || pair[1] === 0 ? null : Number((((pair[0] - pair[1]) / Math.abs(pair[1])) * 100).toFixed(1)),
-        grossMarginPercent: ratio(grossProfit, revenueLatest),
-        operatingMarginPercent: ratio(operatingIncome, revenueLatest),
-        freeCashFlow: operatingCash === null || capex === null ? null : operatingCash - capex,
+        revenueGrowthPercent: current?.revenueGrowthPercent ?? null,
+        grossMarginPercent: current?.grossMarginPercent ?? null,
+        operatingMarginPercent: current?.operatingMarginPercent ?? null,
+        freeCashFlow: current?.freeCashFlow ?? null,
         debt,
         cash: latest(factValues(usGaap, ['CashAndCashEquivalentsAtCarryingValue', 'CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents'], 'USD')),
         shares: latest(shares),
-        annualRevenue: revenueLatest,
-        annualNetIncome: netIncome,
-        reportingPeriod: latestPeriod(revenue),
+        annualRevenue: current?.annualRevenue ?? null,
+        annualNetIncome: current?.annualNetIncome ?? null,
+        reportingPeriod: current?.reportingPeriod ?? null,
         shareChangePercent: sharePair === null || sharePair[1] === 0 ? null : Number((((sharePair[0] - sharePair[1]) / Math.abs(sharePair[1])) * 100).toFixed(1)),
         source: 'SEC EDGAR',
         history,

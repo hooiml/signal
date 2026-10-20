@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
+import { addOwnerCookie, ownerHeaders } from './qa-owner-access.mjs';
 
 // Uses an existing verified Signal server. Never writes research or starts a server.
 const base = process.env.SIGNAL_QA_URL ?? 'http://127.0.0.1:3000';
 const output = `.tmp/research-v8-connected/qa-${Date.now()}`;
 await mkdir(output, { recursive: true });
 const read = async path => {
-    const response = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(45000) });
+    const response = await fetch(`${base}${path}`, { headers: await ownerHeaders(base), signal: AbortSignal.timeout(45000) });
     assert.equal(response.status, 200);
     return response.json();
 };
@@ -19,6 +20,7 @@ assert.ok(['AAPL', 'MSFT', 'VOO', 'MAYBANK'].every(symbol => records.some(record
 const seedSnapshot = await read('/api/research/symbol/AAPL?market=US');
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block', reducedMotion: 'reduce' });
+await addOwnerCookie(context, base);
 const page = await context.newPage();
 page.setDefaultTimeout(12000);
 const checks = [], errors = [], mutations = [], requests = [];

@@ -22,6 +22,7 @@ import type {
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import { DividendCashFlowCalendarV6 } from './DividendCashFlowCalendarV6';
+import { reviewAgeCountdownDays } from '@/lib/research/review-lifecycle';
 
 type CalendarView = 'list' | 'calendar';
 type FilterValue = 'ALL';
@@ -198,7 +199,7 @@ export const ResearchCalendarV6 = ({ records, theme, onOpen }: {
         market: record.market,
         nextReviewAt: record.decisionJournal.nextReviewAt,
         lastReviewedAt: record.lastReviewedAt,
-        reviewAgeDays: record.monitoringRules.reviewAgeDays,
+        reviewAgeDays: reviewAgeCountdownDays(record),
         earningsWithinDays: record.monitoringRules.earningsWithinDays,
     })), [records]);
     const requestKey = JSON.stringify(requestBody);

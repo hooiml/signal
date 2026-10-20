@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
+import { requireOwnerAccess } from '@/lib/owner-access';
 import { parseResearchRestoreRequest, ResearchBackupError, researchBackupLimits } from '@/lib/research/backup';
 import { restoreStoredResearchRecords } from '@/lib/research/store';
 
 export async function POST(request: Request) {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     try {
         const contentLength = Number(request.headers.get('content-length') ?? 0);
         if (Number.isFinite(contentLength) && contentLength > researchBackupLimits.maxFileBytes) {

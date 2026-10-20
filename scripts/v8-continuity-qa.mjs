@@ -1,15 +1,16 @@
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
+import { addOwnerCookie, ownerHeaders } from './qa-owner-access.mjs';
 
 const base=process.env.SIGNAL_QA_URL||'http://127.0.0.1:3000';
 const output=`.tmp/v8-enhancement/batch2-${Date.now()}`;
 await mkdir(output,{recursive:true});
-const read=async path=>{const r=await fetch(base+path,{signal:AbortSignal.timeout(60000)});assert.equal(r.status,200);return r.json();};
+const read=async path=>{const r=await fetch(base+path,{headers:await ownerHeaders(base),signal:AbortSignal.timeout(60000)});assert.equal(r.status,200);return r.json();};
 const records=await read('/api/research/watchlist');
 const snapshot=await read('/api/research/symbol/AAPL?market=US');
 const browser=await chromium.launch({headless:true});
-const context=await browser.newContext({viewport:{width:1280,height:900},serviceWorkers:'block'});
+const context=await browser.newContext({viewport:{width:1280,height:900},serviceWorkers:'block'});await addOwnerCookie(context,base);
 const page=await context.newPage();
 let saved=false,failed=false,reads=0;
 const errors=[],requests=[];

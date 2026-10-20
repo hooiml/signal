@@ -7,8 +7,13 @@ export interface MarketData {
     fiftyTwoWeekLow: number;
     fiftyTwoWeekChangePercent: number;
     timestamp: Date;
+    /** Provider observation time; null when the provider does not supply one. */
+    observedAt?: Date | null;
     sparkline?: number[];
 }
+
+const providerTime = (seconds: unknown): Date | null =>
+    typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000) : null;
 
 const YAHOO_BASE_URL = 'https://query1.finance.yahoo.com/v8/finance/chart';
 
@@ -43,7 +48,8 @@ export const fetchVIX = async (): Promise<MarketData> => {
         fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh || price,
         fiftyTwoWeekLow: quote.fiftyTwoWeekLow || price,
         fiftyTwoWeekChangePercent: 0, // Not relevant for VIX usually
-        timestamp: new Date()
+        timestamp: new Date(),
+        observedAt: providerTime(quote.regularMarketTime),
     };
 };
 
@@ -188,7 +194,7 @@ export const fetchIndicesWithChart = async (symbols: string[]): Promise<MarketDa
  * Fetch historical data for a currency pair and calculate its 20-day rolling volatility
  * Used as a localized 'Fear Gauge' for Malaysia (USD/MYR)
  */
-export const fetchHistoricalCurrencyVol = async (symbol: string): Promise<{ currentPrice: number, vol20d: number, change: number }> => {
+export const fetchHistoricalCurrencyVol = async (symbol: string): Promise<{ currentPrice: number, vol20d: number, change: number, observedAt: Date | null }> => {
     try {
         // Fetch 30 days of data to get at least 20 daily changes
         const response = await fetch(`${YAHOO_BASE_URL}/${symbol}?interval=1d&range=30d`, {
@@ -202,8 +208,11 @@ export const fetchHistoricalCurrencyVol = async (symbol: string): Promise<{ curr
         const result = data.chart.result[0];
         const quotes = result.indicators.quote[0].close || [];
         const validQuotes = quotes.filter((q: number | null) => q !== null) as number[];
+        const timestamps: unknown[] = Array.isArray(result.timestamp) ? result.timestamp : [];
+        let lastCloseIndex = quotes.length - 1;
+        while (lastCloseIndex >= 0 && quotes[lastCloseIndex] === null) lastCloseIndex -= 1;
 
-        if (validQuotes.length < 2) return { currentPrice: 0, vol20d: 0, change: 0 };
+        if (validQuotes.length < 2) return { currentPrice: 0, vol20d: 0, change: 0, observedAt: null };
 
         // 1. Calculate daily % changes
         const returns: number[] = [];
@@ -229,10 +238,11 @@ export const fetchHistoricalCurrencyVol = async (symbol: string): Promise<{ curr
         return {
             currentPrice,
             vol20d: stdDev,
-            change: currentPrice - prevPrice
+            change: currentPrice - prevPrice,
+            observedAt: providerTime(timestamps[lastCloseIndex]),
         };
     } catch (e) {
         console.error(`Failed to fetch historical vol for ${symbol}:`, e);
-        return { currentPrice: 0, vol20d: 0, change: 0 };
+        return { currentPrice: 0, vol20d: 0, change: 0, observedAt: null };
     }
 };
