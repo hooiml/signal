@@ -14,6 +14,9 @@ It is a focused successor to:
 - [`PROJECT_OBJECTIVE_AND_FLOWS.md`](PROJECT_OBJECTIVE_AND_FLOWS.md), which remains the source of
   truth for Signal's product objective and user flows.
 
+The current delivery order, including near-term items, is in
+[`ENHANCEMENT_ROADMAP.md`](ENHANCEMENT_ROADMAP.md).
+
 This roadmap does not authorize implementation, commit, push, merge, deployment, provider
 activation, dependency upgrades, or destructive operations by itself.
 

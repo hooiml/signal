@@ -10,6 +10,7 @@ This file is the map, not the manual. Keep it short so agents can quickly find t
 - Harness engineering standards: `docs/HARNESS.md`
 - Repo workflows: `docs/WORKFLOWS.md`
 - Signal scoring rules: `docs/signal-scoring.md`
+- Enhancement order: `docs/ENHANCEMENT_ROADMAP.md`
 - Generated repo map: `docs/generated/repo-map.md`
 
 ## Required Behavior
