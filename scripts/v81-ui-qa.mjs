@@ -138,7 +138,8 @@ try {
         await hero.getByText('Fresh 45.0% · stale 20.0% of model weight.', { exact: true }).waitFor();
         await hero.getByText('35.0% of configured weight uses neutral fallback for missing inputs.', { exact: true }).waitFor();
         assert.equal(await page.locator('[data-indicator]').count(), 6);
-        if (width <= 900) await page.getByRole('button', { name: 'Show all 6 inputs' }).click();
+        // Observed inputs are rows; unavailable inputs share one row of buttons, so all six stay inspectable.
+        assert.equal(await page.getByRole('group', { name: 'Unavailable inputs' }).locator('[data-indicator]').count(), 3);
         await page.getByRole('button', { name: /BofA SSI/ }).waitFor();
         const skip = page.locator('a[href="#market-content"]');
         await skip.focus();

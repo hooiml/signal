@@ -14,10 +14,13 @@ export function MarketIndicatorEvidence({ signal, inputKeys, configured, date, s
     const [expanded, setExpanded] = useState(false);
     // Observations come first; unavailable configured inputs remain inspectable.
     const ordered = [...inputKeys].sort((a, b) => Number(!!signal.components[b]) - Number(!!signal.components[a]) || (signal.components[b]?.weight ?? configured[b] ?? 0) - (signal.components[a]?.weight ?? configured[a] ?? 0));
+    // Inputs with no observation share one compact row; each stays a button that opens its detail.
+    const observed = ordered.filter(key => signal.components[key]);
+    const missing = ordered.filter(key => !signal.components[key]);
     return <section className={styles.evidence} aria-label="Explore indicators">
         <div className={base.sectionHeading}><div><h2>Current indicator evidence</h2><p>{date ? fullDate(date) : 'Snapshot date unavailable'} · select an observation for details</p></div></div>
         <div className={styles.evidenceRows} data-expanded={expanded}>
-            {ordered.map((key, index) => {
+            {observed.map((key, index) => {
                 const item = signal.components[key];
                 const disabled = item?.enabled === false || ((key === 'social' || key === 'news') && !sourceEnabled);
                 const scored = !!item && !disabled && item.weight > 0;
@@ -30,7 +33,11 @@ export function MarketIndicatorEvidence({ signal, inputKeys, configured, date, s
                 </button>;
             })}
         </div>
-        {ordered.length > 3 && <button className={`${base.textButton} ${styles.expandEvidence}`} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? 'Show fewer inputs' : `Show all ${ordered.length} inputs`} {expanded ? '↑' : '↓'}</button>}
+        {missing.length > 0 && <div className={styles.missingRow} role="group" aria-label="Unavailable inputs">
+            <span><b>{missing.length} {missing.length === 1 ? 'input' : 'inputs'} unavailable</b><small>No current observation · select one for details</small></span>
+            <span className={styles.missingList}>{missing.map(key => <button type="button" key={key} data-indicator={key} data-available="false" className={styles.missingChip} onClick={event => onSelect(key, event.currentTarget)}>{getIndicatorDisplayName(key)}</button>)}</span>
+        </div>}
+        {observed.length > 3 && <button className={`${base.textButton} ${styles.expandEvidence}`} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? 'Show fewer inputs' : `Show all ${observed.length} observed inputs`} {expanded ? '↑' : '↓'}</button>}
         <p className={styles.evidenceNote}>Unavailable observations are not neutral sentiment. Configured missing weight may use neutral fallback.</p>
     </section>;
 }

@@ -80,3 +80,25 @@
     .analysisGrid > .evidenceSlot { grid-row: 2; }
     .contextCard { grid-row: 3; }
 }
+
+/* Hero: the score leads, with its place on the 0-100 scale. */
+.scoreLine > strong { font-size: var(--text-display); line-height: 1; letter-spacing: -1.5px; }
+.scoreLine > strong small { letter-spacing: 0; }
+.spectrum { display: grid; gap: 6px; max-width: 420px; margin: 4px 0 14px; }
+/* Unavailable inputs: one compact row; each name opens its detail. */
+.missingRow { display: grid; gap: 8px; padding: 12px 13px; border: 1px dashed var(--line-strong); border-radius: 8px; background: var(--surface-subtle); margin-top: 8px; }
+.missingRow > span:first-child { display: grid; gap: 2px; }
+.missingRow b { font-size: var(--text-base); }
+.missingRow small { font-size: var(--text-xs); color: var(--muted); }
+.missingList { display: flex; flex-wrap: wrap; gap: 6px; }
+.missingList > .missingChip { padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font-size: var(--text-sm); }
+.missingList > .missingChip:hover { border-color: var(--link); }
+/* Wider-market context: all tracked indexes on one row where space allows. */
+.contextCard .indexList { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+.contextCard .indexList li { flex-direction: column; gap: 2px; }
+.longLabel { display: inline; }
+@media (max-width: 600px) {
+    .scoreLine > strong { font-size: var(--text-2xl); }
+    .spectrum { max-width: none; }
+    .longLabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
