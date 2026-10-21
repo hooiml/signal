@@ -29,7 +29,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 
 | Order | Item | Status | Lane | Gate |
 | ---: | --- | --- | --- | --- |
-| E1 | Price chart visual QA | Ready | UI-LIGHT | None |
+| E1 | Price chart visual QA | Verified | UI-LIGHT | None |
 | E2 | Pinned workspaces and attention badges | Ready | Standard | None; uses already-loaded counts only |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
@@ -50,6 +50,15 @@ states, light and dark themes. Fix only issues found in that chart.
 
 **Done when:** Screenshots at both widths show no clipping, overlap or overflow, and any fix passes
 the standard verification set.
+
+**Evidence — 2026-10-22:** AAPL at 1280px, 768px and 375px on 3M and 1Y. Found the 52-week labels
+drawn inside the plot, where the close line always touches them; moved them outside the plot edges
+and let the date row drop below a 52-week low label as label size scales on narrower charts. After
+the fix: no text-to-text or text-to-line overlap, no text outside the chart, no document overflow,
+hover read-out centred 7px above its point. Lint, typecheck, harness and build pass.
+
+**Not covered:** saved-review markers (owner access is not configured locally, so no saved record
+loads) and dark theme (V8 has no dark styles).
 
 ### E2 — Pinned workspaces and attention badges
 
@@ -102,3 +111,4 @@ contract is recorded.
 | Date | Item | From | To | Evidence |
 | --- | --- | --- | --- | --- |
 | 2026-10-22 | — | — | — | Roadmap created after PR #29 and `0779864`. |
+| 2026-10-22 | E1 | Ready | Verified | 52-week label placement fixed; see E1 evidence. |
