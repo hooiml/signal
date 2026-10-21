@@ -188,3 +188,22 @@
     .panelContent .metricList > div { grid-template-columns: minmax(0, 1fr); gap: 6px; }
     .panelContent .metricList dd { text-align: left; }
 }
+
+/* Polish: daily move beside the price, compact mobile header actions, a real slider thumb. */
+.app .priceLine { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; color: var(--ink); font-size: var(--text-base); }
+.app .dailyChange { display: inline-flex; align-items: center; gap: 2px; padding: 2px 8px; border-radius: 999px; font-size: var(--text-sm); font-weight: 650; color: var(--muted); background: var(--surface-muted); white-space: nowrap; }
+.app .dailyChange[data-direction=up] { color: var(--up); background: var(--up-soft); }
+.app .dailyChange[data-direction=down] { color: var(--down); background: var(--down-soft); }
+.app .dailyChange[data-direction=none] { font-weight: 400; }
+.app .dailyChangeLabel { color: inherit; font-weight: 400; opacity: .8; }
+.app .scrubber input { appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; }
+.app .scrubber input::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--line-strong); }
+.app .scrubber input::-moz-range-track { height: 4px; border-radius: 2px; background: var(--line-strong); }
+.app .scrubber input::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; margin-top: -8px; border-radius: 50%; background: var(--surface); border: 3px solid var(--brand); box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 25%, transparent); }
+.app .scrubber input::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--surface); border: 3px solid var(--brand); }
+.app .scrubber input:disabled { cursor: default; opacity: .5; }
+@media (max-width: 600px) {
+    .app .headerActions { flex-wrap: nowrap; }
+    .app .headerActions .actionButton { padding: 8px 10px; }
+    .app .longLabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}

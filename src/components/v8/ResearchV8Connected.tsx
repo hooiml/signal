@@ -18,7 +18,7 @@ import { ResearchCurrentAssessment } from './ResearchCurrentAssessment';
 import { assessCurrentResearch } from '@/lib/research/current-assessment';
 import { ResearchConnectedPanel } from './ResearchV8ConnectedPanels';
 import { ResearchPriceContext } from './ResearchPriceContext';
-import { date, number, parseWatchlist, price, researchHref, researchTabs, retrievedAt, type ResearchTab } from './research-v8-connected-data';
+import { date, parseWatchlist, price, researchHref, researchTabs, retrievedAt, type ResearchTab } from './research-v8-connected-data';
 import base from './market-v8.module.css';
 import styles from './research-v8.module.css';
 import connected from './research-v8-connected.module.css';
@@ -179,7 +179,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                     <h1>{record?.companyName || researchIdentityName(providerIdentity, selected, readingMarket) || selected || 'Research'}</h1>
                 </div>
                 <div className={connected.headerActions}>
-                    <button className={connected.actionButton} aria-haspopup="dialog" aria-expanded={panel === 'saved'} onClick={event => openPanel('saved', event.currentTarget)}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14v17l-7-4-7 4Z" /></svg>Saved securities · {records?.length ?? (loading ? 'Loading…' : accessIssue === 'locked' ? 'Locked' : 'Unavailable')}<span aria-hidden="true">⌄</span></button>
+                    <button className={connected.actionButton} aria-haspopup="dialog" aria-expanded={panel === 'saved'} onClick={event => openPanel('saved', event.currentTarget)}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14v17l-7-4-7 4Z" /></svg><span>Saved<span className={connected.longLabel}> securities</span> · {records?.length ?? (loading ? 'Loading…' : accessIssue === 'locked' ? 'Locked' : 'Unavailable')}</span><span aria-hidden="true">⌄</span></button>
                     <button className={connected.actionButton} aria-haspopup="dialog" aria-expanded={panel === 'tools'} onClick={event => openPanel('tools', event.currentTarget)}>Saved research<span aria-hidden="true">⌄</span></button>
                 </div>
             </section>
@@ -295,7 +295,7 @@ function ConnectedCase({ symbol, market, record, onSaved, unlockHref, onAccessDe
         <div className={`${styles.workspace} ${connected.focusedWorkspace}`}>
             <article className={styles.case} aria-label={`${symbol} research`}>
                 <section className={`${styles.reading} ${connected.summary} ${snapshot?.fundamentals.reportingPeriod || snapshot?.fundamentals.source ? '' : connected.summarySingle}`} aria-label="Current provider quote">
-                    <div><small>Latest returned price</small><strong data-testid="research-price">{loading && !snapshot ? 'Loading…' : price(snapshot?.quote.price, snapshot?.quote.currency)}</strong><span>Quote observed: {snapshot?.quote.observedAt ? retrievedAt(snapshot.quote.observedAt) : 'Observation time unavailable'}</span><span>Provider response retrieved: {retrievedAt(snapshot?.fetchedAt)}</span><span>Daily change {number(snapshot?.quote.dailyChangePercent, '%')}</span></div>
+                    <div><small>Latest returned price</small><span className={connected.priceLine}><strong data-testid="research-price">{loading && !snapshot ? 'Loading…' : price(snapshot?.quote.price, snapshot?.quote.currency)}</strong>{snapshot && <DailyChange value={snapshot.quote.dailyChangePercent} />}</span><span>Quote observed: {snapshot?.quote.observedAt ? retrievedAt(snapshot.quote.observedAt) : 'Observation time unavailable'}</span><span>Provider response retrieved: {retrievedAt(snapshot?.fetchedAt)}</span></div>
                     {snapshot && (snapshot.fundamentals.reportingPeriod || snapshot.fundamentals.source) && <div><small>Financial reporting period</small><b>{date(snapshot.fundamentals.reportingPeriod)}</b><span>{snapshot.fundamentals.source || 'Financial source unavailable'}</span></div>}
                     {record && <div className={connected.savedDecision} aria-label="Saved user-authored decision"><span className={base.eyebrow}>USER-AUTHORED · SAVED</span><strong>{record.decisionJournal.decision}</strong><span>{lastPersonalReview ? `Last reviewed ${date(lastPersonalReview)}.` : 'No personal review recorded.'}</span><a className={base.textButton} href={researchHref(record.symbol, 'review', record.market)} target="_blank" rel="noopener noreferrer">Open saved review (new tab) ↗</a></div>}
                 </section>
@@ -316,4 +316,12 @@ function ConnectedCase({ symbol, market, record, onSaved, unlockHref, onAccessDe
 
         </div>
     </>;
+}
+
+// Signed daily move beside the price; the arrow keeps direction readable without colour.
+function DailyChange({ value }: { value: number | null | undefined }) {
+    if (value == null || !Number.isFinite(value)) return <span className={connected.dailyChange} data-direction="none">Daily change unavailable</span>;
+    const direction = value > 0 ? 'up' : value < 0 ? 'down' : 'flat';
+    const sign = value > 0 ? '+' : value < 0 ? '−' : '';
+    return <span className={connected.dailyChange} data-direction={direction}><span className={base.visuallyHidden}>Daily change </span><span aria-hidden="true">{direction === 'up' ? '▲' : direction === 'down' ? '▼' : '–'}</span> {sign}{Math.abs(value).toFixed(2)}%<span className={connected.dailyChangeLabel} aria-hidden="true"> today</span></span>;
 }

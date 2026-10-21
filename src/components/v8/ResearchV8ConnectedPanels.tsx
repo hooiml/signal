@@ -110,6 +110,15 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
 
 function PriceHistory({ snapshot, loading, advanced, savedMarket, chartRange: range, setChartRange: setRange, chartDate, setChartDate }: { snapshot: ResearchSnapshot | null; loading: boolean; advanced: boolean; savedMarket: ResearchMarket | null } & ChartStateProps) {
     const [mobileChart, setMobileChart] = useState(false);
+    // Axis labels are sized in SVG units; scale them against the rendered width so they stay 12px on screen.
+    const [chartElement, setChartElement] = useState<SVGSVGElement | null>(null);
+    const [renderedWidth, setRenderedWidth] = useState(0);
+    useEffect(() => {
+        if (!chartElement) return;
+        const observer = new ResizeObserver(([entry]) => setRenderedWidth(entry.contentRect.width));
+        observer.observe(chartElement);
+        return () => observer.disconnect();
+    }, [chartElement]);
     useEffect(() => {
         const media = window.matchMedia('(max-width: 600px)');
         const update = () => setMobileChart(media.matches);
@@ -134,11 +143,12 @@ function PriceHistory({ snapshot, loading, advanced, savedMarket, chartRange: ra
     const chart = mobileChart
         ? { width: 375, height: 260, left: 58, right: 360, top: 48, bottom: 205, labelSize: 16 }
         : { width: 750, height: 225, left: 65, right: 715, top: 45, bottom: 180, labelSize: 12 };
+    const labelSize = renderedWidth ? 12 * chart.width / renderedWidth : chart.labelSize;
     const x = (time: string) => chart.left + (Date.parse(time) - start) / (end - start || 1) * (chart.right - chart.left);
     const y = (value: number) => chart.bottom - (value - low) / (high - low || 1) * (chart.bottom - chart.top);
     return <section className={connected.priceHistory} aria-label="Price history">
         <div className={connected.chartHeader}><div><span className={base.eyebrow}>RETURNED DAILY CLOSES</span><h3>Price history</h3></div><fieldset className={base.segment}><legend className={base.visuallyHidden}>Price history range</legend>{['1M', '3M', '1Y', 'All'].map(value => <button key={value} aria-pressed={range === value} onClick={() => { setRange(value); setChartDate(null); }}>{value}</button>)}</fieldset></div>
-        {point ? <><output className={connected.priceReadout} aria-live="polite">{date(point.time)} · close {price(point.close, snapshot?.quote.currency)}</output><svg className={connected.priceChart} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" onClick={event => {
+        {point ? <><output className={connected.priceReadout} aria-live="polite">{date(point.time)} · close {price(point.close, snapshot?.quote.currency)}</output><svg ref={setChartElement} className={connected.priceChart} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" onClick={event => {
             const matrix = event.currentTarget.getScreenCTM();
             if (!matrix) return;
             const local = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
@@ -147,9 +157,9 @@ function PriceHistory({ snapshot, loading, advanced, savedMarket, chartRange: ra
             if (nearest !== null) setChartDate(points[nearest].time);
         }} aria-label={`${snapshot?.symbol} daily closing price, ${date(points[0].time)} to ${date(points[points.length - 1].time)}. Exact values are available in the history table.`}>
             <line x1={chart.left} x2={chart.right} y1={chart.top} y2={chart.top} stroke="var(--line)" /><line x1={chart.left} x2={chart.right} y1={chart.bottom} y2={chart.bottom} stroke="var(--line)" />
-            <text x={chart.left - 8} y={chart.top + 4} textAnchor="end" style={{ fontSize: chart.labelSize }}>{number(high)}</text><text x={chart.left - 8} y={chart.bottom + 4} textAnchor="end" style={{ fontSize: chart.labelSize }}>{number(low)}</text>
+            <text x={chart.left - 8} y={chart.top + 4} textAnchor="end" style={{ fontSize: labelSize }}>{number(high)}</text><text x={chart.left - 8} y={chart.bottom + 4} textAnchor="end" style={{ fontSize: labelSize }}>{number(low)}</text>
             <polyline data-testid="research-price-line" fill="none" stroke={lineColor} strokeWidth="2.5" points={points.map(item => `${x(item.time)},${y(item.close)}`).join(' ')} /><line x1={x(point.time)} x2={x(point.time)} y1={chart.top - 10} y2={chart.bottom + 8} stroke="var(--muted)" strokeDasharray="4 4" /><circle cx={x(point.time)} cy={y(point.close)} r="5" fill={lineColor} />
-            <text x={chart.left} y={chart.height - 10} style={{ fontSize: chart.labelSize }}>{date(points[0].time)}</text><text x={chart.right} y={chart.height - 10} textAnchor="end" style={{ fontSize: chart.labelSize }}>{date(points[points.length - 1].time)}</text>
+            <text x={chart.left} y={chart.height - 10} style={{ fontSize: labelSize }}>{date(points[0].time)}</text><text x={chart.right} y={chart.height - 10} textAnchor="end" style={{ fontSize: labelSize }}>{date(points[points.length - 1].time)}</text>
         </svg><p className={connected.chartInteractionHint}>Tap or click the chart, or use the date slider to inspect a returned close.</p><label className={connected.scrubber}>Inspect a trading date<input type="range" min="0" max={points.length - 1} value={index} disabled={points.length === 1} onChange={event => setChartDate(points[Number(event.target.value)]?.time ?? null)} aria-valuetext={`${date(point.time)}, close ${price(point.close, snapshot?.quote.currency)}`} /></label><div className={connected.rangeChange} data-testid="research-range-change">{periodChange ? <>
             <strong>Selected-period price change: {periodChange.amount > 0 ? '+' : ''}{price(periodChange.amount, snapshot?.quote.currency)}{periodChange.percentage !== null ? ` (${periodChange.percentage > 0 ? '+' : ''}${number(periodChange.percentage, '%')})` : ' · percentage unavailable: starting close is zero'}</strong>
             <span>{date(periodChange.start)} → {date(periodChange.end)} · first and last returned closes.</span>
