@@ -122,13 +122,17 @@ export const PwaLifecycle = () => {
     if (online && !waitingWorker && !installPrompt && !message) return null;
     const hasPriorityNotice = !online || waitingWorker !== null;
     const compactOptional = !hasPriorityNotice && (pathname === '/main-v8' || pathname === '/research-v8');
+    // V8 pages are light and expose their tokens on <html>; the optional prompt follows them there.
+    const tone = compactOptional
+        ? { title: 'text-[var(--ink)]', body: 'text-[var(--muted)]', primary: 'border-transparent bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)]', quiet: 'text-[var(--muted)] decoration-[var(--line-strong)]' }
+        : { title: 'text-slate-100', body: 'text-slate-300', primary: 'border-slate-500', quiet: 'text-slate-300 decoration-slate-500' };
     return (
         <aside
             data-testid="pwa-lifecycle"
             data-priority={hasPriorityNotice ? 'essential' : 'optional'}
-            className={(compactOptional ? 'fixed bottom-4 right-4 z-[100] w-[calc(100vw-2rem)] max-w-[380px] rounded-xl border px-4 py-3 shadow-xl text-xs text-slate-100 ' : 'relative z-[100] w-full border-b px-3 py-3 text-xs text-slate-100 ') + (hasPriorityNotice
+            className={(compactOptional ? 'fixed bottom-4 right-4 z-[100] w-[calc(100vw-2rem)] max-w-[380px] rounded-xl border px-4 py-3 shadow-xl text-xs ' : 'relative z-[100] w-full border-b px-3 py-3 text-xs text-slate-100 ') + (hasPriorityNotice
                 ? 'border-amber-400/50 bg-[#101820] shadow-md'
-                : 'border-slate-700 bg-[#071019]')}
+                : compactOptional ? 'border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] shadow-[0_12px_32px_-12px_rgb(15_23_42/0.35)]' : 'border-slate-700 bg-[#071019] text-slate-100')}
             aria-live="polite"
         >
             <div className="mx-auto max-w-[1280px] space-y-3">
@@ -150,19 +154,19 @@ export const PwaLifecycle = () => {
             {installPrompt ? (
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <p className="font-bold text-slate-100">Install Signal</p>
-                        <p className="mt-1 leading-5 text-slate-400">Optional: add Signal to this device for quicker access.</p>
+                        <p className={'font-bold ' + tone.title}>Install Signal</p>
+                        <p className={'mt-1 leading-5 ' + tone.body}>Optional: add Signal to this device for quicker access.</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={() => void install()} className="min-h-10 rounded border border-slate-500 px-3 font-bold">Install Signal</button>
-                        <button type="button" onClick={deferInstall} className="min-h-10 rounded px-3 font-bold text-slate-300 underline decoration-slate-500 underline-offset-4">Not now</button>
+                        <button type="button" onClick={() => void install()} className={'min-h-10 rounded border px-3 font-bold ' + tone.primary}>Install Signal</button>
+                        <button type="button" onClick={deferInstall} className={'min-h-10 rounded px-3 font-bold underline underline-offset-4 ' + tone.quiet}>Not now</button>
                     </div>
                 </div>
             ) : null}
             {message ? (
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="leading-5 text-slate-300">{message}</p>
-                    <button type="button" onClick={() => setMessage(null)} className="min-h-10 rounded px-3 font-bold text-slate-300 underline decoration-slate-500 underline-offset-4">Dismiss notice</button>
+                    <p className={'leading-5 ' + tone.body}>{message}</p>
+                    <button type="button" onClick={() => setMessage(null)} className={'min-h-10 rounded px-3 font-bold underline underline-offset-4 ' + tone.quiet}>Dismiss notice</button>
                 </div>
             ) : null}
             </div>

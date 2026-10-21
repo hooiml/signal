@@ -1,5 +1,7 @@
-/* V8 design tokens: one colour per job. Market and Research V8 surfaces read only these. */
-.app {
+/* V8 design tokens: one colour per job. Market and Research V8 surfaces read only these.
+   They are also set on <html> while a V8 page is mounted so the page scrollbar and
+   app-level overlays (such as the install prompt) can use them. */
+.app, :global(html):has(.app) {
     /* Neutrals */
     --canvas: #f8fafc; --surface: #ffffff; --surface-subtle: #f8fafc; --surface-muted: #f1f5f9;
     --line: #e2e8f0; --line-strong: #cbd5e1;
@@ -17,6 +19,10 @@
     --font-mono: var(--font-roboto-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
     --text-xs: 12px; --text-sm: 13px; --text-base: 14px; --text-md: 16px;
     --text-lg: 20px; --text-xl: 24px; --text-2xl: 32px; --text-display: 48px;
+}
+/* Replace the dark global scrollbar with a light one on V8 pages. */
+:global(html):has(.app) { scrollbar-color: var(--line-strong) var(--canvas); background: var(--canvas); }
+.app {
     min-height: 100vh; background: var(--canvas); color: var(--ink); font-family: var(--font-sans);
     font-size: var(--text-base); line-height: 1.55; color-scheme: light; isolation: isolate;
     font-variant-numeric: tabular-nums;
@@ -421,7 +427,16 @@
 .chartTopline, .chartFoot { flex-wrap: wrap; }
 .header nav a[aria-current]::after, .liveDot { background: var(--brand); }
 @media (max-width: 600px) {
-    .app .tabs { gap: 4px; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; }
+    .app .tabs { gap: 4px; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; scrollbar-width: none; }
+    /* Edge shadows appear only while more tabs are scrolled out of view. */
+    .app div.tabs {
+        background:
+            linear-gradient(to right, var(--canvas) 40%, transparent) left / 32px 100% no-repeat local,
+            linear-gradient(to left, var(--canvas) 40%, transparent) right / 32px 100% no-repeat local,
+            linear-gradient(to right, color-mix(in srgb, var(--ink) 14%, transparent), transparent) left / 14px 100% no-repeat scroll,
+            linear-gradient(to left, color-mix(in srgb, var(--ink) 14%, transparent), transparent) right / 14px 100% no-repeat scroll,
+            var(--canvas);
+    }
     .app .tabs button { flex: 0 0 auto; padding: 8px; max-width: none; white-space: nowrap; }
     .app .chartHeader { flex-wrap: wrap; }
 }

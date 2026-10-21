@@ -69,7 +69,7 @@ try {
             await scrubber.press('End');assert.match(await chart.locator('output').innerText(),/16 Oct 2026/);
             await chart.getByRole('button',{name:'1M',exact:true}).click();assert.match(await rangeChange.innerText(),/9.09%/);
             await chart.getByRole('button',{name:'All',exact:true}).click();assert.match(await rangeChange.innerText(),/50%/);
-            assert.match(await page.getByRole('region',{name:'Current provider quote'}).innerText(),/Daily change 1.25%/);
+            assert.match(await page.getByRole('region',{name:'Current provider quote'}).innerText(),/Daily change[\s\S]*\+1\.25%/);
             await shot('chart');
         }
         await page.getByRole('tab',{name:'Valuation',exact:true}).click();await shot('valuation-us');
