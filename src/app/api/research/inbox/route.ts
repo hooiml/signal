@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireOwnerAccess } from '@/lib/owner-access';
 import { getResearchInbox } from '@/lib/research/inbox';
 import { enrichResearchInboxWithAttention } from '@/lib/research/research-attention';
 import { parseResearchMonitoringRules, parseResearchUpdateInput, ResearchInputError } from '@/lib/research/input';
@@ -35,6 +36,8 @@ const parseInput = (value: unknown): ResearchInboxInput | null => {
 };
 
 export const POST = async (request: Request): Promise<NextResponse> => {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     try {
         const payload: unknown = await request.json();
         if (!Array.isArray(payload) || payload.length === 0 || payload.length > 50) {

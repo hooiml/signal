@@ -5,6 +5,9 @@ import type { AcceptedResearchEvidence, ResearchRecord } from '@/lib/types/resea
 import type { ResearchBenchmark } from '@/lib/types/research-snapshot';
 import { calculatePositionPlanRisk, positionPlanCurrencyIssue, positionPlanPriceFields, positionPlanValueCount } from '@/lib/research/position-plan';
 import { formatResearchPrice, researchPriceCurrency } from '@/lib/research/price-format';
+import { personalReviewDate } from '@/lib/research/review-lifecycle';
+import type { OwnerAccessIssue } from '@/lib/owner-access-client';
+import { OwnerAccessNotice } from '@/components/OwnerAccessNotice';
 import type { ResearchFindingTarget } from '@/lib/types/research-assistant';
 import {
     getResearchWorkflowTemplate,
@@ -51,6 +54,7 @@ type ResearchEditorV6Props = {
     readonly theme: ResearchThemeV6;
     readonly saving: boolean;
     readonly error: string | null;
+    readonly saveAccessIssue?: OwnerAccessIssue | null;
     readonly onSave: (record: ResearchRecord) => Promise<boolean>;
     readonly decision: ResearchActionV6;
     readonly observedPrice: number | null;
@@ -80,7 +84,7 @@ const prepareReviewDraft = (initial: ResearchRecord, decision: ResearchActionV6,
     },
 });
 
-export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decision, observedPrice, observedCurrency = null, benchmark, startEditing = false, stagedEvidence = null, workflowTemplateId = null, onEditingChange }: ResearchEditorV6Props) => {
+export const ResearchEditorV6 = ({ initial, theme, saving, error, saveAccessIssue = null, onSave, decision, observedPrice, observedCurrency = null, benchmark, startEditing = false, stagedEvidence = null, workflowTemplateId = null, onEditingChange }: ResearchEditorV6Props) => {
     const [draft, setDraft] = useState(() => startEditing ? prepareReviewDraft(initial, decision, observedPrice, observedCurrency, benchmark, stagedEvidence) : initial);
     const [isEditing, setIsEditing] = useState(startEditing);
     const [reviewStep, setReviewStep] = useState(0);
@@ -186,7 +190,7 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                     )}
                     <p className={'text-xs leading-5 ' + styles.textMuted}>{isEditing
                         ? 'Update what changed. Existing values are kept, and nothing is saved until you choose Save review.'
-                        : `${detailChoice(draft.decisionJournal.decision)} · ${completedChecklist}/${checklistKeys.length} checks · reviewed ${draft.lastReviewedAt}`}</p>
+                        : `Saved decision: ${detailChoice(draft.decisionJournal.decision)} · ${completedChecklist}/${checklistKeys.length} checks · ${personalReviewDate(draft) ? `personal review ${personalReviewDate(draft)}` : 'no personal review recorded'}`}</p>
                 </div>
                 {!isEditing ? (
                     <button type="button" onClick={beginReview} data-testid="submit-research-review" className="min-h-10 rounded-md bg-emerald-600 px-4 text-xs font-bold text-white transition-colors hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500">
@@ -240,7 +244,7 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
                         <dl className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                             {renderDetail('Saved decision', draft.decisionJournal.decision)}
                             {renderDetail('Decision confidence', detailChoice(draft.decisionJournal.confidence))}
-                            {renderDetail('Observed price', draft.decisionJournal.observedPrice === null ? 'Not recorded' : String(draft.decisionJournal.observedPrice))}
+                            {renderDetail('Price recorded at review', draft.decisionJournal.observedPrice === null ? 'Not recorded' : formatResearchPrice(draft.decisionJournal.observedPrice, draft.decisionJournal.observedCurrency))}
                             {renderDetail('Next review', draft.decisionJournal.nextReviewAt ?? 'Not scheduled')}
                             {draft.decisionJournal.priorReviewId ? renderDetail('Prior decision outcome', detailChoice(draft.decisionJournal.priorOutcome)) : null}
                             {draft.decisionJournal.outcomeNote ? renderDetail('Outcome note', draft.decisionJournal.outcomeNote, 'sm:col-span-2 xl:col-span-5') : null}
@@ -451,6 +455,7 @@ export const ResearchEditorV6 = ({ initial, theme, saving, error, onSave, decisi
             </details>
             </div>
             </fieldset>
+            {saveAccessIssue && <OwnerAccessNotice issue={saveAccessIssue} resource="Saved research" preserveDraft saveLabel="Save review" />}
             <div className={'sticky bottom-3 z-10 mt-4 flex flex-wrap items-center justify-end gap-3 rounded-md border px-3 py-2 backdrop-blur ' + styles.row}>
                 <p role={error || (showPlanCurrencyIssue && planCurrencyIssue) ? 'alert' : 'status'} aria-live="polite" className={'mr-auto text-xs ' + (error || (showPlanCurrencyIssue && planCurrencyIssue) ? styles.risk : isDirty ? styles.textSecondary : styles.textMuted)}>
                     {error ?? (showPlanCurrencyIssue && planCurrencyIssue ? planCurrencyIssue : isDirty ? 'Unsaved changes' : lastSavedAt ? `Saved at ${lastSavedAt}` : 'Saved review')}

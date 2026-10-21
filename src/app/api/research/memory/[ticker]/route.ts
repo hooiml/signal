@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireOwnerAccess } from '@/lib/owner-access';
 import {
     listStoredResearchMemorySnapshots,
     saveStoredResearchMemorySnapshot,
@@ -7,7 +8,9 @@ import {
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export const GET = async (_request: Request, context: { params: Promise<{ ticker: string }> }) => {
+export const GET = async (request: Request, context: { params: Promise<{ ticker: string }> }) => {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     try {
         const { ticker } = await context.params;
         const snapshots = await listStoredResearchMemorySnapshots(ticker);
@@ -18,6 +21,8 @@ export const GET = async (_request: Request, context: { params: Promise<{ ticker
 };
 
 export const POST = async (request: Request, context: { params: Promise<{ ticker: string }> }) => {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     try {
         const { ticker } = await context.params;
         const payload: unknown = await request.json();

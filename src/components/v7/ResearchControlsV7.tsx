@@ -4,7 +4,7 @@ import type { ResearchActionFilterV6, ResearchMarketFilterV6 } from '@/component
 import styles from './v7-live.module.css';
 
 const actionOptions: ReadonlyArray<{ readonly value: ResearchActionFilterV6; readonly label: string }> = [
-    { value: 'ALL', label: 'All decisions' },
+    { value: 'ALL', label: 'All checklist statuses' },
     { value: 'Ready', label: 'Ready' },
     { value: 'DCA', label: 'DCA' },
     { value: 'Wait for price', label: 'Wait for price' },
@@ -16,7 +16,7 @@ export const ResearchControlsV7 = ({ query, market, action, reviewedLabel, resul
     readonly query: string;
     readonly market: ResearchMarketFilterV6;
     readonly action: ResearchActionFilterV6;
-    readonly reviewedLabel: string;
+    readonly reviewedLabel: string | null;
     readonly resultCount: number;
     readonly showResearchControls: boolean;
     readonly onQueryChange: (query: string) => void;
@@ -40,12 +40,12 @@ export const ResearchControlsV7 = ({ query, market, action, reviewedLabel, resul
                 </div>
             </fieldset>
             <label className={styles.decisionControl}>
-                <span>Decision</span>
+                <span>Checklist status</span>
                 <select value={action} onChange={(event) => onActionChange(event.target.value as ResearchActionFilterV6)}>
                     {actionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
             </label>
-            <p className={styles.researchControlMeta}>{resultCount} ticker{resultCount === 1 ? '' : 's'} · Last reviewed {reviewedLabel} UTC</p>
+            <p className={styles.researchControlMeta}>{resultCount} ticker{resultCount === 1 ? '' : 's'} · {reviewedLabel ? `Latest personal review: ${reviewedLabel}` : 'No personal reviews recorded'}</p>
         </div>
     );
 };

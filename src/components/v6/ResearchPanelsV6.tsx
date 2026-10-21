@@ -4,6 +4,8 @@ import { buildTechnicalOutlook, type TechnicalTone } from '@/lib/research/techni
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { FundamentalHistoryV6 } from './FundamentalHistoryV6';
 import { HistoricalValuationV6 } from './HistoricalValuationV6';
+import { financialPeriodLabel } from '@/lib/research/metric-provenance';
+import { formatResearchPrice } from '@/lib/research/price-format';
 import { getThemeV6, type ResearchTabV6, type ResearchThemeClassesV6, type ResearchThemeV6 } from './research-v6';
 
 const DataGridV6 = ({ children, themeClasses }: { children: ReactNode; themeClasses: ResearchThemeClassesV6 }) => (
@@ -135,8 +137,8 @@ const TechnicalPanelV6 = ({ ticker, snapshot, theme, themeClasses }: {
                             </> : null}
                         </div>
                         <div className={'mt-2 flex justify-between gap-3 font-mono text-[11px] tabular-nums ' + themeClasses.textMuted}>
-                            <span>{rangeLow === null ? 'Low unavailable' : `Low ${rangeLow.toFixed(2)}`}</span>
-                            <span>{rangeHigh === null ? 'High unavailable' : `High ${rangeHigh.toFixed(2)}`}</span>
+                            <span>{rangeLow === null ? 'Low unavailable' : `Low ${formatResearchPrice(rangeLow, snapshot?.quote.currency)}`}</span>
+                            <span>{rangeHigh === null ? 'High unavailable' : `High ${formatResearchPrice(rangeHigh, snapshot?.quote.currency)}`}</span>
                         </div>
                     </div>
                 </article>
@@ -160,6 +162,7 @@ export const ResearchPanelsV6 = ({ ticker, tab, theme, snapshot = null }: {
 
     if (tab === 'fundamentals') return (
         <>
+            <p className={'mb-3 text-xs leading-5 ' + themeClasses.textMuted}>{snapshot?.fundamentals.source ?? 'Source unavailable'} · {financialPeriodLabel(snapshot?.fundamentals.reportingPeriod)}. Revenue, margins and free cash flow use that annual period. Balance and share reporting dates are shown with each value.</p>
             <DataGridV6 themeClasses={themeClasses}>
                 {point('Sector', ticker.sector)}
                 {point('Industry', ticker.industry)}

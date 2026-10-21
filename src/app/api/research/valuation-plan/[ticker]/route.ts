@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireOwnerAccess } from '@/lib/owner-access';
 import { getStoredResearchValuationPlan, saveStoredResearchValuationPlan } from '@/lib/research/research-valuation-plan-store';
 
 export const runtime = 'nodejs';
@@ -6,7 +7,9 @@ export const dynamic = 'force-dynamic';
 
 type RouteContext = { params: Promise<{ ticker: string }> };
 
-export const GET = async (_request: Request, context: RouteContext) => {
+export const GET = async (request: Request, context: RouteContext) => {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     try {
         const { ticker } = await context.params;
         const plan = await getStoredResearchValuationPlan(ticker);
@@ -17,6 +20,8 @@ export const GET = async (_request: Request, context: RouteContext) => {
 };
 
 export const POST = async (request: Request, context: RouteContext) => {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     try {
         const { ticker } = await context.params;
         const payload = await request.json();

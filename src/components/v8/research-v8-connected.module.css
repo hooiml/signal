@@ -181,3 +181,10 @@
 .rangeChange > span { color: var(--muted); }
 .priceChart { cursor: crosshair; }
 .chartInteractionHint { color: var(--muted); }
+.metricContext { display: block; margin-top: 5px; font-size: 12px; line-height: 1.5; font-weight: 400; overflow-wrap: anywhere; }
+.panelContent .metricList > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .65fr); align-items: start; }
+.panelContent .metricList dd { min-width: 0; text-align: right; }
+@media (max-width: 600px) {
+    .panelContent .metricList > div { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+    .panelContent .metricList dd { text-align: left; }
+}

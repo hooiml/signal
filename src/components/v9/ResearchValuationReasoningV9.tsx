@@ -2,6 +2,8 @@
 
 import { formatResearchPrice } from '@/lib/research/price-format';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { OwnerAccessNotice } from '@/components/OwnerAccessNotice';
+import { ownerAccessIssue, type OwnerAccessIssue } from '@/lib/owner-access-client';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import {
     createResearchValuationPlan,
@@ -23,15 +25,21 @@ export const ResearchValuationReasoningV9 = ({ ticker, snapshot }: Props) => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
+    const [accessIssue, setAccessIssue] = useState<OwnerAccessIssue | null>(null);
+    const [planLoaded, setPlanLoaded] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
         setMessage(null);
+        setAccessIssue(null);
         try {
             const planResponse = await fetch(`/api/research/valuation-plan/${encodeURIComponent(ticker)}`, { cache: 'no-store' });
-            const planPayload: unknown = await planResponse.json();
+            const planPayload: unknown = await planResponse.json().catch(() => null);
+            const issue = ownerAccessIssue(planResponse.status, typeof planPayload === 'object' && planPayload !== null ? Reflect.get(planPayload, 'code') : undefined);
+            if (issue) { setAccessIssue(issue); return; }
             if (!planResponse.ok || typeof planPayload !== 'object' || planPayload === null || Array.isArray(planPayload)) throw new Error('Valuation assumptions are unavailable.');
             setPlan(parseResearchValuationPlan((planPayload as Record<string, unknown>).data));
+            setPlanLoaded(true);
         } catch (error) {
             setMessage(error instanceof Error ? error.message : 'Valuation assumptions are unavailable.');
         } finally {
@@ -73,12 +81,15 @@ export const ResearchValuationReasoningV9 = ({ ticker, snapshot }: Props) => {
     const save = async () => {
         setSaving(true);
         setMessage(null);
+        setAccessIssue(null);
         try {
             const normalized = parseResearchValuationPlan({ ...plan, ticker, updatedAt: new Date().toISOString() });
             const response = await fetch(`/api/research/valuation-plan/${encodeURIComponent(ticker)}`, {
                 method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(normalized),
             });
-            const payload: unknown = await response.json();
+            const payload: unknown = await response.json().catch(() => null);
+            const issue = ownerAccessIssue(response.status, typeof payload === 'object' && payload !== null ? Reflect.get(payload, 'code') : undefined);
+            if (issue) { setAccessIssue(issue); return; }
             if (!response.ok || typeof payload !== 'object' || payload === null || Array.isArray(payload)) throw new Error('Could not save valuation assumptions.');
             setPlan(parseResearchValuationPlan((payload as Record<string, unknown>).data));
             setMessage('Valuation assumptions saved.');
@@ -89,10 +100,18 @@ export const ResearchValuationReasoningV9 = ({ ticker, snapshot }: Props) => {
         }
     };
 
-    if (loading) return <section data-testid="valuation-reasoning-v9" className="mt-3 rounded-lg border border-zinc-700/40 p-3 text-xs text-zinc-500">Loading valuation reasoning…</section>;
+    if (loading) return <section data-testid="valuation-reasoning-v9" aria-busy="true" className="mt-3 rounded-lg border border-zinc-700/40 p-3 text-xs text-zinc-500">Loading valuation reasoning…</section>;
+    if (!planLoaded) return <section data-testid="valuation-reasoning-v9" className="mt-3 rounded-lg border border-zinc-700/40 p-3">
+        <h3 className="text-sm font-semibold">Valuation reasoning · {ticker}</h3>
+        {accessIssue ? <OwnerAccessNotice issue={accessIssue} resource="Saved valuation model" onRetry={() => void load()} /> : <>
+            <p role="status" className="mt-2 text-xs text-zinc-500">{message ?? 'Valuation assumptions could not be loaded.'}</p>
+            <button type="button" onClick={() => void load()} className="mt-2 min-h-11 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-emerald-500">Retry valuation assumptions</button>
+        </>}
+    </section>;
 
     return (
         <section data-testid="valuation-reasoning-v9" className="mt-3 rounded-lg border border-zinc-700/40 p-3" aria-label={`Valuation reasoning for ${ticker}`}>
+            {accessIssue && <OwnerAccessNotice issue={accessIssue} resource="Saved valuation model" preserveDraft saveLabel="Save assumptions" />}
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-500">Valuation reasoning</p>
