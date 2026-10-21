@@ -66,7 +66,8 @@ import {
 import type { ProductAnalyticsSource } from '@/lib/types/product-analytics';
 import { SinceLastVisitBriefingV6 } from './SinceLastVisitBriefingV6';
 import { ResearchReviewToolsV12 } from '@/components/v12/ResearchReviewToolsV12';
-import { createTodayResearchContinuation } from '@/lib/research/since-last-visit';
+import { buildSinceLastVisitChanges, createTodayResearchContinuation } from '@/lib/research/since-last-visit';
+import { buildResearchWorkspaceAttention } from '@/lib/research/workspace-pins';
 import { writeTodayContinuation } from '@/lib/research/since-last-visit-client';
 import { FirstRunSetupV6 } from './FirstRunSetupV6';
 import { researchWorkspaceGroups } from '@/lib/research/workspace-navigation';
@@ -873,6 +874,10 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         ),
         [queueSearchState, records, recordsLoadState],
     );
+    const workspaceAttention = useMemo(() => buildResearchWorkspaceAttention({
+        incompleteQueueTasks: queueSearchState?.status === 'ready' ? queueSearchState.tasks.filter((task) => task.completedAt === null).length : null,
+        overdueReviews: recordsLoadState === 'ready' ? buildSinceLastVisitChanges(records, null, new Date().toISOString()).overdueReviewSymbols.length : null,
+    }), [queueSearchState, records, recordsLoadState]);
     const localSearch: AppLocalSearchV6 = {
         status: recordsLoadState === 'ready' && queueSearchState?.status === 'ready'
             ? 'ready'
@@ -957,7 +962,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                     <span>Advanced research workspace · personal analysis and planning</span>
                     <a className="inline-flex min-h-11 items-center font-semibold underline" href={selected ? '/research-v8?' + new URLSearchParams({ ticker: selected.symbol, market: selected.market, tab: activeDetailTab === 'valuation' ? 'valuation' : activeDetailTab === 'fundamentals' ? 'financials' : 'overview' }).toString() : '/research-v8'} target={reviewRequested ? '_blank' : undefined} rel={reviewRequested ? 'noopener noreferrer' : undefined}>{reviewRequested ? 'Open basic view in a new tab ↗' : 'Back to basic view →'}</a>
                 </div>
-                <ResearchWorkspaceTabsV6 active={workspace} theme={theme} onChange={changeWorkspace} />
+                <ResearchWorkspaceTabsV6 active={workspace} theme={theme} onChange={changeWorkspace} attention={workspaceAttention} />
                 <ResearchLayoutControlsV6
                     current={{ workspace, query, market, action, ticker: selected?.symbol ?? null, tab: activeDetailTab }}
                     density={density}

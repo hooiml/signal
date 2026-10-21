@@ -180,6 +180,7 @@ import {
 import { buildResearchReadiness } from '../../src/lib/research/readiness';
 import { checkOwnerAccess, issueOwnerAccessToken, ownerAccessCookieName, ownerAccessMaxAgeSeconds, ownerSecretMatches, readOwnerAccessSecret, verifyOwnerAccessToken } from '../../src/lib/owner-access';
 import { hasPersonalReview, personalReviewDate, reviewAgeCountdownDays, savedReviewMarkers } from '../../src/lib/research/review-lifecycle';
+import { buildResearchWorkspaceAttention, parsePinnedResearchWorkspaces, togglePinnedResearchWorkspace } from '../../src/lib/research/workspace-pins';
 import {
     calculateCurrencyPerformance,
     defaultCurrencyPerformanceSettings,
@@ -1109,6 +1110,20 @@ const runReviewLifecycleTests = () => {
     assertEqual(savedReviewMarkers(decided).map(marker => marker.time).join(','), '2026-03-01T00:00:00.000Z,2026-04-02', 'a newer unsnapshotted decision adds its own marker');
     const legacy = { ...createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' }), lastReviewedAt: '2026-01-01' };
     assertEqual(buildSinceLastVisitChanges([legacy], null, '2026-07-26T00:00:00.000Z').overdueReviewSymbols.join(','), 'MSFT', 'legacy authored records keep their review-age countdown');
+};
+
+const runWorkspacePinTests = () => {
+    assertEqual(parsePinnedResearchWorkspaces('queue').length, 0, 'non-array pin storage recovers to no pins');
+    assertEqual(parsePinnedResearchWorkspaces(['queue', 'nope', 42, 'queue', 'alerts', 'today', 'usage']).join(','), 'queue,alerts,today', 'pins drop unknown and duplicate entries, keep order and cap at three');
+    const pinned = togglePinnedResearchWorkspace(['queue', 'alerts'], 'today');
+    assertEqual(pinned.join(','), 'queue,alerts,today', 'pinning appends in order');
+    assertEqual(togglePinnedResearchWorkspace(pinned, 'usage').join(','), 'queue,alerts,today', 'a fourth pin is refused rather than evicting an older one');
+    assertEqual(togglePinnedResearchWorkspace(pinned, 'alerts').join(','), 'queue,today', 'unpinning removes only that workspace');
+    assertEqual(Object.keys(buildResearchWorkspaceAttention({ incompleteQueueTasks: null, overdueReviews: null })).length, 0, 'unloaded sources show no badge');
+    assertEqual(Object.keys(buildResearchWorkspaceAttention({ incompleteQueueTasks: 0, overdueReviews: 0 })).length, 0, 'zero counts show no badge');
+    const attention = buildResearchWorkspaceAttention({ incompleteQueueTasks: 1, overdueReviews: 3 });
+    assertEqual(attention.queue?.label, '1 incomplete Queue task', 'Queue badge carries a text label');
+    assertEqual(attention.calendar?.count, 3, 'overdue reviews badge the Calendar workspace');
 };
 
 const runResearchReadinessTests = () => {
@@ -4656,6 +4671,7 @@ const main = async () => {
     runInvestmentPolicyTests();
     runResearchReadinessTests();
     runReviewLifecycleTests();
+    runWorkspacePinTests();
     await runOwnerAccessTests();
     runCurrencyPerformanceTests();
     runPositionPlanCurrencyTests();

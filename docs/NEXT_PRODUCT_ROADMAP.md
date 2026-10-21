@@ -86,7 +86,7 @@ Only one item may have status `In progress` at a time.
 | 2 | Universal local research search | Verified | Find existing research and workflow state quickly | Reuses the current command palette and validated local owner state |
 | 3 | First-run setup and guided demo | Verified | Help a new user reach a first useful review | Audience expansion explicitly authorized for this bounded setup slice |
 | 4 | Research readiness strip | Verified | Show what is complete, stale, blocked, or due for one ticker | Reuses existing Evidence, Policy, trigger, and review state |
-| 5 | Pinned workspaces and attention badges | Proposed | Reduce navigation friction without unstable automatic reordering | Use existing loaded counts; avoid new fetches |
+| 5 | Pinned workspaces and attention badges | Verified | Reduce navigation friction without unstable automatic reordering | Use existing loaded counts; avoid new fetches |
 | 6 | Forward-validation lab | Proposed, discovery required | Build genuine prospective trust evidence for scoring | Freeze a model/version and evaluation policy first |
 | 7 | Corporate-action resolution assistant | Proposed, demand-gated | Resolve common portfolio continuity gaps transparently | Portfolio funnel must show sustained reconciliation use |
 | 8 | Malaysia primary-source parity | Blocked, provider-gated | Improve Malaysia evidence without proxy US semantics | Approved official source or licensed provider contract |
@@ -410,7 +410,7 @@ reading a detailed record.
 
 ### Task 5 — Pinned Workspaces And Attention Badges
 
-**Status:** Proposed
+**Status:** Verified (Queue and Calendar badges; see E2 in [`ENHANCEMENT_ROADMAP.md`](ENHANCEMENT_ROADMAP.md))
 
 **Problem**
 

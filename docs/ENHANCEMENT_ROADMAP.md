@@ -30,7 +30,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | Order | Item | Status | Lane | Gate |
 | ---: | --- | --- | --- | --- |
 | E1 | Price chart visual QA | Verified | UI-LIGHT | None |
-| E2 | Pinned workspaces and attention badges | Ready | Standard | None; uses already-loaded counts only |
+| E2 | Pinned workspaces and attention badges | Verified | Standard | None; uses already-loaded counts only |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -70,6 +70,21 @@ state proves them. Keep the seven-section navigation and workspace URLs.
 
 **Done when:** Pins survive reload and malformed storage, counts never claim unchecked sources,
 labels accompany colour, and navigation has no clipping at required widths.
+
+**Evidence — 2026-10-22:** Pins live in `signal-research-pinned-workspaces-v1`
+([`workspace-pins.ts`](../src/lib/research/workspace-pins.ts)); a fourth pin is refused, not evicted.
+Badges: Queue (incomplete tasks, browser-local queue) and Calendar (overdue reviews, saved records);
+a source that has not loaded or failed shows no badge. Counts show on workspace tabs, pinned
+shortcuts and the narrow-screen workspace select, with screen-reader labels. Browser at 1280px and
+768px: two open and one completed task badge as 2, three pins persist across reload, the fourth is
+disabled, pinned shortcuts navigate with `aria-current`, malformed storage recovers to no pins, no
+clipping or document overflow. The pin row stays empty until storage is read, so it never shows a
+false "None yet" before hydration. Research regression tests cover parsing, order, limit, unpin and
+no-badge states. Lint, typecheck, harness and build pass.
+
+**Not covered:** 375px browser check (the Browser pane was hidden, so the page could not hydrate);
+the overdue-review badge in the browser (owner access is not configured locally, so no saved records
+load); an alerts badge (alerts are fetched only inside the Alerts workspace, and E2 adds no fetches).
 
 ### E3 — Today promotion review
 
@@ -112,3 +127,4 @@ contract is recorded.
 | --- | --- | --- | --- | --- |
 | 2026-10-22 | — | — | — | Roadmap created after PR #29 and `0779864`. |
 | 2026-10-22 | E1 | Ready | Verified | 52-week label placement fixed; see E1 evidence. |
+| 2026-10-22 | E2 | Ready | Verified | Pins and Queue/Calendar badges; 375px not browser-checked. |
