@@ -39,9 +39,10 @@ export function ResearchCurrentAssessment({ snapshot, previous = null, loading, 
             </details>
         </section>;
     }
+    // The compact status above the tabs already names this snapshot, its status and the first load.
+    if (loading && !snapshot && !error) return null;
     return <section className={styles.assessment} aria-label="Current research assessment" aria-busy={loading}>
-        <div className={styles.assessmentHeading}><span className={base.eyebrow}>Financial snapshot · revenue, profit and cash flow</span><span className={styles.assessmentBadge} data-state={error ? 'error' : loading ? 'loading' : assessment.status}>{error ? 'Refresh failed' : loading ? snapshot ? 'Refreshing previous reading' : 'Reading evidence' : labels[assessment.status]}</span></div>
-        <h2>{loading && !snapshot ? 'Reading the available evidence…' : error ? 'Provider refresh failed · assessment limited' : assessment.headline}</h2>
+        <h2>{error ?'Provider refresh failed · assessment limited' : assessment.headline}</h2>
         <p>{error ? snapshot ? 'The previous response remains below. Its dates still apply.' : 'No replacement assessment has been invented. Retry provider data below.' : assessment.summary}</p>
         {snapshot && <>
         <p className={styles.assessmentSource}>Financial source: {snapshot.fundamentals.source || 'Unavailable'} · annual period ended {date(snapshot.fundamentals.reportingPeriod)} · {assessment.coverage}/3 summary inputs available<br />Provider response retrieved {retrievedAt(snapshot.fetchedAt)}. Retrieval does not change the reporting period.</p>

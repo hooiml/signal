@@ -68,6 +68,9 @@ try {
         assert.equal(await page.getByRole('tab',{name:'Thesis',exact:true}).getAttribute('aria-selected'),'true');
         assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
         await page.screenshot({path:`${output}/${width}.png`,fullPage:true});
+        failed=false;
+        await page.getByText(/Saved research could not be refreshed/).getByRole('button',{name:'Retry saved research',exact:true}).click();
+        await page.getByText(/Saved research could not be refreshed/).waitFor({state:'detached'});
     }
     failed=false;
     await page.goto(`${base}/research-v8?ticker=UNKNOWN`);

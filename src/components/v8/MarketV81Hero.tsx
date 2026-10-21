@@ -17,6 +17,8 @@ export function MarketV81Hero({ signal, snapshotDate, tierClass, onEvidence, onD
     const coverage = marketEvidenceCoverage(signal, snapshotDate);
     const change = signal.metadata.score_delta;
     const compared = change?.delta != null && !!change.previous_date;
+    // A delta that rounds to 0.00 is reported as no change, not as a link to empty drivers.
+    const unchanged = compared && Math.abs(change!.delta!) < 0.005;
     const alignment = marketAlignment(signal);
     const name = (key: string) => signal.components[key]?.display_name ?? getIndicatorDisplayName(key);
 
@@ -26,7 +28,7 @@ export function MarketV81Hero({ signal, snapshotDate, tierClass, onEvidence, onD
             <div className={layout.scoreLine}>
                 <h1 className={`${styles.zone} ${tierClass}`}>{marketReadingLabel(signal.tier)}</h1>
                 <strong><span data-testid="connected-score">{signal.composite_score.toFixed(0)}</span> <small>/100</small></strong>
-                {compared ? <button className={layout.changeLink} onClick={onDrivers}>{change!.delta! > 0 ? '+' : ''}{change!.delta!.toFixed(2)} points vs {fullDate(change!.previous_date)} ↗</button> : <span>Earlier comparable score unavailable</span>}
+                {unchanged ? <span data-testid="market-hero-unchanged">No change since {fullDate(change!.previous_date)}</span> : compared ? <button className={layout.changeLink} onClick={onDrivers}>{change!.delta! > 0 ? '+' : ''}{change!.delta!.toFixed(2)} points vs {fullDate(change!.previous_date)} ↗</button> : <span>Earlier comparable score unavailable</span>}
             </div>
             <p>{marketReadingSummary(signal)}</p>
             <MarketLeadingEvidence signal={signal} date={snapshotDate ?? ''} onSelect={onSelect} />

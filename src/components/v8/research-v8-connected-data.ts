@@ -28,6 +28,11 @@ export function money(value: number | null | undefined, currency?: string | null
     return value == null ? 'Unavailable' : `${currency || 'Currency not supplied'} ${number(value)}`;
 }
 
+// Per-share prices always show two decimals; money() keeps compact totals such as revenue.
+export function price(value: number | null | undefined, currency?: string | null) {
+    return value == null || !Number.isFinite(value) ? 'Unavailable' : `${currency || 'Currency not supplied'} ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export function date(value: string | null | undefined) {
     if (!value || !Number.isFinite(Date.parse(value))) return 'Not recorded';
     return new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });

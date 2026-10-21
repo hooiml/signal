@@ -287,13 +287,15 @@ try {
     assert.match(formatting, /timeZone: 'UTC'/);
     const ast = ts.createSourceFile('format.ts', formatting, ts.ScriptTarget.Latest, true);
     const formatterSource = ast.statements.filter(node => ts.isFunctionDeclaration(node)
-        && ['number', 'money', 'date', 'retrievedAt'].includes(node.name?.text)).map(node => node.getText(ast)).join('\n');
+        && ['number', 'money', 'price', 'date', 'retrievedAt'].includes(node.name?.text)).map(node => node.getText(ast)).join('\n');
     const formatterModule = { exports: {} };
     new Function('module', 'exports', ts.transpileModule(formatterSource, { compilerOptions: {
         module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
     } }).outputText)(formatterModule, formatterModule.exports);
     assert.equal(formatterModule.exports.money(342.25, 'USD'), 'USD 342.25');
     assert.equal(formatterModule.exports.money(342, 'USD'), 'USD 342');
+    assert.equal(formatterModule.exports.price(339.5, 'USD'), 'USD 339.50');
+    assert.equal(formatterModule.exports.price(1234, 'MYR'), 'MYR 1,234.00');
     assert.equal(formatterModule.exports.retrievedAt('2026-10-15T20:00:00Z'), '15 Oct 2026, 20:00 UTC');
     if (phase === 'after') {
         const { fullDate, formatMarketDates, indicatorReadingLabel, indicatorStatus } = load('src/components/v8/MarketV8ConnectedData.ts');

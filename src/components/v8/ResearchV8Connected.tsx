@@ -18,7 +18,7 @@ import { ResearchCurrentAssessment } from './ResearchCurrentAssessment';
 import { assessCurrentResearch } from '@/lib/research/current-assessment';
 import { ResearchConnectedPanel } from './ResearchV8ConnectedPanels';
 import { ResearchPriceContext } from './ResearchPriceContext';
-import { date, money, number, parseWatchlist, researchHref, researchTabs, retrievedAt, type ResearchTab } from './research-v8-connected-data';
+import { date, number, parseWatchlist, price, researchHref, researchTabs, retrievedAt, type ResearchTab } from './research-v8-connected-data';
 import base from './market-v8.module.css';
 import styles from './research-v8.module.css';
 import connected from './research-v8-connected.module.css';
@@ -171,7 +171,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
     const savedState = <ResearchSavedState loading={loading} error={error} issue={accessIssue} hasRecords={records !== null} unlockHref={unlockHref} onRetry={retrySaved} />;
     return <div className={`${base.app} ${styles.app} ${connected.app}`}>
         <a className={base.skip} href="#v8-content">Skip to content</a>
-        <header className={base.header}><a className={base.logo} href="/main-v8">∿ Signal<span>V8</span></a><nav aria-label="Primary"><a href={readingMarket ? `/main-v8?market=${readingMarket}` : '/main-v8'}>Market</a><a href="/research-v8" aria-current="page">Research</a></nav></header>
+        <header className={base.header}><a className={base.logo} href="/main-v8">∿ Signal</a><nav aria-label="Primary"><a href={readingMarket ? `/main-v8?market=${readingMarket}` : '/main-v8'}>Market</a><a href="/research-v8" aria-current="page">Research</a></nav></header>
         <main id="v8-content" tabIndex={-1} className={base.canvas}>
             <section className={connected.selectedHeader} aria-label="Selected research security">
                 <div data-testid="selected-security-identity" data-symbol={selected} data-market={readingMarket}>
@@ -295,7 +295,7 @@ function ConnectedCase({ symbol, market, record, onSaved, unlockHref, onAccessDe
         <div className={`${styles.workspace} ${connected.focusedWorkspace}`}>
             <article className={styles.case} aria-label={`${symbol} research`}>
                 <section className={`${styles.reading} ${connected.summary} ${snapshot?.fundamentals.reportingPeriod || snapshot?.fundamentals.source ? '' : connected.summarySingle}`} aria-label="Current provider quote">
-                    <div><small>Latest returned price</small><strong data-testid="research-price">{loading && !snapshot ? 'Loading…' : money(snapshot?.quote.price, snapshot?.quote.currency)}</strong><span>Quote observed: {snapshot?.quote.observedAt ? retrievedAt(snapshot.quote.observedAt) : 'Observation time unavailable'}</span><span>Provider response retrieved: {retrievedAt(snapshot?.fetchedAt)}</span><span>Daily change {number(snapshot?.quote.dailyChangePercent, '%')}</span></div>
+                    <div><small>Latest returned price</small><strong data-testid="research-price">{loading && !snapshot ? 'Loading…' : price(snapshot?.quote.price, snapshot?.quote.currency)}</strong><span>Quote observed: {snapshot?.quote.observedAt ? retrievedAt(snapshot.quote.observedAt) : 'Observation time unavailable'}</span><span>Provider response retrieved: {retrievedAt(snapshot?.fetchedAt)}</span><span>Daily change {number(snapshot?.quote.dailyChangePercent, '%')}</span></div>
                     {snapshot && (snapshot.fundamentals.reportingPeriod || snapshot.fundamentals.source) && <div><small>Financial reporting period</small><b>{date(snapshot.fundamentals.reportingPeriod)}</b><span>{snapshot.fundamentals.source || 'Financial source unavailable'}</span></div>}
                     {record && <div className={connected.savedDecision} aria-label="Saved user-authored decision"><span className={base.eyebrow}>USER-AUTHORED · SAVED</span><strong>{record.decisionJournal.decision}</strong><span>{lastPersonalReview ? `Last reviewed ${date(lastPersonalReview)}.` : 'No personal review recorded.'}</span><a className={base.textButton} href={researchHref(record.symbol, 'review', record.market)} target="_blank" rel="noopener noreferrer">Open saved review (new tab) ↗</a></div>}
                 </section>

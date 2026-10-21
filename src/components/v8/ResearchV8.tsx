@@ -20,7 +20,7 @@ export function ResearchV8() {
     return <div className={`${base.app} ${styles.app}`}>
         <a className={base.skip} href="#v8-content">Skip to content</a>
         <header className={base.header}>
-            <a className={base.logo} href="/main-v8">∿ Signal<span>V8</span></a>
+            <a className={base.logo} href="/main-v8">∿ Signal</a>
             <nav aria-label="Primary"><a href="/main-v8">Market</a><a href="/research-v8" aria-current="page">Research</a></nav>
             <span className={base.headerNote}>Company research</span>
         </header>

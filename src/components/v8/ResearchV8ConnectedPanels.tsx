@@ -11,7 +11,7 @@ type ChartStateProps = { chartRange: string; setChartRange: (range: string) => v
 import { checklistLabelsV6 } from '@/components/v6/research-v6';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
-import { date, money, number, researchHref, sourceHref, type ResearchTab } from './research-v8-connected-data';
+import { date, money, number, price, researchHref, sourceHref, type ResearchTab } from './research-v8-connected-data';
 import base from './market-v8.module.css';
 import styles from './research-v8.module.css';
 import connected from './research-v8-connected.module.css';
@@ -78,7 +78,7 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
             <ResearchDataAvailability snapshot={snapshot} section="Valuation" loading={loading} error={providerError} />
             <h3>Returned price and share basis</h3>
             <Metrics rows={[
-                ['Latest returned price', money(snapshot?.quote.price, snapshot?.quote.currency), quoteObservation],
+                ['Latest returned price', price(snapshot?.quote.price, snapshot?.quote.currency), quoteObservation],
                 ['Shares used for valuation', number(valuationShares), `${valuation?.shareBasis || 'Share basis unavailable'} · ${sharePeriod}`],
                 ['Market capitalization', money(valuation?.marketCap, snapshot?.quote.currency), 'Returned price × shares above; their dates may differ.'],
             ]} />
@@ -138,7 +138,7 @@ function PriceHistory({ snapshot, loading, advanced, savedMarket, chartRange: ra
     const y = (value: number) => chart.bottom - (value - low) / (high - low || 1) * (chart.bottom - chart.top);
     return <section className={connected.priceHistory} aria-label="Price history">
         <div className={connected.chartHeader}><div><span className={base.eyebrow}>RETURNED DAILY CLOSES</span><h3>Price history</h3></div><fieldset className={base.segment}><legend className={base.visuallyHidden}>Price history range</legend>{['1M', '3M', '1Y', 'All'].map(value => <button key={value} aria-pressed={range === value} onClick={() => { setRange(value); setChartDate(null); }}>{value}</button>)}</fieldset></div>
-        {point ? <><output className={connected.priceReadout} aria-live="polite">{date(point.time)} · close {money(point.close, snapshot?.quote.currency)}</output><svg className={connected.priceChart} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" onClick={event => {
+        {point ? <><output className={connected.priceReadout} aria-live="polite">{date(point.time)} · close {price(point.close, snapshot?.quote.currency)}</output><svg className={connected.priceChart} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" onClick={event => {
             const matrix = event.currentTarget.getScreenCTM();
             if (!matrix) return;
             const local = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
@@ -150,8 +150,8 @@ function PriceHistory({ snapshot, loading, advanced, savedMarket, chartRange: ra
             <text x={chart.left - 8} y={chart.top + 4} textAnchor="end" style={{ fontSize: chart.labelSize }}>{number(high)}</text><text x={chart.left - 8} y={chart.bottom + 4} textAnchor="end" style={{ fontSize: chart.labelSize }}>{number(low)}</text>
             <polyline data-testid="research-price-line" fill="none" stroke={lineColor} strokeWidth="2.5" points={points.map(item => `${x(item.time)},${y(item.close)}`).join(' ')} /><line x1={x(point.time)} x2={x(point.time)} y1={chart.top - 10} y2={chart.bottom + 8} stroke="var(--muted)" strokeDasharray="4 4" /><circle cx={x(point.time)} cy={y(point.close)} r="5" fill={lineColor} />
             <text x={chart.left} y={chart.height - 10} style={{ fontSize: chart.labelSize }}>{date(points[0].time)}</text><text x={chart.right} y={chart.height - 10} textAnchor="end" style={{ fontSize: chart.labelSize }}>{date(points[points.length - 1].time)}</text>
-        </svg><p className={connected.chartInteractionHint}>Tap or click the chart, or use the date slider to inspect a returned close.</p><label className={connected.scrubber}>Inspect a trading date<input type="range" min="0" max={points.length - 1} value={index} disabled={points.length === 1} onChange={event => setChartDate(points[Number(event.target.value)]?.time ?? null)} aria-valuetext={`${date(point.time)}, close ${money(point.close, snapshot?.quote.currency)}`} /></label><div className={connected.rangeChange} data-testid="research-range-change">{periodChange ? <>
-            <strong>Selected-period price change: {periodChange.amount > 0 ? '+' : ''}{money(periodChange.amount, snapshot?.quote.currency)}{periodChange.percentage !== null ? ` (${periodChange.percentage > 0 ? '+' : ''}${number(periodChange.percentage, '%')})` : ' · percentage unavailable: starting close is zero'}</strong>
+        </svg><p className={connected.chartInteractionHint}>Tap or click the chart, or use the date slider to inspect a returned close.</p><label className={connected.scrubber}>Inspect a trading date<input type="range" min="0" max={points.length - 1} value={index} disabled={points.length === 1} onChange={event => setChartDate(points[Number(event.target.value)]?.time ?? null)} aria-valuetext={`${date(point.time)}, close ${price(point.close, snapshot?.quote.currency)}`} /></label><div className={connected.rangeChange} data-testid="research-range-change">{periodChange ? <>
+            <strong>Selected-period price change: {periodChange.amount > 0 ? '+' : ''}{price(periodChange.amount, snapshot?.quote.currency)}{periodChange.percentage !== null ? ` (${periodChange.percentage > 0 ? '+' : ''}${number(periodChange.percentage, '%')})` : ' · percentage unavailable: starting close is zero'}</strong>
             <span>{date(periodChange.start)} → {date(periodChange.end)} · first and last returned closes.</span>
             <span>Price change only; not total return. This is separate from the quote’s daily change.</span>
         </> : <p>{movement}</p>}</div><p data-testid="research-period-direction" style={{ color: lineColor }}>{movement}. Colour compares the first and last returned closes in this range.</p><p>{points.length} returned observations · {snapshot?.quote.currency || 'Currency unavailable'}. Lines connect returned closes; missing sessions are not filled. These are historical closes, not the latest quote.</p><details><summary>View exact history values</summary><div className={connected.tableScroll} tabIndex={0} role="region" aria-label="Closing price table"><table><thead><tr><th>Date</th><th>Close ({snapshot?.quote.currency || 'currency unavailable'})</th><th>Volume</th></tr></thead><tbody>{points.map(item => <tr key={item.time}><th>{date(item.time)}</th><td>{number(item.close)}</td><td>{number(item.volume)}</td></tr>)}</tbody></table></div></details></> : <p className={styles.gapNote}>{loading ? 'Loading price history…' : 'No price history returned. No illustrative line is shown.'}</p>}
