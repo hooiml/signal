@@ -207,3 +207,19 @@
     .app .headerActions .actionButton { padding: 8px 10px; }
     .app .longLabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
+
+/* Price chart: hover read-out, 52-week context and saved-review markers. */
+.priceChartFrame { position: relative; }
+.app .priceTooltip { position: absolute; z-index: 2; pointer-events: none; display: grid; gap: 1px; transform: translate(-50%, calc(-100% - 14px)); padding: 6px 10px; border-radius: 6px; background: var(--ink); color: var(--surface); font-size: var(--text-xs); line-height: 1.4; white-space: nowrap; box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--ink) 60%, transparent); }
+.app .priceTooltip[data-edge=start] { transform: translate(-12px, calc(-100% - 14px)); }
+.app .priceTooltip[data-edge=end] { transform: translate(calc(-100% + 12px), calc(-100% - 14px)); }
+.app .priceTooltip b { font-size: var(--text-sm); color: var(--surface); }
+.app .priceTooltip span { color: color-mix(in srgb, var(--surface) 80%, transparent); font-size: var(--text-xs); }
+.chartLegend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 2px 0 8px; font-size: var(--text-xs); color: var(--muted); }
+.chartLegend span { display: inline-flex; align-items: center; gap: 6px; }
+.chartLegend i { display: inline-block; width: 14px; height: 10px; border-radius: 2px; }
+.chartLegend i[data-swatch=line] { height: 3px; }
+.chartLegend i[data-swatch=band] { background: var(--surface-muted); border: 1px solid var(--line); }
+.chartLegend i[data-swatch=dash] { height: 0; border-top: 2px dashed var(--subtle); border-radius: 0; }
+.chartLegend i[data-swatch=marker] { width: 9px; height: 9px; background: var(--brand); transform: rotate(45deg); border-radius: 1px; }
+.app .chartMarkers { font-size: var(--text-xs); color: var(--muted); margin: 0 0 8px; }
