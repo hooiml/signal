@@ -274,7 +274,7 @@ function runDriverChangeTests() {
     assertNear(fractionalChanges[0]?.delta ?? 0, 0.3, 0.001, 'fractional contribution shifts are preserved');
     assertEqual(calculateDriverChanges(current, current).length, 0, 'unchanged contributions produce no attribution');
 
-    const reading = (key: string, score: number, weight: number, raw: number, observed: string) => ({ key, name: key.toUpperCase(), score, weight, raw_value: raw, last_updated: observed });
+    const reading = (key: string, score: number, weight: number, raw: number, observed: string) => ({ key, name: key.toUpperCase(), score, weight, raw_value: raw, last_updated: observed, timestamp_basis: 'observed' as const });
     const before = [reading('vix', 40, 0.5, 22, '2026-10-20T20:00:00.000Z'), reading('aaii', 60, 0.2, 35, '2026-10-16T00:00:00.000Z'), reading('naaim', 55, 0.1, 70, '2026-10-15T00:00:00.000Z')];
     const after = [reading('vix', 47, 0.6, 18.4, '2026-10-21T20:00:00.000Z'), reading('aaii', 60, 0.2, 35, '2026-10-16T00:00:00.000Z'), reading('put_call', 30, 0.1, 1.1, '2026-10-21T21:00:00.000Z')];
     const rawBefore = 40 * 0.5 + 60 * 0.2 + 55 * 0.1 + (1 - 0.8) * 50;

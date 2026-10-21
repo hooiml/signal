@@ -20,6 +20,12 @@ const fundamentalsFromHistory = (
     const latest = history[0];
     if (!latest) return emptyFundamentals;
     return {
+        metricProvenance: {
+            debt: { reportingPeriods: latest.debt === null ? [] : [latest.reportingPeriod], currency: latest.currency },
+            cash: { reportingPeriods: latest.cash === null ? [] : [latest.reportingPeriod], currency: latest.currency },
+            shares: { reportingPeriods: latest.shares === null ? [] : [latest.reportingPeriod], currency: null },
+            shareChange: { reportingPeriods: latest.comparisonPeriod ? [latest.comparisonPeriod, latest.reportingPeriod] : [], currency: null },
+        },
         revenueGrowthPercent: latest.revenueGrowthPercent,
         grossMarginPercent: latest.grossMarginPercent,
         operatingMarginPercent: latest.operatingMarginPercent,

@@ -25,10 +25,16 @@ Write-Host "Map excludes temporary PowerShell startup profile files."
 & (Join-Path $PSScriptRoot "check-research.ps1")
 node (Join-Path $PSScriptRoot "research-currency-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "Research currency regression failed with exit code $LASTEXITCODE" }
+node (Join-Path $PSScriptRoot "owner-access-regression.mjs")
+if ($LASTEXITCODE -ne 0) { throw "Owner access regression failed with exit code $LASTEXITCODE" }
+node (Join-Path $PSScriptRoot "research-provenance-regression.mjs")
+if ($LASTEXITCODE -ne 0) { throw "Research provenance regression failed with exit code $LASTEXITCODE" }
 node (Join-Path $PSScriptRoot "market-request-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "Market request regression failed with exit code $LASTEXITCODE" }
 node (Join-Path $PSScriptRoot "market-assessment-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "Market assessment regression failed with exit code $LASTEXITCODE" }
+node (Join-Path $PSScriptRoot "market-provenance-regression.mjs")
+if ($LASTEXITCODE -ne 0) { throw "Market provenance regression failed with exit code $LASTEXITCODE" }
 node (Join-Path $PSScriptRoot "v81-evidence-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "V8.1 evidence coverage regression failed with exit code $LASTEXITCODE" }
 

@@ -1,5 +1,7 @@
 'use client';
 
+import { marketReadingLabel } from '@/lib/market-display';
+
 import { useId, useMemo, useState, useEffect, useRef, type PointerEvent as ReactPointerEvent, type KeyboardEvent } from 'react';
 import {
     getMarketV8TimelineFixture,
@@ -293,7 +295,7 @@ export function MarketV8Timeline({ market, mode, partial, data, benchmarkLabel, 
                 <table>
                     <caption>Accessible table for the {activeRange} {connected ? 'connected' : 'illustrative'} timeline window</caption>
                     <thead><tr><th scope="col">Date</th><th scope="col">Score</th><th scope="col">Benchmark</th><th scope="col">Record</th><th scope="col">Coverage</th><th scope="col">{connected ? 'Model version' : 'Fixture version'}</th></tr></thead>
-                    <tbody>{visible.map((record, index) => <tr key={record.date} data-date={record.date} className={index === visibleCursor ? styles.selectedRow : undefined}><th scope="row">{formatDate(record.date)}</th><td>{record.score} · {record.tier ? `${record.tier} · ` : ''}{kindLabel(record.scoreKind)}{record.timelineOnly ? ' · timeline-only' : ''}</td><td>{benchmarkValues[index] === null ? `— · ${record.benchmarkKind ? `${kindLabel(record.benchmarkKind)} ` : ''}gap` : `${benchmarkValues[index]!.toFixed(1)} · ${record.benchmarkKind ? kindLabel(record.benchmarkKind) : 'benchmark observation'}`}</td><td>{record.note}</td><td>{record.coveragePct === null ? '—' : `${record.coveragePct}%`}</td><td>{record.modelVersion}</td></tr>)}</tbody>
+                    <tbody>{visible.map((record, index) => <tr key={record.date} data-date={record.date} className={index === visibleCursor ? styles.selectedRow : undefined}><th scope="row">{formatDate(record.date)}</th><td>{record.score} · {record.tier ? `${marketReadingLabel(record.tier)} · ` : ''}{kindLabel(record.scoreKind)}{record.timelineOnly ? ' · timeline-only' : ''}</td><td>{benchmarkValues[index] === null ? `— · ${record.benchmarkKind ? `${kindLabel(record.benchmarkKind)} ` : ''}gap` : `${benchmarkValues[index]!.toFixed(1)} · ${record.benchmarkKind ? kindLabel(record.benchmarkKind) : 'benchmark observation'}`}</td><td>{record.note}</td><td>{record.coveragePct === null ? '—' : `${record.coveragePct}%`}</td><td>{record.modelVersion}</td></tr>)}</tbody>
                 </table>
             </div>
         </details>

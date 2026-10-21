@@ -23,7 +23,7 @@ export interface MarketEvidenceCoverage {
 
 const close = (a: number, b: number) => Math.abs(a - b) < 0.005;
 function freshness(date: string, snapshot: string | null | undefined, basis: 'observed' | 'retrieved' | undefined, days: number | undefined): 'fresh' | 'stale' | 'unknown' {
-    if (basis === 'retrieved' || !snapshot || days === undefined) return 'unknown';
+    if (basis !== 'observed' || !snapshot || days === undefined) return 'unknown';
     const observed = Date.parse(date.slice(0, 10) + 'T00:00:00Z');
     const compared = Date.parse(snapshot.slice(0, 10) + 'T00:00:00Z');
     if (!Number.isFinite(observed) || !Number.isFinite(compared) || observed > compared) return 'unknown';

@@ -1,7 +1,8 @@
 import { unstable_cache } from 'next/cache';
-import type { ResearchFundamentalPeriod } from '../types/research-snapshot';
+import type { ResearchFundamentalPeriod, ResearchFundamentalProvenance } from '../types/research-snapshot';
 
 type SecFundamentals = {
+    readonly metricProvenance: ResearchFundamentalProvenance;
     readonly revenueGrowthPercent: number | null;
     readonly grossMarginPercent: number | null;
     readonly operatingMarginPercent: number | null;
@@ -48,17 +49,15 @@ const factValues = (facts: Record<string, unknown>, names: readonly string[], un
 const isAnnualFiling = (item: FactValue) => (item.form === '10-K' || item.form === '20-F') && item.fiscalPeriod === 'FY';
 const isAnnualDuration = (item: FactValue) => item.start !== null && (Date.parse(item.end) - Date.parse(item.start)) / 86_400_000 >= 300;
 
-const latest = (values: readonly FactValue[], annualOnly = false): number | null => {
-    const eligible = annualOnly ? values.filter((item) => isAnnualFiling(item) && isAnnualDuration(item)) : values;
-    return [...eligible].sort((left, right) => right.end.localeCompare(left.end) || right.filed.localeCompare(left.filed))[0]?.value ?? null;
-};
+const latestFact = (values: readonly FactValue[]): FactValue | null =>
+    [...values].sort((left, right) => right.end.localeCompare(left.end) || right.filed.localeCompare(left.filed))[0] ?? null;
 
-const annualPair = (values: readonly FactValue[], durationOnly = true): readonly [number, number] | null => {
+const annualPair = (values: readonly FactValue[], durationOnly = true): readonly [FactValue, FactValue] | null => {
     const annual = values.filter((item) => isAnnualFiling(item) && (!durationOnly || item.start === null || isAnnualDuration(item)));
     const byEnd = new Map<string, FactValue>();
     for (const item of annual) if (!byEnd.has(item.end) || (byEnd.get(item.end)?.filed ?? '') < item.filed) byEnd.set(item.end, item);
     const sorted = [...byEnd.values()].sort((left, right) => right.end.localeCompare(left.end));
-    return sorted.length >= 2 ? [sorted[0].value, sorted[1].value] : null;
+    return sorted.length >= 2 ? [sorted[0], sorted[1]] : null;
 };
 
 const ratio = (numerator: number | null, denominator: number | null) =>
@@ -80,11 +79,12 @@ const annualByEnd = (values: readonly FactValue[], durationOnly: boolean) => {
 const periodValue = (values: ReadonlyMap<string, FactValue>, period: string) =>
     values.get(period)?.value ?? null;
 
-const totalDebt = (facts: Record<string, unknown>): number | null => {
-    const current = latest(factValues(facts, ['LongTermDebtCurrent', 'LongTermDebtAndFinanceLeaseObligationsCurrent'], 'USD'));
-    const noncurrent = latest(factValues(facts, ['LongTermDebtNoncurrent', 'LongTermDebtAndFinanceLeaseObligationsNoncurrent'], 'USD'));
-    if (current !== null && noncurrent !== null) return current + noncurrent;
-    return latest(factValues(facts, ['LongTermDebtAndFinanceLeaseObligations', 'LongTermDebt'], 'USD'));
+const totalDebt = (facts: Record<string, unknown>): { value: number | null; periods: readonly string[] } => {
+    const current = latestFact(factValues(facts, ['LongTermDebtCurrent', 'LongTermDebtAndFinanceLeaseObligationsCurrent'], 'USD'));
+    const noncurrent = latestFact(factValues(facts, ['LongTermDebtNoncurrent', 'LongTermDebtAndFinanceLeaseObligationsNoncurrent'], 'USD'));
+    if (current && noncurrent) return { value: current.value + noncurrent.value, periods: [...new Set([current.end, noncurrent.end])].sort() };
+    const total = latestFact(factValues(facts, ['LongTermDebtAndFinanceLeaseObligations', 'LongTermDebt'], 'USD'));
+    return { value: total?.value ?? null, periods: total ? [total.end] : [] };
 };
 
 export const parseSecCompanyFacts = (payload: unknown): SecFundamentals => {
@@ -96,6 +96,8 @@ export const parseSecCompanyFacts = (payload: unknown): SecFundamentals => {
     const debt = totalDebt(usGaap);
     const shares = factValues(usGaap, ['EntityCommonStockSharesOutstanding', 'CommonStockSharesOutstanding'], 'shares');
     const sharePair = annualPair(shares, false);
+    const latestShares = latestFact(shares);
+    const latestCash = latestFact(factValues(usGaap, ['CashAndCashEquivalentsAtCarryingValue', 'CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents'], 'USD'));
     const revenueByPeriod = annualByEnd(revenue, true);
     const grossProfitByPeriod = annualByEnd(factValues(usGaap, ['GrossProfit'], 'USD'), true);
     const operatingIncomeByPeriod = annualByEnd(factValues(usGaap, ['OperatingIncomeLoss'], 'USD'), true);
@@ -137,17 +139,23 @@ export const parseSecCompanyFacts = (payload: unknown): SecFundamentals => {
     // A metric missing from that period stays unavailable rather than borrowing an older year.
     const current = history[0] ?? null;
     return {
+        metricProvenance: {
+            debt: { reportingPeriods: debt.periods, currency: 'USD' },
+            cash: { reportingPeriods: latestCash ? [latestCash.end] : [], currency: 'USD' },
+            shares: { reportingPeriods: latestShares ? [latestShares.end] : [], currency: null },
+            shareChange: { reportingPeriods: sharePair ? [sharePair[1].end, sharePair[0].end] : [], currency: null },
+        },
         revenueGrowthPercent: current?.revenueGrowthPercent ?? null,
         grossMarginPercent: current?.grossMarginPercent ?? null,
         operatingMarginPercent: current?.operatingMarginPercent ?? null,
         freeCashFlow: current?.freeCashFlow ?? null,
-        debt,
-        cash: latest(factValues(usGaap, ['CashAndCashEquivalentsAtCarryingValue', 'CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents'], 'USD')),
-        shares: latest(shares),
+        debt: debt.value,
+        cash: latestCash?.value ?? null,
+        shares: latestShares?.value ?? null,
         annualRevenue: current?.annualRevenue ?? null,
         annualNetIncome: current?.annualNetIncome ?? null,
         reportingPeriod: current?.reportingPeriod ?? null,
-        shareChangePercent: sharePair === null || sharePair[1] === 0 ? null : Number((((sharePair[0] - sharePair[1]) / Math.abs(sharePair[1])) * 100).toFixed(1)),
+        shareChangePercent: sharePair === null || sharePair[1].value === 0 ? null : Number((((sharePair[0].value - sharePair[1].value) / Math.abs(sharePair[1].value)) * 100).toFixed(1)),
         source: 'SEC EDGAR',
         history,
     };
@@ -195,6 +203,6 @@ const fetchAndNormalizeSecFundamentals = async (symbol: string): Promise<SecFund
 
 export const fetchSecFundamentals = unstable_cache(
     fetchAndNormalizeSecFundamentals,
-    ['sec-fundamentals-v2-history'],
+    ['sec-fundamentals-v3-provenance'],
     { revalidate: 21600 },
 );

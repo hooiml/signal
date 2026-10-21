@@ -1,10 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-
-// Only same-origin absolute paths are accepted as the post-unlock destination.
-const safeDestination = (value: string | null): string =>
-    value && value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\') ? value : '/research';
+import { safeOwnerReturnPath } from '@/lib/owner-access-client';
 
 export default function UnlockPage() {
     const [secret, setSecret] = useState('');
@@ -28,7 +25,7 @@ export default function UnlockPage() {
                 return;
             }
             setSecret('');
-            window.location.assign(safeDestination(new URLSearchParams(window.location.search).get('next')));
+            window.location.assign(safeOwnerReturnPath(new URLSearchParams(window.location.search).get('next')));
         } catch {
             setStatus('error');
             setMessage('Signal could not reach the server.');

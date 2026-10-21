@@ -32,6 +32,7 @@ export type ResearchWatchlistItem = {
     positionState: 'owned' | 'not-owned';
     inBuyZone: boolean;
     price?: number;
+    quoteCurrency?: string | null;
     dailyChange?: number;
     status: ResearchStatus;
     targetBuyZone: string;

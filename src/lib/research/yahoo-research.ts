@@ -24,7 +24,7 @@ export type YahooResearchResult = {
     };
 };
 
-export type YahooQuoteResult = Pick<YahooResearchResult, 'name' | 'currency' | 'price' | 'dailyChangePercent'>;
+export type YahooQuoteResult = Pick<YahooResearchResult, 'name' | 'currency' | 'price' | 'dailyChangePercent' | 'observedAt'>;
 
 const objectValue = (value: unknown): Record<string, unknown> | null =>
     typeof value === 'object' && value !== null && !Array.isArray(value) ? Object.fromEntries(Object.entries(value)) : null;
@@ -153,6 +153,6 @@ export const fetchYahooResearchChart = async (symbol: string, market: ResearchMa
 
 export const fetchYahooQuote = async (symbol: string, market: ResearchMarket): Promise<YahooQuoteResult> => {
     const providerSymbol = toYahooSymbol(symbol, market);
-    const { name, currency, price, dailyChangePercent } = parseYahooResearchChart(await fetchYahooChart(providerSymbol, '5d'));
-    return { name, currency, price, dailyChangePercent };
+    const { name, currency, price, dailyChangePercent, observedAt } = parseYahooResearchChart(await fetchYahooChart(providerSymbol, '5d'));
+    return { name, currency, price, dailyChangePercent, observedAt };
 };

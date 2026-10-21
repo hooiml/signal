@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireOwnerAccess } from '@/lib/owner-access';
 import {
     deleteStoredResearchExpectationEvent,
     listStoredResearchExpectationEvents,
@@ -10,7 +11,9 @@ export const dynamic = 'force-dynamic';
 
 type RouteContext = { params: Promise<{ ticker: string }> };
 
-export const GET = async (_request: Request, context: RouteContext) => {
+export const GET = async (request: Request, context: RouteContext) => {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     try {
         const { ticker } = await context.params;
         const events = await listStoredResearchExpectationEvents(ticker);
@@ -21,6 +24,8 @@ export const GET = async (_request: Request, context: RouteContext) => {
 };
 
 export const POST = async (request: Request, context: RouteContext) => {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     try {
         const { ticker } = await context.params;
         const payload = await request.json();
@@ -32,6 +37,8 @@ export const POST = async (request: Request, context: RouteContext) => {
 };
 
 export const DELETE = async (request: Request, context: RouteContext) => {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     try {
         const { ticker } = await context.params;
         const url = new URL(request.url);

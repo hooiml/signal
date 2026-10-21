@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
+import { requireOwnerAccess } from '@/lib/owner-access';
 import { listStoredDecisionCalibrations, saveStoredDecisionCalibration } from '@/lib/research/research-decision-calibration-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export const GET = async (_request: Request, context: { params: Promise<{ ticker: string }> }) => {
+export const GET = async (request: Request, context: { params: Promise<{ ticker: string }> }) => {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     try {
         const { ticker } = await context.params;
         return NextResponse.json({ success: true, data: await listStoredDecisionCalibrations(ticker) });
@@ -14,6 +17,8 @@ export const GET = async (_request: Request, context: { params: Promise<{ ticker
 };
 
 export const POST = async (request: Request, context: { params: Promise<{ ticker: string }> }) => {
+    const denied = await requireOwnerAccess(request);
+    if (denied) return denied;
     try {
         const { ticker } = await context.params;
         const payload = await request.json();

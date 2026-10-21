@@ -1,5 +1,6 @@
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import { calculateResearchDecision } from '@/lib/research/records';
+import { formatResearchPrice } from '@/lib/research/price-format';
 
 export type ResearchActionV6 = 'Ready' | 'DCA' | 'Wait for price' | 'Watch' | 'Avoid';
 export type ResearchTabV6 = 'overview' | 'fundamentals' | 'valuation' | 'events' | 'chart' | 'technical';
@@ -112,6 +113,5 @@ export const getChecklistCountV6 = (item: ResearchWatchlistItem) =>
 export const getResearchActionV6 = (item: ResearchWatchlistItem): ResearchActionV6 => calculateResearchDecision(item);
 
 export const formatPriceV6 = (item: ResearchWatchlistItem) => {
-    if (item.price === undefined) return '--';
-    return item.market === 'US' ? '$' + item.price.toFixed(2) : item.price.toFixed(2);
+    return formatResearchPrice(item.price ?? null, item.quoteCurrency);
 };

@@ -20,6 +20,10 @@ export type MarketReplayComponent = {
     readonly weight: number | null;
     readonly signal: string | null;
     readonly lastUpdated: string | null;
+    /** Absent in older API responses; absence means the provenance was not recorded. */
+    readonly timestampBasis?: 'observed' | 'retrieved' | null;
+    readonly retrievedAt?: string | null;
+    readonly unit?: string | null;
 };
 
 export type MarketReplaySnapshot = {
@@ -85,7 +89,10 @@ const parseComponent = (value: unknown): MarketReplayComponent => {
         || (value.score !== null && (typeof value.score !== 'number' || !Number.isFinite(value.score)))
         || (value.weight !== null && (typeof value.weight !== 'number' || !Number.isFinite(value.weight)))
         || (value.signal !== null && typeof value.signal !== 'string')
-        || (value.lastUpdated !== null && typeof value.lastUpdated !== 'string')) {
+        || (value.lastUpdated !== null && typeof value.lastUpdated !== 'string')
+        || (value.timestampBasis !== undefined && value.timestampBasis !== null && value.timestampBasis !== 'observed' && value.timestampBasis !== 'retrieved')
+        || (value.retrievedAt !== undefined && value.retrievedAt !== null && (typeof value.retrievedAt !== 'string' || !Number.isFinite(Date.parse(value.retrievedAt))))
+        || (value.unit !== undefined && value.unit !== null && typeof value.unit !== 'string')) {
         throw new Error('Invalid replay component.');
     }
     return {
@@ -96,6 +103,9 @@ const parseComponent = (value: unknown): MarketReplayComponent => {
         weight: value.weight,
         signal: value.signal,
         lastUpdated: value.lastUpdated,
+        timestampBasis: value.timestampBasis ?? null,
+        retrievedAt: value.retrievedAt ?? (value.timestampBasis === 'retrieved' && value.lastUpdated && Number.isFinite(Date.parse(value.lastUpdated)) ? value.lastUpdated : null),
+        unit: value.unit ?? null,
     };
 };
 

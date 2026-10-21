@@ -16,6 +16,19 @@ const isNullableNumber = (value: unknown) =>
 
 const isNullableString = (value: unknown) => value === null || typeof value === 'string';
 
+const isReportingDate = (value: unknown): value is string => typeof value === 'string'
+    && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value))
+    && new Date(value).toISOString().slice(0, 10) === value;
+
+const isMetricProvenance = (value: unknown) => isRecord(value)
+    && ['debt', 'cash', 'shares', 'shareChange'].every(key => {
+        const metric = value[key];
+        return isRecord(metric) && Array.isArray(metric.reportingPeriods) && metric.reportingPeriods.length <= 2
+            && metric.reportingPeriods.every(isReportingDate)
+            && new Set(metric.reportingPeriods).size === metric.reportingPeriods.length
+            && (metric.currency === null || (typeof metric.currency === 'string' && /^[A-Za-z]{3}$/.test(metric.currency)));
+    });
+
 const isResearchQuote = (value: unknown): value is ResearchSnapshot['quote'] => {
     if (!isRecord(value)) return false;
     const classification = value.classification;
@@ -25,6 +38,7 @@ const isResearchQuote = (value: unknown): value is ResearchSnapshot['quote'] => 
         && isNullableString(classification.sector) && isNullableString(classification.industry)
         && typeof classification.retrievedAt === 'string' && Number.isFinite(Date.parse(classification.retrievedAt)));
     return validClassification && (value.instrumentType === undefined || isNullableString(value.instrumentType))
+        && (value.observedAt === undefined || value.observedAt === null || (typeof value.observedAt === 'string' && Number.isFinite(Date.parse(value.observedAt))))
         && isNullableString(value.name)
         && isNullableString(value.currency)
         && hasNullableNumbers(value, ['price', 'dailyChangePercent']);
@@ -95,6 +109,7 @@ const isResearchSnapshot = (value: unknown): value is ResearchSnapshot => {
             'revenueGrowthPercent', 'grossMarginPercent', 'operatingMarginPercent', 'freeCashFlow',
             'debt', 'cash', 'shares', 'annualRevenue', 'annualNetIncome', 'shareChangePercent',
         ])
+        && (value.fundamentals.metricProvenance === undefined || isMetricProvenance(value.fundamentals.metricProvenance))
         && isNullableString(value.fundamentals.reportingPeriod)
         && (value.fundamentals.source === null || value.fundamentals.source === 'SEC EDGAR' || value.fundamentals.source === 'Yahoo Finance')
         && Array.isArray(value.fundamentals.history)
