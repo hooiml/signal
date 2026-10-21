@@ -13,10 +13,13 @@ const routes = {
     '/research-v8': { version: 8, experience: 'Research' },
 } as const;
 
+// Earlier UI versions stay reachable from V8 only when this build opts in.
+const showV8Versions = process.env.NEXT_PUBLIC_SIGNAL_UI_VERSIONS === '1';
+
 export function VersionSwitcher({ placement = 'top' }: { placement?: 'top' | 'footer' } = {}) {
     const pathname = usePathname();
     const current = routes[pathname as keyof typeof routes];
-    if (!current || (current.version === 8 && placement === 'top') || (current.version !== 8 && placement === 'footer')) return null;
+    if (!current || (current.version === 8 && (placement === 'top' || !showV8Versions)) || (current.version !== 8 && placement === 'footer')) return null;
 
     const prefix = current.experience === 'Research' ? 'research' : 'main';
     return <nav className={`${styles.bar} ${placement === 'footer' ? styles.footer : ''}`} aria-label="UI versions">

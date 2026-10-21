@@ -70,7 +70,7 @@ try {
  }
  async function noOverflow(){assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Overflow ${width}`);}
  await page.goto(`${base}/research-v8?ticker=AAPL&market=US`);
- await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 200');assert.equal(posts.length,0);
+ await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 200.00');assert.equal(posts.length,0);
  // Name search never navigates or saves until a result is explicitly selected.
  const searchInput=page.getByLabel('Company or ticker',{exact:true});
  const find=()=>page.getByRole('button',{name:'Find security',exact:true}).click();
@@ -79,7 +79,7 @@ try {
  assert.equal(await page.locator('h1').innerText(),'Fixture AAPL');assert.equal(posts.length,0);
  await noOverflow();await page.screenshot({path:`${out}/lookup-${width}.png`,fullPage:true});
  await results.getByRole('button',{name:/Apple Inc/}).focus();await page.keyboard.press('Enter');await heading('Growth and positive earnings reported');assert.equal(await results.count(),0);
- await searchInput.fill('Tenaga');await page.getByLabel('Lookup market',{exact:true}).selectOption('MY');await find();await results.getByRole('button',{name:/Tenaga/}).click();await heading('Growth and positive earnings reported');assert.equal(await page.locator('h1').innerText(),'Fixture 5347.KL');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200');assert.equal(posts.length,0);
+ await searchInput.fill('Tenaga');await page.getByLabel('Lookup market',{exact:true}).selectOption('MY');await find();await results.getByRole('button',{name:/Tenaga/}).click();await heading('Growth and positive earnings reported');assert.equal(await page.locator('h1').innerText(),'Fixture 5347.KL');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200.00');assert.equal(posts.length,0);
  await searchInput.fill('No results');await find();await page.getByText(/No supported listings found/).waitFor();assert.equal(await page.locator('h1').innerText(),'Fixture 5347.KL');
  searchFails=true;await searchInput.fill('Apple');await page.getByLabel('Lookup market',{exact:true}).selectOption('US');await find();await page.getByRole('alert').filter({hasText:'Security search is unavailable'}).waitFor();searchFails=false;await find();await results.getByRole('button',{name:/Apple Inc/}).waitFor();
  // A late search must not replace a new query/market or direct selection.
@@ -90,7 +90,7 @@ try {
  const formBoxes=await page.getByRole('form',{name:'Security lookup'}).locator('input,select,button').evaluateAll(nodes=>nodes.map(node=>{const b=node.getBoundingClientRect();return {x:b.x,y:b.y,width:b.width,height:b.height}}));
  for(let i=0;i<formBoxes.length;i++)for(let j=i+1;j<formBoxes.length;j++){const a=formBoxes[i],b=formBoxes[j];assert.ok(a.x+a.width<=b.x+1||b.x+b.width<=a.x+1||a.y+a.height<=b.y+1||b.y+b.height<=a.y+1,'Lookup controls overlap');}
  const assessment=page.getByRole('region',{name:'Current research assessment',exact:true});
- await assessment.getByText('3 of 3 financial inputs',{exact:true}).waitFor();
+ await page.getByRole('region',{name:'Financial assessment status',exact:true}).getByText('3 of 3 financial inputs',{exact:true}).waitFor();
  await assessment.getByText(/Reading limits:/).waitFor();
  assert.equal(await assessment.getByText(/No new financial evidence/).count(),0);
  await page.getByRole('button',{name:'Refresh provider data',exact:true}).click();
@@ -98,27 +98,27 @@ try {
  revisedIncome=true;await page.getByRole('button',{name:'Refresh provider data',exact:true}).click();
  await assessment.getByText(/Financial summary inputs changed/).waitFor();await heading('Growth and positive earnings reported');
  providerFails=true;await page.getByRole('button',{name:'Refresh provider data',exact:true}).click();
- await heading('Provider refresh failed · assessment limited');assert.equal(await assessment.getByText(/Financial summary inputs changed/).count(),0);assert.equal(await page.getByTestId('research-price').innerText(),'USD 200');
+ await heading('Provider refresh failed · assessment limited');assert.equal(await assessment.getByText(/Financial summary inputs changed/).count(),0);assert.equal(await page.getByTestId('research-price').innerText(),'USD 200.00');
  providerFails=false;revisedIncome=false;await page.getByRole('button',{name:'Retry provider data',exact:true}).click();await heading('Growth and positive earnings reported');
  const geometry=await assessment.locator('h2,h3,button,summary,p,li').evaluateAll(nodes=>nodes.filter(n=>n.getClientRects().length).map(n=>{const r=n.getBoundingClientRect();return {text:n.textContent.slice(0,45),left:r.left,right:r.right,width:r.width};}));
  assert.ok(geometry.every(r=>r.left>=-1&&r.right<=width+1),'Assessment content outside viewport');
- await read('5347','MY');await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200');assert.equal(posts.length,0);await page.getByRole('tab',{name:'Financials',exact:true}).click();await page.locator('dd').filter({hasText:/^MYR 1,000$/}).waitFor();
- await read('PARTIAL');await heading('Partial financial picture');assert.equal(await page.getByTestId('research-price').innerText(),'USD 200');
+ await read('5347','MY');await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200.00');assert.equal(posts.length,0);await page.getByRole('tab',{name:'Financials',exact:true}).click();await page.locator('dd').filter({hasText:/^MYR 1,000$/}).waitFor();
+ await read('PARTIAL');await heading('Partial financial picture');assert.equal(await page.getByTestId('research-price').innerText(),'USD 200.00');
  await read('MISSING');await heading('Not enough financial data');await page.getByRole('region',{name:'Financial assessment status',exact:true}).getByText('Insufficient evidence',{exact:true}).waitFor();
  await page.getByRole('button',{name:'Refresh provider data',exact:true}).click();await assessment.getByText(/Insufficient financial evidence returned/).waitFor();assert.equal(await assessment.getByText(/No new financial evidence/).count(),0);
- await read('OLD');await heading('Older data · assessment limited');await assessment.getByText('Data needs updating',{exact:true}).waitFor();
+ await read('OLD');await heading('Older data · assessment limited');await page.getByRole('region',{name:'Financial assessment status',exact:true}).getByText('Data needs updating',{exact:true}).waitFor();
  for(const symbol of ['VOO','MAYBANK','UNKNOWN']){await read(symbol,symbol==='MAYBANK'?'MY':'US');await heading('Assessment not supported for this security');assert.match(await page.getByTestId('research-price').innerText(),/200/);await page.getByRole('tab',{name:'Financials',exact:true}).click();await page.getByRole('heading',{name:'Business performance'}).waitFor();}
  await read('WRONG');await heading('Provider refresh failed · assessment limited');assert.equal(await page.getByTestId('research-price').innerText(),'Unavailable');
  await read('SLOW');await page.waitForFunction(()=>document.querySelector('h1')?.textContent==='SLOW');assert.equal(await page.getByTestId('research-price').innerText(),'Loading…');await page.waitForTimeout(100);assert.equal(held,true);
- await read('MSFT');await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');release();await page.waitForTimeout(150);assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');assert.equal(await page.locator('h1').innerText(),'Fixture MSFT');
- saveFails=true;await page.getByRole('button',{name:'Save security',exact:true}).click();await page.getByRole('alert').filter({hasText:'could not be saved'}).waitFor();assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');saveFails=false;
+ await read('MSFT');await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 400.00');release();await page.waitForTimeout(150);assert.equal(await page.getByTestId('research-price').innerText(),'USD 400.00');assert.equal(await page.locator('h1').innerText(),'Fixture MSFT');
+ saveFails=true;await page.getByRole('button',{name:'Save security',exact:true}).click();await page.getByRole('alert').filter({hasText:'could not be saved'}).waitFor();assert.equal(await page.getByTestId('research-price').innerText(),'USD 400.00');saveFails=false;
  await page.getByRole('button',{name:'Save security',exact:true}).click();await page.getByRole('button',{name:'Save security',exact:true}).waitFor({state:'detached'});assert.equal(posts.length,2);assert.deepEqual(posts[1],{symbol:'MSFT',market:'US',companyName:'Fixture MSFT',saveOnly:true});
  await page.getByRole('button',{name:'Saved research',exact:true}).click();await page.getByRole('button',{name:'Advanced tools',exact:true}).click();await page.getByText('No personal review recorded.',{exact:true}).waitFor();assert.ok((await page.getByRole('tab',{name:'Review',exact:true}).count())===1);
  await page.getByRole('tab',{name:'Review',exact:true}).click();await page.getByRole('heading',{name:'Your working note',exact:true}).waitFor();await noOverflow();
  // A late list read must not discard an explicit save completed in the meantime.
  list=[];listHold=true;await page.goto(`${base}/research-v8?ticker=AAPL&market=US`);await heading('Growth and positive earnings reported');await page.getByRole('button',{name:'Save security',exact:true}).click();await page.getByRole('button',{name:'Save security',exact:true}).waitFor({state:'detached'});releaseList();listHold=false;await page.waitForTimeout(150);assert.equal(await page.getByRole('button',{name:'Save security',exact:true}).count(),0);
  // Failed saved-list reads cannot block independent provider evidence.
- watchlistFails=true;await page.goto(`${base}/research-v8?ticker=5347&market=MY`);await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200');
+ watchlistFails=true;await page.goto(`${base}/research-v8?ticker=5347&market=MY`);await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200.00');const savedWarning=page.getByText(/Saved research could not be refreshed/);await savedWarning.waitFor();watchlistFails=false;await savedWarning.getByRole('button',{name:'Retry',exact:true}).click();await savedWarning.waitFor({state:'detached'});watchlistFails=true;
  // Legacy links must resolve an exact saved market before any provider request.
  const legacyRecord=(symbol,market)=>({...structuredClone(saved),symbol,market,companyName:`Saved ${symbol}`});
  const unresolved=page.getByRole('region',{name:'Resolve security market',exact:true});
@@ -132,7 +132,7 @@ try {
  }
  await holdLegacy('CIMB',[legacyRecord('CIMB','MY')]);await noOverflow();await page.screenshot({path:`${out}/legacy-pending-${width}.png`,fullPage:true});
  listHold=false;releaseList();await heading('Growth and positive earnings reported');
- assert.deepEqual(providerReads,[{symbol:'CIMB',market:'MY'}]);assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200');
+ assert.deepEqual(providerReads,[{symbol:'CIMB',market:'MY'}]);assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200.00');
  assert.equal(new URL(page.url()).searchParams.get('market'),'MY');assert.equal(new URL(page.url()).searchParams.get('source'),'legacy');
  assert.equal(await page.getByRole('tab',{name:'Financials',exact:true}).getAttribute('aria-selected'),'true');
  // Canonicalized legacy URLs preserve the resolved market even when a later reload fails.
@@ -156,9 +156,9 @@ try {
  // A delayed saved response must resolve the current selection, not an older deep link.
  await holdLegacy('CIMB',[legacyRecord('CIMB','MY')]);await read('MSFT','US');await heading('Growth and positive earnings reported');
  listHold=false;releaseList();await page.waitForTimeout(150);assert.equal(await page.locator('h1').innerText(),'Fixture MSFT');assert.deepEqual(providerReads,[{symbol:'MSFT',market:'US'}]);
- await page.goBack();await page.getByRole('heading',{name:'Saved CIMB',exact:true}).waitFor();await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200');assert.equal(new URL(page.url()).searchParams.get('market'),'MY');
+ await page.goBack();await page.getByRole('heading',{name:'Saved CIMB',exact:true}).waitFor();await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200.00');assert.equal(new URL(page.url()).searchParams.get('market'),'MY');
  watchlistFails=true;providerReads.length=0;await page.reload();await heading('Growth and positive earnings reported');assert.deepEqual(providerReads,[{symbol:'CIMB',market:'MY'}]);
- await page.goForward();await page.getByRole('heading',{name:'Fixture MSFT',exact:true}).waitFor();await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 400');
+ await page.goForward();await page.getByRole('heading',{name:'Fixture MSFT',exact:true}).waitFor();await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 400.00');
  // Unambiguous Malaysian ticker forms retain independent reads during a list failure.
  watchlistFails=true;
  for(const symbol of ['5347','5347.KL','MAYBANK','KLCI']) {
@@ -167,7 +167,7 @@ try {
  await page.goto(`${base}/main-v8`);
  await page.getByText('How to read this assessment · supporting inputs and limits',{exact:true}).click();
  await page.getByRole('region',{name:'Current market assessment',exact:true}).waitFor();
- marketScoreCase='unchanged';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/Score unchanged.*Individual inputs can still differ/}).waitFor();
+ marketScoreCase='unchanged';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/Score unchanged.*Individual inputs can still differ/}).waitFor();await page.getByTestId('market-hero-unchanged').filter({hasText:/^No change since /}).waitFor();assert.equal(await page.getByRole('region',{name:'Market assessment'}).getByRole('button',{name:/points vs/}).count(),0);
  marketScoreCase='missing';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/No earlier comparable score supplied/}).waitFor();
  marketScoreCase='normal';await page.getByLabel('Market',{exact:true}).selectOption('MY');
  await page.locator('[data-indicator="vix"]').filter({hasText:'US VIX (FX proxy unavailable)'}).waitFor();
