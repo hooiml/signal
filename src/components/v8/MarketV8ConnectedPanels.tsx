@@ -1,9 +1,10 @@
 'use client';
 
 import { hasRetrievalTimestamp } from '@/lib/market-evidence-coverage';
-import { useMemo, type Dispatch, type SetStateAction } from 'react';
+import { useMemo, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { getIndicatorBaseWeights, INDICATOR_REGISTRY } from '@/lib/indicator-registry';
 import { simulateMarketScore } from '@/lib/market-sensitivity';
+import { marketReadingLabel, marketTimestampLabel } from '@/lib/market-display';
 import { formatRawValue, getIndicatorCadence } from '@/components/v2/cockpit-utils';
 import type { IndicatorData, MarketSignal } from '@/lib/types/signal-v2';
 import styles from './market-v8.module.css';
@@ -13,6 +14,15 @@ import { fullDate, formatMarketDates } from './MarketV8ConnectedData';
 type Point = { date: string; value: number };
 export type ScenarioState = { overrides: Record<string, number>; baseline: MarketSignal | null; selectedKey: string };
 export const emptyScenario = (): ScenarioState => ({ overrides: {}, baseline: null, selectedKey: '' });
+export type IndicatorHistoryState = {
+    readonly loading: boolean;
+    readonly error: string;
+    readonly loaded: number;
+    readonly pending: number;
+    readonly failed: number;
+    readonly unavailable: number;
+    readonly total: number;
+};
 
 type ConnectedPanelsProps = {
     readonly advanced?: boolean;
@@ -30,6 +40,8 @@ type ConnectedIndicatorProps = {
     readonly onClose: () => void;
     /** Raw observations from the signal history endpoint, when the parent has them. */
     readonly history?: readonly (readonly Point[])[];
+    readonly historyState: IndicatorHistoryState;
+    readonly onRetryHistory: () => void;
     readonly sourceEnabled?: boolean;
 };
 
@@ -123,6 +135,7 @@ function freshnessStatus(signal: MarketSignal, indicator: IndicatorData | undefi
     if (!indicator) return 'No supplied input';
     if (hasRetrievalTimestamp(indicator)) return 'Observation date unavailable';
     if (indicator.enabled === false) return 'Disabled';
+    if (indicator.metadata?.timestamp_basis !== 'observed') return 'Observation freshness unknown';
     const staleAfterDays = INDICATOR_REGISTRY[key]?.staleAfterDays;
     const snapshotDate = signal.metadata.score_delta?.snapshot_date;
     if (!snapshotDate) return 'Freshness unavailable';
@@ -148,9 +161,9 @@ function Unavailable({ title, detail = unavailableText }: { title: string; detai
     return <div className={styles.unavailable}><h2>{title}</h2><p>{detail}</p></div>;
 }
 
-function RawHistoryChart({ groups }: { groups: readonly (readonly Point[])[] }) {
+function RawHistoryChart({ groups, unit }: { groups: readonly (readonly Point[])[]; unit?: string }) {
     const points = groups.flat();
-    if (!points.length) return <div className={styles.unavailable}><b>Raw history unavailable</b><small>No replacement observations are inferred.</small></div>;
+    if (!points.length) return null;
     const values = points.map((point) => point.value);
     const min = Math.min(...values);
     const max = Math.max(...values);
@@ -166,13 +179,33 @@ function RawHistoryChart({ groups }: { groups: readonly (readonly Point[])[] }) 
     const path = locations.map((point, index) => `${starts.has(points[index].date) ? 'M' : 'L'}${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ');
     const latest = points.at(-1)!;
     return <div className={styles.chart} aria-label="Archived raw readings">
-        <div className={styles.chartTopline}><span>All loaded archive segments · gaps retained</span><output>{formatDate(latest.date)} <b>{latest.value.toFixed(2)}</b></output></div>
+        <div className={styles.chartTopline}><span>Snapshot dates · gaps retained</span><output>{formatDate(latest.date)} <b>{latest.value.toFixed(2)} {unit ?? '· unit unverified'}</b></output></div>
         <svg className={styles.sparkline} viewBox="-3 -3 166 50" role="img" aria-label={`Archived raw readings through ${formatDate(latest.date)}`}><path d={path} fill="none" stroke="currentColor" strokeWidth="2" />{locations.map((point,index)=><circle key={points[index].date} cx={point.x} cy={point.y} r="2" fill="currentColor" />)}</svg>
         <div className={styles.chartDates}><span>{formatDate(points[0].date)}</span><span>{formatDate(latest.date)}</span></div>
     </div>;
 }
 
-export function ConnectedIndicator({ signal, indicatorKey, onClose, history, sourceEnabled = true, advanced = false }: ConnectedIndicatorProps) {
+function IndicatorHistory({ groups, state, onRetry, unit }: { groups: readonly (readonly Point[])[]; state: IndicatorHistoryState; onRetry: () => void; unit?: string }) {
+    const readingCount = groups.reduce((count, group) => count + group.length, 0);
+    const hasPoints = readingCount > 0;
+    const readingsLabel = `${readingCount} archived reading${readingCount === 1 ? '' : 's'}`;
+    const message = state.loading
+        ? hasPoints ? state.pending > 0 ? `Showing ${readingsLabel}; ${state.pending} archive date${state.pending === 1 ? '' : 's'} still loading.` : 'Refreshing archive; showing previously loaded history.' : 'Loading archived readings…'
+        : state.error
+            ? hasPoints ? 'Showing previously loaded history. Some archived records could not be loaded.' : 'Archived readings could not be loaded.'
+            : hasPoints ? `Showing ${readingsLabel}.`
+                : state.total === 0 ? 'No archived readings have been stored.'
+                    : 'No comparable raw readings are available in the loaded snapshots.';
+    return <section className={styles.indicatorHistory} aria-label="Indicator history">
+        <h3>Archived readings</h3>
+        <p role="status" aria-live="polite">{message}{state.failed > 0 ? ` ${state.failed} archive date${state.failed === 1 ? '' : 's'} failed.` : ''}{state.unavailable > 0 ? ` ${state.unavailable} date${state.unavailable === 1 ? ' has' : 's have'} a stored score only.` : ''}</p>
+        <button className={styles.secondaryButton} aria-disabled={state.loading} onClick={() => { if (!state.loading) onRetry(); }}>{state.loading ? 'Loading history…' : state.error ? 'Retry history' : hasPoints ? 'Reload history' : 'Check history again'}</button>
+        {hasPoints && <RawHistoryChart groups={groups} unit={unit} />}
+        {!state.loading && !state.error && !hasPoints && state.total > 0 && <p className={styles.muted}>The indicator or its comparable unit may be absent from these snapshots. A score alone cannot supply a raw reading.</p>}
+    </section>;
+}
+
+export function ConnectedIndicator({ signal, indicatorKey, onClose, history, historyState, onRetryHistory, sourceEnabled = true, advanced = false }: ConnectedIndicatorProps) {
     const indicator = signal.components[indicatorKey];
     const driver = signal.metadata.score_drivers?.find((item) => item.key === indicatorKey);
     const registry = INDICATOR_REGISTRY[indicatorKey];
@@ -184,12 +217,13 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, sou
     const sourceUrls = safeHttpUrls(indicator?.metadata?.source_url);
     const sourceBlend = indicator?.metadata?.source_breakdown;
     const status = freshnessStatus(signal, indicator, indicatorKey);
+    const historyPanel = <IndicatorHistory groups={historyGroups} state={historyState} onRetry={onRetryHistory} unit={indicator?.metadata?.unit} />;
     const interpretationNotes = [modeText(signal, indicatorKey), advanced ? driver?.detail : undefined, indicator?.metadata?.mode_note]
         .filter((text): text is string => !!text)
         .filter((text, index, notes) => notes.findIndex(note => note.trim().replace(/\s+/g, ' ') === text.trim().replace(/\s+/g, ' ')) === index);
 
     if (!indicator) {
-        return <><div className={styles.railHeading}><span className={styles.eyebrow}>Indicator detail</span><button onClick={onClose} aria-label="Close indicator detail" className={styles.closeButton}>×</button></div><h2>{registry?.displayName ?? indicatorKey}</h2><Unavailable title={(indicatorKey === 'social' || indicatorKey === 'news') && !sourceEnabled ? 'Input switched off' : 'Current value unavailable'} detail={missingInputExplanation(indicatorKey, sourceEnabled)} /><p className={styles.muted}>The current raw value, normalized score and observation date remain unavailable.</p>{rawHistory.length > 0 && <><p className={styles.muted}>Historical readings only · these snapshots do not supply a current value.</p><RawHistoryChart groups={historyGroups} /></>}<p className={styles.muted}>Review source coverage for the existing model’s missing-input accounting.</p></>;
+        return <><div className={styles.railHeading}><span className={styles.eyebrow}>Indicator detail</span><button onClick={onClose} aria-label="Close indicator detail" className={styles.closeButton}>×</button></div><h2>{registry?.displayName ?? indicatorKey}</h2><Unavailable title={(indicatorKey === 'social' || indicatorKey === 'news') && !sourceEnabled ? 'Input switched off' : 'Current value unavailable'} detail={missingInputExplanation(indicatorKey, sourceEnabled)} /><p className={styles.muted}>The current raw value, normalized score and observation date remain unavailable.</p>{rawHistory.length > 0 && <p className={styles.muted}>Historical readings only · these snapshots do not supply a current value.</p>}{historyPanel}<p className={styles.muted}>Review source coverage for the existing model’s missing-input accounting.</p></>;
     }
 
     return <>
@@ -197,8 +231,12 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, sou
         <h2>{indicator?.display_name ?? driver?.name ?? registry?.displayName ?? indicatorKey}</h2>
         <div className={styles.tagLine}><span className={styles.tag}>{status}</span><span className={styles.muted}>{registry?.category ?? 'Unclassified'}</span></div>
         <div className={styles.rawValue}>{rawValue(indicator, driver, signal.metadata.market)} <small>{indicator ? '' : 'raw value'}</small></div>
-        <p className={styles.muted}>{hasRetrievalTimestamp(indicator) ? 'Retrieved' : 'Observed'} {formatDate(indicator?.last_updated ?? driver?.last_updated)}{indicator?.metadata?.timestamp_basis === 'observed' && indicator.metadata.retrieved_at ? ` · retrieved ${formatDate(indicator.metadata.retrieved_at)}` : ''} · {cadence(indicator, indicatorKey)} · horizon {horizon(indicator)}</p>
-        <RawHistoryChart groups={historyGroups} />
+        <dl className={`${styles.keyValues} ${styles.observationTimes}`}>
+            <div><dt>{indicator.metadata?.timestamp_basis === 'observed' ? 'Observed' : indicator.metadata?.timestamp_basis === 'retrieved' ? 'Retrieved' : 'Recorded time · basis unavailable'}</dt><dd>{marketTimestampLabel(indicator.last_updated)}</dd></div>
+            {indicator.metadata?.timestamp_basis !== 'retrieved' && indicator.metadata?.retrieved_at && <div><dt>Retrieved</dt><dd>{marketTimestampLabel(indicator.metadata.retrieved_at)}</dd></div>}
+        </dl>
+        <p className={styles.muted}>{cadence(indicator, indicatorKey)} · horizon {horizon(indicator)}</p>
+        {historyPanel}
 
         <details className={styles.disclosure} open={advanced}><summary>Scoring details</summary><dl className={styles.keyValues}>
             <div><dt>Normalized score</dt><dd>{scoreLabel(normalized)}</dd></div>
@@ -213,7 +251,6 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, sou
         <details className={styles.disclosure}><summary>Normalization rule</summary><p>{normalizationNote(indicatorKey)}</p><p className={styles.muted}>The displayed raw value, normalized score and contribution are read from the payload; this panel does not recompute the service score.</p></details>
         <h3>Source</h3>
         {sourceUrls.length ? <div>{sourceUrls.map((sourceUrl) => <p key={sourceUrl}><a className={styles.textButton} href={sourceUrl} target="_blank" rel="noreferrer">Open source record →</a></p>)}</div> : <p className={styles.muted}>{unavailableText}</p>}
-        {!rawHistory.length ? <p className={styles.muted}>No raw observation history is available. A score alone cannot supply historical readings.</p> : null}
     </>;
 }
 
@@ -221,6 +258,7 @@ function ChangePanel({ signal, onSelect }: { signal: MarketSignal; onSelect: Con
     const scoreDelta = signal.metadata.score_delta;
     const changes = signal.metadata.driver_changes ?? [];
     const hasDriverChanges = signal.metadata.driver_changes_available === true && changes.length > 0;
+    const comparisonAvailable = signal.metadata.driver_changes_available === true;
 
     return <>
         <SectionHeading eyebrow="What changed" title="Reported score changes" tag={formatMarketDates(scoreDelta?.label ?? 'Latest comparison')} />
@@ -228,7 +266,7 @@ function ChangePanel({ signal, onSelect }: { signal: MarketSignal; onSelect: Con
 
         <section className={styles.calibration} aria-label="Driver changes">
             <h3>Reported contribution changes</h3>
-            {hasDriverChanges ? <div className={styles.contextList}>{[...changes].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).map((change) => <button key={change.key} className={styles.contributor} onClick={(event) => onSelect(change.key, event.currentTarget)}><span>{change.name}</span><span className={styles.barTrack}><span className={change.delta < 0 ? styles.negativeBar : styles.positiveBar} style={{ width: `${Math.min(100, Math.abs(change.delta) * 10)}%` }} /></span><b className={change.delta < 0 ? styles.conflict : styles.support}>{signed(change.delta)}</b><span aria-hidden="true">↗</span></button>)}</div> : <div className={styles.unavailable}><b>Driver comparison unavailable.</b><p>{signal.metadata.driver_changes_available === false ? 'A comparable earlier indicator reading is unavailable.' : 'No comparable indicator changes are available.'}</p></div>}
+            {hasDriverChanges ? <div className={styles.contextList}>{[...changes].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).map((change) => <button key={change.key} className={styles.contributor} onClick={(event) => onSelect(change.key, event.currentTarget)}><span>{change.name}</span><span className={styles.barTrack} aria-hidden="true"><span className={change.delta < 0 ? styles.negativeBar : styles.positiveBar} style={{ width: `${Math.min(100, Math.abs(change.delta) * 10)}%` }} /></span><b>{signed(change.delta)} <small>pts</small></b><span aria-hidden="true">↗</span></button>)}</div> : <div className={styles.unavailable}><b>{comparisonAvailable ? 'No weighted-contribution changes.' : 'Driver comparison unavailable.'}</b><p>{comparisonAvailable ? 'Comparable inputs are available. Observation times, raw readings, or offsetting score and weight effects may still differ below.' : 'A comparable earlier indicator reading is unavailable.'}</p></div>}
         </section>
 
         <ChangeAccounting signal={signal} />
@@ -236,12 +274,40 @@ function ChangePanel({ signal, onSelect }: { signal: MarketSignal; onSelect: Con
 }
 
 const statusLabels = { changed: 'Changed', unchanged: 'Unchanged', 'became-available': 'Became available', 'became-unavailable': 'Became unavailable' } as const;
+type ChangeRow = NonNullable<MarketSignal['metadata']['change_reconciliation']>['components'][number];
 
-function observationText(row: NonNullable<MarketSignal['metadata']['change_reconciliation']>['components'][number]) {
-    if (row.status === 'became-available') return `New input · observed ${formatDate(row.current_observed_at)}`;
-    if (row.status === 'became-unavailable') return `No current reading · last observed ${formatDate(row.previous_observed_at)}`;
-    if (row.new_observation === null) return 'Observation timing unavailable for at least one snapshot';
-    return row.new_observation ? `New observation · ${formatDate(row.previous_observed_at)} → ${formatDate(row.current_observed_at)}` : `Same observation · ${formatDate(row.current_observed_at)}`;
+function observationText(row: ChangeRow) {
+    if (row.status === 'became-available') return 'Input became available in the current snapshot.';
+    if (row.status === 'became-unavailable') return 'No reading for this input in the current snapshot.';
+    if (row.previous_timestamp_basis !== 'observed' || row.current_timestamp_basis !== 'observed'
+        || !Number.isFinite(Date.parse(row.previous_observed_at ?? '')) || !Number.isFinite(Date.parse(row.current_observed_at ?? ''))) {
+        return 'Observation timing unavailable for at least one snapshot. Retrieval alone does not establish a new observation.';
+    }
+    switch (row.observation_change) {
+        case 'newer': return 'Newer observed reading.';
+        case 'older': return 'An older observed reading was returned.';
+        case 'different': return 'Raw value changed at the same observed timestamp.';
+        case 'same': return 'Same observed reading.';
+        default: return 'Observation timing unavailable for at least one snapshot. Retrieval alone does not establish a new observation.';
+    }
+}
+
+function ComparisonValues({ previous, current }: { previous: ReactNode; current: ReactNode }) {
+    return <dd className={styles.comparisonValues}><span><small>Previous</small><span>{previous}</span></span><span><small>Current</small><span>{current}</span></span></dd>;
+}
+
+function RawComparisonValue({ value, unit }: { value: number | null; unit: string | null | undefined }) {
+    return finiteNumber(value) ? <><b className={styles.metricNumber}>{value.toFixed(2)}</b> {unit ?? '· unit unavailable'}</> : 'Unavailable';
+}
+
+function RecordedClock({ row, side }: { row: ChangeRow; side: 'previous' | 'current' }) {
+    const basis = row[`${side}_timestamp_basis`];
+    const observed = row[`${side}_observed_at`];
+    const retrieved = row[`${side}_retrieved_at`];
+    const recorded = row[`${side}_last_updated`];
+    if (basis === 'observed') return <><span>Observed {marketTimestampLabel(observed)}</span>{retrieved && <span>Retrieved {marketTimestampLabel(retrieved)}</span>}</>;
+    if (basis === 'retrieved') return <><span>Retrieved {marketTimestampLabel(retrieved ?? recorded)}</span><span>Observation time unavailable</span></>;
+    return <><span>Timestamp basis unavailable</span>{(recorded ?? observed) && <span>Recorded {marketTimestampLabel(recorded ?? observed)}</span>}{retrieved && <span>Retrieved {marketTimestampLabel(retrieved)}</span>}</>;
 }
 
 function ChangeAccounting({ signal }: { signal: MarketSignal }) {
@@ -249,30 +315,48 @@ function ChangeAccounting({ signal }: { signal: MarketSignal }) {
     if (!accounting) {
         return <p className={styles.studyNotice}>Changes are in normalized-score × weight points. A complete accounting is unavailable: {signal.metadata.change_reconciliation_note ?? 'the earlier snapshot is missing the archived inputs needed to reconcile.'}</p>;
     }
-    const moved = accounting.components.filter(row => row.status !== 'unchanged');
+    // Earlier payloads may classify offsetting score/weight effects as unchanged.
+    const moved = accounting.components.filter(row => row.status !== 'unchanged' || row.previous_score !== row.current_score || row.previous_weight !== row.current_weight);
     const unchanged = accounting.components.length - moved.length;
-    return <section className={styles.calibration} aria-label="Complete score change accounting">
+    return <section className={`${styles.calibration} ${styles.changeAccounting}`} aria-label="Complete score change accounting">
         <h3>Complete accounting</h3>
-        <dl className={styles.keyValues}>
-            <div><dt>Component contributions</dt><dd>{signed(accounting.component_delta)} points</dd></div>
-            <div><dt>Neutral fallback for missing inputs</dt><dd>{signed(accounting.neutral_fallback.delta)} points</dd></div>
+        <dl className={`${styles.keyValues} ${styles.accountingTotals}`}>
+            <div><dt>Input contributions</dt><dd>{signed(accounting.component_delta)} points</dd></div>
+            <div><dt>Missing-input fallback</dt><dd>{signed(accounting.neutral_fallback.delta)} points</dd></div>
             <div><dt>Rounding and clamp residual</dt><dd>{signed(accounting.rounding_residual)} points</dd></div>
             <div><dt>Reported score delta</dt><dd>{signed(accounting.reported_delta, 0)} points</dd></div>
         </dl>
-        <p className={styles.muted}>Missing input weight {(accounting.neutral_fallback.previous_missing_weight * 100).toFixed(1)}% → {(accounting.neutral_fallback.current_missing_weight * 100).toFixed(1)}%, scored at the neutral 50. {accounting.weights_changed ? 'Applied weights changed between snapshots; weight effects are shown per input.' : 'Applied weights were unchanged.'} {accounting.model_version.changed === null ? 'The earlier snapshot did not record its model version.' : accounting.model_version.changed ? `Model version changed ${accounting.model_version.previous} → ${accounting.model_version.current}.` : `Model version ${accounting.model_version.current} in both snapshots.`}</p>
-        {moved.map(row => <details key={row.key} className={styles.disclosure}>
-            <summary>{row.name} · {statusLabels[row.status]} · {signed(row.delta)} points</summary>
-            <dl className={styles.keyValues}>
-                <div><dt>Raw value</dt><dd>{finiteNumber(row.previous_raw_value) ? row.previous_raw_value.toFixed(2) : 'Unavailable'} → {finiteNumber(row.current_raw_value) ? row.current_raw_value.toFixed(2) : 'Unavailable'}</dd></div>
-                <div><dt>Score</dt><dd>{scoreLabel(row.previous_score)} → {scoreLabel(row.current_score)}</dd></div>
-                <div><dt>Applied weight</dt><dd>{finiteNumber(row.previous_weight) ? `${(row.previous_weight * 100).toFixed(1)}%` : 'Not applied'} → {finiteNumber(row.current_weight) ? `${(row.current_weight * 100).toFixed(1)}%` : 'Not applied'}</dd></div>
-                {row.score_effect !== null && <div><dt>Score effect</dt><dd>{signed(row.score_effect)} points</dd></div>}
-                {row.weight_effect !== null && <div><dt>Weight effect</dt><dd>{signed(row.weight_effect)} points</dd></div>}
+        <details className={styles.disclosure}>
+            <summary>Fallback, applied weights and model</summary>
+            <dl className={`${styles.keyValues} ${styles.accountingValues}`}>
+                <div><dt>Missing input weight</dt><ComparisonValues previous={`${(accounting.neutral_fallback.previous_missing_weight * 100).toFixed(1)}%`} current={`${(accounting.neutral_fallback.current_missing_weight * 100).toFixed(1)}%`} /></div>
+                <div><dt>Neutral baseline</dt><dd>50 / 100 for missing weight</dd></div>
+                <div><dt>Applied weights</dt><dd>{accounting.weights_changed ? 'Changed; inspect each input below' : 'Unchanged'}</dd></div>
+                <div><dt>Model version</dt><ComparisonValues previous={accounting.model_version.previous ?? 'Not recorded'} current={accounting.model_version.current} /></div>
             </dl>
-            <p className={styles.muted}>{observationText(row)}</p>
-        </details>)}
+            <p>Missing-input fallback changed by {signed(accounting.neutral_fallback.delta)} points. This accounts for unavailable weight; it is not an observed neutral reading.</p>
+        </details>
+        {moved.map(row => {
+            const scoresChanged = row.previous_score !== row.current_score;
+            const weightsChanged = row.previous_weight !== row.current_weight;
+            const status = row.delta === 0 && (row.status === 'changed' || scoresChanged || weightsChanged)
+                ? `${scoresChanged && weightsChanged ? 'Score and weight changed' : 'Reading changed'} · net contribution unchanged`
+                : statusLabels[row.status];
+            return <details key={row.key} className={`${styles.disclosure} ${styles.changeRow}`}>
+                <summary><span>{row.name}<small>{status}</small></span><strong>{signed(row.delta)} points</strong><span aria-hidden="true">+</span></summary>
+                <dl className={`${styles.keyValues} ${styles.accountingValues}`}>
+                    <div><dt>Raw reading</dt><ComparisonValues previous={<RawComparisonValue value={row.previous_raw_value} unit={row.previous_unit} />} current={<RawComparisonValue value={row.current_raw_value} unit={row.current_unit} />} /></div>
+                    <div><dt>Normalized score</dt><ComparisonValues previous={scoreLabel(row.previous_score)} current={scoreLabel(row.current_score)} /></div>
+                    <div><dt>Applied weight</dt><ComparisonValues previous={finiteNumber(row.previous_weight) ? `${(row.previous_weight * 100).toFixed(1)}%` : 'Not applied'} current={finiteNumber(row.current_weight) ? `${(row.current_weight * 100).toFixed(1)}%` : 'Not applied'} /></div>
+                    {row.score_effect !== null && <div><dt>Score effect</dt><dd>{signed(row.score_effect)} points</dd></div>}
+                    {row.weight_effect !== null && <div><dt>Weight effect</dt><dd>{signed(row.weight_effect)} points</dd></div>}
+                    <div><dt>Source timestamps</dt><ComparisonValues previous={<RecordedClock row={row} side="previous" />} current={<RecordedClock row={row} side="current" />} /></div>
+                </dl>
+                <p>{observationText(row)}</p>
+            </details>;
+        })}
         {unchanged > 0 && <p className={styles.muted}>{unchanged} input{unchanged === 1 ? '' : 's'} unchanged between snapshots.</p>}
-        <p className={styles.studyNotice}>Points are normalized score × applied weight. Component, neutral-fallback and residual rows sum to the reported delta.</p>
+        <p className={styles.studyNotice}>Points are normalized score × applied weight. Input contributions, missing-input fallback and residual sum to the reported delta.</p>
     </section>;
 }
 
@@ -301,7 +385,7 @@ function EvidencePanel({ signal, onSelect, advanced }: { signal: MarketSignal; o
             const name = row.indicator?.display_name ?? row.driver?.name ?? row.registry?.displayName ?? row.key;
             const isActive = row.indicator?.enabled === true;
             const status = !row.indicator ? 'Reserve' : isActive ? 'Active' : 'Disabled';
-            const button = <button className={styles.evidenceButton} onClick={(event) => onSelect(row.key, event.currentTarget)}><span><b>{name}</b><small>{advanced ? `${status} · ${configuredWeightLabel(signal)} ${row.configuredWeight === null ? 'Unavailable' : `${(row.configuredWeight * 100).toFixed(1)}%`} · applied ${row.appliedWeight === null ? 'Unavailable' : `${(row.appliedWeight * 100).toFixed(1)}%`}` : freshnessStatus(signal, row.indicator, row.key)} · {cadence(row.indicator, row.key)}</small><small>{isActive ? `Reading: ${rawValue(row.indicator, row.driver, signal.metadata.market)}${advanced ? ` · contribution ${finiteNumber(row.contribution) ? `${signed(row.contribution)} pts` : 'Unavailable'}` : ''}` : 'No included observation'}</small></span><span className={isActive ? styles.support : styles.muted}>{advanced && isActive ? scoreLabel(row.indicator?.score ?? row.driver?.score) : 'Details'} ↗</span></button>;
+            const button = <button className={styles.evidenceButton} onClick={(event) => onSelect(row.key, event.currentTarget)}><span><b>{name}</b><small>{advanced ? `${status} · ${configuredWeightLabel(signal)} ${row.configuredWeight === null ? 'Unavailable' : `${(row.configuredWeight * 100).toFixed(1)}%`} · applied ${row.appliedWeight === null ? 'Unavailable' : `${(row.appliedWeight * 100).toFixed(1)}%`}` : freshnessStatus(signal, row.indicator, row.key)} · {cadence(row.indicator, row.key)}</small><small>{isActive ? `Reading: ${rawValue(row.indicator, row.driver, signal.metadata.market)}${advanced ? ` · contribution ${finiteNumber(row.contribution) ? `${signed(row.contribution)} pts` : 'Unavailable'}` : ''}` : 'No included observation'}</small></span><span className={styles.evidenceScore}>{advanced && isActive ? <>{scoreLabel(row.indicator?.score ?? row.driver?.score)}<small>{row.indicator ? marketReadingLabel(row.indicator.signal) : 'Direction unavailable'}</small></> : 'Details'} <span aria-hidden="true">↗</span></span></button>;
             return row.indicator || row.driver ? <span key={row.key}>{button}</span> : <div key={row.key} className={styles.evidenceButton}><span><b>{name}</b><small>Registry configured · reserve</small></span><span className={styles.muted}>No supplied input</span></div>;
         })}</div>
         <details className={styles.disclosure}><summary>Coverage, active weight and neutral reserve</summary><dl className={styles.keyValues}><div><dt>Configured registry entries</dt><dd>{rows.filter((row) => (row.configuredWeight ?? 0) > 0).length}</dd></div><div><dt>Active payload inputs</dt><dd>{active.length}</dd></div><div><dt>Active configured weight</dt><dd>{coverage && finiteNumber(coverage.active_weight) ? `${(coverage.active_weight * 100).toFixed(1)}%` : 'Unavailable'}</dd></div><div><dt>Reserve weight</dt><dd>{coverage && finiteNumber(coverage.missing_weight) ? `${(coverage.missing_weight * 100).toFixed(1)}%` : 'Unavailable'}</dd></div><div><dt>Neutral reserve points</dt><dd>{finiteNumber(reserve) ? reserve.toFixed(2) : 'Unavailable'}</dd></div></dl><p>{finiteNumber(reserve) ? `The composite is calculated from ${drivers.length} payload driver${drivers.length === 1 ? '' : 's'} plus ${reserve.toFixed(2)} neutral-reserve points.` : 'The payload does not include neutral-reserve accounting.'} Reserve points are accounting for missing or ineligible configured weight, not market evidence.</p></details>
@@ -351,7 +435,7 @@ function ScenarioPanel({ signal, scenario, setScenario }: Pick<ConnectedPanelsPr
         <SectionHeading eyebrow="Scenarios" title="What would change the reading?" tag="Hypothetical" />
         {baseline && baseline !== signal && <p role="status">Newer reading available. Your assumptions still use their original reading.</p>}
         <p className={styles.panelIntro}>Adjust an existing normalized input to inspect sensitivity. Raw observations, weights and reserve accounting remain as supplied by the signal. Nothing is persisted.</p>
-        <div className={styles.scenarioGrid}><div><label className={styles.field}>Input to explore<select aria-label="Scenario input" value={effectiveKey} onChange={(event) => setScenario(current => ({ ...current, selectedKey: event.target.value }))}>{result.drivers.map((driver) => <option key={driver.key} value={driver.key}>{driver.name}</option>)}</select></label>{selected ? <><label className={styles.sliderLabel} htmlFor="connected-scenario-score">Hypothetical normalized score <b>{overrides[effectiveKey] ?? selected.baseScore.toFixed(2)}</b></label><input id="connected-scenario-score" type="range" min="0" max="100" step="1" value={overrides[effectiveKey] ?? selected.baseScore} onChange={(event) => { setScenario(current => ({ ...current, baseline: current.baseline ?? signal, overrides: { ...current.overrides, [effectiveKey]: Number(event.target.value) } })); }} /><div className={styles.scaleLabels}><span>0</span><span>50 · neutral</span><span>100</span></div></> : null}<button className={styles.secondaryButton} onClick={() => { setScenario(emptyScenario()); }}>Reset to latest reading</button></div><div className={styles.simulated} aria-live="polite"><span>Simulated score</span><strong>{result.simulatedScore}<small>/100</small></strong><b>{signed(result.scoreDelta, 0)} vs baseline {reading.composite_score}</b><p>{result.simulatedTier} · hypothetical only</p></div></div>
+        <div className={styles.scenarioGrid}><div><label className={styles.field}>Input to explore<select aria-label="Scenario input" value={effectiveKey} onChange={(event) => setScenario(current => ({ ...current, selectedKey: event.target.value }))}>{result.drivers.map((driver) => <option key={driver.key} value={driver.key}>{driver.name}</option>)}</select></label>{selected ? <><label className={styles.sliderLabel} htmlFor="connected-scenario-score">Hypothetical normalized score <b>{overrides[effectiveKey] ?? selected.baseScore.toFixed(2)}</b></label><input id="connected-scenario-score" type="range" min="0" max="100" step="1" value={overrides[effectiveKey] ?? selected.baseScore} onChange={(event) => { setScenario(current => ({ ...current, baseline: current.baseline ?? signal, overrides: { ...current.overrides, [effectiveKey]: Number(event.target.value) } })); }} /><div className={styles.scaleLabels}><span>0</span><span>50 · neutral</span><span>100</span></div></> : null}<button className={styles.secondaryButton} onClick={() => { setScenario(emptyScenario()); }}>Reset to latest reading</button></div><div className={styles.simulated} data-reading={result.simulatedTier.includes('buy') ? 'positive' : result.simulatedTier.includes('sell') ? 'negative' : 'neutral'} aria-live="polite"><span>Simulated score</span><strong>{result.simulatedScore}<small>/100</small></strong><b>{signed(result.scoreDelta, 0)} vs baseline {reading.composite_score}</b><p>Simulated reading: {marketReadingLabel(result.simulatedTier)} · {reading.mode === 'contrarian' ? 'Contrarian' : 'Momentum'} · hypothetical</p></div></div>
         <details className={styles.disclosure}><summary>Active assumptions & accounting</summary>{result.drivers.filter((driver) => driver.baseScore !== driver.simulatedScore).map((driver) => <p key={driver.key}>{driver.name}: {driver.baseScore.toFixed(2)} → {driver.simulatedScore.toFixed(2)} · contribution {signed(driver.contributionDelta)} points.</p>)}<p>Neutral reserve retained: {result.neutralPoints.toFixed(2)} points. This is sensitivity arithmetic only; no raw data, score, or scenario is saved.</p></details>
     </>;
 }

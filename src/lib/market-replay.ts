@@ -39,8 +39,10 @@ const arrayValue = (value: unknown): readonly Record<string, unknown>[] => {
 
 const stringValue = (value: unknown, fallback = '') => typeof value === 'string' ? value : fallback;
 const nullableString = (value: unknown) => typeof value === 'string' ? value : null;
+const nullableDate = (value: unknown) => typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : null;
 const numberValue = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : Number(value);
 const nullableNumber = (value: unknown) => {
+    if (value === null || value === undefined || value === '') return null;
     const number = numberValue(value);
     return Number.isFinite(number) ? number : null;
 };
@@ -64,6 +66,8 @@ const summaryFromRow = (row: Record<string, unknown>): MarketReplaySummary => {
 const componentsFromRow = (value: unknown): readonly MarketReplayComponent[] =>
     Object.entries(objectValue(value)).map(([key, raw]) => {
         const component = objectValue(raw);
+        const timestampBasis = component.timestamp_basis === 'observed' || component.timestamp_basis === 'retrieved' ? component.timestamp_basis : null;
+        const lastUpdated = nullableDate(component.last_updated);
         return {
             key,
             displayName: stringValue(component.display_name, key),
@@ -71,7 +75,10 @@ const componentsFromRow = (value: unknown): readonly MarketReplayComponent[] =>
             score: nullableNumber(component.score),
             weight: nullableNumber(component.weight),
             signal: nullableString(component.signal),
-            lastUpdated: nullableString(component.last_updated),
+            lastUpdated,
+            timestampBasis,
+            retrievedAt: nullableDate(component.retrieved_at) ?? (timestampBasis === 'retrieved' ? lastUpdated : null),
+            unit: typeof component.unit === 'string' && component.unit.trim() ? component.unit : null,
         };
     });
 

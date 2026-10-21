@@ -17,13 +17,13 @@ export interface IndicatorData {
     weight: number;         // 0-1 contribution to composite score
     signal: SignalTier;
     enabled: boolean;       // Is this indicator currently active?
-    last_updated: string;   // ISO timestamp
+    last_updated: string;   // Report date or timestamp; interpret only with metadata.timestamp_basis
     percentile?: number;    // Optional: historical percentile (0-100)
 
     // Metadata for debugging/transparency
     metadata?: {
         timestamp_basis?: 'retrieved' | 'observed';
-        retrieved_at?: string; // Retrieval time when last_updated is the provider observation time
+        retrieved_at?: string; // Service retrieval time, independent of the provider's observation time
         unit?: string;
         raw_source?: unknown;   // Original source data (optional)
         confidence?: number; // 0-1 confidence in this specific data point

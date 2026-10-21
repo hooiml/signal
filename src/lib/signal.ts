@@ -330,6 +330,7 @@ async function persistSignalSnapshot(
                     last_updated: component.last_updated,
                     timestamp_basis: component.metadata?.timestamp_basis ?? null,
                     retrieved_at: component.metadata?.retrieved_at ?? null,
+                    unit: component.metadata?.unit ?? null,
                     display_name: component.display_name,
                 }
             ])
@@ -556,6 +557,7 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             measureSignalStage('providers', () => fetchRawMarketData(market, enableSocial, true), onTiming),
             measureSignalStage('institutional', () => getLatestInstitutionalData(), onTiming),
         ]);
+        const retrievedAt = new Date().toISOString();
         const aura = options.includeAura === false ? null : await measureSignalStage('aura', () => getAuraAnalysis(marketData, market), onTiming);
 
         const fetchDurationMs = Date.now() - fetchStart;
@@ -600,13 +602,19 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                 weight: 0,
                 signal: getSignalFromScore(score),
                 enabled: true,
-                last_updated: entry.report_date
+                last_updated: entry.report_date,
+                metadata: {
+                    timestamp_basis: 'observed',
+                    // Stored institutional rows do not record their original retrieval time.
+                    ...(entry.indicator_name === 'aaii' ? { unit: '% bullish' }
+                        : entry.indicator_name === 'naaim' ? { unit: '% exposure' } : {}),
+                },
             };
         });
 
         // Construct IndicatorData for V2 calculator. last_updated is the provider observation
         // time when supplied; retrieval time is kept separately and never presented as observation.
-        const vixRetrievedAt = new Date().toISOString();
+        const vixRetrievedAt = retrievedAt;
         const vixObservedAt = marketData.fearGauge.observedAt?.toISOString() ?? null;
         const vixTimestampNote = vixObservedAt ? 'Timestamp is the provider observation time.' : 'Timestamp is retrieval time; observation time is unavailable.';
         const vixIndicator: IndicatorData = {
@@ -644,8 +652,11 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             weight: 0, // Will be calculated by V2
             signal: getSignalFromScore(marketData.sentimentOutput.components.socialScore),
             enabled: shouldEnableSourceIndicator(enableSocial, sourceName, sourceCounts),
-            last_updated: new Date().toISOString(),
+            last_updated: retrievedAt,
             metadata: {
+                timestamp_basis: 'retrieved',
+                retrieved_at: retrievedAt,
+                unit: 'sentiment (−1 to +1)',
                 source_breakdown: market === 'MY'
                     ? { news: marketData.newsSentiment, reddit: marketData.redditSentiment }
                     : { reddit: marketData.redditSentiment, stocktwits: marketData.stockTwitsSentiment },
@@ -667,6 +678,9 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                 enabled: true,
                 last_updated: marketData.putCallRatio.reportDate,
                 metadata: {
+                    timestamp_basis: 'observed',
+                    retrieved_at: retrievedAt,
+                    unit: 'put/call ratio',
                     source_url: marketData.putCallRatio.sourceUrl,
                     cadence: 'Daily / tactical',
                     horizon: '1-5 trading days',
@@ -685,6 +699,9 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                 enabled: true,
                 last_updated: marketData.naaimExposure.reportDate,
                 metadata: {
+                    timestamp_basis: 'observed',
+                    retrieved_at: retrievedAt,
+                    unit: '% exposure',
                     source_url: marketData.naaimExposure.sourceUrl,
                     cadence: 'Weekly / positioning',
                     horizon: '1-4 weeks',
