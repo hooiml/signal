@@ -260,7 +260,8 @@ try {
     await context.setOffline(false);
     await page.waitForFunction(() => navigator.onLine === true, null, { timeout });
     await page.getByRole('link', { name: 'Retry Signal' }).click();
-    await page.waitForURL((url) => url.origin === baseUrl && url.pathname === '/', { waitUntil: 'domcontentloaded', timeout });
+    // The root route redirects to the current Market view.
+    await page.waitForURL((url) => url.origin === baseUrl && url.pathname === '/main-v8', { waitUntil: 'domcontentloaded', timeout });
     report.scenarios.push('PASS online, offline fallback, and reconnect');
 
     for (const viewport of [
