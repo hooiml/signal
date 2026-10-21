@@ -4,7 +4,7 @@ import { useEffect, useId, useState } from 'react';
 import { nearestPricePoint, priceRangeChange } from '@/lib/research/reading-display';
 import { formatResearchPrice, researchPriceCurrency } from '@/lib/research/price-format';
 import { financialPeriodLabel, formatResearchTimestamp, netCashCurrency, researchMetricPeriodLabel } from '@/lib/research/metric-provenance';
-import { personalReviewDate } from '@/lib/research/review-lifecycle';
+import { personalReviewDate, savedReviewMarkers } from '@/lib/research/review-lifecycle';
 import { ResearchDataAvailability } from './ResearchDataAvailability';
 import { ResearchFinancialSummary } from './ResearchFinancialSummary';
 type ChartStateProps = { chartRange: string; setChartRange: (range: string) => void; chartDate: string | null; setChartDate: (date: string | null) => void };
@@ -198,13 +198,3 @@ function PriceHistory({ snapshot, loading, advanced, savedMarket, record, chartR
     </section>;
 }
 
-type ReviewMarker = { time: string; label: string };
-
-// Saved personal reviews become chart markers: each review snapshot, plus the current decision when it is newer.
-function savedReviewMarkers(record: ResearchRecord): ReviewMarker[] {
-    const label = (decision: string, thesis: string) => decision !== 'Not recorded' ? `Decision: ${decision}` : thesis ? 'Thesis saved' : 'Review saved';
-    const markers = record.reviewHistory.map(review => ({ time: review.reviewedAt, label: label(review.decisionJournal.decision, review.whyInterested) }));
-    const current = personalReviewDate(record);
-    if (current && !markers.some(marker => marker.time === current)) markers.push({ time: current, label: label(record.decisionJournal.decision, record.whyInterested) });
-    return markers.filter(marker => Number.isFinite(Date.parse(marker.time))).sort((a, b) => a.time.localeCompare(b.time));
-}
