@@ -505,3 +505,22 @@
 /* Prevent bounded 0–100 chart labels from wrapping into misleading split digits. */
 .app .axis { flex: 0 0 32px; min-width: 32px; white-space: nowrap; text-align: right; }
 .app .chartPlot > svg { flex: 1 1 auto; min-width: 0; width: auto; }
+
+/* Zero score change: one line instead of three equal metrics. */
+.unchangedScore { display: flex; align-items: baseline; gap: 14px; margin: 18px 0; padding: 14px 16px; border-block: 1px solid var(--line); }
+.unchangedScore strong { font-size: var(--text-xl); font-weight: 700; color: var(--ink); }
+.unchangedScore span { font-size: var(--text-sm); color: var(--muted); }
+/* Phones: market and mode share row one; the mode note sits beside compact actions. */
+@media (max-width: 600px) {
+    .toolbar:has(> .depthActions) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; }
+    .toolbar:has(> .depthActions) > .marketControls { display: contents; }
+    .toolbar:has(> .depthActions) > .marketControls > select { grid-column: 1; width: 100%; min-width: 0; }
+    .toolbar:has(> .depthActions) > .marketControls > .segment { grid-column: 2; }
+    .toolbar:has(> .depthActions) > .marketControls > .sourceToggle { grid-column: 1 / -1; }
+    .toolbar:has(> .depthActions) > .marketControls > .muted { grid-column: 1; font-size: var(--text-xs); line-height: 1.45; }
+    .toolbar:has(> .depthActions) > .depthActions { grid-column: 2; width: auto; flex-wrap: nowrap; }
+    .toolbar:has(> .depthActions) > .depthActions button { flex: 0 0 auto; padding-inline: 10px; }
+    .unchangedScore { display: grid; gap: 4px; }
+}
+/* The score pins glide when the reading changes (motion is removed under prefers-reduced-motion). */
+.v81ScorePin, .v81PreviousPin { transition: left .6s ease; }
