@@ -60,7 +60,7 @@ function validIndicator(value: unknown): boolean {
         || (value.metadata.source_url !== undefined && !httpUrl(value.metadata.source_url))
         || (value.metadata.timestamp_basis !== undefined && value.metadata.timestamp_basis !== 'retrieved' && value.metadata.timestamp_basis !== 'observed')
         || !optionalString(value.metadata, 'unit')
-        || !optionalString(value.metadata, 'retrieved_at')
+        || (value.metadata.retrieved_at !== undefined && !date(value.metadata.retrieved_at))
         || !optionalString(value.metadata, 'cadence')
         || !optionalString(value.metadata, 'horizon')
         || !optionalString(value.metadata, 'mode_note')) return false;
@@ -94,6 +94,10 @@ function validChangeReconciliation(value: unknown): boolean {
         && componentChangeStatuses.includes(String(row.status))
         && ['previous_score', 'current_score', 'previous_weight', 'current_weight', 'previous_raw_value', 'current_raw_value', 'score_effect', 'weight_effect'].every((key) => nullableFinite(row[key]))
         && nullableDate(row.previous_observed_at) && nullableDate(row.current_observed_at)
+        && ['previous_last_updated', 'current_last_updated', 'previous_retrieved_at', 'current_retrieved_at'].every((key) => row[key] === undefined || nullableDate(row[key]))
+        && ['previous_timestamp_basis', 'current_timestamp_basis'].every((key) => row[key] === undefined || row[key] === null || row[key] === 'observed' || row[key] === 'retrieved')
+        && optionalNullableString(row, 'previous_unit') && optionalNullableString(row, 'current_unit')
+        && (row.observation_change === undefined || ['newer', 'older', 'same', 'different', 'unknown'].includes(String(row.observation_change)))
         && (row.new_observation === null || typeof row.new_observation === 'boolean')
         && finite(row.delta));
 }
@@ -380,6 +384,7 @@ export function indicatorStatus(signal: MarketSignal, key: string, date: string)
     const indicator = signal.components[key];
     if (!indicator) return 'Not supplied';
     if (hasRetrievalTimestamp(indicator)) return 'Observation date unavailable';
+    if (indicator.metadata?.timestamp_basis !== 'observed') return 'Freshness unknown';
     const snapshotDay = utcCalendarDay(date);
     const updatedDay = utcCalendarDay(indicator.last_updated);
     if (snapshotDay === null || updatedDay === null) return 'Freshness unknown';
@@ -398,13 +403,14 @@ export function overviewHistory(signal: MarketSignal): Point[] {
     return [...records.values()].sort((a,b) => a.date.localeCompare(b.date)).map(row => ({ date: row.date, value: row.score, origin: row.origin }));
 }
 
-export function archivedSeries(key: string, summaries: readonly MarketReplaySummary[], snapshots: Readonly<Record<string, MarketReplaySnapshot>>, currentDisplayName?: string): Point[][] {
+export function archivedSeries(key: string, summaries: readonly MarketReplaySummary[], snapshots: Readonly<Record<string, MarketReplaySnapshot>>, currentDisplayName?: string, expectedUnit?: string): Point[][] {
     // Break the line at unavailable snapshots/components. Dates are snapshot dates, not publication dates.
     const groups: Point[][] = [];
     let group: Point[] = [];
     for (const summary of [...summaries].sort((a,b) => a.date.localeCompare(b.date))) {
         const item = snapshots[summary.date]?.components.find(component => component.key === key);
-        if (!item || item.rawValue === null || (key === 'vix' && currentDisplayName !== undefined && item.displayName !== currentDisplayName)) { if (group.length) groups.push(group); group = []; }
+        if (!item || item.rawValue === null || (expectedUnit !== undefined && item.unit !== expectedUnit)
+            || (key === 'vix' && currentDisplayName !== undefined && item.displayName !== currentDisplayName)) { if (group.length) groups.push(group); group = []; }
         else group.push({ date: summary.date, value: item.rawValue });
     }
     if (group.length) groups.push(group);

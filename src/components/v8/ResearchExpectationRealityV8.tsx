@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { OwnerAccessNotice } from '@/components/OwnerAccessNotice';
+import { ownerAccessIssue, type OwnerAccessIssue } from '@/lib/owner-access-client';
 import {
     compareResearchExpectationEvent,
     createResearchExpectationDraft,
@@ -19,19 +21,25 @@ export const ResearchExpectationRealityV8 = ({ ticker }: Props) => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
+    const [accessIssue, setAccessIssue] = useState<OwnerAccessIssue | null>(null);
+    const [historyLoaded, setHistoryLoaded] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
         setMessage(null);
+        setAccessIssue(null);
         try {
             const response = await fetch(`/api/research/expectations/${encodeURIComponent(ticker)}`, { cache: 'no-store' });
-            const payload: unknown = await response.json();
+            const payload: unknown = await response.json().catch(() => null);
+            const issue = ownerAccessIssue(response.status, typeof payload === 'object' && payload !== null ? Reflect.get(payload, 'code') : undefined);
+            if (issue) { setAccessIssue(issue); return; }
             if (!response.ok || typeof payload !== 'object' || payload === null || Array.isArray(payload)) throw new Error('Expectation history is unavailable.');
             const data = (payload as Record<string, unknown>).data;
             if (!Array.isArray(data)) throw new Error('Expectation history is unavailable.');
             const parsed = data.map(parseResearchExpectationEvent);
             setEvents(parsed);
             setDraft(parsed[0] ?? createResearchExpectationDraft(ticker));
+            setHistoryLoaded(true);
         } catch (error) {
             setMessage(error instanceof Error ? error.message : 'Expectation history is unavailable.');
         } finally {
@@ -56,6 +64,7 @@ export const ResearchExpectationRealityV8 = ({ ticker }: Props) => {
     const save = async () => {
         setSaving(true);
         setMessage(null);
+        setAccessIssue(null);
         try {
             const now = new Date().toISOString();
             const normalized = parseResearchExpectationEvent({ ...draft, ticker, updatedAt: now });
@@ -64,7 +73,9 @@ export const ResearchExpectationRealityV8 = ({ ticker }: Props) => {
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify(normalized),
             });
-            const payload: unknown = await response.json();
+            const payload: unknown = await response.json().catch(() => null);
+            const issue = ownerAccessIssue(response.status, typeof payload === 'object' && payload !== null ? Reflect.get(payload, 'code') : undefined);
+            if (issue) { setAccessIssue(issue); return; }
             if (!response.ok || typeof payload !== 'object' || payload === null || Array.isArray(payload)) throw new Error('Could not save expectation review.');
             const saved = parseResearchExpectationEvent((payload as Record<string, unknown>).data);
             setEvents((current) => [saved, ...current.filter((event) => event.id !== saved.id)].sort((a, b) => b.eventDate.localeCompare(a.eventDate)));
@@ -83,10 +94,18 @@ export const ResearchExpectationRealityV8 = ({ ticker }: Props) => {
         setMessage(null);
     };
 
-    if (loading) return <section data-testid="expectation-reality" className="mt-3 rounded-lg border border-zinc-700/40 p-3 text-xs text-zinc-500">Loading expectation history…</section>;
+    if (loading) return <section data-testid="expectation-reality" aria-busy="true" className="mt-3 rounded-lg border border-zinc-700/40 p-3 text-xs text-zinc-500">Loading expectation history…</section>;
+    if (!historyLoaded) return <section data-testid="expectation-reality" className="mt-3 rounded-lg border border-zinc-700/40 p-3">
+        <h3 className="text-sm font-semibold">Expectation vs reality · {ticker}</h3>
+        {accessIssue ? <OwnerAccessNotice issue={accessIssue} resource="Expectation history" onRetry={() => void load()} /> : <>
+            <p role="status" className="mt-2 text-xs text-zinc-500">{message ?? 'Expectation history could not be loaded.'}</p>
+            <button type="button" onClick={() => void load()} className="mt-2 min-h-11 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-emerald-500">Retry expectation history</button>
+        </>}
+    </section>;
 
     return (
         <section data-testid="expectation-reality" className="mt-3 rounded-lg border border-zinc-700/40 p-3" aria-label={`Expectation versus reality for ${ticker}`}>
+            {accessIssue && <OwnerAccessNotice issue={accessIssue} resource="Expectation history" preserveDraft saveLabel="Save review" />}
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-500">Expectation vs reality</p>

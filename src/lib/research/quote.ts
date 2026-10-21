@@ -5,10 +5,13 @@ import { fetchYahooQuote, toYahooSymbol } from './yahoo-research';
 export const getResearchQuote = async (
     symbol: string,
     market: ResearchMarket,
-): Promise<ResearchQuoteData> => ({
-    symbol,
-    market,
-    providerSymbol: toYahooSymbol(symbol, market),
-    fetchedAt: new Date().toISOString(),
-    quote: await fetchYahooQuote(symbol, market),
-});
+): Promise<ResearchQuoteData> => {
+    const quote = await fetchYahooQuote(symbol, market);
+    return {
+        symbol,
+        market,
+        providerSymbol: toYahooSymbol(symbol, market),
+        fetchedAt: new Date().toISOString(),
+        quote,
+    };
+};

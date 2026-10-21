@@ -46,8 +46,8 @@
 @media (max-width: 900px) {
     .assessment { gap: 18px; }
     .analysisGrid { grid-template-columns: minmax(0, 1fr); }
-    .evidenceSlot { grid-column: 1; grid-row: 1; }
-    .history { grid-column: 1; grid-row: 2; }
+    .evidenceSlot { grid-column: 1; grid-row: 2; }
+    .history { grid-column: 1; grid-row: 1; }
     .desktopInspector { display: none; }
     .evidenceRows[data-expanded=false] .evidenceRow[data-overflow=true] { display: none; }
     .evidence .expandEvidence { display: inline-flex; }
@@ -77,6 +77,6 @@
 .indexList li[data-trend=positive] b { color: var(--up); }
 .indexList li[data-trend=negative] b { color: var(--down); }
 @media (max-width: 900px) {
-    .analysisGrid > .evidenceSlot { grid-row: 1; }
+    .analysisGrid > .evidenceSlot { grid-row: 2; }
     .contextCard { grid-row: 3; }
 }

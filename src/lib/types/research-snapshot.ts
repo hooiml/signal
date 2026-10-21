@@ -69,6 +69,15 @@ export type ResearchFundamentalPeriod = {
     readonly shareChangePercent: number | null;
 };
 
+// Dates belong to the facts used for each value, not the response retrieval time.
+// A derived total can retain more than one component date; an empty list means unknown.
+export type ResearchMetricProvenance = {
+    readonly reportingPeriods: readonly string[];
+    readonly currency: string | null;
+};
+
+export type ResearchFundamentalProvenance = Readonly<Record<'debt' | 'cash' | 'shares' | 'shareChange', ResearchMetricProvenance>>;
+
 export type ResearchSnapshot = {
     readonly symbol: string;
     readonly market: ResearchMarket;
@@ -91,6 +100,7 @@ export type ResearchSnapshot = {
         readonly dailyChangePercent: number | null;
     };
     readonly fundamentals: {
+        readonly metricProvenance?: ResearchFundamentalProvenance;
         readonly revenueGrowthPercent: number | null;
         readonly grossMarginPercent: number | null;
         readonly operatingMarginPercent: number | null;

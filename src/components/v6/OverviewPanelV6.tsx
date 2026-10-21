@@ -2,6 +2,7 @@ import type { ResearchWatchlistItem } from '@/components/research/ResearchDashbo
 import type { AcceptedResearchEvidence, ResearchRecord } from '@/lib/types/research';
 import type { ResearchWorkflowTemplateId } from '@/lib/research/workflow-queue';
 import type { ResearchBenchmark } from '@/lib/types/research-snapshot';
+import type { OwnerAccessIssue } from '@/lib/owner-access-client';
 import { ResearchEditorV6 } from './ResearchEditorV6';
 import { ResearchBenchmarkV6 } from './ResearchBenchmarkV6';
 import { ResearchHistoryV6 } from './ResearchHistoryV6';
@@ -24,6 +25,7 @@ type OverviewPanelV6Props = {
     workflowTemplateId: ResearchWorkflowTemplateId | null;
     saving: boolean;
     saveError: string | null;
+    saveAccessIssue?: OwnerAccessIssue | null;
     onSave: (record: ResearchRecord) => Promise<boolean>;
     onReviewChange: (editing: boolean) => void;
 };
@@ -39,7 +41,7 @@ const SnapshotMetric = ({ label, value, themeClasses }: {
     </div>
 );
 
-export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, observedCurrency, startReview, stagedEvidence, workflowTemplateId, saving, saveError, onSave, onReviewChange }: OverviewPanelV6Props) => {
+export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, observedCurrency, startReview, stagedEvidence, workflowTemplateId, saving, saveError, saveAccessIssue = null, onSave, onReviewChange }: OverviewPanelV6Props) => {
     const themeClasses = getThemeV6(theme);
 
     return (
@@ -51,15 +53,15 @@ export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, obse
                     <dl className="mt-3 space-y-3">
                         <div>
                             <dt className={'text-xs font-medium ' + themeClasses.textMuted}>Why interested</dt>
-                            <dd className={'mt-0.5 text-sm font-semibold leading-5 ' + themeClasses.textPrimary}>{ticker.whyInterested}</dd>
+                            <dd className={'mt-0.5 text-sm font-semibold leading-5 ' + themeClasses.textPrimary}>{ticker.whyInterested || 'Not recorded'}</dd>
                         </div>
                         <div>
                             <dt className={'text-xs font-medium ' + themeClasses.textMuted}>Bull case</dt>
-                            <dd className={'mt-0.5 text-sm font-semibold leading-5 ' + themeClasses.textPrimary}>{ticker.bullCase}</dd>
+                            <dd className={'mt-0.5 text-sm font-semibold leading-5 ' + themeClasses.textPrimary}>{ticker.bullCase || 'Not recorded'}</dd>
                         </div>
                         <div>
                             <dt className={'text-xs font-medium ' + themeClasses.textMuted}>Invalidation</dt>
-                            <dd className={'mt-0.5 text-sm font-semibold leading-5 ' + themeClasses.risk}>{ticker.thesisBreak}</dd>
+                            <dd className={'mt-0.5 text-sm font-semibold leading-5 ' + themeClasses.risk}>{ticker.thesisBreak || 'Not recorded'}</dd>
                         </div>
                     </dl>
                 </section>
@@ -79,7 +81,7 @@ export const OverviewPanelV6 = ({ ticker, action, theme, record, benchmark, obse
                 </dl>
             </details>
             </> : null}
-            <ResearchEditorV6 key={(record.reviewHistory[0]?.id ?? record.lastReviewedAt) + record.symbol + String(startReview) + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} initial={record} theme={theme} startEditing={startReview} stagedEvidence={stagedEvidence} workflowTemplateId={workflowTemplateId} saving={saving} error={saveError} onSave={onSave} onEditingChange={onReviewChange} decision={action} observedPrice={ticker.price ?? null} observedCurrency={observedCurrency} benchmark={benchmark} />
+            <ResearchEditorV6 key={(record.reviewHistory[0]?.id ?? record.lastReviewedAt) + record.symbol + String(startReview) + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} initial={record} theme={theme} startEditing={startReview} stagedEvidence={stagedEvidence} workflowTemplateId={workflowTemplateId} saving={saving} error={saveError} saveAccessIssue={saveAccessIssue} onSave={onSave} onEditingChange={onReviewChange} decision={action} observedPrice={ticker.price ?? null} observedCurrency={observedCurrency} benchmark={benchmark} />
             {!startReview ? <details className={'rounded-lg border p-4 ' + themeClasses.panelUtility}>
                 <summary className={'min-h-8 cursor-pointer text-sm font-semibold ' + themeClasses.textSecondary}>Review history · {record.reviewHistory.length} saved</summary>
                 <ResearchHistoryV6 record={record} theme={theme} />

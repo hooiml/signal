@@ -6,6 +6,16 @@ export const marketReadingLabel = (tier: MarketSignal['tier']): string => ({
     sell: 'Leaning negative', 'strong-sell': 'Strongly negative',
 })[tier];
 
+// Calendar reporting dates do not imply a time; actual timestamps retain UTC time.
+export function marketTimestampLabel(value: string | null | undefined): string {
+    if (!value || !Number.isFinite(Date.parse(value))) return 'Unavailable';
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+    return new Intl.DateTimeFormat('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
+        ...(dateOnly ? {} : { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' }),
+    }).format(new Date(value));
+}
+
 const direction = (tier: MarketSignal['tier']) => tier.includes('buy') ? 'positive' : tier.includes('sell') ? 'negative' : 'neutral';
 
 export function marketReadingSummary(signal: MarketSignal): string {

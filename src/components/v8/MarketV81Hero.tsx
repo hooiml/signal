@@ -5,12 +5,14 @@ import { getIndicatorDisplayName } from '@/lib/indicator-registry';
 import { fullDate } from './MarketV8ConnectedData';
 import styles from './market-v8.module.css';
 import layout from './market-v8-connected.module.css';
+import { MarketLeadingEvidence } from './MarketV8Coverage';
 
 const pct = (value: number) => value.toFixed(1) + '%';
 
-export function MarketV81Hero({ signal, snapshotDate, tierClass, onEvidence, onDrivers }: {
+export function MarketV81Hero({ signal, snapshotDate, tierClass, onEvidence, onDrivers, onSelect }: {
     signal: MarketSignal; snapshotDate: string | null | undefined; tierClass: string;
     onEvidence: () => void; onDrivers: () => void;
+    onSelect: (key: string, element: HTMLButtonElement) => void;
 }) {
     const coverage = marketEvidenceCoverage(signal, snapshotDate);
     const change = signal.metadata.score_delta;
@@ -29,6 +31,7 @@ export function MarketV81Hero({ signal, snapshotDate, tierClass, onEvidence, onD
                 {unchanged ? <span data-testid="market-hero-unchanged">No change since {fullDate(change!.previous_date)}</span> : compared ? <button className={layout.changeLink} onClick={onDrivers}>{change!.delta! > 0 ? '+' : ''}{change!.delta!.toFixed(2)} points vs {fullDate(change!.previous_date)} ↗</button> : <span>Earlier comparable score unavailable</span>}
             </div>
             <p>{marketReadingSummary(signal)}</p>
+            <MarketLeadingEvidence signal={signal} date={snapshotDate ?? ''} onSelect={onSelect} />
             <details className={layout.alignment}><summary>{alignment.summary}</summary><p>{alignment.detail}</p>{signal.confidence.cap_reason && <p>{signal.confidence.cap_reason}</p>}</details>
             <p className={layout.agreement}>A descriptive reading, not a price forecast or trading advice.</p>
         </div>

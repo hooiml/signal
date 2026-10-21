@@ -69,7 +69,7 @@ try {
         assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
         await page.screenshot({path:`${output}/${width}.png`,fullPage:true});
         failed=false;
-        await page.getByText(/Saved research could not be refreshed/).getByRole('button',{name:'Retry',exact:true}).click();
+        await page.getByText(/Saved research could not be refreshed/).getByRole('button',{name:'Retry saved research',exact:true}).click();
         await page.getByText(/Saved research could not be refreshed/).waitFor({state:'detached'});
     }
     failed=false;

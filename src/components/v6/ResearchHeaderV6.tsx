@@ -14,7 +14,7 @@ type ResearchHeaderV6Props = {
     query: string;
     market: ResearchMarketFilterV6;
     action: ResearchActionFilterV6;
-    reviewedLabel: string;
+    reviewedLabel: string | null;
     resultCount: number;
     showResearchControls: boolean;
     onQueryChange: (query: string) => void;
@@ -26,7 +26,7 @@ type ResearchHeaderV6Props = {
 };
 
 const actionOptions: Array<{ value: ResearchActionFilterV6; label: string }> = [
-    { value: 'ALL', label: 'All decisions' },
+    { value: 'ALL', label: 'All checklist statuses' },
     { value: 'Ready', label: 'Ready' },
     { value: 'DCA', label: 'DCA' },
     { value: 'Wait for price', label: 'Wait for price' },
@@ -123,7 +123,7 @@ export const ResearchHeaderV6 = ({
                         </div>
                     </div>
                     <label>
-                        <span className={'text-xs font-semibold uppercase tracking-[0.16em] ' + textSubtle}>Decision</span>
+                        <span className={'text-xs font-semibold uppercase tracking-[0.16em] ' + textSubtle}>Checklist status</span>
                         <select
                             value={action}
                             onChange={(event) => onActionChange(event.target.value as ResearchActionFilterV6)}
@@ -137,7 +137,7 @@ export const ResearchHeaderV6 = ({
                 </div> : null}
 
                 <p className={'mt-2 border-t px-1 pt-2 text-xs font-semibold ' + headerDivider + ' ' + textSubtle}>
-                    {resultCount} ticker{resultCount === 1 ? '' : 's'} · Last reviewed {reviewedLabel} UTC
+                    {resultCount} ticker{resultCount === 1 ? '' : 's'} · {reviewedLabel ? `Latest personal review: ${reviewedLabel}` : 'No personal reviews recorded'}
                 </p>
             </div>
 
@@ -172,7 +172,7 @@ export const ResearchHeaderV6 = ({
                     </div>
 
                     <label className={'flex min-h-16 shrink-0 flex-col px-3 py-1.5 ' + commandDivider}>
-                        <span className={'px-1 text-xs font-semibold uppercase tracking-[0.16em] ' + textSubtle}>Decision</span>
+                        <span className={'px-1 text-xs font-semibold uppercase tracking-[0.16em] ' + textSubtle}>Checklist status</span>
                         <select
                             value={action}
                             onChange={(event) => onActionChange(event.target.value as ResearchActionFilterV6)}
@@ -185,8 +185,8 @@ export const ResearchHeaderV6 = ({
                     </label>
 
                     <div className={'flex min-h-16 shrink-0 items-center px-3 py-2 ' + commandDivider}>
-                        <p className={'whitespace-nowrap text-xs font-semibold ' + textSecondary}>
-                            {resultCount} ticker{resultCount === 1 ? '' : 's'} · Last reviewed {reviewedLabel} UTC
+                        <p className={'text-xs font-semibold ' + textSecondary}>
+                            {resultCount} ticker{resultCount === 1 ? '' : 's'} · {reviewedLabel ? `Latest personal review: ${reviewedLabel}` : 'No personal reviews recorded'}
                         </p>
                     </div>
                 </div>

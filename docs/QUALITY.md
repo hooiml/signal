@@ -111,6 +111,35 @@ The V8.1 PR workflow now runs the display and reading suites and uploads their
 artifacts. These are fixture tests, not provider-availability or user-comprehension
 measurements. Hardware touch assistive-technology testing remains a release check.
 
-This slice does not implement authentication, modify provider contracts, broaden
-instrument assessment eligibility, or create cross-visit persistence. Those remain
-separate changes with their own access, data and baseline-identity requirements.
+The original reading slice did not change access or provider contracts. The follow-up
+below completes those specific access and provenance gaps; instrument assessment
+eligibility and cross-visit persistence remain unchanged.
+
+## Owner Access and Reading Provenance
+
+Private Research endpoints fail closed before processing requests. A locked browser,
+an unconfigured deployment, an empty saved list and a failed refresh have different
+copy and recovery actions. Unlock retains ticker, market, tab, depth and fragment.
+Save denials preserve private-panel drafts; new-tab unlock is labelled, and saving
+afterward remains explicit. A denied Memory read cannot trigger automatic writes.
+
+Bookmarks make no personal-review claim. Saved decisions come from the user's journal;
+calculated checklist statuses remain separately labelled. A review-history entry can
+establish a review even when its decision is `Not recorded`. Daily change preserves
+missing versus zero; currency and quote observation/retrieval labels retain the provider's
+meaning. Annual financial results stay aligned while cash, debt and share balances
+carry separate dates. Mixed and unknown periods are visible rather than inferred.
+
+Market archive and change panels retain observed/retrieved/unknown clock provenance,
+raw units and snapshot identity. A refetch, older observation or same-time revision
+cannot be called a newer observation. Zero-net score/weight effects remain inspectable;
+true no-change and unavailable comparisons remain distinct. History has local loading,
+empty, partial, failed and retry states. Descriptive tier wording and semantic colors
+apply in scenario and replay views. Leading named evidence is near the verdict; chart
+then evidence is both the DOM and visual order at every responsive width.
+
+The three deterministic follow-up suites and four browser matrices are documented in
+`docs/TESTING.md`. Browser checks must include 1280px, 768px and 375px screenshots,
+contained long content, keyboard/focus behavior and error recovery. The existing
+bookmark-based structured research-age trigger and investment-policy review-age
+semantics remain explicit known limitations of this slice.

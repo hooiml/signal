@@ -111,7 +111,7 @@ export const ResearchComparisonV6 = ({ items, theme, onOpen }: {
                                     return (
                                         <th key={item.symbol} className={'border-b p-3 text-left ' + styles.divider}>
                                             <button type="button" onClick={() => onOpen(item.symbol)} className={'min-h-10 min-w-10 font-mono text-base font-bold ' + styles.textPrimary}>{item.symbol}</button>
-                                            <p className={'mt-1 text-xs font-medium ' + getActionToneV6(action, theme)}>{action}</p>
+                                            <p className={'mt-1 text-xs font-medium ' + getActionToneV6(action, theme)}>Checklist: {action}</p>
                                             {results.find((result) => result.symbol === item.symbol)?.state === 'error'
                                                 ? <p className={'mt-1 text-[11px] font-medium ' + styles.risk}>Live data unavailable</p> : null}
                                         </th>
