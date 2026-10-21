@@ -331,7 +331,7 @@ try {
         if (width > 600) assert.ok(Math.abs(toolbar.inputY-toolbar.selectY)<=2, 'Research toolbar inputs align');
         else assert.ok(toolbar.selectY > toolbar.inputY + toolbar.inputHeight, 'Mobile state control has its own row');
         assert.ok(toolbar.inputHeight>=40 && toolbar.selectHeight>=40);
-        assert.match(toolbar.font, /Segoe UI/);
+        assert.match(toolbar.font, /sourceSans/);
         checks.push({name:`Research chart values, scale, provenance, keyboard tabs and Market typography ${width}`,pass:true,toolbar});
         const tools = page.locator('details').filter({ has: page.locator('summary', { hasText: /^Research tools/ }) });
         await tools.locator('summary').focus();

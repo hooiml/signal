@@ -17,7 +17,7 @@
 @media (max-width: 360px) { .label > span { display: none; } }
 
 
-.footer { background: transparent; border: 0; width: 100%; color: #526581; }
+.footer { background: transparent; border: 0; width: 100%; color: var(--muted, #526581); font-family: inherit; }
 .footer .inner { max-width: none; padding: 8px 0 0; gap: 8px; flex-wrap: wrap; }
 .footer .versions a { min-height: 36px; padding: 5px 8px; }
 @media (max-width: 600px) { .footer .versions a { min-height: 44px; } }
