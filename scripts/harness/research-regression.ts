@@ -179,7 +179,7 @@ import {
 } from '../../src/lib/research/investment-policy';
 import { buildResearchReadiness } from '../../src/lib/research/readiness';
 import { checkOwnerAccess, issueOwnerAccessToken, ownerAccessCookieName, ownerAccessMaxAgeSeconds, ownerSecretMatches, readOwnerAccessSecret, verifyOwnerAccessToken } from '../../src/lib/owner-access';
-import { hasPersonalReview, personalReviewDate, reviewAgeCountdownDays } from '../../src/lib/research/review-lifecycle';
+import { hasPersonalReview, personalReviewDate, reviewAgeCountdownDays, savedReviewMarkers } from '../../src/lib/research/review-lifecycle';
 import {
     calculateCurrencyPerformance,
     defaultCurrencyPerformanceSettings,
@@ -1103,6 +1103,10 @@ const runReviewLifecycleTests = () => {
     assertEqual(buildSinceLastVisitChanges([scheduled], null, '2026-07-26T00:00:00.000Z').overdueReviewSymbols.join(','), 'NVDA', 'an explicit first-review schedule still becomes overdue');
     const reviewed = appendResearchReview(bookmark, '2026-03-01T00:00:00.000Z');
     assertEqual(hasPersonalReview(reviewed), true, 'saving an actual review establishes a personal review');
+    assertEqual(savedReviewMarkers(bookmark).length, 0, 'a save-only bookmark adds no chart review marker');
+    assertEqual(savedReviewMarkers(reviewed).length, 1, 'the latest saved review is marked once, not again as the current review');
+    const decided = { ...reviewed, lastReviewedAt: '2026-04-02', decisionJournal: { ...reviewed.decisionJournal, decision: 'Watch' as const } };
+    assertEqual(savedReviewMarkers(decided).map(marker => marker.time).join(','), '2026-03-01T00:00:00.000Z,2026-04-02', 'a newer unsnapshotted decision adds its own marker');
     const legacy = { ...createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' }), lastReviewedAt: '2026-01-01' };
     assertEqual(buildSinceLastVisitChanges([legacy], null, '2026-07-26T00:00:00.000Z').overdueReviewSymbols.join(','), 'MSFT', 'legacy authored records keep their review-age countdown');
 };
