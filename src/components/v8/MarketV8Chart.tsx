@@ -66,15 +66,15 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                     setCursor(nearest); onSelect(points[nearest]);
                 }}>
                 <defs><linearGradient id={id} x1="0" x2="0" y1="0" y2="1"><stop stopColor="currentColor" stopOpacity=".2" /><stop offset="1" stopColor="currentColor" stopOpacity=".01" /></linearGradient></defs>
-                {!raw && <rect x="0" y={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} width="800" height={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralLower) - yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} fill="#d8e8f8" fillOpacity=".4" />}
+                {!raw && <rect x="0" y={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} width="800" height={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralLower) - yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} fill="var(--line-strong)" fillOpacity=".25" />}
                 {[0, 56.5, 113, 169.5, 226].map(y => <line key={y} x1="0" x2="800" y1={y} y2={y} stroke="currentColor" strokeOpacity=".12" strokeDasharray="3 5" />)}
-                {!raw && [MARKET_SCORE_TIER_THRESHOLDS.neutralLower, MARKET_SCORE_TIER_THRESHOLDS.neutralUpper].map(threshold => <line key={threshold} x1="0" x2="800" y1={yFor(threshold)} y2={yFor(threshold)} stroke="#567b9e" strokeOpacity=".6" strokeDasharray="2 7" />)}
+                {!raw && [MARKET_SCORE_TIER_THRESHOLDS.neutralLower, MARKET_SCORE_TIER_THRESHOLDS.neutralUpper].map(threshold => <line key={threshold} x1="0" x2="800" y1={yFor(threshold)} y2={yFor(threshold)} stroke="var(--subtle)" strokeOpacity=".6" strokeDasharray="2 7" />)}
                 {sourced && !raw ? provenancePaths.map(({ point, location, previous, previousLocation }, i) => <g key={point.date} data-origin={point.origin ?? 'unavailable'}>
                     {previous && previous.origin === point.origin && <path d={`M${previousLocation.x},${previousLocation.y} L${location.x},${location.y}`} fill="none" stroke="currentColor" strokeWidth="2.8" strokeDasharray={point.origin === 'reconstructed' ? '6 5' : undefined} vectorEffect="non-scaling-stroke" />}
                     {(!previous || previous.origin !== point.origin || points[i + 1]?.origin !== point.origin) && <circle cx={location.x} cy={location.y} r="3" fill="currentColor" />}
                 </g>) : <><path d={`${path} L800,226 L0,226 Z`} fill={`url(#${id})`} /><path d={path} fill="none" stroke="currentColor" strokeWidth="2.8" vectorEffect="non-scaling-stroke" /></>}
                 <line x1={position.x} x2={position.x} y1="0" y2="226" stroke="currentColor" strokeDasharray="4 5" opacity=".5" />
-                <circle cx={position.x} cy={position.y} r="5" fill="white" stroke="currentColor" strokeWidth="3" />
+                <circle cx={position.x} cy={position.y} r="5" fill="var(--surface)" stroke="currentColor" strokeWidth="3" />
             </svg>
         </div>
         <div className={styles.chartDates}><span>{fullDate(points[0].date)}</span><span>{fullDate(points[Math.floor(points.length / 2)].date)}</span><span>{fullDate(points.at(-1)!.date)}</span></div>

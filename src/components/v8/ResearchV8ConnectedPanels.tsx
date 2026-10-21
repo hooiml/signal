@@ -128,7 +128,7 @@ function PriceHistory({ snapshot, loading, advanced, savedMarket, chartRange: ra
     const high = Math.max(...points.map(item => item.close));
     const periodChange = priceRangeChange(points);
     const change = periodChange?.amount ?? null;
-    const lineColor = change === null || change === 0 ? '#526581' : change > 0 ? '#006344' : '#97263f';
+    const lineColor = change === null || change === 0 ? 'var(--muted)' : change > 0 ? 'var(--up)' : 'var(--down)';
     const movement = change === null ? points.length === 1 ? 'One observation; no period change available' : 'A comparable period change is unavailable' : change === 0 ? 'Unchanged over selected period' : `${change > 0 ? 'Rose' : 'Fell'} over selected period`;
     const start = points.length ? Date.parse(points[0].time) : 0;
     const chart = mobileChart
@@ -146,9 +146,9 @@ function PriceHistory({ snapshot, loading, advanced, savedMarket, chartRange: ra
             const nearest = nearestPricePoint(points, start + fraction * (end - start));
             if (nearest !== null) setChartDate(points[nearest].time);
         }} aria-label={`${snapshot?.symbol} daily closing price, ${date(points[0].time)} to ${date(points[points.length - 1].time)}. Exact values are available in the history table.`}>
-            <line x1={chart.left} x2={chart.right} y1={chart.top} y2={chart.top} stroke="#c9daef" /><line x1={chart.left} x2={chart.right} y1={chart.bottom} y2={chart.bottom} stroke="#c9daef" />
+            <line x1={chart.left} x2={chart.right} y1={chart.top} y2={chart.top} stroke="var(--line)" /><line x1={chart.left} x2={chart.right} y1={chart.bottom} y2={chart.bottom} stroke="var(--line)" />
             <text x={chart.left - 8} y={chart.top + 4} textAnchor="end" style={{ fontSize: chart.labelSize }}>{number(high)}</text><text x={chart.left - 8} y={chart.bottom + 4} textAnchor="end" style={{ fontSize: chart.labelSize }}>{number(low)}</text>
-            <polyline data-testid="research-price-line" fill="none" stroke={lineColor} strokeWidth="2.5" points={points.map(item => `${x(item.time)},${y(item.close)}`).join(' ')} /><line x1={x(point.time)} x2={x(point.time)} y1={chart.top - 10} y2={chart.bottom + 8} stroke="#526581" strokeDasharray="4 4" /><circle cx={x(point.time)} cy={y(point.close)} r="5" fill={lineColor} />
+            <polyline data-testid="research-price-line" fill="none" stroke={lineColor} strokeWidth="2.5" points={points.map(item => `${x(item.time)},${y(item.close)}`).join(' ')} /><line x1={x(point.time)} x2={x(point.time)} y1={chart.top - 10} y2={chart.bottom + 8} stroke="var(--muted)" strokeDasharray="4 4" /><circle cx={x(point.time)} cy={y(point.close)} r="5" fill={lineColor} />
             <text x={chart.left} y={chart.height - 10} style={{ fontSize: chart.labelSize }}>{date(points[0].time)}</text><text x={chart.right} y={chart.height - 10} textAnchor="end" style={{ fontSize: chart.labelSize }}>{date(points[points.length - 1].time)}</text>
         </svg><p className={connected.chartInteractionHint}>Tap or click the chart, or use the date slider to inspect a returned close.</p><label className={connected.scrubber}>Inspect a trading date<input type="range" min="0" max={points.length - 1} value={index} disabled={points.length === 1} onChange={event => setChartDate(points[Number(event.target.value)]?.time ?? null)} aria-valuetext={`${date(point.time)}, close ${money(point.close, snapshot?.quote.currency)}`} /></label><div className={connected.rangeChange} data-testid="research-range-change">{periodChange ? <>
             <strong>Selected-period price change: {periodChange.amount > 0 ? '+' : ''}{money(periodChange.amount, snapshot?.quote.currency)}{periodChange.percentage !== null ? ` (${periodChange.percentage > 0 ? '+' : ''}${number(periodChange.percentage, '%')})` : ' · percentage unavailable: starting close is zero'}</strong>

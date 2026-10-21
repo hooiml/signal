@@ -2,7 +2,7 @@
 
 ## Source of truth
 - Status: Active
-- Last refreshed: 2026-08-01
+- Last refreshed: 2026-10-21
 - Primary product surfaces: Guided Start, Market Conditions, and Research workspaces.
 - Evidence reviewed: `src/components/v6/DESIGN.md`, `docs/ARCHITECTURE.md`, `docs/TESTING.md`, `src/components/v6/StartGuideV6.tsx`, `src/components/v6/MarketDashboardV6.tsx`, `src/components/v6/ResearchDashboardV6.tsx`, and existing V6 workspace components.
 
@@ -33,8 +33,8 @@
 - Tradeoffs: Prefer honest limited evidence over a more exciting but unsupported forecast.
 
 ## Visual language
-- Color: Existing V6 slate and emerald theme tokens, with rose reserved for explicit risk.
-- Typography: Existing application typography with monospaced treatment for scores and prices.
+- Color: V8 surfaces use semantic tokens defined on `.app` in `src/components/v8/market-v8.module.css`, one colour per job: slate neutrals (`--canvas`, `--surface*`, `--line*`, `--ink`, `--muted`, `--subtle`), teal `--brand` for buttons, active tabs, selection and focus, blue `--link` for links, `--up` green for positive data only, `--down` rose for negative data or explicit risk, `--caution` amber for stale or fallback evidence, and slate `--chart-line` for neutral series. Do not add raw hex values to V8 styles or inline SVG; add or reuse a token. V6/V7 keep their existing theme tokens.
+- Typography: V8 uses the bundled Source Sans 3 (`--font-sans`) with tabular figures for all numbers; Roboto Mono is available as `--font-mono`. Font sizes come from the V8 scale `--text-xs` 12, `--text-sm` 13 (default secondary text), `--text-base` 14, `--text-md` 16, `--text-lg` 20, `--text-xl` 24, `--text-2xl` 32 and `--text-display` 48; SVG user-unit chart labels are the only exception.
 - Spacing/layout rhythm: Compact 8px-radius panels, 12–16px internal spacing, and a 1280px shell.
 - Shape/radius/elevation: Reuse V6 panel and row surfaces.
 - Motion: Existing restrained theme and disclosure transitions only.
@@ -44,7 +44,7 @@
 - Existing components to reuse: Grouped Research workspace navigation, V6 theme tokens, Discovery response validation, and Research navigation actions.
 - New/changed components: `StartGuideV6` for the score-to-candidate-to-current-news journey, plus the Research Picker workspace under Discovery.
 - Variants and states: Setup, loading, results, no matches, error, and saved basket.
-- Token/component ownership: V6 theme tokens remain owned by `src/components/v6/research-v6.ts`.
+- Token/component ownership: V6 theme tokens remain owned by `src/components/v6/research-v6.ts`; V8 colour, font and type-scale tokens are owned by the `.app` rule in `src/components/v8/market-v8.module.css`.
 
 ## Accessibility
 - Target standard: Keyboard-operable controls with semantic headings, labels, tables, and status feedback.
@@ -73,7 +73,7 @@
 
 ## Implementation constraints
 - Framework/styling system: Next.js, React, TypeScript, and existing Tailwind utility patterns.
-- Design-token constraints: Reuse V6 theme classes; add no design-system layer.
+- Design-token constraints: Reuse V6 theme classes on V6 surfaces and the V8 CSS custom properties on V8 surfaces; add no separate design-system package.
 - Performance constraints: The Start route reuses the existing signal and bounded Discovery endpoints; it must not introduce another score, provider, or duplicate request after the initial guided load.
 - Compatibility constraints: Browser-local paper baskets must not mutate persisted Research records.
 - Test/screenshot expectations: Standard lane checks plus 1280px, 768px, and 375px browser verification.
