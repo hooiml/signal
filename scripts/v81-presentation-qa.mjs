@@ -275,7 +275,7 @@ try {
         await shot('research-review', width);
         if (phase === 'after') {
             assert.equal(await page.getByRole('region', { name: 'Next research gap' }).count(), 0);
-            assert.equal(await page.getByRole('link', { name: 'Open full research review ↗', exact: true }).count(), 1);
+            assert.equal(await page.getByRole('link', { name: 'Open full research review (new tab) ↗', exact: true }).count(), 1);
         }
         assert.match(await page.getByRole('region', { name: 'Current provider quote' }).innerText(), /15 Oct 2026, 20:00 UTC/);
         assert.equal(await page.getByRole('tabpanel').getByRole('region', { name: 'Current research assessment' }).count(), 0, 'Full automatic assessment must not repeat in Review.');
