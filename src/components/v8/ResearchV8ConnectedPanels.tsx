@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { nearestPricePoint, priceRangeChange } from '@/lib/research/reading-display';
 import { formatResearchPrice, researchPriceCurrency } from '@/lib/research/price-format';
 import { financialPeriodLabel, formatResearchTimestamp, netCashCurrency, researchMetricPeriodLabel } from '@/lib/research/metric-provenance';
@@ -45,7 +45,7 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
     const valuationShares = market === 'MY' ? snapshot?.quote.sharesOutstanding : fundamentals?.shares;
     return <div className={connected.panelContent}>
         {tab === 'Overview' && <>
-            <PriceHistory snapshot={snapshot} loading={loading} advanced={advanced} savedMarket={record?.market ?? null} {...chart} />
+            <PriceHistory snapshot={snapshot} loading={loading} advanced={advanced} savedMarket={record?.market ?? null} record={record} {...chart} />
             {record && (advanced || record.whyInterested || record.notes || record.acceptedEvidence.length > 0 || record.documentEvidence.citations.length > 0) && <details className={connected.evidence}><summary>Your saved notes and evidence · optional</summary>
             <span className={base.eyebrow}>USER-AUTHORED · SAVED {date(record.updatedAt)}</span>{record.whyInterested && <p className={connected.authored}>{record.whyInterested}</p>}{record.notes && <p className={connected.authored}>{record.notes}</p>}
             <h2>The evidence file</h2><p>Accepted research preserves its original sources and mode. A saved interpretation is not an independently verified fact.</p>
@@ -108,11 +108,13 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
     </div>;
 }
 
-function PriceHistory({ snapshot, loading, advanced, savedMarket, chartRange: range, setChartRange: setRange, chartDate, setChartDate }: { snapshot: ResearchSnapshot | null; loading: boolean; advanced: boolean; savedMarket: ResearchMarket | null } & ChartStateProps) {
+function PriceHistory({ snapshot, loading, advanced, savedMarket, record, chartRange: range, setChartRange: setRange, chartDate, setChartDate }: { snapshot: ResearchSnapshot | null; loading: boolean; advanced: boolean; savedMarket: ResearchMarket | null; record?: ResearchRecord } & ChartStateProps) {
     const [mobileChart, setMobileChart] = useState(false);
     // Axis labels are sized in SVG units; scale them against the rendered width so they stay 12px on screen.
     const [chartElement, setChartElement] = useState<SVGSVGElement | null>(null);
     const [renderedWidth, setRenderedWidth] = useState(0);
+    const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+    const gradientId = 'price-fill-' + useId().replace(/[^a-zA-Z0-9_-]/g, '');
     useEffect(() => {
         if (!chartElement) return;
         const observer = new ResizeObserver(([entry]) => setRenderedWidth(entry.contentRect.width));
@@ -133,8 +135,15 @@ function PriceHistory({ snapshot, loading, advanced, savedMarket, chartRange: ra
     const selected = points.findIndex(point => point.time === chartDate);
     const index = selected >= 0 ? selected : points.length - 1;
     const point = points[index];
-    const low = Math.min(...points.map(item => item.close));
-    const high = Math.max(...points.map(item => item.close));
+    const closeLow = Math.min(...points.map(item => item.close));
+    const closeHigh = Math.max(...points.map(item => item.close));
+    // The 52-week range comes from provider technicals. It widens the scale only on long ranges,
+    // so 1M/3M keep their detail and show just the 52-week lines that fall in view.
+    const technicals = snapshot?.technicals;
+    const band = technicals && technicals.low52Week !== null && technicals.high52Week !== null && Number.isFinite(technicals.low52Week) && Number.isFinite(technicals.high52Week) && technicals.high52Week > technicals.low52Week ? { low: technicals.low52Week, high: technicals.high52Week } : null;
+    const showBand = !!band && (range === '1Y' || range === 'All');
+    const low = showBand && band ? Math.min(closeLow, band.low) : closeLow;
+    const high = showBand && band ? Math.max(closeHigh, band.high) : closeHigh;
     const periodChange = priceRangeChange(points);
     const change = periodChange?.amount ?? null;
     const lineColor = change === null || change === 0 ? 'var(--muted)' : change > 0 ? 'var(--up)' : 'var(--down)';
@@ -146,21 +155,38 @@ function PriceHistory({ snapshot, loading, advanced, savedMarket, chartRange: ra
     const labelSize = renderedWidth ? 12 * chart.width / renderedWidth : chart.labelSize;
     const x = (time: string) => chart.left + (Date.parse(time) - start) / (end - start || 1) * (chart.right - chart.left);
     const y = (value: number) => chart.bottom - (value - low) / (high - low || 1) * (chart.bottom - chart.top);
+    const bandLines = band ? ([['52-wk high', band.high], ['52-wk low', band.low]] as const).filter(([, value]) => value >= low && value <= high) : [];
+    const markers = record ? savedReviewMarkers(record).filter(marker => Date.parse(marker.time) >= start && Date.parse(marker.time) <= end) : [];
+    const area = points.length > 1 ? `M${x(points[0].time)},${chart.bottom} ${points.map(item => `L${x(item.time)},${y(item.close)}`).join(' ')} L${x(points[points.length - 1].time)},${chart.bottom} Z` : '';
+    const hovered = hoverIndex !== null ? points[hoverIndex] : undefined;
+    const hoverChange = hovered && points[0].close ? (hovered.close - points[0].close) / points[0].close * 100 : null;
+    const hoverEdge = hovered ? x(hovered.time) / chart.width < .18 ? 'start' : x(hovered.time) / chart.width > .82 ? 'end' : 'mid' : 'mid';
+    const nearestAt = (event: { currentTarget: SVGSVGElement; clientX: number; clientY: number }) => {
+        const matrix = event.currentTarget.getScreenCTM();
+        if (!matrix) return null;
+        const local = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+        const fraction = Math.max(0, Math.min(1, (local.x - chart.left) / (chart.right - chart.left)));
+        return nearestPricePoint(points, start + fraction * (end - start));
+    };
     return <section className={connected.priceHistory} aria-label="Price history">
         <div className={connected.chartHeader}><div><span className={base.eyebrow}>RETURNED DAILY CLOSES</span><h3>Price history</h3></div><fieldset className={base.segment}><legend className={base.visuallyHidden}>Price history range</legend>{['1M', '3M', '1Y', 'All'].map(value => <button key={value} aria-pressed={range === value} onClick={() => { setRange(value); setChartDate(null); }}>{value}</button>)}</fieldset></div>
-        {point ? <><output className={connected.priceReadout} aria-live="polite">{date(point.time)} · close {price(point.close, snapshot?.quote.currency)}</output><svg ref={setChartElement} className={connected.priceChart} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" onClick={event => {
-            const matrix = event.currentTarget.getScreenCTM();
-            if (!matrix) return;
-            const local = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
-            const fraction = Math.max(0, Math.min(1, (local.x - chart.left) / (chart.right - chart.left)));
-            const nearest = nearestPricePoint(points, start + fraction * (end - start));
+        {point ? <><output className={connected.priceReadout} aria-live="polite">{date(point.time)} · close {price(point.close, snapshot?.quote.currency)}</output><div className={connected.priceChartFrame}><svg ref={setChartElement} className={connected.priceChart} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" onClick={event => {
+            const nearest = nearestAt(event);
             if (nearest !== null) setChartDate(points[nearest].time);
-        }} aria-label={`${snapshot?.symbol} daily closing price, ${date(points[0].time)} to ${date(points[points.length - 1].time)}. Exact values are available in the history table.`}>
+        }} onPointerMove={event => { if (event.pointerType === 'mouse') setHoverIndex(nearestAt(event)); }} onPointerLeave={() => setHoverIndex(null)} aria-label={`${snapshot?.symbol} daily closing price, ${date(points[0].time)} to ${date(points[points.length - 1].time)}. Exact values are available in the history table.`}>
+            <defs><linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor={lineColor} stopOpacity=".2" /><stop offset="1" stopColor={lineColor} stopOpacity="0" /></linearGradient></defs>
+            {showBand && band && <rect data-testid="research-52w-band" x={chart.left} width={chart.right - chart.left} y={y(band.high)} height={y(band.low) - y(band.high)} fill="var(--surface-muted)" />}
             <line x1={chart.left} x2={chart.right} y1={chart.top} y2={chart.top} stroke="var(--line)" /><line x1={chart.left} x2={chart.right} y1={chart.bottom} y2={chart.bottom} stroke="var(--line)" />
+            {bandLines.map(([label, value]) => <g key={label} data-testid="research-52w-line"><line x1={chart.left} x2={chart.right} y1={y(value)} y2={y(value)} stroke="var(--subtle)" strokeDasharray="2 4" /><text x={chart.left + 6} y={value === high ? y(value) + labelSize + 3 : y(value) - 5} fill="var(--muted)" style={{ fontSize: labelSize }}>{label}{value === high || value === low ? '' : ` ${number(value)}`}</text></g>)}
             <text x={chart.left - 8} y={chart.top + 4} textAnchor="end" style={{ fontSize: labelSize }}>{number(high)}</text><text x={chart.left - 8} y={chart.bottom + 4} textAnchor="end" style={{ fontSize: labelSize }}>{number(low)}</text>
-            <polyline data-testid="research-price-line" fill="none" stroke={lineColor} strokeWidth="2.5" points={points.map(item => `${x(item.time)},${y(item.close)}`).join(' ')} /><line x1={x(point.time)} x2={x(point.time)} y1={chart.top - 10} y2={chart.bottom + 8} stroke="var(--muted)" strokeDasharray="4 4" /><circle cx={x(point.time)} cy={y(point.close)} r="5" fill={lineColor} />
+            {area && <path d={area} fill={`url(#${gradientId})`} />}<polyline data-testid="research-price-line" fill="none" stroke={lineColor} strokeWidth="2.5" points={points.map(item => `${x(item.time)},${y(item.close)}`).join(' ')} /><line x1={x(point.time)} x2={x(point.time)} y1={chart.top - 10} y2={chart.bottom + 8} stroke="var(--muted)" strokeDasharray="4 4" /><circle cx={x(point.time)} cy={y(point.close)} r="5" fill={lineColor} />
+            {markers.map(marker => <g key={`${marker.time}-${marker.label}`} data-testid="research-review-marker"><line x1={x(marker.time)} x2={x(marker.time)} y1={chart.top} y2={chart.bottom} stroke="var(--brand)" strokeOpacity=".45" /><path d={`M${x(marker.time)},${chart.top - 16} l6,6 l-6,6 l-6,-6 Z`} fill="var(--brand)" /><title>{date(marker.time)} · {marker.label}</title></g>)}
+            {hovered && <g pointerEvents="none"><line x1={x(hovered.time)} x2={x(hovered.time)} y1={chart.top} y2={chart.bottom} stroke="var(--subtle)" /><line x1={chart.left} x2={chart.right} y1={y(hovered.close)} y2={y(hovered.close)} stroke="var(--subtle)" strokeDasharray="3 4" /><circle cx={x(hovered.time)} cy={y(hovered.close)} r="4.5" fill="var(--surface)" stroke={lineColor} strokeWidth="2.5" /></g>}
             <text x={chart.left} y={chart.height - 10} style={{ fontSize: labelSize }}>{date(points[0].time)}</text><text x={chart.right} y={chart.height - 10} textAnchor="end" style={{ fontSize: labelSize }}>{date(points[points.length - 1].time)}</text>
-        </svg><p className={connected.chartInteractionHint}>Tap or click the chart, or use the date slider to inspect a returned close.</p><label className={connected.scrubber}>Inspect a trading date<input type="range" min="0" max={points.length - 1} value={index} disabled={points.length === 1} onChange={event => setChartDate(points[Number(event.target.value)]?.time ?? null)} aria-valuetext={`${date(point.time)}, close ${price(point.close, snapshot?.quote.currency)}`} /></label><div className={connected.rangeChange} data-testid="research-range-change">{periodChange ? <>
+        </svg>{hovered && <div className={connected.priceTooltip} aria-hidden="true" data-edge={hoverEdge} style={{ left: `${x(hovered.time) / chart.width * 100}%`, top: `${y(hovered.close) / chart.height * 100}%` }}><b>{price(hovered.close, snapshot?.quote.currency)}</b><span>{date(hovered.time)}{hoverChange !== null ? ` · ${hoverChange >= 0 ? '+' : '−'}${Math.abs(hoverChange).toFixed(2)}% vs ${date(points[0].time)}` : ''}</span></div>}</div>
+        {(showBand || bandLines.length > 0 || markers.length > 0) && <div className={connected.chartLegend} aria-hidden="true"><span><i data-swatch="line" style={{ background: lineColor }} />Daily close</span>{showBand ? <span><i data-swatch="band" />52-week range</span> : bandLines.length > 0 && <span><i data-swatch="dash" />52-week high/low</span>}{markers.length > 0 && <span><i data-swatch="marker" />Your saved review</span>}</div>}
+        {markers.length > 0 && <p className={connected.chartMarkers}>Your saved reviews in this range: {markers.map(marker => `${date(marker.time)} · ${marker.label}`).join('; ')}.</p>}
+        <p className={connected.chartInteractionHint}>Tap or click the chart, or use the date slider to inspect a returned close.</p><label className={connected.scrubber}>Inspect a trading date<input type="range" min="0" max={points.length - 1} value={index} disabled={points.length === 1} onChange={event => setChartDate(points[Number(event.target.value)]?.time ?? null)} aria-valuetext={`${date(point.time)}, close ${price(point.close, snapshot?.quote.currency)}`} /></label><div className={connected.rangeChange} data-testid="research-range-change">{periodChange ? <>
             <strong>Selected-period price change: {periodChange.amount > 0 ? '+' : ''}{price(periodChange.amount, snapshot?.quote.currency)}{periodChange.percentage !== null ? ` (${periodChange.percentage > 0 ? '+' : ''}${number(periodChange.percentage, '%')})` : ' · percentage unavailable: starting close is zero'}</strong>
             <span>{date(periodChange.start)} → {date(periodChange.end)} · first and last returned closes.</span>
             <span>Price change only; not total return. This is separate from the quote’s daily change.</span>
@@ -170,4 +196,15 @@ function PriceHistory({ snapshot, loading, advanced, savedMarket, chartRange: ra
             ? <a className={base.textButton} href={researchHref(snapshot.symbol, 'chart', savedMarket)} target="_blank" rel="noopener noreferrer">Open full chart & technicals ↗</a>
             : <p className={styles.gapNote}>Full chart & technicals open from saved research. Save {snapshot.symbol} to use them; this reading is unchanged.</p>)}
     </section>;
+}
+
+type ReviewMarker = { time: string; label: string };
+
+// Saved personal reviews become chart markers: each review snapshot, plus the current decision when it is newer.
+function savedReviewMarkers(record: ResearchRecord): ReviewMarker[] {
+    const label = (decision: string, thesis: string) => decision !== 'Not recorded' ? `Decision: ${decision}` : thesis ? 'Thesis saved' : 'Review saved';
+    const markers = record.reviewHistory.map(review => ({ time: review.reviewedAt, label: label(review.decisionJournal.decision, review.whyInterested) }));
+    const current = personalReviewDate(record);
+    if (current && !markers.some(marker => marker.time === current)) markers.push({ time: current, label: label(record.decisionJournal.decision, record.whyInterested) });
+    return markers.filter(marker => Number.isFinite(Date.parse(marker.time))).sort((a, b) => a.time.localeCompare(b.time));
 }
