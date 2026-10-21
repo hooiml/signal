@@ -2,6 +2,8 @@
 
 import { formatResearchPrice } from '@/lib/research/price-format';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { OwnerAccessNotice } from '@/components/OwnerAccessNotice';
+import { ownerAccessIssue, type OwnerAccessIssue } from '@/lib/owner-access-client';
 import {
     calibrationRatings,
     createResearchDecisionCalibration,
@@ -29,11 +31,13 @@ export const ResearchDecisionCalibrationV10 = ({ ticker, record, snapshot }: Pro
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
+    const [accessIssue, setAccessIssue] = useState<OwnerAccessIssue | null>(null);
+    const [historyLoaded, setHistoryLoaded] = useState(false);
     const laterPrice = snapshot?.symbol === ticker ? snapshot.quote.price ?? null : null;
     const laterCurrency = snapshot?.symbol === ticker ? snapshot.quote.currency : null;
 
     const load = useCallback(async () => {
-        setLoading(true); setMessage(null);
+        setLoading(true); setMessage(null); setAccessIssue(null);
         if (!record || record.symbol !== ticker) {
             setReviews([]); setSelectedReview(null); setDraft(null);
             setMessage('Save this security to Research before reviewing decisions.');
@@ -42,16 +46,19 @@ export const ResearchDecisionCalibrationV10 = ({ ticker, record, snapshot }: Pro
         }
         try {
             const calibrationResponse = await fetch(`/api/research/calibration/${encodeURIComponent(ticker)}`, { cache: 'no-store' });
-            const calibrationPayload: unknown = await calibrationResponse.json();
-            const parsedCalibrations = calibrationResponse.ok && typeof calibrationPayload === 'object' && calibrationPayload !== null && !Array.isArray(calibrationPayload) && Array.isArray((calibrationPayload as Record<string, unknown>).data)
-                ? ((calibrationPayload as Record<string, unknown>).data as unknown[]).map(parseResearchDecisionCalibration)
-                : [];
+            const calibrationPayload: unknown = await calibrationResponse.json().catch(() => null);
+            const issue = ownerAccessIssue(calibrationResponse.status, typeof calibrationPayload === 'object' && calibrationPayload !== null ? Reflect.get(calibrationPayload, 'code') : undefined);
+            if (issue) { setAccessIssue(issue); return; }
+            if (!calibrationResponse.ok || typeof calibrationPayload !== 'object' || calibrationPayload === null || Array.isArray(calibrationPayload)
+                || !Array.isArray((calibrationPayload as Record<string, unknown>).data)) throw new Error('Decision review history could not be loaded.');
+            const parsedCalibrations = ((calibrationPayload as Record<string, unknown>).data as unknown[]).map(parseResearchDecisionCalibration);
             const latestReview = record.reviewHistory.at(-1) ?? null;
             setReviews(parsedCalibrations); setSelectedReview(latestReview);
             if (latestReview) {
                 const existing = parsedCalibrations.find((entry) => entry.reviewId === latestReview.id);
                 setDraft(existing ?? createResearchDecisionCalibration({ ticker, reviewId: latestReview.id, reviewedAt: latestReview.reviewedAt, originalDecision: latestReview.decisionJournal.decision, originalObservedPrice: latestReview.decisionJournal.observedPrice, originalCurrency: latestReview.decisionJournal.observedCurrency }));
             } else setDraft(null);
+            setHistoryLoaded(true);
         } catch (error) { setMessage(error instanceof Error ? error.message : 'Decision review is unavailable.'); }
         finally { setLoading(false); }
     }, [record, ticker]);
@@ -78,11 +85,13 @@ export const ResearchDecisionCalibrationV10 = ({ ticker, record, snapshot }: Pro
 
     const save = async () => {
         if (!draft) return;
-        setSaving(true); setMessage(null);
+        setSaving(true); setMessage(null); setAccessIssue(null);
         try {
             const normalized = parseResearchDecisionCalibration({ ...draft, updatedAt: new Date().toISOString() });
             const response = await fetch(`/api/research/calibration/${encodeURIComponent(ticker)}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(normalized) });
-            const payload: unknown = await response.json();
+            const payload: unknown = await response.json().catch(() => null);
+            const issue = ownerAccessIssue(response.status, typeof payload === 'object' && payload !== null ? Reflect.get(payload, 'code') : undefined);
+            if (issue) { setAccessIssue(issue); return; }
             if (!response.ok || typeof payload !== 'object' || payload === null || Array.isArray(payload)) throw new Error('Could not save process review.');
             const saved = parseResearchDecisionCalibration((payload as Record<string, unknown>).data);
             setDraft(saved); setReviews((current) => [saved, ...current.filter((item) => item.id !== saved.id)]); setMessage('Process review saved.');
@@ -90,11 +99,19 @@ export const ResearchDecisionCalibrationV10 = ({ ticker, record, snapshot }: Pro
         finally { setSaving(false); }
     };
 
-    if (loading) return <section data-testid="decision-calibration-v10" className="mt-3 rounded-lg border border-zinc-700/40 p-3 text-xs text-zinc-500">Loading decision review…</section>;
+    if (loading) return <section data-testid="decision-calibration-v10" aria-busy="true" className="mt-3 rounded-lg border border-zinc-700/40 p-3 text-xs text-zinc-500">Loading decision review…</section>;
+    if (record && !historyLoaded) return <section data-testid="decision-calibration-v10" className="mt-3 rounded-lg border border-zinc-700/40 p-3">
+        <h3 className="text-sm font-semibold">Decision review · {ticker}</h3>
+        {accessIssue ? <OwnerAccessNotice issue={accessIssue} resource="Decision review history" onRetry={() => void load()} /> : <>
+            <p role="status" className="mt-2 text-xs text-zinc-500">{message ?? 'Decision review history could not be loaded.'}</p>
+            <button type="button" onClick={() => void load()} className="mt-2 min-h-11 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-emerald-500">Retry decision history</button>
+        </>}
+    </section>;
     if (!record || record.reviewHistory.length === 0 || !selectedReview || !draft) return <section data-testid="decision-calibration-v10" className="mt-3 rounded-lg border border-zinc-700/40 p-3"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-500">Decision review</p><p className="mt-1 text-xs text-zinc-500">{message ?? 'Complete and save at least one Research review before calibrating your decision process.'}</p></section>;
 
     return (
         <section data-testid="decision-calibration-v10" className="mt-3 rounded-lg border border-zinc-700/40 p-3" aria-label={`Decision process review for ${ticker}`}>
+            {accessIssue && <OwnerAccessNotice issue={accessIssue} resource="Decision review history" preserveDraft saveLabel="Save process review" />}
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-500">Decision review</p><h3 className="mt-1 text-sm font-semibold">Was the process reasonable with what was knowable then?</h3><p className="mt-1 max-w-2xl text-xs text-zinc-500">Review the process, not just the return. A stock rising after a WAIT decision does not automatically make the decision poor; unexpected information and the quality of the original evidence matter.</p></div>
                 <select aria-label="Historical review" value={selectedReview.id} onChange={(event) => { const review = record.reviewHistory.find((item) => item.id === event.target.value); if (review) selectHistoricalReview(review); }} className="min-h-10 rounded-lg border border-zinc-700/50 bg-transparent px-3 text-xs">

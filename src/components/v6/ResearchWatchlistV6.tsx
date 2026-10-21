@@ -159,7 +159,7 @@ export const ResearchWatchlistV6 = ({
                                     <span className={'font-mono text-sm font-bold tracking-normal ' + (selected ? themeClasses.positive : themeClasses.textPrimary)}>{item.symbol}</span>
                                     <span className={'font-mono text-xs font-semibold tabular-nums ' + (selected ? themeClasses.positive : themeClasses.textSecondary)}>{formatPriceV6(item)}</span>
                                 </span>
-                                <span className={'mt-0.5 block text-xs font-semibold ' + getActionToneV6(action, theme)}>{action}</span>
+                                <span className={'mt-0.5 block text-xs font-semibold ' + getActionToneV6(action, theme)}>Checklist: {action}</span>
                             </button>
                         );
                     })}

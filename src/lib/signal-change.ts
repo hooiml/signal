@@ -77,9 +77,14 @@ export type StoredComponentReading = {
     readonly weight: number;
     readonly raw_value: number | null;
     readonly last_updated: string | null;
+    /** Missing on older archives; never infer an observation time from the date alone. */
+    readonly timestamp_basis?: 'observed' | 'retrieved' | null;
+    readonly retrieved_at?: string | null;
+    readonly unit?: string | null;
 };
 
 export type ComponentChangeStatus = 'changed' | 'unchanged' | 'became-available' | 'became-unavailable';
+export type ObservationChange = 'newer' | 'older' | 'same' | 'different' | 'unknown';
 
 export type ComponentChangeRow = {
     readonly key: string;
@@ -91,9 +96,20 @@ export type ComponentChangeRow = {
     readonly current_weight: number | null;
     readonly previous_raw_value: number | null;
     readonly current_raw_value: number | null;
+    /** Additive provenance fields are optional for responses generated before their introduction. */
+    readonly previous_last_updated?: string | null;
+    readonly current_last_updated?: string | null;
+    readonly previous_timestamp_basis?: 'observed' | 'retrieved' | null;
+    readonly current_timestamp_basis?: 'observed' | 'retrieved' | null;
+    readonly previous_retrieved_at?: string | null;
+    readonly current_retrieved_at?: string | null;
+    readonly previous_unit?: string | null;
+    readonly current_unit?: string | null;
     readonly previous_observed_at: string | null;
     readonly current_observed_at: string | null;
-    /** null when either reading lacks a timestamp, so a new observation cannot be established. */
+    /** 'different' means the raw value changed at the same verified observation time. */
+    readonly observation_change?: ObservationChange;
+    /** True only for a later verified observation; null when either observation time is unknown. */
     readonly new_observation: boolean | null;
     /** (current score - previous score) x previous weight; null for availability changes. */
     readonly score_effect: number | null;
@@ -122,6 +138,9 @@ export type ScoreChangeReconciliation = {
 
 const neutralBaseline = 50;
 const finiteOrNull = (value: unknown): number | null => typeof value === 'number' && Number.isFinite(value) ? value : null;
+const dateOrNull = (value: unknown): string | null => typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : null;
+const basisOrNull = (value: unknown): 'observed' | 'retrieved' | null => value === 'observed' || value === 'retrieved' ? value : null;
+const unitOrNull = (value: unknown): string | null => typeof value === 'string' && value.trim() ? value : null;
 const round6 = (value: number) => Math.round(value * 1e6) / 1e6;
 
 /** Returns null when any stored component lacks the score and weight needed to reconcile. */
@@ -134,14 +153,18 @@ export const parseStoredComponentReadings = (value: unknown): StoredComponentRea
         const score = finiteOrNull(Reflect.get(component, 'score'));
         const weight = finiteOrNull(Reflect.get(component, 'weight'));
         if (typeof name !== 'string' || score === null || weight === null) return null;
-        const lastUpdated = Reflect.get(component, 'last_updated');
+        const lastUpdated = dateOrNull(Reflect.get(component, 'last_updated'));
+        const basis = basisOrNull(Reflect.get(component, 'timestamp_basis'));
         readings.push({
             key,
             name,
             score,
             weight,
             raw_value: finiteOrNull(Reflect.get(component, 'raw_value')),
-            last_updated: typeof lastUpdated === 'string' && Number.isFinite(Date.parse(lastUpdated)) ? lastUpdated : null,
+            last_updated: lastUpdated,
+            timestamp_basis: basis,
+            retrieved_at: dateOrNull(Reflect.get(component, 'retrieved_at')) ?? (basis === 'retrieved' ? lastUpdated : null),
+            unit: unitOrNull(Reflect.get(component, 'unit')),
         });
     }
     return readings;
@@ -154,6 +177,12 @@ const neutralPoints = (readings: readonly StoredComponentReading[]) => {
 
 const rawComposite = (readings: readonly StoredComponentReading[]) =>
     readings.reduce((total, reading) => total + reading.score * reading.weight, 0) + neutralPoints(readings).points;
+
+const observedAt = (reading: StoredComponentReading | undefined): string | null =>
+    reading?.timestamp_basis === 'observed' ? dateOrNull(reading.last_updated) : null;
+
+const retrievedAt = (reading: StoredComponentReading | undefined): string | null =>
+    dateOrNull(reading?.retrieved_at) ?? (reading?.timestamp_basis === 'retrieved' ? dateOrNull(reading.last_updated) : null);
 
 export const reconcileScoreChange = (input: {
     readonly current: readonly StoredComponentReading[];
@@ -170,12 +199,18 @@ export const reconcileScoreChange = (input: {
         const before = previousByKey.get(key);
         const delta = round6((now ? now.score * now.weight : 0) - (before ? before.score * before.weight : 0));
         const both = now !== undefined && before !== undefined;
-        const newObservation = both && now.last_updated && before.last_updated
-            ? Date.parse(now.last_updated) !== Date.parse(before.last_updated)
-            : null;
+        const previousObservedAt = observedAt(before);
+        const currentObservedAt = observedAt(now);
+        const observationChange: ObservationChange = !previousObservedAt || !currentObservedAt ? 'unknown'
+            : Date.parse(currentObservedAt) > Date.parse(previousObservedAt) ? 'newer'
+            : Date.parse(currentObservedAt) < Date.parse(previousObservedAt) ? 'older'
+            : now?.raw_value !== before?.raw_value ? 'different' : 'same';
         const status: ComponentChangeStatus = !before ? 'became-available'
             : !now ? 'became-unavailable'
-            : delta !== 0 || now.raw_value !== before.raw_value || newObservation === true ? 'changed' : 'unchanged';
+            : delta !== 0 || now.score !== before.score || now.weight !== before.weight || now.raw_value !== before.raw_value
+                || unitOrNull(now.unit) !== unitOrNull(before.unit)
+                || observationChange === 'newer' || observationChange === 'older' || observationChange === 'different'
+                ? 'changed' : 'unchanged';
         return {
             key,
             name: now?.name ?? before?.name ?? key,
@@ -186,9 +221,18 @@ export const reconcileScoreChange = (input: {
             current_weight: now?.weight ?? null,
             previous_raw_value: before?.raw_value ?? null,
             current_raw_value: now?.raw_value ?? null,
-            previous_observed_at: before?.last_updated ?? null,
-            current_observed_at: now?.last_updated ?? null,
-            new_observation: newObservation,
+            previous_last_updated: dateOrNull(before?.last_updated),
+            current_last_updated: dateOrNull(now?.last_updated),
+            previous_timestamp_basis: basisOrNull(before?.timestamp_basis),
+            current_timestamp_basis: basisOrNull(now?.timestamp_basis),
+            previous_retrieved_at: retrievedAt(before),
+            current_retrieved_at: retrievedAt(now),
+            previous_unit: unitOrNull(before?.unit),
+            current_unit: unitOrNull(now?.unit),
+            previous_observed_at: previousObservedAt,
+            current_observed_at: currentObservedAt,
+            observation_change: observationChange,
+            new_observation: observationChange === 'unknown' ? null : observationChange === 'newer',
             score_effect: both ? round6((now.score - before.score) * before.weight) : null,
             weight_effect: both ? round6(now.score * (now.weight - before.weight)) : null,
             delta,

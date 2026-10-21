@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import { parseResearchRecord, ResearchInputError } from '@/lib/research/input';
 import { parseResearchQuoteBatchResponse } from '@/lib/research/snapshot-input';
+import { personalReviewDate } from '@/lib/research/review-lifecycle';
+import { ownerAccessIssue, ownerAccessMessage, ownerUnlockHref, type OwnerAccessIssue } from '@/lib/owner-access-client';
 import type { AcceptedResearchEvidence, ResearchCreateInput, ResearchRecord, ResearchUpdateMode } from '@/lib/types/research';
 import { ResearchDetailV6 } from './ResearchDetailV6';
 import {
@@ -171,12 +173,16 @@ const EncryptedResearchBackupV6 = dynamic(
     { loading: workspaceLoading('Backup'), ssr: false },
 );
 
-const formatSnapshotLabel = (date: string) => new Intl.DateTimeFormat('en-US', {
+const formatSnapshotLabel = (date: string | null) => date === null ? null : new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     timeZone: 'UTC',
 }).format(new Date(date + 'T00:00:00Z'));
+
+class ResearchWriteAccessError extends ResearchInputError {
+    constructor(readonly issue: OwnerAccessIssue) { super(ownerAccessMessage(issue)); }
+}
 
 const filterResearchItems = (
     items: readonly ResearchWatchlistItem[],
@@ -227,11 +233,12 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     const [items, setItems] = useState<ResearchWatchlistItem[]>([]);
     const [records, setRecords] = useState<ResearchRecord[]>([]);
     const [recordsLoadState, setRecordsLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
-    const [recordsLocked, setRecordsLocked] = useState(false);
+    const [recordsAccessIssue, setRecordsAccessIssue] = useState<OwnerAccessIssue | null>(null);
     const [recordsReload, setRecordsReload] = useState(0);
     const [saving, setSaving] = useState(false);
     const [adding, setAdding] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [saveAccessIssue, setSaveAccessIssue] = useState<OwnerAccessIssue | null>(null);
     const [inboxSummary, setInboxSummary] = useState<ResearchInboxSummaryV6 | null>(null);
     const [workspace, setWorkspace] = useState<ResearchWorkspaceV6>(isResearchWorkspaceV6(requestedWorkspace) ? requestedWorkspace : 'research');
     const [reviewRequested, setReviewRequested] = useState(requestedReview === 'edit');
@@ -245,7 +252,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     const [watchlistAddRequest, setWatchlistAddRequest] = useState(0);
     const [urlStateReady, setUrlStateReady] = useState(presentation === 'v6');
     const liveSnapshots = useRef(new Map<string, ResearchSnapshot>());
-    const liveQuotes = useRef(new Map<string, ResearchSnapshot['quote']>());
+    const liveQuotes = useRef(new Map<string, { quote: ResearchSnapshot['quote']; fetchedAt: string }>());
     const quoteItems = useRef(items);
     const quoteTargetKey = useMemo(
         () => items.map((item) => `${item.symbol}:${item.market}`).join('|'),
@@ -391,8 +398,9 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         : null;
     const selectedHidden = Boolean(selected && !filteredItems.some((item) => item.symbol === selected.symbol));
     const latestReviewedAt = useMemo(
-        () => [...items].sort((left, right) => right.lastReviewedAt.localeCompare(left.lastReviewedAt))[0]?.lastReviewedAt ?? new Date().toISOString().slice(0, 10),
-        [items],
+        () => records.filter(record => items.some(item => item.symbol === record.symbol))
+            .map(personalReviewDate).filter((value): value is string => value !== null).sort().at(-1) ?? null,
+        [items, records],
     );
     const selectedRecord = selected
         ? records.find((record) => record.symbol === selected.symbol) ?? toResearchRecordV6(selected)
@@ -416,7 +424,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
 
     const updateLiveSnapshot = useCallback((symbol: string, snapshot: ResearchSnapshot) => {
         liveSnapshots.current.set(symbol, snapshot);
-        liveQuotes.current.set(symbol, snapshot.quote);
+        liveQuotes.current.set(symbol, { quote: snapshot.quote, fetchedAt: snapshot.fetchedAt });
         setItems((current) => current.map((item) => {
             if (item.symbol !== symbol) return item;
             return applyResearchSnapshotV6(item, snapshot);
@@ -435,14 +443,19 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         let active = true;
         const loadRecords = async () => {
             setRecordsLoadState('loading');
+            setRecordsAccessIssue(null);
             try {
                 const response = await fetch('/api/research/watchlist');
-                if (active) setRecordsLocked(response.status === 401);
-                const payload: unknown = await response.json();
+                const payload: unknown = await response.json().catch(() => null);
+                const fields = typeof payload === 'object' && payload !== null && !Array.isArray(payload) ? Object.fromEntries(Object.entries(payload)) : null;
+                const issue = ownerAccessIssue(response.status, fields?.code);
+                if (issue) {
+                    if (active) { setRecordsAccessIssue(issue); setRecords([]); setItems([]); }
+                    throw new ResearchInputError(ownerAccessMessage(issue));
+                }
                 if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) throw new ResearchInputError('Invalid research API response.');
                 const data = Object.fromEntries(Object.entries(payload)).data;
                 const archivedData = Object.fromEntries(Object.entries(payload)).archivedSymbols;
-                if (response.status === 401) throw new ResearchInputError('Saved research is locked. Open /unlock to unlock Signal on this browser.');
                 if (!response.ok || !Array.isArray(data)) throw new ResearchInputError('Unable to load saved research.');
                 const stored = data.map(parseResearchRecord);
                 const archivedSymbols = Array.isArray(archivedData) ? archivedData.filter((item): item is string => typeof item === 'string') : [];
@@ -454,7 +467,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 setItems(activeRecords.map((record, index) => createWatchlistItemV6(record, index)).map((item) => {
                     const snapshot = liveSnapshots.current.get(item.symbol);
                     const withSnapshot = snapshot ? applyResearchSnapshotV6(item, snapshot) : item;
-                    const quote = liveQuotes.current.get(item.symbol);
+                    const quote = liveQuotes.current.get(item.symbol)?.quote;
                     return quote ? applyResearchQuoteV6(withSnapshot, quote) : withSnapshot;
                 }));
             } catch (error) {
@@ -513,7 +526,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 for (const result of results) {
                     if (result.success) {
                         quotes.set(result.data.symbol, result.data.quote);
-                        liveQuotes.current.set(result.data.symbol, result.data.quote);
+                        liveQuotes.current.set(result.data.symbol, { quote: result.data.quote, fetchedAt: result.data.fetchedAt });
                     } else failedSymbols.push(result.symbol);
                 }
                 if (failedSymbols.length > 0) setQuoteStatus(`Live quotes are unavailable for ${failedSymbols.join(', ')}. Saved research remains visible.`);
@@ -692,9 +705,11 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     };
 
     const readRecordResponse = async (response: Response): Promise<ResearchRecord> => {
-        const payload: unknown = await response.json();
-        if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) throw new ResearchInputError('Invalid research API response.');
-        const body = Object.fromEntries(Object.entries(payload));
+        const payload: unknown = await response.json().catch(() => null);
+        const body = typeof payload === 'object' && payload !== null && !Array.isArray(payload) ? Object.fromEntries(Object.entries(payload)) : null;
+        const issue = ownerAccessIssue(response.status, body?.code);
+        if (issue) throw new ResearchWriteAccessError(issue);
+        if (!body) throw new ResearchInputError('Invalid research API response.');
         if (!response.ok) throw new ResearchInputError(typeof body.error === 'string' ? body.error : 'Research request failed.');
         return parseResearchRecord(body.data);
     };
@@ -706,6 +721,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         }
         setSaving(true);
         setSaveError(null);
+        setSaveAccessIssue(null);
         try {
             let expectedRevision = record.revision;
             if (!records.some((item) => item.symbol === record.symbol)) {
@@ -743,6 +759,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 });
             }
             setSaveError(error instanceof Error ? error.message : 'Unable to save research.');
+            setSaveAccessIssue(error instanceof ResearchWriteAccessError ? error.issue : null);
             return false;
         } finally {
             setSaving(false);
@@ -938,7 +955,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
             <div className={'relative z-10 mx-auto w-full max-w-[1280px] px-4 pb-5 pt-4 min-[700px]:px-5 ' + (presentation === 'v7' ? liveStyles.researchContentV7 : '')}>
                 <div className={'mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm ' + themeClasses.panelUtility}>
                     <span>Advanced research workspace · personal analysis and planning</span>
-                    <a className="inline-flex min-h-11 items-center font-semibold underline" href={`/research-v8${selected?.symbol ? `?ticker=${encodeURIComponent(selected.symbol)}` : ''}`} target={reviewRequested ? '_blank' : undefined} rel={reviewRequested ? 'noopener noreferrer' : undefined}>{reviewRequested ? 'Open basic view in a new tab ↗' : 'Back to basic view →'}</a>
+                    <a className="inline-flex min-h-11 items-center font-semibold underline" href={selected ? '/research-v8?' + new URLSearchParams({ ticker: selected.symbol, market: selected.market, tab: activeDetailTab === 'valuation' ? 'valuation' : activeDetailTab === 'fundamentals' ? 'financials' : 'overview' }).toString() : '/research-v8'} target={reviewRequested ? '_blank' : undefined} rel={reviewRequested ? 'noopener noreferrer' : undefined}>{reviewRequested ? 'Open basic view in a new tab ↗' : 'Back to basic view →'}</a>
                 </div>
                 <ResearchWorkspaceTabsV6 active={workspace} theme={theme} onChange={changeWorkspace} />
                 <ResearchLayoutControlsV6
@@ -990,8 +1007,8 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 <main id={`research-workspace-${workspace}`} data-surface-tier="primary" data-density={density} className={'flex flex-col rounded-[10px] border backdrop-blur min-[700px]:flex-row ' + (presentation === 'v7' ? liveStyles.researchWorkspaceV7 + ' ' : '') + (density === 'compact' ? 'gap-2 p-2 min-[700px]:p-3 ' : 'gap-4 p-3 min-[700px]:p-4 ') + themeClasses.panelPrimary}>
                     <ResearchWorkspaceBoundaryV6 workspace={workspace}>
                     {recordsLoadState === 'error' ? <section role="alert" className="w-full p-4">
-                        <p className={themeClasses.risk}>{recordsLocked ? <>Saved research is locked on this browser. <a href={'/unlock?next=' + encodeURIComponent('/research' + (searchString ? '?' + searchString : ''))} className="underline">Unlock Signal</a></> : 'Saved research could not be loaded.'} No example securities are shown.</p>
-                        <button type="button" onClick={() => setRecordsReload((value) => value + 1)} className={'mt-3 min-h-10 rounded border px-4 text-sm font-semibold ' + themeClasses.selectedRow}>Retry saved research</button>
+                        <p className={themeClasses.risk}>{recordsAccessIssue ? ownerAccessMessage(recordsAccessIssue) : 'Saved research could not be loaded.'} {recordsAccessIssue === 'locked' && <a href={ownerUnlockHref(typeof window === 'undefined' ? '/research' + (searchString ? '?' + searchString : '') : window.location.pathname + window.location.search + window.location.hash)} className="underline">Unlock Signal</a>} No example securities are shown.</p>
+                        {!recordsAccessIssue && <button type="button" onClick={() => setRecordsReload((value) => value + 1)} className={'mt-3 min-h-10 rounded border px-4 text-sm font-semibold ' + themeClasses.selectedRow}>Retry saved research</button>}
                     </section> : null}
                     {workspace === 'today' ? recordsLoadState === 'loading' ? (
                         <section role="status" className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
@@ -1092,7 +1109,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                     {recordsLoadState === 'loading' ? (
                         <section role="status" className="flex min-h-72 flex-1 items-center justify-center px-6 text-center"><p className={themeClasses.textMuted}>Loading saved research…</p></section>
                     ) : recordsLoadState === 'error' ? null : selected && selectedRecord ? (
-                        <ResearchDetailV6 key={selected.symbol + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} ticker={selected} records={inboxRecords} items={items} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol) ?? null} activeTab={activeDetailTab} startReview={reviewRequested} stagedEvidence={stagedEvidence?.id.startsWith(selected.symbol + ':') ? stagedEvidence : null} workflowTemplateId={workflowTemplateId} saving={saving || recordsLoadState !== 'ready'} saveError={saveError} onTabChange={changeDetailTab} onReadinessNavigate={openReadinessDestination} onSave={saveRecord} onReviewChange={changeReviewMode} onSnapshot={updateLiveSnapshot} onSnapshotState={updateSnapshotState} onDelete={deleteRecord} watchlistSlot={presentation === 'v7' ? watchlistOwner : undefined} presentation={presentation} />
+                        <ResearchDetailV6 key={selected.symbol + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} ticker={selected} records={inboxRecords} items={items} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol)?.quote ?? null} liveQuoteRetrievedAt={liveQuotes.current.get(selected.symbol)?.fetchedAt ?? null} activeTab={activeDetailTab} startReview={reviewRequested} stagedEvidence={stagedEvidence?.id.startsWith(selected.symbol + ':') ? stagedEvidence : null} workflowTemplateId={workflowTemplateId} saving={saving || recordsLoadState !== 'ready'} saveError={saveError} saveAccessIssue={saveAccessIssue} onTabChange={changeDetailTab} onReadinessNavigate={openReadinessDestination} onSave={saveRecord} onReviewChange={changeReviewMode} onSnapshot={updateLiveSnapshot} onSnapshotState={updateSnapshotState} onDelete={deleteRecord} watchlistSlot={presentation === 'v7' ? watchlistOwner : undefined} presentation={presentation} />
                     ) : (<>
                         {presentation === 'v7' ? watchlistOwner : null}
                         <section className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">

@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { nearestPricePoint, priceRangeChange } from '@/lib/research/reading-display';
 import { formatResearchPrice, researchPriceCurrency } from '@/lib/research/price-format';
+import { financialPeriodLabel, formatResearchTimestamp, netCashCurrency, researchMetricPeriodLabel } from '@/lib/research/metric-provenance';
+import { personalReviewDate } from '@/lib/research/review-lifecycle';
 import { ResearchDataAvailability } from './ResearchDataAvailability';
 import { ResearchFinancialSummary } from './ResearchFinancialSummary';
 type ChartStateProps = { chartRange: string; setChartRange: (range: string) => void; chartDate: string | null; setChartDate: (date: string | null) => void };
@@ -24,8 +26,8 @@ function planCurrencyNote(planCurrency: string | null | undefined, quoteCurrency
     return `Saved prices are recorded in ${plan}.`;
 }
 
-function Metrics({ rows }: { rows: readonly (readonly [string, string])[] }) {
-    return <dl className={styles.valuationInputs}>{rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>;
+function Metrics({ rows }: { rows: readonly (readonly [string, string, string?])[] }) {
+    return <dl className={`${styles.valuationInputs} ${connected.metricList}`}>{rows.map(([label, value, context]) => <div key={label}><dt>{label}{context && <small className={connected.metricContext}>{context}</small>}</dt><dd>{value}</dd></div>)}</dl>;
 }
 
 function SourceLink({ url, label }: { url: string | null; label: string }) {
@@ -37,6 +39,10 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
     const fundamentals = snapshot?.fundamentals;
     const currency = fundamentals?.history.find(period => period.reportingPeriod === fundamentals.reportingPeriod)?.currency;
     const valuation = snapshot?.valuation;
+    const annualPeriod = financialPeriodLabel(fundamentals?.reportingPeriod);
+    const quoteObservation = `Quote observed: ${formatResearchTimestamp(snapshot?.quote.observedAt)}`;
+    const sharePeriod = market === 'US' ? researchMetricPeriodLabel(fundamentals, 'shares') : 'Share reporting date unavailable';
+    const valuationShares = market === 'MY' ? snapshot?.quote.sharesOutstanding : fundamentals?.shares;
     return <div className={connected.panelContent}>
         {tab === 'Overview' && <>
             <PriceHistory snapshot={snapshot} loading={loading} advanced={advanced} savedMarket={record?.market ?? null} {...chart} />
@@ -49,12 +55,16 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
             </details>}
         </>}
         {tab === 'Financials' && <>
-            <span className={base.eyebrow}>PROVIDER-REPORTED DATA</span><h2>Business performance</h2><p>{fundamentals?.source || 'Source unavailable'} · reporting period {date(fundamentals?.reportingPeriod)}. Financial currency is shown only when supplied for the matching period.</p>
+            <span className={base.eyebrow}>PROVIDER-REPORTED DATA</span><h2>Business performance</h2><p>{fundamentals?.source || 'Source unavailable'} · {annualPeriod}. Revenue, profit, margins and free cash flow use this annual period. Balance and share dates are shown separately below.</p>
             <ResearchDataAvailability snapshot={snapshot} section="Financials" loading={loading} error={providerError} />
             <ResearchFinancialSummary fundamentals={fundamentals} />
-            <details className={connected.evidence}><summary>More financial measures</summary><Metrics rows={[
-                ['Gross margin', number(fundamentals?.grossMarginPercent, '%')], ['Operating margin', number(fundamentals?.operatingMarginPercent, '%')],
-                ['Debt', money(fundamentals?.debt, currency)], ['Cash', money(fundamentals?.cash, currency)], [fundamentals?.source === 'Yahoo Finance' ? 'Annual diluted average shares' : 'Shares outstanding', number(fundamentals?.shares)], ['Share count change', number(fundamentals?.shareChangePercent, '%')],
+            <details className={connected.evidence}><summary>More financial measures and reporting dates</summary><h3>Annual margins</h3><Metrics rows={[
+                ['Gross margin', number(fundamentals?.grossMarginPercent, '%'), annualPeriod], ['Operating margin', number(fundamentals?.operatingMarginPercent, '%'), annualPeriod],
+            ]} /><h3>Reported balances and shares</h3><p>Each value keeps the dates of the facts used. A newer response does not make an older reported balance current.</p><Metrics rows={[
+                ['Debt', money(fundamentals?.debt, fundamentals?.metricProvenance?.debt.currency), researchMetricPeriodLabel(fundamentals, 'debt')],
+                ['Cash', money(fundamentals?.cash, fundamentals?.metricProvenance?.cash.currency), researchMetricPeriodLabel(fundamentals, 'cash')],
+                [fundamentals?.source === 'Yahoo Finance' ? 'Annual diluted average shares' : 'Shares outstanding', number(fundamentals?.shares), researchMetricPeriodLabel(fundamentals, 'shares')],
+                ['Annual share count change', number(fundamentals?.shareChangePercent, '%'), researchMetricPeriodLabel(fundamentals, 'shareChange')],
             ]} /></details>
             <details><summary>What do these measures tell you?</summary><p>Revenue measures sales. Margins describe the share left after different costs. Free cash flow is cash remaining after capital spending; it can diverge from accounting profit. Debt, cash and changes in share count add context. These measures alone do not establish business quality; company fundamentals may be inapplicable to funds.</p></details>
             <details className={connected.evidence}><summary>Reported financial history</summary>{fundamentals?.history.length ? <div className={connected.tableScroll} tabIndex={0} role="region" aria-label="Reported financial history"><table><caption>Actual periods returned by the service · no interpolated observations</caption><thead><tr><th>Period / source</th><th>Revenue</th><th>Free cash flow</th><th>Net income</th></tr></thead><tbody>{fundamentals.history.map((period, index) => <tr key={`${period.reportingPeriod}-${index}`}><th>{date(period.reportingPeriod)}<small>{period.source}</small></th><td>{money(period.annualRevenue, period.currency)}</td><td>{money(period.freeCashFlow, period.currency)}</td><td>{money(period.annualNetIncome, period.currency)}</td></tr>)}</tbody></table></div> : <p className={styles.gapNote}>{loading ? 'Loading financial history…' : 'No comparable financial history returned. Missing values are not zero.'}</p>}</details>
@@ -64,13 +74,22 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
             <details className={connected.evidence}><summary>Saved investment checklist · {Object.values(record.checklist).filter(Boolean).length}/9 marked</summary><p>Marked means you selected this check in your saved review; it does not mean the source was independently verified.</p><ul className={connected.checklist}>{Object.entries(record.checklist).map(([key, marked]) => <li key={key}><b>{marked ? 'Marked' : 'Unmarked'}</b><span>{checklistLabelsV6[key] || key}</span></li>)}</ul></details>
         </>}
         {tab === 'Valuation' && <>
-            <span className={base.eyebrow}>SEPARATE THE MARKET PRICE FROM YOUR PLAN</span><h2>Price, value and downside</h2><p>Provider ratios are derived measures, not a fair-value conclusion. {valuation?.source || 'Valuation source unavailable'} · period {date(valuation?.reportingPeriod)}.</p>
+            <span className={base.eyebrow}>SEPARATE THE MARKET PRICE FROM YOUR PLAN</span><h2>Price, value and downside</h2><p>Provider ratios are derived measures, not a fair-value conclusion. {valuation?.source || 'Valuation source unavailable'}.</p>
             <ResearchDataAvailability snapshot={snapshot} section="Valuation" loading={loading} error={providerError} />
+            <h3>Returned price and share basis</h3>
             <Metrics rows={[
-                ['Latest returned price', money(snapshot?.quote.price, snapshot?.quote.currency)], ['Market capitalization', money(valuation?.marketCap, snapshot?.quote.currency)],
-                ['Price / earnings', number(valuation?.priceEarnings, '×')], ['Price / sales', number(valuation?.priceSales, '×')], ['Free cash flow yield', number(valuation?.freeCashFlowYieldPercent, '%')], ['Net cash', money(valuation?.netCash, currency)],
+                ['Latest returned price', money(snapshot?.quote.price, snapshot?.quote.currency), quoteObservation],
+                ['Shares used for valuation', number(valuationShares), `${valuation?.shareBasis || 'Share basis unavailable'} · ${sharePeriod}`],
+                ['Market capitalization', money(valuation?.marketCap, snapshot?.quote.currency), 'Returned price × shares above; their dates may differ.'],
             ]} />
-            <p>Share basis: {valuation?.shareBasis || 'Compatible outstanding shares unavailable; share-based valuation withheld.'}. Annual financials and current market price cover different dates.</p>{advanced && record && <><h3>Your saved valuation & position plan</h3><p>{planCurrencyNote(record.positionPlan.currency, snapshot?.quote.currency)}</p><Metrics rows={[
+            <h3>Ratios using annual financials</h3><p>{annualPeriod}{currency ? ` · ${currency}` : ' · Financial currency unavailable'}. These ratios combine that annual period with the returned price and shares above; they are not historical ratios at the financial year end.</p>
+            <Metrics rows={[
+                ['Price / earnings', number(valuation?.priceEarnings, '×')], ['Price / sales', number(valuation?.priceSales, '×')], ['Free cash flow yield', number(valuation?.freeCashFlowYieldPercent, '%')],
+            ]} />
+            <h3>Cash less debt</h3><Metrics rows={[
+                ['Net cash', money(valuation?.netCash, netCashCurrency(fundamentals)), `Cash: ${researchMetricPeriodLabel(fundamentals, 'cash')}. Debt: ${researchMetricPeriodLabel(fundamentals, 'debt')}.`],
+            ]} />
+            {advanced && record && <><h3>Your saved valuation & position plan</h3><p>{planCurrencyNote(record.positionPlan.currency, snapshot?.quote.currency)}</p><Metrics rows={[
                 ['Valuation judgment', record.valuationState], ['Target buy zone', record.targetBuyZone || 'Not recorded'], ['Position', record.positionState],
                 ['Planned allocation', number(record.positionPlan.plannedAllocationPercent, '%')], ['Average cost', planPrice(record.positionPlan.averageCost, record.positionPlan.currency)], ['Planned entry', planPrice(record.positionPlan.plannedEntryPrice, record.positionPlan.currency)], ['Invalidation', planPrice(record.positionPlan.invalidationPrice, record.positionPlan.currency)],
             ]} />
@@ -80,12 +99,12 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
             ]} /></>}</details>
         </>}
         {tab === 'Review' && record && <>
-            <div className={`${base.sectionHeading} ${connected.reviewHeading}`}><div><span className={base.eyebrow}>USER-AUTHORED · SAVED RECORD</span><h2>Your working note</h2></div><a className={base.textButton} href={researchHref(record.symbol, 'review')} target="_blank" rel="noopener noreferrer">Open full research review ↗</a></div><p className={styles.noteText}>{record.notes || 'No note has been saved for this security.'}</p><Metrics rows={[
-                ['Last reviewed', record.decisionJournal.decision === 'Not recorded' ? 'Not recorded' : date(record.lastReviewedAt)], ['Next review', date(record.decisionJournal.nextReviewAt)], ['Saved decision', record.decisionJournal.decision], ['Decision confidence', record.decisionJournal.confidence], ['Prior outcome', record.decisionJournal.priorOutcome],
+            <div className={`${base.sectionHeading} ${connected.reviewHeading}`}><div><span className={base.eyebrow}>USER-AUTHORED · SAVED RECORD</span><h2>Your working note</h2></div><a className={base.textButton} href={researchHref(record.symbol, 'review', record.market)} target="_blank" rel="noopener noreferrer">Open full research review (new tab) ↗</a></div><p className={styles.noteText}>{record.notes || 'No note has been saved for this security.'}</p><Metrics rows={[
+                ['Last reviewed', date(personalReviewDate(record))], ['Next review', date(record.decisionJournal.nextReviewAt)], ['Saved decision', record.decisionJournal.decision], ['Decision confidence', record.decisionJournal.confidence], ['Prior outcome', record.decisionJournal.priorOutcome],
             ]} /><p className={connected.authored}>{record.decisionJournal.outcomeNote || 'No outcome note recorded.'}</p>
             <h3>Saved review history</h3>{record.reviewHistory.length ? [...record.reviewHistory].sort((a, b) => b.reviewedAt.localeCompare(a.reviewedAt)).map(review => <details key={review.id} className={connected.evidence}><summary>{date(review.reviewedAt)} · {review.decisionJournal.decision}</summary><p className={connected.authored}>{review.whyInterested || 'No thesis recorded.'}</p><p className={styles.noteText}>{review.notes || 'No note recorded.'}</p><small>Confidence: {review.decisionJournal.confidence} · prior outcome: {review.decisionJournal.priorOutcome}</small></details>) : <p>No earlier review snapshots are saved.</p>}
         </>}
-        {advanced && record && tab !== 'Review' && <a className={`${base.textButton} ${connected.editLink}`} href={researchHref(record.symbol, tab === 'Valuation' ? 'valuation' : 'review')} target="_blank" rel="noopener noreferrer">{tab === 'Valuation' ? 'Open full valuation workspace' : 'Edit saved research'} ↗</a>}
+        {advanced && record && tab !== 'Review' && <a className={`${base.textButton} ${connected.editLink}`} href={researchHref(record.symbol, tab === 'Valuation' ? 'valuation' : 'review', record.market)} target="_blank" rel="noopener noreferrer">{tab === 'Valuation' ? 'Open full valuation workspace' : 'Edit saved research'} (new tab) ↗</a>}
     </div>;
 }
 

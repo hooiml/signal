@@ -716,11 +716,46 @@ with no guessed issuer identity or filing. The separate save and SEC configurati
 
 `npm run qa:v81-evidence` runs the deterministic Market data contract suite without providers or database. It asserts the exclusive configured-weight partition (fresh/stale/fallback), unknown dates, non-scored context-only inputs, weight mismatches, missing aggregates, and high-volatility weight overrides. This suite also runs within `npm run harness`. Score-tier reference lines come from `src/lib/market-score-thresholds.ts`; these are **score tiers**, not the independent breadth/VIX-informed market-regime classifier. Historical coverage percentages must come from historical snapshots, never today's configuration.
 
-For responsive connected Market/Research review, verify 1280px, 768px and 375px widths, plus 1440px and 390px reference captures. Check the unified Market assessment, immediately visible coverage limitations, chart/evidence alignment on desktop, evidence-first DOM order on mobile, and all configured inputs through Show all. Raw indicator history now lives in its inspector rather than repeated mini-charts in every row. Opening details must retain the main chart, contain mobile focus, and restore the originating control and scroll on close. Missing snapshot dates must not acquire retrieval-time freshness, and context-only inputs must not be called scored model readings.
+For responsive connected Market/Research review, verify 1280px, 768px and 375px widths, plus 1440px and 390px reference captures. Check the unified Market assessment, named leading evidence and coverage limitations near the verdict, chart/evidence alignment on desktop, chart-first DOM and visual order at every width, and all configured inputs through Show all. Raw indicator history lives in its inspector rather than repeated mini-charts in every row. Opening details must retain the main chart, contain mobile focus, and restore the originating control and scroll on close. Missing snapshot dates must not acquire retrieval-time freshness, and context-only inputs must not be called scored model readings.
 
 In Research, selected identity leads; Change security exposes the existing search. The compact financial assessment status remains above the primary tabs, with detailed assessment only in Overview. Verify price history independently of financial availability, quote observation versus retrieval dates, a compact user-authored saved decision, and optional checks after the investigation. Financials, Valuation, Thesis, Review, workspaces and editing links remain reachable. Market navigation must preserve US/MY context. These approved hierarchy changes supersede older V8 layout expectations in the legacy connected screenshot scripts; use `research-unsaved-qa.mjs`, `v81-ui-qa.mjs` and `v81-presentation-qa.mjs` for the current connected layout.
 
 `v81-ui-qa.mjs` includes absent snapshot-date and zero-weight context-input cases. `research-unsaved-qa.mjs` covers populated/partial/missing/old/unsupported states, saves with isolated fixtures, late reads, refresh failures, and deep-link restoration. The production UI continues to call the existing APIs; fixture interception belongs only to test scripts. Do not claim visual QA from lint, typecheck or build alone.
 
 `node scripts/v81-presentation-qa.mjs` checks the presentation refinements against an existing local server (`SIGNAL_QA_URL`). It uses isolated provider/SQL fixtures and the real calculator with identical inputs across Momentum/Contrarian and Basic/Advanced. It verifies score/normalized-value bindings, tier wording, agreement, preserved unknown freshness, chart Home/End/arrow/Enter/Space behavior, marker bounds, focus geometry, single-line tabs, UTC dates, omission of unverified raw headlines, and the consolidated Research review entry at 1440/390/380/1280/768/375px. Use `--before` on the baseline source to record defects without asserting the refinements. `SIGNAL_PRESENTATION_OUTPUT` selects the screenshot/report directory; captures are local controlled evidence, not deployment proof.
+
+### Owner access, review authorship and provenance follow-up
+
+The harness additionally executes `owner-access-regression.mjs`,
+`research-provenance-regression.mjs` and `market-provenance-regression.mjs`.
+These exercise actual route/domain code with isolated persistence/provider boundaries:
+all 17 personal-data handlers deny before body, params or storage access; valid owner
+cookies still reach their handlers; typed configuration errors do not trigger transport
+retries; unlock return paths preserve full reading context and reject outside origins.
+Research cases cover authored versus calculated decisions, review-history-only records,
+null versus zero change, quote currency/observation/retrieval, annual alignment and
+exact/mixed/unknown balance periods. Market cases cover old archives with unknown basis,
+retrieval versus observed clocks, newer/same/older/revised observations, incompatible
+units, null raw values and score/weight changes that offset to a zero net contribution.
+
+Run these fixture-only browser suites against an owned local production server through
+`SIGNAL_QA_URL` (localhost only); `CHROME_PATH` can select an installed Chromium binary:
+
+```bash
+node scripts/review-fixes-qa.mjs
+node scripts/research-owner-panels-qa.mjs
+node scripts/research-provenance-qa.mjs
+node scripts/market-clarity-qa.mjs
+```
+
+Use 1280px, 768px and 375px. Verify locked/unconfigured/transient states, return URL,
+expired Save and draft retention, no automatic denied Memory writes, bookmarks without
+review claims, quote units/dates, mixed balance periods and the legacy chart error state.
+Market checks include narrow-screen accounting, explicit raw and score units, offsetting
+effects, descriptive scenario/replay tiers, loading/empty/partial/failed archive states
+with local retry, legacy unknown provenance, keyboard order and modal return focus.
+Inspect fresh screenshots and geometry; script completion is not visual inspection.
+Continue running the existing current-layout matrices above. None of these fixtures
+establish live provider availability, production cookie configuration or hardware
+assistive-technology behavior.
 

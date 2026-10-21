@@ -16,10 +16,11 @@ const original = us.data.components.vix;
 assert.ok(original, 'Fixture must include a VIX indicator.');
 
 function indicator(key, name, value, weight, lastUpdated, score) {
+    const units = { vix: 'VIX points', put_call: 'put/call ratio', aaii: '% bullish' };
     return {
         ...structuredClone(original), name: key, display_name: name, value,
         score, weight, signal: 'neutral', enabled: true, last_updated: lastUpdated,
-        metadata: { ...(original.metadata || {}), timestamp_basis: 'observed' },
+        metadata: { timestamp_basis: 'observed', unit: units[key] },
     };
 }
 function marketPayload(unknownDate = false) {
@@ -86,7 +87,7 @@ function researchPayload(symbol, market) {
     ];
     return body;
 }
-const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'], executablePath: process.env.CHROME_PATH || undefined });
 const report = [];
 try {
     for (const width of [1280, 768, 375]) {
@@ -130,6 +131,8 @@ try {
         await page.goto(base + '/main-v8');
         await page.getByTestId('connected-score').waitFor();
         const hero = page.getByRole('region', { name: 'Market assessment', exact: true });
+        await hero.getByRole('group', { name: 'Leading evidence' }).getByRole('button', { name: /Leading support: AAII Sentiment/ }).waitFor();
+        await hero.getByRole('group', { name: 'Leading evidence' }).getByRole('button', { name: /Leading conflict: VIX Index/ }).waitFor();
         assert.equal(await hero.getByTestId('connected-score').innerText(), '62');
         assert.match(await hero.innerText(), /65\.0% configured weight/);
         await hero.getByText('Fresh 45.0% · stale 20.0% of model weight.', { exact: true }).waitFor();
@@ -142,7 +145,7 @@ try {
         const rect = await skip.boundingBox();
         assert.ok(rect && rect.width > 90 && rect.y < 80, 'Skip link must become visible when focused.');
         await page.locator('main').click({ position: { x: 10, y: 10 }, force: true }).catch(() => {});
-        await page.getByText('How to read this assessment · supporting inputs and limits', { exact: true }).click();
+        await page.getByText('How to read this assessment · methodology and limits', { exact: true }).click();
         const quality = page.getByRole('region', { name: 'Data needs attention' });
         await quality.waitFor();
         await quality.locator('details summary').click();

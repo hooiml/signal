@@ -15,6 +15,7 @@ import {
 } from 'lightweight-charts';
 import { anchoredVwap, relativeStrengthSeries, volumeProfile, type VwapAnchor } from '@/lib/research/chart-analysis';
 import { buildTechnicalOutlook, type TechnicalTone } from '@/lib/research/technical-outlook';
+import { researchPriceCurrency } from '@/lib/research/price-format';
 import type { ResearchChartPoint, ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 
@@ -176,6 +177,7 @@ export const ResearchChartV6 = ({ snapshot, chart, historyState, benchmarkChart,
     const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
     const suppressCrosshairRef = useRef(false);
     const styles = getThemeV6(theme);
+    const priceUnit = researchPriceCurrency(snapshot.quote.currency) ?? 'currency unavailable';
     const points = useMemo(() => visiblePoints(chart.points, range), [chart.points, range]);
     const chronologicalPoints = useMemo(() => [...points].sort((left, right) => left.time.localeCompare(right.time)), [points]);
     const benchmarkSeries = useMemo(() => compareBenchmark && benchmarkChart
@@ -380,6 +382,7 @@ export const ResearchChartV6 = ({ snapshot, chart, historyState, benchmarkChart,
                     <span className={'rounded-full border px-2 py-1 text-xs font-bold ' + styles.row + ' ' + toneClass(outlook.overall.tone, theme)}>{outlook.overall.label}</span>
                 </div>
                 <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Daily candles · EMA20 · EMA50 · SMA200 · volume · volatility-aware levels</p>
+                <p className={'mt-1 text-xs leading-5 ' + styles.textMuted}>Price axis and open/high/low/close values: {priceUnit}. Each candle is dated by its trading session.</p>
             </div>
             <div className={(presentation === 'v7' ? 'hidden min-[900px]:flex ' : 'flex ') + 'flex-wrap gap-2 min-[900px]:justify-end'}>
                 <div role="group" aria-label="Chart setup" className={'flex w-fit rounded border p-1 ' + styles.row}>
@@ -588,7 +591,7 @@ export const ResearchChartV6 = ({ snapshot, chart, historyState, benchmarkChart,
                     </summary>
                     {tableOpen ? <div className={'research-scrollbar overflow-x-auto border-t ' + styles.divider}>
                         <table className="min-w-[920px] w-full border-collapse text-left text-xs">
-                            <caption className="sr-only">{snapshot.symbol} chronological OHLCV and active indicator data for the selected {range} range.</caption>
+                            <caption className="sr-only">{snapshot.symbol} chronological OHLCV and active indicator data for the selected {range} range. Prices: {priceUnit}.</caption>
                             <thead>
                                 <tr className={styles.textMuted}>
                                     {['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Active indicators'].map((label) => <th key={label} scope="col" className={'border-b px-3 py-2 font-semibold ' + styles.divider}>{label}</th>)}

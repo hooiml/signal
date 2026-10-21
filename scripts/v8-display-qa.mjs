@@ -24,7 +24,7 @@ function research(symbol, market) {
  }
  return result;
 }
-const browser = await chromium.launch({headless:true,args:['--no-sandbox']});
+const browser = await chromium.launch({headless:true,...(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{}),args:['--no-sandbox']});
 const report=[];
 try {
  for(const width of [1440,768,390,320]) {

@@ -31,16 +31,16 @@ function load(file) {
     return mod.exports;
 }
 const { calculateCompositeScoreV2 } = load('src/lib/sentiment-calculator-v2.ts');
-const { calculateDriverChanges } = load('src/lib/signal-change.ts');
+const { calculateDriverChanges, reconcileScoreChange } = load('src/lib/signal-change.ts');
 const fixture = marketRequestFixture();
 const seed = (await (await fixture.route.GET(fixture.request('market=US&mode=standard&enableSocial=true'))).json()).data;
 const note = 'US VIX index points. Timestamp is retrieval time; observation time is unavailable.';
 const observed = '2026-10-16T00:00:00Z';
 const inputs = [
     { name: 'vix', display_name: 'VIX Index', value: 16.16, score: 78.7, last_updated: observed,
-        metadata: { timestamp_basis: 'retrieved', mode_note: note, source_url: 'https://finance.yahoo.com/quote/%5EVIX/' } },
-    { name: 'put_call', display_name: 'Put/call ratio', value: .8, score: 64, last_updated: observed },
-    { name: 'aaii', display_name: 'AAII', value: 36.3, score: 54.33, last_updated: '2026-07-08T00:00:00Z' },
+        metadata: { timestamp_basis: 'retrieved', unit: 'VIX points', mode_note: note, source_url: 'https://finance.yahoo.com/quote/%5EVIX/' } },
+    { name: 'put_call', display_name: 'Put/call ratio', value: .8, score: 64, last_updated: observed, metadata: { timestamp_basis: 'observed', unit: 'put/call ratio' } },
+    { name: 'aaii', display_name: 'AAII', value: 36.3, score: 54.33, last_updated: '2026-07-08', metadata: { timestamp_basis: 'observed', unit: '% bullish' } },
 ].map(item => ({ ...item, enabled: true, weight: 0, signal: 'neutral' }));
 const previousInputs = inputs.map(item => ({ ...item, score: item.name === 'vix' ? 82.07 : item.name === 'put_call' ? 61 : item.score }));
 function payload(mode, market = 'US') {
@@ -51,6 +51,9 @@ function payload(mode, market = 'US') {
         raw_value: item.value, last_updated: item.last_updated, detail: item.metadata?.mode_note || 'Returned normalized score and configured weight.',
         mode_note: item.metadata?.mode_note }));
     const previousDrivers = Object.values(previous.components).map(item => ({ key: item.name, name: item.display_name, contribution: item.score * item.weight }));
+    const readings = signal => Object.values(signal.components).map(item => ({ key: item.name, name: item.display_name,
+        score: item.score, weight: item.weight, raw_value: item.value, last_updated: item.last_updated,
+        timestamp_basis: item.metadata?.timestamp_basis, retrieved_at: item.metadata?.retrieved_at, unit: item.metadata?.unit }));
     const data = { ...structuredClone(seed), ...current, metadata: { ...structuredClone(seed.metadata), ...current.metadata,
         interpretation_context: { ...seed.metadata.interpretation_context,
             limitation: 'Signal alignment reflects indicator agreement only; it is not a probability forecast or trading advice.',
@@ -58,6 +61,9 @@ function payload(mode, market = 'US') {
         signal_quality: { ...seed.metadata.signal_quality,
             confidence_explanation: 'Signal alignment measures indicator agreement, not forecast accuracy.' + (current.confidence.cap_reason ? ' ' + current.confidence.cap_reason : '') },
         score_drivers: drivers, driver_changes: calculateDriverChanges(drivers, previousDrivers), driver_changes_available: true,
+        change_reconciliation: reconcileScoreChange({ current: readings(current), previous: readings(previous),
+            currentScore: current.composite_score, previousScore: previous.composite_score,
+            currentModelVersion: 'presentation-fixture', previousModelVersion: 'presentation-fixture' }),
         score_delta: { snapshot_date: '2026-10-16', previous_date: '2026-10-10', previous_score: previous.composite_score,
             delta: current.composite_score - previous.composite_score, label: '-1 since 2026-10-10' },
         score_history: [
@@ -97,7 +103,7 @@ const report = { phase, base, fixture: true, calculations: {
     reportedRoundedDelta: standard.data.metadata.score_delta.delta,
     agreement: standard.data.confidence, sourceArticlesRetained: standard.data.metadata.articles.length,
 }, scenarios: [], captures: [], errors: [], failedRequests: [] };
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || undefined });
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block', reducedMotion: 'reduce', timezoneId: 'America/Los_Angeles' });
 const page = await context.newPage();
 page.on('pageerror', error => report.errors.push(error.message));
@@ -154,6 +160,9 @@ try {
                     assert.doesNotMatch(text, /Model: (buy|sell)/);
                     const agreement = await page.getByRole('region', { name: 'Market assessment', exact: true }).innerText();
                     assert.match(agreement, /2 of 3 match this reading/);
+                    const leading = page.getByRole('group', { name: 'Leading evidence' });
+                    await leading.getByRole('button', { name: /Leading support: AAII/ }).waitFor();
+                    await leading.getByRole('button', { name: /Leading conflict: VIX Index/ }).waitFor();
                     const coverage = await page.getByRole('region', { name: 'Observed evidence weight', exact: true }).innerText();
                     assert.match(coverage, /3 of 6 inputs included/);
                     assert.match(coverage, /65.0% configured weight/);
@@ -161,8 +170,8 @@ try {
                     assert.match(coverage, /VIX Index: Observation date unknown/);
                     const evidenceBox = await page.getByRole('region', { name: 'Explore indicators' }).boundingBox();
                     const chartBox = await page.getByRole('region', { name: 'Market score and history' }).boundingBox();
-                    assert.ok(width <= 900 ? evidenceBox.y < chartBox.y : Math.abs(evidenceBox.y - chartBox.y) < 2, 'Evidence precedes chart on mobile and aligns beside it on desktop.');
-                    if (width <= 900) assert.ok(await card.evaluate(el => !!(el.compareDocumentPosition(document.querySelector('svg[role="slider"]')) & Node.DOCUMENT_POSITION_FOLLOWING)), 'Mobile DOM order follows evidence before history.');
+                    assert.ok(width <= 900 ? chartBox.y + chartBox.height <= evidenceBox.y + 1 : Math.abs(evidenceBox.y - chartBox.y) < 2, 'Chart precedes evidence on mobile and aligns beside it on desktop.');
+                    assert.ok(await card.evaluate(el => !!(document.querySelector('[aria-label="Market score and history"]').compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING)), 'DOM order follows chart before evidence at every width.');
                     if (advanced) {
                         await card.click();
                         const detail = page.getByRole(width <= 900 ? 'dialog' : 'complementary', { name: width <= 900 ? 'Indicator detail' : 'Selected indicator', exact: true });
@@ -188,9 +197,11 @@ try {
                 }
                 if (phase === 'after') {
                     const panel = await page.getByRole('tabpanel', { name: 'What changed' }).innerText();
-                    assert.doesNotMatch(panel, /Stocks making|retire|Latest source updates|−0.12/);
+                    assert.doesNotMatch(panel, /Stocks making|retire|Latest source updates/);
                     assert.match(panel, /Reported contribution changes/);
-                    assert.match(panel, /round/i);
+                    const residual = (mode === 'standard' ? standard : contrarian).data.metadata.change_reconciliation.rounding_residual;
+                    const residualRow = page.getByRole('region', { name: 'Complete score change accounting' }).getByText('Rounding and clamp residual', { exact: true }).locator('..');
+                    assert.ok((await residualRow.innerText()).includes(`${residual < 0 ? '−' : residual > 0 ? '+' : ''}${Math.abs(residual).toFixed(2)} points`), 'Display the calculated rounding residual.');
                 }
                 if (advanced) await page.getByRole('button', { name: 'Back to basic view', exact: true }).click();
             }
