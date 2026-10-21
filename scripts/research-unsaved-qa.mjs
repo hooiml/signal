@@ -165,13 +165,13 @@ try {
   providerReads.length=0;await page.goto(`${base}/research-v8?ticker=${symbol}`);await page.getByTestId('research-price').filter({hasText:'MYR 200'}).waitFor();assert.deepEqual(providerReads,[{symbol,market:'MY'}]);
  }
  await page.goto(`${base}/main-v8`);
- await page.getByText('How to read this assessment · supporting inputs and limits',{exact:true}).click();
+ await page.getByText('How to read this assessment · methodology and limits',{exact:true}).click();
  await page.getByRole('region',{name:'Current market assessment',exact:true}).waitFor();
  marketScoreCase='unchanged';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/Score unchanged.*Individual inputs can still differ/}).waitFor();
  marketScoreCase='missing';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/No earlier comparable score supplied/}).waitFor();
  marketScoreCase='normal';await page.getByLabel('Market',{exact:true}).selectOption('MY');
  await page.locator('[data-indicator="vix"]').filter({hasText:'US VIX (FX proxy unavailable)'}).waitFor();
- await page.getByText('How to read this assessment · supporting inputs and limits',{exact:true}).click();
+ await page.getByText('How to read this assessment · methodology and limits',{exact:true}).click();
  const marketAssessment=page.getByRole('region',{name:'Current market assessment',exact:true});
  await marketAssessment.getByRole('heading',{name:'What this reading means'}).waitFor();
  await marketAssessment.getByText(/Reading limits:/).waitFor();
@@ -180,15 +180,16 @@ try {
  for(const mode of ['Contrarian','Momentum','Contrarian','Momentum']) {
   await page.getByRole('button',{name:mode,exact:true}).click();
   await page.getByTestId('connected-score').waitFor();
-  await page.getByText('How to read this assessment · supporting inputs and limits',{exact:true}).click();
+  await page.getByText('How to read this assessment · methodology and limits',{exact:true}).click();
   await marketAssessment.getByText(mode==='Contrarian'?/In Contrarian mode, higher scores indicate crowding or greed risk/:/In Momentum mode, higher scores support positive momentum/).waitFor();
   if(mode==='Contrarian'){await noOverflow();await page.screenshot({path:`${out}/market-contrarian-${width}.png`,fullPage:true});}
  }
  await page.getByRole('button',{name:'Back to basic view',exact:true}).click();
- const evidenceBoxes=await marketAssessment.locator('button').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};}));
- assert.ok(evidenceBoxes.every(r=>r.height>=44&&r.x>=-1&&r.x+r.width<=width+1),'Market evidence buttons must fit and be touch-sized');
+ const leadingEvidence=page.getByRole('group',{name:'Leading evidence',exact:true});
+ const evidenceBoxes=await leadingEvidence.locator('button').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};}));
+ assert.ok(evidenceBoxes.length>0&&evidenceBoxes.every(r=>r.height>=44&&r.x>=-1&&r.x+r.width<=width+1),'Market evidence buttons must fit and be touch-sized');
  await noOverflow();await page.screenshot({path:`${out}/market-summary-${width}.png`,fullPage:true});
- await marketAssessment.getByRole('button').first().focus();await page.keyboard.press('Enter');
+ await leadingEvidence.getByRole('button').first().focus();await page.keyboard.press('Enter');
 
  await page.getByRole('heading',{name:'US VIX (FX proxy unavailable)',exact:true}).waitFor();
  assert.ok((await page.getByText('Observation date unavailable',{exact:true}).count())>0);

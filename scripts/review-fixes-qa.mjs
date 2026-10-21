@@ -28,24 +28,56 @@ const reconciliation = {
     ],
 };
 
-const browser = await chromium.launch({ headless: true });
+for (const row of reconciliation.components) {
+    Object.assign(row, {
+        previous_timestamp_basis: 'observed', current_timestamp_basis: 'observed', observation_change: 'newer',
+        previous_unit: row.key === 'vix' ? 'index points' : '%', current_unit: row.key === 'vix' ? 'index points' : '%',
+        previous_retrieved_at: row.previous_observed_at, current_retrieved_at: row.current_observed_at,
+    });
+}
+const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}) });
 const results = [];
 try {
-    for (const width of [1280, 375]) {
+    for (const width of [1280, 768, 375]) {
         const context = await browser.newContext({ viewport: { width, height: 900 }, serviceWorkers: 'block' });
         const page = await context.newPage();
         const errors = [];
         page.on('pageerror', (error) => errors.push(error.message));
         let watchlistStatus = 200;
+        let saveStatus = 200;
+        let watchlistReads = 0;
+        let unlocks = 0;
+        let queuedWatchlist = null;
+        const deferWatchlist = (status) => {
+            let release, requested;
+            const gate = new Promise(resolve => { release = resolve; });
+            const started = new Promise(resolve => { requested = resolve; });
+            queuedWatchlist = { status, gate, requested };
+            return { release, started };
+        };
         const mutations = [];
         await context.route('**/api/**', async (route) => {
             const request = route.request();
             const url = new URL(request.url());
             if (request.method() !== 'GET' && /^\/api\/research\/(watchlist|backup|notifications\/settings)/.test(url.pathname)) mutations.push(`${request.method()} ${url.pathname}`);
             if (url.pathname === '/api/research/watchlist') {
-                return watchlistStatus === 200
+                if (request.method() === 'POST') {
+                    const created = { ...structuredClone(saved), ...request.postDataJSON(), decisionJournal: { ...saved.decisionJournal, decision: 'Not recorded', confidence: 'unrecorded' }, reviewHistory: [] };
+                    return saveStatus === 201 ? route.fulfill({ status: 201, json: { success: true, data: created } })
+                        : route.fulfill({ status: saveStatus, json: { success: false, code: 'OWNER_ACCESS_REQUIRED' } });
+                }
+                watchlistReads += 1;
+                const held = queuedWatchlist;
+                queuedWatchlist = null;
+                const status = held?.status ?? watchlistStatus;
+                if (held) { held.requested(); await held.gate; }
+                return status === 200
                     ? route.fulfill({ json: { success: true, data: [saved], archivedSymbols: [] } })
-                    : route.fulfill({ status: 401, json: { success: false, error: 'Unlock Signal to access saved research.', code: 'OWNER_ACCESS_REQUIRED' } });
+                    : route.fulfill({ status, json: { success: false, code: status === 401 ? 'OWNER_ACCESS_REQUIRED' : status === 503 ? 'OWNER_ACCESS_UNCONFIGURED' : null } });
+            }
+            if (url.pathname === '/api/owner/session' && request.method() === 'POST') {
+                unlocks += 1; watchlistStatus = 200;
+                return route.fulfill({ json: { success: true, data: { configured: true, unlocked: true } } });
             }
             if (url.pathname.startsWith('/api/research/symbol/')) return route.fulfill({ json: snapshot(decodeURIComponent(url.pathname.split('/').pop())) });
             if (url.pathname === '/api/signals/v2') {
@@ -77,23 +109,83 @@ try {
         assert.equal(new URL(page.url()).searchParams.get('ticker'), 'NVDA', 'unsaved ticker stays in the URL');
         await page.screenshot({ path: `${out}/unsaved-workspace-${width}.png`, fullPage: false });
 
-        // Locked saved research points to the unlock page.
+        // Unlock retains the complete reading, including the market, tab, depth and fragment.
         watchlistStatus = 401;
-        await page.goto(`${base}/research-v8`);
-        await page.getByRole('link', { name: 'Unlock Signal' }).first().waitFor();
+        const returnPath = '/research-v8?ticker=NVDA&market=US&tab=financials&advanced=1&from=market#evidence';
+        await page.goto(base + returnPath);
+        const unlock = page.getByRole('link', { name: 'Unlock Signal', exact: true }).first();
+        await unlock.waitFor();
+        assert.equal(new URL(await unlock.getAttribute('href'), base).searchParams.get('next'), returnPath);
+        await unlock.click();
+        // Unlock is a static page: wait for its scripts before filling controlled input.
+        await page.waitForLoadState('networkidle');
+        await page.getByLabel('Access secret').fill('fixture-secret-not-used-in-production');
+        await page.getByRole('button', { name: 'Unlock', exact: true }).click();
+        await page.waitForURL(base + returnPath);
+        await page.getByRole('tab', { name: 'Financials', exact: true }).waitFor();
+        assert.equal(await page.getByRole('tab', { name: 'Financials', exact: true }).getAttribute('aria-selected'), 'true');
+        assert.equal(unlocks, 1);
+        watchlistStatus = 401;
         await page.goto(`${base}/research?workspace=research`);
         await page.getByRole('link', { name: 'Unlock Signal' }).waitFor();
+
+        // A configured-off deployment is unavailable, not an empty or endlessly loading watchlist.
+        watchlistStatus = 503;
+        const beforeUnconfigured = watchlistReads;
+        await page.goto(base + returnPath);
+        await page.getByText('Saved research is unavailable because owner access has not been configured', { exact: false }).first().waitFor();
+        await page.getByRole('button', { name: /Saved securities · Unavailable/ }).waitFor();
+        assert.equal(watchlistReads - beforeUnconfigured, 1, 'configuration failure is not automatically retried');
+        assert.equal(await page.getByRole('link', { name: 'Unlock Signal', exact: true }).count(), 0);
+        await page.screenshot({ path: `${out}/unconfigured-${width}.png`, fullPage: false });
+
+        // Transport failures offer a local retry, while the public reading stays available.
+        watchlistStatus = 500;
+        await page.reload();
+        const retry = page.getByRole('button', { name: 'Retry saved research', exact: true }).first();
+        await retry.waitFor();
         watchlistStatus = 200;
+        await retry.click();
+        await page.getByRole('button', { name: 'Saved securities · 1', exact: false }).waitFor();
+
+        // A session that expires during Save leaves the reading in place and requires another explicit Save.
+        saveStatus = 401;
+        await page.getByRole('button', { name: 'Save security', exact: true }).click();
+        const unlockSave = page.getByRole('link', { name: 'Unlock to save', exact: true });
+        await unlockSave.waitFor();
+        assert.equal(new URL(await unlockSave.getAttribute('href'), base).searchParams.get('next'), returnPath);
+        assert.equal(page.url(), base + returnPath);
+        await page.screenshot({ path: `${out}/save-locked-${width}.png`, fullPage: false });
+
+        // Slow earlier reads cannot overwrite the access state from a newer explicit Save.
+        for (const [lateReadStatus, newerSaveStatus] of [[401, 201], [200, 401]]) {
+            const held = deferWatchlist(lateReadStatus);
+            saveStatus = newerSaveStatus;
+            await page.reload();
+            await held.started;
+            await page.getByRole('button', { name: 'Save security', exact: true }).click();
+            const state = newerSaveStatus === 201
+                ? page.getByRole('button', { name: 'Saved securities · 1', exact: false })
+                : page.getByRole('button', { name: /Saved securities · Locked/ });
+            await state.waitFor();
+            const response = page.waitForResponse(response => response.url().endsWith('/api/research/watchlist') && response.request().method() === 'GET');
+            held.release();
+            await (await response).finished();
+            await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+            assert.equal(await state.isVisible(), true, `late ${lateReadStatus} read cannot overwrite newer ${newerSaveStatus} save`);
+            if (newerSaveStatus === 201) assert.equal(await page.getByRole('link', { name: 'Unlock Signal', exact: true }).count(), 0);
+            else assert.equal(await page.getByRole('button', { name: 'Saved securities · 1', exact: false }).count(), 0);
+        }
 
         // Market change accounting sums to the reported delta.
         await page.goto(`${base}/main-v8`);
         const accounting = page.getByRole('region', { name: 'Complete score change accounting' });
         await accounting.waitFor();
-        for (const label of ['Component contributions', 'Neutral fallback for missing inputs', 'Rounding and clamp residual', 'Reported score delta']) {
+        for (const label of ['Input contributions', 'Missing-input fallback', 'Rounding and clamp residual', 'Reported score delta']) {
             await accounting.getByText(label, { exact: true }).waitFor();
         }
-        await accounting.getByText('VIX Index · Changed', { exact: false }).click();
-        await accounting.getByText('New observation', { exact: false }).first().waitFor();
+        await accounting.locator('summary').filter({ hasText: 'VIX Index' }).click();
+        await accounting.getByText('Newer observed reading.', { exact: false }).first().waitFor();
         await page.screenshot({ path: `${out}/market-accounting-${width}.png`, fullPage: true });
 
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -102,7 +194,7 @@ try {
         await page.getByLabel('Access secret').waitFor();
         await page.screenshot({ path: `${out}/unlock-${width}.png` });
         assert.deepEqual(errors, [], `no page errors at ${width}px`);
-        assert.deepEqual(mutations, [], `no saved-state mutations at ${width}px`);
+        assert.deepEqual(mutations, Array(3).fill('POST /api/research/watchlist'), `only the three explicit fixture Saves at ${width}px`);
         results.push(width);
         await context.close();
     }

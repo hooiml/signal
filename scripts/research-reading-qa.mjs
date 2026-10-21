@@ -24,7 +24,7 @@ function fixture(symbol, market) {
     if(symbol==='ETF'){data.quote.instrumentType='ETF';data.quote.classification.instrumentType='ETF';}
     return result;
 }
-const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+const browser=await chromium.launch({headless:true,...(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{}),args:['--no-sandbox']});
 const report=[];
 try {
     for(const width of [1440,768,390,320]) {
