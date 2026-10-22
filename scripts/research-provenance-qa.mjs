@@ -348,6 +348,12 @@ try {
         await open('/research-v6?workspace=research&ticker=5347&market=MY&tab=chart#saved-position');
         const unlock = page.getByRole('link', { name: 'Unlock Signal', exact: true });
         await unlock.waitFor();
+        // Layout hydration restores density asynchronously; check the settled continuation, not two different renders.
+        await page.waitForURL(url => url.searchParams.get('density') === 'comfortable');
+        await page.waitForFunction(() => {
+            const link = [...document.querySelectorAll('a')].find(candidate => candidate.textContent === 'Unlock Signal');
+            return link && new URL(link.href).searchParams.get('next') === window.location.pathname + window.location.search + window.location.hash;
+        });
         const destination = new URL(await unlock.getAttribute('href'), base).searchParams.get('next');
         const actual = new URL(page.url());
         assert.equal(destination, actual.pathname + actual.search + actual.hash);
