@@ -296,7 +296,8 @@ try {
         costRecord.positionState = 'owned';
         costRecord.positionPlan = { ...costRecord.positionPlan, averageCost: 100 };
         records = [costRecord]; quoteOptions = {};
-        await open('/research?workspace=currency');
+        // Keep the saved record outside the selected detail so the batch-quote fixture supplies its current price.
+        await open('/research?workspace=currency&ticker=UNSAVED');
         const performancePanel = page.getByTestId('currency-performance');
         await performancePanel.getByText('Performance is withheld while the cost currency is unknown.', { exact: false }).waitFor();
         assert.equal(await performancePanel.getByText('Price return', { exact: true }).count(), 0);
