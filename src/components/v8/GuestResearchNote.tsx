@@ -5,35 +5,44 @@ import type { ResearchRecord } from '@/lib/types/research';
 import { readGuestRecords, removeGuestSecurity, updateGuestNote } from '@/lib/research/guest-workspace';
 import styles from './guest-research-note.module.css';
 
+export type GuestNoteDraft = { readonly text: string; readonly expectedNote: string };
+export type GuestNoteSave = GuestNoteDraft & { readonly savedNote: string };
+
 type Props = {
     readonly record: ResearchRecord;
     readonly onSaved: (record: ResearchRecord) => void;
     readonly onRemoved: () => void;
     readonly disabled?: boolean;
+    readonly draftState?: GuestNoteDraft;
+    readonly onDraftChange: (draft: GuestNoteDraft | null, submitted?: GuestNoteSave) => void;
 };
 
-export function GuestResearchNote({ record, onSaved, onRemoved, disabled = false }: Props) {
-    const [draft, setDraft] = useState(record.notes);
-    const [expectedNote, setExpectedNote] = useState(record.notes);
+export function GuestResearchNote({ record, onSaved, onRemoved, disabled = false, draftState, onDraftChange }: Props) {
+    const draft = draftState?.text ?? record.notes;
+    const expectedNote = draftState?.expectedNote ?? record.notes;
+    const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [conflict, setConflict] = useState(false);
     const [savedStatus, setSavedStatus] = useState('');
 
     const save = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        if (disabled) return;
+        if (disabled || saving) return;
+        const submitted = { text: draft, expectedNote };
+        setSaving(true);
         try {
             const saved = await updateGuestNote(record.symbol, record.market, draft, expectedNote);
-            setDraft(saved.notes);
-            setExpectedNote(saved.notes);
             setError('');
             setConflict(false);
             setSavedStatus('Note saved on this device.');
+            onDraftChange(null, { ...submitted, savedNote: saved.notes });
             onSaved(saved);
         } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Could not save this note. Try again.');
             setConflict(cause instanceof Error && cause.name === 'GuestWorkspaceConflictError');
             setSavedStatus('');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -41,11 +50,10 @@ export function GuestResearchNote({ record, onSaved, onRemoved, disabled = false
         try {
             const current = readGuestRecords().find((item) => item.symbol === record.symbol && item.market === record.market);
             if (current) {
-                setDraft(current.notes);
-                setExpectedNote(current.notes);
                 setError('');
                 setConflict(false);
                 setSavedStatus('');
+                onDraftChange(null);
                 onSaved(current);
             } else {
                 setError('This security is no longer saved on this device.');
@@ -62,6 +70,7 @@ export function GuestResearchNote({ record, onSaved, onRemoved, disabled = false
         try {
             await removeGuestSecurity(record.symbol, record.market);
             setError('');
+            onDraftChange(null);
             onRemoved();
         } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Could not remove this security. Try again.');
@@ -73,9 +82,9 @@ export function GuestResearchNote({ record, onSaved, onRemoved, disabled = false
             <div className={styles.heading}>
                 <div>
                     <h2 id="guest-note-title">Your note</h2>
-                    <p>Your note · saved on this device</p>
+                    <p>{draft !== expectedNote ? 'Unsaved changes · kept while you switch securities. Save before leaving Research.' : 'Your note · saved on this device'}</p>
                 </div>
-                <button className={styles.remove} type="button" onClick={remove} disabled={disabled}>Remove security</button>
+                <button className={styles.remove} type="button" onClick={remove} disabled={disabled || saving}>Remove security</button>
             </div>
             {disabled && <p className={styles.error} role="status">Saved data unavailable. Your draft is kept here, but saving and removing are paused.</p>}
             <form onSubmit={save}>
@@ -86,7 +95,7 @@ export function GuestResearchNote({ record, onSaved, onRemoved, disabled = false
                     maxLength={5_000}
                     rows={5}
                     onChange={(event) => {
-                        setDraft(event.target.value);
+                        onDraftChange({ text: event.target.value, expectedNote });
                         setError('');
                         setConflict(false);
                         setSavedStatus('');
@@ -95,7 +104,7 @@ export function GuestResearchNote({ record, onSaved, onRemoved, disabled = false
                 />
                 <div className={styles.footer}>
                     <span id="guest-note-count">{draft.length}/5000</span>
-                    <button className={styles.save} type="submit" disabled={disabled}>Save note</button>
+                    <button className={styles.save} type="submit" disabled={disabled || saving}>{saving ? 'Saving note…' : 'Save note'}</button>
                 </div>
             </form>
             {error && <p className={styles.error} role="alert">{error}{conflict && <> <button type="button" onClick={reload}>Reload note</button></>}</p>}

@@ -55,11 +55,35 @@ for (const market of ['US', 'MY']) {
             }));
             const paragraph = html.match(/<p>(.*?)<\/p>/)?.[1];
             assert.equal(paragraph, `The score describes the configured market indicators on a 0–100 scale. ${explanations[mode]} It is not a return estimate or a probability of gains.`, `${market} ${mode} score ${score}`);
-            assert.match(html, /Contribution and alignment answer different questions: a normalized input score above 50 adds more than its weighted 50 baseline, while its category can still differ from the composite tier\. Agreement describes these readings; it is not forecast accuracy\./, `${market} ${mode} contribution and agreement explanation`);
+            assert.match(html, /Leading inputs are selected by weight\. Contribution shows how an input moves the score around its neutral 50 baseline; alignment compares its category with the overall reading\. Alignment describes agreement, not forecast accuracy\./, `${market} ${mode} contribution and alignment explanation`);
+            assert.doesNotMatch(html, /Contribution and alignment answer different questions/, `${market} ${mode} uses concise explanation`);
             assert.equal(signal.composite_score, score, 'Mode interpretation must not invert the numeric score');
         }
     }
 }
+
+// Indicator identity drives the ring and leading-evidence markers; freshness stays explicit text.
+const { MarketCoverageRing } = load('src/components/v8/MarketCoverageRing.tsx');
+const ringSignal = {
+    components: {
+        vix: { enabled: true, weight: .6, display_name: 'VIX Index' },
+        social: { enabled: true, weight: .3, display_name: 'Social Sentiment' },
+        news: { enabled: true, weight: .1, display_name: 'News Sentiment' },
+    },
+};
+const ringHtml = renderToStaticMarkup(createElement(MarketCoverageRing, {
+    signal: ringSignal,
+    coverage: { observedPct: 90, fallbackPct: 10, freshKeys: ['vix'], staleKeys: ['social'] },
+    onSelect: () => assert.fail('Rendering must not select an input'),
+}));
+assert.match(ringHtml, /<circle[^>]*data-indicator="vix" data-state="fresh"/);
+assert.match(ringHtml, /<circle[^>]*data-indicator="social" data-state="stale"/);
+assert.match(ringHtml, /<circle[^>]*data-indicator="news" data-state="unknown"/);
+assert.match(ringHtml, /<circle[^>]*data-indicator="fallback" data-state="fallback"/);
+assert.match(ringHtml, /<button type="button" class="ringItem"><i data-indicator="vix"/);
+assert.match(ringHtml, /VIX Index<small>fresh<\/small>/);
+assert.match(ringHtml, /Social Sentiment<small>stale<\/small>/);
+assert.match(ringHtml, /News Sentiment<small>freshness unverified<\/small>/);
 
 // MY change accounting carries explicit eligibility evidence; missing legacy metadata stays unknown.
 for (const market of ['US', 'MY']) {

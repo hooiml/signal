@@ -6,8 +6,8 @@ import { parseResearchSnapshotResponse } from '@/lib/research/snapshot-input';
 import { readData, readFailure, readOwnerAccessIssue, readPolicies } from './read-data';
 import { ownerAccessMessage, ownerUnlockHref, type OwnerAccessIssue } from '@/lib/owner-access-client';
 import { ResearchSavedState } from './ResearchSavedState';
-import { clearGuestWorkspace, exportGuestWorkspace, readGuestRecords, saveGuestSecurity } from '@/lib/research/guest-workspace';
-import { GuestResearchNote } from './GuestResearchNote';
+import { clearGuestWorkspace, exportGuestWorkspace, readGuestRecords, readGuestWorkspace, saveGuestSecurity } from '@/lib/research/guest-workspace';
+import { GuestResearchNote, type GuestNoteDraft, type GuestNoteSave } from './GuestResearchNote';
 import { buildResearchReadiness } from '@/lib/research/readiness';
 import { personalReviewDate } from '@/lib/research/review-lifecycle';
 import { researchWorkspaceGroups } from '@/lib/research/workspace-navigation';
@@ -41,6 +41,15 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
     const [accessIssue, setAccessIssue] = useState<OwnerAccessIssue | null>(null);
     const [workspace, setWorkspace] = useState<'checking' | 'guest' | 'owner'>('checking');
     const workspaceRef = useRef(workspace);
+    const [guestDrafts, setGuestDrafts] = useState<Record<string, GuestNoteDraft>>({});
+    const [guestIdentity, setGuestIdentity] = useState<string | null>(null);
+    const guestIdentityRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (workspace !== 'guest' || !Object.values(guestDrafts).some(draft => draft.text !== draft.expectedNote)) return;
+        const warnBeforeLeaving = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+        window.addEventListener('beforeunload', warnBeforeLeaving);
+        return () => window.removeEventListener('beforeunload', warnBeforeLeaving);
+    }, [workspace, guestDrafts]);
     const [guestError, setGuestError] = useState('');
     const lastRead = useRef(0);
     const savedRevision = useRef(0);
@@ -130,11 +139,16 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
             if (!active || version !== savedRevision.current) return [];
             const owner = !!session && typeof session === 'object' && 'data' in session && !!session.data && typeof session.data === 'object' && 'unlocked' in session.data && session.data.unlocked === true;
             const nextWorkspace = owner ? 'owner' : 'guest';
-            if (workspaceRef.current !== nextWorkspace) setRecords(null);
+            if (workspaceRef.current !== nextWorkspace) { setRecords(null); setGuestDrafts({}); }
             workspaceRef.current = nextWorkspace;
             setWorkspace(nextWorkspace); setGuestError('');
             if (owner) return parseWatchlist(await readData('/api/research/watchlist', controller.signal, readPolicies.watchlist));
-            return readGuestRecords();
+            const guest = readGuestWorkspace();
+            const identityChanged = guestIdentityRef.current !== null && guestIdentityRef.current !== guest.guestId;
+            guestIdentityRef.current = guest.guestId;
+            setGuestIdentity(guest.guestId);
+            setGuestDrafts(previous => identityChanged ? {} : Object.fromEntries(Object.entries(previous).filter(([key]) => guest.records.some(item => `${item.market}:${item.symbol}` === key))));
+            return guest.records;
         }
         loadWorkspace()
             .then(next => { if (active && version === savedRevision.current) {
@@ -185,7 +199,14 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
         if (workspaceRef.current !== workspace) return;
         savedRevision.current += 1;
         setAccessIssue(null); setError(false); setLoading(false);
-        setRecords(previous => [...(previous ?? []).filter(item => item.symbol !== saved.symbol || item.market !== saved.market), saved]);
+        if (workspace === 'guest') {
+            // Read the current store so a late completion cannot revive cleared/removed records.
+            const guest = readGuestWorkspace();
+            if (guestIdentityRef.current !== null && guestIdentityRef.current !== guest.guestId) setGuestDrafts({});
+            guestIdentityRef.current = guest.guestId;
+            setGuestIdentity(guest.guestId);
+            setRecords(guest.records);
+        } else setRecords(previous => [...(previous ?? []).filter(item => item.symbol !== saved.symbol || item.market !== saved.market), saved]);
     };
     const denySavedAccess = (issue: OwnerAccessIssue) => {
         // A Save response is newer evidence than an earlier watchlist request.
@@ -211,7 +232,8 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
         try {
             if (action === 'clear') {
                 if (!window.confirm('Remove all guest securities and notes from this browser? Export them first if you want to keep a copy. Your owner workspace will not change.')) return;
-                await clearGuestWorkspace(); savedRevision.current += 1; setRecords([]);
+                await clearGuestWorkspace(); savedRevision.current += 1; setRecords([]); setGuestDrafts({});
+                guestIdentityRef.current = null; setGuestIdentity(null);
             } else {
                 const url = URL.createObjectURL(new Blob([exportGuestWorkspace()], { type: 'application/json' }));
                 const link = document.createElement('a'); link.href = url; link.download = 'signal-guest-research.json'; link.click();
@@ -279,13 +301,27 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                 <button className={base.textButton} onClick={() => navigate(selected, tab, false, 'US')}>Read {selected} in US</button>{' '}
                 <button className={base.textButton} onClick={() => navigate(selected, tab, false, 'MY')}>Read {selected} in Malaysia</button>
             </section>}
-            {validSelection && readingMarket && <ConnectedCase key={`${readingMarket}:${selected}`} workspace={workspace} guestUnavailable={!!guestError} symbol={selected} market={readingMarket} record={record} onSaved={remember} onGuestRemoved={() => { savedRevision.current += 1; setRecords(readGuestRecords()); }} unlockHref={unlockHref} onAccessDenied={denySavedAccess} onIdentity={setProviderIdentity} advanced={advanced} tab={tab} setTab={value => navigate(selected, value, false, readingMarket)} chartRange={chartRange} setChartRange={setChartRange} />}
+            {validSelection && readingMarket && <ConnectedCase key={`${readingMarket}:${selected}`} workspace={workspace} guestUnavailable={!!guestError} guestIdentity={guestIdentity} guestDraft={guestDrafts[`${readingMarket}:${selected}`]} onDraftChange={(draft, submitted) => {
+                const key = `${readingMarket}:${selected}`;
+                setGuestDrafts(previous => {
+                    if (workspaceRef.current !== 'guest' || guestIdentityRef.current !== guestIdentity) return previous;
+                    const next = { ...previous };
+                    const current = previous[key];
+                    // A queued save must not discard edits made while waiting for the browser lock.
+                    if (submitted && current && current.text !== submitted.text && current.expectedNote === submitted.expectedNote) {
+                        next[key] = { text: current.text, expectedNote: submitted.savedNote };
+                    } else if (submitted && current && current.expectedNote !== submitted.expectedNote) return previous;
+                    else if (draft) next[key] = draft;
+                    else delete next[key];
+                    return next;
+                });
+            }} symbol={selected} market={readingMarket} record={record} onSaved={remember} onGuestRemoved={() => { savedRevision.current += 1; setRecords(readGuestRecords()); }} unlockHref={unlockHref} onAccessDenied={denySavedAccess} onIdentity={setProviderIdentity} advanced={advanced} tab={tab} setTab={value => navigate(selected, value, false, readingMarket)} chartRange={chartRange} setChartRange={setChartRange} />}
             <footer className={styles.footer}><span>Research · provider facts and saved records remain separate</span><details><summary>Data scope & limitations</summary><p>Saved research is user-authored. Quotes, history and fundamentals come from the existing research service; unavailable values stay unavailable. Retrieval time is not an exchange quote timestamp. Editing, monitoring evaluation and advanced tools open the existing workspace. Saving a security requires the explicit Save security action. It does not record an investment decision or personal review. Saved research refreshes when you return from editing; you can also reload it manually.</p><a href="/research-v8?demo=1">Open the labelled representative demo →</a></details><VersionSwitcher placement="footer" /></footer>
         </main>
     </div>;
 }
 
-function ConnectedCase({ workspace, guestUnavailable, symbol, market, record: savedRecord, onSaved, onGuestRemoved, unlockHref, onAccessDenied, onIdentity, advanced, tab, setTab, chartRange, setChartRange }: { workspace: 'checking' | 'guest' | 'owner'; guestUnavailable: boolean; symbol: string; market: ResearchMarket; record?: ResearchRecord; onSaved: (record: ResearchRecord) => void; onGuestRemoved: () => void; unlockHref: string; onAccessDenied: (issue: OwnerAccessIssue) => void; onIdentity: (identity: ProviderResearchIdentity) => void; advanced: boolean; tab: ResearchTab; setTab: (tab: ResearchTab) => void; chartRange: string; setChartRange: (range: string) => void }) {
+function ConnectedCase({ workspace, guestUnavailable, guestIdentity, guestDraft, onDraftChange, symbol, market, record: savedRecord, onSaved, onGuestRemoved, unlockHref, onAccessDenied, onIdentity, advanced, tab, setTab, chartRange, setChartRange }: { workspace: 'checking' | 'guest' | 'owner'; guestUnavailable: boolean; guestIdentity: string | null; guestDraft?: GuestNoteDraft; onDraftChange: (draft: GuestNoteDraft | null, submitted?: GuestNoteSave) => void; symbol: string; market: ResearchMarket; record?: ResearchRecord; onSaved: (record: ResearchRecord) => void; onGuestRemoved: () => void; unlockHref: string; onAccessDenied: (issue: OwnerAccessIssue) => void; onIdentity: (identity: ProviderResearchIdentity) => void; advanced: boolean; tab: ResearchTab; setTab: (tab: ResearchTab) => void; chartRange: string; setChartRange: (range: string) => void }) {
     // Owner-only reviews and advanced tools never receive guest bookmarks.
     const record = workspace === 'owner' ? savedRecord : undefined;
     const [saving, setSaving] = useState(false);
@@ -373,7 +409,7 @@ function ConnectedCase({ workspace, guestUnavailable, symbol, market, record: sa
                 </section>
                 <ResearchPriceContext snapshot={snapshot} />
                 {!savedRecord && <div className={connected.dataStatus}><span>{workspace === 'guest' ? 'Save this security on this device to add your own note.' : 'Reading without a saved record'}</span><button className={base.textButton} disabled={saving || !snapshot || workspace === 'checking' || (workspace === 'guest' && guestUnavailable)} onClick={saveSecurity}>{saving ? 'Saving…' : 'Save security'}</button></div>}
-                {workspace === 'guest' && savedRecord && <GuestResearchNote disabled={guestUnavailable} record={savedRecord} onSaved={onSaved} onRemoved={onGuestRemoved} />}
+                {workspace === 'guest' && savedRecord && <GuestResearchNote key={guestIdentity} draftState={guestDraft} onDraftChange={onDraftChange} disabled={guestUnavailable} record={savedRecord} onSaved={onSaved} onRemoved={onGuestRemoved} />}
                 {saveError && <p role="alert">{saveError}{saveAccessIssue === 'locked' && <> <a className={base.textButton} href={unlockHref}>Unlock to save</a></>}</p>}
                 <ResearchCurrentAssessment snapshot={snapshot} previous={readings.previous} loading={loading} error={error} now={assessmentTime} compact />
                 <section className={connected.dataStatus} aria-label="Provider data status"><div role="status">{loading ? snapshot ? `Refreshing provider data. Previous values retrieved ${retrievedAt(snapshot.fetchedAt)} remain visible.` : 'Loading provider data… You can browse while it loads.' : error ? `Provider refresh failed. ${snapshot ? `Previous values retrieved ${retrievedAt(snapshot.fetchedAt)} remain visible.` : 'No current assessment is available.'}` : `Provider sources: ${snapshot?.sources.join(', ') || 'Source not supplied'}`}</div><button className={base.textButton} disabled={loading} onClick={() => { setLoading(true); setError(false); setRefresh(value => value + 1); }}>{error ? 'Retry provider data' : 'Refresh provider data'}</button>{!!snapshot?.warnings.length && !compactFinancialAssessment && <details className={connected.warning}><summary>Source notices and limitations <span>View {snapshot.warnings.length} source notice{snapshot.warnings.length === 1 ? '' : 's'}</span></summary><p>These notices describe missing data or limits on how the returned values can be used. Unavailable inputs are not estimated; refreshing does not necessarily resolve a reporting limitation.</p><ul>{snapshot.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></details>}</section>

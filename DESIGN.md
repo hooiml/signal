@@ -45,6 +45,7 @@
 - New/changed components: `StartGuideV6` for the score-to-candidate-to-current-news journey, plus the Research Picker workspace under Discovery.
 - Variants and states: Setup, loading, results, no matches, error, and saved basket.
 - Token/component ownership: V6 theme tokens remain owned by `src/components/v6/research-v6.ts`; V8 colour, font and type-scale tokens are owned by the `.app` rule in `src/components/v8/market-v8.module.css`.
+- Market indicator identity: `--indicator-*` tokens distinguish inputs in the coverage ring, legend and leading-evidence markers. These colours identify the input, not its direction or freshness; names and freshness labels remain explicit, and neutral fallback stays grey.
 
 ## Accessibility
 - Target standard: Keyboard-operable controls with semantic headings, labels, tables, and status feedback.

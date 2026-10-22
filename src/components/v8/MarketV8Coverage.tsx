@@ -15,11 +15,11 @@ export function MarketLeadingEvidence({ signal, date, onSelect }: {
     return <div className={styles.leadingEvidence} role="group" aria-label="Leading evidence">
         {([[aligned, 'Leading support'], [conflicting, 'Leading conflict']] as const).map(([entry, label]) => <div key={label}>
             {entry ? <button onClick={event => onSelect(entry[0], event.currentTarget)}>
-                <span><b>{label}:</b> {entry[1].display_name} <span aria-hidden="true">↗</span></span>
+                <span><i className={styles.indicatorMarker} data-indicator={entry[0]} aria-hidden="true" /><b>{label}:</b> {entry[1].display_name} <span aria-hidden="true">↗</span></span>
                 <small>{indicatorStatus(signal, entry[0], date)} · {entry[1].metadata?.timestamp_basis === 'observed' ? 'Observed' : entry[1].metadata?.timestamp_basis === 'retrieved' ? 'Retrieved' : 'Recorded'} {marketTimestampLabel(entry[1].last_updated)}</small>
             </button> : <p><b>{label}:</b> {label === 'Leading support' ? 'No aligned included input identified.' : conflicts.length ? 'Reported conflict has no matching included observation.' : 'No conflicting included input identified; missing evidence can still limit this reading.'}</p>}
         </div>)}
-        <p>Leading inputs are selected by included weight. Contribution and alignment answer different questions: a normalized input score above 50 adds more than its weighted 50 baseline, while its category can still differ from the composite tier. Agreement describes these readings; it is not forecast accuracy.</p>
+        <p>Leading inputs are selected by weight. Contribution shows how an input moves the score around its neutral 50 baseline; alignment compares its category with the overall reading. Alignment describes agreement, not forecast accuracy.</p>
     </div>;
 }
 

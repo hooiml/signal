@@ -1,7 +1,7 @@
 'use client';
 
 import { assessCurrentResearch, compareResearchEvidence } from '@/lib/research/current-assessment';
-import { annualAmountComparison, type AnnualAmount } from '@/lib/research/financial-display';
+import { annualAmountComparison, compactFinancialAmount, type AnnualAmount } from '@/lib/research/financial-display';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { toYahooSymbol } from '@/lib/research/yahoo-research';
 import { date, money, retrievedAt } from './research-v8-connected-data';
@@ -69,14 +69,14 @@ function AssessmentFacts({ snapshot }: { snapshot: ResearchSnapshot }) {
             const comparison = annualAmountComparison(fundamentals, key);
             const delta = comparison?.percentage !== null && comparison?.percentage !== undefined
                 ? `${comparison.percentage < 0 ? 'down ' : comparison.percentage > 0 ? 'up ' : ''}${Math.abs(comparison.percentage).toFixed(1)}%`
-                : comparison ? `${comparison.delta < 0 ? 'down ' : comparison.delta > 0 ? 'up ' : ''}${money(Math.abs(comparison.delta), period?.currency)}` : null;
+                : comparison ? `${comparison.delta < 0 ? 'down ' : comparison.delta > 0 ? 'up ' : ''}${compactFinancialAmount(Math.abs(comparison.delta), period?.currency)}` : null;
             const currentSign = value == null || !Number.isFinite(value) ? 'Unavailable' : value > 0 ? 'Positive' : value < 0 ? 'Negative' : 'Zero';
             const suppliedUrl = period?.sourceUrl;
             const verifiedSecUrl = suppliedUrl && /^https:\/\/(www\.)?sec\.gov\//i.test(suppliedUrl) ? suppliedUrl : null;
             const providerUrl = fundamentals.source === 'Yahoo Finance' ? `https://finance.yahoo.com/quote/${encodeURIComponent(toYahooSymbol(snapshot.symbol, snapshot.market))}/financials/` : null;
             return <div key={key}>
                 <dt>{label}</dt>
-                <dd>{money(value, period?.currency)}</dd>
+                <dd>{compactFinancialAmount(value, period?.currency)}</dd>
                 <dd className={styles.assessmentFactChange}>Current amount: {currentSign}</dd>
                 <dd className={styles.assessmentFactChange}>
                     {comparison && delta ? `${delta} vs year ended ${date(comparison.previous.reportingPeriod)}` : 'Annual change unavailable'}

@@ -57,7 +57,6 @@ export function MarketV81Hero({ signal, snapshotDate, tierClass, onEvidence, onD
             {coverage.observedPct !== null && coverage.fallbackPct !== null ? <>
                 <MarketCoverageRing signal={signal} coverage={coverage} onSelect={onSelect} />
                 <p>{pct(coverage.fallbackPct)} of configured weight uses neutral fallback for missing inputs.</p>
-                {coverage.verifiedPartition && <p>Fresh {pct(coverage.freshPct!)} · stale {pct(coverage.stalePct!)} of model weight.</p>}
             </> : <p>Coverage weights could not be reconciled. Verify the source response.</p>}
             {coverage.unknownDateKeys.map(key => <p className={layout.caution} key={key}><b>{name(key)}:</b> {hasRetrievalTimestamp(signal.components[key]) ? 'Observation date unknown.' : 'Observation freshness unknown.'}</p>)}
             {coverage.staleKeys.map(key => <p className={layout.caution} key={key}><b>{name(key)}:</b> Stale · {fullDate(signal.components[key]?.last_updated)} · included.</p>)}

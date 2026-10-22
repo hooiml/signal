@@ -885,6 +885,20 @@ keyboard selection, cross-market lookup state and Back/Forward without guest-rec
 mutations or owner requests. Set `SIGNAL_QA_OWNER_SECRET` to the disposable local
 server secret to exercise real signed-session isolation; provider and owner records
 remain labelled synthetic fixtures. Guest storage and authentication are unchanged.
+Guest drafts stay in page memory per market/security across selection and Back/Forward;
+Save remains explicit. The matrix checks leave/reload cancellation for visible and
+hidden drafts, cross-tab conflict baselines after switching, identity replacement,
+and a queued Web Lock save that must retain newer typing after remount. Native
+beforeunload warnings are browser-dependent and cannot guarantee recovery after
+an OS kill; drafts are not persisted or sent to owner storage.
+The same matrix checks Market identity colours in light/dark themes, ring/legend/
+leading-evidence agreement, textual freshness, and Research compact summaries with
+exact amounts retained in disclosures and UTC reporting dates. Guest scenarios run
+at 1440/390px; Market and Research scenarios run at 1440/1280/768/390/375px.
+Queued mutations also validate the guest identity inside the write lock, so an old
+operation cannot modify a replacement workspace. The guest harness covers note,
+remove and bookmark identity races, while the browser suite covers a fresh draft
+after Clear and a new explicit Save.
 MY score comparisons disclose recorded news eligibility versions separately from the
 scoring model version; missing historical version metadata stays unknown. The
 market-assessment regression covers same, changed and unknown versions without

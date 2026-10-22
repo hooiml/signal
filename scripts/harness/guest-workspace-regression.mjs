@@ -201,6 +201,20 @@ await Promise.all([held.completed, queuedWrite, queuedClear]);
 assert.deepEqual(readGuestRecords(), [], 'clear reads after earlier writes and cannot be undone by stale storage state');
 assert.equal(values.has(storageKey), false, 'queued clear removes the entire workspace after the earlier write');
 
+// Queued mutations cannot change a replacement workspace with identical records/baselines.
+for (const action of ['note', 'remove', 'bookmark']) {
+    await saveGuestSecurity('IDENTITY', 'US', 'Original');
+    const identityLock = await lockManager.hold(storageKey);
+    const operation = action === 'note' ? updateGuestNote('IDENTITY', 'US', 'Old guest draft', '')
+        : action === 'remove' ? removeGuestSecurity('IDENTITY', 'US') : saveGuestSecurity('IDENTITY', 'US', 'Old guest name');
+    const rejection = assert.rejects(operation, /workspace changed/);
+    const replacement = JSON.stringify({ version: 1, guestId: crypto.randomUUID(), records: [{ symbol: 'IDENTITY', market: 'US', companyName: 'Replacement', notes: '' }] });
+    values.set(storageKey, replacement);
+    identityLock.release(); await identityLock.completed; await rejection;
+    assert.equal(values.get(storageKey), replacement, `${action} must not modify the replacement guest`);
+    await clearGuestWorkspace();
+}
+
 const beforeUnavailableLock = values.get(storageKey);
 Object.defineProperty(globalThis, 'navigator', { configurable: true, value: {} });
 await assert.rejects(saveGuestSecurity('NOLOCK', 'US', 'No Lock'), /cannot safely save.*locks are unavailable/i);

@@ -118,13 +118,26 @@ const persist = (guestId: string | null, records: readonly ResearchRecord[]): vo
 };
 
 export const readGuestRecords = (): ResearchRecord[] => readWorkspace().records;
+export const readGuestWorkspace = readWorkspace;
+
+const withGuestWorkspaceLock = async <T>(operation: (current: ReturnType<typeof readWorkspace>) => T, allowCreation = false): Promise<T> => {
+    const expectedIdentity = readWorkspace().guestId;
+    return withGuestWriteLock(() => {
+        const current = readWorkspace();
+        // Concurrent first bookmarks may join the same newly created workspace.
+        // Existing-workspace operations must never cross a clear/replacement boundary.
+        if (current.guestId !== expectedIdentity && !(allowCreation && expectedIdentity === null)) {
+            throw new Error('This guest workspace changed while the action was waiting. Reload device storage before trying again.');
+        }
+        return operation(current);
+    });
+};
 
 export const saveGuestSecurity = (symbol: string, market: ResearchMarket, companyName: string): Promise<ResearchRecord> =>
-    withGuestWriteLock(() => {
+    withGuestWorkspaceLock(current => {
         const identity = parseResearchRecord({
             ...createResearchRecord({ symbol, market, companyName, saveOnly: true }),
         });
-        const current = readWorkspace();
         const existing = current.records.find((record) => recordKey(record.symbol, record.market) === recordKey(identity.symbol, identity.market));
         const saved = existing
             ? parseResearchRecord({ ...existing, companyName: identity.companyName })
@@ -134,12 +147,11 @@ export const saveGuestSecurity = (symbol: string, market: ResearchMarket, compan
             ? current.records.map((record) => recordKey(record.symbol, record.market) === recordKey(identity.symbol, identity.market) ? saved : record)
             : [...current.records, saved]);
         return saved;
-    });
+    }, true);
 
 export const updateGuestNote = (symbol: string, market: ResearchMarket, note: string, expectedNote: string): Promise<ResearchRecord> =>
-    withGuestWriteLock(() => {
+    withGuestWorkspaceLock(current => {
         if (typeof note !== 'string' || note.length > maxNoteLength) throw new Error('Your note must be 5,000 characters or fewer.');
-        const current = readWorkspace();
         const index = current.records.findIndex((record) => recordKey(record.symbol, record.market) === recordKey(symbol, market));
         if (index < 0) throw new Error('This security is no longer saved on this device.');
         const existing = current.records[index];
@@ -152,8 +164,7 @@ export const updateGuestNote = (symbol: string, market: ResearchMarket, note: st
     });
 
 export const removeGuestSecurity = (symbol: string, market: ResearchMarket): Promise<void> =>
-    withGuestWriteLock(() => {
-        const current = readWorkspace();
+    withGuestWorkspaceLock(current => {
         const key = recordKey(symbol, market);
         const records = current.records.filter((record) => recordKey(record.symbol, record.market) !== key);
         if (records.length === current.records.length) return;

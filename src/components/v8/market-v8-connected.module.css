@@ -109,10 +109,7 @@
 .lastVisit b { font-weight: 650; }
 .coverageRing { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: center; margin: 10px 0 6px; }
 .coverageRing svg { width: 112px; height: 112px; }
-.coverageRing circle[data-state=fresh] { stroke: var(--up); }
-.coverageRing circle[data-state=stale] { stroke: var(--caution-mark); }
-.coverageRing circle[data-state=unknown] { stroke: var(--subtle); }
-.coverageRing circle[data-state=fallback] { stroke: var(--line-strong); }
+.coverageRing circle[data-indicator] { stroke: var(--line-strong); }
 .ringValue { fill: var(--ink); font-size: 22px; font-weight: 700; }
 .ringLabel { fill: var(--muted); font-size: 11px; }
 .ringLegend { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; min-width: 0; }
@@ -122,10 +119,14 @@
 .ringItem small { grid-column: 2; font-size: var(--text-xs); color: var(--muted); }
 .ringItem b { grid-column: 3; grid-row: 1; font-variant-numeric: tabular-nums; }
 .ringItem i { width: 10px; height: 10px; border-radius: 2px; grid-row: 1; }
-.ringItem i[data-state=fresh] { background: var(--up); }
-.ringItem i[data-state=stale] { background: var(--caution-mark); }
-.ringItem i[data-state=unknown] { background: var(--subtle); }
-.ringItem i[data-state=fallback] { background: var(--line-strong); }
+.ringItem i[data-indicator] { background: var(--line-strong); }
+.coverageRing circle[data-indicator=vix], .ringItem i[data-indicator=vix] { stroke: var(--indicator-vix); background: var(--indicator-vix); }
+.coverageRing circle[data-indicator=social], .ringItem i[data-indicator=social] { stroke: var(--indicator-social); background: var(--indicator-social); }
+.coverageRing circle[data-indicator=put_call], .ringItem i[data-indicator=put_call] { stroke: var(--indicator-put-call); background: var(--indicator-put-call); }
+.coverageRing circle[data-indicator=news], .ringItem i[data-indicator=news] { stroke: var(--indicator-news); background: var(--indicator-news); }
+.coverageRing circle[data-indicator=aaii], .ringItem i[data-indicator=aaii] { stroke: var(--indicator-aaii); background: var(--indicator-aaii); }
+.coverageRing circle[data-indicator=naaim], .ringItem i[data-indicator=naaim] { stroke: var(--indicator-naaim); background: var(--indicator-naaim); }
+.coverageRing circle[data-indicator=bofa], .ringItem i[data-indicator=bofa] { stroke: var(--indicator-bofa); background: var(--indicator-bofa); }
 .evidenceRow .impact { justify-self: start; font-weight: 650; font-variant-numeric: tabular-nums; }
 .evidenceRow .impact[data-impact=up] { color: var(--up); }
 .evidenceRow .impact[data-impact=down] { color: var(--down); }

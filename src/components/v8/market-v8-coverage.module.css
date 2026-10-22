@@ -22,6 +22,15 @@
 .leadingEvidence { display: grid; gap: 8px; margin-top: 14px; }
 .leadingEvidence > div { min-width: 0; border-left: 2px solid var(--line-strong); padding-left: 10px; }
 .leadingEvidence button { display: grid; gap: 3px; width: 100%; min-height: 44px; text-align: left; padding: 4px 0; font-size: var(--text-sm); line-height: 1.5; }
+.leadingEvidence button > span:first-child { display: flex; align-items: center; gap: 6px; }
+.indicatorMarker { display: inline-block; flex: 0 0 9px; width: 9px; height: 9px; border-radius: 2px; background: var(--line-strong); }
+.indicatorMarker[data-indicator=vix] { background: var(--indicator-vix); }
+.indicatorMarker[data-indicator=social] { background: var(--indicator-social); }
+.indicatorMarker[data-indicator=put_call] { background: var(--indicator-put-call); }
+.indicatorMarker[data-indicator=news] { background: var(--indicator-news); }
+.indicatorMarker[data-indicator=aaii] { background: var(--indicator-aaii); }
+.indicatorMarker[data-indicator=naaim] { background: var(--indicator-naaim); }
+.indicatorMarker[data-indicator=bofa] { background: var(--indicator-bofa); }
 .leadingEvidence button small { color: var(--muted); font-size: var(--text-sm); }
 .leadingEvidence p { font-size: var(--text-sm); line-height: 1.5; }
 .leadingEvidence > p { font-size: var(--text-sm); }

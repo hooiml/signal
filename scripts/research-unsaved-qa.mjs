@@ -18,6 +18,7 @@ function snapshot(symbol,market) {
  Object.assign(r.data.fundamentals,{source:market==='MY'?'Yahoo Finance':'SEC EDGAR',reportingPeriod:'2025-12-31',revenueGrowthPercent:10,annualRevenue:1000,annualNetIncome:100,freeCashFlow:80});
  const currentPeriod={...r.data.fundamentals,currency:market==='MY'?'MYR':'USD'};
  r.data.fundamentals.history=[currentPeriod,{...currentPeriod,reportingPeriod:'2024-12-31',annualRevenue:900,annualNetIncome:90,freeCashFlow:100}];
+ if(symbol==='BIG'){r.data.fundamentals.annualRevenue=1234567890;r.data.fundamentals.history[0].annualRevenue=1234567890;}
  r.data.warnings=[];
  if(market==='MY'&&!r.data.quote.sharesOutstanding)Object.assign(r.data.valuation,{marketCap:null,priceEarnings:null,priceSales:null,freeCashFlowYieldPercent:null});
  if(symbol==='PARTIAL'){r.data.fundamentals.freeCashFlow=null;r.data.warnings=['Fixture cash flow unavailable'];}
@@ -29,15 +30,15 @@ function snapshot(symbol,market) {
 }
 try {
  if(process.env.SIGNAL_QA_SKIP_GUEST!=='1')await guestWorkspaceQa(browser,base,snapshot,{...structuredClone(saved),symbol:'AAPL',market:'US',companyName:'Private owner Apple',notes:'PRIVATE_OWNER_ONLY'});
- for(const width of [1280,768,375]){
- const context=await browser.newContext({viewport:{width,height:900},serviceWorkers:'block'});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ for(const width of [1440,1280,768,390,375]){
+ const context=await browser.newContext({viewport:{width,height:width<=390?844:1000},serviceWorkers:'block'});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!/status of (500|502|503)/.test(m.text()))errors.push(m.text());});
  page.on('requestfailed',r=>{if(!/ERR_ABORTED/.test(r.failure()?.errorText??''))errors.push(r.failure()?.errorText);});
  const posts=[];const providerReads=[];let list=[];let release;let held;let watchlistFails=false;let saveFails=false;let listHold;let releaseList;let revisedIncome=false;let providerFails=false;let marketScoreCase='normal';let searchFails=false;let searchHold=false;let releaseSearch;const searches=[];
  await context.route('**/api/**',async route=>{
   const req=route.request(),u=new URL(req.url());
   if(u.pathname==='/api/owner/session')return route.fulfill({json:{success:true,data:{configured:true,unlocked:true}}});
-  if(u.pathname==='/api/signals/v2'){const f=marketRequestFixture({previousSnapshot:{snapshot_date:'2026-09-11',composite_score:45,tier:'neutral',components:{vix:{display_name:'VIX Index',score:45,weight:1}},score_drivers:[],origin:'observed',coverage_note:null}});const response=await f.route.GET(f.request(u.search.slice(1)));const payload=await response.json();if(marketScoreCase==='unchanged')payload.data.metadata.score_delta.delta=0;if(marketScoreCase==='missing')delete payload.data.metadata.score_delta;return route.fulfill({json:payload});}
+  if(u.pathname==='/api/signals/v2'){const f=marketRequestFixture({providerReadings:{putCallRatio:{ratio:0.8,reportDate:'2026-09-11',retrievedAt:'2026-09-12T00:00:00Z',source:'cboe-daily-market-statistics',sourceUrl:'https://example.test/cboe'},naaimExposure:{exposure:60,reportDate:'2026-09-09',retrievedAt:'2026-09-12T00:00:00Z',source:'naaim-exposure-index',sourceUrl:'https://example.test/naaim'}},previousSnapshot:{snapshot_date:'2026-09-11',composite_score:45,tier:'neutral',components:{vix:{display_name:'VIX Index',score:45,weight:1}},score_drivers:[],origin:'observed',coverage_note:null}});const response=await f.route.GET(f.request(u.search.slice(1)));const payload=await response.json();if(marketScoreCase==='unchanged')payload.data.metadata.score_delta.delta=0;if(marketScoreCase==='missing')delete payload.data.metadata.score_delta;return route.fulfill({json:payload});}
   if(u.pathname.startsWith('/api/signals/'))return route.fulfill({status:503,json:{success:false,error:'Fixture archive unavailable'}});
   if(u.pathname==='/api/research/search') {
    const q=u.searchParams.get('q'),market=u.searchParams.get('market');searches.push({q,market});
@@ -91,6 +92,16 @@ try {
  searchHold=true;await searchInput.fill('Apple');await find();await page.waitForFunction(()=>document.querySelector('button[type="submit"]')?.textContent==='Searching…');await page.waitForTimeout(100);
  await searchInput.fill('5347');await page.getByLabel('Lookup market',{exact:true}).selectOption('MY');await page.getByRole('button',{name:'Read ticker directly',exact:true}).click();await heading('Growth and positive earnings reported');searchHold=false;releaseSearch();await page.waitForTimeout(150);assert.equal(await results.count(),0);assert.equal(await page.locator('h1').innerText(),'Fixture 5347');
  await read('AAPL');await heading('Growth and positive earnings reported');
+ await read('BIG');await heading('Growth and positive earnings reported');
+ await page.getByText('USD 1.23 billion',{exact:true}).waitFor();
+ const exactRevenue=page.locator('details').filter({has:page.locator('summary').filter({hasText:'Exact amount, comparison and source'})}).first();
+ await exactRevenue.locator('summary').click();await exactRevenue.getByText(/Annual revenue: USD 1,234,567,890/).waitFor();
+ await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:`${out}/research-format-overview-${width}.png`,fullPage:true});
+ await page.getByRole('tab',{name:'Financials',exact:true}).click();
+ await page.getByText(/SEC EDGAR · Year ended 31 Dec 2025/).waitFor();
+ await page.getByText('USD 1.23 billion',{exact:true}).waitFor();
+ await noOverflow();await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:`${out}/research-format-financials-${width}.png`,fullPage:true});
+ await page.getByRole('tab',{name:'Overview',exact:true}).click();await read('AAPL');await heading('Growth and positive earnings reported');
  await noOverflow();await page.screenshot({path:`${out}/research-${width}.png`,fullPage:true});
  const formBoxes=await page.getByRole('form',{name:'Security lookup'}).locator('input,select,button').evaluateAll(nodes=>nodes.map(node=>{const b=node.getBoundingClientRect();return {x:b.x,y:b.y,width:b.width,height:b.height}}));
  for(let i=0;i<formBoxes.length;i++)for(let j=i+1;j<formBoxes.length;j++){const a=formBoxes[i],b=formBoxes[j];assert.ok(a.x+a.width<=b.x+1||b.x+b.width<=a.x+1||a.y+a.height<=b.y+1||b.y+b.height<=a.y+1,'Lookup controls overlap');}
@@ -184,6 +195,24 @@ try {
   providerReads.length=0;await page.goto(`${base}/research-v8?ticker=${symbol}`);await page.getByTestId('research-price').filter({hasText:'MYR 200'}).waitFor();assert.deepEqual(providerReads,[{symbol,market:'MY'}]);
  }
  await page.goto(`${base}/main-v8`);
+ await page.getByTestId('connected-score').waitFor();
+ for(const theme of ['light','dark']) {
+  await page.getByRole('combobox',{name:'Colour theme'}).selectOption(theme);
+  await page.waitForFunction(value=>document.documentElement.dataset.v8Theme===value,theme);
+  const coverage=page.getByRole('img',{name:/^Score weight:/}).locator('..');
+  const colours=await coverage.evaluate(node=>Array.from(node.querySelectorAll('circle[data-indicator]')).map(circle=>({key:circle.dataset.indicator,colour:getComputedStyle(circle).stroke,legend:getComputedStyle(node.querySelector(`i[data-indicator="${circle.dataset.indicator}"]`)).backgroundColor})));
+  assert.ok(colours.length>=3,'Multiple inputs and fallback must render');
+  assert.equal(new Set(colours.map(c=>c.colour)).size,colours.length,'Each included indicator and fallback has a distinct colour');
+  assert.ok(colours.every(c=>c.colour===c.legend),'Ring and legend identity colours match');
+  for(const marker of await page.getByRole('group',{name:'Leading evidence'}).locator('i[data-indicator]').all()) {
+   const indicator=await marker.getAttribute('data-indicator');
+   assert.equal(await marker.evaluate(node=>getComputedStyle(node).backgroundColor),colours.find(c=>c.key===indicator)?.colour);
+  }
+  assert.match(await coverage.innerText(),/fresh|stale|unverified/,'Freshness stays explicit in text');
+  await noOverflow();await page.screenshot({path:`${out}/market-colours-${theme}-${width}.png`});
+  await coverage.screenshot({path:`${out}/market-ring-${theme}-${width}.png`});
+ }
+ await page.getByRole('combobox',{name:'Colour theme'}).selectOption('light');
  await page.getByText('How to read this assessment · methodology and limits',{exact:true}).click();
  await page.getByRole('region',{name:'Current market assessment',exact:true}).waitFor();
  marketScoreCase='unchanged';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/Score unchanged.*Individual inputs can still differ/}).waitFor();await page.getByTestId('market-hero-unchanged').filter({hasText:/^No change since /}).waitFor();assert.equal(await page.getByRole('region',{name:'Market assessment'}).getByRole('button',{name:/points vs/}).count(),0);
@@ -213,7 +242,7 @@ try {
  }
  await page.getByRole('button',{name:'Back to basic view',exact:true}).click();
  const leadingEvidence=page.getByRole('group',{name:'Leading evidence',exact:true});
- await leadingEvidence.getByText(/Contribution and alignment answer different questions/).waitFor();
+ await leadingEvidence.getByText(/alignment compares its category with the overall reading/).waitFor();
  const evidenceBoxes=await leadingEvidence.locator('button').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};}));
  assert.ok(evidenceBoxes.length>0&&evidenceBoxes.every(r=>r.height>=44&&r.x>=-1&&r.x+r.width<=width+1),'Market evidence buttons must fit and be touch-sized');
  await noOverflow();await page.screenshot({path:`${out}/market-summary-${width}.png`,fullPage:true});

@@ -14,6 +14,9 @@
     --down: #be123c; --down-mark: #f43f5e; --down-line: #fecdd3; --down-soft: #fff1f2;
     --caution: #b45309; --caution-mark: #f59e0b; --caution-line: #fde68a; --caution-soft: #fffbeb;
     --chart-line: #334155;
+    /* Indicator identity, independent of direction and freshness. */
+    --indicator-vix: #2563eb; --indicator-social: #7c3aed; --indicator-put-call: #c2410c;
+    --indicator-news: #0e7490; --indicator-aaii: #047857; --indicator-naaim: #be185d; --indicator-bofa: #a16207;
     /* Text on brand fills, and the base colour for shadows and overlays. */
     --on-brand: #ffffff; --shadow: #0f172a;
     /* Typography */
@@ -560,6 +563,8 @@
     --down: #fb7185; --down-mark: #f43f5e; --down-line: #6b2236; --down-soft: #2b1219;
     --caution: #fbbf24; --caution-mark: #f59e0b; --caution-line: #6b4a12; --caution-soft: #2a2010;
     --chart-line: #cbd5e1; --shadow: #000000;
+    --indicator-vix: #60a5fa; --indicator-social: #a78bfa; --indicator-put-call: #fb923c;
+    --indicator-news: #22d3ee; --indicator-aaii: #34d399; --indicator-naaim: #f472b6; --indicator-bofa: #facc15;
     color-scheme: dark;
 }
 /* Theme control in the V8 header. */

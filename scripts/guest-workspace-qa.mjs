@@ -84,6 +84,15 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   page.once('dialog',dialog=>dialog.accept()); await page.getByRole('button',{name:'Clear guest research',exact:true}).click();await page.waitForFunction(k=>localStorage.getItem(k)===null,key);
   assert.equal(await peer.evaluate(k=>JSON.parse(localStorage.getItem(k)).records[0].notes,key),'Guest B');
   await page.getByRole('button',{name:'Close research panel'}).click();
+  await page.getByRole('button',{name:'Save security',exact:true}).click(); await note.fill('Fresh draft after Clear');
+  const resetPeer=await context.newPage(); await resetPeer.goto(`${base}/research-v8?ticker=MSFT&market=US`);
+  await resetPeer.getByRole('button',{name:'Save security',exact:true}).click();
+  await page.getByRole('combobox',{name:'Switch saved security'}).locator('option[value="US:MSFT"]').waitFor({state:'attached'});
+  assert.equal(await note.inputValue(),'Fresh draft after Clear','Refreshing the new identity must retain its draft');
+  await page.getByRole('combobox',{name:'Switch saved security'}).selectOption('US:MSFT');
+  await page.getByRole('combobox',{name:'Switch saved security'}).selectOption('US:AAPL');
+  assert.equal(await note.inputValue(),'Fresh draft after Clear');
+  await page.getByRole('button',{name:'Save note',exact:true}).click(); await page.getByRole('status').filter({hasText:'Note saved on this device'}).waitFor(); await resetPeer.close();
   await page.evaluate(k=>localStorage.setItem(k,'invalid original'),key); await page.reload(); await guestReady(); await page.getByRole('alert').filter({hasText:'original browser data was left untouched'}).first().waitFor();
   assert.equal(await raw(),'invalid original'); await page.getByTestId('research-price').filter({hasText:'USD 200.00'}).waitFor(); await overflow();
   await page.screenshot({path:`${out}/guest-storage-error-${width}.png`});
@@ -114,6 +123,53 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   await page.getByText('Change security',{exact:true}).click();
   await page.evaluate(()=>scrollTo(0,0)); await overflow();
   await page.screenshot({path:`${out}/guest-navigation-${width}.png`});
+  // Drafts are keyed by market + ticker and survive selection and history navigation.
+  const dualNote=page.getByLabel('Personal note for DUAL',{exact:true});
+  await quickSwitch.selectOption('US:DUAL'); await dualNote.fill('Unsaved US draft');
+  await quickSwitch.selectOption('MY:DUAL'); await dualNote.fill('Unsaved MY draft');
+  await quickSwitch.selectOption('US:DUAL'); assert.equal(await dualNote.inputValue(),'Unsaved US draft');
+  await page.goBack(); assert.equal(await dualNote.inputValue(),'Unsaved MY draft');
+  await page.goForward(); assert.equal(await dualNote.inputValue(),'Unsaved US draft');
+  assert.equal(await raw(),beforeSwitch,'Drafts must not be saved automatically');
+  const reloadWarning=page.waitForEvent('dialog',{timeout:5000});
+  const cancelledReload=page.reload({timeout:3000}).catch(error=>assert.match(error.message,/ERR_ABORTED|Timeout 3000ms exceeded/));
+  const warning=await reloadWarning; assert.equal(warning.type(),'beforeunload'); await warning.dismiss(); await cancelledReload;
+  assert.equal(await dualNote.inputValue(),'Unsaved US draft');
+  // A switched-away draft retains its original conflict baseline after another tab saves.
+  await quickSwitch.selectOption('MY:DUAL');
+  const draftPeer=await context.newPage(); await draftPeer.goto(`${base}/research-v8?ticker=DUAL&market=US`);
+  await draftPeer.getByLabel('Personal note for DUAL',{exact:true}).fill('New US note from another tab');
+  await draftPeer.getByRole('button',{name:'Save note',exact:true}).click();
+  await draftPeer.getByRole('status').filter({hasText:'Note saved on this device'}).waitFor();
+  await quickSwitch.selectOption('US:DUAL'); assert.equal(await dualNote.inputValue(),'Unsaved US draft');
+  await page.getByRole('button',{name:'Save note',exact:true}).click(); await page.getByRole('alert').filter({hasText:'newer note'}).waitFor();
+  await page.getByRole('button',{name:'Reload note',exact:true}).click(); assert.equal(await dualNote.inputValue(),'New US note from another tab');
+  // A hidden dirty draft still warns even when the visible security is clean.
+  const leaveWarning=page.waitForEvent('dialog',{timeout:5000}); const leave=page.getByRole('link',{name:'Market',exact:true}).click({noWaitAfter:true});
+  const leaveDialog=await leaveWarning; assert.equal(leaveDialog.type(),'beforeunload'); await leaveDialog.dismiss(); await leave;
+  assert.match(page.url(),/research-v8/);
+  await quickSwitch.selectOption('MY:DUAL'); assert.equal(await dualNote.inputValue(),'Unsaved MY draft');
+  // Real Web Lock delay: a completed older save cannot erase newer typing, even after remount.
+  await dualNote.fill('  Unsaved MY draft  ');
+  await page.evaluate(()=>{window.__draftLockHeld=false;void navigator.locks.request('signal.guest-research.v1',()=>new Promise(resolve=>{window.__draftLockRelease=resolve;window.__draftLockHeld=true;}));});
+  await page.waitForFunction(()=>window.__draftLockHeld);
+  await page.getByRole('button',{name:'Save note',exact:true}).click();
+  await page.waitForFunction(async()=>((await navigator.locks.query()).pending??[]).length>0);
+  await quickSwitch.selectOption('US:DUAL'); await quickSwitch.selectOption('MY:DUAL');
+  await dualNote.fill('Newer MY draft while save waits');
+  await page.evaluate(()=>window.__draftLockRelease());
+  await page.waitForFunction(k=>JSON.parse(localStorage.getItem(k)).records.find(r=>r.market==='MY').notes==='Unsaved MY draft',key);
+  assert.equal(await dualNote.inputValue(),'Newer MY draft while save waits');
+  await quickSwitch.selectOption('US:DUAL'); await quickSwitch.selectOption('MY:DUAL');
+  assert.equal(await dualNote.inputValue(),'Newer MY draft while save waits');
+  await overflow(); await page.screenshot({path:`${out}/guest-draft-${width}.png`});
+  await page.getByRole('button',{name:'Save note',exact:true}).click(); await page.getByRole('status').filter({hasText:'Note saved on this device'}).waitFor();
+  await page.reload(); await dualNote.waitFor(); assert.equal(await dualNote.inputValue(),'Newer MY draft while save waits');
+  // Replacing the device workspace must not revive drafts from its previous identity.
+  await dualNote.fill('Old identity draft');
+  await draftPeer.evaluate(k=>localStorage.setItem(k,JSON.stringify({version:1,guestId:crypto.randomUUID(),records:[{symbol:'DUAL',market:'MY',companyName:'Replacement fixture',notes:'Replacement workspace note'}]})),key);
+  await page.waitForFunction(()=>document.querySelector('#guest-research-note')?.value==='Replacement workspace note');
+  await draftPeer.close();
   await page.evaluate(k=>localStorage.removeItem(k),key); await page.goto(`${base}/research-v8`); await guestReady();
   await page.getByText('Market shows broad market conditions. Research explores an individual company.',{exact:true}).waitFor();
   assert.equal(await raw(),null,'The first-use explanation must not create guest records');
@@ -129,7 +185,7 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   await page.waitForFunction(k=>JSON.parse(localStorage.getItem(k)||'{}').records?.length===2,key);
   assert.deepEqual(JSON.parse(await raw()).records.map(r=>r.symbol).sort(),['MSFT','TSLA']); await concurrent.close();
   assert.deepEqual(errors,[]);
-  results.push({width,passed:true,realOwnerCookie:!!process.env.SIGNAL_QA_OWNER_SECRET,scenarios:['no access code','local save/reload','profile isolation','cross-tab draft conflict','export','owner isolation/no import','owner lock','quota failure','clear cancel/confirm','corrupt storage preserves original','public data remains readable','ambiguous ticker requires explicit market','guest quick switch and keyboard selection','cross-market lookup and Back/Forward','first-use guidance without storage writes','serialized concurrent cross-tab saves','no overflow','no runtime errors']});
+  results.push({width,passed:true,realOwnerCookie:!!process.env.SIGNAL_QA_OWNER_SECRET,scenarios:['no access code','local save/reload','profile isolation','cross-tab draft conflict','export','owner isolation/no import','owner lock','quota failure','clear cancel/confirm','corrupt storage preserves original','public data remains readable','ambiguous ticker requires explicit market','guest quick switch and keyboard selection','cross-market lookup and Back/Forward','unsaved drafts survive switches and history','reload and leave warnings include hidden drafts','switched draft conflict baseline','queued save preserves newer typing after remount','guest identity reset clears drafts','first-use guidance without storage writes','serialized concurrent cross-tab saves','no overflow','no runtime errors']});
   await context.close(); await other.close();
  }
  await writeFile(`${out}/report.json`,JSON.stringify({dataMode:'Synthetic provider/owner records; actual local owner-session auth and denied private routes when configured',results},null,2));

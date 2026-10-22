@@ -63,7 +63,15 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
     const currency = fundamentals?.history.find(period => period.reportingPeriod === fundamentals.reportingPeriod)?.currency;
     const valuation = snapshot?.valuation;
     const cashDebt = cashDebtDisplay(valuation?.netCash, netCashCurrency(fundamentals));
-    const annualPeriod = financialPeriodLabel(fundamentals?.reportingPeriod);
+    const reportingPeriod = fundamentals?.reportingPeriod;
+    const parsedReportingPeriod = reportingPeriod && /^\d{4}-\d{2}-\d{2}$/.test(reportingPeriod)
+        ? new Date(`${reportingPeriod}T00:00:00Z`)
+        : null;
+    const isoReportingPeriod = parsedReportingPeriod && Number.isFinite(parsedReportingPeriod.getTime())
+        && parsedReportingPeriod.toISOString().slice(0, 10) === reportingPeriod;
+    const annualPeriod = isoReportingPeriod
+        ? `Year ended ${date(reportingPeriod)}`
+        : financialPeriodLabel(reportingPeriod);
     const quoteObservation = `Quote observed: ${formatResearchTimestamp(snapshot?.quote.observedAt)}`;
     const sharePeriod = valuation?.shareDate ? `Reported ${date(valuation.shareDate)}`
         : valuation?.shareCount === undefined && market === 'US' ? researchMetricPeriodLabel(fundamentals, 'shares') : 'Share reporting date unavailable';
