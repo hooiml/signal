@@ -1,7 +1,7 @@
 'use client';
 
 import { assessCurrentResearch, compareResearchEvidence } from '@/lib/research/current-assessment';
-import { annualAmountComparison, compactFinancialAmount, type AnnualAmount } from '@/lib/research/financial-display';
+import { annualAmountComparison, compactFinancialAmount, financialPercentage, type AnnualAmount } from '@/lib/research/financial-display';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { toYahooSymbol } from '@/lib/research/yahoo-research';
 import { date, money, retrievedAt } from './research-v8-connected-data';
@@ -68,7 +68,7 @@ function AssessmentFacts({ snapshot }: { snapshot: ResearchSnapshot }) {
             const value = fundamentals[key];
             const comparison = annualAmountComparison(fundamentals, key);
             const delta = comparison?.percentage !== null && comparison?.percentage !== undefined
-                ? `${comparison.percentage < 0 ? 'down ' : comparison.percentage > 0 ? 'up ' : ''}${Math.abs(comparison.percentage).toFixed(1)}%`
+                ? `${comparison.percentage < 0 ? 'down ' : comparison.percentage > 0 ? 'up ' : ''}${financialPercentage(Math.abs(comparison.percentage))}`
                 : comparison ? `${comparison.delta < 0 ? 'down ' : comparison.delta > 0 ? 'up ' : ''}${compactFinancialAmount(Math.abs(comparison.delta), period?.currency)}` : null;
             const currentSign = value == null || !Number.isFinite(value) ? 'Unavailable' : value > 0 ? 'Positive' : value < 0 ? 'Negative' : 'Zero';
             const suppliedUrl = period?.sourceUrl;
@@ -85,9 +85,9 @@ function AssessmentFacts({ snapshot }: { snapshot: ResearchSnapshot }) {
                     <summary>Exact amount, comparison and source</summary>
                     <p>{label}: {money(value, period?.currency)} · annual period ended {date(fundamentals.reportingPeriod)} · {fundamentals.source || 'Source unavailable'}.</p>
                     {comparison
-                        ? <p>Comparable annual endpoints: {date(comparison.previous.reportingPeriod)} {money(comparison.previous[key], comparison.previous.currency)} → {date(fundamentals.reportingPeriod)} {money(value, period?.currency)}. Amount change: {money(comparison.delta, period?.currency)}. {comparison.percentage === null ? 'Percentage change is withheld because the prior amount is zero or negative.' : `Percentage change = (current − prior) ÷ prior × 100 = ${comparison.percentage.toFixed(1)}%.`} Both endpoints use the same source and currency.</p>
+                        ? <p>Comparable annual endpoints: {date(comparison.previous.reportingPeriod)} {money(comparison.previous[key], comparison.previous.currency)} → {date(fundamentals.reportingPeriod)} {money(value, period?.currency)}. Amount change: {money(comparison.delta, period?.currency)}. {comparison.percentage === null ? 'Percentage change is withheld because the prior amount is zero or negative.' : `Percentage change = (current − prior) ÷ prior × 100 = ${financialPercentage(comparison.percentage)}.`} Both endpoints use the same source and currency.</p>
                         : <p>A comparable prior annual amount with the same source and currency is unavailable. No year-over-year change is inferred.</p>}
-                    {key === 'annualRevenue' && fundamentals.revenueGrowthPercent != null && Number.isFinite(fundamentals.revenueGrowthPercent) && <p>Provider-reported revenue growth: {fundamentals.revenueGrowthPercent.toFixed(1)}%. This is separate from the comparable endpoint change above.</p>}
+                    {key === 'annualRevenue' && fundamentals.revenueGrowthPercent != null && Number.isFinite(fundamentals.revenueGrowthPercent) && <p>Provider-reported revenue growth: {financialPercentage(fundamentals.revenueGrowthPercent)}. This is separate from the comparable endpoint change above.</p>}
                     {verifiedSecUrl ? <a href={verifiedSecUrl} target="_blank" rel="noopener noreferrer">Supplied SEC source document ↗</a> : providerUrl ? <a href={providerUrl} target="_blank" rel="noopener noreferrer">Yahoo Finance financials page · provider, not issuer filing ↗</a> : <p>No verified source-document link was supplied. Check the issuer report separately.</p>}
                 </details></dd>
             </div>;

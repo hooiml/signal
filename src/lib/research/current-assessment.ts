@@ -1,5 +1,5 @@
 import type { ResearchSnapshot } from '../types/research-snapshot';
-import { annualAmountComparison, type AnnualAmount } from './financial-display';
+import { annualAmountComparison, financialPercentage, type AnnualAmount } from './financial-display';
 
 export type CurrentResearchAssessment = {
     headline: string;
@@ -22,7 +22,7 @@ function annualTrend(snapshot: ResearchSnapshot, field: AnnualAmount, label: str
     const comparison = annualAmountComparison(snapshot.fundamentals, field);
     if (!comparison) return null;
     const direction = comparison.delta > 0 ? 'increased' : comparison.delta < 0 ? 'decreased' : 'was unchanged';
-    const rate = comparison.percentage === null ? '' : ` ${Math.abs(comparison.percentage).toFixed(1)}%`;
+    const rate = comparison.percentage === null ? '' : ` ${financialPercentage(Math.abs(comparison.percentage))}`;
     return comparison.delta === 0
         ? `${label} was unchanged year over year.`
         : `${label} ${direction}${rate} year over year.`;
@@ -47,7 +47,7 @@ export function assessCurrentResearch(snapshot: ResearchSnapshot | null, now: nu
     else {
         if (growthComparable && finite(f?.revenueGrowthPercent)) {
             const growth = f.revenueGrowthPercent;
-            (growth < 0 ? concerns : supporting).push(growth === 0 ? 'Reported revenue was unchanged year over year.' : `Reported revenue ${growth > 0 ? 'grew' : 'fell'} ${Math.abs(growth).toFixed(1)}% year over year.`);
+            (growth < 0 ? concerns : supporting).push(growth === 0 ? 'Reported revenue was unchanged year over year.' : `Reported revenue ${growth > 0 ? 'grew' : 'fell'} ${financialPercentage(Math.abs(growth))} year over year.`);
         } else gaps.push(growthComparable ? 'Revenue growth is unavailable.' : 'Comparable annual revenue periods are unavailable; year-over-year growth is withheld.');
         if (finite(f?.annualNetIncome)) {
             const trend = snapshot ? annualTrend(snapshot, 'annualNetIncome', 'Annual net income') : null;

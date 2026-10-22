@@ -35,10 +35,11 @@ try {
  page.on('console',m=>{if(m.type()==='error'&&!/status of (500|502|503)/.test(m.text()))errors.push(m.text());});
  page.on('requestfailed',r=>{if(!/ERR_ABORTED/.test(r.failure()?.errorText??''))errors.push(r.failure()?.errorText);});
  const posts=[];const providerReads=[];let list=[];let release;let held;let watchlistFails=false;let saveFails=false;let listHold;let releaseList;let revisedIncome=false;let providerFails=false;let marketScoreCase='normal';let searchFails=false;let searchHold=false;let releaseSearch;const searches=[];
+ let newsAvailable=false;
  await context.route('**/api/**',async route=>{
   const req=route.request(),u=new URL(req.url());
   if(u.pathname==='/api/owner/session')return route.fulfill({json:{success:true,data:{configured:true,unlocked:true}}});
-  if(u.pathname==='/api/signals/v2'){const f=marketRequestFixture({providerReadings:{putCallRatio:{ratio:0.8,reportDate:'2026-09-11',retrievedAt:'2026-09-12T00:00:00Z',source:'cboe-daily-market-statistics',sourceUrl:'https://example.test/cboe'},naaimExposure:{exposure:60,reportDate:'2026-09-09',retrievedAt:'2026-09-12T00:00:00Z',source:'naaim-exposure-index',sourceUrl:'https://example.test/naaim'}},previousSnapshot:{snapshot_date:'2026-09-11',composite_score:45,tier:'neutral',components:{vix:{display_name:'VIX Index',score:45,weight:1}},score_drivers:[],origin:'observed',coverage_note:null}});const response=await f.route.GET(f.request(u.search.slice(1)));const payload=await response.json();if(marketScoreCase==='unchanged')payload.data.metadata.score_delta.delta=0;if(marketScoreCase==='missing')delete payload.data.metadata.score_delta;return route.fulfill({json:payload});}
+  if(u.pathname==='/api/signals/v2'){const f=marketRequestFixture({rawMarketData:{newsItems:newsAvailable?[{title:'Market earnings improve',source:'Fixture',link:'https://example.test/current',pubDate:'2026-09-11T12:00:00.000Z'}]:[]},providerReadings:{putCallRatio:{ratio:0.8,reportDate:'2026-09-11',retrievedAt:'2026-09-12T00:00:00Z',source:'cboe-daily-market-statistics',sourceUrl:'https://example.test/cboe'},naaimExposure:{exposure:60,reportDate:'2026-09-09',retrievedAt:'2026-09-12T00:00:00Z',source:'naaim-exposure-index',sourceUrl:'https://example.test/naaim'}},previousSnapshot:{snapshot_date:'2026-09-11',composite_score:45,tier:'neutral',components:{vix:{display_name:'VIX Index',score:45,weight:1}},score_drivers:[],origin:'observed',coverage_note:null}});const response=await f.route.GET(f.request(u.search.slice(1)));const payload=await response.json();if(marketScoreCase==='unchanged')payload.data.metadata.score_delta.delta=0;if(marketScoreCase==='missing')delete payload.data.metadata.score_delta;return route.fulfill({json:payload});}
   if(u.pathname.startsWith('/api/signals/'))return route.fulfill({status:503,json:{success:false,error:'Fixture archive unavailable'}});
   if(u.pathname==='/api/research/search') {
    const q=u.searchParams.get('q'),market=u.searchParams.get('market');searches.push({q,market});
@@ -77,6 +78,11 @@ try {
  async function noOverflow(){assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Overflow ${width}`);}
  await page.goto(`${base}/research-v8?ticker=AAPL&market=US`);
  await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 200.00');assert.equal(posts.length,0);
+ // Equivalent annual endpoint changes use the same precision in both views.
+ await page.getByRole('region',{name:'Current research assessment',exact:true}).getByText('up 11.11% vs year ended 31 Dec 2024',{exact:true}).first().waitFor();
+ await page.getByRole('tab',{name:'Financials',exact:true}).click();
+ await page.getByText('Positive · up 11.11% vs 31 Dec 2024',{exact:true}).first().waitFor();
+ await page.getByRole('tab',{name:'Overview',exact:true}).click();
  // Name search never navigates or saves until a result is explicitly selected.
  const searchInput=page.getByLabel('Company or ticker',{exact:true});
  const find=()=>page.getByRole('button',{name:'Find security',exact:true}).click();
@@ -110,7 +116,7 @@ try {
  await assessment.getByText(/Reading limits:/).waitFor();
  const reportedFacts=assessment.locator('dl').filter({hasText:'Annual free cash flow'});
  await reportedFacts.getByText('USD 80',{exact:true}).waitFor();
- await reportedFacts.getByText(/down 20\.0% vs year ended/).waitFor();
+ await reportedFacts.getByText(/down 20% vs year ended/).waitFor();
  assert.equal(await assessment.getByText(/No new financial evidence/).count(),0);
  await page.getByRole('button',{name:'Refresh provider data',exact:true}).click();
  await assessment.getByText(/No new financial evidence returned/).waitFor();
@@ -219,6 +225,10 @@ try {
  marketScoreCase='missing';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/No earlier comparable score supplied/}).waitFor();
  marketScoreCase='normal';await page.getByLabel('Market',{exact:true}).selectOption('MY');
  await page.locator('[data-indicator="vix"]').filter({hasText:'US VIX (FX proxy unavailable)'}).waitFor();
+ const myCoverage=page.getByRole('img',{name:/^Score weight:/}).locator('..');
+ await myCoverage.getByText(/^MY news:/).waitFor();
+ assert.match(await myCoverage.innerText(),/0 eligible dated articles.*0 dated within 24h.*aggregate sentiment observation unavailable/);
+ await myCoverage.screenshot({path:`${out}/market-my-news-freshness-${width}.png`});
  const eligibilityNotice=page.getByText(/MY news eligibility version: previous unknown, current 1/);
  await eligibilityNotice.waitFor();await eligibilityNotice.scrollIntoViewIfNeeded();await noOverflow();
  if(width<=600){
@@ -242,7 +252,8 @@ try {
  }
  await page.getByRole('button',{name:'Back to basic view',exact:true}).click();
  const leadingEvidence=page.getByRole('group',{name:'Leading evidence',exact:true});
- await leadingEvidence.getByText(/alignment compares its category with the overall reading/).waitFor();
+ await leadingEvidence.getByText(/A conflict means a different indicator category, not necessarily a negative reading/).waitFor();
+ assert.ok(await leadingEvidence.getByText(/Indicator category:.*overall:/).count()>0);
  const evidenceBoxes=await leadingEvidence.locator('button').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};}));
  assert.ok(evidenceBoxes.length>0&&evidenceBoxes.every(r=>r.height>=44&&r.x>=-1&&r.x+r.width<=width+1),'Market evidence buttons must fit and be touch-sized');
  await noOverflow();await page.screenshot({path:`${out}/market-summary-${width}.png`,fullPage:true});
@@ -251,6 +262,14 @@ try {
  await page.getByRole('heading',{name:'US VIX (FX proxy unavailable)',exact:true}).waitFor();
  assert.ok((await page.getByText('Observation date unavailable',{exact:true}).count())>0);
  await noOverflow();await page.screenshot({path:`${out}/market-${width}.png`,fullPage:true});
+ newsAvailable=true;
+ await page.goto(`${base}/main-v8?market=MY`);
+ await page.getByTestId('connected-score').waitFor();
+ const freshNewsCoverage=page.getByRole('img',{name:/^Score weight:/}).locator('..');
+ await freshNewsCoverage.getByText(/MY news: 1 eligible dated article ·/).waitFor();
+ assert.match(await freshNewsCoverage.innerText(),/1 dated within 24h.*aggregate sentiment observation timestamp unknown/);
+ assert.match(await freshNewsCoverage.innerText(),/freshness unverified/);
+ await noOverflow();await freshNewsCoverage.screenshot({path:`${out}/market-my-current-news-${width}.png`});
  assert.deepEqual(errors,[]);report.push({width,passed:true,scenarios:['financial refresh unchanged/changed/error/retry','visible limitations and evidence states','Market unchanged/unavailable score comparison and keyboard inspector','US unsaved','MY unsaved','partial','missing','ETF/bank/unknown unsupported with facts retained','mismatched response rejected','rapid selection/late response','save failure and explicit retry','no manufactured decision','saved-list failure independence','legacy MY/US deferred market resolution','failed/empty legacy links require market choice','explicit market beats conflicting saved record','late saved list preserves newer selection and Back/Forward','canonical legacy link reload failure','unambiguous MY legacy forms','overflow and control geometry','Market fallback provenance and observation-date limitation'],formBoxes});await context.close();
  }
 } finally {await browser.close();await writeFile(`${out}/report.json`,JSON.stringify({dataMode:'Synthetic API fixtures; no live database writes or provider verification',results:report},null,2));}

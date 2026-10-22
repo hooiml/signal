@@ -1,6 +1,6 @@
 import { getIndicatorDisplayName } from '@/lib/indicator-registry';
 import type { MarketSignal } from '@/lib/types/signal-v2';
-import { marketTimestampLabel } from '@/lib/market-display';
+import { marketReadingLabel, marketTimestampLabel } from '@/lib/market-display';
 import { fullDate, indicatorStatus } from './MarketV8ConnectedData';
 import styles from './market-v8-coverage.module.css';
 
@@ -16,10 +16,11 @@ export function MarketLeadingEvidence({ signal, date, onSelect }: {
         {([[aligned, 'Leading support'], [conflicting, 'Leading conflict']] as const).map(([entry, label]) => <div key={label}>
             {entry ? <button onClick={event => onSelect(entry[0], event.currentTarget)}>
                 <span><i className={styles.indicatorMarker} data-indicator={entry[0]} aria-hidden="true" /><b>{label}:</b> {entry[1].display_name} <span aria-hidden="true">↗</span></span>
+                <small>Indicator category: {marketReadingLabel(entry[1].signal)} · overall: {marketReadingLabel(signal.tier)}</small>
                 <small>{indicatorStatus(signal, entry[0], date)} · {entry[1].metadata?.timestamp_basis === 'observed' ? 'Observed' : entry[1].metadata?.timestamp_basis === 'retrieved' ? 'Retrieved' : 'Recorded'} {marketTimestampLabel(entry[1].last_updated)}</small>
             </button> : <p><b>{label}:</b> {label === 'Leading support' ? 'No aligned included input identified.' : conflicts.length ? 'Reported conflict has no matching included observation.' : 'No conflicting included input identified; missing evidence can still limit this reading.'}</p>}
         </div>)}
-        <p>Leading inputs are selected by weight. Contribution shows how an input moves the score around its neutral 50 baseline; alignment compares its category with the overall reading. Alignment describes agreement, not forecast accuracy.</p>
+        <p>Categories follow the selected mode. A conflict means a different indicator category, not necessarily a negative reading. Leading inputs are selected by weight; alignment is agreement, not forecast accuracy.</p>
     </div>;
 }
 
@@ -66,8 +67,8 @@ export function newsEvidenceText(evidence: NonNullable<MarketSignal['metadata'][
     const publicationRange = evidence.dated_count > 0
         ? `newest ${marketTimestampLabel(evidence.newest_published_at!)} · oldest ${marketTimestampLabel(evidence.oldest_published_at!)}`
         : 'publication dates unavailable';
-    const window = evidence.evaluated_at ? `the evidence check at ${marketTimestampLabel(evidence.evaluated_at)}` : 'retrieval';
-    const eligibility = evidence.eligible_count === undefined ? '' : ` ${evidence.eligible_count} eligible news items; stale, future-dated and unknown-date items are excluded from the current reading.`;
+    const window = evidence.evaluated_at ? `the evidence check at ${marketTimestampLabel(evidence.evaluated_at)}` : 'an unavailable evidence-check time';
+    const eligibility = evidence.eligible_count === undefined ? ' Eligibility count unavailable.' : ` ${evidence.eligible_count} eligible dated news item${evidence.eligible_count === 1 ? '' : 's'}; stale, future-dated and unknown-date items are excluded from the current reading.`;
     return `${evidence.count} news items returned · ${evidence.dated_count} with publication dates · ${evidence.unknown_date_count} unknown dates · ${evidence.within_24h_count} dated within 24h of ${window} · ${publicationRange}.${eligibility}`;
 }
 

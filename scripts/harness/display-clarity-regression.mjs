@@ -7,7 +7,12 @@ function load(file) {
  new Function('exports','module',code)(compiledModule.exports,compiledModule);
  return compiledModule.exports;
 }
-const {compactFinancialAmount:format,annualAmountComparison:compare} = load('src/lib/research/financial-display.ts');
+const {compactFinancialAmount:format,annualAmountComparison:compare,financialPercentage:percentage} = load('src/lib/research/financial-display.ts');
+assert.equal(percentage(6.431),'6.43%');
+assert.equal(percentage(-9.234),'-9.23%');
+assert.equal(percentage(0),'0%');
+assert.equal(percentage(19.5),'19.5%');
+for(const bad of [null,undefined,NaN,Infinity,-Infinity])assert.equal(percentage(bad),'Unavailable');
 const {marketReadingLabel:label,marketReadingSummary:summary,marketAlignment:alignment} = load('src/lib/market-display.ts');
 assert.equal(format(67723100000,'MYR'),'MYR 67.72 billion');
 assert.equal(format(-439700000,'MYR'),'MYR -439.7 million');

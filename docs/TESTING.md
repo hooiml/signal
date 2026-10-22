@@ -904,3 +904,12 @@ scoring model version; missing historical version metadata stays unknown. The
 market-assessment regression covers same, changed and unknown versions without
 changing score arithmetic or inferring a news-rule change from snapshot dates.
 
+The same guest matrix checks per-market unsaved markers in the quick selector and
+saved-securities panel, the unsaved-note count, and returning to a hidden draft from
+Financials. Markers clear after Save or conflict reload and never cause storage writes.
+Overview, Financials and annual assessment explanations share percentage precision
+(at most two decimals); exact monetary endpoints and calculation rules are unchanged.
+Market checks distinguish an indicator's category from the overall reading and show
+MY article eligibility separately from the aggregate observation timestamp. Unknown
+counts and observation dates remain unknown; no source or scoring changes are inferred.
+

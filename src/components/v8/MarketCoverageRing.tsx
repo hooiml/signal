@@ -1,5 +1,6 @@
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import type { MarketEvidenceCoverage } from '@/lib/market-evidence-coverage';
+import { marketTimestampLabel } from '@/lib/market-display';
 import layout from './market-v8-connected.module.css';
 
 type Segment = { key: string; label: string; weight: number; state: 'fresh' | 'stale' | 'unknown' | 'fallback' };
@@ -21,6 +22,16 @@ export function MarketCoverageRing({ signal, coverage, onSelect }: {
             state: coverage.staleKeys.includes(key) ? 'stale' : coverage.freshKeys.includes(key) ? 'fresh' : 'unknown',
         }));
     const segments: Segment[] = coverage.fallbackPct > 0 ? [...inputs, { key: 'fallback', label: 'Neutral fallback', weight: coverage.fallbackPct, state: 'fallback' }] : inputs;
+    const newsEvidence = signal.metadata.news_evidence;
+    const newsIndicator = signal.components.news;
+    const newsObservation = !newsIndicator
+        ? 'aggregate sentiment observation unavailable'
+        : newsIndicator.metadata?.timestamp_basis === 'observed'
+            ? `aggregate sentiment observed ${marketTimestampLabel(newsIndicator.last_updated)}`
+            : 'aggregate sentiment observation timestamp unknown';
+    const myNewsFreshness = signal.metadata.market === 'MY'
+        ? `MY news: ${newsEvidence?.eligible_count === undefined ? 'eligible article count unavailable' : `${newsEvidence.eligible_count} eligible dated article${newsEvidence.eligible_count === 1 ? '' : 's'}`} · ${newsEvidence?.within_24h_count === undefined ? '24-hour count unavailable' : `${newsEvidence.within_24h_count} dated within 24h`} of ${newsEvidence?.evaluated_at ? marketTimestampLabel(newsEvidence.evaluated_at) : 'an unavailable evidence-check time'} · ${newsObservation}.`
+        : null;
     const total = segments.reduce((sum, segment) => sum + segment.weight, 0) || 1;
     const gap = segments.length > 1 ? 2 : 0;
     // Each arc starts where the previous one ended.
@@ -45,5 +56,6 @@ export function MarketCoverageRing({ signal, coverage, onSelect }: {
             </li>)}
         </ul>
         <p className={layout.ringNote}>Scored weight: {coverage.observedPct.toFixed(1)}%.</p>
+        {myNewsFreshness && <p className={layout.ringNote}>{myNewsFreshness}</p>}
     </div>;
 }

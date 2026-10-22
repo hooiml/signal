@@ -126,7 +126,14 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   // Drafts are keyed by market + ticker and survive selection and history navigation.
   const dualNote=page.getByLabel('Personal note for DUAL',{exact:true});
   await quickSwitch.selectOption('US:DUAL'); await dualNote.fill('Unsaved US draft');
+  assert.match(await quickSwitch.locator('option[value="US:DUAL"]').innerText(),/US · Unsaved/);
   await quickSwitch.selectOption('MY:DUAL'); await dualNote.fill('Unsaved MY draft');
+  const guestNav=page.getByRole('navigation',{name:'Guest research navigation'});
+  await guestNav.getByRole('status').filter({hasText:'2 unsaved notes'}).waitFor();
+  assert.match(await quickSwitch.locator('option[value="MY:DUAL"]').innerText(),/MY · Unsaved/);
+  await page.getByRole('button',{name:/Saved securities/}).click();
+  assert.equal(await page.getByRole('region',{name:'Saved watchlist'}).getByText(/· Unsaved/).count(),2);
+  await page.getByRole('button',{name:'Close research panel'}).click();
   await quickSwitch.selectOption('US:DUAL'); assert.equal(await dualNote.inputValue(),'Unsaved US draft');
   await page.goBack(); assert.equal(await dualNote.inputValue(),'Unsaved MY draft');
   await page.goForward(); assert.equal(await dualNote.inputValue(),'Unsaved US draft');
@@ -144,11 +151,18 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   await quickSwitch.selectOption('US:DUAL'); assert.equal(await dualNote.inputValue(),'Unsaved US draft');
   await page.getByRole('button',{name:'Save note',exact:true}).click(); await page.getByRole('alert').filter({hasText:'newer note'}).waitFor();
   await page.getByRole('button',{name:'Reload note',exact:true}).click(); assert.equal(await dualNote.inputValue(),'New US note from another tab');
+  await guestNav.getByRole('status').filter({hasText:'1 unsaved note.'}).waitFor();
+  assert.doesNotMatch(await quickSwitch.locator('option[value="US:DUAL"]').innerText(),/Unsaved/);
   // A hidden dirty draft still warns even when the visible security is clean.
   const leaveWarning=page.waitForEvent('dialog',{timeout:5000}); const leave=page.getByRole('link',{name:'Market',exact:true}).click({noWaitAfter:true});
   const leaveDialog=await leaveWarning; assert.equal(leaveDialog.type(),'beforeunload'); await leaveDialog.dismiss(); await leave;
   assert.match(page.url(),/research-v8/);
-  await quickSwitch.selectOption('MY:DUAL'); assert.equal(await dualNote.inputValue(),'Unsaved MY draft');
+  await page.getByRole('tab',{name:'Financials',exact:true}).click();
+  await guestNav.getByRole('button',{name:'Return to DUAL · MY draft',exact:true}).click();
+  assert.equal(await page.getByRole('tab',{name:'Overview',exact:true}).getAttribute('aria-selected'),'true');
+  assert.equal(await dualNote.inputValue(),'Unsaved MY draft');
+  await guestNav.scrollIntoViewIfNeeded(); await overflow();
+  await page.screenshot({path:`${out}/guest-draft-markers-${width}.png`});
   // Real Web Lock delay: a completed older save cannot erase newer typing, even after remount.
   await dualNote.fill('  Unsaved MY draft  ');
   await page.evaluate(()=>{window.__draftLockHeld=false;void navigator.locks.request('signal.guest-research.v1',()=>new Promise(resolve=>{window.__draftLockRelease=resolve;window.__draftLockHeld=true;}));});
@@ -164,6 +178,8 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   assert.equal(await dualNote.inputValue(),'Newer MY draft while save waits');
   await overflow(); await page.screenshot({path:`${out}/guest-draft-${width}.png`});
   await page.getByRole('button',{name:'Save note',exact:true}).click(); await page.getByRole('status').filter({hasText:'Note saved on this device'}).waitFor();
+  assert.equal(await guestNav.getByRole('status').count(),0);
+  assert.doesNotMatch(await quickSwitch.locator('option[value="MY:DUAL"]').innerText(),/Unsaved/);
   await page.reload(); await dualNote.waitFor(); assert.equal(await dualNote.inputValue(),'Newer MY draft while save waits');
   // Replacing the device workspace must not revive drafts from its previous identity.
   await dualNote.fill('Old identity draft');

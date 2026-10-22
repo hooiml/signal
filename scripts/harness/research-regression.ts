@@ -4338,8 +4338,8 @@ const runComparisonTests = () => {
     const annualTrend = assessCurrentResearch(annualTrendSnapshot, assessmentNow);
     assertEqual(annualTrend.headline, assessment.headline, 'annual trend evidence does not change assessment headline methodology');
     assertEqual(annualTrend.concerns.length, 0, 'positive current signs remain separate from year-over-year declines');
-    assertEqual(annualTrend.supporting.some(claim => claim.includes('net profit') && claim.includes('Annual net income increased 20.0% year over year.')), true, 'annual profit assessment reports comparable year-over-year growth');
-    assertEqual(annualTrend.supporting.some(claim => claim.includes('free cash flow was positive') && claim.includes('Annual free cash flow decreased 9.2% year over year.')), true, 'positive current free cash flow does not imply growth when comparable annual cash flow declined');
+    assertEqual(annualTrend.supporting.some(claim => claim.includes('net profit') && claim.includes('Annual net income increased 20% year over year.')), true, 'annual profit assessment reports comparable year-over-year growth');
+    assertEqual(annualTrend.supporting.some(claim => claim.includes('free cash flow was positive') && claim.includes('Annual free cash flow decreased 9.24% year over year.')), true, 'positive current free cash flow does not imply growth when comparable annual cash flow declined');
     const incomparableAnnual = { ...annualTrendSnapshot, fundamentals: { ...annualTrendSnapshot.fundamentals, history: annualTrendSnapshot.fundamentals.history.map((period, index) => index === 0 ? { ...period, comparableAnnual: false } : period) } };
     assertEqual(assessCurrentResearch(incomparableAnnual, assessmentNow).supporting.some(claim => claim.includes('Annual free cash flow decreased')), false, 'non-comparable annual endpoints do not produce a cash flow trend');
     assertEqual(cashDebtDisplay(-1_250_000_000, 'MYR').label, 'Net debt', 'negative cash less debt is labeled net debt');

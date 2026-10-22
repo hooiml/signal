@@ -29,7 +29,7 @@ function load(file) {
     return compiled.exports;
 }
 
-const { MarketCurrentAssessment } = load('src/components/v8/MarketV8Coverage.tsx');
+const { MarketCurrentAssessment, newsEvidenceText } = load('src/components/v8/MarketV8Coverage.tsx');
 const { MarketV81Hero } = load('src/components/v8/MarketV81Hero.tsx');
 const { ConnectedPanels, emptyScenario } = load('src/components/v8/MarketV8ConnectedPanels.tsx');
 const { reconcileScoreChange } = load('src/lib/signal-change.ts');
@@ -55,12 +55,41 @@ for (const market of ['US', 'MY']) {
             }));
             const paragraph = html.match(/<p>(.*?)<\/p>/)?.[1];
             assert.equal(paragraph, `The score describes the configured market indicators on a 0–100 scale. ${explanations[mode]} It is not a return estimate or a probability of gains.`, `${market} ${mode} score ${score}`);
-            assert.match(html, /Leading inputs are selected by weight\. Contribution shows how an input moves the score around its neutral 50 baseline; alignment compares its category with the overall reading\. Alignment describes agreement, not forecast accuracy\./, `${market} ${mode} contribution and alignment explanation`);
+            assert.match(html, /Categories follow the selected mode\. A conflict means a different indicator category, not necessarily a negative reading\. Leading inputs are selected by weight; alignment is agreement, not forecast accuracy\./, `${market} ${mode} category and conflict explanation`);
             assert.doesNotMatch(html, /Contribution and alignment answer different questions/, `${market} ${mode} uses concise explanation`);
             assert.equal(signal.composite_score, score, 'Mode interpretation must not invert the numeric score');
         }
     }
 }
+
+const conflictSignal = {
+    tier: 'buy', mode: 'standard', components: {
+        vix: { enabled: true, weight: .7, signal: 'sell', display_name: 'VIX Index', score: 35, last_updated: '2026-10-05', metadata: { timestamp_basis: 'observed' } },
+        aaii: { enabled: true, weight: .3, signal: 'buy', display_name: 'AAII', score: 65, last_updated: '2026-10-05', metadata: { timestamp_basis: 'observed' } },
+    },
+    confidence: { conflicting_indicators: ['vix'], majority_signal: 'BUY', agreement_pct: 50, level: 'low' },
+    metadata: { data_freshness: {}, weight_distribution: {} },
+};
+const conflictHtml = renderToStaticMarkup(createElement(MarketCurrentAssessment, {
+    signal: conflictSignal, date: '2026-10-05', onSelect: () => assert.fail('Rendering must not select an input'),
+}));
+assert.match(conflictHtml, /Leading conflict:<\/b> VIX Index/);
+assert.match(conflictHtml, /Indicator category: Leaning negative · overall: Leaning positive/,
+    'Leading conflict names the indicator category and overall reading separately');
+assert.match(conflictHtml, /Categories follow the selected mode/);
+assert.match(conflictHtml, /In Momentum mode, higher scores support positive momentum/);
+
+const knownNewsEvidence = {
+    count: 3, dated_count: 2, unknown_date_count: 1, within_24h_count: 1, eligible_count: 1,
+    evaluated_at: '2026-10-20T12:00:00.000Z', newest_published_at: '2026-10-20T11:00:00.000Z',
+    oldest_published_at: '2026-10-19T10:00:00.000Z',
+};
+const knownNewsText = newsEvidenceText(knownNewsEvidence);
+assert.match(knownNewsText, /1 eligible dated news item;/);
+assert.match(knownNewsText, /dated within 24h of the evidence check at/);
+const unknownNewsText = newsEvidenceText({ ...knownNewsEvidence, eligible_count: undefined, evaluated_at: undefined });
+assert.match(unknownNewsText, /Eligibility count unavailable/);
+assert.match(unknownNewsText, /24h of an unavailable evidence-check time/);
 
 // Indicator identity drives the ring and leading-evidence markers; freshness stays explicit text.
 const { MarketCoverageRing } = load('src/components/v8/MarketCoverageRing.tsx');
@@ -72,7 +101,9 @@ const ringSignal = {
     },
 };
 const ringHtml = renderToStaticMarkup(createElement(MarketCoverageRing, {
-    signal: ringSignal,
+    signal: { ...ringSignal, metadata: {
+        market: 'MY', news_evidence: { ...knownNewsEvidence, eligible_count: undefined, evaluated_at: undefined },
+    } },
     coverage: { observedPct: 90, fallbackPct: 10, freshKeys: ['vix'], staleKeys: ['social'] },
     onSelect: () => assert.fail('Rendering must not select an input'),
 }));
@@ -84,6 +115,25 @@ assert.match(ringHtml, /<button type="button" class="ringItem"><i data-indicator
 assert.match(ringHtml, /VIX Index<small>fresh<\/small>/);
 assert.match(ringHtml, /Social Sentiment<small>stale<\/small>/);
 assert.match(ringHtml, /News Sentiment<small>freshness unverified<\/small>/);
+assert.match(ringHtml, /MY news: eligible article count unavailable · 1 dated within 24h of an unavailable evidence-check time · aggregate sentiment observation timestamp unknown\./);
+const observedNewsSignal = { ...ringSignal, components: {
+    ...ringSignal.components, news: { ...ringSignal.components.news, last_updated: '2026-10-20', metadata: { timestamp_basis: 'observed' } },
+}, metadata: { market: 'MY', news_evidence: knownNewsEvidence } };
+const observedNewsRing = renderToStaticMarkup(createElement(MarketCoverageRing, {
+    signal: observedNewsSignal, coverage: { observedPct: 90, fallbackPct: 10, freshKeys: ['vix'], staleKeys: ['social'] },
+    onSelect: () => assert.fail('Rendering must not select an input'),
+}));
+assert.match(observedNewsRing, /aggregate sentiment observed 20 Oct 2026/,
+    'An observed aggregate timestamp is shown when its basis is explicitly observed');
+const absentNewsSignal = { ...ringSignal, components: { vix: ringSignal.components.vix }, metadata: {
+    market: 'MY', news_evidence: knownNewsEvidence,
+} };
+const absentNewsRing = renderToStaticMarkup(createElement(MarketCoverageRing, {
+    signal: absentNewsSignal, coverage: { observedPct: 90, fallbackPct: 10, freshKeys: ['vix'], staleKeys: [] },
+    onSelect: () => assert.fail('Rendering must not select an input'),
+}));
+assert.match(absentNewsRing, /aggregate sentiment observation unavailable/,
+    'Missing aggregate component metadata stays unavailable');
 
 // MY change accounting carries explicit eligibility evidence; missing legacy metadata stays unknown.
 for (const market of ['US', 'MY']) {

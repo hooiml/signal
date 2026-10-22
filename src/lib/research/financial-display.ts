@@ -3,6 +3,11 @@ import type { ResearchFundamentalPeriod, ResearchSnapshot } from '../types/resea
 export type AnnualAmount = 'annualRevenue' | 'annualNetIncome' | 'freeCashFlow';
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
+// Annual-change summaries and their explanations use the same display precision.
+export function financialPercentage(value: number | null | undefined): string {
+    return finite(value) ? `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}%` : 'Unavailable';
+}
+
 export function compactFinancialAmount(value: number | null | undefined, currency?: string | null): string {
     if (!finite(value)) return 'Unavailable';
     const magnitude = Math.abs(value);

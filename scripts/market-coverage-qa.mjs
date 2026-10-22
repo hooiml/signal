@@ -35,7 +35,7 @@ try {
    await page.locator(`[data-indicator="${market==='US'?'social':'news'}"]`).click();
    const source=market==='US'?/Reddit: OAuth is not configured/:/3 news items returned/;
    await page.locator('p:visible').filter({hasText:source}).first().waitFor();
-   if(market==='MY')await page.locator('p:visible').filter({hasText:/1 dated within 24h of retrieval/}).first().waitFor();
+   if(market==='MY')await page.locator('p:visible').filter({hasText:/dated within 24h of (?:the evidence check at|an unavailable evidence-check time)/}).first().waitFor();
    await page.screenshot({path:`${out}/${market}-source-${width}.png`,fullPage:true});
    results.push({width,market,passed:true});
   }
