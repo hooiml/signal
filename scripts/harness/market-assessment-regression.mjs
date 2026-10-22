@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
+import { marketRequestFixture } from './market-request-fixture.mjs';
 
 // Render the actual assessment and its local helpers without providers or SQL.
 const modules = new Map();
@@ -15,7 +16,7 @@ function load(file) {
     modules.set(absolute, compiled);
     const require = id => {
         if (id === 'react/jsx-runtime') return createRequire(absolute)(id);
-        if (id.endsWith('.module.css')) return {};
+        if (id.endsWith('.module.css')) return { __esModule: true, default: new Proxy({}, { get: (_, key) => key }) };
         assert.ok(id.startsWith('.') || id.startsWith('@/'), `Unexpected dependency: ${id}`);
         const resolved = id.startsWith('@/') ? path.resolve('src', id.slice(2)) : path.resolve(path.dirname(absolute), id);
         return load(`${resolved}${existsSync(`${resolved}.ts`) ? '.ts' : '.tsx'}`);
@@ -29,6 +30,7 @@ function load(file) {
 }
 
 const { MarketCurrentAssessment } = load('src/components/v8/MarketV8Coverage.tsx');
+const { MarketV81Hero } = load('src/components/v8/MarketV81Hero.tsx');
 const explanations = {
     standard: 'In Momentum mode, higher scores support positive momentum; lower scores indicate weaker momentum and a more cautious reading.',
     contrarian: 'In Contrarian mode, higher scores indicate crowding or greed risk; lower scores indicate fear and potential opportunity.',
@@ -54,4 +56,56 @@ for (const market of ['US', 'MY']) {
         }
     }
 }
-console.log('Market assessment regression passed: both markets, low/mixed/high scores and repeated Momentum/Contrarian interpretation.');
+
+// Parse real route-shaped payloads before rendering the actual headline. A reported
+// delta is not permission to reconstruct an unavailable previous score.
+const fixture = marketRequestFixture();
+for (const market of ['US', 'MY']) {
+    for (const mode of ['standard', 'contrarian']) {
+        const response = await fixture.route.GET(fixture.request(`market=${market}&mode=${mode}&enableSocial=false`));
+        const seed = await response.json();
+        assert.equal(response.status, 200);
+        for (const scenario of [
+            { name: 'supplied previous score', previous: 53.25, delta: 5.25, pin: 53.25 },
+            { name: 'unavailable previous score', previous: null, delta: 5.25, pin: null },
+            { name: 'zero is a valid previous score', previous: 0, delta: 58.5, pin: 0 },
+            { name: 'upper boundary previous score', previous: 100, delta: -41.5, pin: 100 },
+            { name: 'unchanged score', previous: 58.5, delta: 0, pin: null, unchanged: true },
+            { name: 'rounds to unchanged', previous: 58.496, delta: 0.004, pin: null, unchanged: true },
+            { name: 'unavailable comparison date', previous: 53.25, delta: 5.25, date: null, pin: null },
+            { name: 'unavailable delta', previous: 53.25, delta: null, pin: null },
+            { name: 'absent comparison', absent: true, pin: null },
+        ]) {
+            const payload = structuredClone(seed);
+            payload.data.composite_score = 58.5;
+            payload.data.metadata.score_delta = {
+                previous_score: scenario.previous, delta: scenario.delta,
+                previous_date: scenario.date === null ? null : '2026-10-19',
+                snapshot_date: '2026-10-20', label: 'Controlled comparison',
+            };
+            if (scenario.absent) delete payload.data.metadata.score_delta;
+            const signal = fixture.parseSignal(payload, market, mode);
+            const original = JSON.stringify(signal);
+            const html = renderToStaticMarkup(createElement(MarketV81Hero, {
+                signal, snapshotDate: '2026-10-20', tierClass: 'neutral',
+                onSelect: () => assert.fail('Rendering must not select an input'),
+                onDrivers: () => assert.fail('Rendering must not open drivers'),
+                onEvidence: () => assert.fail('Rendering must not open evidence'),
+            }));
+            const context = `${market} ${mode}: ${scenario.name}`;
+            const spectrum = html.match(/role="img" aria-label="(Score [^"]+)"/)?.[1];
+            assert.ok(spectrum?.startsWith('Score 59 on a 0 to 100 scale;'), context);
+            assert.equal(html.includes('class="v81PreviousPin"'), scenario.pin !== null, context);
+            if (scenario.pin === null) assert.doesNotMatch(spectrum, /Previous score/, context);
+            else {
+                assert.ok(spectrum.includes(`Previous score ${scenario.pin.toFixed(0)} on 19 Oct 2026.`), context);
+                assert.ok(html.includes(`class="v81PreviousPin" style="left:${scenario.pin}%"`), context);
+            }
+            if (scenario.unchanged) assert.match(html, /No change since 19 Oct 2026/, context);
+            else if (scenario.absent || scenario.date === null || scenario.delta === null) assert.match(html, /Earlier comparable score unavailable/, context);
+            else assert.ok(html.includes(`${scenario.delta > 0 ? '+' : ''}${scenario.delta.toFixed(2)} points vs 19 Oct 2026`), `${context}: retain the reported delta`);
+            assert.equal(JSON.stringify(signal), original, `${context}: rendering must preserve the payload`);
+        }
+    }
+}
+console.log('Market assessment regression passed: both markets/modes, score interpretation, payload-to-headline previous-score provenance, zero/boundary scores, unchanged and unavailable comparisons.');

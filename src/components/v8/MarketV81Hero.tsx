@@ -24,7 +24,8 @@ export function MarketV81Hero({ signal, snapshotDate, tierClass, onEvidence, onD
     // A delta that rounds to 0.00 is reported as no change, not as a link to empty drivers.
     const unchanged = compared && Math.abs(change!.delta!) < 0.005;
     const alignment = marketAlignment(signal);
-    const previousScore = compared && !unchanged ? change!.previous_score ?? signal.composite_score - change!.delta! : null;
+    // Only mark a supplied previous score; a reported delta does not establish it.
+    const previousScore = compared && !unchanged ? change!.previous_score ?? null : null;
     const { neutralLower, neutralUpper } = MARKET_SCORE_TIER_THRESHOLDS;
     const name = (key: string) => signal.components[key]?.display_name ?? getIndicatorDisplayName(key);
 
