@@ -141,7 +141,12 @@ function validSourceAvailability(value: unknown): boolean {
         && (!hasCount || count(source.count));
     return (value.reddit === undefined || validSource(value.reddit, ['available', 'no-results', 'unconfigured'], true))
         && (value.stocktwits === undefined || validSource(value.stocktwits, ['available', 'no-results', 'disabled'], true))
-        && (value.news === undefined || validSource(value.news, ['available', 'no-results'], true))
+        && (value.news === undefined || (validSource(value.news, ['available', 'no-results', 'no-fresh-evidence'], true)
+            && object(value.news)
+            && (value.news.eligible_count === undefined || (count(value.news.eligible_count) && Number(value.news.eligible_count) <= Number(value.news.count)))
+            && (value.news.reddit_count === undefined || count(value.news.reddit_count))
+            && (value.news.eligible_reddit_count === undefined || (count(value.news.eligible_reddit_count) && count(value.news.reddit_count) && Number(value.news.eligible_reddit_count) <= Number(value.news.reddit_count)))
+            && (value.news.eligibility_version === undefined || value.news.eligibility_version === 1)))
         && (value.naaim === undefined || validSource(value.naaim, ['available', 'no-current-reading'], false))
         && (value.bofa === undefined || validSource(value.bofa, ['available', 'manual-reading-unavailable'], false));
 }
@@ -157,6 +162,9 @@ function validNewsEvidence(value: unknown): boolean {
     return datedCount <= totalCount
         && unknownDateCount === totalCount - datedCount
         && recentCount <= datedCount
+        && (value.eligible_count === undefined || (count(value.eligible_count) && Number(value.eligible_count) <= recentCount))
+        && (value.future_date_count === undefined || (count(value.future_date_count) && Number(value.future_date_count) + recentCount <= datedCount))
+        && (value.evaluated_at === undefined || date(value.evaluated_at))
         && (value.newest_published_at === null || date(value.newest_published_at))
         && (value.oldest_published_at === null || date(value.oldest_published_at))
         && (datedCount > 0 ? typeof value.newest_published_at === 'string' && typeof value.oldest_published_at === 'string'
@@ -362,6 +370,7 @@ function validMetadata(value: Record<string, unknown>, market: string): boolean 
     if (value.articles !== undefined && !validArticles(value.articles)) return false;
     if (value.source_availability !== undefined && !validSourceAvailability(value.source_availability)) return false;
     if (value.news_evidence !== undefined && !validNewsEvidence(value.news_evidence)) return false;
+    if (value.my_news_eligibility_version !== undefined && value.my_news_eligibility_version !== 1) return false;
     if (value.index_trend !== undefined && !validIndexTrend(value.index_trend)) return false;
     if (value.interpretation_context !== undefined && !validInterpretationContext(value.interpretation_context)) return false;
     if (value.valuation_backdrop !== undefined && value.valuation_backdrop !== null && !validValuationBackdrop(value.valuation_backdrop)) return false;

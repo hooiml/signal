@@ -41,6 +41,13 @@ export function nearestPricePoint(points: readonly ClosePoint[], timestamp: numb
 
 export type AvailabilityNote = { heading: string; detail: string; reasons: string[] };
 
+/** New responses carry the exact calculation basis; older responses retain their original basis. */
+export function valuationShareCount(snapshot: ResearchSnapshot | null): number | null {
+    if (!snapshot) return null;
+    if (snapshot.valuation.shareCount !== undefined) return snapshot.valuation.shareCount;
+    return snapshot.market === 'MY' ? snapshot.quote.sharesOutstanding ?? null : snapshot.fundamentals.shares;
+}
+
 /** Describe only gaps supported by the existing snapshot/valuation contract. */
 export function researchAvailability(snapshot: ResearchSnapshot, section: 'Financials' | 'Valuation'): AvailabilityNote | null {
     const f = snapshot.fundamentals;
@@ -60,9 +67,10 @@ export function researchAvailability(snapshot: ResearchSnapshot, section: 'Finan
     if (!missing.length) return null;
     const reasons: string[] = [];
     if (!finite(v.marketCap)) {
-        const shares = snapshot.market === 'MY' ? snapshot.quote.sharesOutstanding : f.shares;
+        const shares = valuationShareCount(snapshot);
         if (!positive(shares)) reasons.push(`Compatible outstanding shares are unavailable or non-positive. Share-based measures need this input.${snapshot.market === 'MY' ? ' Annual diluted average shares are not substituted.' : ''}`);
         if (!positive(snapshot.quote.price)) reasons.push('A positive current price was not supplied for market capitalization.');
+        if (snapshot.market === 'MY' && snapshot.quote.currency !== 'MYR') reasons.push('The quote currency is not confirmed as MYR. No currency conversion is applied to the MYR financial figures.');
     }
     if (!finite(v.priceEarnings)) {
         if (!finite(f.annualNetIncome)) reasons.push('P/E also needs annual net income, which was not supplied.');

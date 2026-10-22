@@ -103,7 +103,14 @@ export interface MarketSignal {
         source_availability?: {
             reddit?: { status: 'available' | 'no-results' | 'unconfigured'; count: number };
             stocktwits?: { status: 'available' | 'no-results' | 'disabled'; count: number };
-            news?: { status: 'available' | 'no-results'; count: number };
+            news?: {
+                status: 'available' | 'no-results' | 'no-fresh-evidence';
+                count: number;
+                eligible_count?: number;
+                reddit_count?: number;
+                eligible_reddit_count?: number;
+                eligibility_version?: number;
+            };
             naaim?: { status: 'available' | 'no-current-reading' };
             bofa?: { status: 'available' | 'manual-reading-unavailable' };
         };
@@ -112,9 +119,13 @@ export interface MarketSignal {
             dated_count: number;
             unknown_date_count: number;
             within_24h_count: number;
+            eligible_count?: number;
+            future_date_count?: number;
+            evaluated_at?: string;
             newest_published_at: string | null;
             oldest_published_at: string | null;
         };
+        my_news_eligibility_version?: number;
         signal_quality?: {
             freshness: 'fresh' | 'mixed' | 'stale';
             source_coverage: 'strong' | 'moderate' | 'limited';

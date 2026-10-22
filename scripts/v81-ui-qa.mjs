@@ -103,6 +103,7 @@ try {
         page.on('pageerror', error => errors.push(error.message));
         await context.route('**/api/**', async route => {
             const url = new URL(route.request().url());
+            if (url.pathname === '/api/owner/session') return route.fulfill({ json: { success: true, data: { configured: true, unlocked: true } } });
             if (url.pathname === '/api/signals/v2') {
                 const body = url.searchParams.get('market') === 'MY' ? structuredClone(my) : marketPayload(unknownDate);
                 if (missingSnapshot) delete body.data.metadata.score_delta;
@@ -200,7 +201,7 @@ try {
         const assessment = page.getByRole('region', { name: 'Current research assessment' });
         if (width !== 768) await page.screenshot({ path: output + '/research-compact-' + width + '.png', fullPage: true });
         assert.equal(await assessment.locator('[class*="assessmentGrid"]').count(), 0);
-        await assessment.locator('summary').first().click();
+        await assessment.getByText(/^Assessment evidence and limitations/).click();
         await assessment.getByText(/Financial source:/).waitFor();
         await assessment.getByText('Fixture: fundamentals unavailable.', { exact: true }).waitFor();
         assert.equal(await page.getByRole('region', { name: 'Provider data status' }).locator('details[class*="warning"]').count(), 0, 'Source notices for unsupported assessments must not appear twice.');

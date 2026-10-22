@@ -117,6 +117,9 @@ export type ResearchSnapshot = {
     };
     readonly valuation: {
         readonly shareBasis?: string | null;
+        readonly shareCount?: number | null;
+        readonly shareDate?: string | null;
+        readonly shareSource?: 'Yahoo Finance' | 'SEC EDGAR' | null;
         readonly marketCap: number | null;
         readonly priceEarnings: number | null;
         readonly priceSales: number | null;

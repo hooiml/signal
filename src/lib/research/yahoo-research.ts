@@ -7,6 +7,7 @@ export type YahooResearchResult = {
     readonly instrumentType?: string | null;
     readonly sharesOutstanding?: number | null;
     readonly observedAt?: string | null;
+    readonly splitDates?: readonly string[];
     readonly name: string | null;
     readonly currency: string | null;
     readonly price: number | null;
@@ -104,10 +105,20 @@ export const parseYahooResearchChart = (payload: unknown): YahooResearchResult =
     const previousClose = closes.at(-2) ?? null;
     const calculated = calculateTechnicals(closes, numericArray(quote.volume));
     const latest = points.at(-1);
+    const events = objectValue(result.events);
+    const splits = objectValue(events?.splits);
+    const splitDates = Object.values(splits ?? {}).flatMap((event) => {
+        const split = objectValue(event);
+        const seconds = numberValue(split?.date);
+        return seconds !== null && Number.isFinite(new Date(seconds * 1_000).getTime())
+            ? [new Date(seconds * 1_000).toISOString().slice(0, 10)]
+            : [];
+    }).sort();
     return {
         instrumentType: stringValue(meta.instrumentType),
         sharesOutstanding: numberValue(meta.sharesOutstanding) !== null && Number(meta.sharesOutstanding) > 0 ? Number(meta.sharesOutstanding) : null,
         observedAt,
+        splitDates,
         name: stringValue(meta.longName) ?? stringValue(meta.shortName) ?? stringValue(meta.symbol),
         currency: stringValue(meta.currency),
         price,
@@ -153,7 +164,7 @@ const fetchYahooChart = async (providerSymbol: string, range: '5d' | '1y' | '5y'
 
 export const fetchYahooResearch = async (symbol: string, market: ResearchMarket): Promise<YahooResearchResult> => {
     const providerSymbol = toYahooSymbol(symbol, market);
-    return parseYahooResearchChart(await fetchYahooChart(providerSymbol, '1y'));
+    return parseYahooResearchChart(await fetchYahooChartPayload(providerSymbol, '1y', true));
 };
 
 export const fetchYahooResearchChart = async (symbol: string, market: ResearchMarket, range: '1y' | '5y' | '10y') => {

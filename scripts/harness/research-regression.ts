@@ -18,7 +18,7 @@ import { evaluateResearchStructuredTriggers, parseResearchStructuredTriggerSet }
 import { evaluateMarketAlert, getMarketAlertRulesForBriefing, parseMarketAlertRules, type MarketAlertRule } from '../../src/lib/market-alerts';
 import { scoreDiscoveryQuality } from '../../src/lib/research/discovery-quality';
 import { getConfiguredSecHeaders, parseSecCompanyFacts, parseSecTickerMapping } from '../../src/lib/research/sec-edgar';
-import { parseYahooFundamentalTimeseries } from '../../src/lib/research/yahoo-fundamentals';
+import { parseYahooDatedOrdinaryShares, parseYahooFundamentalTimeseries } from '../../src/lib/research/yahoo-fundamentals';
 import { calculateCohortPerformance, calculateHistorySignals } from '../../src/lib/research/discovery-history';
 import {
     addPickerRun,
@@ -3101,6 +3101,7 @@ const runTechnicalTests = () => {
     assertEqual(snapshot.averageVolume20, 21050, '20-day average volume');
     const chart = parseYahooResearchChart({ chart: { result: [{
         meta: { symbol: 'MSFT', currency: 'USD', regularMarketPrice: 101, chartPreviousClose: 80 },
+        events: { splits: { '1704240000': { date: 1704240000, numerator: 2, denominator: 1 } } },
         timestamp: [1704067200, 1704153600, 1704240000],
         indicators: {
             quote: [{
@@ -3113,6 +3114,7 @@ const runTechnicalTests = () => {
     assertEqual(chart.dailyChangePercent, 1, 'daily change uses the prior session, not the range baseline');
     assertEqual(Object.hasOwn(chart.history, 'adjustedCloses'), true, 'Yahoo chart preserves adjusted closes for return comparisons');
     assertEqual(chart.history.adjustedCloses.join(','), '98,99,100', 'Yahoo chart preserves adjusted-close values');
+    assertEqual(chart.splitDates?.[0], '2024-01-03', 'Yahoo chart exposes dated split events for valuation share-basis checks');
     assertEqual(chart.chart.points.length, 2, 'Yahoo chart drops incomplete candles without shifting adjacent fields');
     assertEqual(chart.chart.points[1]?.time, '2024-01-03', 'Yahoo chart preserves timestamp alignment');
     assertEqual(chart.chart.points[1]?.volume, 30, 'Yahoo chart preserves volume alignment');
@@ -3863,6 +3865,50 @@ const runSecCompanyFactsTests = () => {
     assertEqual(yahoo[0]?.revenueGrowthPercent, 7.9, 'Yahoo fundamentals calculate annual revenue growth');
     assertEqual(yahoo[0]?.shareChangePercent, 0.1, 'Yahoo fundamentals calculate annual share-count change');
     assertEqual(yahoo[0]?.grossMarginPercent, null, 'Yahoo fundamentals preserve unavailable Malaysia metrics');
+    const datedSharesPayload = {
+        timeseries: { result: [
+            { meta: { symbol: ['5347.KL'], type: ['annualOrdinarySharesNumber'] }, annualOrdinarySharesNumber: [
+                { asOfDate: '2025-12-31', periodType: '12M', currencyCode: 'MYR', reportedValue: { raw: 5_800_000_000 } },
+            ] },
+            { meta: { symbol: ['5347.KL'], type: ['quarterlyOrdinarySharesNumber'] }, quarterlyOrdinarySharesNumber: [
+                { asOfDate: '2026-06-30', periodType: '3M', currencyCode: 'MYR', reportedValue: { raw: 5_829_142_171 } },
+                { asOfDate: '2027-06-30', periodType: '3M', currencyCode: 'MYR', reportedValue: { raw: 6_000_000_000 } },
+            ] },
+            { meta: { symbol: ['5347.KL'], type: ['annualDilutedAverageShares'] }, annualDilutedAverageShares: [
+                { asOfDate: '2026-09-30', periodType: '12M', currencyCode: 'MYR', reportedValue: { raw: 9_000_000_000 } },
+            ] },
+            { meta: { symbol: ['5347.KL'], type: ['quarterlyOrdinarySharesNumber'] }, quarterlyOrdinarySharesNumber: [
+                { asOfDate: '2026-09-30', periodType: 'USD', reportedValue: { raw: 7_000_000_000 } },
+            ] },
+        ] },
+    };
+    assertEqual(parseYahooDatedOrdinaryShares(datedSharesPayload, '5347.KL', 'MYR', new Date('2026-10-22T00:00:00Z'))?.count, 5_829_142_171, 'dated MY ordinary shares use the raw MYR-coded provider count and ignore diluted averages, future dates, and mismatched currencies');
+    assertEqual(parseYahooDatedOrdinaryShares(datedSharesPayload, '1155.KL', 'MYR', new Date('2026-10-22T00:00:00Z')), null, 'ordinary share series for a different symbol are rejected');
+    const conflictingSameDate = [
+        { meta: { symbol: ['5347.KL'], type: ['annualOrdinarySharesNumber'] }, annualOrdinarySharesNumber: [
+            { asOfDate: '2025-12-31', periodType: '12M', currencyCode: 'MYR', reportedValue: { raw: 5_800_000_000 } },
+            { asOfDate: '2026-06-30', periodType: '12M', currencyCode: 'MYR', reportedValue: { raw: 5_829_142_171 } },
+        ] },
+        { meta: { symbol: ['5347.KL'], type: ['quarterlyOrdinarySharesNumber'] }, quarterlyOrdinarySharesNumber: [
+            { asOfDate: '2026-06-30', periodType: '3M', currencyCode: 'MYR', reportedValue: { raw: 5_800_000_000 } },
+        ] },
+    ];
+    for (const result of [conflictingSameDate, [...conflictingSameDate].reverse()]) {
+        assertEqual(parseYahooDatedOrdinaryShares({ timeseries: { result } }, '5347.KL', 'MYR', new Date('2026-10-22T00:00:00Z')), null, 'conflicting same-date ordinary counts are withheld regardless of series order instead of falling back to older counts');
+    }
+    const duplicateSameCount = { timeseries: { result: [
+        { meta: { symbol: ['5347.KL'], type: ['annualOrdinarySharesNumber'] }, annualOrdinarySharesNumber: [
+            { asOfDate: '2025-12-31', periodType: '12M', currencyCode: 'MYR', reportedValue: { raw: 5_800_000_000 } },
+            { asOfDate: '2026-06-30', periodType: '12M', currencyCode: 'MYR', reportedValue: { raw: 5_829_142_171 } },
+        ] },
+        { meta: { symbol: ['5347.KL'], type: ['quarterlyOrdinarySharesNumber'] }, quarterlyOrdinarySharesNumber: [
+            { asOfDate: '2026-06-30', periodType: '3M', currencyCode: 'MYR', reportedValue: { raw: 5_829_142_171 } },
+        ] },
+    ] } };
+    assertEqual(parseYahooDatedOrdinaryShares(duplicateSameCount, '5347.KL', 'MYR', new Date('2026-10-22T00:00:00Z'))?.count, 5_829_142_171, 'equal same-date ordinary counts remain usable');
+    assertEqual(parseYahooDatedOrdinaryShares({ timeseries: { result: [{ meta: { symbol: ['5347.KL'], type: ['quarterlyOrdinarySharesNumber'] }, quarterlyOrdinarySharesNumber: [
+        { asOfDate: '2026-06-30', periodType: '3M', currencyCode: 'shares', reportedValue: { raw: 0.5 } },
+    ] }] } }, '5347.KL', 'MYR', new Date('2026-10-22T00:00:00Z')), null, 'fractional share totals are rejected');
     assertThrows(() => parseYahooFundamentalTimeseries({ timeseries: { result: [{ bad: true }] } }, 'MYR'), 'Yahoo fundamentals reject malformed provider entries');
 };
 
@@ -4349,6 +4395,15 @@ const runComparisonTests = () => {
     const response = { success: true, data: snapshot };
     assertEqual(parseResearchSnapshotResponse(response).symbol, 'MSFT', 'snapshot boundary accepts complete comparison data');
     assertEqual(parseResearchSnapshotResponse(response).fundamentals.history[0]?.source, 'SEC EDGAR', 'snapshot boundary preserves fundamental-history provenance');
+    const sourcedShareBasis = { ...snapshot, valuation: { ...snapshot.valuation, shareCount: snapshot.fundamentals.shares, shareDate: '2025-06-30', shareSource: 'SEC EDGAR' as const } };
+    assertEqual(parseResearchSnapshotResponse({ success: true, data: sourcedShareBasis }).valuation.shareDate, '2025-06-30', 'snapshot boundary accepts separately dated valuation shares');
+    for (const invalidShareBasis of [
+        { ...sourcedShareBasis, valuation: { ...sourcedShareBasis.valuation, shareCount: Number.NaN } },
+        { ...sourcedShareBasis, valuation: { ...sourcedShareBasis.valuation, shareCount: -1 } },
+        { ...sourcedShareBasis, valuation: { ...sourcedShareBasis.valuation, shareCount: 2.5 } },
+        { ...sourcedShareBasis, valuation: { ...sourcedShareBasis.valuation, shareDate: '2025-02-30' } },
+        { ...sourcedShareBasis, valuation: { ...sourcedShareBasis.valuation, shareSource: 'Yahoo chart' } },
+    ]) assertThrows(() => parseResearchSnapshotResponse({ success: true, data: invalidShareBasis }), 'snapshot boundary rejects invalid valuation share provenance');
     assertEqual(parseResearchChartResponse({ success: true, data: { chart: snapshot.chart } }).points.length, 1, 'chart boundary accepts aligned history');
     assertThrows(() => parseResearchChartResponse({ success: true, data: { chart: { interval: '1d', points: [{ time: 'bad-date' }] } } }), 'chart boundary rejects malformed history');
     assertThrows(() => parseResearchSnapshotResponse({

@@ -4,6 +4,15 @@ import { calculateMarketCalibration, MARKET_SCORE_MODEL_VERSION } from './market
 import { reconstructUsMarketScores } from './market-score-reconstruction';
 import { fetchYahooResearchChart } from './research/yahoo-research';
 
+export function isStoredSnapshotValidationEligible(
+    market: 'US' | 'MY',
+    metadata: Record<string, unknown>,
+    enableSocial = true,
+): boolean {
+    return metadata.validation_eligible !== false
+        && (market !== 'MY' || !enableSocial || metadata.my_news_eligibility_version === 1);
+}
+
 const getCachedMarketCalibration = unstable_cache(async (
     market: 'US' | 'MY', mode: 'standard' | 'contrarian', enableSocial: boolean,
 ) => {
@@ -35,7 +44,7 @@ const getCachedMarketCalibration = unstable_cache(async (
                 ? metadata.scoring_model_version
                 : origin === 'reconstructed' ? MARKET_SCORE_MODEL_VERSION : null,
             coverageNote: typeof row.coverage_note === 'string' ? row.coverage_note : null,
-            validationEligible: metadata.validation_eligible !== false,
+            validationEligible: isStoredSnapshotValidationEligible(market, metadata, enableSocial),
         }];
     });
     const legacyRows = market === 'US' ? await sql`

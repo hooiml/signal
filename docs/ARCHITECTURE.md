@@ -48,6 +48,24 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 
 ## Data Sources
 
+Malaysia Research also requests annual and quarterly `OrdinarySharesNumber` in the
+existing Yahoo fundamentals time-series call. Its raw value is an integer share
+count even though Yahoo labels these entries with the statement currency (`MYR`).
+The adapter checks exact symbol, series, period, calendar date and value. Valuation
+keeps `shareCount`, `shareDate` and `shareSource` separate from annual diluted
+averages and the quote timestamp. Known later splits withhold the dated count;
+unverified subsequent issuance and buybacks stay disclosed. A non-MYR quote cannot
+be combined with MYR financials. No historical snapshots are rewritten.
+
+Company logos remain unconfigured. The current Yahoo payloads have no validated
+logo field. Logo.dev is a possible optional integration, but its documented ticker
+API requires a publishable key; its free commercial tier requires attribution.
+Before enabling it, verify actual US and `.KL` ticker coverage and preserve a ticker
+fallback for missing images. Do not guess a company domain from its name or treat
+a numeric Malaysia ticker as a US symbol. See
+[ticker API](https://www.logo.dev/products/stock-ticker-logos) and
+[pricing](https://www.logo.dev/pricing) (checked 22 October 2026).
+
 - Yahoo Finance helpers provide VIX, indices, stocks, quotes, and Malaysia currency-volatility proxy data.
 - Malaysian core reads isolate the optional US VIX fetch from the local USD/MYR volatility proxy. The optional VIX request has a three-second cancellation limit; a usable FX proxy can complete without VIX, while missing FX can use the explicitly labelled valid VIX fallback. If neither is usable, orchestration fails before signal snapshot persistence. Missing VIX stays null in raw data and optional context instead of becoming a synthetic reading. US VIX requests retain their existing required-source behavior.
 - Cboe daily market statistics provide the US put/call options-positioning input.

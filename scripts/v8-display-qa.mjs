@@ -34,6 +34,7 @@ try {
   await context.route('**/api/**', async route=>{
    const req=route.request(),url=new URL(req.url());
    assert.equal(req.method(),'GET','This read-only UI test must not mutate records.');
+   if(url.pathname==='/api/owner/session')return route.fulfill({json:{success:true,data:{configured:true,unlocked:true}}});
    if(url.pathname==='/api/signals/v2')return route.fulfill({json:market});
    if(url.pathname.startsWith('/api/signals/'))return route.fulfill({status:503,json:{success:false,error:'Fixture archive unavailable'}});
    if(url.pathname==='/api/research/watchlist')return route.fulfill({json:{success:true,data:[saved],archivedSymbols:[]}});

@@ -106,9 +106,13 @@ a range comparison. A zero starting close permits an amount change but no percen
 Financial/valuation availability notes describe missing snapshot fields and the
 existing calculator dependencies. They do not infer provider outages or guarantee
 that retrying will help. Zero cash flow and negative net cash remain valid values;
-non-positive earnings can withhold P/E without implying a failed request. MY quote
-outstanding shares and US SEC shares remain separate; annual diluted averages are
-not substituted for MY outstanding shares. Retained-response gaps remain labelled.
+non-positive earnings can withhold P/E without implying a failed request. MY dated
+ordinary shares, undated quote outstanding shares and US SEC shares remain separate;
+annual diluted averages are not substituted for MY outstanding shares. Valuation
+exposes its exact share count, source and reporting date separately from the quote
+observation and annual financial period. Known splits after an MY report withhold
+that reported count; other subsequent corporate actions remain unverified.
+Retained-response gaps remain labelled.
 
 `node scripts/harness/research-reading-regression.mjs` runs in the repo harness.
 `node scripts/research-reading-qa.mjs` runs against an owned production-mode local

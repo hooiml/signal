@@ -100,6 +100,11 @@ const isResearchSnapshot = (value: unknown): value is ResearchSnapshot => {
         && hasNullableNumbers(value.benchmark, ['candidateReturnPercent', 'baselineReturnPercent', 'relativeReturnPercent'])
         && (value.benchmark.returnBasis === null || isBenchmarkReturnBasis(value.benchmark.returnBasis))
         && isBenchmarkStatus(value.benchmark.status)
+        && (value.valuation.shareCount === undefined || value.valuation.shareCount === null
+            || (typeof value.valuation.shareCount === 'number' && Number.isSafeInteger(value.valuation.shareCount) && value.valuation.shareCount > 0))
+        && (value.valuation.shareDate === undefined || value.valuation.shareDate === null || isReportingDate(value.valuation.shareDate))
+        && (value.valuation.shareSource === undefined || value.valuation.shareSource === null
+            || value.valuation.shareSource === 'Yahoo Finance' || value.valuation.shareSource === 'SEC EDGAR')
         && (value.quote.instrumentType === undefined || isNullableString(value.quote.instrumentType))
         && (value.quote.observedAt === undefined || isNullableString(value.quote.observedAt))
         && isNullableString(value.quote.name)

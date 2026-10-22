@@ -4,6 +4,17 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For MY news and dated ordinary-share changes, run `node scripts/my-data-quality-qa.mjs`
+against an owned production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3101`).
+It requires real Yahoo responses for Tenaga, Maybank and Petronas Chemicals, verifies
+the exact market-cap arithmetic, and captures Research at 1440/1280/768/390/375px.
+The missing-share and Market eligibility states are explicitly labelled browser
+fixtures. Artifacts, public provider payloads and the scenario ledger are saved in
+`.tmp/my-data-quality/`; no owner records are read or written. Run the existing
+Research reading, display, V8.1 presentation and unsaved/guest matrices alongside it.
+The repository harness covers MY publication-date eligibility, normalization,
+source counts and unavailable states, plus dated-share parsing and split rejection.
+
 The same `research-unsaved-qa.mjs` browser process also runs `guest-workspace-qa.mjs`
 at 1440×1000 and 390×844. It checks local persistence, separate browser profiles,
 cross-tab draft conflicts, export, quota/corrupt-storage states, confirmed clear,

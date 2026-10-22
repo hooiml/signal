@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useState } from 'react';
-import { nearestPricePoint, priceRangeChange } from '@/lib/research/reading-display';
+import { nearestPricePoint, priceRangeChange, valuationShareCount } from '@/lib/research/reading-display';
 import { formatResearchPrice, researchPriceCurrency } from '@/lib/research/price-format';
 import { financialPeriodLabel, formatResearchTimestamp, netCashCurrency, researchMetricPeriodLabel } from '@/lib/research/metric-provenance';
 import { cashDebtDisplay, compactFinancialAmount } from '@/lib/research/financial-display';
@@ -20,15 +20,15 @@ import connected from './research-v8-connected.module.css';
 const planPrice = (value: number | null, currency: string | null | undefined) => value === null ? 'Unavailable' : formatResearchPrice(value, currency);
 
 function missingValuationContext(kind: 'marketCap' | 'pe' | 'ps' | 'fcfYield', snapshot: ResearchSnapshot | null, market: ResearchMarket) {
-    const shares = market === 'MY' ? snapshot?.quote.sharesOutstanding : snapshot?.fundamentals.shares;
+    const shares = valuationShareCount(snapshot);
     const marketCap = snapshot?.valuation.marketCap;
     const priceMissing = snapshot?.quote.price == null || snapshot.quote.price <= 0;
     const sharesMissing = shares == null || shares <= 0;
     const marketCapReason = marketCap != null
         ? ''
-        : [priceMissing ? 'a positive current price is unavailable' : '', sharesMissing ? `compatible outstanding shares are unavailable${market === 'MY' ? '; annual diluted average shares are not substituted' : ''}` : ''].filter(Boolean).join(' and ');
+        : [priceMissing ? 'a positive current price is unavailable' : '', sharesMissing ? `compatible outstanding shares are unavailable${market === 'MY' ? '; annual diluted average shares are not substituted' : ''}` : '', market === 'MY' && snapshot?.quote.currency !== 'MYR' ? 'the quote currency is not confirmed as MYR; no currency conversion is applied' : ''].filter(Boolean).join(' and ');
     if (kind === 'marketCap') return marketCap == null ? `Unavailable because ${marketCapReason || 'the required inputs were not returned'}.` : 'Current price multiplied by the returned share count; observation dates may differ.';
-    const meaning = kind === 'pe' ? 'Compares market capitalization with annual net income.' : kind === 'ps' ? 'Compares market capitalization with annual revenue.' : 'Compares annual free cash flow with market capitalization.';
+    const meaning = kind === 'pe' ? 'Price paid for each unit of reported annual profit. This uses past earnings, not an earnings forecast.' : kind === 'ps' ? 'Price paid for each unit of annual sales. Sales do not account for costs or profit margins.' : 'Annual cash left after capital spending, expressed as a percentage of market capitalization. This is not a dividend yield or promised return.';
     if (snapshot?.valuation[kind === 'pe' ? 'priceEarnings' : kind === 'ps' ? 'priceSales' : 'freeCashFlowYieldPercent'] != null) return meaning;
     const reasons = [marketCapReason ? `market capitalization is unavailable because ${marketCapReason}` : ''];
     if (kind === 'pe') {
@@ -65,8 +65,9 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
     const cashDebt = cashDebtDisplay(valuation?.netCash, netCashCurrency(fundamentals));
     const annualPeriod = financialPeriodLabel(fundamentals?.reportingPeriod);
     const quoteObservation = `Quote observed: ${formatResearchTimestamp(snapshot?.quote.observedAt)}`;
-    const sharePeriod = market === 'US' ? researchMetricPeriodLabel(fundamentals, 'shares') : 'Share reporting date unavailable';
-    const valuationShares = market === 'MY' ? snapshot?.quote.sharesOutstanding : fundamentals?.shares;
+    const sharePeriod = valuation?.shareDate ? `Reported ${date(valuation.shareDate)}`
+        : valuation?.shareCount === undefined && market === 'US' ? researchMetricPeriodLabel(fundamentals, 'shares') : 'Share reporting date unavailable';
+    const valuationShares = valuationShareCount(snapshot);
     return <div className={connected.panelContent}>
         {tab === 'Overview' && <>
             <PriceHistory snapshot={snapshot} loading={loading} advanced={advanced} savedMarket={record?.market ?? null} record={record} {...chart} />
@@ -98,14 +99,15 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
             <details className={connected.evidence}><summary>Saved investment checklist · {Object.values(record.checklist).filter(Boolean).length}/9 marked</summary><p>Marked means you selected this check in your saved review; it does not mean the source was independently verified.</p><ul className={connected.checklist}>{Object.entries(record.checklist).map(([key, marked]) => <li key={key}><b>{marked ? 'Marked' : 'Unmarked'}</b><span>{checklistLabelsV6[key] || key}</span></li>)}</ul></details>
         </>}
         {tab === 'Valuation' && <>
-            <span className={base.eyebrow}>SEPARATE THE MARKET PRICE FROM YOUR PLAN</span><h2>Price, value and downside</h2><p>Provider ratios are derived measures, not a fair-value conclusion. {valuation?.source || 'Valuation source unavailable'}.</p>
+            <span className={base.eyebrow}>SEPARATE THE MARKET PRICE FROM YOUR PLAN</span><h2>Price, value and downside</h2><p>Signal calculates these ratios from the returned price, shares and financial statements. They help compare price with business results; they do not establish a fair value or a suitable entry price. {valuation?.source || 'Valuation source unavailable'}.</p>
             <ResearchDataAvailability snapshot={snapshot} section="Valuation" loading={loading} error={providerError} />
             <h3>Returned price and share basis</h3>
             <Metrics rows={[
                 ['Latest returned price', price(snapshot?.quote.price, snapshot?.quote.currency), quoteObservation],
-                ['Shares used for valuation', number(valuationShares), `${valuation?.shareBasis || 'Share basis unavailable'} · ${sharePeriod}${valuationShares == null && market === 'MY' ? ' · Malaysia share-based measures need compatible outstanding shares; annual diluted average shares are not substituted.' : ''}`],
+                ['Shares used for valuation', number(valuationShares), `${valuation?.shareBasis || 'Share basis unavailable'} · ${sharePeriod}${valuation?.shareSource ? ` · ${valuation.shareSource}` : ''}${valuationShares == null && market === 'MY' ? ' · Malaysia share-based measures need compatible outstanding shares; annual diluted average shares are not substituted.' : ''}`],
                 ['Market capitalization', compactFinancialAmount(valuation?.marketCap, snapshot?.quote.currency), missingValuationContext('marketCap', snapshot, market)],
             ]} />
+            {market === 'MY' && valuationShares != null && valuation?.shareDate && <p data-testid="reported-share-limitation">This is the latest reported ordinary-share count returned by the provider, not a live share register. Issuance, buybacks or splits since {date(valuation.shareDate)} may change it. Confirm the latest issuer or Bursa announcement before relying on these ratios.</p>}
             <h3>Ratios using annual financials</h3><p>{annualPeriod}{currency ? ` · ${currency}` : ' · Financial currency unavailable'}. These ratios combine that annual period with the returned price and shares above; they are not historical ratios at the financial year end.</p>
             <Metrics rows={[
                 ['Price / earnings', number(valuation?.priceEarnings, '×'), missingValuationContext('pe', snapshot, market)],

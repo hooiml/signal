@@ -13,7 +13,7 @@ import { fetchMarketContext } from './market-context';
 import { getIndicatorDisplayName } from './indicator-registry';
 import { calculateDriverChanges, parseStoredComponentContributions, parseStoredComponentReadings, parseStoredDriverContributions, reconcileScoreChange } from './signal-change';
 import type { MarketContextData } from './types/market-context';
-import { getSourceIndicatorCount, shouldEnableSourceIndicator } from './source-indicator';
+import { getEligibleMyEvidence, getSourceIndicatorCount, MY_NEWS_ELIGIBILITY_VERSION, MY_NEWS_FRESHNESS_WINDOW_MS, shouldEnableSourceIndicator } from './source-indicator';
 import { getMarketCalibration } from './market-calibration-service';
 import { MARKET_SCORE_MODEL_VERSION } from './market-calibration';
 import { AURA_CACHE_MAX_AGE_DAYS, isAuraCacheFresh } from './aura-cache';
@@ -26,6 +26,7 @@ interface AggregateMarketData {
     activeStocks: YahooMarketData[];
     redditPosts: RedditPost[];
     newsItems: NewsItem[];
+    socialEvidenceCapturedAt?: string;
     stockTwits: StockTwit[];
     putCallRatio: PutCallRatioData | null;
     naaimExposure: NaaimExposureData | null;
@@ -234,9 +235,15 @@ export const fetchRawMarketData = async (
     const { redditPosts, newsItems, stockTwits } = socialData;
 
     // Calculate sentiment scores
-    const redditSentiment = calculateRedditSentiment(redditPosts);
+    const socialEvidenceCapturedAt = new Date().toISOString();
+    const eligibleMyEvidence = market === 'MY'
+        ? getEligibleMyEvidence(newsItems, redditPosts, Date.parse(socialEvidenceCapturedAt))
+        : null;
+    const redditInputs = eligibleMyEvidence?.reddit ?? redditPosts;
+    const newsInputs = eligibleMyEvidence?.news ?? newsItems;
+    const redditSentiment = calculateRedditSentiment(redditInputs);
     const stockTwitsSentiment = market === 'US' ? calculateStockTwitsSentiment(stockTwits) : 0;
-    const newsSentiment = calculateNewsSentiment(newsItems);
+    const newsSentiment = calculateNewsSentiment(newsInputs);
 
     // Weighted combination
     let combinedSentiment: number;
@@ -250,6 +257,8 @@ export const fetchRawMarketData = async (
     } else {
         // MY: News is the primary driver (earnings, politics, macro).
         // Reddit (BursaBets) is a secondary retail signal.
+        // Keep the documented MY 20/80 blend; stale or undated inputs are omitted
+        // from their source sentiment and therefore contribute no evidence here.
         combinedSentiment = (redditSentiment * 0.2) + (newsSentiment * 0.8);
     }
 
@@ -296,6 +305,7 @@ export const fetchRawMarketData = async (
         activeStocks: activeData,
         redditPosts,
         newsItems,
+        socialEvidenceCapturedAt,
         stockTwits,
         putCallRatio,
         naaimExposure,
@@ -356,6 +366,7 @@ async function persistSignalSnapshot(
         );
         const metadataSnapshot = {
             scoring_model_version: MARKET_SCORE_MODEL_VERSION,
+            ...(options.market === 'MY' ? { my_news_eligibility_version: MY_NEWS_ELIGIBILITY_VERSION } : {}),
             data_freshness: signal.metadata.data_freshness,
             weight_distribution: signal.metadata.weight_distribution,
             mode_note: signal.metadata.interpretation_context?.mode_note,
@@ -588,7 +599,14 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
         const fetchDurationMs = Date.now() - fetchStart;
 
         // Assess data quality
-        const hasNews = marketData.newsItems.length > 0;
+        const socialEvidenceAt = marketData.socialEvidenceCapturedAt ?? retrievedAt;
+        const evidenceEvaluationTime = market === 'MY' ? Date.parse(socialEvidenceAt) : Date.parse(retrievedAt);
+        const eligibleMyEvidence = market === 'MY'
+            ? getEligibleMyEvidence(marketData.newsItems, marketData.redditPosts, evidenceEvaluationTime)
+            : null;
+        const hasNews = eligibleMyEvidence
+            ? (eligibleMyEvidence.news.length + eligibleMyEvidence.reddit.length) > 0
+            : marketData.newsItems.length > 0;
         const hasFearGauge = Number.isFinite(marketData.fearGauge.value) && marketData.fearGauge.value > 0;
         const dataQuality = hasNews && hasFearGauge ? 'GOOD' : (!hasFearGauge ? 'DEGRADED' : 'LIMITED');
 
@@ -669,6 +687,8 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             stockTwits: marketData.stockTwits.length,
             news: marketData.newsItems.length,
         };
+        const eligibleNewsCount = eligibleMyEvidence?.news.length ?? marketData.newsItems.length;
+        const eligibleRedditCount = eligibleMyEvidence?.reddit.length ?? 0;
         const newsDates = marketData.newsItems.flatMap(item => {
             if (!item.pubDate) return [];
             const timestamp = Date.parse(item.pubDate);
@@ -678,8 +698,13 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             count: marketData.newsItems.length,
             dated_count: newsDates.length,
             unknown_date_count: marketData.newsItems.length - newsDates.length,
-            within_24h_count: newsDates.filter(timestamp => timestamp <= Date.parse(retrievedAt)
-                && Date.parse(retrievedAt) - timestamp <= 24 * 60 * 60 * 1000).length,
+            within_24h_count: newsDates.filter(timestamp => timestamp <= evidenceEvaluationTime
+                && evidenceEvaluationTime - timestamp <= MY_NEWS_FRESHNESS_WINDOW_MS).length,
+            ...(market === 'MY' ? { eligible_count: eligibleNewsCount } : {}),
+            ...(market === 'MY' ? {
+                future_date_count: newsDates.filter(timestamp => timestamp > evidenceEvaluationTime).length,
+                evaluated_at: socialEvidenceAt,
+            } : {}),
             newest_published_at: newsDates.length ? new Date(Math.max(...newsDates)).toISOString() : null,
             oldest_published_at: newsDates.length ? new Date(Math.min(...newsDates)).toISOString() : null,
         };
@@ -690,7 +715,9 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             score: marketData.sentimentOutput.components.socialScore,
             weight: 0, // Will be calculated by V2
             signal: getSignalFromScore(marketData.sentimentOutput.components.socialScore),
-            enabled: shouldEnableSourceIndicator(enableSocial, sourceName, sourceCounts),
+            enabled: shouldEnableSourceIndicator(enableSocial, sourceName, market === 'MY'
+                ? { ...sourceCounts, news: eligibleNewsCount, reddit: eligibleRedditCount }
+                : sourceCounts),
             last_updated: retrievedAt,
             metadata: {
                 timestamp_basis: 'retrieved',
@@ -760,7 +787,15 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
         ];
         const v2Signal = calculateCompositeScoreV2(signalInputs, { market, mode });
         v2Signal.metadata.counterfactuals = {
-            source_toggle: buildSourceToggleCounterfactual(signalInputs, sourceName, socialIndicator.display_name, { market, mode }, enableSocial, marketData)
+            source_toggle: buildSourceToggleCounterfactual(
+                signalInputs,
+                sourceName,
+                socialIndicator.display_name,
+                { market, mode },
+                enableSocial,
+                marketData,
+                market === 'MY' ? { ...sourceCounts, news: eligibleNewsCount, reddit: eligibleRedditCount } : sourceCounts,
+            )
         };
 
         // Populate stock data in metadata
@@ -833,13 +868,27 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                     count: sourceCounts.stockTwits,
                 },
             } : {}),
-            news: { status: sourceCounts.news > 0 ? 'available' : 'no-results', count: sourceCounts.news },
+            news: {
+                status: eligibleNewsCount + eligibleRedditCount > 0
+                    ? 'available'
+                    : market === 'MY' && sourceCounts.news + sourceCounts.reddit > 0
+                        ? 'no-fresh-evidence'
+                        : 'no-results',
+                count: sourceCounts.news,
+                ...(market === 'MY' ? {
+                    eligible_count: eligibleNewsCount,
+                    reddit_count: sourceCounts.reddit,
+                    eligible_reddit_count: eligibleRedditCount,
+                    eligibility_version: MY_NEWS_ELIGIBILITY_VERSION,
+                } : {}),
+            },
             ...(market === 'US' ? {
                 naaim: { status: marketData.naaimExposure ? 'available' as const : 'no-current-reading' as const },
                 bofa: { status: institutionalRaw.some(entry => entry.indicator_name === 'bofa') ? 'available' as const : 'manual-reading-unavailable' as const },
             } : {}),
         };
         v2Signal.metadata.news_evidence = newsEvidence;
+        if (market === 'MY') v2Signal.metadata.my_news_eligibility_version = MY_NEWS_ELIGIBILITY_VERSION;
         v2Signal.metadata.index_trend = marketData.marketIndices.map(index => ({
             symbol: index.symbol,
             price: index.price,
@@ -1077,13 +1126,14 @@ function buildSourceToggleCounterfactual(
     sourceLabel: string,
     config: { market: MarketType; mode: MarketMode },
     active: boolean,
-    marketData: AggregateMarketData
-): NonNullable<MarketSignal['metadata']['counterfactuals']>['source_toggle'] {
-    const socialDataCount = getSourceIndicatorCount(sourceName, {
+    marketData: AggregateMarketData,
+    eligibleSourceCounts = {
         reddit: marketData.redditPosts.length,
         stockTwits: marketData.stockTwits.length,
         news: marketData.newsItems.length,
-    });
+    },
+): NonNullable<MarketSignal['metadata']['counterfactuals']>['source_toggle'] {
+    const socialDataCount = getSourceIndicatorCount(sourceName, eligibleSourceCounts);
 
     if (socialDataCount === 0) {
         return {
@@ -1094,8 +1144,12 @@ function buildSourceToggleCounterfactual(
             with_source_score: null,
             without_source_score: null,
             delta_without_source: null,
-            summary: `${sourceLabel} comparison unavailable because no current source data was fetched.`,
-            unavailable_reason: 'No current source data available.'
+            summary: config.market === 'MY'
+                ? `${sourceLabel} comparison unavailable because no news or Reddit evidence is eligible within the last 24 hours.`
+                : `${sourceLabel} comparison unavailable because no current source data was fetched.`,
+            unavailable_reason: config.market === 'MY'
+                ? 'No eligible news or Reddit evidence within the last 24 hours.'
+                : 'No current source data available.'
         };
     }
 

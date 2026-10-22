@@ -5,19 +5,19 @@ import path from 'node:path';
 import ts from 'typescript';
 import { researchSnapshotFixture } from './research-read-fixture.mjs';
 export function isolatedSnapshot(root = process.cwd(), delays = false) {
- const cache = new Map(); let outstanding = null; const calls=[];
+ const cache = new Map(); let outstanding = null; let ordinaryShares = null; let splitDates = []; let historyError = null; const calls=[];
  const sample = structuredClone(researchSnapshotFixture.data);
  Object.assign(sample.fundamentals,{source:'SEC EDGAR',reportingPeriod:'2025-12-31',revenueGrowthPercent:21,annualRevenue:121,annualNetIncome:20,freeCashFlow:-5,shares:900});
  const quote={...sample.quote,chart:sample.chart,technicals:sample.technicals,history:{closes:[100,110],adjustedCloses:[100,110],volumes:[],observations:[]}};
  const wait=async (name,ms,value)=>{calls.push(name);if(delays)await new Promise(r=>setTimeout(r,ms));return value;};
  const stubs={
-  'yahoo-research':{fetchYahooResearch:async symbol=>wait(symbol==='VOO'?'benchmark':'quote',symbol==='VOO'?200:40,{...quote,sharesOutstanding:outstanding}),toYahooSymbol:(symbol,market)=>market==='MY'?`${symbol}.KL`:symbol},
+  'yahoo-research':{fetchYahooResearch:async (symbol,market)=>wait(symbol==='VOO'?'benchmark':'quote',symbol==='VOO'?200:40,{...quote,instrumentType:'EQUITY',currency:market==='MY'?'MYR':'USD',sharesOutstanding:outstanding,splitDates}),toYahooSymbol:(symbol,market)=>market==='MY'?`${symbol}.KL`:symbol},
   'sec-edgar':{fetchSecFundamentals:async()=>wait('fundamentals',60,sample.fundamentals)},
-  'yahoo-fundamentals':{fetchYahooFundamentalHistory:async()=>wait('fundamentals',60,[{...sample.fundamentals,currency:'MYR',source:'Yahoo Finance',shares:900,shareBasis:'diluted average'}])},
+  'yahoo-fundamentals':{fetchYahooFundamentalHistory:async()=>wait('fundamentals',60,{history:[{...sample.fundamentals,currency:'MYR',source:'Yahoo Finance',shares:900,shareBasis:'diluted average'}],ordinaryShares,historyError})},
   'security-classification':{getSecurityClassification:async()=>wait('classification',30,null)},
  };
  function load(file,stubbed=false){const absolute=path.resolve(root,file),key=absolute+stubbed;if(cache.has(key))return cache.get(key).exports;const m={exports:{}};cache.set(key,m);const req=id=>{const full=id.startsWith('@/')?path.resolve(root,'src',id.slice(2)):path.resolve(path.dirname(absolute),id),name=path.basename(full);if(stubbed&&stubs[name])return stubs[name];if(id.startsWith('.')||id.startsWith('@/'))return load(path.relative(root,full)+'.ts',stubbed);return createRequire(absolute)(id);};new Function('require','module','exports',ts.transpileModule(readFileSync(absolute,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(req,m,m.exports);return m.exports;}
- return {load,calls,setOutstanding:value=>{outstanding=value;},snapshot:()=>load('src/lib/research/snapshot.ts',true)};
+ return {load,calls,setOutstanding:value=>{outstanding=value;},setOrdinaryShares:value=>{ordinaryShares=value;},setSplitDates:value=>{splitDates=value;},setHistoryError:value=>{historyError=value;},snapshot:()=>load('src/lib/research/snapshot.ts',true)};
 }
 if (process.argv[1]?.endsWith('research-improvements-regression.mjs')) {
  const f=isolatedSnapshot();const parse=f.load('src/lib/research/yahoo-fundamentals.ts').parseYahooFundamentalTimeseries;
@@ -29,6 +29,9 @@ if (process.argv[1]?.endsWith('research-improvements-regression.mjs')) {
  const s=structuredClone(researchSnapshotFixture.data);Object.assign(s,{fetchedAt:new Date().toISOString()});s.quote.instrumentType='EQUITY';s.quote.classification={source:'Yahoo Finance',instrumentType:'EQUITY',sector:'Industrials',industry:'Machinery',retrievedAt:s.fetchedAt};Object.assign(s.fundamentals,missing[0],{history:missing});assert.equal(a(s,Date.now()).coverage,2);assert.ok(!a(s,Date.now()).supporting.join(' ').includes('year over year'));
  const my=await f.snapshot().getResearchSnapshot('5347','MY',undefined,false);assert.equal(my.fundamentals.shares,900);for(const key of ['marketCap','priceEarnings','priceSales','freeCashFlowYieldPercent'])assert.equal(my.valuation[key],null);assert.ok(my.warnings.some(w=>w.includes('not substituted')));
  f.setOutstanding(1200);const compatible=await f.snapshot().getResearchSnapshot('5347','MY',undefined,false);assert.equal(compatible.valuation.marketCap,compatible.quote.price*1200);assert.equal(compatible.valuation.shareBasis,'Yahoo quote outstanding shares');
+ const dated=isolatedSnapshot();dated.setOrdinaryShares({count:5_829_142_171,date:'2026-06-30',source:'Yahoo Finance'});const datedSnapshot=await dated.snapshot().getResearchSnapshot('5347','MY',undefined,false);assert.equal(datedSnapshot.valuation.shareCount,5_829_142_171);assert.equal(datedSnapshot.valuation.shareDate,'2026-06-30');assert.equal(datedSnapshot.valuation.shareSource,'Yahoo Finance');assert.equal(datedSnapshot.valuation.shareBasis,'Yahoo dated ordinary shares');assert.equal(datedSnapshot.valuation.marketCap,datedSnapshot.quote.price*5_829_142_171);assert.ok(datedSnapshot.warnings.some(w=>w.includes('corporate actions')));
+ const split=isolatedSnapshot();split.setOrdinaryShares({count:5_829_142_171,date:'2026-06-30',source:'Yahoo Finance'});split.setSplitDates(['2026-08-15']);const splitSnapshot=await split.snapshot().getResearchSnapshot('5347','MY',undefined,false);assert.equal(splitSnapshot.valuation.shareCount,null);assert.equal(splitSnapshot.valuation.marketCap,null);assert.ok(splitSnapshot.warnings.some(w=>w.includes('chart split')));
+ const annualGap=isolatedSnapshot();annualGap.setOrdinaryShares({count:5_829_142_171,date:'2026-06-30',source:'Yahoo Finance'});annualGap.setHistoryError('Annual series malformed');const gapSnapshot=await annualGap.snapshot().getResearchSnapshot('5347','MY',undefined,false);assert.equal(gapSnapshot.valuation.shareCount,5_829_142_171);assert.ok(gapSnapshot.warnings.includes('Annual series malformed'));
  const benchmark=f.load('src/lib/research/benchmark.ts').buildResearchBenchmark;
  const rows=Array.from({length:80},(_,i)=>({date:new Date(Date.UTC(2026,0,i+1)).toISOString().slice(0,10),close:100+i,adjustedClose:200+i})).filter(r=>![0,6].includes(new Date(r.date).getUTCDay()));
  const h=observations=>({history:{closes:[],adjustedCloses:[],volumes:[],observations}});

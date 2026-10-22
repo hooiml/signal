@@ -4,6 +4,7 @@ import { buildResearchBenchmark, notApplicableResearchBenchmark } from './benchm
 import { fetchSecFundamentals } from './sec-edgar';
 import { fetchYahooResearch } from './yahoo-research';
 import { fetchYahooFundamentalHistory } from './yahoo-fundamentals';
+import type { DatedOrdinaryShares } from './yahoo-fundamentals';
 import { getSecurityClassification } from './security-classification';
 import { calculateValuation } from './valuation';
 
@@ -58,9 +59,11 @@ export const getResearchSnapshot = async (
         finally { onTiming?.(stage, performance.now() - started); }
     };
     const yahooPromise = measured('quote', () => fetchYahooResearch(symbol, market));
-    const fundamentalsPromise = measured('fundamentals', () => market === 'US'
-        ? fetchSecFundamentals(symbol)
-        : fetchYahooFundamentalHistory(symbol, market).then(fundamentalsFromHistory));
+    const fundamentalsPromise = measured('fundamentals', async () => market === 'US'
+        ? { fundamentals: await fetchSecFundamentals(symbol), ordinaryShares: null as DatedOrdinaryShares | null, historyError: null as string | null }
+        : fetchYahooFundamentalHistory(symbol, market).then(({ history, ordinaryShares, historyError }) => ({
+            fundamentals: fundamentalsFromHistory(history), ordinaryShares, historyError,
+        })));
     const benchmarkPromise = includeBenchmark && market === 'US' && symbol !== 'VOO' ? measured('benchmark', () => fetchYahooResearch('VOO', 'US')) : Promise.resolve(null);
     const classificationPromise = measured('classification', () => getSecurityClassification(symbol, market));
     const [yahoo, fundamentalResult, benchmark, classification] = await Promise.allSettled([yahooPromise, fundamentalsPromise, benchmarkPromise, classificationPromise]);
@@ -72,15 +75,36 @@ export const getResearchSnapshot = async (
     if (fundamentalResult.status === 'rejected') warnings.push(message(fundamentalResult.reason));
     if (market === 'US' && symbol !== 'VOO' && benchmark.status === 'rejected') warnings.push('Passive benchmark data is temporarily unavailable.');
     const yahooData = yahoo.status === 'fulfilled' ? yahoo.value : null;
-    const fundamentals = fundamentalResult.status === 'fulfilled' ? fundamentalResult.value : emptyFundamentals;
+    const fundamentals = fundamentalResult.status === 'fulfilled' ? fundamentalResult.value.fundamentals : emptyFundamentals;
+    const rawOrdinaryShares = fundamentalResult.status === 'fulfilled' ? fundamentalResult.value.ordinaryShares : null;
+    const ordinaryShares = rawOrdinaryShares && yahoo.status === 'fulfilled' && yahoo.value.instrumentType === 'EQUITY'
+        && !(yahoo.value.splitDates ?? []).some(splitDate => splitDate > rawOrdinaryShares.date)
+        ? rawOrdinaryShares : null;
+    if (fundamentalResult.status === 'fulfilled' && fundamentalResult.value.historyError) warnings.push(fundamentalResult.value.historyError);
     if (fundamentalResult.status === 'fulfilled' && fundamentals.history.length === 0) warnings.push('Annual fundamental history is unavailable from the connected free source.');
-    if (market === 'MY' && !yahooData?.sharesOutstanding) warnings.push('Compatible outstanding shares are unavailable. Market capitalization, P/E, P/S and free-cash-flow yield are withheld; annual diluted average shares are not substituted.');
+    if (rawOrdinaryShares && yahoo.status === 'fulfilled' && yahoo.value.instrumentType !== 'EQUITY') warnings.push('Yahoo Finance did not identify an equity instrument; dated ordinary shares are withheld from valuation.');
+    if (rawOrdinaryShares && yahoo.status === 'fulfilled' && yahoo.value.instrumentType === 'EQUITY'
+        && (yahoo.value.splitDates ?? []).some(splitDate => splitDate > rawOrdinaryShares.date)) {
+        warnings.push('A Yahoo chart split is dated after the reported ordinary-share count; that count is withheld from valuation.');
+    }
+    if (market === 'MY' && yahooData && yahooData.currency !== 'MYR') warnings.push('Yahoo quote currency is unavailable or not MYR; valuation ratios using MYR fundamentals are withheld.');
+    if (market === 'MY' && !ordinaryShares && !yahooData?.sharesOutstanding) warnings.push('Compatible outstanding shares are unavailable. Market capitalization, P/E, P/S and free-cash-flow yield are withheld; annual diluted average shares are not substituted.');
+    if (ordinaryShares) warnings.push('Valuation uses the latest reported ordinary-share count; corporate actions since its reporting date are unverified.');
     const benchmarkData = symbol === 'VOO'
         ? yahooData
         : benchmark.status === 'fulfilled' ? benchmark.value : null;
+    const valuationShares = market === 'MY' ? ordinaryShares?.count ?? yahooData?.sharesOutstanding ?? null : fundamentals.shares;
+    const valuationShareDate = market === 'MY'
+        ? ordinaryShares?.date ?? null
+        : fundamentals.metricProvenance?.shares.reportingPeriods.length === 1
+            ? fundamentals.metricProvenance.shares.reportingPeriods[0] ?? null
+            : null;
+    const valuationShareSource = market === 'MY'
+        ? ordinaryShares || yahooData?.sharesOutstanding ? 'Yahoo Finance' : null
+        : valuationShares === null ? null : 'SEC EDGAR';
     const valuation = calculateValuation({
-        price: yahooData?.price ?? null,
-        shares: market === 'MY' ? yahooData?.sharesOutstanding ?? null : fundamentals.shares,
+        price: market === 'MY' && yahooData?.currency !== 'MYR' ? null : yahooData?.price ?? null,
+        shares: valuationShares,
         annualRevenue: fundamentals.annualRevenue,
         annualNetIncome: fundamentals.annualNetIncome,
         freeCashFlow: fundamentals.freeCashFlow,
@@ -105,7 +129,12 @@ export const getResearchSnapshot = async (
         fundamentals,
         valuation: {
             ...valuation,
-            shareBasis: market === 'MY' ? yahooData?.sharesOutstanding ? 'Yahoo quote outstanding shares' : null : 'SEC outstanding shares',
+            shareCount: valuationShares,
+            shareDate: valuationShareDate,
+            shareSource: valuationShareSource,
+            shareBasis: market === 'MY'
+                ? ordinaryShares ? 'Yahoo dated ordinary shares' : yahooData?.sharesOutstanding ? 'Yahoo quote outstanding shares' : null
+                : valuationShares === null ? null : 'SEC outstanding shares',
             reportingPeriod: fundamentals.reportingPeriod,
             source: yahooData && fundamentals.source
                 ? fundamentals.source === 'SEC EDGAR' ? 'Yahoo Finance + SEC EDGAR' : 'Yahoo Finance'

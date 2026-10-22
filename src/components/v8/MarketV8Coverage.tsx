@@ -55,7 +55,7 @@ export function missingInputExplanation(key: string, sourceEnabled: boolean, ava
         return `${sources.length ? `${sources.join('; ')}. ` : ''}Social input is enabled, but the current response contains no usable sentiment observation. A missing reading is not neutral sentiment.`;
     }
     if (key === 'news') return availability?.news
-        ? `News input is enabled, but no usable news sentiment observation was produced. ${availability.news.count} news items were returned.`
+        ? `News input is enabled, but no usable news sentiment observation was produced. ${availability.news.count} news items were returned.${availability.news.status === 'no-fresh-evidence' ? ' None of the returned news or Reddit posts has a valid publication time within the 24-hour evidence window. Stale, future-dated and undated items do not count as current evidence.' : ''}`
         : 'News input is enabled, but the current response contains no usable news sentiment observation.';
     if (key === 'naaim') return 'The public page exposes a roughly three-month delayed reading, and no parsable current exposure was returned for this snapshot. Archived readings cannot establish today’s exposure.';
     if (key === 'bofa') return 'No manually supplied current SSI reading is available. The 50–60 normalization range is a placeholder, not evidence from a live source.';
@@ -66,7 +66,9 @@ export function newsEvidenceText(evidence: NonNullable<MarketSignal['metadata'][
     const publicationRange = evidence.dated_count > 0
         ? `newest ${marketTimestampLabel(evidence.newest_published_at!)} · oldest ${marketTimestampLabel(evidence.oldest_published_at!)}`
         : 'publication dates unavailable';
-    return `${evidence.count} news items returned · ${evidence.dated_count} with publication dates · ${evidence.unknown_date_count} unknown dates · ${evidence.within_24h_count} dated within 24h of retrieval · ${publicationRange}.`;
+    const window = evidence.evaluated_at ? `the evidence check at ${marketTimestampLabel(evidence.evaluated_at)}` : 'retrieval';
+    const eligibility = evidence.eligible_count === undefined ? '' : ` ${evidence.eligible_count} eligible news items; stale, future-dated and unknown-date items are excluded from the current reading.`;
+    return `${evidence.count} news items returned · ${evidence.dated_count} with publication dates · ${evidence.unknown_date_count} unknown dates · ${evidence.within_24h_count} dated within 24h of ${window} · ${publicationRange}.${eligibility}`;
 }
 
 export function MarketCoverageNotices({ signal, inputKeys, date, sourceEnabled, onReview }: {

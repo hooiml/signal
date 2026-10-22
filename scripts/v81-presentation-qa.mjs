@@ -112,6 +112,7 @@ page.on('requestfailed', request => { if (!request.failure()?.errorText.includes
 await context.route('**/api/**', async route => {
     assert.equal(route.request().method(), 'GET', 'Presentation must not mutate records.');
     const url = new URL(route.request().url());
+    if (url.pathname === '/api/owner/session') return route.fulfill({ json: { success: true, data: { configured: true, unlocked: true } } });
     if (url.pathname === '/api/signals/v2') return route.fulfill({ json: payload(url.searchParams.get('mode') || 'standard', url.searchParams.get('market') || 'US') });
     if (url.pathname === '/api/signals/replay') return route.fulfill({ json: { success: true, data: { market: url.searchParams.get('market'), mode: url.searchParams.get('mode'), enableSocial: true, summaries: [] } } });
     if (url.pathname === '/api/research/watchlist') return route.fulfill({ json: { success: true, data: [saved], archivedSymbols: [] } });

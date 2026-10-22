@@ -145,6 +145,16 @@ Current stale warning behavior treats a component as stale when `last_updated` i
 
 The article/feed section is context. It may show sources that also contribute to social/news sentiment, but the cards themselves are not separately weighted as individual score components.
 
+### Malaysia news eligibility, version 1
+
+Malaysia news queries request Google News items from the past day. Returned entries are validated, deduplicated, ordered by publication date, and capped only after ordering. Only news with a valid publication timestamp from the previous 24 hours is eligible for MY sentiment; undated, malformed, older, and future-dated items do not contribute. Bursa-focused Reddit uses the same 24-hour window based on `created_utc`. Those freshness checks apply to the score inputs as well as the displayed eligibility counts.
+
+The MY social sentiment component retains its 80% news / 20% Reddit blend. If one source has no eligible items, that source contributes no sentiment; the blend weights are not redistributed. The component is enabled only when at least one fresh source has eligible items. Returned but ineligible items remain visible as source context when their publication date is unknown or within the existing article display window. US feeds and US scoring are unchanged.
+
+New MY snapshots record `my_news_eligibility_version: 1` in metadata alongside the existing scoring model version. Previously stored snapshots are not rewritten; their scores and metadata remain as recorded and can be distinguished from snapshots using this eligibility rule.
+`source_availability.news` reports `no-results` when neither source returned items and `no-fresh-evidence` when items arrived but none met the window; `news_evidence.evaluated_at` records the timestamp used for the shared cutoff.
+MY news-enabled forward-return validation includes only snapshots carrying eligibility version 1. Earlier news-enabled snapshots remain on the historical score timeline as timeline-only records; their saved rows are unchanged. MY snapshots created with news/social disabled remain eligible because they did not use news inputs. US validation eligibility is unaffected.
+
 ### October 2026 provenance correction
 
 The Malaysian volatility indicator now exposes the actual model input: USD/MYR daily-return

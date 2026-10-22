@@ -15,7 +15,7 @@ export function ResearchFinancialSummary({ fundamentals }: { fundamentals: Resea
                 ? `${comparison.percentage > 0 ? 'up ' : comparison.percentage < 0 ? 'down ' : ''}${number(Math.abs(comparison.percentage), '%')}`
                 : comparison ? `${comparison.delta > 0 ? 'up ' : comparison.delta < 0 ? 'down ' : ''}${compactFinancialAmount(Math.abs(comparison.delta), period?.currency)}` : null;
             return <div key={key}><dt>{label}</dt><dd>{compactFinancialAmount(value, period?.currency)}</dd>
-                <dd className={connected.financialDetail}>{comparison
+                <dd className={connected.financialDetail}><p>{key === 'annualRevenue' ? 'Sales before expenses.' : key === 'annualNetIncome' ? 'Accounting profit after expenses and tax.' : 'Cash remaining after capital spending. It can differ from accounting profit.'}</p>{comparison
                     ? <p className={connected.financialChange}>{value !== null && value !== undefined && value < 0 ? 'Negative' : value === 0 ? 'Zero' : 'Positive'} · {change} vs {date(comparison.previous.reportingPeriod)}</p>
                     : <p className={connected.financialChange}>Annual change unavailable</p>}
                 {((value !== null && value !== undefined && Number.isFinite(value)) || (key === 'annualRevenue' && fundamentals?.revenueGrowthPercent != null && Number.isFinite(fundamentals.revenueGrowthPercent))) && <details><summary>Exact amount and comparison</summary>
