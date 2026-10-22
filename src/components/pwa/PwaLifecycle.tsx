@@ -124,7 +124,7 @@ export const PwaLifecycle = () => {
     const compactOptional = !hasPriorityNotice && (pathname === '/main-v8' || pathname === '/research-v8');
     // V8 pages are light and expose their tokens on <html>; the optional prompt follows them there.
     const tone = compactOptional
-        ? { title: 'text-[var(--ink)]', body: 'text-[var(--muted)]', primary: 'border-transparent bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)]', quiet: 'text-[var(--muted)] decoration-[var(--line-strong)]' }
+        ? { title: 'text-[var(--ink)]', body: 'text-[var(--muted)]', primary: 'border-transparent bg-[var(--brand)] text-[var(--on-brand)] hover:bg-[var(--brand-hover)]', quiet: 'text-[var(--muted)] decoration-[var(--line-strong)]' }
         : { title: 'text-slate-100', body: 'text-slate-300', primary: 'border-slate-500', quiet: 'text-slate-300 decoration-slate-500' };
     return (
         <aside
@@ -132,7 +132,7 @@ export const PwaLifecycle = () => {
             data-priority={hasPriorityNotice ? 'essential' : 'optional'}
             className={(compactOptional ? 'fixed bottom-4 right-4 z-[100] w-[calc(100vw-2rem)] max-w-[380px] rounded-xl border px-4 py-3 shadow-xl text-xs ' : 'relative z-[100] w-full border-b px-3 py-3 text-xs text-slate-100 ') + (hasPriorityNotice
                 ? 'border-amber-400/50 bg-[#101820] shadow-md'
-                : compactOptional ? 'border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] shadow-[0_12px_32px_-12px_rgb(15_23_42/0.35)]' : 'border-slate-700 bg-[#071019] text-slate-100')}
+                : compactOptional ? 'border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] shadow-[0_12px_32px_-12px_color-mix(in_srgb,var(--shadow)_35%,transparent)]' : 'border-slate-700 bg-[#071019] text-slate-100')}
             aria-live="polite"
         >
             <div className="mx-auto max-w-[1280px] space-y-3">

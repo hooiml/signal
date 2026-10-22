@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProviderV6 } from "@/components/v6/ThemeProviderV6";
 import { PwaLifecycle } from "@/components/pwa/PwaLifecycle";
 import { VersionSwitcher } from "@/components/navigation/VersionSwitcher";
+import { v8ThemeBootScript } from "@/components/v8/v8-theme";
 
 const sourceSans = localFont({
   src: "./fonts/SourceSans3-Variable.woff2",
@@ -45,7 +46,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    // The boot script sets data-v8-theme on <html> before hydration.
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: v8ThemeBootScript }} />
+      </head>
       <body
         className={`${sourceSans.variable} ${robotoMono.variable} antialiased`}
       >

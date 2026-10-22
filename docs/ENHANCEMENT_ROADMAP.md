@@ -31,6 +31,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | ---: | --- | --- | --- | --- |
 | E1 | Price chart visual QA | Verified | UI-LIGHT | None |
 | E2 | Pinned workspaces and attention badges | Verified | Standard | None; uses already-loaded counts only |
+| E8 | V8 dark mode | In progress | Standard | None; added after E2 at the owner's request |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -86,6 +87,34 @@ no-badge states. Lint, typecheck, harness and build pass.
 the overdue-review badge in the browser (owner access is not configured locally, so no saved records
 load); an alerts badge (alerts are fetched only inside the Alerts workspace, and E2 adds no fetches).
 
+### E8 — V8 dark mode
+
+**Why:** V8 Market and Research render light only (`color-scheme: light`), while the rest of the app
+has a dark theme. The colour tokens from PR #23 make a dark set mostly a token swap.
+
+**Scope:** A dark value for every V8 token; follow the system setting by default, with a
+System / Light / Dark choice stored per browser. Neutral slate surfaces; teal only for actions,
+selection and focus; green and rose stay reserved for data direction. Shadows, overlays and the V8
+install prompt follow the theme. V6/V7 themes are unchanged.
+
+**Done when:** Market and Research pass the Visual QA Contract in both themes at 1280px, 768px and
+375px; body text and badges meet WCAG AA contrast in both themes; the choice survives reload and
+malformed storage; no flash of the wrong theme for the default (system) setting.
+
+**Evidence — 2026-10-22:** Dark values for every V8 token plus `--on-brand` and `--shadow`, in
+[`market-v8.module.css`](../src/components/v8/market-v8.module.css); a boot script in the root layout
+sets `data-v8-theme` before first paint from `signal-v8-theme-v1` or the system setting, and the
+header control offers Auto / Light / Dark. Text pairs meet WCAG AA in both themes (lowest 4.8:1 light,
+5.8:1 dark). In Chrome with a dark system setting: Market and Research follow it with nothing
+stored; Light survives reload; malformed storage falls back to Auto; 1280px, 768px and 375px show
+no overflow and a one-row header. Browser suites (light): `v81-ui-qa`, `v81-presentation-qa`,
+`market-clarity-qa`, `research-unsaved-qa`, `research-reading-qa`, `v8-display-qa`,
+`v8-exploration-qa` (toolbar select lookup scoped to `main`), `research-owner-panels-qa` and
+`pwa-qa` pass. Lint, typecheck, harness and build pass.
+
+**Not covered:** saved-review markers in dark (no saved record loads locally); the browser suites
+run in the light theme only.
+
 ### E3 — Today promotion review
 
 **Spec:** `NEXT_PRODUCT_ROADMAP.md` Task 0.
@@ -128,3 +157,4 @@ contract is recorded.
 | 2026-10-22 | — | — | — | Roadmap created after PR #29 and `0779864`. |
 | 2026-10-22 | E1 | Ready | Verified | 52-week label placement fixed; see E1 evidence. |
 | 2026-10-22 | E2 | Ready | Verified | Pins and Queue/Calendar badges; 375px not browser-checked. |
+| 2026-10-22 | E8 | — | In progress | Added after E2 at the owner's request. |
