@@ -17,10 +17,11 @@ const providerTime = (seconds: unknown): Date | null =>
 
 const YAHOO_BASE_URL = 'https://query1.finance.yahoo.com/v8/finance/chart';
 
-export const fetchVIX = async (): Promise<MarketData> => {
+export const fetchVIX = async (signal?: AbortSignal): Promise<MarketData> => {
     const response = await fetch(`${YAHOO_BASE_URL}/^VIX?interval=1d&range=1d`, {
         headers: { 'User-Agent': 'Signal/1.0' },
-        next: { revalidate: 0 }
+        next: { revalidate: 0 },
+        ...(signal ? { signal } : {}),
     });
 
     if (!response.ok) {

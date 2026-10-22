@@ -150,10 +150,15 @@ The article/feed section is context. It may show sources that also contribute to
 The Malaysian volatility indicator now exposes the actual model input: USD/MYR daily-return
 standard deviation multiplied by 4000 and clamped to 10–80, labelled **scaled model points**.
 Previously the displayed value came from US VIX while the component score used the FX input.
-If the FX proxy is unavailable, the existing US VIX fallback is explicitly labelled. The
-normalizer, weights, missing-input policy and scores are unchanged by this correction.
-The VIX/proxy timestamp is identified as retrieval time, with observation freshness unavailable;
-this does not change scoring eligibility. Previously stored raw values are not rewritten.
+If the FX proxy is unavailable, the existing US VIX fallback is explicitly labelled. A
+US VIX failure does not prevent a Malaysian reading when a valid FX proxy is available.
+The optional US VIX request is cancelled after three seconds in the Malaysian path.
+If neither input is usable, the request fails without writing a signal snapshot; no
+synthetic volatility value is substituted. The normalizer, weights and arithmetic for
+available inputs are unchanged.
+The VIX/proxy uses its provider observation time when supplied and retains retrieval time
+separately. Missing observation time remains unavailable. Previously stored raw values
+are not rewritten.
 V8 raw volatility mini-charts exclude archived components with a different display name,
 so old mislabeled values and fallback/proxy series are not joined to the corrected input.
 Full archived records remain unchanged.

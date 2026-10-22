@@ -19,7 +19,7 @@ import { MARKET_SCORE_MODEL_VERSION } from './market-calibration';
 import { AURA_CACHE_MAX_AGE_DAYS, isAuraCacheFresh } from './aura-cache';
 
 interface AggregateMarketData {
-    vixData: { price: number; change: number };
+    vixData: { price: number; change: number } | null;
     fearGauge: { value: number; isFxProxy: boolean; observedAt: Date | null };
     marketIndices: YahooMarketData[];
     popularStocks: YahooMarketData[];
@@ -158,13 +158,24 @@ export const fetchCoreMarketData = async (market: MarketType) => {
     const prioritySymbols = [...config.indices, ...config.popular.slice(0, 4)];
     const deferredSymbols = [...config.popular.slice(4), ...config.active];
 
-    // Fetch VIX + Priority (with sparklines) + Deferred (batch) in parallel
-    // For MY, we also fetch currency volatility as a local proxy
+    // MY uses local FX volatility first; optional US VIX context has a bounded request budget.
+    const vixRequest = market === 'MY'
+        ? fetchVIX(AbortSignal.timeout(3_000)).then(data =>
+            Number.isFinite(data.price) && data.price > 0 && Number.isFinite(data.change) ? data : null,
+        ).catch(error => {
+            console.warn('Optional US VIX is unavailable for MY:', error);
+            return null;
+        })
+        : fetchVIX();
+    // Fetch independent provider inputs in parallel.
     const [vixData, priorityQuotes, deferredQuotes, myrVol, putCallRatio, naaimExposure, buffettIndicator, marketContext] = await Promise.all([
-        fetchVIX(),
+        vixRequest,
         fetchIndicesWithChart(prioritySymbols),  // Full chart data
         fetchQuotes(deferredSymbols),            // Fast batch (no sparklines)
-        market === 'MY' ? fetchHistoricalCurrencyVol('USDMYR=X') : Promise.resolve(null),
+        market === 'MY' ? fetchHistoricalCurrencyVol('USDMYR=X').catch(error => {
+            console.warn('USD/MYR volatility is unavailable:', error);
+            return null;
+        }) : Promise.resolve(null),
         market === 'US' ? fetchCboePutCallRatio() : Promise.resolve(null),
         market === 'US' ? fetchNaaimExposure() : Promise.resolve(null),
         market === 'US' ? fetchBuffettIndicator() : Promise.resolve(null),
@@ -242,11 +253,15 @@ export const fetchRawMarketData = async (
         combinedSentiment = (redditSentiment * 0.2) + (newsSentiment * 0.8);
     }
 
-    // Proxy Selection: For MY, use scaled Currency Volatility instead of US VIX
-    let fearGaugeValue = vixData.price;
-    let fearGaugeChangePct = vixData.price > 0 ? (vixData.change / vixData.price) * 100 : 0;
-
-    if (market === 'MY' && myrVol && myrVol.vol20d > 0) {
+    // Select a usable observation before scoring; missing inputs never become a neutral observation.
+    const isFxProxy = market === 'MY' && myrVol !== null
+        && Number.isFinite(myrVol.vol20d) && myrVol.vol20d > 0
+        && Number.isFinite(myrVol.currentPrice) && myrVol.currentPrice > 0
+        && Number.isFinite(myrVol.change);
+    let fearGaugeValue: number;
+    let fearGaugeChangePct: number;
+    let fearGaugeObservedAt: Date | null;
+    if (isFxProxy && myrVol) {
         // Scale FX Vol to VIX-equivalent (e.g. 0.005 std-dev * 4000 = 20 VIX)
         // High FX vol = Higher fearGaugeValue = Lower sentiment score
         fearGaugeValue = myrVol.vol20d * 4000;
@@ -254,6 +269,13 @@ export const fetchRawMarketData = async (
 
         // Clamp proxy to reasonable VIX-like bounds (10 to 80)
         fearGaugeValue = Math.max(10, Math.min(80, fearGaugeValue));
+        fearGaugeObservedAt = myrVol.observedAt ?? null;
+    } else if (vixData) {
+        fearGaugeValue = vixData.price;
+        fearGaugeChangePct = vixData.price > 0 ? (vixData.change / vixData.price) * 100 : 0;
+        fearGaugeObservedAt = vixData.observedAt ?? null;
+    } else {
+        throw new Error('Malaysia fear gauge is unavailable: USD/MYR volatility and US VIX are unavailable.');
     }
 
     const sentimentOutput = calculateSentimentScore({
@@ -268,10 +290,7 @@ export const fetchRawMarketData = async (
 
     return {
         vixData,
-        fearGauge: (() => {
-            const isFxProxy = market === 'MY' && !!myrVol && myrVol.vol20d > 0;
-            return { value: fearGaugeValue, isFxProxy, observedAt: (isFxProxy ? myrVol?.observedAt : vixData.observedAt) ?? null };
-        })(),
+        fearGauge: { value: fearGaugeValue, isFxProxy, observedAt: fearGaugeObservedAt },
         marketIndices: indicesData,
         popularStocks: popularData,
         activeStocks: activeData,
@@ -463,7 +482,8 @@ export const getAuraAnalysis = async (marketData: AggregateMarketData, market: M
       LIMIT 1
     `;
 
-        if (cached.length > 0 && isAuraCacheFresh(cached[0].signal_date)) {
+        // Cached prose may mention VIX in any field; without a live VIX reading use the selected-input fallback.
+        if (marketData.vixData && cached.length > 0 && isAuraCacheFresh(cached[0].signal_date)) {
             return injectLiveAuraData({
                 // Use the DB's stored level/score if available, or current live calculation?
                 // Ideally, "Aura" (Text) matches the stored record, but "Score" (Number) is live.
@@ -478,7 +498,7 @@ export const getAuraAnalysis = async (marketData: AggregateMarketData, market: M
                 generatedAt: cached[0].updated_at || cached[0].created_at || cached[0].signal_date
             }, marketData);
         }
-        if (cached.length > 0) {
+        if (cached.length > 0 && !isAuraCacheFresh(cached[0].signal_date)) {
             console.warn(`Ignoring AI analysis older than ${AURA_CACHE_MAX_AGE_DAYS} days for ${market}.`);
         }
     } catch (e) {
@@ -486,14 +506,16 @@ export const getAuraAnalysis = async (marketData: AggregateMarketData, market: M
     }
 
     // 2. Fallback if DB is empty or fails (DO NOT generate fresh on render)
-    console.warn(`⚠️ No AI analysis found in DB for ${market}. Returning fallback.`);
+    console.warn(`Using current-input Aura fallback for ${market}.`);
 
     const fallbackAura = {
         auraLevel: marketData.sentimentOutput.auraLevel,
         auraScore: marketData.sentimentOutput.score,
         summary: "Market intelligence is currently compiling. Live data suggests " + marketData.sentimentOutput.auraLevel.replace('_', ' ') + " conditions.",
         keyDrivers: [
-            { factor: "VIX Index", impact: "neutral", description: `VIX is at ${marketData.vixData.price.toFixed(2)}` },
+            marketData.fearGauge.isFxProxy
+                ? { factor: "USD/MYR volatility proxy", impact: "neutral", description: `20-day USD/MYR volatility is ${marketData.fearGauge.value.toFixed(2)} scaled model points (daily-return volatility × 4000, clamped to 10–80).` }
+                : { factor: "VIX Index", impact: "neutral", description: `VIX is at ${marketData.fearGauge.value.toFixed(2)}` },
             { factor: "Social Volume", impact: "neutral", description: "Analyzing current social chatter intensity." }
         ],
         outlook: "Awaiting updated analysis. Check back shortly."
@@ -518,12 +540,15 @@ function injectLiveAuraData(aura: AuraData, marketData: AggregateMarketData) {
     if (!aura || !aura.summary) return aura;
 
     // 1. Sync VIX numbers
-    const liveVix = marketData.vixData.price.toFixed(2);
-    // Permissive regex for VIX mentions (VIX at 20, VIX of 20, VIX is 20, etc.)
-    let updatedSummary = aura.summary.replace(
-        /(?:VIX Index|VIX|volatility index) (?:at|is|level of|of|around)?\s*\d+\.?\d*/gi,
-        `VIX at ${liveVix}`
-    );
+    let updatedSummary = aura.summary;
+    if (marketData.vixData) {
+        const liveVix = marketData.vixData.price.toFixed(2);
+        // Permissive regex for VIX mentions (VIX at 20, VIX of 20, VIX is 20, etc.)
+        updatedSummary = updatedSummary.replace(
+            /(?:VIX Index|VIX|volatility index) (?:at|is|level of|of|around)?\s*\d+\.?\d*/gi,
+            `VIX at ${liveVix}`
+        );
+    }
 
     // 2. Sync Sentiment Levels (e.g., replace stale 'GREED' with live 'FEAR')
     if (marketData.sentimentOutput.auraLevel) {
@@ -564,8 +589,8 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
 
         // Assess data quality
         const hasNews = marketData.newsItems.length > 0;
-        const hasVix = marketData.vixData.price > 0;
-        const dataQuality = hasNews && hasVix ? 'GOOD' : (!hasVix ? 'DEGRADED' : 'LIMITED');
+        const hasFearGauge = Number.isFinite(marketData.fearGauge.value) && marketData.fearGauge.value > 0;
+        const dataQuality = hasNews && hasFearGauge ? 'GOOD' : (!hasFearGauge ? 'DEGRADED' : 'LIMITED');
 
         // V2 INTEGRATION (Hybrid Phase)
         // -----------------------------
@@ -814,7 +839,9 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
 
         const positiveIndexCount = marketData.marketIndices.filter(index => index.changePercent > 0).length;
         const negativeIndexCount = marketData.marketIndices.filter(index => index.changePercent < 0).length;
-        const marketRegime = marketData.vixData.price >= 30
+        // Preserve the existing VIX context when available; the local gauge covers MY VIX outages.
+        const regimeVolatility = marketData.vixData?.price ?? marketData.fearGauge.value;
+        const marketRegime = regimeVolatility >= 30
             ? 'High-Volatility Stress'
             : v2Signal.composite_score >= 65 && positiveIndexCount >= negativeIndexCount
                 ? 'Risk-On Momentum'
@@ -823,6 +850,8 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                     : 'Mixed / Neutral';
 
         const qualityWarnings = [
+            ...(market === 'MY' && !marketData.vixData ? ['US VIX context is unavailable; USD/MYR volatility supplies the fear gauge.'] : []),
+            ...(market === 'MY' && !marketData.fearGauge.isFxProxy ? ['USD/MYR volatility is unavailable; US VIX supplies the fallback fear gauge.'] : []),
             ...staleComponents.map(component => `${component.display_name} data is stale (${component.last_updated}).`),
             ...(sourceCoverage === 'limited' ? ['Source coverage is limited; treat signal alignment as directional only.'] : []),
             ...(noiseLevel === 'elevated' ? ['Social signal is elevated or sparse; retail sentiment may be noisy.'] : []),
@@ -951,8 +980,10 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                 fetchDurationMs,
                 status: 'OK',
                 dataQuality,
-                vixSource: market === 'MY' ? 'USD/MYR_VOL_PROXY' : 'CBOE_VIX',
-                vixDisclaimer: market === 'MY' ? 'Using 20-day Rolling Ringgit Volatility as local fear gauge. Scaled for VIX-parity.' : null,
+                vixSource: marketData.fearGauge.isFxProxy ? 'USD/MYR_VOL_PROXY' : 'CBOE_VIX',
+                vixDisclaimer: marketData.fearGauge.isFxProxy
+                    ? 'Using 20-day rolling USD/MYR volatility as the local fear gauge in scaled model points.'
+                    : market === 'MY' ? 'USD/MYR volatility is unavailable; using US VIX as the fallback fear gauge.' : null,
                 sentimentVelocity: marketData.sentimentOutput.components.vixScore > 0 ? (marketData.sentimentOutput.components.socialScore / marketData.sentimentOutput.components.vixScore).toFixed(2) : 'N/A', // Simple ratio as proxy for velocity for now
             },
             marketAura: aura,
@@ -962,8 +993,8 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                 active: marketData.activeStocks
             },
             rawMetrics: {
-                vix: marketData.vixData.price,
-                vixChange: marketData.vixData.change,
+                vix: marketData.vixData?.price ?? null,
+                vixChange: marketData.vixData?.change ?? null,
                 vixAuraLevel: marketData.sentimentOutput.auraLevel,
                 socialSentiment: parseFloat(marketData.combinedSentiment.toFixed(3)),
                 scoreDescription: getScoreDescription(marketData.sentimentOutput.score),

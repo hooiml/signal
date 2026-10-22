@@ -662,6 +662,17 @@ MY symbol suffixes, and bookmark authorship. It uses isolated providers/SQL. `--
 reproduces the original two defects at `8b492fa` and requires that revision in local git history.
 The normal check is included in the harness.
 
+`node scripts/harness/market-request-regression.mjs` also runs provider-failure cases
+through the real core/raw market orchestration, with
+only external providers and SQL isolated. Verify a Malaysian FX-proxy result survives
+a rejected or timed-out VIX request, missing FX uses an explicitly labelled valid VIX fallback, and
+two unavailable inputs reject without writing a signal snapshot. Reject non-finite or
+non-positive volatility readings, preserve unavailable raw/context values, and keep
+successful scoring arithmetic and US failure behavior unchanged. A fixture that replaces
+`fetchRawMarketData` cannot establish this failure-isolation contract.
+The held-provider case must prove the optional three-second MY timeout reaches the
+actual Yahoo fetch as an abort signal; a timed-out input remains unavailable.
+
 Against a production local server run `node scripts/research-unsaved-qa.mjs`.
 `SIGNAL_QA_URL` overrides localhost:3101; `CHROME_PATH` can point to an installed Chrome binary.
 The 1280/768/375px matrix intercepts all APIs: US/MY supported readings, partial/missing data,

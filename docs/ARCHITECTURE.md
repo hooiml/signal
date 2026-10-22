@@ -49,6 +49,7 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 ## Data Sources
 
 - Yahoo Finance helpers provide VIX, indices, stocks, quotes, and Malaysia currency-volatility proxy data.
+- Malaysian core reads isolate the optional US VIX fetch from the local USD/MYR volatility proxy. The optional VIX request has a three-second cancellation limit; a usable FX proxy can complete without VIX, while missing FX can use the explicitly labelled valid VIX fallback. If neither is usable, orchestration fails before signal snapshot persistence. Missing VIX stays null in raw data and optional context instead of becoming a synthetic reading. US VIX requests retain their existing required-source behavior.
 - Cboe daily market statistics provide the US put/call options-positioning input.
 - NAAIM provides weekly active-manager exposure for US positioning context.
 - FRED pages provide the non-scored Buffett Indicator valuation backdrop, 10Y–3M yield spread, and Chicago Fed NFCI context.
