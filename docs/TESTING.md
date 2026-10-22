@@ -20,10 +20,21 @@ reloads, and newer selections plus Back/Forward while saved records arrive. It a
 ambiguous links never issue a guessed US provider request. The harness also renders the actual
 Market assessment in momentum and contrarian modes via
 `node scripts/harness/market-assessment-regression.mjs` to keep score explanations mode-specific.
+It also parses real route-shaped payloads before rendering the Market headline: unavailable
+previous scores must not produce a ghost pin or accessible prior-score claim, even when a
+reported delta exists. Supplied zero/boundary scores and unchanged comparisons stay distinct.
 
 The harness also verifies price-unit formatting, preservation of currency in new review
 snapshots, and explicit missing currency for legacy records via
-`node scripts/harness/research-currency-regression.mjs`. Market and Research read fixtures
+`node scripts/harness/research-currency-regression.mjs`. This also executes the real PATCH,
+parser and store against isolated SQL to reject new/changed plan prices without currency
+and removal of a known currency while prices remain. Unchanged legacy plans remain savable,
+but unknown or mismatched cost currencies never produce performance. Mixed-case user codes
+normalize to uppercase; explicit provider minor units such as GBp retain their scale.
+The existing Research provenance browser matrix also verifies unknown-currency performance,
+mixed-case compatibility, and repeated invalid Saves after clearing a known currency at
+1280/768/375px. The V8.1 PR workflow runs both currency/Market headline regressions and
+both affected browser matrices. Market and Research read fixtures
 assert independent reads start together and snapshot writes still wait for their inputs.
 For live-watchlist changes, verify slow loading, failed-read retry, an empty saved list,
 archived exclusions and a deep-linked selected ticker without any demo securities appearing.
@@ -754,6 +765,8 @@ review claims, quote units/dates, mixed balance periods and the legacy chart err
 Market checks include narrow-screen accounting, explicit raw and score units, offsetting
 effects, descriptive scenario/replay tiers, loading/empty/partial/failed archive states
 with local retry, legacy unknown provenance, keyboard order and modal return focus.
+They also verify that a null previous score stays unavailable in both the headline spectrum
+and comparison detail while the reported delta link remains usable at all three widths.
 Inspect fresh screenshots and geometry; script completion is not visual inspection.
 Continue running the existing current-layout matrices above. None of these fixtures
 establish live provider availability, production cookie configuration or hardware

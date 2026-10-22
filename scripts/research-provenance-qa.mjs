@@ -291,6 +291,40 @@ try {
         assert.equal(records[0].whyInterested, draftText);
         assert.equal(await page.getByTestId('owner-access-notice').count(), 0);
 
+        // Unknown legacy cost units must not look compatible with the current USD quote.
+        const costRecord = bookmark();
+        costRecord.positionState = 'owned';
+        costRecord.positionPlan = { ...costRecord.positionPlan, averageCost: 100 };
+        records = [costRecord]; quoteOptions = {};
+        await open('/research?workspace=currency');
+        const performancePanel = page.getByTestId('currency-performance');
+        await performancePanel.getByText('Performance is withheld while the cost currency is unknown.', { exact: false }).waitFor();
+        assert.equal(await performancePanel.getByText('Price return', { exact: true }).count(), 0);
+        await capture('performance-unknown-cost-currency', '[data-testid="currency-performance"]');
+        records = [{ ...costRecord, positionPlan: { ...costRecord.positionPlan, currency: 'Usd' } }];
+        await page.reload();
+        await performancePanel.getByText('Price return', { exact: true }).waitFor();
+        assert.equal(await performancePanel.getByText('+20.34%', { exact: true }).count() > 0, true);
+        await capture('performance-normalized-cost-currency', '[data-testid="currency-performance"]');
+
+        // Clearing a known plan currency keeps the draft open and never sends a PATCH.
+        records = [{ ...costRecord, positionPlan: { ...costRecord.positionPlan, currency: 'MYR' } }];
+        await legacyReady('/research?workspace=research&ticker=AAPL&market=US&tab=overview&review=edit');
+        await journal.getByRole('navigation', { name: 'Review steps', exact: true }).getByRole('button', { name: 'Decision', exact: true }).click();
+        await journal.locator('summary').filter({ hasText: 'Optional position plan' }).click();
+        await journal.getByLabel('Price currency', { exact: true }).fill('');
+        const beforeCurrencySave = saveRequests.length;
+        await saveReview.click();
+        await journal.getByRole('alert').filter({ hasText: 'Record the currency of the position plan prices before saving.' }).waitFor();
+        assert.equal(saveRequests.length, beforeCurrencySave);
+        assert.equal(await journal.getByLabel('Average cost', { exact: true }).inputValue(), '100');
+        await saveReview.click();
+        assert.equal(saveRequests.length, beforeCurrencySave, 'Repeated invalid save does not send a request');
+        await capture('position-plan-currency-required', '[data-testid="research-decision-journal"]');
+        await journal.getByLabel('Price currency', { exact: true }).fill('MYR');
+        await journal.getByRole('button', { name: 'Cancel', exact: true }).click();
+        assert.equal(saveRequests.length, beforeCurrencySave);
+
         records = [bookmark('5347', 'MY')]; quoteOptions = {};
         await legacyReady('/research?workspace=research&ticker=5347&market=MY&tab=fundamentals');
         const back = page.getByRole('link', { name: 'Back to basic view →', exact: true });

@@ -1,4 +1,5 @@
 import type { ResearchRecord } from '../types/research';
+import { normalizeCurrencyCode } from './price-format';
 
 export const performanceBaseCurrencies = ['MYR', 'USD'] as const;
 export type PerformanceBaseCurrency = typeof performanceBaseCurrencies[number];
@@ -41,6 +42,8 @@ export type CurrencyPerformanceResult = {
     readonly available: boolean;
     /** True when the saved plan currency differs from the quote currency; no conversion is attempted. */
     readonly costCurrencyMismatch: boolean;
+    /** Unknown currency is not evidence that a saved cost matches the quote. */
+    readonly costCurrencyUnknown: boolean;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -87,9 +90,10 @@ export const calculateCurrencyPerformance = (
     const dividendsPercent = adjustment?.dividendsPercent ?? 0;
     const feesPercent = adjustment?.feesPercent ?? 0;
     const costBasis = record.positionPlan.averageCost ?? record.positionPlan.plannedEntryPrice;
-    const planCurrency = record.positionPlan.currency ?? null;
+    const planCurrency = normalizeCurrencyCode(record.positionPlan.currency ?? '');
+    const costCurrencyUnknown = planCurrency === null;
     const costCurrencyMismatch = planCurrency !== null && planCurrency !== quoteCurrency;
-    const validCost = !costCurrencyMismatch && costBasis !== null && Number.isFinite(costBasis) && costBasis > 0;
+    const validCost = !costCurrencyUnknown && !costCurrencyMismatch && costBasis !== null && Number.isFinite(costBasis) && costBasis > 0;
     const validPrice = currentPrice !== null && Number.isFinite(currentPrice) && currentPrice > 0;
     if (!validCost || !validPrice) return {
         symbol: record.symbol,
@@ -106,6 +110,7 @@ export const calculateCurrencyPerformance = (
         feesPercent,
         available: false,
         costCurrencyMismatch,
+        costCurrencyUnknown,
     };
     const priceFactor = currentPrice / costBasis;
     const fxFactor = quoteCurrency === parsed.baseCurrency
@@ -132,5 +137,6 @@ export const calculateCurrencyPerformance = (
         feesPercent,
         available: true,
         costCurrencyMismatch: false,
+        costCurrencyUnknown: false,
     };
 };

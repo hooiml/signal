@@ -7,6 +7,8 @@ import type {
     ResearchUpdateMode,
 } from '../types/research';
 import { defaultResearchMonitoringRules } from '../types/research';
+import { normalizeCurrencyCode } from './price-format';
+import { positionPlanCurrencyIssue, PositionPlanCurrencyError } from './position-plan';
 import {
     defaultResearchDocumentEvidenceSet,
     parseResearchDocumentEvidenceSet,
@@ -201,6 +203,19 @@ export const prepareStoredResearchRecord = (current: ResearchRecord, input: Rese
                 ? { factorAssumptions: validatedInput.factorAssumptions }
             : validatedInput;
     let updated = applyResearchUpdate(current, modeInput);
+    if (modeInput.positionPlan !== undefined) {
+        const issue = positionPlanCurrencyIssue(current.positionPlan, updated.positionPlan);
+        if (issue) throw new PositionPlanCurrencyError(issue);
+        if (updated.positionPlan.currency !== undefined) {
+            updated = {
+                ...updated,
+                positionPlan: {
+                    ...updated.positionPlan,
+                    currency: normalizeCurrencyCode(updated.positionPlan.currency ?? ''),
+                },
+            };
+        }
+    }
     if (mode !== 'review') return updated;
     const priorReviewId = current.reviewHistory[0]?.id ?? null;
     updated = {
