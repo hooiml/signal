@@ -4,7 +4,7 @@ import path from 'node:path';
 import ts from 'typescript';
 
 // Real orchestration, scoring, persistence and route; isolated raw providers and SQL.
-export function marketRequestFixture({ allowSchema = false, signalSource } = {}) {
+export function marketRequestFixture({ allowSchema = false, signalSource, providerReadings = {}, previousSnapshot } = {}) {
     const modules = new Map(), calls = [], events = [];
     let failure = '', hold = null, sqlHold = null;
     const fixedTime = '2026-09-12T00:00:00.000Z';
@@ -18,7 +18,8 @@ export function marketRequestFixture({ allowSchema = false, signalSource } = {})
         if (failure === 'providers') throw new Error('Fixture providers unavailable');
         return {
             vixData: { price: 20, change: 0 }, fearGauge: { value: 20, isFxProxy: false }, marketIndices: [], popularStocks: [], activeStocks: [],
-            redditPosts: [], stockTwits: [], newsItems: [], putCallRatio: null, naaimExposure: null,
+            redditPosts: [], stockTwits: [], newsItems: [],
+            putCallRatio: providerReadings.putCallRatio ?? null, naaimExposure: providerReadings.naaimExposure ?? null,
             buffettIndicator: null,
             marketContext: market === 'US' ? { market, yield_curve: null, financial_conditions: null, breadth: null } : { market, malaysia_rates: null },
             combinedSentiment: 0, redditSentiment: 0,
@@ -36,11 +37,11 @@ export function marketRequestFixture({ allowSchema = false, signalSource } = {})
             return [];
         }
         if (query.includes('FROM market_signals')) return [{ signal_date: '2026-09-12', summary: 'Fixture neutral market', key_drivers: [], outlook: 'Fixture outlook' }];
-        if (query.includes('FROM signal_snapshots')) return [{ snapshot_date: '2026-09-11', composite_score: 45, tier: 'neutral', components: { vix: { score: 45, weight: 1 } }, score_drivers: [], origin: 'observed', coverage_note: null }];
+        if (query.includes('FROM signal_snapshots')) return [previousSnapshot ?? { snapshot_date: '2026-09-11', composite_score: 45, tier: 'neutral', components: { vix: { score: 45, weight: 1 } }, score_drivers: [], origin: 'observed', coverage_note: null }];
         if (query.startsWith('INSERT INTO signal_snapshots')) return [];
         throw new Error(`Unexpected SQL: ${query}`);
     };
-    const safeModules = new Set(['signal', 'signal-cache', 'sentiment-calculator', 'sentiment-calculator-v2', 'market-score-thresholds', 'market-evidence-coverage', 'social-sentiment', 'indicator-registry', 'signal-change', 'source-indicator', 'market-calibration', 'market-indicators', 'aura-cache', 'MarketV8ConnectedData']);
+    const safeModules = new Set(['signal', 'signal-cache', 'sentiment-calculator', 'sentiment-calculator-v2', 'market-score-thresholds', 'market-evidence-coverage', 'market-observation-date', 'social-sentiment', 'indicator-registry', 'signal-change', 'source-indicator', 'market-calibration', 'market-indicators', 'aura-cache', 'MarketV8ConnectedData']);
     function load(file) {
         const absolute = path.resolve(file);
         if (modules.has(absolute)) return modules.get(absolute).exports;

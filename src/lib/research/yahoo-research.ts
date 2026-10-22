@@ -90,14 +90,24 @@ export const parseYahooResearchChart = (payload: unknown): YahooResearchResult =
     const closes = numericArray(quote.close);
     const adjustedCloses = numericArray(adjustedClose?.adjclose);
     const points = chartPoints(result, quote);
-    const price = numberValue(meta.regularMarketPrice) ?? closes.at(-1) ?? null;
+    const regularPrice = numberValue(meta.regularMarketPrice);
+    const price = regularPrice ?? closes.at(-1) ?? null;
+    // The metadata clock belongs to regularMarketPrice only. A last-close fallback must
+    // retain that close's original timestamp index, including gaps in the raw arrays.
+    const fallbackCloseIndex = rawArray(quote.close).reduce<number>((last, value, index) => numberValue(value) === null ? last : index, -1);
+    const observedSeconds = regularPrice !== null
+        ? numberValue(meta.regularMarketTime)
+        : fallbackCloseIndex < 0 ? null : numberValue(rawArray(result.timestamp)[fallbackCloseIndex]);
+    const observedAt = observedSeconds !== null && Number.isFinite(new Date(observedSeconds * 1_000).getTime())
+        ? new Date(observedSeconds * 1_000).toISOString()
+        : null;
     const previousClose = closes.at(-2) ?? null;
     const calculated = calculateTechnicals(closes, numericArray(quote.volume));
     const latest = points.at(-1);
     return {
         instrumentType: stringValue(meta.instrumentType),
         sharesOutstanding: numberValue(meta.sharesOutstanding) !== null && Number(meta.sharesOutstanding) > 0 ? Number(meta.sharesOutstanding) : null,
-        observedAt: numberValue(meta.regularMarketTime) !== null && Number.isFinite(new Date(Number(meta.regularMarketTime) * 1000).getTime()) ? new Date(Number(meta.regularMarketTime) * 1000).toISOString() : null,
+        observedAt,
         name: stringValue(meta.longName) ?? stringValue(meta.shortName) ?? stringValue(meta.symbol),
         currency: stringValue(meta.currency),
         price,

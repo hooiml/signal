@@ -158,6 +158,16 @@ V8 raw volatility mini-charts exclude archived components with a different displ
 so old mislabeled values and fallback/proxy series are not joined to the corrected input.
 Full archived records remain unchanged.
 
+Cboe put/call and NAAIM exposure retain separate source report dates and retrieval
+timestamps. Cboe uses the date control associated with the displayed daily statistics;
+NAAIM uses the dated exposure row. An undated headline, malformed/future date or missing
+date remains retrieval-only, so fetching the same reading again cannot establish a
+new observation. Previously archived full timestamps for these two sources cannot
+support an observation claim: replay and change comparisons retain their recorded
+values and clocks but treat that ambiguous basis as unknown. Valid calendar report
+dates remain observed. This changes provenance and freshness disclosure only, not
+normalizers, weights, missing-input scoring or stored historical records.
+
 Research free-cash-flow yield now converts the ratio to percent before rounding to two
 decimal places. E.g. 0.40%, 3.46%, −0.40% no longer become 0%, 3%, 0%. This changes displayed
 valuation precision, not the Market scoring model or raw cash-flow assessment inputs.

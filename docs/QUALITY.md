@@ -138,6 +138,12 @@ empty, partial, failed and retry states. Descriptive tier wording and semantic c
 apply in scenario and replay views. Leading named evidence is near the verdict; chart
 then evidence is both the DOM and visual order at every responsive width.
 
+Cboe and NAAIM adapters establish observation dates only from the provider's dated
+reading. Unknown dates remain retrieval-only; legacy ambiguous full timestamps lose
+their observation claim when read without rewriting archives. Research monitoring
+uses the quote observation and dated chart values independently of retrieval time;
+price-based valuations retain both the quote date and annual reporting period.
+
 The three deterministic follow-up suites and four browser matrices are documented in
 `docs/TESTING.md`. Browser checks must include 1280px, 768px and 375px screenshots,
 contained long content, keyboard/focus behavior and error recovery. The existing

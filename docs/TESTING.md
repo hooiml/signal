@@ -737,6 +737,19 @@ null versus zero change, quote currency/observation/retrieval, annual alignment 
 exact/mixed/unknown balance periods. Market cases cover old archives with unknown basis,
 retrieval versus observed clocks, newer/same/older/revised observations, incompatible
 units, null raw values and score/weight changes that offset to a zero net contribution.
+Provider-parser cases carry Cboe/NAAIM source dates through the real signal calculator,
+archive serialization and change comparison. Re-fetching the same report must not
+advance its observation date; missing or invalid dates must remain retrieval-only,
+and legacy full-timestamp observation claims must become unknown in replay and
+reconciliation. Scoring arithmetic must remain unchanged.
+
+Structured-trigger regressions separately age snapshot retrieval, quote observation
+and the latest dated chart value. Freshly fetched old quotes, missing/invalid/future
+dates, stale or mismatched technical rows and provider failure must be unavailable.
+Price-based valuation explanations must retain the current quote date and annual
+reporting period. A no-change refetch must retain the same notification detail and
+digest identity. The browser matrix uses explicitly dated fixtures and verifies
+the observation-date wording in Alerts.
 
 Run these fixture-only browser suites against an owned local production server through
 `SIGNAL_QA_URL` (localhost only); `CHROME_PATH` can select an installed Chromium binary:

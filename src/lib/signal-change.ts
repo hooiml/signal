@@ -1,3 +1,5 @@
+import { storedMarketTimestampBasis } from './market-observation-date';
+
 export type DriverContribution = {
     readonly key: string;
     readonly name: string;
@@ -154,7 +156,7 @@ export const parseStoredComponentReadings = (value: unknown): StoredComponentRea
         const weight = finiteOrNull(Reflect.get(component, 'weight'));
         if (typeof name !== 'string' || score === null || weight === null) return null;
         const lastUpdated = dateOrNull(Reflect.get(component, 'last_updated'));
-        const basis = basisOrNull(Reflect.get(component, 'timestamp_basis'));
+        const basis = storedMarketTimestampBasis(key, Reflect.get(component, 'timestamp_basis'), lastUpdated, Reflect.get(component, 'retrieved_at'));
         readings.push({
             key,
             name,

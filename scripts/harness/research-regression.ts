@@ -3255,7 +3255,7 @@ const runStructuredTriggerTests = () => {
             candidateReturnPercent: null, baselineReturnPercent: null, relativeReturnPercent: null,
             returnBasis: null, status: 'unavailable',
         },
-        quote: { name: 'Microsoft', currency: 'USD', price: 120, dailyChangePercent: 1 },
+        quote: { name: 'Microsoft', currency: 'USD', price: 120, dailyChangePercent: 1, observedAt: '2026-07-20T10:45:00.000Z' },
         fundamentals: {
             revenueGrowthPercent: 12, grossMarginPercent: null, operatingMarginPercent: null,
             freeCashFlow: 10, debt: 5, cash: 8, shares: 1, annualRevenue: 100,
@@ -3270,7 +3270,7 @@ const runStructuredTriggerTests = () => {
             ma50: 100, ma200: 80, rsi14: 60, macd: null, low52Week: null,
             high52Week: null, averageVolume20: null, support: null, resistance: null,
         },
-        chart: { interval: '1d', points: [] },
+        chart: { interval: '1d', points: [{ ...portfolioChartPoint('2026-07-20', 120), ma50: 100, ma200: 80, rsi14: 60 }] },
         sources: ['Yahoo Finance', 'SEC EDGAR'],
         warnings: [],
     };
@@ -3289,6 +3289,92 @@ const runStructuredTriggerTests = () => {
     assertEqual(evaluations.every((evaluation) => evaluation.status === 'matched'), true, 'all supported structured metrics evaluate deterministic matches');
     assertEqual(evaluations.find((evaluation) => evaluation.rule.id === 'pe')?.detail.includes('annual period 2025-06-30'), true, 'valuation matches retain reporting-period provenance');
     assertEqual(evaluations.find((evaluation) => evaluation.rule.id === 'price')?.severity, 'opportunity', 'purpose fixes alert severity without changing match semantics');
+    assertEqual(evaluations.find((evaluation) => evaluation.rule.id === 'price')?.observed?.observedAt, snapshot.quote.observedAt, 'price rules preserve the quote observation rather than its retrieval time');
+    assertEqual(evaluations.find((evaluation) => evaluation.rule.id === 'rsi')?.observed?.observedAt, '2026-07-20', 'technical rules use the latest chart observation');
+    assertEqual(evaluations.find((evaluation) => evaluation.rule.id === 'ma50')?.detail.includes('MA50 from daily chart 2026-07-20'), true, 'moving-average comparisons disclose the dated technical input separately');
+    assertEqual(evaluations.find((evaluation) => evaluation.rule.id === 'pe')?.observed?.observedAt, snapshot.quote.observedAt, 'valuation rules retain their price observation time');
+    assertEqual(evaluations.find((evaluation) => evaluation.rule.id === 'pe')?.detail.includes('quote observation 2026-07-20'), true, 'valuation explanations include the price date as well as the annual period');
+
+    const evaluateSnapshot = (next: ResearchSnapshot) => evaluateResearchStructuredTriggers({ ...context, snapshot: next });
+    const assertUnavailableRules = (next: ResearchSnapshot, ids: readonly string[], label: string) => {
+        const result = evaluateSnapshot(next);
+        for (const id of ids) {
+            const evaluation = result.find((entry) => entry.rule.id === id);
+            assertEqual(evaluation?.status, 'unavailable', `${label}: ${id} is unavailable, not a false match or non-match`);
+            assertEqual(evaluation?.observed, null, `${label}: ${id} does not publish an unsupported observation`);
+        }
+        return result;
+    };
+    const priceDependentRules = ['price', 'ma50', 'ma200', 'pe', 'fcf'];
+    const freshRetrievalOldQuote = { ...snapshot, fetchedAt: context.now.toISOString(), quote: { ...snapshot.quote, observedAt: '2026-07-01T10:45:00.000Z' } };
+    const oldQuoteResults = assertUnavailableRules(freshRetrievalOldQuote, priceDependentRules, 'fresh retrieval cannot renew an old quote');
+    assertEqual(oldQuoteResults.find((entry) => entry.rule.id === 'price')?.detail.includes('quote observation is older than 4 days'), true, 'stale quote failure identifies the observation date rather than fetch age');
+    assertEqual(oldQuoteResults.find((entry) => entry.rule.id === 'rsi')?.status, 'matched', 'fresh dated technical evidence is evaluated independently of an old quote');
+    assertEqual(oldQuoteResults.find((entry) => entry.rule.id === 'growth')?.status, 'matched', 'annual revenue growth does not require a current quote');
+    for (const observedAt of [undefined, null, 'invalid-date', '2026-07-22T00:00:00.000Z']) {
+        assertUnavailableRules({ ...snapshot, quote: { ...snapshot.quote, observedAt } }, priceDependentRules, `unverifiable quote date ${observedAt}`);
+    }
+    assertUnavailableRules({ ...snapshot, quote: { ...snapshot.quote, price: null } }, priceDependentRules, 'a dated quote without a price is still unavailable');
+    const fourDayQuote = evaluateSnapshot({ ...snapshot, quote: { ...snapshot.quote, observedAt: '2026-07-17T10:45:00.000Z' } });
+    assertEqual(fourDayQuote.find((entry) => entry.rule.id === 'price')?.status, 'matched', 'the existing four-calendar-day observation boundary remains inclusive');
+    const clockSkewQuote = evaluateSnapshot({ ...snapshot, quote: { ...snapshot.quote, observedAt: '2026-07-21T12:01:30.000Z' } });
+    assertEqual(clockSkewQuote.find((entry) => entry.rule.id === 'price')?.status, 'matched', 'small server-ahead clock skew is not treated as a future quote');
+    const refetched = evaluateSnapshot({ ...snapshot, fetchedAt: context.now.toISOString() });
+    assertEqual(refetched.find((entry) => entry.rule.id === 'price')?.observed?.observedAt, snapshot.quote.observedAt, 'refetching unchanged data cannot move its observation timestamp');
+    assertEqual(JSON.stringify(refetched.map((entry) => entry.detail)), JSON.stringify(evaluations.map((entry) => entry.detail)), 'a no-change refetch keeps alert explanations stable for notification deduplication');
+    const impossibleQuoteDate = evaluateResearchStructuredTriggers({
+        ...context,
+        now: new Date('2026-03-02T12:00:00.000Z'),
+        snapshot: { ...snapshot, fetchedAt: '2026-03-02T12:00:00.000Z', quote: { ...snapshot.quote, observedAt: '2026-02-30T10:45:00.000Z' } },
+    });
+    assertEqual(impossibleQuoteDate.find((entry) => entry.rule.id === 'price')?.status, 'unavailable', 'an impossible ISO calendar date cannot normalize into a current quote');
+    const offsetQuote = evaluateSnapshot({ ...snapshot, quote: { ...snapshot.quote, observedAt: '2026-07-20T18:45:00+08:00' } });
+    assertEqual(offsetQuote.find((entry) => entry.rule.id === 'price')?.status, 'matched', 'valid source timestamps with timezone offsets retain their date semantics');
+
+    const oldCloseTimes = ['2026-06-29T20:00:00.000Z', '2026-06-30T20:00:00.000Z', '2026-07-01T20:00:00.000Z'].map((date) => Date.parse(date) / 1_000);
+    const yahooQuote = (meta: Record<string, unknown> = {}, timestamps: readonly unknown[] = oldCloseTimes) => parseYahooResearchChart({ chart: { result: [{
+        meta: { symbol: 'MSFT', currency: 'USD', regularMarketTime: Date.parse('2026-07-20T10:45:00.000Z') / 1_000, ...meta },
+        timestamp: timestamps,
+        indicators: { quote: [{ open: [119, null, 120], high: [119, null, 120], low: [119, null, 120], close: [119, null, 120], volume: [10, null, 20] }] },
+    }] } });
+    const fallbackQuote = yahooQuote();
+    assertEqual(fallbackQuote.price, 120, 'the last-close fallback price is preserved');
+    assertEqual(fallbackQuote.currency, 'USD', 'the fallback quote retains its provider currency');
+    assertEqual(fallbackQuote.observedAt, '2026-07-01T20:00:00.000Z', 'last-close fallback keeps the matching raw timestamp despite a newer metadata clock and missing close');
+    assertUnavailableRules({ ...snapshot, quote: { ...snapshot.quote, price: fallbackQuote.price, observedAt: fallbackQuote.observedAt } }, priceDependentRules, 'adapter-to-trigger stale fallback close cannot borrow a fresh metadata clock');
+    const undatedFallback = yahooQuote({}, oldCloseTimes.slice(0, 2));
+    assertEqual(undatedFallback.price, 120, 'a fallback value remains readable when its date is missing');
+    assertEqual(undatedFallback.observedAt, null, 'a missing fallback timestamp remains unknown');
+    assertUnavailableRules({ ...snapshot, quote: { ...snapshot.quote, price: undatedFallback.price, observedAt: undatedFallback.observedAt } }, priceDependentRules, 'adapter-to-trigger undated fallback stays unavailable');
+    const regularQuote = yahooQuote({ regularMarketPrice: 121 });
+    assertEqual(regularQuote.price, 121, 'the regular quote retains precedence over an older close');
+    assertEqual(regularQuote.observedAt, '2026-07-20T10:45:00.000Z', 'a regular quote retains its own metadata observation');
+    const undatedRegularQuote = yahooQuote({ regularMarketPrice: 121, regularMarketTime: null });
+    assertEqual(undatedRegularQuote.observedAt, null, 'a regular quote without metadata time cannot borrow a close timestamp');
+
+    const technicalRules = ['rsi', 'ma50', 'ma200'];
+    const oldChart = assertUnavailableRules({ ...snapshot, chart: { ...snapshot.chart, points: [{ ...snapshot.chart.points[0], time: '2026-07-01' }] } }, technicalRules, 'fresh retrieval cannot renew old technical observations');
+    assertEqual(oldChart.find((entry) => entry.rule.id === 'price')?.status, 'matched', 'missing fresh technical coverage does not suppress the independently dated quote');
+    for (const time of ['invalid-date', '2026-02-30', '2026-07-22']) {
+        assertUnavailableRules({ ...snapshot, chart: { ...snapshot.chart, points: [{ ...snapshot.chart.points[0], time }] } }, technicalRules, `unverifiable chart date ${time}`);
+    }
+    assertUnavailableRules({ ...snapshot, chart: { ...snapshot.chart, points: [] } }, technicalRules, 'summary technicals without chart provenance');
+    assertUnavailableRules({ ...snapshot, chart: { ...snapshot.chart, points: [{ ...snapshot.chart.points[0], ma50: null, ma200: null, rsi14: null }] } }, technicalRules, 'summary fallbacks cannot borrow the date of a chart row without matching values');
+    assertUnavailableRules({ ...snapshot, technicals: { ...snapshot.technicals, rsi14: 65 } }, ['rsi'], 'a summary technical different from the dated row');
+    assertUnavailableRules({ ...snapshot, chart: { ...snapshot.chart, points: [snapshot.chart.points[0], { ...snapshot.chart.points[0], time: '2026-07-19' }] } }, technicalRules, 'unordered chart rows cannot establish the latest technical observation');
+    assertUnavailableRules({ ...snapshot, chart: { ...snapshot.chart, points: [snapshot.chart.points[0], snapshot.chart.points[0]] } }, technicalRules, 'duplicate chart dates are ambiguous');
+    const mixedDates = evaluateSnapshot({ ...snapshot, chart: { ...snapshot.chart, points: [{ ...snapshot.chart.points[0], time: '2026-07-17' }] } });
+    assertEqual(mixedDates.find((entry) => entry.rule.id === 'ma50')?.status, 'matched', 'quote and technical observations need not share a date when both are fresh');
+    assertEqual(mixedDates.find((entry) => entry.rule.id === 'ma50')?.detail.includes('daily chart 2026-07-17'), true, 'different quote and technical dates stay explicit');
+
+    for (const reportingPeriod of [null, '2024-01-01', '2027-01-01']) {
+        assertUnavailableRules({ ...snapshot, valuation: { ...snapshot.valuation, reportingPeriod } }, ['pe', 'fcf'], `valuation reporting period ${reportingPeriod} cannot be renewed by a fresh quote`);
+        assertUnavailableRules({ ...snapshot, fundamentals: { ...snapshot.fundamentals, reportingPeriod } }, ['growth'], `annual growth reporting period ${reportingPeriod}`);
+    }
+    assertUnavailableRules({ ...snapshot, fetchedAt: '2026-07-22T00:00:00.000Z' }, [...priceDependentRules, 'rsi', 'growth'], 'future retrieval remains independently unverifiable');
+    const unchangedSnapshot = JSON.stringify(snapshot);
+    evaluateSnapshot(snapshot);
+    assertEqual(JSON.stringify(snapshot), unchangedSnapshot, 'trigger evaluation does not rewrite source timestamps or observations');
 
     const equalityRules = parseResearchStructuredTriggerSet({ version: 1, rules: [
         { ...rules[0], id: 'price-equal', threshold: 120 },

@@ -162,13 +162,13 @@ const triggerEvaluation = (overrides) => ({
     status: 'matched',
     severity: 'risk',
     title: 'Thesis invalidation review',
-    detail: 'Price below 100 USD; observed 95 USD on 2026-07-26 from Yahoo Finance (0 days old).',
+    detail: 'Price below 100 USD; observed 95 USD on 2026-07-26 from Yahoo Finance (quote observation 2026-07-26 (0 days old)).',
     observed: {
         value: 95,
         label: '95 USD',
         observedAt: '2026-07-26T00:00:00.000Z',
         source: 'Yahoo Finance',
-        freshness: '0 days old',
+        freshness: 'quote observation 2026-07-26 (0 days old)',
     },
     ...overrides,
 });
@@ -201,6 +201,7 @@ try {
         let expectedConflictConsoleErrors = 0;
         const mutationBodies = [];
         const blocking = [];
+        const canceledTransitions = [];
 
         page.on('console', (message) => {
             if (message.type() !== 'error') return;
@@ -211,7 +212,28 @@ try {
             blocking.push(`console: ${message.text()}`);
         });
         page.on('pageerror', (error) => blocking.push(`pageerror: ${error.message}`));
-        page.on('requestfailed', (request) => blocking.push(`requestfailed: ${request.method()} ${new URL(request.url()).pathname}`));
+        page.on('requestfailed', (request) => {
+            const headers = request.headers();
+            const url = new URL(request.url());
+            const failure = {
+                method: request.method(),
+                url: request.url(),
+                resourceType: request.resourceType(),
+                navigation: request.isNavigationRequest(),
+                rsc: headers.rsc ?? 'none',
+                prefetch: headers['next-router-prefetch'] ?? 'none',
+                errorText: request.failure()?.errorText ?? 'unknown failure',
+            };
+            // Workspace changes can cancel an in-flight Research RSC transition. Record
+            // these separately; API failures, document failures and other errors still block.
+            if (url.origin === new URL(baseUrl).origin && url.pathname === '/research'
+                && failure.method === 'GET' && failure.resourceType === 'fetch'
+                && !failure.navigation && failure.rsc === '1' && failure.errorText === 'net::ERR_ABORTED') {
+                canceledTransitions.push(failure);
+                return;
+            }
+            blocking.push(`requestfailed: ${failure.method} ${failure.url} [${failure.resourceType}, navigation=${failure.navigation}, rsc=${failure.rsc}, prefetch=${failure.prefetch}] ${failure.errorText}`);
+        });
         page.on('response', (response) => {
             const url = new URL(response.url());
             if (url.origin === new URL(baseUrl).origin && response.status() >= 400) {
@@ -277,13 +299,13 @@ try {
                     status: 'not-matched',
                     title: 'Opportunity review',
                     severity: 'opportunity',
-                    detail: 'Price vs MA50 above 5%; observed 1% on 2026-07-26 from Yahoo Finance (0 days old).',
+                    detail: 'Price vs MA50 above 5%; observed 1% on 2026-07-26 from Yahoo Finance (quote observation 2026-07-26 (0 days old); MA50 from daily chart 2026-07-24 (2 days old)).',
                     observed: {
                         value: 1,
                         label: '1%',
                         observedAt: '2026-07-26T00:00:00.000Z',
                         source: 'Yahoo Finance',
-                        freshness: '0 days old',
+                        freshness: 'quote observation 2026-07-26 (0 days old); MA50 from daily chart 2026-07-24 (2 days old)',
                     },
                 });
                 await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
@@ -392,6 +414,8 @@ try {
             mutationCount: mutationBodies.length,
             queueCount: queued.length,
             overflow,
+            canceledTransitionCount: canceledTransitions.length,
+            canceledTransitions,
             blocking,
         });
         await context.close();

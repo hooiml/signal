@@ -78,5 +78,9 @@ const {createResearchRecord}=load('src/lib/research/records.ts');const {parseRes
 const bookmark=createResearchRecord(parseResearchCreateInput({symbol:'AAPL',market:'US',companyName:'Apple',saveOnly:true}));
 assert.equal(bookmark.decisionJournal.decision,'Not recorded');assert.equal(bookmark.decisionJournal.confidence,'unrecorded');assert.equal(bookmark.thesisStrength,'unknown');assert.equal(bookmark.notes,'');assert.equal(bookmark.whyInterested,'');assert.deepEqual(bookmark.reviewHistory,[]);assert.equal(parseResearchRecord(bookmark).decisionJournal.decision,'Not recorded');assert.throws(()=>parseResearchCreateInput({symbol:'AAPL',market:'US',companyName:'Apple',saveOnly:'true'}));
 const {parseYahooResearchChart,toYahooSymbol}=load('src/lib/research/yahoo-research.ts');assert.equal(toYahooSymbol('5347.KL','MY'),'5347.KL');
-const quote=parseYahooResearchChart({chart:{result:[{meta:{instrumentType:'EQUITY',regularMarketTime:1700000000},indicators:{quote:[{close:[]}]}}]}});assert.equal(quote.observedAt,new Date(1700000000000).toISOString());assert.equal(quote.instrumentType,'EQUITY');
+const quoteMeta={instrumentType:'EQUITY',regularMarketTime:1700000000};
+const quote=parseYahooResearchChart({chart:{result:[{meta:{...quoteMeta,regularMarketPrice:120},indicators:{quote:[{close:[]}]}}]}});
+assert.equal(quote.price,120);assert.equal(quote.observedAt,new Date(1700000000000).toISOString());assert.equal(quote.instrumentType,'EQUITY');
+const missingPrice=parseYahooResearchChart({chart:{result:[{meta:quoteMeta,indicators:{quote:[{close:[]}]}}]}});
+assert.equal(missingPrice.price,null);assert.equal(missingPrice.observedAt,null,'a metadata timestamp without a quoted price is not a price observation');
 console.log('Research trust regression passed: rounding, real MY proxy/fallback orchestration, applicability, partial evidence, bookmark authorship, observation dates and MY suffix. No real SQL/providers.');

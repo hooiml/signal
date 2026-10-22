@@ -676,15 +676,16 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                 weight: 0,
                 signal: getSignalFromScore(normalizePutCallRatio(marketData.putCallRatio.ratio)),
                 enabled: true,
-                last_updated: marketData.putCallRatio.reportDate,
+                last_updated: marketData.putCallRatio.reportDate ?? marketData.putCallRatio.retrievedAt,
                 metadata: {
-                    timestamp_basis: 'observed',
-                    retrieved_at: retrievedAt,
+                    timestamp_basis: marketData.putCallRatio.reportDate ? 'observed' : 'retrieved',
+                    retrieved_at: marketData.putCallRatio.retrievedAt,
                     unit: 'put/call ratio',
                     source_url: marketData.putCallRatio.sourceUrl,
                     cadence: 'Daily / tactical',
                     horizon: '1-5 trading days',
                     mode_note: 'Options positioning. High put/call can indicate fear or hedging; low put/call can indicate complacency.'
+                        + (marketData.putCallRatio.reportDate ? '' : ' Observation date is unavailable; the timestamp records retrieval only.')
                 }
             }
             : null;
@@ -697,15 +698,16 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                 weight: 0,
                 signal: getSignalFromScore(normalizeNaaimExposure(marketData.naaimExposure.exposure)),
                 enabled: true,
-                last_updated: marketData.naaimExposure.reportDate,
+                last_updated: marketData.naaimExposure.reportDate ?? marketData.naaimExposure.retrievedAt,
                 metadata: {
-                    timestamp_basis: 'observed',
-                    retrieved_at: retrievedAt,
+                    timestamp_basis: marketData.naaimExposure.reportDate ? 'observed' : 'retrieved',
+                    retrieved_at: marketData.naaimExposure.retrievedAt,
                     unit: '% exposure',
                     source_url: marketData.naaimExposure.sourceUrl,
                     cadence: 'Weekly / positioning',
                     horizon: '1-4 weeks',
                     mode_note: 'Weekly active-manager exposure. High exposure can confirm momentum but may also flag crowding in contrarian mode.'
+                        + (marketData.naaimExposure.reportDate ? '' : ' Observation date is unavailable; the timestamp records retrieval only.')
                 }
             }
             : null;
