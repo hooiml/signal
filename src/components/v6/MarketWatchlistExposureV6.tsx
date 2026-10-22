@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { watchlist, type ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
+import { watchlist } from '@/components/research/ResearchDashboardV2';
 import { createMarketResearchHandoff, buildResearchHandoffHref } from '@/lib/market-research-handoff';
-import { buildMarketWatchlistExposure, type MarketExposureLevel } from '@/lib/research/market-exposure';
+import { buildMarketWatchlistExposure, type MarketExposureLevel, type MarketExposureWatchlistItem } from '@/lib/research/market-exposure';
+import { personalReviewDate } from '@/lib/research/review-lifecycle';
 import { enqueueResearchWorkflowTaskClient } from '@/lib/research/workflow-queue-client';
 import { parseResearchRecord, ResearchInputError } from '@/lib/research/input';
 import type { MarketSignal } from '@/lib/types/signal-v2';
@@ -18,19 +19,19 @@ const levelLabel: Readonly<Record<MarketExposureLevel, string>> = {
     unmapped: 'Unmapped',
 };
 
-const mergeSavedWatchlist = (
+export const mergeSavedMarketExposureWatchlist = (
     saved: ReturnType<typeof parseResearchRecord>[],
     archivedSymbols: readonly string[],
-): ResearchWatchlistItem[] => {
+): MarketExposureWatchlistItem[] => {
     const seeded = watchlist
         .filter((item) => !archivedSymbols.includes(item.symbol))
         .map((item) => {
             const record = saved.find((candidate) => candidate.symbol === item.symbol);
-            return record ? applyResearchRecordV6(item, record) : item;
+            return record ? { ...applyResearchRecordV6(item, record), lastReviewedAt: personalReviewDate(record) } : item;
         });
     const additions = saved
         .filter((record) => !watchlist.some((item) => item.symbol === record.symbol))
-        .map((record, index) => createWatchlistItemV6(record, 100 + index));
+        .map((record, index) => ({ ...createWatchlistItemV6(record, 100 + index), lastReviewedAt: personalReviewDate(record) }));
     return [...seeded, ...additions];
 };
 
@@ -47,7 +48,7 @@ export const MarketWatchlistExposureV6 = ({ signal, theme }: {
     readonly theme: ResearchThemeV6;
 }) => {
     const styles = getThemeV6(theme);
-    const [items, setItems] = useState<ResearchWatchlistItem[]>(watchlist);
+    const [items, setItems] = useState<MarketExposureWatchlistItem[]>(watchlist);
     const [loadNote, setLoadNote] = useState<string | null>(null);
     const [queueStatus, setQueueStatus] = useState<string | null>(null);
 
@@ -67,7 +68,7 @@ export const MarketWatchlistExposureV6 = ({ signal, theme }: {
                 const archivedSymbols = Array.isArray(body.archivedSymbols)
                     ? body.archivedSymbols.filter((value): value is string => typeof value === 'string')
                     : [];
-                setItems(mergeSavedWatchlist(saved, archivedSymbols));
+                setItems(mergeSavedMarketExposureWatchlist(saved, archivedSymbols));
                 setLoadNote(null);
             } catch (error) {
                 if (controller.signal.aborted) return;
@@ -134,7 +135,7 @@ export const MarketWatchlistExposureV6 = ({ signal, theme }: {
                         ))}
                     </div>
                     <div className={'mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 ' + styles.divider}>
-                        <p className={'text-xs ' + styles.textMuted}>{item.reviewAgeDays === null ? 'Review date unavailable' : `Reviewed ${item.reviewAgeDays} days ago`}</p>
+                        <p className={'text-xs ' + styles.textMuted}>{item.reviewStatus === 'not-reviewed' ? 'Not reviewed' : item.reviewAgeDays === null ? 'Review date unavailable' : `Reviewed ${item.reviewAgeDays} days ago`}</p>
                         <div className="flex flex-wrap justify-end gap-2">
                             <button type="button" aria-label={`Queue ${item.symbol} market-context review`} onClick={() => {
                                 const result = enqueueResearchWorkflowTaskClient({

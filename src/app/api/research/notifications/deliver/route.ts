@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { reviewMonitoringRules } from '@/lib/research/review-lifecycle';
+import { personalReviewDate, reviewMonitoringRules } from '@/lib/research/review-lifecycle';
 import { requireAnyBearerSecret } from '@/lib/route-auth';
 import { getResearchInbox } from '@/lib/research/inbox';
 import {
@@ -56,7 +56,7 @@ export const GET = async (request: Request): Promise<NextResponse> => {
             symbol: record.symbol,
             market: record.market,
             targetBuyZone: record.targetBuyZone,
-            lastReviewedAt: record.lastReviewedAt,
+            lastReviewedAt: personalReviewDate(record),
             acceptedEvidence: record.acceptedEvidence,
             monitoringRules: reviewMonitoringRules(record),
         }));

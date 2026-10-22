@@ -47,7 +47,7 @@ const scheduledReviewEvent = (input: ResearchCalendarInput, start: string, end: 
 };
 
 const staleReviewEvent = (input: ResearchCalendarInput, start: string, end: string): ResearchCalendarEvent | null => {
-    if (input.reviewAgeDays === null) return null;
+    if (input.reviewAgeDays === null || input.lastReviewedAt === null) return null;
     const sourceDate = addUtcDays(input.lastReviewedAt, input.reviewAgeDays);
     if (sourceDate >= start) return null;
     const displayDate = start;

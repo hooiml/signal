@@ -12,6 +12,7 @@ import { calculateValuation } from '../../src/lib/research/valuation';
 import { scoreDiscoveryCandidate } from '../../src/lib/research/discovery-score';
 import { evaluateResearchAlerts, parseBuyZone } from '../../src/lib/research/alerts';
 import { buildResearchAlertRequest } from '../../src/lib/research/alert-request';
+import { buildResearchCalendarRequest } from '../../src/lib/research/calendar-request';
 import { evaluateResearchStructuredTriggers, parseResearchStructuredTriggerSet } from '../../src/lib/research/structured-triggers';
 import { evaluateMarketAlert, getMarketAlertRulesForBriefing, parseMarketAlertRules, type MarketAlertRule } from '../../src/lib/market-alerts';
 import { scoreDiscoveryQuality } from '../../src/lib/research/discovery-quality';
@@ -175,11 +176,13 @@ import { buildEvidenceCoverage } from '../../src/lib/research/evidence-coverage'
 import {
     assessInvestmentPolicy,
     defaultInvestmentPolicy,
+    investmentPolicyAssessmentLabel,
+    investmentPolicyReviewLabel,
     parseInvestmentPolicy,
 } from '../../src/lib/research/investment-policy';
 import { buildResearchReadiness } from '../../src/lib/research/readiness';
 import { checkOwnerAccess, issueOwnerAccessToken, ownerAccessCookieName, ownerAccessMaxAgeSeconds, ownerSecretMatches, readOwnerAccessSecret, verifyOwnerAccessToken } from '../../src/lib/owner-access';
-import { hasPersonalReview, personalReviewDate, reviewAgeCountdownDays, savedReviewMarkers } from '../../src/lib/research/review-lifecycle';
+import { hasPersonalReview, personalReviewAgeDays, personalReviewDate, reviewAgeCountdownDays, savedReviewMarkers } from '../../src/lib/research/review-lifecycle';
 import { buildResearchWorkspaceAttention, parsePinnedResearchWorkspaces, togglePinnedResearchWorkspace } from '../../src/lib/research/workspace-pins';
 import {
     calculateCurrencyPerformance,
@@ -473,11 +476,18 @@ const runResearchBackupTests = async () => {
         revision: 7,
         updatedAt: '2026-07-25T08:00:00.000Z',
     };
-    const encrypted = await encryptResearchBackup([record], 'correct horse battery staple', '2026-07-25T08:30:00.000Z');
+    const bookmark = { ...createResearchRecord({ symbol: 'NVDA', market: 'US', companyName: 'NVIDIA', saveOnly: true }), lastReviewedAt: '2026-01-01' };
+    const historyOnly = appendResearchReview({ ...bookmark, symbol: 'META' }, '2026-07-20T08:00:00.000Z');
+    const encrypted = await encryptResearchBackup([record, bookmark, historyOnly], 'correct horse battery staple', '2026-07-25T08:30:00.000Z');
     assertEqual(encrypted.includes('Encrypted thesis detail'), false, 'encrypted backup does not expose plaintext research');
     const decrypted = await decryptResearchBackup(encrypted, 'correct horse battery staple');
     assertEqual(decrypted.records[0]?.notes, record.notes, 'encrypted backup round-trips validated research');
     assertEqual(decrypted.exportedAt, '2026-07-25T08:30:00.000Z', 'encrypted backup preserves export time');
+    const restored = parseResearchRestoreRequest({ conflictPolicy: 'add-only', records: decrypted.records }).records;
+    assertEqual(personalReviewDate(restored[1]!), null, 'backup and restore keep an old bookmark unreviewed');
+    assertEqual(restored[1]?.lastReviewedAt, '2026-01-01', 'backup preserves the stored bookmark date without migrating it');
+    assertEqual(restored[2]?.decisionJournal.decision, 'Not recorded', 'backup preserves a review without an authored decision');
+    assertEqual(personalReviewAgeDays(personalReviewDate(restored[2]!), '2026-07-25'), 5, 'backup and restore retain authored history and its review age');
     await assertRejects(
         () => decryptResearchBackup(encrypted, 'incorrect passphrase'),
         'encrypted backup rejects the wrong passphrase',
@@ -651,6 +661,13 @@ const runMarketWatchlistExposureTests = () => {
     assertEqual(exposure.find((item) => item.symbol === 'UNKNOWN')?.highestLevel, 'unmapped', 'unknown sectors remain explicitly unmapped');
     assertEqual(exposure.find((item) => item.symbol === 'TECH')?.connections[0]?.driverImpact, 'negative', 'exposure map preserves the source driver direction');
     assertEqual(exposure.find((item) => item.symbol === 'TECH')?.reviewAgeDays, 5, 'exposure map derives review age from the saved review date');
+    const unknownReview = buildMarketWatchlistExposure(signal, [
+        { ...items[0]!, lastReviewedAt: null },
+        { ...items[2]!, lastReviewedAt: '2026-07-26' },
+    ], new Date('2026-07-25T23:59:59.000Z'));
+    assertEqual(unknownReview.find((item) => item.symbol === 'TECH')?.reviewAgeDays, null, 'exposure map keeps a bookmark age unknown');
+    assertEqual(unknownReview.find((item) => item.symbol === 'TECH')?.reviewStatus, 'not-reviewed', 'exposure map distinguishes an unreviewed bookmark');
+    assertEqual(unknownReview.find((item) => item.symbol === 'UNKNOWN')?.reviewStatus, 'unavailable', 'exposure map does not treat a future authored date as a fresh review');
 };
 
 const runThesisChangeTests = () => {
@@ -1067,6 +1084,27 @@ const runInvestmentPolicyTests = () => {
     }], defaultInvestmentPolicy, '2026-07-26')[0];
     assertEqual(evidenceAndAge?.violations.some((item) => item.kind === 'evidence-coverage'), true, 'investment policy flags evidence coverage below the configured minimum');
     assertEqual(evidenceAndAge?.violations.some((item) => item.kind === 'review-age'), true, 'investment policy flags an overdue saved review');
+
+    const bookmark = { ...createResearchRecord({ symbol: 'NVDA', market: 'US', companyName: 'NVIDIA', saveOnly: true }), lastReviewedAt: '2026-01-01' };
+    const assess = (record: typeof first) => assessInvestmentPolicy([{ record, sector: 'Technology' }], policy, '2026-07-26')[0]!;
+    const unreviewed = assess(bookmark);
+    assertEqual(unreviewed.reviewAgeDays, null, 'policy does not age a bookmark from its save date');
+    assertEqual(unreviewed.reviewStatus, 'not-reviewed', 'policy distinguishes missing authorship');
+    assertEqual(unreviewed.compliant, false, 'unknown review age cannot produce policy compliance');
+    assertEqual(unreviewed.violations.length, 0, 'missing review age is not fabricated as an old-age violation');
+    assertEqual(investmentPolicyAssessmentLabel(unreviewed), 'Not reviewed', 'policy does not show a positive zero-violation status for a bookmark');
+    for (const lastReviewedAt of ['invalid', '2026-02-30', '2026-07-27']) {
+        const unavailable = assess({ ...first, lastReviewedAt });
+        assertEqual(unavailable.reviewAgeDays, null, 'invalid or future authored review age is unavailable');
+        assertEqual(unavailable.compliant, false, 'invalid or future authored dates cannot pass the policy');
+        assertEqual(investmentPolicyReviewLabel(unavailable), 'Review date unavailable', 'an invalid authored date is distinct from an unreviewed bookmark');
+    }
+    const historyOnly = assess(appendResearchReview(bookmark, '2026-07-20T08:00:00.000Z'));
+    assertEqual(historyOnly.reviewAgeDays, 6, 'history establishes review age even with decision Not recorded');
+    assertEqual(historyOnly.compliant, true, 'a valid authored review can satisfy the age guardrail');
+    const bookmarkReadiness = buildResearchReadiness({ record: bookmark, sector: 'Technology', policyAssessment: unreviewed, today: '2026-07-26' });
+    assertEqual(bookmarkReadiness.items.find((item) => item.id === 'policy')?.status, 'Not reviewed', 'readiness keeps incomplete policy age explicit');
+    assertEqual(bookmarkReadiness.items.find((item) => item.id === 'policy')?.tone, 'attention', 'readiness never marks missing review age ready');
 };
 
 const runOwnerAccessTests = async () => {
@@ -1094,6 +1132,10 @@ const runReviewLifecycleTests = () => {
     const bookmark = { ...createResearchRecord({ symbol: 'NVDA', market: 'US', companyName: 'NVIDIA', saveOnly: true }), lastReviewedAt: '2026-01-01' };
     assertEqual(hasPersonalReview(bookmark), false, 'a save-only bookmark is not a personal review');
     assertEqual(personalReviewDate(bookmark), null, 'a save-only bookmark makes no last-reviewed claim');
+    assertEqual(personalReviewAgeDays(personalReviewDate(bookmark), '2026-07-26'), null, 'a save-only bookmark has no numeric personal-review age');
+    assertEqual(personalReviewAgeDays('2026-07-26', '2026-07-26'), 0, 'an actual review starts its age on the saved UTC day');
+    assertEqual(personalReviewAgeDays('2026-02-30', '2026-03-02'), null, 'impossible calendar dates do not normalize into authored ages');
+    assertEqual(personalReviewAgeDays('2026-07-27', '2026-07-26'), null, 'future authored dates are not clamped to zero');
     assertEqual(reviewAgeCountdownDays(bookmark), null, 'a save-only bookmark starts no age-based countdown');
     const bookmarkReadiness = buildResearchReadiness({ record: bookmark, sector: 'Technology', policyAssessment: null, today: '2026-07-26' });
     assertEqual(bookmarkReadiness.items.find((item) => item.id === 'review')?.detail.includes('No personal review recorded'), true, 'readiness labels a bookmark as unreviewed');
@@ -1104,6 +1146,25 @@ const runReviewLifecycleTests = () => {
     assertEqual(buildSinceLastVisitChanges([scheduled], null, '2026-07-26T00:00:00.000Z').overdueReviewSymbols.join(','), 'NVDA', 'an explicit first-review schedule still becomes overdue');
     const reviewed = appendResearchReview(bookmark, '2026-03-01T00:00:00.000Z');
     assertEqual(hasPersonalReview(reviewed), true, 'saving an actual review establishes a personal review');
+    assertEqual(reviewed.decisionJournal.decision, 'Not recorded', 'explicit review history does not require an authored decision');
+    assertEqual(personalReviewAgeDays(personalReviewDate(reviewed), '2026-03-05'), 4, 'history-only authored review starts a numeric age');
+    const firstReview = prepareStoredResearchRecord(scheduled, {}, 'review');
+    assertEqual(firstReview.reviewHistory.length, 1, 'the first explicit review save appends authored history');
+    assertEqual(personalReviewAgeDays(personalReviewDate(firstReview)), 0, 'the first explicit review save starts age today');
+    for (const current of [scheduled, { ...reviewed, decisionJournal: { ...reviewed.decisionJournal, nextReviewAt: '2026-07-01' } }]) {
+        const updated = prepareStoredResearchRecord(current, { monitoringRules: { ...current.monitoringRules, reviewAgeDays: 45 } }, 'settings');
+        const captured = prepareStoredResearchRecord(updated, { documentEvidence: current.documentEvidence }, 'evidence');
+        assertEqual(personalReviewDate(captured), personalReviewDate(current), 'settings and evidence saves never create or restart a personal review');
+        assertEqual(captured.reviewHistory.length, current.reviewHistory.length, 'settings and evidence saves preserve authored history');
+        assertEqual(captured.decisionJournal.nextReviewAt, '2026-07-01', 'settings and evidence saves preserve an explicit schedule');
+    }
+    const calendarRequest = parseResearchCalendarInputs(buildResearchCalendarRequest([scheduled]));
+    assertEqual(calendarRequest[0]?.lastReviewedAt, null, 'Calendar and Today project no authored review date for a bookmark');
+    assertEqual(calendarRequest[0]?.reviewAgeDays, null, 'Calendar and Today do not create a bookmark stale-age countdown');
+    const scheduledEvents = buildResearchCalendar({ inputs: calendarRequest, catalysts: [], macroEvents: [], now: new Date('2026-07-26T00:00:00.000Z'), rangeDays: 30 }).events;
+    assertEqual(scheduledEvents.length, 1, 'a bookmark with a schedule produces only its explicit first-review reminder');
+    assertEqual(scheduledEvents[0]?.type, 'review', 'nullable personal-review dates preserve scheduled calendar reminders');
+    assertEqual(scheduledEvents[0]?.sourceDate, '2026-07-01', 'the scheduled first-review date is unchanged');
     assertEqual(savedReviewMarkers(bookmark).length, 0, 'a save-only bookmark adds no chart review marker');
     assertEqual(savedReviewMarkers(reviewed).length, 1, 'the latest saved review is marked once, not again as the current review');
     const decided = { ...reviewed, lastReviewedAt: '2026-04-02', decisionJournal: { ...reviewed.decisionJournal, decision: 'Watch' as const } };
@@ -1134,6 +1195,7 @@ const runResearchReadinessTests = () => {
         violations: [],
         evidenceCoveragePercent: 100,
         reviewAgeDays: 1,
+        reviewStatus: 'reviewed',
         compliant: true,
     } as const;
     const empty = buildResearchReadiness({ record: base, sector: 'Technology', policyAssessment: null, today: '2026-07-26' });
@@ -3192,11 +3254,12 @@ const runAlertTests = () => {
     assertEqual(request[0]?.lastReviewedAt, '2026-07-20', 'alert request uses the saved record review date');
     assertEqual(request[0]?.acceptedEvidence.length, 0, 'alert request includes accepted evidence');
     assertEqual(request[0]?.monitoringRules.reviewAgeDays, 14, 'alert request includes saved monitoring rules');
-    assertEqual(request[1]?.lastReviewedAt, '2026-07-02', 'alert request falls back to the watchlist review date');
+    assertEqual(request[1]?.lastReviewedAt, null, 'alert request does not invent authorship from a watchlist date without saved research');
     assertEqual(request[1]?.monitoringRules.reviewAgeDays, defaultResearchMonitoringRules.reviewAgeDays, 'alert request includes default monitoring rules without a saved record');
     const bookmarkRequest = buildResearchAlertRequest([{ symbol: 'NVDA', market: 'US', targetBuyZone: '', lastReviewedAt: '2026-07-01' }],
         [{ ...createResearchRecord({ symbol: 'NVDA', market: 'US', companyName: 'NVIDIA', saveOnly: true }), monitoringRules }]);
     assertEqual(bookmarkRequest[0]?.monitoringRules.reviewAgeDays, null, 'a save-only bookmark does not start an age-based stale-review countdown');
+    assertEqual(bookmarkRequest[0]?.lastReviewedAt, null, 'alert and Inbox requests retain the nullable authored-review date');
 };
 
 const runStructuredTriggerTests = () => {
@@ -3294,6 +3357,32 @@ const runStructuredTriggerTests = () => {
     assertEqual(evaluations.find((evaluation) => evaluation.rule.id === 'ma50')?.detail.includes('MA50 from daily chart 2026-07-20'), true, 'moving-average comparisons disclose the dated technical input separately');
     assertEqual(evaluations.find((evaluation) => evaluation.rule.id === 'pe')?.observed?.observedAt, snapshot.quote.observedAt, 'valuation rules retain their price observation time');
     assertEqual(evaluations.find((evaluation) => evaluation.rule.id === 'pe')?.detail.includes('quote observation 2026-07-20'), true, 'valuation explanations include the price date as well as the annual period');
+
+    const bookmark = {
+        ...record,
+        decisionJournal: { ...record.decisionJournal, decision: 'Not recorded' as const },
+        reviewHistory: [],
+    };
+    const bookmarkAge = evaluateResearchStructuredTriggers({ ...context, record: bookmark }).find((entry) => entry.rule.id === 'research-age');
+    assertEqual(bookmarkAge?.status, 'unavailable', 'an enabled research-age rule is unavailable before the first authored review');
+    assertEqual(bookmarkAge?.observed, null, 'bookmark save dates never become structured research-age observations');
+    assertEqual(bookmarkAge?.detail.includes('no personal review is recorded'), true, 'the unavailable rule explains missing authorship');
+    const bookmarkInput = buildResearchAlertRequest([bookmark], [bookmark])[0]!;
+    const projectedAge = evaluateResearchStructuredTriggers({ ...context, record: bookmarkInput }).find((entry) => entry.rule.id === 'research-age');
+    assertEqual(projectedAge?.status, 'unavailable', 'the alert request projection preserves missing review authorship end to end');
+    const historyOnly = appendResearchReview(bookmark, '2026-06-01T08:00:00.000Z');
+    const historyAge = evaluateResearchStructuredTriggers({ ...context, record: historyOnly }).find((entry) => entry.rule.id === 'research-age');
+    assertEqual(historyAge?.status, 'matched', 'authored history with decision Not recorded still triggers a truly old review');
+    assertEqual(historyAge?.observed?.value, 50, 'research-age rules count UTC days from the authored review');
+    const freshReview = appendResearchReview(bookmark, '2026-07-20T08:00:00.000Z');
+    const freshAge = evaluateResearchStructuredTriggers({ ...context, record: freshReview }).find((entry) => entry.rule.id === 'research-age');
+    assertEqual(freshAge?.status, 'not-matched', 'the first recent authored review starts the age clock');
+    assertEqual(freshAge?.observed?.value, 1, 'the first review replaces bookmark age with its actual review age');
+    for (const lastReviewedAt of ['2026-02-30', '2026-07-22']) {
+        const invalidAge = evaluateResearchStructuredTriggers({ ...context, record: { ...record, lastReviewedAt } }).find((entry) => entry.rule.id === 'research-age');
+        assertEqual(invalidAge?.status, 'unavailable', 'invalid or future authored dates are unavailable to structured age rules');
+        assertEqual(invalidAge?.observed, null, 'invalid or future review dates cannot publish a numeric age');
+    }
 
     const evaluateSnapshot = (next: ResearchSnapshot) => evaluateResearchStructuredTriggers({ ...context, snapshot: next });
     const assertUnavailableRules = (next: ResearchSnapshot, ids: readonly string[], label: string) => {
@@ -3459,6 +3548,10 @@ const runInboxTests = () => {
     assertEqual(items.some((item) => item.symbol === '1155' && item.title === 'RSI below 40'), true, 'inbox evaluates a custom RSI threshold');
     assertEqual(items.find((item) => item.title === 'Below 200-day average')?.proximity, '5.0% below MA200', 'inbox quantifies distance to technical trigger');
     assertEqual(items.find((item) => item.kind === 'stale')?.proximity, '66 days since review', 'inbox derives review age from the saved review date');
+    const noReviewItems = buildResearchInboxItems({
+        inputs: [{ ...inputs[0]!, lastReviewedAt: null }], evaluations: [], catalysts: new Map(), now: new Date('2026-07-15T12:00:00.000Z'),
+    });
+    assertEqual(noReviewItems.length, 0, 'a nullable personal-review date cannot create an Inbox stale-age item even with an enabled age rule');
     const nextDayItems = buildResearchInboxItems({ inputs, evaluations, catalysts, now: new Date('2026-07-16T12:00:00.000Z') });
     assertEqual(nextDayItems.find((item) => item.kind === 'stale')?.proximity, '67 days since review', 'inbox review age advances automatically with the generated date');
     assertEqual(items.find((item) => item.kind === 'catalyst')?.proximity, '7 days away', 'inbox quantifies time to catalyst');

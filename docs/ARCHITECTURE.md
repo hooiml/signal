@@ -224,10 +224,20 @@ alerts and scheduled delivery) starts only after a genuine review. An explicit `
 schedule still applies to bookmarks. These bookmarks are excluded from outcome attribution until an actual
 review exists. Legacy V6/V7 headers, journals and controls use the same personal-review
 predicate, while calculated checklist status remains separate from the saved decision.
-The optional structured research-age trigger and investment-policy age check still use
-the stored bookmark date; these are known remaining limitations. No schema migration is part of this change.
+Structured research-age triggers and investment-policy checks use the same nullable
+authored-review age. A bookmark has no age observation; its trigger is unavailable,
+and its policy assessment requires a first review rather than claiming compliance
+or inventing a stale-age violation.
+Readiness, Policy and Market exposure display `Not reviewed` until an authored review
+exists. A review-history entry counts even when its decision remains `Not recorded`;
+legacy authored decisions remain supported. Settings and evidence-only saves do not
+advance the review clock. The storage column and encrypted backup format are unchanged.
+Decision Memory also requires an explicit saved decision for its decision-dependent
+imports; `Not recorded` cannot become a dated `watch` decision. Evidence remains
+available, and the primary journal retains reviews without recorded decisions.
 
-Quote `observedAt` comes from Yahoo's `regularMarketTime`; snapshot `fetchedAt` remains
+Quote `observedAt` comes from Yahoo's `regularMarketTime` when the price comes from the
+same quote; a fallback close retains its corresponding chart timestamp. Snapshot `fetchedAt` remains
 retrieval time. Missing observation time stays unavailable. No source freshness thresholds
 or scoring eligibility changed. Company assessment now requires the provider's `EQUITY`
 instrument type. Funds, indices, unknown types and names matching bank/bancorp/financial/

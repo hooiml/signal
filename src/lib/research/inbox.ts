@@ -3,11 +3,9 @@ import type { AlertMarketState, ResearchAlertEvaluation } from '../types/researc
 import type { ResearchInboxInput, ResearchInboxItem, ResearchInboxResponse } from '../types/research-inbox';
 import { evaluateResearchAlertBatch } from './alert-service';
 import { parseBuyZone } from './alerts';
+import { personalReviewAgeDays } from './review-lifecycle';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-const daysBetween = (earlier: string, later: Date): number =>
-    Math.floor((later.getTime() - new Date(`${earlier}T00:00:00Z`).getTime()) / DAY_MS);
 
 const daysUntil = (date: string, now: Date): number =>
     Math.max(0, Math.ceil((new Date(`${date}T00:00:00Z`).getTime() - now.getTime()) / DAY_MS));
@@ -105,8 +103,8 @@ export const buildResearchInboxItems = (
         return input ? [...marketItems(input, evaluation.state), ...structuredTriggerItems(input, evaluation)] : [];
     });
     const staleItems = inputs.flatMap((input) => {
-        const ageDays = daysBetween(input.lastReviewedAt, now);
-        return input.monitoringRules.reviewAgeDays !== null && ageDays > input.monitoringRules.reviewAgeDays ? [staleItem(input, ageDays)] : [];
+        const ageDays = personalReviewAgeDays(input.lastReviewedAt, now.toISOString().slice(0, 10));
+        return ageDays !== null && input.monitoringRules.reviewAgeDays !== null && ageDays > input.monitoringRules.reviewAgeDays ? [staleItem(input, ageDays)] : [];
     });
     const catalystItems = [...catalysts.entries()].flatMap(([symbol, catalyst]) => {
         const input = inputBySymbol.get(symbol);

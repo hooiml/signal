@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import { buildResearchAlertRequest } from '@/lib/research/alert-request';
+import { buildResearchCalendarRequest } from '@/lib/research/calendar-request';
 import { assessInvestmentPolicy } from '@/lib/research/investment-policy';
 import { upcomingDividendCashFlowDigestEvents } from '@/lib/portfolio/dividend-cashflow';
 import { loadDividendCashFlowSnapshot } from '@/lib/portfolio/dividend-cashflow-client';
@@ -144,14 +145,7 @@ export const SinceLastVisitBriefingV6 = ({
                 const response = await fetch('/api/research/calendar?range=30', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(records.map((record) => ({
-                        symbol: record.symbol,
-                        market: record.market,
-                        nextReviewAt: record.decisionJournal.nextReviewAt,
-                        lastReviewedAt: record.lastReviewedAt,
-                        reviewAgeDays: record.monitoringRules.reviewAgeDays,
-                        earningsWithinDays: record.monitoringRules.earningsWithinDays,
-                    }))),
+                    body: JSON.stringify(buildResearchCalendarRequest(records)),
                     signal: boundedSignal(controller.signal),
                 });
                 const calendar = parseResearchCalendarResponse(await responsePayload(response, 'Research calendar is unavailable.'));

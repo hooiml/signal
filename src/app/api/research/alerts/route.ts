@@ -16,7 +16,7 @@ const parseInput = (value: unknown): AlertTickerInput | null => {
     if (typeof input.symbol !== 'string' || !/^[A-Z0-9.-]{1,15}$/.test(input.symbol)) return null;
     if (input.market !== 'US' && input.market !== 'MY') return null;
     if (typeof input.targetBuyZone !== 'string' || input.targetBuyZone.length > 60) return null;
-    if (typeof input.lastReviewedAt !== 'string' || !isCalendarDate(input.lastReviewedAt)) return null;
+    if (input.lastReviewedAt !== null && (typeof input.lastReviewedAt !== 'string' || !isCalendarDate(input.lastReviewedAt))) return null;
     try {
         return {
             symbol: input.symbol,

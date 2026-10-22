@@ -7,6 +7,8 @@ import {
     type MarketResearchHandoff,
 } from '@/lib/market-research-handoff';
 import type { MarketSignal } from '@/lib/types/signal-v2';
+import type { ResearchRecord } from '@/lib/types/research';
+import { personalReviewAgeDays, personalReviewDate } from '@/lib/research/review-lifecycle';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import {
     setProductAnalyticsWorkflowSource,
@@ -47,22 +49,23 @@ export const MarketToResearchLinkV6 = ({ signal, theme }: {
 const formatMode = (mode: MarketResearchHandoff['mode']) => mode === 'standard' ? 'Momentum' : 'Contrarian';
 const formatTier = (tier: MarketResearchHandoff['tier']) => tier.split('-').map((part) => part[0].toUpperCase() + part.slice(1)).join(' ');
 
-const daysSince = (value: string) => {
-    const time = new Date(value).getTime();
-    return Number.isNaN(time) ? 0 : Math.floor((Date.now() - time) / 86_400_000);
-};
-
-export const ResearchMarketContextV6 = ({ handoff, items, theme, onOpen }: {
+export const ResearchMarketContextV6 = ({ handoff, items, records, theme, onOpen }: {
     readonly handoff: MarketResearchHandoff;
     readonly items: readonly ResearchWatchlistItem[];
+    readonly records: readonly ResearchRecord[];
     readonly theme: ResearchThemeV6;
     readonly onOpen: (symbol: string) => void;
 }) => {
     const styles = getThemeV6(theme);
+    const recordsBySymbol = new Map(records.map((record) => [record.symbol, record]));
     const matching = items.filter((item) => item.market === handoff.market);
     const reviewQueue = [...matching]
-        .filter((item) => item.positionState === 'owned' || daysSince(item.lastReviewedAt) >= 30)
-        .sort((left, right) => Number(right.positionState === 'owned') - Number(left.positionState === 'owned') || left.lastReviewedAt.localeCompare(right.lastReviewedAt));
+        .map((item) => {
+            const record = recordsBySymbol.get(item.symbol);
+            return { ...item, reviewAgeDays: personalReviewAgeDays(record ? personalReviewDate(record) : null) };
+        })
+        .filter((item) => item.positionState === 'owned' || item.reviewAgeDays !== null && item.reviewAgeDays >= 30)
+        .sort((left, right) => Number(right.positionState === 'owned') - Number(left.positionState === 'owned') || (right.reviewAgeDays ?? -1) - (left.reviewAgeDays ?? -1));
     const next = reviewQueue[0] ?? matching[0];
 
     return <section data-testid="research-market-context" aria-labelledby="research-market-context-title" data-surface-tier="utility" className={'mb-4 rounded-[10px] border p-4 backdrop-blur min-[700px]:p-5 ' + styles.panelUtility}>

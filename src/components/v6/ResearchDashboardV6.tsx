@@ -990,7 +990,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                         </button>
                     </section>
                 ) : null}
-                {marketHandoff ? <ResearchMarketContextV6 handoff={marketHandoff} items={items} theme={theme} onOpen={openResearchFrom('market')} /> : null}
+                {marketHandoff ? <ResearchMarketContextV6 handoff={marketHandoff} items={items} records={records} theme={theme} onOpen={openResearchFrom('market')} /> : null}
                 {workspace === 'research' ? <div>
                     {presentation === 'v6' ? <h1 className="sr-only">Research workspace</h1> : null}
                     {recordsLoadState === 'ready' ? (

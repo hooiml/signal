@@ -146,6 +146,7 @@ price-based valuations retain both the quote date and annual reporting period.
 
 The three deterministic follow-up suites and four browser matrices are documented in
 `docs/TESTING.md`. Browser checks must include 1280px, 768px and 375px screenshots,
-contained long content, keyboard/focus behavior and error recovery. The existing
-bookmark-based structured research-age trigger and investment-policy review-age
-semantics remain explicit known limitations of this slice.
+contained long content, keyboard/focus behavior and error recovery. Authored-review
+age is nullable across structured monitoring, policy and readiness: a saved bookmark
+must not become a fresh review or satisfy a review-age policy. An explicit scheduled
+review remains independent of whether a first review has been authored.

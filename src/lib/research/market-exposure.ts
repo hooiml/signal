@@ -1,4 +1,5 @@
 import type { MarketSignal } from '../types/signal-v2';
+import { personalReviewAgeDays } from './review-lifecycle';
 
 export type MarketExposureLevel = 'higher' | 'moderate' | 'lower' | 'unmapped';
 
@@ -8,7 +9,7 @@ export type MarketExposureWatchlistItem = {
     readonly sector: string;
     readonly industry: string;
     readonly positionState: 'owned' | 'not-owned';
-    readonly lastReviewedAt: string;
+    readonly lastReviewedAt: string | null;
 };
 
 export type MarketExposureConnection = {
@@ -25,6 +26,7 @@ export type MarketWatchlistExposure = {
     readonly industry: string;
     readonly owned: boolean;
     readonly reviewAgeDays: number | null;
+    readonly reviewStatus: 'reviewed' | 'not-reviewed' | 'unavailable';
     readonly highestLevel: MarketExposureLevel;
     readonly connections: readonly MarketExposureConnection[];
 };
@@ -87,12 +89,6 @@ const exposureRule = (
     return { level: 'moderate', rule: 'No narrower sector rule exists; the driver is shown as broad market context.' };
 };
 
-const ageInDays = (value: string, now: Date) => {
-    const time = new Date(value).getTime();
-    if (Number.isNaN(time)) return null;
-    return Math.max(0, Math.floor((now.getTime() - time) / 86_400_000));
-};
-
 export const buildMarketWatchlistExposure = (
     signal: MarketSignal,
     watchlist: readonly MarketExposureWatchlistItem[],
@@ -103,7 +99,7 @@ export const buildMarketWatchlistExposure = (
 
     return watchlist
         .filter((item) => item.market === signal.metadata.market)
-        .map((item) => {
+        .map((item): MarketWatchlistExposure => {
             const connections = drivers.map((driver): MarketExposureConnection => ({
                 driverKey: driver.key,
                 driverName: driver.name,
@@ -114,12 +110,14 @@ export const buildMarketWatchlistExposure = (
                 (highest, connection) => levelRank[connection.level] > levelRank[highest] ? connection.level : highest,
                 'unmapped',
             );
+            const reviewAgeDays = personalReviewAgeDays(item.lastReviewedAt, now.toISOString().slice(0, 10));
             return {
                 symbol: item.symbol,
                 sector: item.sector || 'Unknown',
                 industry: item.industry || 'Unknown',
                 owned: item.positionState === 'owned',
-                reviewAgeDays: ageInDays(item.lastReviewedAt, now),
+                reviewAgeDays,
+                reviewStatus: item.lastReviewedAt === null ? 'not-reviewed' : reviewAgeDays === null ? 'unavailable' : 'reviewed',
                 highestLevel,
                 connections,
             };

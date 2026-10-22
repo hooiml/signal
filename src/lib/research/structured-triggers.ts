@@ -10,6 +10,7 @@ import type {
 } from '../types/research';
 import type { ResearchSnapshot } from '../types/research-snapshot';
 import { isResearchCalendarDate } from './calendar-input';
+import { personalReviewAgeDays, personalReviewDate } from './review-lifecycle';
 
 export const researchStructuredTriggerLimit = 10;
 
@@ -150,7 +151,10 @@ export type ResearchStructuredTriggerEvaluation = {
 };
 
 export type ResearchStructuredTriggerContext = {
-    readonly record: Pick<ResearchRecord, 'symbol' | 'lastReviewedAt' | 'acceptedEvidence' | 'monitoringRules'>;
+    readonly record: Pick<ResearchRecord, 'symbol' | 'acceptedEvidence' | 'monitoringRules'> & (
+        Pick<ResearchRecord, 'lastReviewedAt' | 'decisionJournal' | 'reviewHistory'>
+        | { readonly lastReviewedAt: string | null }
+    );
     readonly snapshot: ResearchSnapshot | null;
     readonly snapshotStatus: ResearchStructuredTriggerProviderStatus;
     readonly catalyst: DiscoveryCatalyst | null;
@@ -172,6 +176,10 @@ const ageDays = (value: string, now: Date): number | null => {
     const basis = utcDay(value);
     return basis === null ? null : Math.max(0, Math.floor(now.getTime() / DAY_MS) - basis);
 };
+
+// Full records retain authorship; request projections already carry a nullable personal date.
+const authoredReviewDate = (record: ResearchStructuredTriggerContext['record']): string | null =>
+    'decisionJournal' in record && 'reviewHistory' in record ? personalReviewDate(record) : record.lastReviewedAt;
 
 const datedInputIssue = (value: string | null | undefined, now: Date, maximumAgeDays: number, label: string): string | null => {
     if (!value) return `the ${label} date is unavailable`;
@@ -287,13 +295,14 @@ const observedMetric = (
 ): ResearchStructuredTriggerObserved | null => {
     const { snapshot, now } = context;
     if (rule.metric === 'research-age-days') {
-        const value = ageDays(context.record.lastReviewedAt, now);
+        const reviewedAt = authoredReviewDate(context.record);
+        const value = personalReviewAgeDays(reviewedAt, now.toISOString().slice(0, 10));
         return value === null ? null : {
             value,
             label: `${value} days`,
-            observedAt: context.record.lastReviewedAt,
+            observedAt: reviewedAt,
             source: 'Research journal',
-            freshness: `reviewed ${context.record.lastReviewedAt}`,
+            freshness: `reviewed ${reviewedAt}`,
         };
     }
     if (rule.metric === 'evidence-age-days') {
@@ -383,7 +392,9 @@ const missingReason = (rule: ResearchStructuredTriggerRule, context: ResearchStr
         ? 'the earnings provider is unavailable'
         : 'no trustworthy earnings observation is available';
     if (rule.metric === 'evidence-age-days') return 'no dated accepted evidence is available';
-    if (rule.metric === 'research-age-days') return 'the saved review date is invalid';
+    if (rule.metric === 'research-age-days') return authoredReviewDate(context.record) === null
+        ? 'no personal review is recorded'
+        : 'the personal review date is invalid or in the future';
     const inputIssue = currentInputIssue(rule, context);
     if (inputIssue) return inputIssue;
     if (rule.metric === 'price-earnings' || rule.metric === 'free-cash-flow-yield-percent' || rule.metric === 'revenue-growth-percent') {

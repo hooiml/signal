@@ -1,5 +1,6 @@
 import type { ResearchRecord } from '../types/research';
 import { buildEvidenceCoverage } from './evidence-coverage';
+import { personalReviewAgeDays, personalReviewDate } from './review-lifecycle';
 
 export type InvestmentPolicy = {
     readonly version: 1;
@@ -41,9 +42,20 @@ export type InvestmentPolicyAssessment = {
     readonly sector: string;
     readonly violations: readonly InvestmentPolicyViolation[];
     readonly evidenceCoveragePercent: number;
-    readonly reviewAgeDays: number;
+    readonly reviewAgeDays: number | null;
+    readonly reviewStatus: 'reviewed' | 'not-reviewed' | 'unavailable';
     readonly compliant: boolean;
 };
+
+export const investmentPolicyReviewLabel = (assessment: InvestmentPolicyAssessment): string =>
+    assessment.reviewStatus === 'not-reviewed' ? 'Not reviewed'
+        : assessment.reviewAgeDays === null ? 'Review date unavailable'
+            : `Reviewed ${assessment.reviewAgeDays} days ago`;
+
+export const investmentPolicyAssessmentLabel = (assessment: InvestmentPolicyAssessment): string =>
+    assessment.compliant ? 'Within policy'
+        : assessment.violations.length > 0 ? `${assessment.violations.length} violation${assessment.violations.length === 1 ? '' : 's'}`
+            : investmentPolicyReviewLabel(assessment);
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -69,8 +81,6 @@ export const parseInvestmentPolicy = (value: unknown): InvestmentPolicy => {
     };
 };
 
-const utcDay = (value: string): number => Math.floor(Date.parse(`${value}T00:00:00.000Z`) / 86_400_000);
-
 export const assessInvestmentPolicy = (
     entries: readonly { readonly record: ResearchRecord; readonly sector: string }[],
     policy: InvestmentPolicy,
@@ -87,7 +97,8 @@ export const assessInvestmentPolicy = (
         const allocation = record.positionPlan.plannedAllocationPercent ?? 0;
         const sectorAllocation = sectorAllocations.get(sector) ?? 0;
         const evidenceCoveragePercent = buildEvidenceCoverage(record, today).coveragePercent;
-        const reviewAgeDays = Math.max(0, utcDay(today) - utcDay(record.lastReviewedAt));
+        const reviewedAt = personalReviewDate(record);
+        const reviewAgeDays = personalReviewAgeDays(reviewedAt, today);
         if (allocation > parsedPolicy.maxSingleAllocationPercent) violations.push({
             kind: 'single-allocation',
             message: `Planned allocation exceeds the ${parsedPolicy.maxSingleAllocationPercent}% single-name limit.`,
@@ -106,7 +117,7 @@ export const assessInvestmentPolicy = (
             actual: evidenceCoveragePercent,
             limit: parsedPolicy.minEvidenceCoveragePercent,
         });
-        if (reviewAgeDays > parsedPolicy.maxReviewAgeDays) violations.push({
+        if (reviewAgeDays !== null && reviewAgeDays > parsedPolicy.maxReviewAgeDays) violations.push({
             kind: 'review-age',
             message: `The saved review is older than ${parsedPolicy.maxReviewAgeDays} days.`,
             actual: reviewAgeDays,
@@ -126,7 +137,8 @@ export const assessInvestmentPolicy = (
             violations,
             evidenceCoveragePercent,
             reviewAgeDays,
-            compliant: violations.length === 0,
+            reviewStatus: reviewedAt === null ? 'not-reviewed' : reviewAgeDays === null ? 'unavailable' : 'reviewed',
+            compliant: reviewAgeDays !== null && violations.length === 0,
         };
     });
 };

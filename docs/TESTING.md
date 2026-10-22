@@ -304,7 +304,9 @@ npm run qa:research-readiness -- --base-url http://127.0.0.1:3000
 The deterministic command covers the fixed next-gap precedence, collapsed seven-signal detail,
 selected-ticker handoff to Evidence and Policy, Valuation/Alerts/Calendar destinations, no Research
 mutation, first-viewport placement, document and strip overflow, blocking console/request errors,
-and responsive captures at 1280px, 768px, and 375px.
+and responsive captures at 1280px, 768px, and 375px. Bookmark cases must show `Not
+reviewed` in readiness and Policy, preserve explicit next-review schedules, and avoid
+a numeric review-age or compliant-review claim before the first authored review.
 
 ### Targeted Research Continuity QA
 
@@ -513,6 +515,17 @@ Thesis-change inbox checks should distinguish unseen, changed, and identical acc
 Evidence-coverage checks should classify empty fields as missing, unsourced saved analysis as assumptions, current sourced analysis as supported, aged reporting periods as stale, and mixed positive/risk findings as conflicting. Reporting periods must take precedence over recently accepted old evidence, and empty thesis text must remain missing even when evidence is attached. Browser verification should restore `workspace=evidence`, switch tickers, display all five states and explicit freshness rules, open Research without entering edit mode, queue a deduplicated evidence review with provenance, emit no research-record mutation, and avoid document overflow at 1280px, 768px, and 375px.
 
 Investment-policy checks should reject malformed limits, aggregate positive planned allocations by sector, detect single-name and sector breaches, enforce the configured evidence and review-age rules, and apply the optional cheap/fair valuation requirement only to Ready/DCA decisions. Browser verification should restore `workspace=policy`, edit and persist each setting, reload the policy, show compliant and breached records, queue a deduplicated policy review with provenance, preserve every saved decision, emit no research-record mutation, and avoid document overflow at 1280px, 768px, and 375px.
+
+Authored-review lifecycle checks must distinguish creation-only bookmarks, legacy
+authored decisions and review history with decision `Not recorded`. A first explicit
+review starts the clock; settings and evidence-only updates preserve it. Unreviewed
+records have null policy age and unavailable structured research-age observations;
+they cannot satisfy the review-age guardrail or acquire a fabricated numeric breach.
+Show an incomplete review assessment separately from real policy violations.
+Preserve explicit schedules and the
+same semantics through encrypted backup/restore without a schema change.
+Decision Memory must retain bookmark evidence without inventing a dated thesis or
+`watch` decision, and keep explicit legacy decisions eligible for import.
 
 Currency-performance checks should reject malformed FX assumptions and adjustments, separate local security return from FX contribution, compound price and FX before dividend/fee adjustments, handle MYR and USD base directions correctly, and preserve unavailable states when cost basis or current price is missing. Browser verification should restore `workspace=currency`, change and persist base/FX assumptions plus one ticker adjustment, reload the settings, show both calculated and unavailable records, open Research without editing, emit no research-record mutation, and avoid document overflow at 1280px, 768px, and 375px.
 
