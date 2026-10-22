@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { isolatedSnapshot } from './harness/research-improvements-regression.mjs';
 
@@ -11,7 +11,7 @@ const argument = (name, fallback = null) => {
 const baseUrl = argument('--base-url', process.env.SIGNAL_QA_URL ?? 'http://127.0.0.1:3000');
 const requestedViewport = argument('--viewport');
 const viewports = requestedViewport
-    ? [{ width: Number(requestedViewport), height: 900 }]
+    ? [{ width: Number(requestedViewport), height: Number(requestedViewport) === 375 ? 812 : 900 }]
     : [{ width: 1280, height: 900 }, { width: 768, height: 900 }, { width: 375, height: 812 }];
 const timeout = 15_000;
 const artifactDirectory = path.resolve('.tmp', 'research-readiness-qa', new Date().toISOString().replace(/[.:]/g, '-'));
@@ -55,6 +55,7 @@ const snapshot = {
 };
 const policy = { version: 1, maxSingleAllocationPercent: 20, maxSectorAllocationPercent: 35, minEvidenceCoveragePercent: 40, maxReviewAgeDays: 90, requireFairOrCheapForReady: true };
 const failures = [];
+const results = [];
 const baseOrigin = new URL(baseUrl).origin;
 
 const openResearch = async (page) => {
@@ -83,6 +84,8 @@ try {
         const blocking = [];
         const mutations = [];
         const calendarRequests = [];
+        const result = { viewport, status: 'running', nextActionBottom: null, authoredAgeScenarios: false };
+        results.push(result);
         let currentRecord = structuredClone(record);
         page.on('console', (message) => { if (message.type() === 'error') blocking.push(`console: ${message.text()}`); });
         page.on('pageerror', (error) => blocking.push(`pageerror: ${error.message}`));
@@ -128,6 +131,7 @@ try {
             if (await page.getByTestId('research-readiness-details').getAttribute('open') !== null) throw new Error('readiness details are not collapsed initially');
             await page.getByRole('tab', { name: 'Overview' }).waitFor({ state: 'visible', timeout });
             const nextActionBottom = await nextActions.evaluate((node) => node.getBoundingClientRect().bottom);
+            result.nextActionBottom = nextActionBottom;
             if (nextActionBottom >= viewport.height) {
                 blocking.push(`selected decision action starts below the first viewport at ${nextActionBottom}px`);
                 await page.screenshot({ path: path.join(artifactDirectory, `first-viewport-${viewport.width}.png`), fullPage: true });
@@ -143,6 +147,25 @@ try {
                 if (!mobileOrder.detail || !mobileOrder.action || !mobileOrder.watchlist) throw new Error('mobile decision/watchlist geometry is incomplete');
                 if (mobileOrder.detail.bottom > mobileOrder.watchlist.top + 1 || mobileOrder.action.bottom > mobileOrder.watchlist.top + 1) throw new Error('mobile watchlist appears before the selected decision and next action');
                 if (mobileOrder.watchlist.height > 230) throw new Error(`mobile ticker selector is not compact (${mobileOrder.watchlist.height}px)`);
+                await page.screenshot({ path: path.join(artifactDirectory, `first-screen-${viewport.width}.png`), fullPage: false });
+                const toolsToggle = page.getByRole('button', { name: 'Views and briefing' });
+                assert.equal(await toolsToggle.getAttribute('aria-expanded'), 'false');
+                assert.equal(await page.getByText('Views & density', { exact: true }).isVisible(), false);
+                await toolsToggle.focus();
+                await page.keyboard.press('Enter');
+                await page.getByText('Views & density', { exact: true }).waitFor({ state: 'visible', timeout });
+                await page.getByTestId('since-last-visit').waitFor({ state: 'visible', timeout });
+                const viewsSummary = page.locator('#research-secondary-tools summary').filter({ hasText: 'Views & density' });
+                await viewsSummary.focus();
+                await page.keyboard.press('Enter');
+                await page.getByRole('group', { name: 'Research density' }).waitFor({ state: 'visible', timeout });
+                await page.getByRole('button', { name: 'Compact', exact: true }).focus();
+                await viewsSummary.click();
+                await toolsToggle.focus();
+                await page.keyboard.press('Space');
+                assert.equal(await toolsToggle.getAttribute('aria-expanded'), 'false');
+                assert.equal(await page.getByTestId('since-last-visit').isVisible(), false);
+                await page.evaluate(() => window.scrollTo(0, 0));
             }
             await nextActions.click();
             await page.waitForURL((url) => url.searchParams.get('tab') === 'overview' && url.searchParams.get('review') === 'edit', { timeout });
@@ -239,10 +262,14 @@ try {
             assert.equal(reviewedCalendar?.reviewAgeDays, 45, 'the settings update changes the requested countdown, not the review date');
             assert.equal(reviewedCalendar?.nextReviewAt, scheduledReviewDate, 'settings retain the explicit schedule in the calendar request');
             console.log(`PASS bookmark, history-only review, settings age, policy coverage, and explicit schedule ${viewport.width}px`);
+            result.authoredAgeScenarios = true;
             if (mutations.length > 0) throw new Error(`readiness navigation emitted mutations: ${mutations.join(', ')}`);
             if (blocking.length > 0) throw new Error(blocking.join(' | '));
+            result.status = 'passed';
             console.log(`PASS Research readiness state, owners, layout, and authored review-age provenance ${viewport.width}px`);
         } catch (error) {
+            result.status = 'failed';
+            result.error = error instanceof Error ? error.message : String(error);
             failures.push(`${viewport.width}px: ${error instanceof Error ? error.message : String(error)}`);
             await page.screenshot({ path: path.join(artifactDirectory, `failure-${viewport.width}.png`), fullPage: true, timeout: 5_000 }).catch(() => {});
         } finally {
@@ -253,6 +280,7 @@ try {
     await browser.close();
 }
 
+await writeFile(path.join(artifactDirectory, 'report.json'), JSON.stringify({ fixtureOnly: true, status: failures.length ? 'failed' : 'passed', results, failures }, null, 2));
 if (failures.length > 0) {
     failures.forEach((failure) => console.error(`FAIL ${failure}`));
     process.exitCode = 1;

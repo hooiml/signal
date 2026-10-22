@@ -387,6 +387,8 @@ try {
             await page.goForward();
             await page.waitForURL((url) => url.searchParams.get('ticker') === 'NVDA');
 
+            const secondaryTools = page.getByRole('button', { name: 'Views and briefing' });
+            if (await secondaryTools.isVisible() && await secondaryTools.getAttribute('aria-expanded') === 'false') await secondaryTools.click();
             const views = page.getByText('Views & density', { exact: true });
             await views.click();
             await page.getByRole('button', { name: 'Phase 1 saved view', exact: true }).click();

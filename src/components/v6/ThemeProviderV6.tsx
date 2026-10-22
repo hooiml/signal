@@ -23,8 +23,10 @@ export const ThemeProviderV6 = ({ children }: { readonly children: React.ReactNo
 
     useEffect(() => {
         const timeoutId = window.setTimeout(() => {
-            const stored = window.localStorage.getItem(RESEARCH_THEME_STORAGE_KEY_V6);
-            if (stored === 'light' || stored === 'dark') setTheme(stored);
+            try {
+                const stored = window.localStorage.getItem(RESEARCH_THEME_STORAGE_KEY_V6);
+                if (stored === 'light' || stored === 'dark') setTheme(stored);
+            } catch { /* The current in-memory theme remains usable without storage. */ }
             setReady(true);
         }, 0);
         return () => window.clearTimeout(timeoutId);
@@ -34,7 +36,7 @@ export const ThemeProviderV6 = ({ children }: { readonly children: React.ReactNo
         if (!ready) return;
         document.documentElement.setAttribute('data-cockpit-theme', theme);
         document.documentElement.setAttribute('data-theme-ready', 'true');
-        window.localStorage.setItem(RESEARCH_THEME_STORAGE_KEY_V6, theme);
+        try { window.localStorage.setItem(RESEARCH_THEME_STORAGE_KEY_V6, theme); } catch { /* Keep the theme for this page view. */ }
     }, [ready, theme]);
 
     const toggleTheme = () => setTheme((current) => current === 'dark' ? 'light' : 'dark');

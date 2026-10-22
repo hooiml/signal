@@ -5,13 +5,31 @@ import { V8_THEME_STORAGE_KEY, parseV8ThemeChoice, type V8ThemeChoice } from './
 import styles from './market-v8.module.css';
 
 const listeners = new Set<() => void>();
+let lastChoice: V8ThemeChoice = 'system';
+let sessionOverride: V8ThemeChoice | null = null;
+
+const notify = () => listeners.forEach(listener => listener());
+const storageChanged = (event: StorageEvent) => {
+    if (event.key !== V8_THEME_STORAGE_KEY && event.key !== null) return;
+    try {
+        if (event.storageArea !== null && event.storageArea !== window.localStorage) return;
+    } catch { /* A storage event can still supply the choice when access is blocked. */ }
+    sessionOverride = null;
+    lastChoice = parseV8ThemeChoice(event.newValue);
+    notify();
+};
 const subscribe = (listener: () => void) => {
     listeners.add(listener);
-    window.addEventListener('storage', listener);
-    return () => { listeners.delete(listener); window.removeEventListener('storage', listener); };
+    if (listeners.size === 1) window.addEventListener('storage', storageChanged);
+    return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0) window.removeEventListener('storage', storageChanged);
+    };
 };
 const readChoice = (): V8ThemeChoice => {
-    try { return parseV8ThemeChoice(window.localStorage.getItem(V8_THEME_STORAGE_KEY)); } catch { return 'system'; }
+    if (sessionOverride !== null) return sessionOverride;
+    try { lastChoice = parseV8ThemeChoice(window.localStorage.getItem(V8_THEME_STORAGE_KEY)); } catch { /* Keep the last observed or selected choice. */ }
+    return lastChoice;
 };
 const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)');
 
@@ -27,12 +45,14 @@ export function V8ThemeControl() {
         return () => media.removeEventListener('change', apply);
     }, [choice]);
     const change = (next: V8ThemeChoice) => {
+        lastChoice = next;
+        sessionOverride = next;
         try {
             if (next === 'system') window.localStorage.removeItem(V8_THEME_STORAGE_KEY);
             else window.localStorage.setItem(V8_THEME_STORAGE_KEY, next);
+            sessionOverride = null;
         } catch { /* Storage can be unavailable; the choice still applies until reload. */ }
-        listeners.forEach(listener => listener());
-        if (next !== 'system') document.documentElement.setAttribute('data-v8-theme', next);
+        notify();
     };
     return <label className={styles.themeControl}>
         <span className={styles.visuallyHidden}>Colour theme</span>

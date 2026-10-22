@@ -1,5 +1,5 @@
 import { chromium } from 'playwright';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const argument = (name, fallback = null) => {
@@ -10,10 +10,10 @@ const argument = (name, fallback = null) => {
 const baseUrl = argument('--base-url', process.env.SIGNAL_QA_URL ?? 'http://127.0.0.1:3000');
 const requestedViewport = argument('--viewport');
 const viewports = requestedViewport
-    ? [{ width: Number(requestedViewport), height: 900 }]
+    ? [{ width: Number(requestedViewport), height: Number(requestedViewport) === 375 ? 812 : 900 }]
     : [{ width: 1280, height: 900 }, { width: 768, height: 900 }, { width: 375, height: 812 }];
 const timeout = 15_000;
-const artifactDirectory = path.resolve('.tmp', 'research-structured-triggers-qa');
+const artifactDirectory = path.resolve(argument('--output', '.tmp/research-structured-triggers-qa'));
 await mkdir(artifactDirectory, { recursive: true });
 
 const checklist = {
@@ -190,11 +190,57 @@ const notificationCenter = {
 
 const browser = await chromium.launch({ headless: true });
 const report = [];
+let lastPage = null;
+let failure = null;
+
+// Document overflow alone misses content hidden by the surrounding workspace window.
+// Measure the actual controls before/after focus and against every clipping ancestor.
+const inspectEditorGeometry = async (page, stage, geometry, blocking) => {
+    const result = await page.getByTestId('structured-trigger-editor').evaluate((editor, name) => {
+        const describe = (element) => element.getAttribute('aria-label')
+            || element.getAttribute('data-testid') || element.id
+            || `${element.tagName.toLowerCase()} ${(element.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 60)}`;
+        const bounds = (element) => {
+            const rect = element.getBoundingClientRect();
+            return { left: rect.left, right: rect.right, width: rect.width, top: rect.top, bottom: rect.bottom };
+        };
+        const controls = [...editor.querySelectorAll('input, select, button, label')]
+            .filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden');
+        const violations = [];
+        const scrolled = new Map();
+        for (const element of controls) {
+            const rect = bounds(element);
+            if (rect.left < -1 || rect.right > innerWidth + 1) {
+                violations.push({ control: describe(element), ancestor: 'viewport', bounds: rect });
+            }
+            for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+                if (Math.abs(ancestor.scrollLeft) > 1) scrolled.set(describe(ancestor), ancestor.scrollLeft);
+                if (!['hidden', 'clip', 'auto', 'scroll'].includes(getComputedStyle(ancestor).overflowX)) continue;
+                const outer = bounds(ancestor);
+                const left = outer.left + ancestor.clientLeft;
+                const right = left + ancestor.clientWidth;
+                if (rect.left < left - 1 || rect.right > right + 1) {
+                    violations.push({ control: describe(element), ancestor: describe(ancestor), bounds: rect, clip: { left, right } });
+                }
+            }
+        }
+        return {
+            stage: name, viewport: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+            editor: bounds(editor), controlCount: controls.length, violations,
+            scrolledAncestors: [...scrolled].map(([ancestor, scrollLeft]) => ({ ancestor, scrollLeft })),
+        };
+    }, stage);
+    geometry.push(result);
+    if (result.scrollWidth > result.viewport + 1) blocking.push(`${stage}: document has horizontal overflow`);
+    if (result.violations.length) blocking.push(`${stage}: ${result.violations.length} editor controls exceed the viewport or a clipping ancestor`);
+    if (result.scrolledAncestors.length) blocking.push(`${stage}: editor focus horizontally scrolled an ancestor`);
+};
 
 try {
     for (const viewport of viewports) {
         const context = await browser.newContext({ viewport });
         const page = await context.newPage();
+        lastPage = page;
         let record = recordFixture();
         let conflictNext = false;
         let expectedConflictResponses = 0;
@@ -202,6 +248,7 @@ try {
         const mutationBodies = [];
         const blocking = [];
         const canceledTransitions = [];
+        const geometry = [];
 
         page.on('console', (message) => {
             if (message.type() !== 'error') return;
@@ -351,12 +398,17 @@ try {
         const editor = page.getByTestId('structured-trigger-editor');
         await editor.waitFor({ state: 'visible', timeout });
         await editor.getByText('No structured review prompts are configured.').waitFor({ timeout });
+        await inspectEditorGeometry(page, 'editor-empty', geometry, blocking);
         await editor.getByRole('button', { name: 'Add rule' }).focus();
         await page.keyboard.press('Enter');
+        await inspectEditorGeometry(page, 'editor-added', geometry, blocking);
+        await editor.getByLabel(/Threshold for Price/).focus();
         await editor.getByLabel(/Threshold for Price/).fill('90');
+        await inspectEditorGeometry(page, 'editor-field-focused', geometry, blocking);
         await editor.getByRole('button', { name: 'Save structured rules' }).focus();
         await page.keyboard.press('Enter');
         await editor.getByText('Structured monitoring rules saved.').waitFor({ timeout });
+        await inspectEditorGeometry(page, 'editor-saved', geometry, blocking);
         await page.screenshot({ path: path.join(artifactDirectory, `editor-saved-${viewport.width}.png`), fullPage: true });
 
         if (mutationBodies.length !== 1
@@ -373,13 +425,16 @@ try {
         await page.getByRole('button', { name: 'Manage MSFT attention items' }).click({ timeout });
         await page.getByText('Monitoring rules', { exact: true }).click({ timeout });
         await page.getByTestId('structured-trigger-editor').getByText('1/10 rules').waitFor({ timeout });
+        await inspectEditorGeometry(page, 'editor-reloaded', geometry, blocking);
 
         conflictNext = true;
         expectedConflictResponses = 1;
         expectedConflictConsoleErrors = 1;
         await page.getByTestId('structured-trigger-editor').getByLabel(/Threshold for Price/).fill('89');
+        await inspectEditorGeometry(page, 'editor-conflict-field-focused', geometry, blocking);
         await page.getByTestId('structured-trigger-editor').getByRole('button', { name: 'Save structured rules' }).click();
         await page.getByText(/changed in another session/i).waitFor({ timeout });
+        await inspectEditorGeometry(page, 'editor-conflict', geometry, blocking);
 
         await page.goto(`${baseUrl}/research?workspace=alerts`, { waitUntil: 'domcontentloaded', timeout });
         await page.waitForLoadState('networkidle', { timeout });
@@ -416,13 +471,20 @@ try {
             overflow,
             canceledTransitionCount: canceledTransitions.length,
             canceledTransitions,
+            geometry,
             blocking,
         });
         await context.close();
     }
+} catch (error) {
+    failure = error instanceof Error ? error.stack ?? error.message : String(error);
+    if (lastPage && !lastPage.isClosed()) {
+        await lastPage.screenshot({ path: path.join(artifactDirectory, 'failure.png'), timeout: 5000 }).catch(() => {});
+    }
 } finally {
     await browser.close();
+    await writeFile(path.join(artifactDirectory, 'report.json'), JSON.stringify({ baseUrl, fixtureOnly: true, report, failure }, null, 2));
 }
 
-console.log(JSON.stringify({ baseUrl, report }, null, 2));
-if (report.some((scenario) => scenario.blocking.length > 0)) process.exitCode = 1;
+console.log(JSON.stringify({ baseUrl, report, failure }, null, 2));
+if (failure || report.some((scenario) => scenario.blocking.length > 0)) process.exitCode = 1;

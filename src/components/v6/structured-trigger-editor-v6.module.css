@@ -1,0 +1,22 @@
+.editor {
+    container-type: inline-size;
+    min-width: 0;
+}
+
+.rule {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    padding: 12px 0;
+}
+
+.rule > * {
+    min-width: 0;
+}
+
+@container (min-width: 760px) {
+    .rule {
+        grid-template-columns: auto minmax(150px, 1fr) minmax(150px, 1fr) 110px minmax(110px, 0.7fr) auto;
+    }
+}

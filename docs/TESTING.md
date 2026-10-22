@@ -307,6 +307,11 @@ mutation, first-viewport placement, document and strip overflow, blocking consol
 and responsive captures at 1280px, 768px, and 375px. Bookmark cases must show `Not
 reviewed` in readiness and Policy, preserve explicit next-review schedules, and avoid
 a numeric review-age or compliant-review claim before the first authored review.
+The mobile case uses 375×812 even when selected with `--viewport 375`. Its next action
+must remain inside the first viewport. Views and briefing stay mounted behind a mobile
+disclosure; verify Enter/Space access to the existing density controls and briefing,
+with pins, workspace navigation and the basic-view return link still visible. Each run
+writes its measured action position and semantic results beside the screenshots.
 
 ### Targeted Research Continuity QA
 
@@ -737,6 +742,36 @@ with no guessed issuer identity or filing. The separate save and SEC configurati
 
 
 ### Signal V8.1 evidence and hierarchy
+
+Run `SIGNAL_QA_URL=http://127.0.0.1:3000 node scripts/v8-theme-saved-state-qa.mjs`
+against the production local server for theme and saved-state acceptance. Use isolated
+saved-record fixtures at 1280, 768 and 375 pixels in light and dark. Verify saved-review
+chart markers, pinned navigation, pin limits/reload/malformed storage, and overdue
+Calendar badges derived only from loaded records. V8 theme selection and the independent
+legacy cockpit theme must be reported as separate controls.
+
+Capture Market in each theme at every width. Saved-review markers must match the two
+expected dates exactly, stay within the chart and avoid price/date/range text; containment
+alone does not catch annotation overlap. Measure the actual body/action/semantic-badge
+token pairs against their intended backgrounds at 4.5:1. This is a targeted contrast check,
+not a complete accessibility audit.
+
+Theme failure cases must cover `getItem`, `setItem` and `removeItem` errors, global
+storage denial, Auto/Light/Dark selector-to-DOM agreement, OS changes, normal reload
+persistence and relevant cross-tab changes. Execute the actual boot script separately
+so hydration cannot mask a failed system-theme first paint. Failed persistence keeps a
+choice for the current page session; it cannot promise persistence through reload.
+Reports and captures are written under `.tmp/v8-theme-saved-state-qa/`.
+
+Structured-trigger browser checks must measure the editor and every visible input,
+select and button against horizontal clipping ancestors before and after adding,
+focusing, saving, reloading and showing a conflict. The editor switches columns using
+its own available width; viewport width alone is insufficient inside Inbox. The final
+Alerts page overflow check does not establish editor containment.
+
+The V8.1 workflow runs these checks plus readiness/provenance and real Market provider
+regressions. Artifact upload includes the hidden `.tmp` directories through explicit
+JSON/PNG allowlists; unrelated local files must not be uploaded.
 
 `npm run qa:v81-evidence` runs the deterministic Market data contract suite without providers or database. It asserts the exclusive configured-weight partition (fresh/stale/fallback), unknown dates, non-scored context-only inputs, weight mismatches, missing aggregates, and high-volatility weight overrides. This suite also runs within `npm run harness`. Score-tier reference lines come from `src/lib/market-score-thresholds.ts`; these are **score tiers**, not the independent breadth/VIX-informed market-regime classifier. Historical coverage percentages must come from historical snapshots, never today's configuration.
 
