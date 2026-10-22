@@ -64,6 +64,16 @@ permits an amount change but never a percentage. No scoring or assessment eligib
 rules change. Summary financial cards keep exact amounts and provider-reported growth
 inside an explicit disclosure; quote and ratio formatting remain unchanged.
 
+The Research assessment includes comparable annual profit and free-cash-flow
+trends without changing its existing sign-based classification. Positive current
+amounts may have declined from the prior year. Valuation disclosures show the
+actual inputs and formulas; a negative cash-minus-debt balance is presented as a
+positive net-debt amount, with the signed calculation retained in the disclosure.
+Daily price change is labelled with the quote observation's UTC date, not "today".
+Market input freshness is determined per input: an unknown observation date for
+one input cannot make another dated input unknown. Aggregate freshness percentages
+remain unavailable when a complete verified partition cannot be established.
+
 Run `node scripts/v8-display-qa.mjs` against an owned local production server
 (`SIGNAL_QA_URL`, default localhost:3000). It blocks service workers and intercepts every
 API with fixtures, rejects mutations, and captures Market, populated/missing Research,

@@ -1,4 +1,5 @@
 import type { ResearchSnapshot } from '../types/research-snapshot';
+import { annualAmountComparison, type AnnualAmount } from './financial-display';
 
 export type CurrentResearchAssessment = {
     headline: string;
@@ -16,6 +17,16 @@ const finite = (value: unknown): value is number => typeof value === 'number' &&
 const DAY = 86_400_000;
 /** Server timestamps can lead the browser clock; allow small skew before treating a reading as future-dated. */
 const CLOCK_SKEW_TOLERANCE = 10 * 60_000;
+
+function annualTrend(snapshot: ResearchSnapshot, field: AnnualAmount, label: string): string | null {
+    const comparison = annualAmountComparison(snapshot.fundamentals, field);
+    if (!comparison) return null;
+    const direction = comparison.delta > 0 ? 'increased' : comparison.delta < 0 ? 'decreased' : 'was unchanged';
+    const rate = comparison.percentage === null ? '' : ` ${Math.abs(comparison.percentage).toFixed(1)}%`;
+    return comparison.delta === 0
+        ? `${label} was unchanged year over year.`
+        : `${label} ${direction}${rate} year over year.`;
+}
 
 /** Describes reported facts only. Never consumes authored records or generates a trade decision. */
 export function assessCurrentResearch(snapshot: ResearchSnapshot | null, now: number): CurrentResearchAssessment {
@@ -39,10 +50,12 @@ export function assessCurrentResearch(snapshot: ResearchSnapshot | null, now: nu
             (growth < 0 ? concerns : supporting).push(growth === 0 ? 'Reported revenue was unchanged year over year.' : `Reported revenue ${growth > 0 ? 'grew' : 'fell'} ${Math.abs(growth).toFixed(1)}% year over year.`);
         } else gaps.push(growthComparable ? 'Revenue growth is unavailable.' : 'Comparable annual revenue periods are unavailable; year-over-year growth is withheld.');
         if (finite(f?.annualNetIncome)) {
-            (f.annualNetIncome > 0 ? supporting : concerns).push(f.annualNetIncome > 0 ? 'The latest annual period reported a net profit.' : f.annualNetIncome < 0 ? 'The latest annual period reported a net loss.' : 'The latest annual period reported no net profit.');
+            const trend = snapshot ? annualTrend(snapshot, 'annualNetIncome', 'Annual net income') : null;
+            (f.annualNetIncome > 0 ? supporting : concerns).push(`${f.annualNetIncome > 0 ? 'The latest annual period reported a net profit.' : f.annualNetIncome < 0 ? 'The latest annual period reported a net loss.' : 'The latest annual period reported no net profit.'}${trend ? ` ${trend}` : ''}`);
         } else gaps.push('Annual net income is unavailable.');
         if (finite(f?.freeCashFlow)) {
-            (f.freeCashFlow > 0 ? supporting : concerns).push(f.freeCashFlow > 0 ? 'Reported free cash flow was positive.' : f.freeCashFlow < 0 ? 'Reported free cash flow was negative; its cause needs context.' : 'Reported free cash flow was zero.');
+            const trend = snapshot ? annualTrend(snapshot, 'freeCashFlow', 'Annual free cash flow') : null;
+            (f.freeCashFlow > 0 ? supporting : concerns).push(`${f.freeCashFlow > 0 ? 'Reported free cash flow was positive.' : f.freeCashFlow < 0 ? 'Reported free cash flow was negative; its cause needs context.' : 'Reported free cash flow was zero.'}${trend ? ` ${trend}` : ''}`);
         } else gaps.push('Free cash flow is unavailable.');
     }
     if (oldPeriod) gaps.push('The financial reporting period ended more than 18 months ago. These figures may no longer describe the business.');

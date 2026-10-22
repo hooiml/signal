@@ -11,6 +11,13 @@ export function compactFinancialAmount(value: number | null | undefined, currenc
     return `${currency?.trim() || 'Currency not supplied'} ${(value / scale).toLocaleString('en-US', { maximumFractionDigits: 2 })}${suffix}`;
 }
 
+export function cashDebtDisplay(netCash: number | null | undefined, currency?: string | null): { label: string; amount: string } {
+    if (!finite(netCash)) return { label: 'Net cash / (debt)', amount: 'Unavailable' };
+    return netCash < 0
+        ? { label: 'Net debt', amount: compactFinancialAmount(Math.abs(netCash), currency) }
+        : { label: 'Net cash', amount: compactFinancialAmount(netCash, currency) };
+}
+
 export type AnnualComparison = {
     current: ResearchFundamentalPeriod;
     previous: ResearchFundamentalPeriod;

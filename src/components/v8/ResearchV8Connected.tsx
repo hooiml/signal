@@ -296,7 +296,7 @@ function ConnectedCase({ symbol, market, record, onSaved, unlockHref, onAccessDe
         <div className={`${styles.workspace} ${connected.focusedWorkspace}`}>
             <article className={styles.case} aria-label={`${symbol} research`}>
                 <section className={`${styles.reading} ${connected.summary} ${snapshot?.fundamentals.reportingPeriod || snapshot?.fundamentals.source ? '' : connected.summarySingle}`} aria-label="Current provider quote">
-                    <div><small>Latest returned price</small><span className={connected.priceLine}><strong data-testid="research-price">{loading && !snapshot ? 'Loading…' : price(snapshot?.quote.price, snapshot?.quote.currency)}</strong>{snapshot && <DailyChange value={snapshot.quote.dailyChangePercent} />}</span><span>Quote observed: {snapshot?.quote.observedAt ? retrievedAt(snapshot.quote.observedAt) : 'Observation time unavailable'}</span><span>Provider response retrieved: {retrievedAt(snapshot?.fetchedAt)}</span></div>
+                    <div><small>Latest returned price</small><span className={connected.priceLine}><strong data-testid="research-price">{loading && !snapshot ? 'Loading…' : price(snapshot?.quote.price, snapshot?.quote.currency)}</strong>{snapshot && <DailyChange value={snapshot.quote.dailyChangePercent} observedAt={snapshot.quote.observedAt} />}</span><span>Quote observed: {snapshot?.quote.observedAt ? retrievedAt(snapshot.quote.observedAt) : 'Observation time unavailable'}</span><span>Provider response retrieved: {retrievedAt(snapshot?.fetchedAt)}</span></div>
                     {snapshot && (snapshot.fundamentals.reportingPeriod || snapshot.fundamentals.source) && <div><small>Financial reporting period</small><b>{date(snapshot.fundamentals.reportingPeriod)}</b><span>{snapshot.fundamentals.source || 'Financial source unavailable'}</span></div>}
                     {record && <div className={connected.savedDecision} aria-label="Saved user-authored decision"><span className={base.eyebrow}>USER-AUTHORED · SAVED</span><strong>{record.decisionJournal.decision}</strong><span>{lastPersonalReview ? `Last reviewed ${date(lastPersonalReview)}.` : 'No personal review recorded.'}</span><a className={base.textButton} href={researchHref(record.symbol, 'review', record.market)} target="_blank" rel="noopener noreferrer">Open saved review (new tab) ↗</a></div>}
                 </section>
@@ -320,9 +320,10 @@ function ConnectedCase({ symbol, market, record, onSaved, unlockHref, onAccessDe
 }
 
 // Signed daily move beside the price; the arrow keeps direction readable without colour.
-function DailyChange({ value }: { value: number | null | undefined }) {
+function DailyChange({ value, observedAt }: { value: number | null | undefined; observedAt?: string | null }) {
     if (value == null || !Number.isFinite(value)) return <span className={connected.dailyChange} data-direction="none">Daily change unavailable</span>;
     const direction = value > 0 ? 'up' : value < 0 ? 'down' : 'flat';
     const sign = value > 0 ? '+' : value < 0 ? '−' : '';
-    return <span className={connected.dailyChange} data-direction={direction}><span className={base.visuallyHidden}>Daily change </span><span aria-hidden="true">{direction === 'up' ? '▲' : direction === 'down' ? '▼' : '–'}</span> {sign}{Math.abs(value).toFixed(2)}%<span className={connected.dailyChangeLabel} aria-hidden="true"> today</span></span>;
+    const session = observedAt && Number.isFinite(Date.parse(observedAt)) ? `session ${date(observedAt)}` : 'session date unavailable';
+    return <span className={connected.dailyChange} data-direction={direction}><span className={base.visuallyHidden}>Daily change </span><span aria-hidden="true">{direction === 'up' ? '▲' : direction === 'down' ? '▼' : '–'}</span> {sign}{Math.abs(value).toFixed(2)}%<span className={connected.dailyChangeLabel}> · {session}</span></span>;
 }

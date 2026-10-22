@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from 'react';
 import { nearestPricePoint, priceRangeChange } from '@/lib/research/reading-display';
 import { formatResearchPrice, researchPriceCurrency } from '@/lib/research/price-format';
 import { financialPeriodLabel, formatResearchTimestamp, netCashCurrency, researchMetricPeriodLabel } from '@/lib/research/metric-provenance';
+import { cashDebtDisplay, compactFinancialAmount } from '@/lib/research/financial-display';
 import { personalReviewDate, savedReviewMarkers } from '@/lib/research/review-lifecycle';
 import { ResearchDataAvailability } from './ResearchDataAvailability';
 import { ResearchFinancialSummary } from './ResearchFinancialSummary';
@@ -39,6 +40,7 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
     const fundamentals = snapshot?.fundamentals;
     const currency = fundamentals?.history.find(period => period.reportingPeriod === fundamentals.reportingPeriod)?.currency;
     const valuation = snapshot?.valuation;
+    const cashDebt = cashDebtDisplay(valuation?.netCash, netCashCurrency(fundamentals));
     const annualPeriod = financialPeriodLabel(fundamentals?.reportingPeriod);
     const quoteObservation = `Quote observed: ${formatResearchTimestamp(snapshot?.quote.observedAt)}`;
     const sharePeriod = market === 'US' ? researchMetricPeriodLabel(fundamentals, 'shares') : 'Share reporting date unavailable';
@@ -80,15 +82,28 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
             <Metrics rows={[
                 ['Latest returned price', price(snapshot?.quote.price, snapshot?.quote.currency), quoteObservation],
                 ['Shares used for valuation', number(valuationShares), `${valuation?.shareBasis || 'Share basis unavailable'} · ${sharePeriod}`],
-                ['Market capitalization', money(valuation?.marketCap, snapshot?.quote.currency), 'Returned price × shares above; their dates may differ.'],
+                ['Market capitalization', compactFinancialAmount(valuation?.marketCap, snapshot?.quote.currency), 'Returned price × shares above; their dates may differ.'],
             ]} />
             <h3>Ratios using annual financials</h3><p>{annualPeriod}{currency ? ` · ${currency}` : ' · Financial currency unavailable'}. These ratios combine that annual period with the returned price and shares above; they are not historical ratios at the financial year end.</p>
             <Metrics rows={[
                 ['Price / earnings', number(valuation?.priceEarnings, '×')], ['Price / sales', number(valuation?.priceSales, '×')], ['Free cash flow yield', number(valuation?.freeCashFlowYieldPercent, '%')],
             ]} />
+            <details className={connected.evidence}><summary>How the ratios are calculated · exact inputs</summary>
+                <p>These current-price ratios combine the returned price and share count with reported annual amounts. The quote, shares and financial statements may have different observation dates; no currency conversion is applied.</p>
+                <p>Market capitalization = price × shares = {price(snapshot?.quote.price, snapshot?.quote.currency)} × {number(valuationShares)} = {money(valuation?.marketCap, snapshot?.quote.currency)}.</p>
+                <p>Price / earnings = market capitalization ÷ annual net income = {money(valuation?.marketCap, snapshot?.quote.currency)} ÷ {money(fundamentals?.annualNetIncome, currency)} = {number(valuation?.priceEarnings, '×')}. A non-positive or missing denominator is unavailable.</p>
+                <p>Price / sales = market capitalization ÷ annual revenue = {money(valuation?.marketCap, snapshot?.quote.currency)} ÷ {money(fundamentals?.annualRevenue, currency)} = {number(valuation?.priceSales, '×')}. A non-positive or missing denominator is unavailable.</p>
+                <p>Free cash flow yield = annual free cash flow ÷ market capitalization × 100 = {money(fundamentals?.freeCashFlow, currency)} ÷ {money(valuation?.marketCap, snapshot?.quote.currency)} × 100 = {number(valuation?.freeCashFlowYieldPercent, '%')}.</p>
+                <p>Annual inputs: {annualPeriod} · {fundamentals?.source || 'Financial source unavailable'}. These are derived ratios, not a fair-value estimate.</p>
+            </details>
             <h3>Cash less debt</h3><Metrics rows={[
-                ['Net cash', money(valuation?.netCash, netCashCurrency(fundamentals)), `Cash: ${researchMetricPeriodLabel(fundamentals, 'cash')}. Debt: ${researchMetricPeriodLabel(fundamentals, 'debt')}.`],
+                [cashDebt.label, cashDebt.amount, `Cash less debt. Cash: ${researchMetricPeriodLabel(fundamentals, 'cash')}. Debt: ${researchMetricPeriodLabel(fundamentals, 'debt')}.`],
             ]} />
+            <details className={connected.evidence}><summary>Exact cash and debt inputs</summary>
+                <p>Cash: {money(fundamentals?.cash, fundamentals?.metricProvenance?.cash.currency)} · {researchMetricPeriodLabel(fundamentals, 'cash')}.</p>
+                <p>Debt: {money(fundamentals?.debt, fundamentals?.metricProvenance?.debt.currency)} · {researchMetricPeriodLabel(fundamentals, 'debt')}.</p>
+                <p>Net cash = cash − debt = {money(valuation?.netCash, netCashCurrency(fundamentals))}. A negative result is shown above as net debt with its positive magnitude. Source: {fundamentals?.source || 'Unavailable'}.</p>
+            </details>
             {advanced && record && <><h3>Your saved valuation & position plan</h3><p>{planCurrencyNote(record.positionPlan.currency, snapshot?.quote.currency)}</p><Metrics rows={[
                 ['Valuation judgment', record.valuationState], ['Target buy zone', record.targetBuyZone || 'Not recorded'], ['Position', record.positionState],
                 ['Planned allocation', number(record.positionPlan.plannedAllocationPercent, '%')], ['Average cost', planPrice(record.positionPlan.averageCost, record.positionPlan.currency)], ['Planned entry', planPrice(record.positionPlan.plannedEntryPrice, record.positionPlan.currency)], ['Invalidation', planPrice(record.positionPlan.invalidationPrice, record.positionPlan.currency)],

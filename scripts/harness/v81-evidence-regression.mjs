@@ -56,6 +56,7 @@ assert.ok(Math.abs(p.stalePct - 20) < 1e-9);
 assert.ok(Math.abs(p.fallbackPct - 35) < 1e-9);
 assert.ok(Math.abs(p.freshPct + p.stalePct + p.fallbackPct - 100) < 1e-9);
 assert.deepEqual(p.staleKeys, ['aaii']);
+assert.deepEqual(p.freshKeys, ['vix', 'put_call']);
 
 const retrievedOnly = structuredClone(sample);
 retrievedOnly.components.put_call.metadata.timestamp_basis = 'retrieved';
@@ -63,8 +64,31 @@ const unknown = marketEvidenceCoverage(retrievedOnly, date);
 assert.equal(unknown.verifiedPartition, false);
 assert.equal(unknown.freshPct, null);
 assert.deepEqual(unknown.unknownDateKeys, ['put_call']);
+assert.deepEqual(unknown.freshKeys, ['vix']);
 assert.equal(unknown.observedPct, 65);
 assert.equal(unknown.fallbackPct, 35);
+
+// A fresh Malaysian volatility proxy keeps its own label when unrelated news has no observation date.
+const myMixedFreshness = {
+    components: {
+        vix: mk('vix', .25),
+        news: { ...mk('news', .65), last_updated: '2026-10-16T12:00:00Z', metadata: { timestamp_basis: 'retrieved' } },
+    },
+    metadata: {
+        market: 'MY',
+        coverage_adjustment: {
+            active_weight: .9, missing_weight: .1, neutral_baseline: 50,
+            active_points: 45, neutral_points: 5,
+        },
+    },
+};
+const myCoverage = marketEvidenceCoverage(myMixedFreshness, date);
+assert.equal(myCoverage.verifiedPartition, false);
+assert.equal(myCoverage.freshPct, null);
+assert.deepEqual(myCoverage.freshKeys, ['vix']);
+assert.deepEqual(myCoverage.unknownDateKeys, ['news']);
+assert.equal(myCoverage.observedPct, 90);
+assert.equal(myCoverage.fallbackPct, 10);
 
 for (const [name, market] of [['social', 'US'], ['news', 'MY']]) {
     const legacy = structuredClone(sample);
@@ -81,7 +105,9 @@ for (const [name, market] of [['social', 'US'], ['news', 'MY']]) {
 
 const misweighted = structuredClone(sample);
 misweighted.components.vix.weight = .34;
-assert.equal(marketEvidenceCoverage(misweighted, date).verifiedPartition, false);
+const invalidWeights = marketEvidenceCoverage(misweighted, date);
+assert.equal(invalidWeights.verifiedPartition, false);
+assert.deepEqual(invalidWeights.freshKeys, []);
 
 const noCoverage = structuredClone(sample);
 delete noCoverage.metadata.coverage_adjustment;

@@ -152,6 +152,27 @@ The long-range profile uses weekly VIX closes, holds unavailable inputs neutral,
 
 ## Scheduled Refresh
 
+### Production access prerequisites
+
+Configure two separate server-only secrets in the production environment:
+`OWNER_ACCESS_SECRET` (32–256 visible ASCII characters, generated randomly) for
+`/unlock`, and `CRON_SECRET` for Vercel's scheduled requests. Store them as secret
+environment variables and keep the owner credential in a private password store.
+Do not reuse a provider key or the cron secret as the owner credential.
+
+Environment changes apply to a new deployment. After that deployment is ready,
+check `/api/owner/session`: `configured` must be true, while an anonymous saved
+research request must still return `401 OWNER_ACCESS_REQUIRED`. Verify a valid
+owner unlock and a read of the saved list without creating or modifying records.
+The owner secret must never appear in logs, screenshots, URLs or source control.
+
+For stale AAII data, verify the provider's report date first, then run the
+authorized institutional refresh and confirm its returned date and value. Follow
+with the normal signal warm below and inspect both markets. A configured schedule
+alone does not prove refresh success. Missing cron/admin configuration blocks the
+refresh before fetching or writing; do not bypass that protection or relabel a
+stale observation as fresh. A manual refresh proves that run, not future cron runs.
+
 - `vercel.json` runs `/api/signals/refresh` once per day to warm the current V2 dashboard snapshots.
 - Configure `CRON_SECRET` or `ADMIN_SECRET` in every environment that will call the protected refresh, admin, or diagnostic routes.
 - The default scheduled refresh warms:

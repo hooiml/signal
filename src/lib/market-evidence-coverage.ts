@@ -12,6 +12,7 @@ export interface MarketEvidenceCoverage {
     configuredCount: number;
     scoredCount: number;
     unavailableKeys: string[];
+    freshKeys: string[];
     staleKeys: string[];
     unknownDateKeys: string[];
     observedPct: number | null;
@@ -45,12 +46,13 @@ export function marketEvidenceCoverage(signal: MarketSignal, snapshotDate: strin
         && scored.every(key => close(signal.components[key].weight, weights[key] / total));
     let freshWeight = 0;
     let staleWeight = 0;
+    const freshKeys: string[] = [];
     const staleKeys: string[] = [];
     const unknownDateKeys: string[] = [];
     for (const key of scored) {
         const item = signal.components[key];
         const state = freshness(item.last_updated, snapshotDate, hasRetrievalTimestamp(item) ? 'retrieved' : item.metadata?.timestamp_basis, INDICATOR_REGISTRY[key]?.staleAfterDays);
-        if (state === 'fresh') freshWeight += item.weight;
+        if (state === 'fresh') { freshWeight += item.weight; freshKeys.push(key); }
         else if (state === 'stale') { staleWeight += item.weight; staleKeys.push(key); }
         else unknownDateKeys.push(key);
     }
@@ -58,7 +60,8 @@ export function marketEvidenceCoverage(signal: MarketSignal, snapshotDate: strin
         && close(freshWeight + staleWeight, source!.active_weight)
         && close(freshWeight + staleWeight + source!.missing_weight, 1);
     return {
-        configuredCount: keys.length, scoredCount: scored.length, unavailableKeys, staleKeys, unknownDateKeys,
+        configuredCount: keys.length, scoredCount: scored.length, unavailableKeys,
+        freshKeys: configuredValid ? freshKeys : [], staleKeys, unknownDateKeys,
         observedPct: sourceValid ? source!.active_weight * 100 : null,
         fallbackPct: sourceValid ? source!.missing_weight * 100 : null,
         freshPct: verifiedPartition ? freshWeight * 100 : null,

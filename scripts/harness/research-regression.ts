@@ -9,6 +9,7 @@ import { calculateTechnicalSeries } from '../../src/lib/research/technical-serie
 import { anchoredVwap, relativeStrengthSeries, volumeProfile } from '../../src/lib/research/chart-analysis';
 import { parseYahooResearchChart, toYahooSymbol } from '../../src/lib/research/yahoo-research';
 import { calculateValuation } from '../../src/lib/research/valuation';
+import { cashDebtDisplay } from '../../src/lib/research/financial-display';
 import { scoreDiscoveryCandidate } from '../../src/lib/research/discovery-score';
 import { evaluateResearchAlerts, parseBuyZone } from '../../src/lib/research/alerts';
 import { buildResearchAlertRequest } from '../../src/lib/research/alert-request';
@@ -4283,6 +4284,22 @@ const runComparisonTests = () => {
     assertEqual(assessment.coverage, 3, 'assessment counts sourced annual inputs');
     assertEqual(assessment.supporting.length, 3, 'assessment describes reported positives');
     assertEqual(assessment.concerns.length, 0, 'positive inputs do not fabricate risks');
+    const currentAnnual = snapshot.fundamentals.history[0];
+    const annualTrendSnapshot: ResearchSnapshot = { ...snapshot, fundamentals: { ...snapshot.fundamentals, history: [
+        { ...currentAnnual, annualNetIncome: 90_000_000_000, freeCashFlow: 70_000_000_000 },
+        { ...currentAnnual, reportingPeriod: '2024-06-30', annualNetIncome: 75_000_000_000, freeCashFlow: 77_130_000_000 },
+    ] } };
+    const annualTrend = assessCurrentResearch(annualTrendSnapshot, assessmentNow);
+    assertEqual(annualTrend.headline, assessment.headline, 'annual trend evidence does not change assessment headline methodology');
+    assertEqual(annualTrend.concerns.length, 0, 'positive current signs remain separate from year-over-year declines');
+    assertEqual(annualTrend.supporting.some(claim => claim.includes('net profit') && claim.includes('Annual net income increased 20.0% year over year.')), true, 'annual profit assessment reports comparable year-over-year growth');
+    assertEqual(annualTrend.supporting.some(claim => claim.includes('free cash flow was positive') && claim.includes('Annual free cash flow decreased 9.2% year over year.')), true, 'positive current free cash flow does not imply growth when comparable annual cash flow declined');
+    const incomparableAnnual = { ...annualTrendSnapshot, fundamentals: { ...annualTrendSnapshot.fundamentals, history: annualTrendSnapshot.fundamentals.history.map((period, index) => index === 0 ? { ...period, comparableAnnual: false } : period) } };
+    assertEqual(assessCurrentResearch(incomparableAnnual, assessmentNow).supporting.some(claim => claim.includes('Annual free cash flow decreased')), false, 'non-comparable annual endpoints do not produce a cash flow trend');
+    assertEqual(cashDebtDisplay(-1_250_000_000, 'MYR').label, 'Net debt', 'negative cash less debt is labeled net debt');
+    assertEqual(cashDebtDisplay(-1_250_000_000, 'MYR').amount, 'MYR 1.25 billion', 'net debt displays its positive magnitude');
+    assertEqual(cashDebtDisplay(1_250_000_000, 'MYR').amount, 'MYR 1.25 billion', 'positive cash less debt remains net cash');
+    assertEqual(cashDebtDisplay(null, 'MYR').label, 'Net cash / (debt)', 'unavailable cash less debt does not imply net cash');
     assertEqual(assessCurrentResearch(null, assessmentNow).headline, 'Not enough financial data', 'no data is not neutral or Watch');
     const assessWith = (patch: Partial<ResearchSnapshot['fundamentals']>) => assessCurrentResearch({ ...snapshot, fundamentals: { ...snapshot.fundamentals, ...patch } }, assessmentNow);
     assertEqual(assessWith({ source: null }).coverage, 0, 'unsourced facts cannot form an assessment');

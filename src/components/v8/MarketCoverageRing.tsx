@@ -18,7 +18,7 @@ export function MarketCoverageRing({ signal, coverage, onSelect }: {
         .sort(([, a], [, b]) => b.weight - a.weight)
         .map(([key, item]) => ({
             key, label: item.display_name, weight: item.weight * 100,
-            state: coverage.staleKeys.includes(key) ? 'stale' : coverage.unknownDateKeys.includes(key) || !coverage.verifiedPartition ? 'unknown' : 'fresh',
+            state: coverage.staleKeys.includes(key) ? 'stale' : coverage.freshKeys.includes(key) ? 'fresh' : 'unknown',
         }));
     const segments: Segment[] = coverage.fallbackPct > 0 ? [...inputs, { key: 'fallback', label: 'Neutral fallback', weight: coverage.fallbackPct, state: 'fallback' }] : inputs;
     const total = segments.reduce((sum, segment) => sum + segment.weight, 0) || 1;
