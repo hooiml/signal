@@ -43,13 +43,30 @@ export const overallReadingText = (text: string) => text
     .replace(/majority (BUY|SELL|NEUTRAL) read/g, 'overall $1 reading')
     .replace(/component majority/g, 'overall reading');
 
-export function missingInputExplanation(key: string, sourceEnabled: boolean) {
+type SourceAvailability = NonNullable<MarketSignal['metadata']['source_availability']>;
+
+export function missingInputExplanation(key: string, sourceEnabled: boolean, availability?: SourceAvailability) {
     if ((key === 'social' || key === 'news') && !sourceEnabled) return 'This input is switched off. Turn it on in the market controls to request current evidence.';
-    if (key === 'social') return 'Social input is enabled, but the current response contains no usable sentiment observation. A missing reading is not neutral sentiment.';
-    if (key === 'news') return 'News input is enabled, but the current response contains no usable news sentiment observation.';
-    if (key === 'naaim') return 'No current manager-exposure observation was returned. Archived readings cannot establish today’s exposure.';
-    if (key === 'bofa') return 'No current BofA SSI observation was supplied from the stored institutional inputs.';
+    if (key === 'social') {
+        const sources = availability ? [
+            availability.reddit && `Reddit: ${availability.reddit.status === 'unconfigured' ? 'OAuth is not configured' : availability.reddit.status === 'no-results' ? 'no posts returned' : `${availability.reddit.count} posts returned`}`,
+            availability.stocktwits && `StockTwits: ${availability.stocktwits.status === 'disabled' ? 'disabled by configuration' : availability.stocktwits.status === 'no-results' ? 'no messages returned' : `${availability.stocktwits.count} messages returned`}`,
+        ].filter((value): value is string => !!value) : [];
+        return `${sources.length ? `${sources.join('; ')}. ` : ''}Social input is enabled, but the current response contains no usable sentiment observation. A missing reading is not neutral sentiment.`;
+    }
+    if (key === 'news') return availability?.news
+        ? `News input is enabled, but no usable news sentiment observation was produced. ${availability.news.count} news items were returned.`
+        : 'News input is enabled, but the current response contains no usable news sentiment observation.';
+    if (key === 'naaim') return 'The public page exposes a roughly three-month delayed reading, and no parsable current exposure was returned for this snapshot. Archived readings cannot establish today’s exposure.';
+    if (key === 'bofa') return 'No manually supplied current SSI reading is available. The 50–60 normalization range is a placeholder, not evidence from a live source.';
     return 'No current observation was supplied. An archived reading is not substituted for the missing value.';
+}
+
+export function newsEvidenceText(evidence: NonNullable<MarketSignal['metadata']['news_evidence']>): string {
+    const publicationRange = evidence.dated_count > 0
+        ? `newest ${marketTimestampLabel(evidence.newest_published_at!)} · oldest ${marketTimestampLabel(evidence.oldest_published_at!)}`
+        : 'publication dates unavailable';
+    return `${evidence.count} news items returned · ${evidence.dated_count} with publication dates · ${evidence.unknown_date_count} unknown dates · ${evidence.within_24h_count} dated within 24h of retrieval · ${publicationRange}.`;
 }
 
 export function MarketCoverageNotices({ signal, inputKeys, date, sourceEnabled, onReview }: {

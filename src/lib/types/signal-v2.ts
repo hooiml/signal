@@ -100,6 +100,21 @@ export interface MarketSignal {
             pubDate?: string;
             sentiment?: 'bullish' | 'bearish' | 'neutral';
         }>;
+        source_availability?: {
+            reddit?: { status: 'available' | 'no-results' | 'unconfigured'; count: number };
+            stocktwits?: { status: 'available' | 'no-results' | 'disabled'; count: number };
+            news?: { status: 'available' | 'no-results'; count: number };
+            naaim?: { status: 'available' | 'no-current-reading' };
+            bofa?: { status: 'available' | 'manual-reading-unavailable' };
+        };
+        news_evidence?: {
+            count: number;
+            dated_count: number;
+            unknown_date_count: number;
+            within_24h_count: number;
+            newest_published_at: string | null;
+            oldest_published_at: string | null;
+        };
         signal_quality?: {
             freshness: 'fresh' | 'mixed' | 'stale';
             source_coverage: 'strong' | 'moderate' | 'limited';

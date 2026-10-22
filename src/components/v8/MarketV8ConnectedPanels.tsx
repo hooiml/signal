@@ -8,7 +8,7 @@ import { marketReadingLabel, marketTimestampLabel } from '@/lib/market-display';
 import { formatRawValue, getIndicatorCadence } from '@/components/v2/cockpit-utils';
 import type { IndicatorData, MarketSignal } from '@/lib/types/signal-v2';
 import styles from './market-v8.module.css';
-import { missingInputExplanation } from './MarketV8Coverage';
+import { missingInputExplanation, newsEvidenceText } from './MarketV8Coverage';
 import { fullDate, formatMarketDates } from './MarketV8ConnectedData';
 
 type Point = { date: string; value: number };
@@ -216,6 +216,8 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, his
     const rawHistory = historyGroups.flat();
     const sourceUrls = safeHttpUrls(indicator?.metadata?.source_url);
     const sourceBlend = indicator?.metadata?.source_breakdown;
+    const sourceAvailability = signal.metadata.source_availability;
+    const newsEvidence = signal.metadata.news_evidence;
     const status = freshnessStatus(signal, indicator, indicatorKey);
     const historyPanel = <IndicatorHistory groups={historyGroups} state={historyState} onRetry={onRetryHistory} unit={indicator?.metadata?.unit} />;
     const interpretationNotes = [modeText(signal, indicatorKey), advanced ? driver?.detail : undefined, indicator?.metadata?.mode_note]
@@ -223,7 +225,16 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, his
         .filter((text, index, notes) => notes.findIndex(note => note.trim().replace(/\s+/g, ' ') === text.trim().replace(/\s+/g, ' ')) === index);
 
     if (!indicator) {
-        return <><div className={styles.railHeading}><span className={styles.eyebrow}>Indicator detail</span><button onClick={onClose} aria-label="Close indicator detail" className={styles.closeButton}>×</button></div><h2>{registry?.displayName ?? indicatorKey}</h2><Unavailable title={(indicatorKey === 'social' || indicatorKey === 'news') && !sourceEnabled ? 'Input switched off' : 'Current value unavailable'} detail={missingInputExplanation(indicatorKey, sourceEnabled)} /><p className={styles.muted}>The current raw value, normalized score and observation date remain unavailable.</p>{rawHistory.length > 0 && <p className={styles.muted}>Historical readings only · these snapshots do not supply a current value.</p>}{historyPanel}<p className={styles.muted}>Review source coverage for the existing model’s missing-input accounting.</p></>;
+        return <>
+            <div className={styles.railHeading}><span className={styles.eyebrow}>Indicator detail</span><button onClick={onClose} aria-label="Close indicator detail" className={styles.closeButton}>×</button></div>
+            <h2>{registry?.displayName ?? indicatorKey}</h2>
+            <Unavailable title={(indicatorKey === 'social' || indicatorKey === 'news') && !sourceEnabled ? 'Input switched off' : 'Current value unavailable'} detail={missingInputExplanation(indicatorKey, sourceEnabled, sourceAvailability)} />
+            <dl className={styles.keyValues}><div><dt>Configured model weight</dt><dd>{finiteNumber(configuredWeight) && configuredWeight > 0 ? `${(configuredWeight * 100).toFixed(1)}% · held as neutral reserve` : 'No configured scoring weight'}</dd></div></dl>
+            {indicatorKey === 'news' && newsEvidence && <p className={styles.muted}>{newsEvidenceText(newsEvidence)}</p>}
+            <p className={styles.muted}>The current raw value, normalized score and observation date remain unavailable.</p>
+            {rawHistory.length > 0 && <p className={styles.muted}>Historical readings only · these snapshots do not supply a current value.</p>}
+            {historyPanel}<p className={styles.muted}>Review source coverage for the existing model’s missing-input accounting.</p>
+        </>;
     }
 
     return <>
@@ -247,6 +258,9 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, his
         </dl></details>
 
         {sourceBlend && Object.keys(sourceBlend).length > 0 ? <div className={styles.explanation}><b>Source readings</b><p>{Object.entries(sourceBlend).map(([name, value]) => `${name}: ${finiteNumber(value) ? value.toFixed(3) : 'Unavailable'}`).join(' · ')}</p><p className={styles.muted}>These values are source readings from the payload, not mixture percentages.</p></div> : null}
+        {(indicatorKey === 'social' || indicatorKey === 'news') && sourceAvailability && <div className={styles.explanation}><b>Returned source counts</b><p>{indicatorKey === 'social'
+            ? [sourceAvailability.reddit && `Reddit ${sourceAvailability.reddit.count} posts · ${sourceAvailability.reddit.status}`, sourceAvailability.stocktwits && `StockTwits ${sourceAvailability.stocktwits.count} messages · ${sourceAvailability.stocktwits.status}`].filter(Boolean).join(' · ')
+            : `${sourceAvailability.news?.count ?? 0} news items returned`}</p>{indicatorKey === 'news' && newsEvidence && <p className={styles.muted}>{newsEvidenceText(newsEvidence)}</p>}<p className={styles.muted}>Returned-item counts describe source coverage; the sentiment formula and input eligibility are unchanged.</p></div>}
         <h3>Interpretation context</h3>{interpretationNotes.map((text, index) => <p key={text} className={index ? styles.muted : undefined}>{text}</p>)}
         <details className={styles.disclosure}><summary>Normalization rule</summary><p>{normalizationNote(indicatorKey)}</p><p className={styles.muted}>The displayed raw value, normalized score and contribution are read from the payload; this panel does not recompute the service score.</p></details>
         <h3>Source</h3>

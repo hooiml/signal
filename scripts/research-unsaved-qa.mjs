@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { marketRequestFixture } from './harness/market-request-fixture.mjs';
 import { researchReadFixture, researchSnapshotFixture } from './harness/research-read-fixture.mjs';
+import { guestWorkspaceQa } from './guest-workspace-qa.mjs';
 const base=process.env.SIGNAL_QA_URL||'http://127.0.0.1:3101';
 assert.ok(['localhost','127.0.0.1'].includes(new URL(base).hostname),'Fixture QA requires localhost');
 const out='.tmp/current-assessment/browser';await mkdir(out,{recursive:true});
@@ -15,8 +16,10 @@ function snapshot(symbol,market) {
  Object.assign(r.data.quote,{name:symbol==='MAYBANK'?'Malayan Banking Berhad':`Fixture ${symbol}`,price:symbol==='MSFT'?400:200,currency:market==='MY'?'MYR':'USD',instrumentType:symbol==='VOO'?'ETF':'EQUITY',observedAt:'2026-10-02T20:00:00.000Z'});
  r.data.quote.classification={source:'Yahoo Finance',instrumentType:r.data.quote.instrumentType==='ETF'?'ETF':'EQUITY',sector:symbol==='MAYBANK'?'Financial Services':'Technology',industry:symbol==='MAYBANK'?'Banks—Regional':'Consumer Electronics',retrievedAt:new Date().toISOString()};
  Object.assign(r.data.fundamentals,{source:market==='MY'?'Yahoo Finance':'SEC EDGAR',reportingPeriod:'2025-12-31',revenueGrowthPercent:10,annualRevenue:1000,annualNetIncome:100,freeCashFlow:80});
- r.data.fundamentals.history=[{...r.data.fundamentals,currency:market==='MY'?'MYR':'USD'}];
+ const currentPeriod={...r.data.fundamentals,currency:market==='MY'?'MYR':'USD'};
+ r.data.fundamentals.history=[currentPeriod,{...currentPeriod,reportingPeriod:'2024-12-31',annualRevenue:900,annualNetIncome:90,freeCashFlow:100}];
  r.data.warnings=[];
+ if(market==='MY'&&!r.data.quote.sharesOutstanding)Object.assign(r.data.valuation,{marketCap:null,priceEarnings:null,priceSales:null,freeCashFlowYieldPercent:null});
  if(symbol==='PARTIAL'){r.data.fundamentals.freeCashFlow=null;r.data.warnings=['Fixture cash flow unavailable'];}
  if(symbol==='MISSING'){for(const key of ['revenueGrowthPercent','annualNetIncome','freeCashFlow'])r.data.fundamentals[key]=null;}
  if(symbol==='OLD')r.data.fundamentals.reportingPeriod='2020-12-31';
@@ -25,6 +28,7 @@ function snapshot(symbol,market) {
  return r;
 }
 try {
+ if(process.env.SIGNAL_QA_SKIP_GUEST!=='1')await guestWorkspaceQa(browser,base,snapshot,{...structuredClone(saved),symbol:'AAPL',market:'US',companyName:'Private owner Apple',notes:'PRIVATE_OWNER_ONLY'});
  for(const width of [1280,768,375]){
  const context=await browser.newContext({viewport:{width,height:900},serviceWorkers:'block'});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!/status of (500|502|503)/.test(m.text()))errors.push(m.text());});
@@ -32,6 +36,7 @@ try {
  const posts=[];const providerReads=[];let list=[];let release;let held;let watchlistFails=false;let saveFails=false;let listHold;let releaseList;let revisedIncome=false;let providerFails=false;let marketScoreCase='normal';let searchFails=false;let searchHold=false;let releaseSearch;const searches=[];
  await context.route('**/api/**',async route=>{
   const req=route.request(),u=new URL(req.url());
+  if(u.pathname==='/api/owner/session')return route.fulfill({json:{success:true,data:{configured:true,unlocked:true}}});
   if(u.pathname==='/api/signals/v2'){const f=marketRequestFixture();const response=await f.route.GET(f.request(u.search.slice(1)));const payload=await response.json();if(marketScoreCase==='unchanged')payload.data.metadata.score_delta.delta=0;if(marketScoreCase==='missing')delete payload.data.metadata.score_delta;return route.fulfill({json:payload});}
   if(u.pathname.startsWith('/api/signals/'))return route.fulfill({status:503,json:{success:false,error:'Fixture archive unavailable'}});
   if(u.pathname==='/api/research/search') {
@@ -66,7 +71,7 @@ try {
   const compactStatus=text==='Assessment not supported for this security'?'Assessment unsupported':text==='Not enough financial data'?'Insufficient evidence':null;
   if(!compactStatus){await page.getByRole('heading',{name:text,exact:true}).waitFor();return;}
   await page.getByRole('region',{name:'Financial assessment status',exact:true}).getByText(compactStatus,{exact:true}).waitFor();
-  await page.getByRole('region',{name:'Current research assessment',exact:true}).locator('summary').click();
+  await page.getByRole('region',{name:'Current research assessment',exact:true}).locator('summary').filter({hasText:'Assessment evidence and limitations'}).click();
  }
  async function noOverflow(){assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Overflow ${width}`);}
  await page.goto(`${base}/research-v8?ticker=AAPL&market=US`);
@@ -92,6 +97,9 @@ try {
  const assessment=page.getByRole('region',{name:'Current research assessment',exact:true});
  await page.getByRole('region',{name:'Financial assessment status',exact:true}).getByText('3 of 3 financial inputs',{exact:true}).waitFor();
  await assessment.getByText(/Reading limits:/).waitFor();
+ const reportedFacts=assessment.locator('dl').filter({hasText:'Annual free cash flow'});
+ await reportedFacts.getByText('USD 80',{exact:true}).waitFor();
+ await reportedFacts.getByText(/down 20\.0% vs year ended/).waitFor();
  assert.equal(await assessment.getByText(/No new financial evidence/).count(),0);
  await page.getByRole('button',{name:'Refresh provider data',exact:true}).click();
  await assessment.getByText(/No new financial evidence returned/).waitFor();
@@ -103,6 +111,9 @@ try {
  const geometry=await assessment.locator('h2,h3,button,summary,p,li').evaluateAll(nodes=>nodes.filter(n=>n.getClientRects().length).map(n=>{const r=n.getBoundingClientRect();return {text:n.textContent.slice(0,45),left:r.left,right:r.right,width:r.width};}));
  assert.ok(geometry.every(r=>r.left>=-1&&r.right<=width+1),'Assessment content outside viewport');
  await read('5347','MY');await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200.00');assert.equal(posts.length,0);await page.getByRole('tab',{name:'Financials',exact:true}).click();await page.locator('dd').filter({hasText:/^MYR 1,000$/}).waitFor();
+ await page.getByRole('tab',{name:'Valuation',exact:true}).click();await page.getByRole('heading',{name:'Price, value and downside'}).waitFor();
+ await page.locator('dt').filter({hasText:/^Market capitalization/}).locator('small').filter({hasText:/compatible outstanding shares are unavailable; annual diluted average shares are not substituted/}).waitFor();
+ await page.locator('dt').filter({hasText:/^Price \/ earnings/}).locator('small').filter({hasText:/Compares market capitalization with annual net income\. Unavailable because market capitalization is unavailable because compatible outstanding shares are unavailable/}).waitFor();
  await read('PARTIAL');await heading('Partial financial picture');assert.equal(await page.getByTestId('research-price').innerText(),'USD 200.00');
  await read('MISSING');await heading('Not enough financial data');await page.getByRole('region',{name:'Financial assessment status',exact:true}).getByText('Insufficient evidence',{exact:true}).waitFor();
  await page.getByRole('button',{name:'Refresh provider data',exact:true}).click();await assessment.getByText(/Insufficient financial evidence returned/).waitFor();assert.equal(await assessment.getByText(/No new financial evidence/).count(),0);

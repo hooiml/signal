@@ -21,6 +21,9 @@ export function MarketCoverageRing({ signal, coverage, onSelect }: {
             state: coverage.staleKeys.includes(key) ? 'stale' : coverage.freshKeys.includes(key) ? 'fresh' : 'unknown',
         }));
     const segments: Segment[] = coverage.fallbackPct > 0 ? [...inputs, { key: 'fallback', label: 'Neutral fallback', weight: coverage.fallbackPct, state: 'fallback' }] : inputs;
+    const freshWeight = inputs.filter(segment => segment.state === 'fresh').reduce((sum, segment) => sum + segment.weight, 0);
+    const staleWeight = inputs.filter(segment => segment.state === 'stale').reduce((sum, segment) => sum + segment.weight, 0);
+    const unverifiedWeight = Math.max(0, coverage.observedPct - freshWeight - staleWeight);
     const total = segments.reduce((sum, segment) => sum + segment.weight, 0) || 1;
     const gap = segments.length > 1 ? 2 : 0;
     // Each arc starts where the previous one ended.
@@ -44,5 +47,6 @@ export function MarketCoverageRing({ signal, coverage, onSelect }: {
                     : <button type="button" className={layout.ringItem} onClick={event => onSelect(segment.key, event.currentTarget)}><i data-state={segment.state} aria-hidden="true" />{segment.label}<small>{stateLabel[segment.state]}</small><b>{segment.weight.toFixed(0)}%</b></button>}
             </li>)}
         </ul>
+        <p className={layout.ringNote}>Scored weight: {coverage.observedPct.toFixed(1)}% · freshness within configured weight: {freshWeight.toFixed(1)}% fresh, {staleWeight.toFixed(1)}% stale, {unverifiedWeight.toFixed(1)}% unverified.</p>
     </div>;
 }

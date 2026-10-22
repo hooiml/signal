@@ -4,7 +4,7 @@ import path from 'node:path';
 import ts from 'typescript';
 
 // Real orchestration, scoring, persistence and route; isolated raw providers and SQL.
-export function marketRequestFixture({ allowSchema = false, signalSource, providerReadings = {}, previousSnapshot, providerOverrides, providerFetch, auraRows } = {}) {
+export function marketRequestFixture({ allowSchema = false, signalSource, providerReadings = {}, previousSnapshot, providerOverrides, providerFetch, auraRows, rawMarketData = {}, sourceConfiguration = {} } = {}) {
     const modules = new Map(), calls = [], events = [], providerTimeouts = [];
     let failure = '', hold = null, sqlHold = null;
     const fixedTime = '2026-09-12T00:00:00.000Z';
@@ -29,9 +29,9 @@ export function marketRequestFixture({ allowSchema = false, signalSource, provid
             fetchQuotes: provider('fetchQuotes', () => []),
             fetchHistoricalCurrencyVol: provider('fetchHistoricalCurrencyVol', () => ({ currentPrice: 4.2, vol20d: .003, change: .01, observedAt: new FixedDate('2026-09-11T08:00:00.000Z') })),
         },
-        reddit: { fetchMultipleSubreddits: provider('fetchMultipleSubreddits', () => []) },
+        reddit: { fetchMultipleSubreddits: provider('fetchMultipleSubreddits', () => []), getRedditOAuthConfiguration: () => sourceConfiguration.reddit ? { clientId: 'fixture', clientSecret: 'fixture', userAgent: 'fixture' } : null },
         'rss-feeds': { fetchMarketNews: provider('fetchMarketNews', () => []) },
-        stocktwits: { fetchTrendingTwits: provider('fetchTrendingTwits', () => []), calculateStockTwitsSentiment: () => 0 },
+        stocktwits: { fetchTrendingTwits: provider('fetchTrendingTwits', () => []), calculateStockTwitsSentiment: () => 0, isStockTwitsEnabled: () => Boolean(sourceConfiguration.stockTwits) },
         'market-context': { fetchMarketContext: provider('fetchMarketContext', context) },
     };
     const raw = async (market) => {
@@ -47,6 +47,7 @@ export function marketRequestFixture({ allowSchema = false, signalSource, provid
             combinedSentiment: 0, redditSentiment: 0,
             stockTwitsSentiment: 0, newsSentiment: 0,
             sentimentOutput: { score: 50, auraLevel: 'NEUTRAL', components: { vixScore: 50, socialScore: 50 } },
+            ...rawMarketData,
         };
     };
     const sql = async (strings, ...values) => {
@@ -94,6 +95,8 @@ export function marketRequestFixture({ allowSchema = false, signalSource, provid
             } };
             if (['yahoo-finance', 'reddit', 'rss-feeds', 'stocktwits', 'market-context'].includes(name)) {
                 if (providerOverrides !== undefined) return externalProviders[name];
+                if (name === 'reddit') return { getRedditOAuthConfiguration: externalProviders.reddit.getRedditOAuthConfiguration };
+                if (name === 'stocktwits') return { isStockTwitsEnabled: externalProviders.stocktwits.isStockTwitsEnabled };
                 return new Proxy({}, { get: () => () => { throw new Error('Unexpected provider access'); } });
             }
             if (name === 'market-indicators' && providerOverrides !== undefined) return {

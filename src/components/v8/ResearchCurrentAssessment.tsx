@@ -4,9 +4,10 @@ import { assessCurrentResearch, compareResearchEvidence } from '@/lib/research/c
 import { annualAmountComparison, type AnnualAmount } from '@/lib/research/financial-display';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { toYahooSymbol } from '@/lib/research/yahoo-research';
-import { date, retrievedAt } from './research-v8-connected-data';
+import { date, money, retrievedAt } from './research-v8-connected-data';
 import base from './market-v8.module.css';
 import styles from './research-v8-connected.module.css';
+import dataStyles from './research-v8.module.css';
 
 export function ResearchCurrentAssessment({ snapshot, previous = null, loading, error, now, compact = false }: { snapshot: ResearchSnapshot | null; previous?: ResearchSnapshot | null; loading: boolean; error: boolean; now: number; compact?: boolean }) {
     const assessment = assessCurrentResearch(snapshot, now);
@@ -29,6 +30,7 @@ export function ResearchCurrentAssessment({ snapshot, previous = null, loading, 
     // Keep unavailable assessments inspectable without pushing the returned price history down the page.
     if (snapshot && (assessment.status === 'unsupported' || assessment.coverage === 0)) {
         return <section className={`${styles.assessment} ${styles.assessmentCompact}`} aria-label="Current research assessment" aria-busy={loading}>
+            <AssessmentFacts snapshot={snapshot} />
             <details className={styles.assessmentDetails}>
                 <summary>Assessment evidence and limitations · {labels[assessment.status]} · {assessment.coverage}/3 inputs</summary>
                 <p>{error ? 'Provider refresh failed. The previous response remains visible with its original dates.' : assessment.summary}</p>
@@ -50,33 +52,45 @@ export function ResearchCurrentAssessment({ snapshot, previous = null, loading, 
         <p className={styles.assessmentSource}>Classification: {snapshot.quote.classification ? `${snapshot.quote.classification.sector || 'Sector unavailable'} · ${snapshot.quote.classification.industry || 'Industry unavailable'} · ${snapshot.quote.classification.source} · retrieved ${retrievedAt(snapshot.quote.classification.retrievedAt)}` : 'Unavailable; company assessment withheld.'}</p>
         <p className={styles.assessmentLimit}><strong>Reading limits:</strong> {['partial', 'outdated', 'insufficient'].includes(assessment.status) ? `${assessment.gaps[0]} ` : ''}These checks do not assess fair value, debt safety or investment suitability.{snapshot.warnings.length > 0 ? ' Provider notices are present; check the source details below.' : ''}</p>
         {comparison && <p className={styles.assessmentChange} role="status">{comparison}</p>}
-        <div className={styles.assessmentGrid}>
-            <div><h3>What supports the picture</h3>{assessment.supporting.length ? <ul>{assessment.supporting.map(item => <li key={item}><ClaimEvidence claim={item} snapshot={snapshot} /></li>)}</ul> : <p>No supporting financial conclusion is available from the returned data.</p>}</div>
-            <div><h3>What needs care</h3>{assessment.concerns.length ? <ul>{assessment.concerns.map(item => <li key={item}><ClaimEvidence claim={item} snapshot={snapshot} /></li>)}</ul> : <p>{!assessment.applicable ? 'The company assessment does not apply. This is not a positive or negative finding.' : assessment.coverage === 0 ? 'There is not enough financial evidence to assess business risks.' : 'No concern was flagged by these checks of revenue growth and current profit and cash-flow signs. A positive current amount can still have declined year over year; see the trend details above.'}</p>}</div>
-        </div>
+        <div className={styles.assessmentFactsBlock}><h3>Reported facts</h3><AssessmentFacts snapshot={snapshot} /></div>
         <p><strong>What to watch next:</strong> {assessment.watchNext}</p>
         <details className={styles.assessmentDetails}><summary>Evidence, limitations and how this is assessed</summary><ul>{assessment.gaps.map(item => <li key={item}>{item}</li>)}</ul><p>Revenue growth is compared with zero; annual profit and free cash flow are checked for positive, zero or negative values. All three require a named financial source and a valid reporting period. Eligibility requires matching equity identification and current provider sector/industry metadata. Financial Services, REITs, unknown sectors and classification older than two days are excluded. No sector-specific financial thresholds, forecasts, valuation targets or personal checklist answers are used. The 18-month reporting and two-day retrieval limits are display freshness rules, not investment signals.</p></details>
         </>}
     </section>;
 }
 
-function ClaimEvidence({ claim, snapshot }: { claim: string; snapshot: ResearchSnapshot }) {
-    const f = snapshot.fundamentals;
-    const period = f.history.find(row => row.reportingPeriod === f.reportingPeriod);
-    const revenue = /revenue/.test(claim);
-    const cashFlow = /cash flow/.test(claim);
-    const key: AnnualAmount = revenue ? 'annualRevenue' : cashFlow ? 'freeCashFlow' : 'annualNetIncome';
-    const value = f[key];
-    const comparison = annualAmountComparison(f, key);
-    const currency = period?.currency;
-    const amount = value === null ? 'Unavailable' : `${currency || 'Currency unavailable'} ${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
-    const suppliedUrl = period?.sourceUrl;
-    const verifiedSecUrl = suppliedUrl && /^https:\/\/(www\.)?sec\.gov\//i.test(suppliedUrl) ? suppliedUrl : null;
-    const providerUrl = f.source === 'Yahoo Finance' ? `https://finance.yahoo.com/quote/${encodeURIComponent(toYahooSymbol(snapshot.symbol, snapshot.market))}/financials/` : null;
-    return <details className={styles.assessmentDetails}><summary>{claim}</summary>
-        <p>{revenue ? 'Annual revenue' : cashFlow ? 'Annual free cash flow' : 'Annual net income'}: {amount}. Annual period ended {date(f.reportingPeriod)} · {f.source || 'Source unavailable'}.</p>
-        {comparison ? <p>Comparison: {date(comparison.previous.reportingPeriod)} {revenue ? 'revenue' : cashFlow ? 'free cash flow' : 'net income'} {currency || 'Currency unavailable'} {comparison.previous[key]?.toLocaleString('en-US') ?? 'Unavailable'} → {date(f.reportingPeriod)} {value?.toLocaleString('en-US') ?? 'Unavailable'}. Change = current − prior; {comparison.percentage === null ? 'percentage change is withheld because the prior amount is zero or negative.' : `percentage change = (current − prior) ÷ prior × 100 = ${comparison.percentage.toFixed(1)}%.`} These are comparable annual endpoints from the same source and currency.</p>
-            : <p>{revenue ? period?.comparisonPeriod ? `Comparison: ${date(period.comparisonPeriod)} revenue ${currency || 'Currency unavailable'} ${period.comparisonRevenue?.toLocaleString('en-US') ?? 'Unavailable'} → ${date(f.reportingPeriod)} revenue ${value?.toLocaleString('en-US') ?? 'Unavailable'}. ${period.comparableAnnual === false ? 'Periods are not comparable annual endpoints; YoY growth is withheld.' : 'Growth = (current − prior) ÷ absolute prior × 100.'}` : 'Comparison endpoints were not supplied; the reported provider growth cannot be independently reconstructed here.' : 'A comparable prior annual amount with the same currency and source is not available. The current amount alone does not establish year-over-year growth.'}</p>}
-        {verifiedSecUrl ? <a href={verifiedSecUrl} target="_blank" rel="noopener noreferrer">Supplied SEC source document ↗</a> : providerUrl ? <a href={providerUrl} target="_blank" rel="noopener noreferrer">Yahoo Finance financials page · provider, not issuer filing ↗</a> : <p>No verified source-document link was supplied. Check the issuer report separately.</p>}
-    </details>;
+function AssessmentFacts({ snapshot }: { snapshot: ResearchSnapshot }) {
+    const fundamentals = snapshot.fundamentals;
+    const period = fundamentals.history.find(row => row.reportingPeriod === fundamentals.reportingPeriod);
+    const rows: readonly [string, AnnualAmount][] = [['Annual revenue', 'annualRevenue'], ['Annual net income', 'annualNetIncome'], ['Annual free cash flow', 'freeCashFlow']];
+    return <dl className={`${dataStyles.valuationInputs} ${styles.assessmentFacts}`}>
+        {rows.map(([label, key]) => {
+            const value = fundamentals[key];
+            const comparison = annualAmountComparison(fundamentals, key);
+            const delta = comparison?.percentage !== null && comparison?.percentage !== undefined
+                ? `${comparison.percentage < 0 ? 'down ' : comparison.percentage > 0 ? 'up ' : ''}${Math.abs(comparison.percentage).toFixed(1)}%`
+                : comparison ? `${comparison.delta < 0 ? 'down ' : comparison.delta > 0 ? 'up ' : ''}${money(Math.abs(comparison.delta), period?.currency)}` : null;
+            const currentSign = value == null || !Number.isFinite(value) ? 'Unavailable' : value > 0 ? 'Positive' : value < 0 ? 'Negative' : 'Zero';
+            const suppliedUrl = period?.sourceUrl;
+            const verifiedSecUrl = suppliedUrl && /^https:\/\/(www\.)?sec\.gov\//i.test(suppliedUrl) ? suppliedUrl : null;
+            const providerUrl = fundamentals.source === 'Yahoo Finance' ? `https://finance.yahoo.com/quote/${encodeURIComponent(toYahooSymbol(snapshot.symbol, snapshot.market))}/financials/` : null;
+            return <div key={key}>
+                <dt>{label}</dt>
+                <dd>{money(value, period?.currency)}</dd>
+                <dd className={styles.assessmentFactChange}>Current amount: {currentSign}</dd>
+                <dd className={styles.assessmentFactChange}>
+                    {comparison && delta ? `${delta} vs year ended ${date(comparison.previous.reportingPeriod)}` : 'Annual change unavailable'}
+                </dd>
+                <dd><details className={styles.assessmentDetails}>
+                    <summary>Exact amount, comparison and source</summary>
+                    <p>{label}: {money(value, period?.currency)} · annual period ended {date(fundamentals.reportingPeriod)} · {fundamentals.source || 'Source unavailable'}.</p>
+                    {comparison
+                        ? <p>Comparable annual endpoints: {date(comparison.previous.reportingPeriod)} {money(comparison.previous[key], comparison.previous.currency)} → {date(fundamentals.reportingPeriod)} {money(value, period?.currency)}. Amount change: {money(comparison.delta, period?.currency)}. {comparison.percentage === null ? 'Percentage change is withheld because the prior amount is zero or negative.' : `Percentage change = (current − prior) ÷ prior × 100 = ${comparison.percentage.toFixed(1)}%.`} Both endpoints use the same source and currency.</p>
+                        : <p>A comparable prior annual amount with the same source and currency is unavailable. No year-over-year change is inferred.</p>}
+                    {key === 'annualRevenue' && fundamentals.revenueGrowthPercent != null && Number.isFinite(fundamentals.revenueGrowthPercent) && <p>Provider-reported revenue growth: {fundamentals.revenueGrowthPercent.toFixed(1)}%. This is separate from the comparable endpoint change above.</p>}
+                    {verifiedSecUrl ? <a href={verifiedSecUrl} target="_blank" rel="noopener noreferrer">Supplied SEC source document ↗</a> : providerUrl ? <a href={providerUrl} target="_blank" rel="noopener noreferrer">Yahoo Finance financials page · provider, not issuer filing ↗</a> : <p>No verified source-document link was supplied. Check the issuer report separately.</p>}
+                </details></dd>
+            </div>;
+        })}
+    </dl>;
 }

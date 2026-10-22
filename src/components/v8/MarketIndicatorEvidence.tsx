@@ -36,7 +36,7 @@ export function MarketIndicatorEvidence({ signal, inputKeys, configured, date, s
         </div>
         {missing.length > 0 && <div className={styles.missingRow} role="group" aria-label="Unavailable inputs">
             <span><b>{missing.length} {missing.length === 1 ? 'input' : 'inputs'} unavailable</b><small>No current observation · select one for details</small></span>
-            <span className={styles.missingList}>{missing.map(key => <button type="button" key={key} data-indicator={key} data-available="false" className={styles.missingChip} onClick={event => onSelect(key, event.currentTarget)}>{getIndicatorDisplayName(key)}</button>)}</span>
+            <span className={styles.missingList}>{missing.map(key => <button type="button" key={key} data-indicator={key} data-available="false" aria-label={getIndicatorDisplayName(key)} className={styles.missingChip} onClick={event => onSelect(key, event.currentTarget)}><span>{getIndicatorDisplayName(key)}</span><small>{(configured[key] ?? 0) > 0 ? `${((configured[key] ?? 0) * 100).toFixed(1)}% configured weight · neutral reserve` : 'No configured scoring weight'}</small></button>)}</span>
         </div>}
         {observed.length > 3 && <button className={`${base.textButton} ${styles.expandEvidence}`} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? 'Show fewer inputs' : `Show all ${observed.length} observed inputs`} {expanded ? '↑' : '↓'}</button>}
         <p className={styles.evidenceNote}>Unavailable observations are not neutral sentiment. Configured missing weight may use neutral fallback.</p>

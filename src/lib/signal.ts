@@ -1,7 +1,7 @@
 import { fetchVIX, fetchIndicesWithChart, fetchQuotes, fetchHistoricalCurrencyVol, MarketData as YahooMarketData } from '@/lib/yahoo-finance';
-import { fetchMultipleSubreddits, RedditPost } from '@/lib/reddit';
+import { fetchMultipleSubreddits, getRedditOAuthConfiguration, RedditPost } from '@/lib/reddit';
 import { fetchMarketNews, NewsItem } from '@/lib/rss-feeds';
-import { fetchTrendingTwits, calculateStockTwitsSentiment, StockTwit } from '@/lib/stocktwits';
+import { fetchTrendingTwits, calculateStockTwitsSentiment, isStockTwitsEnabled, StockTwit } from '@/lib/stocktwits';
 import { calculateSentimentScore, getScoreDescription, SentimentOutput } from '@/lib/sentiment-calculator';
 import { combineAvailableSentiment } from '@/lib/social-sentiment';
 import { sql } from '@/lib/db';
@@ -669,6 +669,20 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             stockTwits: marketData.stockTwits.length,
             news: marketData.newsItems.length,
         };
+        const newsDates = marketData.newsItems.flatMap(item => {
+            if (!item.pubDate) return [];
+            const timestamp = Date.parse(item.pubDate);
+            return Number.isFinite(timestamp) ? [timestamp] : [];
+        });
+        const newsEvidence = {
+            count: marketData.newsItems.length,
+            dated_count: newsDates.length,
+            unknown_date_count: marketData.newsItems.length - newsDates.length,
+            within_24h_count: newsDates.filter(timestamp => timestamp <= Date.parse(retrievedAt)
+                && Date.parse(retrievedAt) - timestamp <= 24 * 60 * 60 * 1000).length,
+            newest_published_at: newsDates.length ? new Date(Math.max(...newsDates)).toISOString() : null,
+            oldest_published_at: newsDates.length ? new Date(Math.min(...newsDates)).toISOString() : null,
+        };
         const socialIndicator: IndicatorData = {
             name: sourceName,
             display_name: market === 'MY' ? 'News Sentiment' : 'Social Sentiment',
@@ -808,6 +822,24 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
         ] : [];
 
         v2Signal.metadata.articles = articlesData;
+        v2Signal.metadata.source_availability = {
+            ...(market === 'US' ? {
+                reddit: {
+                    status: !getRedditOAuthConfiguration() ? 'unconfigured' as const : sourceCounts.reddit > 0 ? 'available' as const : 'no-results' as const,
+                    count: sourceCounts.reddit,
+                },
+                stocktwits: {
+                    status: !isStockTwitsEnabled() ? 'disabled' as const : sourceCounts.stockTwits > 0 ? 'available' as const : 'no-results' as const,
+                    count: sourceCounts.stockTwits,
+                },
+            } : {}),
+            news: { status: sourceCounts.news > 0 ? 'available' : 'no-results', count: sourceCounts.news },
+            ...(market === 'US' ? {
+                naaim: { status: marketData.naaimExposure ? 'available' as const : 'no-current-reading' as const },
+                bofa: { status: institutionalRaw.some(entry => entry.indicator_name === 'bofa') ? 'available' as const : 'manual-reading-unavailable' as const },
+            } : {}),
+        };
+        v2Signal.metadata.news_evidence = newsEvidence;
         v2Signal.metadata.index_trend = marketData.marketIndices.map(index => ({
             symbol: index.symbol,
             price: index.price,

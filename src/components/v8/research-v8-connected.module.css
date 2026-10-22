@@ -171,6 +171,14 @@
 .financialSummary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .financialSummary .financialDetail { font-size: var(--text-sm); font-weight: 400; margin: 0; }
 @media (max-width: 900px) { .financialSummary { grid-template-columns: 1fr; } }
+.assessmentFactsBlock { padding: 14px 0; margin: 14px 0; border-block: 1px solid var(--line); }
+.assessmentFactsBlock h3 { margin: 0; }
+.assessmentFacts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 20px; margin: 8px 0 0; }
+.assessmentFacts > div { display: grid; align-content: start; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.assessmentFacts dt { color: var(--ink); font-weight: 600; }
+.assessmentFacts dd { margin: 0; text-align: left; overflow-wrap: anywhere; }
+.assessmentFacts .assessmentFactChange { color: var(--muted); font-size: var(--text-sm); font-weight: 400; line-height: 1.5; }
+@media (max-width: 600px) { .assessmentFacts { grid-template-columns: 1fr; gap: 0; } }
 
 /* Reading-specific disclosure and chart context; no changes to analytical meaning. */
 .availabilityNote { margin: 16px 0; padding: 14px 16px; border-left: 3px solid var(--line-strong); background: var(--surface-subtle); border-radius: 6px; }

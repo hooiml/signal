@@ -134,6 +134,35 @@ function validArticles(value: unknown): boolean {
         && (item.sentiment === undefined || ['bullish', 'bearish', 'neutral'].includes(String(item.sentiment))));
 }
 
+function validSourceAvailability(value: unknown): boolean {
+    if (!object(value)) return false;
+    const validSource = (source: unknown, statuses: readonly string[], hasCount: boolean) => object(source)
+        && statuses.includes(String(source.status))
+        && (!hasCount || count(source.count));
+    return (value.reddit === undefined || validSource(value.reddit, ['available', 'no-results', 'unconfigured'], true))
+        && (value.stocktwits === undefined || validSource(value.stocktwits, ['available', 'no-results', 'disabled'], true))
+        && (value.news === undefined || validSource(value.news, ['available', 'no-results'], true))
+        && (value.naaim === undefined || validSource(value.naaim, ['available', 'no-current-reading'], false))
+        && (value.bofa === undefined || validSource(value.bofa, ['available', 'manual-reading-unavailable'], false));
+}
+
+function validNewsEvidence(value: unknown): boolean {
+    if (!object(value)) return false;
+    const { count: total, dated_count: dated, unknown_date_count: unknownDates, within_24h_count: recent } = value;
+    if (!count(total) || !count(dated) || !count(unknownDates) || !count(recent)) return false;
+    const totalCount = total as number;
+    const datedCount = dated as number;
+    const unknownDateCount = unknownDates as number;
+    const recentCount = recent as number;
+    return datedCount <= totalCount
+        && unknownDateCount === totalCount - datedCount
+        && recentCount <= datedCount
+        && (value.newest_published_at === null || date(value.newest_published_at))
+        && (value.oldest_published_at === null || date(value.oldest_published_at))
+        && (datedCount > 0 ? typeof value.newest_published_at === 'string' && typeof value.oldest_published_at === 'string'
+            : value.newest_published_at === null && value.oldest_published_at === null);
+}
+
 function validIndexTrend(value: unknown): boolean {
     return Array.isArray(value) && value.every((item) => object(item)
         && typeof item.symbol === 'string'
@@ -331,6 +360,8 @@ function validMetadata(value: Record<string, unknown>, market: string): boolean 
     if (value.coverage_adjustment !== undefined && !validCoverage(value.coverage_adjustment)) return false;
     if (value.signal_quality !== undefined && !validSignalQuality(value.signal_quality)) return false;
     if (value.articles !== undefined && !validArticles(value.articles)) return false;
+    if (value.source_availability !== undefined && !validSourceAvailability(value.source_availability)) return false;
+    if (value.news_evidence !== undefined && !validNewsEvidence(value.news_evidence)) return false;
     if (value.index_trend !== undefined && !validIndexTrend(value.index_trend)) return false;
     if (value.interpretation_context !== undefined && !validInterpretationContext(value.interpretation_context)) return false;
     if (value.valuation_backdrop !== undefined && value.valuation_backdrop !== null && !validValuationBackdrop(value.valuation_backdrop)) return false;

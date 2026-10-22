@@ -36,8 +36,9 @@ export default function UnlockPage() {
         <main className="min-h-screen bg-[#071019] px-5 py-16 text-slate-100">
             <section className="mx-auto max-w-md rounded-xl border border-slate-700 bg-[#0b1722] p-6 shadow-2xl">
                 <p className="text-xs font-bold uppercase tracking-[0.15em] text-amber-300">Owner access</p>
-                <h1 className="mt-2 text-2xl font-bold">Unlock saved research</h1>
-                <p className="mt-4 leading-7 text-slate-300">Saved research, backups and notification settings require the server&apos;s owner access secret. This browser stays unlocked for 30 days; the secret itself is never stored.</p>
+                <h1 className="mt-2 text-2xl font-bold">Open owner workspace</h1>
+                <p className="mt-4 leading-7 text-slate-300">Everyone can explore Signal and save guest notes without an account or code. <a className="underline" href="/research-v8">Continue as a guest →</a></p>
+                <p className="mt-4 leading-7 text-slate-300">Only the private owner workspace, backups and notification settings require the owner access secret. Guest data stays separate and is never imported automatically. This browser stays unlocked for 30 days; the secret itself is never stored.</p>
                 <form className="mt-5 space-y-3" onSubmit={(event) => void submit(event)}>
                     <label className="block text-sm font-bold" htmlFor="owner-secret">Access secret</label>
                     <input

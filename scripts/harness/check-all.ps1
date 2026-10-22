@@ -55,4 +55,9 @@ if ($LASTEXITCODE -ne 0) { throw "Display clarity regression failed with exit co
 node (Join-Path $PSScriptRoot "research-reading-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "Research reading regression failed with exit code $LASTEXITCODE" }
 
+node (Join-Path $PSScriptRoot "market-data-clarity-regression.mjs")
+if ($LASTEXITCODE -ne 0) { throw "Market data clarity regression failed with exit code $LASTEXITCODE" }
+node (Join-Path $PSScriptRoot "guest-workspace-regression.mjs")
+if ($LASTEXITCODE -ne 0) { throw "Guest workspace regression failed with exit code $LASTEXITCODE" }
+
 Write-Host "Repo harness checks passed."

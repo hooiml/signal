@@ -12,10 +12,12 @@ export function ResearchFinancialSummary({ fundamentals }: { fundamentals: Resea
             const value = fundamentals?.[key];
             const comparison = fundamentals ? annualAmountComparison(fundamentals, key) : null;
             const change = comparison?.percentage !== null && comparison?.percentage !== undefined
-                ? `${comparison.percentage > 0 ? '+' : ''}${number(comparison.percentage, '%')}`
-                : comparison ? `${comparison.delta > 0 ? '+' : ''}${compactFinancialAmount(comparison.delta, period?.currency)}` : null;
+                ? `${comparison.percentage > 0 ? 'up ' : comparison.percentage < 0 ? 'down ' : ''}${number(Math.abs(comparison.percentage), '%')}`
+                : comparison ? `${comparison.delta > 0 ? 'up ' : comparison.delta < 0 ? 'down ' : ''}${compactFinancialAmount(Math.abs(comparison.delta), period?.currency)}` : null;
             return <div key={key}><dt>{label}</dt><dd>{compactFinancialAmount(value, period?.currency)}</dd>
-                <dd className={connected.financialDetail}>{comparison && <p className={connected.financialChange}>Change {change} vs {date(comparison.previous.reportingPeriod)}</p>}
+                <dd className={connected.financialDetail}>{comparison
+                    ? <p className={connected.financialChange}>{value !== null && value !== undefined && value < 0 ? 'Negative' : value === 0 ? 'Zero' : 'Positive'} · {change} vs {date(comparison.previous.reportingPeriod)}</p>
+                    : <p className={connected.financialChange}>Annual change unavailable</p>}
                 {((value !== null && value !== undefined && Number.isFinite(value)) || (key === 'annualRevenue' && fundamentals?.revenueGrowthPercent != null && Number.isFinite(fundamentals.revenueGrowthPercent))) && <details><summary>Exact amount and comparison</summary>
                     <p>{money(value, period?.currency)} · annual period ended {date(fundamentals?.reportingPeriod)} · {fundamentals?.source || 'Source unavailable'}.</p>
                     {key === 'annualRevenue' && <p>Provider-reported revenue growth: {number(fundamentals?.revenueGrowthPercent, '%')}. The displayed change above uses the identified comparable annual endpoints when available.</p>}

@@ -4,6 +4,19 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+The same `research-unsaved-qa.mjs` browser process also runs `guest-workspace-qa.mjs`
+at 1440×1000 and 390×844. It checks local persistence, separate browser profiles,
+cross-tab draft conflicts, export, quota/corrupt-storage states, confirmed clear,
+and guest/owner separation. Set the local server's `OWNER_ACCESS_SECRET` and the
+test process's `SIGNAL_QA_OWNER_SECRET` to the same disposable test value to exercise
+real signed owner-session cookies and unauthorized private-route requests. Provider
+and owner-record reads use labelled test fixtures; no real saved records are changed.
+Guest evidence is saved in `.tmp/guest-workspace/`. The harness runs storage validation
+and Market source/publication metadata regressions as well.
+Run `node scripts/market-coverage-qa.mjs` for the focused US/MY coverage and source-detail
+check at 1440, 390 and 375px. It asserts that the legend stays beside the ring, checks
+source/publication explanations, and saves screenshots in `.tmp/market-coverage/`.
+
 For current-assessment and unsaved Research changes, run `node scripts/research-unsaved-qa.mjs`
 against an owned local production server (`SIGNAL_QA_URL`, default port 3101). The synthetic
 API matrix covers 1280px, 768px and 375px, US/Malaysia unsaved readings, explicit save/error/retry,

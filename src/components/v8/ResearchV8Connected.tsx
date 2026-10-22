@@ -6,6 +6,8 @@ import { parseResearchSnapshotResponse } from '@/lib/research/snapshot-input';
 import { readData, readFailure, readOwnerAccessIssue, readPolicies } from './read-data';
 import { ownerAccessMessage, ownerUnlockHref, type OwnerAccessIssue } from '@/lib/owner-access-client';
 import { ResearchSavedState } from './ResearchSavedState';
+import { clearGuestWorkspace, exportGuestWorkspace, readGuestRecords, saveGuestSecurity } from '@/lib/research/guest-workspace';
+import { GuestResearchNote } from './GuestResearchNote';
 import { buildResearchReadiness } from '@/lib/research/readiness';
 import { personalReviewDate } from '@/lib/research/review-lifecycle';
 import { researchWorkspaceGroups } from '@/lib/research/workspace-navigation';
@@ -37,6 +39,9 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
     const [accessIssue, setAccessIssue] = useState<OwnerAccessIssue | null>(null);
+    const [workspace, setWorkspace] = useState<'checking' | 'guest' | 'owner'>('checking');
+    const workspaceRef = useRef(workspace);
+    const [guestError, setGuestError] = useState('');
     const lastRead = useRef(0);
     const savedRevision = useRef(0);
     const [panel, setPanel] = useState<'saved' | 'tools' | null>(null);
@@ -54,8 +59,10 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
         panelTrigger.current = trigger;
         setPanel(value);
     }
-    function chooseSecurity(symbol: string) {
-        navigate(symbol, tab, true, records?.find(item => item.symbol === symbol)?.market);
+    function chooseSecurity(value: string) {
+        const item = records?.find(item => `${item.market}:${item.symbol}` === value);
+        if (!item) return;
+        navigate(item.symbol, tab, true, item.market);
         panelRef.current?.close();
     }
     function navigate(symbol: string, nextTab = tab, push = true, nextMarket = selectedMarket, nextAdvanced = advanced) {
@@ -73,7 +80,8 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
             const params = url.searchParams;
             const ticker = (params.get('ticker') ?? '').trim().toUpperCase();
             const explicitMarket = params.get('market') === 'MY' ? 'MY' : params.get('market') === 'US' ? 'US' : undefined;
-            const restoredMarket = explicitMarket ?? records?.find(item => item.symbol === ticker)?.market;
+            const matchingRecords = records?.filter(item => item.symbol === ticker) ?? [];
+            const restoredMarket = explicitMarket ?? (matchingRecords.length === 1 ? matchingRecords[0].market : undefined);
             // A legacy Back/Forward entry is normalized while restoring state, so
             // its market survives a later owner-access failure that clears records.
             if (!explicitMarket && restoredMarket) {
@@ -96,7 +104,9 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
         };
         window.addEventListener('focus', revalidate);
         document.addEventListener('visibilitychange', revalidate);
-        return () => { window.removeEventListener('popstate', restore); window.removeEventListener('focus', revalidate); document.removeEventListener('visibilitychange', revalidate); };
+        const storageChanged = (event: StorageEvent) => { if (event.key === 'signal.guest-research.v1' || event.key === null) { setReload(value => value + 1); } };
+        window.addEventListener('storage', storageChanged);
+        return () => { window.removeEventListener('popstate', restore); window.removeEventListener('focus', revalidate); document.removeEventListener('visibilitychange', revalidate); window.removeEventListener('storage', storageChanged); };
     }, []);
     function changeDepth() {
         const next = !advanced;
@@ -114,8 +124,19 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
         const controller = new AbortController();
         let active = true;
         const version = savedRevision.current;
-        readData('/api/research/watchlist', controller.signal, readPolicies.watchlist)
-            .then(parseWatchlist)
+        async function loadWorkspace() {
+            // A public status check chooses the store. Guest records never enter owner CRUD.
+            const session = await readData('/api/owner/session', controller.signal, { attemptMs: 3000, budgetMs: 6500 }).catch(() => null);
+            if (!active || version !== savedRevision.current) return [];
+            const owner = !!session && typeof session === 'object' && 'data' in session && !!session.data && typeof session.data === 'object' && 'unlocked' in session.data && session.data.unlocked === true;
+            const nextWorkspace = owner ? 'owner' : 'guest';
+            if (workspaceRef.current !== nextWorkspace) setRecords(null);
+            workspaceRef.current = nextWorkspace;
+            setWorkspace(nextWorkspace); setGuestError('');
+            if (owner) return parseWatchlist(await readData('/api/research/watchlist', controller.signal, readPolicies.watchlist));
+            return readGuestRecords();
+        }
+        loadWorkspace()
             .then(next => { if (active && version === savedRevision.current) {
                 setAccessIssue(null); setError(false);
                 setRecords(next);
@@ -123,7 +144,8 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                 const ticker = url.searchParams.get('ticker')?.trim().toUpperCase();
                 const linkedMarket = url.searchParams.get('market');
                 const marketPreference = linkedMarket === 'MY' || linkedMarket === 'US' ? linkedMarket : undefined;
-                const savedSelection = ticker ? next.find(item => item.symbol === ticker) : marketPreference ? next.find(item => item.market === marketPreference) : next[0];
+                const matchingRecords = next.filter(item => item.symbol === ticker);
+                const savedSelection = ticker ? matchingRecords.length === 1 ? matchingRecords[0] : undefined : marketPreference ? next.find(item => item.market === marketPreference) : next[0];
                 // Resolve the current URL, not the selection when this read began.
                 // An explicit market always wins over a saved record with the same ticker.
                 if (ticker && (linkedMarket === 'MY' || linkedMarket === 'US')) {
@@ -143,6 +165,10 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                 }
             } })
             .catch(failure => { if (active && version === savedRevision.current) {
+                if (workspaceRef.current === 'guest') {
+                    setGuestError(failure instanceof Error ? failure.message : 'Device storage is unavailable. You can still read research.');
+                    return;
+                }
                 const issue = readOwnerAccessIssue(failure);
                 setError(true); setAccessIssue(issue);
                 if (issue) setRecords(null);
@@ -151,25 +177,49 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
         return () => { active = false; controller.abort(); };
     }, [reload]);
     const matches = (records ?? []).filter(record => (market === 'All' || record.market === market) && `${record.symbol} ${record.companyName}`.toLowerCase().includes(query.trim().toLowerCase()));
-    const record = records?.find(item => item.symbol === selected && (!selectedMarket || item.market === selectedMarket));
-    const readingMarket = selectedMarket ?? record?.market ?? (/^[0-9]+(?:\.KL)?$/.test(selected) || ['MAYBANK', 'KLCI'].includes(selected) || selected.endsWith('.KL') ? 'MY' : undefined);
+    const matchingRecords = records?.filter(item => item.symbol === selected) ?? [];
+    const record = selectedMarket ? matchingRecords.find(item => item.market === selectedMarket) : matchingRecords.length === 1 ? matchingRecords[0] : undefined;
+    const readingMarket = selectedMarket ?? record?.market ?? (matchingRecords.length > 1 ? undefined : /^[0-9]+(?:\.KL)?$/.test(selected) || ['MAYBANK', 'KLCI'].includes(selected) || selected.endsWith('.KL') ? 'MY' : undefined);
     const validSelection = /^[A-Z0-9.-]{1,15}$/.test(selected);
     const remember = (saved: ResearchRecord) => {
+        if (workspaceRef.current !== workspace) return;
         savedRevision.current += 1;
         setAccessIssue(null); setError(false); setLoading(false);
-        setRecords(previous => [...(previous ?? []).filter(item => item.symbol !== saved.symbol), saved]);
+        setRecords(previous => [...(previous ?? []).filter(item => item.symbol !== saved.symbol || item.market !== saved.market), saved]);
     };
     const denySavedAccess = (issue: OwnerAccessIssue) => {
         // A Save response is newer evidence than an earlier watchlist request.
         savedRevision.current += 1;
         setAccessIssue(issue); setError(true); setLoading(false); setRecords(null);
     };
-    const selectedIndex = matches.findIndex(item => item.symbol === selected);
+    const selectedIndex = matches.findIndex(item => item.symbol === selected && item.market === readingMarket);
     const returnUrl = new URL(returnPath, 'https://signal.invalid');
     if (record && !['US', 'MY'].includes(returnUrl.searchParams.get('market') ?? '')) returnUrl.searchParams.set('market', record.market);
     const unlockHref = ownerUnlockHref(returnUrl.pathname + returnUrl.search + returnUrl.hash);
     const retrySaved = () => { setLoading(true); setError(false); setReload(value => value + 1); };
-    const savedState = <ResearchSavedState loading={loading} error={error} issue={accessIssue} hasRecords={records !== null} unlockHref={unlockHref} onRetry={retrySaved} />;
+    async function useGuestWorkspace() {
+        try {
+            const response = await fetch('/api/owner/session', { method: 'DELETE' });
+            if (!response.ok) throw new Error('Could not close the owner session. Try again.');
+            savedRevision.current += 1;
+            workspaceRef.current = 'guest'; setWorkspace('guest'); setRecords(null); setAccessIssue(null); retrySaved();
+            panelRef.current?.close();
+        } catch { setError(true); }
+    }
+    const savedState = workspace === 'owner' ? <ResearchSavedState loading={loading} error={error} issue={accessIssue} hasRecords={records !== null} unlockHref={unlockHref} onRetry={retrySaved} /> : guestError ? <p role="alert">{guestError} {records && 'Showing the last loaded guest records. Saving is unavailable until storage recovers.'} <button className={base.textButton} onClick={retrySaved}>Retry device storage</button></p> : null;
+    async function guestAction(action: 'export' | 'clear') {
+        try {
+            if (action === 'clear') {
+                if (!window.confirm('Remove all guest securities and notes from this browser? Export them first if you want to keep a copy. Your owner workspace will not change.')) return;
+                await clearGuestWorkspace(); savedRevision.current += 1; setRecords([]);
+            } else {
+                const url = URL.createObjectURL(new Blob([exportGuestWorkspace()], { type: 'application/json' }));
+                const link = document.createElement('a'); link.href = url; link.download = 'signal-guest-research.json'; link.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }
+            setGuestError('');
+        } catch (failure) { setGuestError(failure instanceof Error ? failure.message : 'Device storage is unavailable.'); }
+    }
     return <div className={`${base.app} ${styles.app} ${connected.app}`}>
         <a className={base.skip} href="#v8-content">Skip to content</a>
         <header className={base.header}><a className={base.logo} href="/main-v8">∿ Signal</a><nav aria-label="Primary"><a href={readingMarket ? `/main-v8?market=${readingMarket}` : '/main-v8'}>Market</a><a href="/research-v8" aria-current="page">Research</a></nav><V8ThemeControl /></header>
@@ -184,6 +234,10 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                     <button className={connected.actionButton} aria-haspopup="dialog" aria-expanded={panel === 'tools'} onClick={event => openPanel('tools', event.currentTarget)}>Saved research<span aria-hidden="true">⌄</span></button>
                 </div>
             </section>
+            <div className={connected.dataStatus} aria-label="Research workspace">
+                <span>{workspace === 'checking' ? 'Welcome to Signal. Explore company data while your workspace loads.' : workspace === 'guest' ? 'Welcome to Signal · Guest workspace. Securities and notes are saved on this device.' : 'Owner workspace · Your private saved research'}</span>
+                {workspace === 'guest' && <span>No account or code needed. This browser’s guest data stays separate from owner research.</span>}
+            </div>
             {validSelection ? <details className={connected.lookupDisclosure}><summary>Change security</summary><ResearchSecurityLookup initialMarket={initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} /></details> : <ResearchSecurityLookup initialMarket={initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} />}
             {savedState}
             <dialog ref={panelRef} className={connected.utilityPanel} aria-labelledby="research-utility-title" onClose={() => { setPanel(null); panelTrigger.current?.focus(); }} onKeyDownCapture={event => { if (event.key === 'Escape') { event.preventDefault(); event.currentTarget.close(); } }} onClick={event => {
@@ -192,18 +246,23 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
             }}>
                 <div className={connected.utilityHeading}><h2 id="research-utility-title">{panel === 'tools' ? 'Saved research' : 'Saved securities'}</h2><button className={base.textButton} onClick={() => panelRef.current?.close()} aria-label="Close research panel">Close ×</button></div>
                 {panel === 'saved' && <div className={connected.savedSelector}>
-            {savedState}{records?.length === 0 && <p>No active securities are saved. <a href="/research?workspace=research">Open watchlist →</a></p>}
+            {savedState}{records?.length === 0 && <p>No securities saved yet. Search for a company, then choose Save security.</p>}
             <div className={`${styles.toolbar} ${connected.toolbar}`}><label className={styles.search}><span>Find a saved security</span><span className={styles.searchField}><input type="search" placeholder="Apple, MSFT, Maybank…" value={query} onChange={event => setQuery(event.target.value)} /></span></label><label className={styles.stateControl}>Market<select value={market} onChange={event => setMarket(event.target.value)}><option>All</option><option>US</option><option>MY</option></select></label><button className={base.textButton} disabled={loading} onClick={() => { setLoading(true); setError(false); setReload(value => value + 1); }}>Reload saved research</button></div>
             <p className={styles.fixtureNotice}>Choose a saved security to read its current data. No research form is required.</p>
-            {records && records.length > 0 && <section className={styles.companySection} aria-label="Saved watchlist"><div className={styles.sectionLabel}><span>Your watchlist <b>{matches.length} of {records.length}</b></span><a className={base.textButton} href="/research?workspace=research">Manage watchlist ↗</a></div><div className={`${styles.companyList} ${connected.watchlist}`}>{matches.map(item => <button className={styles.companyButton} key={item.symbol} aria-pressed={selected === item.symbol} onClick={() => chooseSecurity(item.symbol)}><span className={styles.monogram} aria-hidden="true">{item.symbol[0]}</span><span><b>{item.symbol}</b><small>{item.companyName || item.symbol}</small><small>{item.market}{advanced ? ` · ${item.positionState} · ${item.status}` : ''}</small></span><span className={styles.companyArrow} aria-hidden="true">↗</span></button>)}</div>{!matches.length && <p className={styles.searchEmpty}>No saved securities match these filters. <button className={base.textButton} onClick={() => { setQuery(''); setMarket('All'); }}>Clear filters</button></p>}{record && !matches.includes(record) && <p className={styles.searchHint}>{record.symbol} remains open below and is outside the current filter.</p>}</section>}
-            {!!matches.length && <div className={connected.mobilePicker}><label>Selected saved security<select value={selected} onChange={event => chooseSecurity(event.target.value)}>{selectedIndex < 0 && <option value={selected}>{selected} · outside filter</option>}{matches.map(item => <option key={item.symbol} value={item.symbol}>{item.symbol} · {item.companyName}</option>)}</select></label><div><button disabled={selectedIndex <= 0} onClick={() => chooseSecurity(matches[selectedIndex - 1].symbol)}>← Previous</button><span>{selectedIndex < 0 ? '—' : selectedIndex + 1} / {matches.length}</span><button disabled={selectedIndex >= matches.length - 1} onClick={() => chooseSecurity(matches[selectedIndex + 1].symbol)}>Next →</button></div></div>}
+            {records && records.length > 0 && <section className={styles.companySection} aria-label="Saved watchlist"><div className={styles.sectionLabel}><span>Your watchlist <b>{matches.length} of {records.length}</b></span>{workspace === 'owner' && <a className={base.textButton} href="/research?workspace=research">Manage watchlist ↗</a>}</div><div className={`${styles.companyList} ${connected.watchlist}`}>{matches.map(item => <button className={styles.companyButton} key={`${item.market}:${item.symbol}`} aria-pressed={selected === item.symbol && readingMarket === item.market} onClick={() => { navigate(item.symbol, tab, true, item.market); panelRef.current?.close(); }}><span className={styles.monogram} aria-hidden="true">{item.symbol[0]}</span><span><b>{item.symbol}</b><small>{item.companyName || item.symbol}</small><small>{item.market}{advanced && workspace === 'owner' ? ` · ${item.positionState} · ${item.status}` : ''}</small></span><span className={styles.companyArrow} aria-hidden="true">↗</span></button>)}</div>{!matches.length && <p className={styles.searchEmpty}>No saved securities match these filters. <button className={base.textButton} onClick={() => { setQuery(''); setMarket('All'); }}>Clear filters</button></p>}{record && !matches.includes(record) && <p className={styles.searchHint}>{record.symbol} remains open below and is outside the current filter.</p>}</section>}
+            {!!matches.length && <div className={connected.mobilePicker}><label>Selected saved security<select value={`${readingMarket}:${selected}`} onChange={event => chooseSecurity(event.target.value)}>{selectedIndex < 0 && <option value={`${readingMarket}:${selected}`}>{selected} · outside filter</option>}{matches.map(item => <option key={`${item.market}:${item.symbol}`} value={`${item.market}:${item.symbol}`}>{item.symbol} · {item.market} · {item.companyName}</option>)}</select></label><div><button disabled={selectedIndex <= 0} onClick={() => chooseSecurity(`${matches[selectedIndex - 1].market}:${matches[selectedIndex - 1].symbol}`)}>← Previous</button><span>{selectedIndex < 0 ? '—' : selectedIndex + 1} / {matches.length}</span><button disabled={selectedIndex >= matches.length - 1} onClick={() => chooseSecurity(`${matches[selectedIndex + 1].market}:${matches[selectedIndex + 1].symbol}`)}>Next →</button></div></div>}
                 </div>}
                 {panel === 'tools' && <div className={connected.tools}>
+                    {workspace === 'guest' && <section aria-label="Guest workspace tools"><h3>Saved on this device</h3><p>Your securities and notes are stored only in this browser on this website. Other browsers and Signal domains have separate guest workspaces. Clearing browser data removes them; export a copy to keep them. People sharing this browser profile can see these guest notes.</p><div className={connected.savedReadingActions}><button className={connected.actionButton} onClick={() => guestAction('export')}>Export guest research</button><button className={connected.actionButton} onClick={() => guestAction('clear')}>Clear guest research</button></div><p>Owner research is private. Opening it never imports or merges guest data.</p><a className={base.textButton} href={unlockHref}>Open owner workspace →</a></section>}
+                    {workspace === 'guest' && <button className={connected.actionButton} aria-pressed={advanced} onClick={() => { changeDepth(); panelRef.current?.close(); }}>{advanced ? 'Back to basic view' : 'Advanced tools'}</button>}
+                    {workspace === 'owner' && <>
+                    <button className={connected.actionButton} onClick={useGuestWorkspace}>Lock owner workspace and use guest mode</button>
                     <p>{record ? `Your saved research for ${record.symbol}. These are your records, not provider conclusions.` : 'No saved record is open. Reading financial and price information does not require saving or writing notes.'}</p>
                     {record && <div className={connected.savedReadingActions}>{(['Thesis', 'Review'] as const).map(destination => <button key={destination} className={connected.actionButton} onClick={() => { navigate(selected, destination, true, readingMarket, true); panelRef.current?.close(); }}>Read saved {destination.toLowerCase()}</button>)}<a className={base.textButton} href={researchHref(record.symbol, 'review', record.market)} target="_blank" rel="noopener noreferrer">Edit saved research (new tab) ↗</a></div>}
                     <button className={connected.actionButton} aria-pressed={advanced} onClick={() => { changeDepth(); panelRef.current?.close(); }}>{advanced ? 'Back to basic view' : 'Advanced tools'}</button>
                     <p>Advanced view exposes additional reading tabs and chart links. It does not change provider data.</p>
                     {record && <details><summary>All research workspaces</summary><p>Open a workspace for {record.symbol} in a new tab.</p><div>{researchWorkspaceGroups.map(group => <section key={group.id}><h3>{group.label}</h3>{group.items.map(item => <a key={item.id} href={researchHref(record.symbol, item.id, record.market)} target="_blank" rel="noopener noreferrer">{item.label} ↗</a>)}</section>)}</div></details>}
+                    </>}
                 </div>}
             </dialog>
             {!selected && <section className={styles.emptyWorkspace}><h2>Read a security without saving it.</h2><p>Enter a ticker and market above, or choose a saved security. Notes and decisions are optional.</p></section>}
@@ -214,21 +273,27 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                 <button className={base.textButton} onClick={() => navigate(selected, tab, false, 'US')}>Read {selected} in US</button>{' '}
                 <button className={base.textButton} onClick={() => navigate(selected, tab, false, 'MY')}>Read {selected} in Malaysia</button>
             </section>}
-            {validSelection && readingMarket && <ConnectedCase key={`${readingMarket}:${selected}`} symbol={selected} market={readingMarket} record={record} onSaved={remember} unlockHref={unlockHref} onAccessDenied={denySavedAccess} onIdentity={setProviderIdentity} advanced={advanced} tab={tab} setTab={value => navigate(selected, value, false, readingMarket)} chartRange={chartRange} setChartRange={setChartRange} />}
+            {validSelection && readingMarket && <ConnectedCase key={`${readingMarket}:${selected}`} workspace={workspace} guestUnavailable={!!guestError} symbol={selected} market={readingMarket} record={record} onSaved={remember} onGuestRemoved={() => { savedRevision.current += 1; setRecords(readGuestRecords()); }} unlockHref={unlockHref} onAccessDenied={denySavedAccess} onIdentity={setProviderIdentity} advanced={advanced} tab={tab} setTab={value => navigate(selected, value, false, readingMarket)} chartRange={chartRange} setChartRange={setChartRange} />}
             <footer className={styles.footer}><span>Research · provider facts and saved records remain separate</span><details><summary>Data scope & limitations</summary><p>Saved research is user-authored. Quotes, history and fundamentals come from the existing research service; unavailable values stay unavailable. Retrieval time is not an exchange quote timestamp. Editing, monitoring evaluation and advanced tools open the existing workspace. Saving a security requires the explicit Save security action. It does not record an investment decision or personal review. Saved research refreshes when you return from editing; you can also reload it manually.</p><a href="/research-v8?demo=1">Open the labelled representative demo →</a></details><VersionSwitcher placement="footer" /></footer>
         </main>
     </div>;
 }
 
-function ConnectedCase({ symbol, market, record, onSaved, unlockHref, onAccessDenied, onIdentity, advanced, tab, setTab, chartRange, setChartRange }: { symbol: string; market: ResearchMarket; record?: ResearchRecord; onSaved: (record: ResearchRecord) => void; unlockHref: string; onAccessDenied: (issue: OwnerAccessIssue) => void; onIdentity: (identity: ProviderResearchIdentity) => void; advanced: boolean; tab: ResearchTab; setTab: (tab: ResearchTab) => void; chartRange: string; setChartRange: (range: string) => void }) {
+function ConnectedCase({ workspace, guestUnavailable, symbol, market, record: savedRecord, onSaved, onGuestRemoved, unlockHref, onAccessDenied, onIdentity, advanced, tab, setTab, chartRange, setChartRange }: { workspace: 'checking' | 'guest' | 'owner'; guestUnavailable: boolean; symbol: string; market: ResearchMarket; record?: ResearchRecord; onSaved: (record: ResearchRecord) => void; onGuestRemoved: () => void; unlockHref: string; onAccessDenied: (issue: OwnerAccessIssue) => void; onIdentity: (identity: ProviderResearchIdentity) => void; advanced: boolean; tab: ResearchTab; setTab: (tab: ResearchTab) => void; chartRange: string; setChartRange: (range: string) => void }) {
+    // Owner-only reviews and advanced tools never receive guest bookmarks.
+    const record = workspace === 'owner' ? savedRecord : undefined;
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
     const [saveAccessIssue, setSaveAccessIssue] = useState<OwnerAccessIssue | null>(null);
     const savePending = useRef(false);
     async function saveSecurity() {
-        if (savePending.current || record) return;
+        if (savePending.current || savedRecord || workspace === 'checking') return;
         savePending.current = true; setSaving(true); setSaveError(''); setSaveAccessIssue(null);
         try {
+            if (workspace === 'guest') {
+                onSaved(await saveGuestSecurity(symbol, market, snapshot?.quote.name || symbol));
+                return;
+            }
             const response = await fetch('/api/research/watchlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbol, market, companyName: snapshot?.quote.name || symbol, saveOnly: true }) });
             if (!response.ok) {
                 const failure = await readFailure(response);
@@ -301,7 +366,8 @@ function ConnectedCase({ symbol, market, record, onSaved, unlockHref, onAccessDe
                     {record && <div className={connected.savedDecision} aria-label="Saved user-authored decision"><span className={base.eyebrow}>USER-AUTHORED · SAVED</span><strong>{record.decisionJournal.decision}</strong><span>{lastPersonalReview ? `Last reviewed ${date(lastPersonalReview)}.` : 'No personal review recorded.'}</span><a className={base.textButton} href={researchHref(record.symbol, 'review', record.market)} target="_blank" rel="noopener noreferrer">Open saved review (new tab) ↗</a></div>}
                 </section>
                 <ResearchPriceContext snapshot={snapshot} />
-                {!record && <div className={connected.dataStatus}><span>Reading without a saved record</span><button className={base.textButton} disabled={saving || !snapshot} onClick={saveSecurity}>{saving ? 'Saving…' : 'Save security'}</button></div>}
+                {!savedRecord && <div className={connected.dataStatus}><span>{workspace === 'guest' ? 'Save this security on this device to add your own note.' : 'Reading without a saved record'}</span><button className={base.textButton} disabled={saving || !snapshot || workspace === 'checking' || (workspace === 'guest' && guestUnavailable)} onClick={saveSecurity}>{saving ? 'Saving…' : 'Save security'}</button></div>}
+                {workspace === 'guest' && savedRecord && <GuestResearchNote disabled={guestUnavailable} record={savedRecord} onSaved={onSaved} onRemoved={onGuestRemoved} />}
                 {saveError && <p role="alert">{saveError}{saveAccessIssue === 'locked' && <> <a className={base.textButton} href={unlockHref}>Unlock to save</a></>}</p>}
                 <ResearchCurrentAssessment snapshot={snapshot} previous={readings.previous} loading={loading} error={error} now={assessmentTime} compact />
                 <section className={connected.dataStatus} aria-label="Provider data status"><div role="status">{loading ? snapshot ? `Refreshing provider data. Previous values retrieved ${retrievedAt(snapshot.fetchedAt)} remain visible.` : 'Loading provider data… You can browse while it loads.' : error ? `Provider refresh failed. ${snapshot ? `Previous values retrieved ${retrievedAt(snapshot.fetchedAt)} remain visible.` : 'No current assessment is available.'}` : `Provider sources: ${snapshot?.sources.join(', ') || 'Source not supplied'}`}</div><button className={base.textButton} disabled={loading} onClick={() => { setLoading(true); setError(false); setRefresh(value => value + 1); }}>{error ? 'Retry provider data' : 'Refresh provider data'}</button>{!!snapshot?.warnings.length && !compactFinancialAssessment && <details className={connected.warning}><summary>Some provider data is unavailable. The assessment may be incomplete. <span>View {snapshot.warnings.length} source notice{snapshot.warnings.length === 1 ? '' : 's'}</span></summary><p>Unavailable inputs are not estimated. Refresh to retry, or inspect these source notices.</p><ul>{snapshot.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></details>}</section>

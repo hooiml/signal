@@ -19,6 +19,28 @@ import connected from './research-v8-connected.module.css';
 
 const planPrice = (value: number | null, currency: string | null | undefined) => value === null ? 'Unavailable' : formatResearchPrice(value, currency);
 
+function missingValuationContext(kind: 'marketCap' | 'pe' | 'ps' | 'fcfYield', snapshot: ResearchSnapshot | null, market: ResearchMarket) {
+    const shares = market === 'MY' ? snapshot?.quote.sharesOutstanding : snapshot?.fundamentals.shares;
+    const marketCap = snapshot?.valuation.marketCap;
+    const priceMissing = snapshot?.quote.price == null || snapshot.quote.price <= 0;
+    const sharesMissing = shares == null || shares <= 0;
+    const marketCapReason = marketCap != null
+        ? ''
+        : [priceMissing ? 'a positive current price is unavailable' : '', sharesMissing ? `compatible outstanding shares are unavailable${market === 'MY' ? '; annual diluted average shares are not substituted' : ''}` : ''].filter(Boolean).join(' and ');
+    if (kind === 'marketCap') return marketCap == null ? `Unavailable because ${marketCapReason || 'the required inputs were not returned'}.` : 'Current price multiplied by the returned share count; observation dates may differ.';
+    const meaning = kind === 'pe' ? 'Compares market capitalization with annual net income.' : kind === 'ps' ? 'Compares market capitalization with annual revenue.' : 'Compares annual free cash flow with market capitalization.';
+    if (snapshot?.valuation[kind === 'pe' ? 'priceEarnings' : kind === 'ps' ? 'priceSales' : 'freeCashFlowYieldPercent'] != null) return meaning;
+    const reasons = [marketCapReason ? `market capitalization is unavailable because ${marketCapReason}` : ''];
+    if (kind === 'pe') {
+        const income = snapshot?.fundamentals.annualNetIncome;
+        reasons.push(income == null ? 'annual net income was not supplied' : income <= 0 ? 'annual net income is zero or negative' : '');
+    } else if (kind === 'ps') {
+        const revenue = snapshot?.fundamentals.annualRevenue;
+        reasons.push(revenue == null ? 'annual revenue was not supplied' : revenue <= 0 ? 'annual revenue is not positive' : '');
+    } else if (snapshot?.fundamentals.freeCashFlow == null) reasons.push('annual free cash flow was not supplied');
+    return `${meaning} Unavailable because ${reasons.filter(Boolean).join('; ') || 'a required input was not returned'}.`;
+}
+
 function planCurrencyNote(planCurrency: string | null | undefined, quoteCurrency: string | null | undefined) {
     const plan = researchPriceCurrency(planCurrency);
     if (!plan) return 'Saved price assumptions below do not carry a currency in the research record; confirm the security’s trading currency before comparing them.';
@@ -81,12 +103,14 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
             <h3>Returned price and share basis</h3>
             <Metrics rows={[
                 ['Latest returned price', price(snapshot?.quote.price, snapshot?.quote.currency), quoteObservation],
-                ['Shares used for valuation', number(valuationShares), `${valuation?.shareBasis || 'Share basis unavailable'} · ${sharePeriod}`],
-                ['Market capitalization', compactFinancialAmount(valuation?.marketCap, snapshot?.quote.currency), 'Returned price × shares above; their dates may differ.'],
+                ['Shares used for valuation', number(valuationShares), `${valuation?.shareBasis || 'Share basis unavailable'} · ${sharePeriod}${valuationShares == null && market === 'MY' ? ' · Malaysia share-based measures need compatible outstanding shares; annual diluted average shares are not substituted.' : ''}`],
+                ['Market capitalization', compactFinancialAmount(valuation?.marketCap, snapshot?.quote.currency), missingValuationContext('marketCap', snapshot, market)],
             ]} />
             <h3>Ratios using annual financials</h3><p>{annualPeriod}{currency ? ` · ${currency}` : ' · Financial currency unavailable'}. These ratios combine that annual period with the returned price and shares above; they are not historical ratios at the financial year end.</p>
             <Metrics rows={[
-                ['Price / earnings', number(valuation?.priceEarnings, '×')], ['Price / sales', number(valuation?.priceSales, '×')], ['Free cash flow yield', number(valuation?.freeCashFlowYieldPercent, '%')],
+                ['Price / earnings', number(valuation?.priceEarnings, '×'), missingValuationContext('pe', snapshot, market)],
+                ['Price / sales', number(valuation?.priceSales, '×'), missingValuationContext('ps', snapshot, market)],
+                ['Free cash flow yield', number(valuation?.freeCashFlowYieldPercent, '%'), missingValuationContext('fcfYield', snapshot, market)],
             ]} />
             <details className={connected.evidence}><summary>How the ratios are calculated · exact inputs</summary>
                 <p>These current-price ratios combine the returned price and share count with reported annual amounts. The quote, shares and financial statements may have different observation dates; no currency conversion is applied.</p>
