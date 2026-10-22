@@ -4,6 +4,21 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+Guest recovery and saved-only export checks run inside `research-unsaved-qa.mjs`
+using `guest-recovery-qa.mjs`, the same Chromium process and local server. The
+1440/1280/768/390/375px matrix covers export cancel/continue, explicit restore,
+save/discard, closed-page recovery, owner isolation, stale-save conflicts,
+quota errors, clear, and Basic-view social/news request toggles. Evidence is in
+`.tmp/guest-recovery/`. These are controlled API fixtures with real browser
+storage and downloads, not live provider or deployment proof.
+
+Guest draft backups use separate `signal.guest-research.v1.draft.<guestId>.<id>`
+local-storage keys, bounded to 200 versions and 1 MB total. Each editor has its
+own version; recovery preserves the original expected-note baseline. Restoring
+does not save a note or merge with owner data. Clearing guest research also
+clears backups. Saved-only export warns when open or recoverable drafts exist.
+Browser storage remains device/profile/site-specific and can be cleared or blocked.
+
 For MY news and dated ordinary-share changes, run `node scripts/my-data-quality-qa.mjs`
 against an owned production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3101`).
 It requires real Yahoo responses for Tenaga, Maybank and Petronas Chemicals, verifies

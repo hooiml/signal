@@ -4,6 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { marketRequestFixture } from './harness/market-request-fixture.mjs';
 import { researchReadFixture, researchSnapshotFixture } from './harness/research-read-fixture.mjs';
 import { guestWorkspaceQa } from './guest-workspace-qa.mjs';
+import { guestRecoveryQa } from './guest-recovery-qa.mjs';
 const base=process.env.SIGNAL_QA_URL||'http://127.0.0.1:3101';
 assert.ok(['localhost','127.0.0.1'].includes(new URL(base).hostname),'Fixture QA requires localhost');
 const out='.tmp/current-assessment/browser';await mkdir(out,{recursive:true});
@@ -30,6 +31,7 @@ function snapshot(symbol,market) {
 }
 try {
  if(process.env.SIGNAL_QA_SKIP_GUEST!=='1')await guestWorkspaceQa(browser,base,snapshot,{...structuredClone(saved),symbol:'AAPL',market:'US',companyName:'Private owner Apple',notes:'PRIVATE_OWNER_ONLY'});
+ if(process.env.SIGNAL_QA_SKIP_GUEST!=='1')await guestRecoveryQa(browser,base,snapshot);
  for(const width of [1440,1280,768,390,375]){
  const context=await browser.newContext({viewport:{width,height:width<=390?844:1000},serviceWorkers:'block'});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!/status of (500|502|503)/.test(m.text()))errors.push(m.text());});

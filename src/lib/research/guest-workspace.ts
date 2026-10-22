@@ -10,6 +10,26 @@ const missingLockMessage = 'This browser cannot safely save guest research becau
 
 type GuestRecord = Pick<ResearchRecord, 'symbol' | 'market' | 'companyName' | 'notes'>;
 type GuestWorkspace = { readonly version: 1; readonly guestId: string; readonly records: readonly GuestRecord[] };
+export type GuestDraftBackup = { readonly id: string; readonly symbol: string; readonly market: ResearchMarket; readonly text: string; readonly expectedNote: string; readonly updatedAt: string };
+const draftPrefix = `${storageKey}.draft.`;
+const validId = (value: string): boolean => /^[0-9a-f-]{36}$/i.test(value);
+
+const draftKeys = (): string[] => {
+    const store = storage();
+    return Array.from({ length: store.length }, (_, index) => store.key(index)).filter((key): key is string => !!key && key.startsWith(draftPrefix));
+};
+
+const removeDrafts = (guestId?: string, symbol?: string, market?: ResearchMarket, savedText?: string): void => {
+    for (const key of draftKeys()) {
+        if (guestId && !key.startsWith(`${draftPrefix}${guestId}.`)) continue;
+        if (symbol) {
+            let value;
+            try { value = JSON.parse(storage().getItem(key) ?? 'null'); } catch { continue; }
+            if (value?.symbol !== symbol.toUpperCase() || value?.market !== market || (savedText !== undefined && value.text !== savedText)) continue;
+        }
+        storage().removeItem(key);
+    }
+};
 
 export class GuestWorkspaceConflictError extends Error {
     readonly currentRecord: ResearchRecord;
@@ -120,6 +140,77 @@ const persist = (guestId: string | null, records: readonly ResearchRecord[]): vo
 export const readGuestRecords = (): ResearchRecord[] => readWorkspace().records;
 export const readGuestWorkspace = readWorkspace;
 
+// Backups are separate from saved records. Each editor owns a unique backup ID,
+// so two tabs can preserve different drafts without overwriting one another.
+export const readGuestDraftRecovery = (): { drafts: GuestDraftBackup[]; unreadableCount: number } => {
+    const current = readWorkspace();
+    if (!current.guestId) return { drafts: [], unreadableCount: 0 };
+    const result: GuestDraftBackup[] = [];
+    let unreadableCount = 0;
+    for (const key of draftKeys().filter(key => key.startsWith(`${draftPrefix}${current.guestId}.`))) {
+        try {
+            const raw = storage().getItem(key);
+            if (raw === null) continue; // Another tab may have consumed this version.
+            if (raw.length > 30_000) throw new Error();
+            const item = JSON.parse(raw);
+            if (item.version !== 1 || item.guestId !== current.guestId || typeof item.id !== 'string' || !validId(item.id)
+                || key !== `${draftPrefix}${current.guestId}.${item.id}` || typeof item.text !== 'string' || item.text.length > maxNoteLength
+                || typeof item.expectedNote !== 'string' || item.expectedNote.length > maxNoteLength
+                || typeof item.updatedAt !== 'string' || !Number.isFinite(Date.parse(item.updatedAt))) throw new Error();
+            const record = current.records.find(record => record.symbol === item.symbol && record.market === item.market);
+            if (record && item.text !== item.expectedNote && item.text !== record.notes) {
+                result.push({ id: item.id, symbol: record.symbol, market: record.market, text: item.text, expectedNote: item.expectedNote, updatedAt: item.updatedAt });
+            }
+        } catch {
+            unreadableCount += 1;
+        }
+    }
+    return { drafts: result.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), unreadableCount };
+};
+export const readGuestDraftBackups = (): GuestDraftBackup[] => readGuestDraftRecovery().drafts;
+
+const persistDraft = (current: ReturnType<typeof readWorkspace>, guestId: string, backup: GuestDraftBackup, replacingId?: string): void => {
+        if (current.guestId !== guestId || !current.records.some(item => item.symbol === backup.symbol && item.market === backup.market)) throw new Error('The guest workspace changed. This draft was not backed up.');
+        if (!validId(backup.id) || typeof backup.text !== 'string' || backup.text.length > maxNoteLength || typeof backup.expectedNote !== 'string' || backup.expectedNote.length > maxNoteLength || !Number.isFinite(Date.parse(backup.updatedAt))) throw new Error('This draft is invalid or exceeds 5,000 characters.');
+        const key = `${draftPrefix}${guestId}.${backup.id}`;
+        const raw = JSON.stringify({ ...backup, version: 1, guestId });
+        const otherKeys = draftKeys().filter(value => value !== key && value !== `${draftPrefix}${guestId}.${replacingId}`);
+        const bytes = otherKeys.reduce((sum, value) => sum + new TextEncoder().encode(storage().getItem(value) ?? '').byteLength, 0);
+        if (otherKeys.length >= 200 || bytes + new TextEncoder().encode(raw).byteLength > maxPayloadBytes) throw new Error('Draft backup storage is full. Save your note or discard older recoverable drafts.');
+        try { storage().setItem(key, raw); }
+        catch { throw new Error('Draft recovery is unavailable because browser storage is blocked or full. Keep this page open and save or copy your note.'); }
+};
+export const writeGuestDraftBackup = (guestId: string, backup: GuestDraftBackup): Promise<void> =>
+    withGuestWorkspaceLock(current => persistDraft(current, guestId, backup));
+
+const sameBackup = (latest: GuestDraftBackup, expected: GuestDraftBackup): boolean =>
+    latest.id === expected.id && latest.symbol === expected.symbol && latest.market === expected.market
+    && latest.text === expected.text && latest.expectedNote === expected.expectedNote && latest.updatedAt === expected.updatedAt;
+
+export const restoreGuestDraftBackup = (guestId: string, expected: GuestDraftBackup, newId: string): Promise<GuestDraftBackup> =>
+    withGuestWorkspaceLock(current => {
+        if (current.guestId !== guestId || !validId(expected.id) || !validId(newId) || newId === expected.id) throw new Error('The guest workspace changed. Reload draft recovery.');
+        const key = `${draftPrefix}${guestId}.${expected.id}`;
+        const raw = storage().getItem(key);
+        if (!raw || !sameBackup(JSON.parse(raw), expected)) throw new Error('This draft backup changed or was discarded in another tab. Reload draft recovery before restoring it.');
+        const restored = { ...expected, id: newId, updatedAt: new Date().toISOString() };
+        persistDraft(current, guestId, restored, expected.id);
+        storage().removeItem(key);
+        return restored;
+    });
+
+export const discardGuestDraftBackup = (guestId: string, id: string, expected?: GuestDraftBackup): Promise<void> =>
+    withGuestWorkspaceLock(current => {
+        if (current.guestId !== guestId || !validId(id)) throw new Error('The guest workspace changed. Reload before discarding a draft.');
+        const key = `${draftPrefix}${guestId}.${id}`;
+        const raw = storage().getItem(key);
+        if (expected && raw) {
+            const latest = JSON.parse(raw);
+            if (!sameBackup(latest, expected)) throw new Error('Another tab updated this draft backup. Reload draft recovery before discarding its newer version.');
+        }
+        storage().removeItem(key);
+    });
+
 const withGuestWorkspaceLock = async <T>(operation: (current: ReturnType<typeof readWorkspace>) => T, allowCreation = false): Promise<T> => {
     const expectedIdentity = readWorkspace().guestId;
     return withGuestWriteLock(() => {
@@ -160,6 +251,9 @@ export const updateGuestNote = (symbol: string, market: ResearchMarket, note: st
         const records = [...current.records];
         records[index] = updated;
         persist(current.guestId, records);
+        // Consume equivalent backups only after the explicit saved-note write succeeds.
+        // Different drafts in other tabs retain their own baselines and versions.
+        removeDrafts(current.guestId ?? undefined, symbol, market, updated.notes);
         return updated;
     });
 
@@ -169,6 +263,7 @@ export const removeGuestSecurity = (symbol: string, market: ResearchMarket): Pro
         const records = current.records.filter((record) => recordKey(record.symbol, record.market) !== key);
         if (records.length === current.records.length) return;
         persist(current.guestId, records);
+        removeDrafts(current.guestId ?? undefined, symbol, market);
     });
 
 export const exportGuestWorkspace = (): string => {
@@ -179,6 +274,7 @@ export const exportGuestWorkspace = (): string => {
 export const clearGuestWorkspace = (): Promise<void> => withGuestWriteLock(() => {
     try {
         storage().removeItem(storageKey);
+        removeDrafts();
     } catch {
         throw new Error('Could not clear guest research from this browser. Check its storage settings and try again.');
     }

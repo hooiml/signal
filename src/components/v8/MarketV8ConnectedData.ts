@@ -412,6 +412,22 @@ export function parseConnectedSignal(payload: unknown, market: string, mode: str
     return s as unknown as MarketSignal;
 }
 
+export function marketSourceToggleStatus(market: string, enabled: boolean, signal: MarketSignal | null, loading = false, error = '') {
+    const name = market === 'MY' ? 'News' : 'Social';
+    if (!enabled) return 'Excluded from score · source data can still be read for its comparison.';
+    if (error) return signal
+        ? 'Enabled · latest score request failed; the previous reading remains shown.'
+        : 'Enabled · latest score request failed; source availability is unknown.';
+    if (loading) return signal
+        ? 'Enabled · checking source availability; the displayed evidence status is from the previous reading.'
+        : `Enabled · checking whether usable ${name.toLowerCase()} evidence is available.`;
+    if (!signal) return `Enabled · no completed score response; ${name.toLowerCase()} availability is not established.`;
+    const key = market === 'MY' ? 'news' : 'social';
+    return signal.components[key]
+        ? `Enabled · usable ${name.toLowerCase()} evidence is included in this score.`
+        : `Enabled · no usable ${name.toLowerCase()} evidence is available; its configured weight uses the neutral reserve.`;
+}
+
 export const fullDate = (value: string | null | undefined) => value && Number.isFinite(Date.parse(value))
     ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(value)) : 'Date unavailable';
 

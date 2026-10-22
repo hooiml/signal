@@ -82,7 +82,7 @@ export function GuestResearchNote({ record, onSaved, onRemoved, disabled = false
             <div className={styles.heading}>
                 <div>
                     <h2 id="guest-note-title">Your note</h2>
-                    <p>{draft !== expectedNote ? 'Unsaved changes · kept while you switch securities. Save before leaving Research.' : 'Your note · saved on this device'}</p>
+                    <p>{draft !== expectedNote ? 'Unsaved changes · Save note to update your saved research. Draft recovery uses this browser’s storage separately.' : 'Your note · saved on this device'}</p>
                 </div>
                 <button className={styles.remove} type="button" onClick={remove} disabled={disabled || saving}>Remove security</button>
             </div>
@@ -104,6 +104,10 @@ export function GuestResearchNote({ record, onSaved, onRemoved, disabled = false
                 />
                 <div className={styles.footer}>
                     <span id="guest-note-count">{draft.length}/5000</span>
+                    {draft !== expectedNote && <button className={styles.remove} type="button" disabled={saving} onClick={() => {
+                        if (!window.confirm('Discard these unsaved changes? Your saved note will not change.')) return;
+                        onDraftChange(null); setError(''); setConflict(false); setSavedStatus('');
+                    }}>Discard changes</button>}
                     <button className={styles.save} type="submit" disabled={disabled || saving}>{saving ? 'Saving note…' : 'Save note'}</button>
                 </div>
             </form>

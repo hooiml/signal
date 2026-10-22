@@ -31,6 +31,7 @@ function load(file) {
 const values = new Map();
 let blockRead = false;
 let blockWrite = false;
+let blockPrimaryRemove = false;
 let writes = 0;
 class QueuedLockManager {
     queue = [];
@@ -73,6 +74,8 @@ class QueuedLockManager {
 }
 const lockManager = new QueuedLockManager();
 const localStorage = {
+    get length() { return values.size; },
+    key(index) { return [...values.keys()][index] ?? null; },
     getItem(key) {
         if (blockRead) throw new Error('blocked');
         return values.get(key) ?? null;
@@ -82,7 +85,7 @@ const localStorage = {
         values.set(key, value);
         writes += 1;
     },
-    removeItem(key) { values.delete(key); },
+    removeItem(key) { if (blockPrimaryRemove && key === 'signal.guest-research.v1') throw new Error('blocked remove'); values.delete(key); },
 };
 Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage } });
 Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { locks: lockManager } });
@@ -94,6 +97,11 @@ const {
     removeGuestSecurity,
     saveGuestSecurity,
     updateGuestNote,
+    readGuestDraftBackups,
+    readGuestDraftRecovery,
+    restoreGuestDraftBackup,
+    writeGuestDraftBackup,
+    discardGuestDraftBackup,
 } = load('src/lib/research/guest-workspace.ts');
 const storageKey = 'signal.guest-research.v1';
 
@@ -105,6 +113,58 @@ assert.equal(us.symbol, 'AAPL');
 assert.equal(us.decisionJournal.decision, 'Not recorded', 'guest bookmarks use saveOnly defaults');
 assert.equal(readGuestRecords().length, 1);
 const guestId = JSON.parse(values.get(storageKey)).guestId;
+const draftA = { id: crypto.randomUUID(), symbol: 'AAPL', market: 'US', text: 'Draft from first tab', expectedNote: '', updatedAt: '2026-10-22T00:00:00Z' };
+const draftB = { ...draftA, id: crypto.randomUUID(), text: 'Different draft in second tab' };
+await Promise.all([writeGuestDraftBackup(guestId, draftA), writeGuestDraftBackup(guestId, draftB)]);
+assert.equal(readGuestDraftBackups().length, 2, 'separate tabs retain both versions');
+assert.equal(readGuestRecords()[0].notes, '', 'draft recovery never saves a research note');
+assert.equal(exportGuestWorkspace().includes(draftA.text), false, 'saved export excludes recovery drafts');
+await assert.rejects(writeGuestDraftBackup(crypto.randomUUID(), draftA), /workspace changed/);
+await assert.rejects(writeGuestDraftBackup(guestId, { ...draftA, text: 'x'.repeat(5001) }), /invalid/);
+blockWrite = true;
+await assert.rejects(writeGuestDraftBackup(guestId, draftA), /blocked or full/);
+blockWrite = false;
+assert.equal(readGuestDraftBackups().length, 2, 'failed write preserves backups');
+await discardGuestDraftBackup(guestId, draftA.id);
+assert.equal(readGuestDraftBackups()[0].text, draftB.text, 'discard only removes the selected version');
+await writeGuestDraftBackup(guestId, { ...draftB, text: 'Newer backup text' });
+await assert.rejects(discardGuestDraftBackup(guestId, draftB.id, draftB), /Another tab updated/, 'stale recovery preview must not delete a newer backup');
+assert.equal(readGuestDraftBackups()[0].text, 'Newer backup text');
+await updateGuestNote('AAPL', 'US', 'Newer saved note', '');
+await assert.rejects(updateGuestNote('AAPL', 'US', draftB.text, draftB.expectedNote), /newer note/, 'restored stale baseline cannot overwrite a newer saved note');
+await updateGuestNote('AAPL', 'US', '', 'Newer saved note');
+await discardGuestDraftBackup(guestId, draftB.id);
+const malformedKey = `${storageKey}.draft.${guestId}.${crypto.randomUUID()}`;
+values.set(malformedKey, '{broken');
+await writeGuestDraftBackup(guestId, draftA);
+assert.equal(readGuestDraftRecovery().unreadableCount, 1);
+assert.equal(readGuestDraftBackups().length, 1, 'valid backup remains recoverable beside corrupt data');
+assert.equal(values.get(malformedKey), '{broken');
+blockWrite = true;
+await assert.rejects(removeGuestSecurity('AAPL', 'US'), /blocked or full/);
+assert.equal(readGuestDraftBackups().length, 1, 'failed primary removal must keep backups');
+blockWrite = false;
+blockPrimaryRemove = true;
+await assert.rejects(clearGuestWorkspace(), /Could not clear/);
+assert.equal(readGuestDraftBackups().length, 1, 'failed workspace clear must keep backups');
+blockPrimaryRemove = false;
+await removeGuestSecurity('AAPL', 'US');
+assert.equal(values.get(malformedKey), '{broken', 'targeted security removal leaves unrelated malformed entries untouched');
+await saveGuestSecurity('AAPL', 'US', 'Apple');
+assert.equal(readGuestDraftBackups().length, 0, 'successful security removal consumes its valid backups');
+values.delete(malformedKey);
+await writeGuestDraftBackup(guestId, draftA);
+const recovered = await restoreGuestDraftBackup(guestId, draftA, crypto.randomUUID());
+assert.equal(readGuestDraftBackups().length, 1);
+assert.notEqual(recovered.id, draftA.id, 'restored editor takes a distinct backup under the same lock');
+await assert.rejects(restoreGuestDraftBackup(guestId, draftA, crypto.randomUUID()), /changed or was discarded/, 'stale recovery list cannot resurrect a consumed version');
+await writeGuestDraftBackup(guestId, { ...recovered, text: 'newer version' });
+await assert.rejects(restoreGuestDraftBackup(guestId, recovered, crypto.randomUUID()), /changed or was discarded/);
+await discardGuestDraftBackup(guestId, recovered.id);
+await writeGuestDraftBackup(guestId, draftA);
+await updateGuestNote('AAPL', 'US', draftA.text, '');
+await updateGuestNote('AAPL', 'US', '', draftA.text);
+assert.equal(readGuestDraftBackups().length, 0, 'a consumed saved backup never reappears after a later note change');
 assert.match(guestId, /^[0-9a-f-]{36}$/i, 'the first write creates a guest ID');
 await saveGuestSecurity('AAPL', 'US', 'Apple Inc.');
 assert.equal(JSON.parse(values.get(storageKey)).guestId, guestId, 'the guest ID stays stable');
@@ -168,8 +228,11 @@ blockWrite = false;
 assert.equal(values.has(storageKey), false, 'failed storage writes leave workspace absent');
 
 await saveGuestSecurity('CLEAR', 'US', 'Clear Test');
+const clearId = JSON.parse(values.get(storageKey)).guestId;
+await writeGuestDraftBackup(clearId, { ...draftA, symbol: 'CLEAR' });
 await clearGuestWorkspace();
 assert.deepEqual(readGuestRecords(), []);
+assert.equal([...values.keys()].some(key => key.startsWith(`${storageKey}.draft.`)), false, 'clear removes all draft backups');
 
 const [firstAdd, secondAdd] = await Promise.all([
     saveGuestSecurity('RACE1', 'US', 'Race One'),

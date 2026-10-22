@@ -5,7 +5,7 @@
 .heading p { margin: 3px 0 0; font-size: var(--text-sm); color: var(--muted); }
 .label { display: block; margin-bottom: 6px; color: var(--ink); font-size: var(--text-sm); font-weight: 600; }
 .panel textarea { display: block; width: 100%; min-height: 120px; padding: 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-subtle); color: var(--ink); resize: vertical; }
-.footer { margin-top: 8px; color: var(--muted); font-size: var(--text-sm); }
+.footer { margin-top: 8px; color: var(--muted); font-size: var(--text-sm); flex-wrap: wrap; }
 .save, .remove { min-height: 40px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
 .save:disabled, .remove:disabled { cursor: not-allowed; opacity: .6; }
 .save { border-color: var(--brand); background: var(--brand-soft); font-weight: 650; }
@@ -13,4 +13,7 @@
 .savedStatus { margin: 10px 0 0; color: var(--ink); font-size: var(--text-sm); }
 .error button { margin-left: 6px; color: inherit; text-decoration: underline; background: transparent; border: 0; font: inherit; cursor: pointer; }
 .save:focus-visible, .remove:focus-visible, .error button:focus-visible, .panel textarea:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-@media (max-width: 480px) { .heading { align-items: start; } .remove { min-height: 44px; } }
+@media (max-width: 480px) {
+    .heading { flex-direction: column; align-items: start; }
+    .remove { min-height: 44px; white-space: nowrap; }
+}

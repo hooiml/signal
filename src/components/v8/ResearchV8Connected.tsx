@@ -7,6 +7,7 @@ import { readData, readFailure, readOwnerAccessIssue, readPolicies } from './rea
 import { ownerAccessMessage, ownerUnlockHref, type OwnerAccessIssue } from '@/lib/owner-access-client';
 import { ResearchSavedState } from './ResearchSavedState';
 import { clearGuestWorkspace, exportGuestWorkspace, readGuestRecords, readGuestWorkspace, saveGuestSecurity } from '@/lib/research/guest-workspace';
+import { discardGuestDraftBackup, readGuestDraftRecovery, restoreGuestDraftBackup, writeGuestDraftBackup, type GuestDraftBackup } from '@/lib/research/guest-workspace';
 import { GuestResearchNote, type GuestNoteDraft, type GuestNoteSave } from './GuestResearchNote';
 import { buildResearchReadiness } from '@/lib/research/readiness';
 import { personalReviewDate } from '@/lib/research/review-lifecycle';
@@ -42,8 +43,84 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
     const [workspace, setWorkspace] = useState<'checking' | 'guest' | 'owner'>('checking');
     const workspaceRef = useRef(workspace);
     const [guestDrafts, setGuestDrafts] = useState<Record<string, GuestNoteDraft>>({});
+    const draftsRef = useRef<Record<string, GuestNoteDraft>>({});
+    const backupVersions = useRef<Record<string, GuestDraftBackup>>({});
+    const [recoverableDrafts, setRecoverableDrafts] = useState<GuestDraftBackup[]>([]);
+    const [recoveryError, setRecoveryError] = useState('');
+    const [recovering, setRecovering] = useState(false);
     const [guestIdentity, setGuestIdentity] = useState<string | null>(null);
     const guestIdentityRef = useRef<string | null>(null);
+    function replaceDrafts(next: Record<string, GuestNoteDraft>) {
+        draftsRef.current = next;
+        setGuestDrafts(next);
+    }
+    function refreshRecovery() {
+        try {
+            const activeIds = new Set(Object.entries(backupVersions.current).filter(([key]) => draftsRef.current[key]).map(([, item]) => item.id));
+            const recovery = readGuestDraftRecovery();
+            setRecoverableDrafts(recovery.drafts.filter(item => !activeIds.has(item.id)));
+            setRecoveryError(recovery.unreadableCount ? `${recovery.unreadableCount} draft backup(s) could not be read and were left untouched. Other drafts and saved notes remain available.` : '');
+        } catch (cause) { setRecoveryError(cause instanceof Error ? cause.message : 'Draft recovery is unavailable.'); }
+    }
+    function changeGuestDraft(symbol: string, market: ResearchMarket, identity: string | null, draft: GuestNoteDraft | null, submitted?: GuestNoteSave) {
+        if (workspaceRef.current !== 'guest' || !identity || guestIdentityRef.current !== identity) return;
+        const key = `${market}:${symbol}`;
+        const current = draftsRef.current[key];
+        let nextDraft = draft;
+        // Preserve edits made while an explicit Save waited for the browser lock.
+        if (submitted && current && current.text !== submitted.text && current.expectedNote === submitted.expectedNote) nextDraft = { text: current.text, expectedNote: submitted.savedNote };
+        else if (submitted && current && current.expectedNote !== submitted.expectedNote) return;
+        if (nextDraft?.text === nextDraft?.expectedNote) nextDraft = null;
+        const next = { ...draftsRef.current };
+        if (nextDraft) next[key] = nextDraft; else delete next[key];
+        replaceDrafts(next);
+        const existing = backupVersions.current[key];
+        try {
+            if (nextDraft && nextDraft.text !== nextDraft.expectedNote) {
+                const id = existing?.id ?? crypto.randomUUID();
+                const backup = { id, symbol, market, ...nextDraft, updatedAt: new Date().toISOString() };
+                backupVersions.current[key] = backup;
+                void writeGuestDraftBackup(identity, backup)
+                    .then(() => { if (workspaceRef.current === 'guest' && guestIdentityRef.current === identity) refreshRecovery(); })
+                    .catch(cause => { if (workspaceRef.current === 'guest' && guestIdentityRef.current === identity) setRecoveryError(cause instanceof Error ? cause.message : 'Draft recovery is unavailable. Save or copy your note.'); });
+            } else if (existing) {
+                void discardGuestDraftBackup(identity, existing.id, existing).then(() => {
+                    if (workspaceRef.current !== 'guest' || guestIdentityRef.current !== identity) return;
+                    if (backupVersions.current[key] === existing) delete backupVersions.current[key];
+                    refreshRecovery();
+                })
+                    .catch(() => { if (workspaceRef.current === 'guest' && guestIdentityRef.current === identity) setRecoveryError('Could not remove the old draft backup. Retry device storage.'); });
+            }
+        } catch { setRecoveryError('Draft recovery is unavailable. Keep this page open and save or copy your note.'); }
+    }
+    function retryDraftRecovery() {
+        refreshRecovery();
+        for (const item of records ?? []) {
+            const draft = draftsRef.current[`${item.market}:${item.symbol}`];
+            if (draft) changeGuestDraft(item.symbol, item.market, guestIdentity, draft);
+        }
+    }
+    async function recoverDraft(backup: GuestDraftBackup, discard = false) {
+        const identity = guestIdentityRef.current;
+        if (!identity || workspaceRef.current !== 'guest' || recovering) return;
+        if (discard && !window.confirm(`Discard this recoverable ${backup.symbol} draft? Saved notes will not change.`)) return;
+        setRecovering(true);
+        try {
+            if (!discard) {
+                const key = `${backup.market}:${backup.symbol}`;
+                if (draftsRef.current[key]?.text !== undefined) throw new Error('Save or discard the open draft for this security before restoring another version.');
+                // Fork the backup: another open tab can continue editing its own version.
+                const restored = await restoreGuestDraftBackup(identity, backup, crypto.randomUUID());
+                if (workspaceRef.current !== 'guest' || guestIdentityRef.current !== identity) return;
+                if (draftsRef.current[key]) throw new Error('The open note changed while recovery was waiting. Your current draft was kept; retry draft recovery to review the backup.');
+                backupVersions.current[key] = restored;
+                replaceDrafts({ ...draftsRef.current, [key]: { text: backup.text, expectedNote: backup.expectedNote } });
+                navigate(backup.symbol, 'Overview', true, backup.market);
+            } else await discardGuestDraftBackup(identity, backup.id, backup);
+            if (workspaceRef.current === 'guest' && guestIdentityRef.current === identity) refreshRecovery();
+        } catch (cause) { setRecoveryError(cause instanceof Error ? cause.message : 'Could not recover this draft.'); }
+        finally { setRecovering(false); }
+    }
     useEffect(() => {
         if (workspace !== 'guest' || !Object.values(guestDrafts).some(draft => draft.text !== draft.expectedNote)) return;
         const warnBeforeLeaving = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
@@ -104,6 +181,9 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
             setTab(restoredTab);
             setAdvanced(params.get('advanced') === '1' || restoredTab === 'Thesis' || restoredTab === 'Review');
     });
+    const refreshRecoveryOnStorage = useEffectEvent(() => {
+        if (workspaceRef.current === 'guest') refreshRecovery();
+    });
     useEffect(() => {
         const restore = () => restoreUrlState();
         restore(); window.addEventListener('popstate', restore);
@@ -113,7 +193,10 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
         };
         window.addEventListener('focus', revalidate);
         document.addEventListener('visibilitychange', revalidate);
-        const storageChanged = (event: StorageEvent) => { if (event.key === 'signal.guest-research.v1' || event.key === null) { setReload(value => value + 1); } };
+        const storageChanged = (event: StorageEvent) => {
+            if (event.key === 'signal.guest-research.v1' || event.key === null) setReload(value => value + 1);
+            else if (event.key.startsWith('signal.guest-research.v1.draft.')) refreshRecoveryOnStorage();
+        };
         window.addEventListener('storage', storageChanged);
         return () => { window.removeEventListener('popstate', restore); window.removeEventListener('focus', revalidate); document.removeEventListener('visibilitychange', revalidate); window.removeEventListener('storage', storageChanged); };
     }, []);
@@ -139,7 +222,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
             if (!active || version !== savedRevision.current) return [];
             const owner = !!session && typeof session === 'object' && 'data' in session && !!session.data && typeof session.data === 'object' && 'unlocked' in session.data && session.data.unlocked === true;
             const nextWorkspace = owner ? 'owner' : 'guest';
-            if (workspaceRef.current !== nextWorkspace) { setRecords(null); setGuestDrafts({}); }
+            if (workspaceRef.current !== nextWorkspace) { setRecords(null); replaceDrafts({}); backupVersions.current = {}; setRecoverableDrafts([]); setRecoveryError(''); }
             workspaceRef.current = nextWorkspace;
             setWorkspace(nextWorkspace); setGuestError('');
             if (owner) return parseWatchlist(await readData('/api/research/watchlist', controller.signal, readPolicies.watchlist));
@@ -147,7 +230,9 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
             const identityChanged = guestIdentityRef.current !== null && guestIdentityRef.current !== guest.guestId;
             guestIdentityRef.current = guest.guestId;
             setGuestIdentity(guest.guestId);
-            setGuestDrafts(previous => identityChanged ? {} : Object.fromEntries(Object.entries(previous).filter(([key]) => guest.records.some(item => `${item.market}:${item.symbol}` === key))));
+            replaceDrafts(identityChanged ? {} : Object.fromEntries(Object.entries(draftsRef.current).filter(([key]) => guest.records.some(item => `${item.market}:${item.symbol}` === key))));
+            if (identityChanged) backupVersions.current = {};
+            refreshRecovery();
             return guest.records;
         }
         loadWorkspace()
@@ -202,7 +287,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
         if (workspace === 'guest') {
             // Read the current store so a late completion cannot revive cleared/removed records.
             const guest = readGuestWorkspace();
-            if (guestIdentityRef.current !== null && guestIdentityRef.current !== guest.guestId) setGuestDrafts({});
+            if (guestIdentityRef.current !== null && guestIdentityRef.current !== guest.guestId) { replaceDrafts({}); backupVersions.current = {}; setRecoverableDrafts([]); }
             guestIdentityRef.current = guest.guestId;
             setGuestIdentity(guest.guestId);
             setRecords(guest.records);
@@ -237,10 +322,14 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
     async function guestAction(action: 'export' | 'clear') {
         try {
             if (action === 'clear') {
-                if (!window.confirm('Remove all guest securities and notes from this browser? Export them first if you want to keep a copy. Your owner workspace will not change.')) return;
-                await clearGuestWorkspace(); savedRevision.current += 1; setRecords([]); setGuestDrafts({});
+                if (!window.confirm('Remove all guest securities, saved notes and draft backups from this browser? Export includes saved notes only; save any drafts you want to keep first. Your owner workspace will not change.')) return;
+                await clearGuestWorkspace(); savedRevision.current += 1; setRecords([]); replaceDrafts({}); backupVersions.current = {}; setRecoverableDrafts([]); setRecoveryError('');
                 guestIdentityRef.current = null; setGuestIdentity(null);
             } else {
+                let hasBackups = true;
+                try { const recovery = readGuestDraftRecovery(); hasBackups = recovery.drafts.length > 0 || recovery.unreadableCount > 0; } catch { /* Saved-only export stays available even if a backup is corrupt. */ }
+                if ((unsavedRecords.length > 0 || recoverableDrafts.length > 0 || hasBackups)
+                    && !window.confirm('Unsaved drafts are not included in this export. Cancel to restore and save them first, or continue to export saved notes only.')) return;
                 const url = URL.createObjectURL(new Blob([exportGuestWorkspace()], { type: 'application/json' }));
                 const link = document.createElement('a'); link.href = url; link.download = 'signal-guest-research.json'; link.click();
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -275,6 +364,10 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
             </nav>}
             {validSelection ? <details className={connected.lookupDisclosure}><summary>Change security</summary><ResearchSecurityLookup key={readingMarket ?? initialMarket ?? 'US'} initialMarket={readingMarket ?? initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} /></details> : <ResearchSecurityLookup key={readingMarket ?? initialMarket ?? 'US'} initialMarket={readingMarket ?? initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} />}
             {savedState}
+            {workspace === 'guest' && <>
+                {recoveryError && <p role="alert">{recoveryError} <button className={base.textButton} onClick={retryDraftRecovery}>Retry draft recovery</button></p>}
+                {recoverableDrafts.length > 0 && <section className={connected.dataStatus} aria-label="Recover unsaved guest notes"><div><h2>Recover unsaved notes</h2><p>Draft backups from this browser, including other tabs. Restore to edit, then Save note to update your saved research.</p>{recoverableDrafts.map(backup => <div key={backup.id}><b>{backup.symbol} · {backup.market}</b><p>Draft backed up {retrievedAt(backup.updatedAt)}</p><details><summary>Preview draft</summary><p>{backup.text || '(Empty note)'}</p></details><div className={connected.savedReadingActions}><button className={connected.actionButton} disabled={recovering || !!guestDrafts[`${backup.market}:${backup.symbol}`]} onClick={() => recoverDraft(backup)}>Restore {backup.symbol} draft</button><button className={connected.actionButton} disabled={recovering} onClick={() => recoverDraft(backup, true)}>Discard {backup.symbol} draft</button></div></div>)}</div></section>}
+            </>}
             <dialog ref={panelRef} className={connected.utilityPanel} aria-labelledby="research-utility-title" onClose={() => { setPanel(null); panelTrigger.current?.focus(); }} onKeyDownCapture={event => { if (event.key === 'Escape') { event.preventDefault(); event.currentTarget.close(); } }} onClick={event => {
                 const bounds = event.currentTarget.getBoundingClientRect();
                 if (event.target === event.currentTarget && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) event.currentTarget.close();
@@ -288,6 +381,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
             {!!matches.length && <div className={connected.mobilePicker}><label>Selected saved security<select value={`${readingMarket}:${selected}`} onChange={event => chooseSecurity(event.target.value)}>{selectedIndex < 0 && <option value={`${readingMarket}:${selected}`}>{selected} · outside filter</option>}{matches.map(item => <option key={`${item.market}:${item.symbol}`} value={`${item.market}:${item.symbol}`}>{item.symbol} · {item.market}{hasUnsavedDraft(item) ? ' · Unsaved' : ''} · {item.companyName}</option>)}</select></label><div><button disabled={selectedIndex <= 0} onClick={() => chooseSecurity(`${matches[selectedIndex - 1].market}:${matches[selectedIndex - 1].symbol}`)}>← Previous</button><span>{selectedIndex < 0 ? '—' : selectedIndex + 1} / {matches.length}</span><button disabled={selectedIndex >= matches.length - 1} onClick={() => chooseSecurity(`${matches[selectedIndex + 1].market}:${matches[selectedIndex + 1].symbol}`)}>Next →</button></div></div>}
                 </div>}
                 {panel === 'tools' && <div className={connected.tools}>
+                    {workspace === 'guest' && <p role="status">Export includes saved notes only. Unsaved drafts and recovery backups are excluded; restore and save them first to include them.</p>}
                     {workspace === 'guest' && <section aria-label="Guest workspace tools"><h3>Saved on this device</h3><p>Your securities and notes are stored only in this browser on this website. Other browsers and Signal domains have separate guest workspaces. Clearing browser data removes them; export a copy to keep them. People sharing this browser profile can see these guest notes.</p><div className={connected.savedReadingActions}><button className={connected.actionButton} onClick={() => guestAction('export')}>Export guest research</button><button className={connected.actionButton} onClick={() => guestAction('clear')}>Clear guest research</button></div><p>Owner research is private. Opening it never imports or merges guest data.</p><a className={base.textButton} href={unlockHref}>Open owner workspace →</a></section>}
                     {workspace === 'guest' && <button className={connected.actionButton} aria-pressed={advanced} onClick={() => { changeDepth(); panelRef.current?.close(); }}>{advanced ? 'Back to basic view' : 'Advanced tools'}</button>}
                     {workspace === 'owner' && <>
@@ -308,21 +402,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                 <button className={base.textButton} onClick={() => navigate(selected, tab, false, 'US')}>Read {selected} in US</button>{' '}
                 <button className={base.textButton} onClick={() => navigate(selected, tab, false, 'MY')}>Read {selected} in Malaysia</button>
             </section>}
-            {validSelection && readingMarket && <ConnectedCase key={`${readingMarket}:${selected}`} workspace={workspace} guestUnavailable={!!guestError} guestIdentity={guestIdentity} guestDraft={guestDrafts[`${readingMarket}:${selected}`]} onDraftChange={(draft, submitted) => {
-                const key = `${readingMarket}:${selected}`;
-                setGuestDrafts(previous => {
-                    if (workspaceRef.current !== 'guest' || guestIdentityRef.current !== guestIdentity) return previous;
-                    const next = { ...previous };
-                    const current = previous[key];
-                    // A queued save must not discard edits made while waiting for the browser lock.
-                    if (submitted && current && current.text !== submitted.text && current.expectedNote === submitted.expectedNote) {
-                        next[key] = { text: current.text, expectedNote: submitted.savedNote };
-                    } else if (submitted && current && current.expectedNote !== submitted.expectedNote) return previous;
-                    else if (draft) next[key] = draft;
-                    else delete next[key];
-                    return next;
-                });
-            }} symbol={selected} market={readingMarket} record={record} onSaved={remember} onGuestRemoved={() => { savedRevision.current += 1; setRecords(readGuestRecords()); }} unlockHref={unlockHref} onAccessDenied={denySavedAccess} onIdentity={setProviderIdentity} advanced={advanced} tab={tab} setTab={value => navigate(selected, value, false, readingMarket)} chartRange={chartRange} setChartRange={setChartRange} />}
+            {validSelection && readingMarket && <ConnectedCase key={`${readingMarket}:${selected}`} workspace={workspace} guestUnavailable={!!guestError} guestIdentity={guestIdentity} guestDraft={guestDrafts[`${readingMarket}:${selected}`]} onDraftChange={(draft, submitted) => changeGuestDraft(selected, readingMarket, guestIdentity, draft, submitted)} symbol={selected} market={readingMarket} record={record} onSaved={remember} onGuestRemoved={() => { savedRevision.current += 1; setRecords(readGuestRecords()); refreshRecovery(); }} unlockHref={unlockHref} onAccessDenied={denySavedAccess} onIdentity={setProviderIdentity} advanced={advanced} tab={tab} setTab={value => navigate(selected, value, false, readingMarket)} chartRange={chartRange} setChartRange={setChartRange} />}
             <footer className={styles.footer}><span>Research · provider facts and saved records remain separate</span><details><summary>Data scope & limitations</summary><p>Saved research is user-authored. Quotes, history and fundamentals come from the existing research service; unavailable values stay unavailable. Retrieval time is not an exchange quote timestamp. Editing, monitoring evaluation and advanced tools open the existing workspace. Saving a security requires the explicit Save security action. It does not record an investment decision or personal review. Saved research refreshes when you return from editing; you can also reload it manually.</p><a href="/research-v8?demo=1">Open the labelled representative demo →</a></details><VersionSwitcher placement="footer" /></footer>
         </main>
     </div>;
