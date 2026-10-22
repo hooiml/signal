@@ -196,6 +196,13 @@ npm run qa:learn -- --base-url http://127.0.0.1:3000
 
 The check covers `1280px`, `768px`, and `375px`; shared navigation; P/E calculation and non-positive EPS handling; current-data provenance and unavailable estimates; two-company comparison without an automatic winner; future-data locking before replay commitment; bounded commitment payloads; immutable original reasoning; reflection and mastery persistence; theme switching; document overflow; and blocking console/page errors. Mocked Research and replay APIs keep the acceptance checks deterministic; live provider availability is not treated as visual proof.
 
+Use `--viewport 768` (or `1280` / `375`) for a focused failed-scenario rerun; omitting it
+retains the complete matrix. Failure summaries include the failed checks, last completed check
+and blocking error. A bounded viewport screenshot is attempted before browser cleanup even
+when `SIGNAL_QA_SCREENSHOTS=0` disables success captures. The Learn CI artifact allowlist
+includes only the v0.1/v0.2 JSON reports and failure screenshots, including their hidden `.tmp`
+ancestor; it does not upload other temporary state.
+
 ### Signal Learn v0.2 QA
 
 For the business-fundamentals modules, Financials Lab, historical business replay, current-company application, and independent mastery contract, run:
@@ -205,6 +212,8 @@ npm run qa:learn-v0.2 -- --base-url http://127.0.0.1:3000
 ```
 
 The check covers `1280px`, `768px`, and `375px`; the nine-module path; statement manipulation; all six Financials Lab views; row explanations; reported, derived, and unavailable labels; formula inputs; income-versus-cash interpretation; structural comparison warnings; server-side future locking; two replay commitments and reflections; current-company application; independent v0.2 persistence; v0.1 reachability; theme switching; overflow; and blocking browser errors. Mocked current Research and replay responses make the behavior deterministic.
+
+The same `--viewport` filter and failure-report/screenshot contract as v0.1 applies.
 
 ### Signal Learn v0.3 QA
 

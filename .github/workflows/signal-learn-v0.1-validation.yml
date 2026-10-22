@@ -81,5 +81,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: learn-browser-diagnostics
-          path: .tmp/signal-learn-*/**/report.json
+          path: |
+            .tmp/signal-learn-v0.1-qa/**/report.json
+            .tmp/signal-learn-v0.1-qa/**/failure-*.png
+            .tmp/signal-learn-v0.2-qa/**/report.json
+            .tmp/signal-learn-v0.2-qa/**/failure-*.png
+          include-hidden-files: true
           if-no-files-found: warn
