@@ -20,10 +20,21 @@ reloads, and newer selections plus Back/Forward while saved records arrive. It a
 ambiguous links never issue a guessed US provider request. The harness also renders the actual
 Market assessment in momentum and contrarian modes via
 `node scripts/harness/market-assessment-regression.mjs` to keep score explanations mode-specific.
+It also parses real route-shaped payloads before rendering the Market headline: unavailable
+previous scores must not produce a ghost pin or accessible prior-score claim, even when a
+reported delta exists. Supplied zero/boundary scores and unchanged comparisons stay distinct.
 
 The harness also verifies price-unit formatting, preservation of currency in new review
 snapshots, and explicit missing currency for legacy records via
-`node scripts/harness/research-currency-regression.mjs`. Market and Research read fixtures
+`node scripts/harness/research-currency-regression.mjs`. This also executes the real PATCH,
+parser and store against isolated SQL to reject new/changed plan prices without currency
+and removal of a known currency while prices remain. Unchanged legacy plans remain savable,
+but unknown or mismatched cost currencies never produce performance. Mixed-case user codes
+normalize to uppercase; explicit provider minor units such as GBp retain their scale.
+The existing Research provenance browser matrix also verifies unknown-currency performance,
+mixed-case compatibility, and repeated invalid Saves after clearing a known currency at
+1280/768/375px. The V8.1 PR workflow runs both currency/Market headline regressions and
+both affected browser matrices. Market and Research read fixtures
 assert independent reads start together and snapshot writes still wait for their inputs.
 For live-watchlist changes, verify slow loading, failed-read retry, an empty saved list,
 archived exclusions and a deep-linked selected ticker without any demo securities appearing.
@@ -196,6 +207,13 @@ npm run qa:learn -- --base-url http://127.0.0.1:3000
 
 The check covers `1280px`, `768px`, and `375px`; shared navigation; P/E calculation and non-positive EPS handling; current-data provenance and unavailable estimates; two-company comparison without an automatic winner; future-data locking before replay commitment; bounded commitment payloads; immutable original reasoning; reflection and mastery persistence; theme switching; document overflow; and blocking console/page errors. Mocked Research and replay APIs keep the acceptance checks deterministic; live provider availability is not treated as visual proof.
 
+Use `--viewport 768` (or `1280` / `375`) for a focused failed-scenario rerun; omitting it
+retains the complete matrix. Failure summaries include the failed checks, last completed check
+and blocking error. A bounded viewport screenshot is attempted before browser cleanup even
+when `SIGNAL_QA_SCREENSHOTS=0` disables success captures. The Learn CI artifact allowlist
+includes only the v0.1/v0.2 JSON reports and failure screenshots, including their hidden `.tmp`
+ancestor; it does not upload other temporary state.
+
 ### Signal Learn v0.2 QA
 
 For the business-fundamentals modules, Financials Lab, historical business replay, current-company application, and independent mastery contract, run:
@@ -205,6 +223,8 @@ npm run qa:learn-v0.2 -- --base-url http://127.0.0.1:3000
 ```
 
 The check covers `1280px`, `768px`, and `375px`; the nine-module path; statement manipulation; all six Financials Lab views; row explanations; reported, derived, and unavailable labels; formula inputs; income-versus-cash interpretation; structural comparison warnings; server-side future locking; two replay commitments and reflections; current-company application; independent v0.2 persistence; v0.1 reachability; theme switching; overflow; and blocking browser errors. Mocked current Research and replay responses make the behavior deterministic.
+
+The same `--viewport` filter and failure-report/screenshot contract as v0.1 applies.
 
 ### Signal Learn v0.3 QA
 
@@ -775,7 +795,7 @@ JSON/PNG allowlists; unrelated local files must not be uploaded.
 
 `npm run qa:v81-evidence` runs the deterministic Market data contract suite without providers or database. It asserts the exclusive configured-weight partition (fresh/stale/fallback), unknown dates, non-scored context-only inputs, weight mismatches, missing aggregates, and high-volatility weight overrides. This suite also runs within `npm run harness`. Score-tier reference lines come from `src/lib/market-score-thresholds.ts`; these are **score tiers**, not the independent breadth/VIX-informed market-regime classifier. Historical coverage percentages must come from historical snapshots, never today's configuration.
 
-For responsive connected Market/Research review, verify 1280px, 768px and 375px widths, plus 1440px and 390px reference captures. Check the unified Market assessment, named leading evidence and coverage limitations near the verdict, chart/evidence alignment on desktop, chart-first DOM and visual order at every width, and all configured inputs: observed inputs as rows (Show all when more than three) and unavailable inputs as one row of buttons that open each input's detail. Raw indicator history lives in its inspector rather than repeated mini-charts in every row. Opening details must retain the main chart, contain mobile focus, and restore the originating control and scroll on close. Missing snapshot dates must not acquire retrieval-time freshness, and context-only inputs must not be called scored model readings.
+For responsive connected Market/Research review, verify 1280px, 768px and 375px widths, plus 1440px and 390px reference captures. Check the unified Market assessment (the "Since your last visit" line appears only after this browser has seen an earlier snapshot for the same market and mode; impact chips are `(score − 50) × weight` points that, with the neutral 50, rebuild the composite; the coverage ring legend opens each included input), named leading evidence and coverage limitations near the verdict, chart/evidence alignment on desktop, chart-first DOM and visual order at every width, and all configured inputs: observed inputs as rows (Show all when more than three) and unavailable inputs as one row of buttons that open each input's detail. Raw indicator history lives in its inspector rather than repeated mini-charts in every row. Opening details must retain the main chart, contain mobile focus, and restore the originating control and scroll on close. Missing snapshot dates must not acquire retrieval-time freshness, and context-only inputs must not be called scored model readings.
 
 In Research, selected identity leads; Change security exposes the existing search. The compact financial assessment status remains above the primary tabs, with detailed assessment only in Overview. Verify price history independently of financial availability (mouse hover shows a crosshair and read-out without changing the selected close; 1Y/All include the provider 52-week band in the scale, 1M/3M show only 52-week lines in view; saved reviews in range appear as markers and as a text list), quote observation versus retrieval dates, a compact user-authored saved decision, and optional checks after the investigation. Financials, Valuation, Thesis, Review, workspaces and editing links remain reachable. Market navigation must preserve US/MY context. These approved hierarchy changes supersede older V8 layout expectations in the legacy connected screenshot scripts; use `research-unsaved-qa.mjs`, `v81-ui-qa.mjs` and `v81-presentation-qa.mjs` for the current connected layout.
 
@@ -826,6 +846,8 @@ review claims, quote units/dates, mixed balance periods and the legacy chart err
 Market checks include narrow-screen accounting, explicit raw and score units, offsetting
 effects, descriptive scenario/replay tiers, loading/empty/partial/failed archive states
 with local retry, legacy unknown provenance, keyboard order and modal return focus.
+They also verify that a null previous score stays unavailable in both the headline spectrum
+and comparison detail while the reported delta link remains usable at all three widths.
 Inspect fresh screenshots and geometry; script completion is not visual inspection.
 Continue running the existing current-layout matrices above. None of these fixtures
 establish live provider availability, production cookie configuration or hardware

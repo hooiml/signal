@@ -28,6 +28,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run qa:v81-evidence
+      - run: node scripts/harness/research-currency-regression.mjs
+      - run: node scripts/harness/market-assessment-regression.mjs
       - run: node scripts/harness/display-clarity-regression.mjs
       - run: node scripts/harness/research-reading-regression.mjs
       - run: node scripts/harness/research-provenance-regression.mjs
@@ -47,11 +49,11 @@ jobs:
           done
           if [ "$ready" != true ]; then echo "Local server did not become ready"; exit 1; fi
           node scripts/v81-ui-qa.mjs
+          node scripts/market-clarity-qa.mjs
+          node scripts/research-provenance-qa.mjs
           node scripts/v8-display-qa.mjs
           node scripts/research-reading-qa.mjs
           node scripts/research-unsaved-qa.mjs
-          node scripts/market-clarity-qa.mjs
-          node scripts/research-provenance-qa.mjs
           node scripts/research-readiness-qa.mjs
           node scripts/research-structured-triggers-qa.mjs
           node scripts/v8-theme-saved-state-qa.mjs

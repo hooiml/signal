@@ -78,6 +78,13 @@ function payload(mode, variant = 'offset') {
             row.status = 'changed'; row.new_observation = true;
         }
     }
+    if (variant === 'missing-previous-score') {
+        data.metadata.score_delta.previous_score = null;
+        data.metadata.score_delta.delta = 5.25;
+        data.metadata.driver_changes_available = false;
+        data.metadata.driver_changes = [];
+        delete data.metadata.change_reconciliation;
+    }
     fixture.parseSignal({ success: true, data }, 'US', mode);
     return { success: true, data };
 }
@@ -180,6 +187,19 @@ try {
         assert.ok(!/strong-buy|strong-sell|\bstrong buy\b|\bstrong sell\b/.test(await page.locator('main').innerText()));
         await page.getByRole('button', { name: /Return to current/ }).click();
         await session.context.close();
+
+        const missingPrevious = await open(width, { variant: 'missing-previous-score' });
+        const missingHero = missingPrevious.page.getByRole('region', { name: 'Market assessment', exact: true });
+        const spectrum = missingHero.getByRole('img', { name: /^Score [0-9]+ on a 0 to 100 scale/ });
+        assert.doesNotMatch(await spectrum.getAttribute('aria-label'), /Previous score/, 'An unavailable previous score must not be announced as a derived value.');
+        assert.equal(await spectrum.locator('[class*="v81PreviousPin"]').count(), 0, 'An unavailable previous score must not acquire a ghost pin.');
+        await missingHero.getByRole('button', { name: '+5.25 points vs 19 Oct 2026 ↗', exact: true }).click();
+        const previousMetric = missingPrevious.page.getByText('Previous score', { exact: true }).locator('..');
+        assert.equal(await previousMetric.locator('strong').innerText(), 'Unavailable', 'The headline and detail must agree that the previous score is unavailable.');
+        assert.equal(await missingPrevious.page.getByRole('tab', { name: 'What changed', exact: true }).getAttribute('aria-selected'), 'true');
+        await geometry(missingPrevious.page, width, 'missing-previous-score');
+        await missingHero.screenshot({ path: `${output}/missing-previous-score-${width}.png` });
+        await missingPrevious.context.close();
 
         const indexGate = deferred(), snapshotGate = deferred();
         const history = await open(width, { indexGate, snapshotGate, archivePhase: 'partial' });

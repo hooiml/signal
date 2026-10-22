@@ -1289,7 +1289,7 @@ const runCurrencyPerformanceTests = () => {
     const base = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
     const record = {
         ...base,
-        positionPlan: { ...base.positionPlan, averageCost: 100 },
+        positionPlan: { ...base.positionPlan, averageCost: 100, currency: 'USD' },
         decisionJournal: { ...base.decisionJournal, benchmarkLabel: 'VOO', benchmarkReturnPercent: 8 },
     };
     const myr = calculateCurrencyPerformance(record, 110, {
@@ -1307,7 +1307,7 @@ const runCurrencyPerformanceTests = () => {
     const myBase = createResearchRecord({ symbol: 'MAYBANK', market: 'MY', companyName: 'Maybank' });
     const usd = calculateCurrencyPerformance({
         ...myBase,
-        positionPlan: { ...myBase.positionPlan, plannedEntryPrice: 10 },
+        positionPlan: { ...myBase.positionPlan, plannedEntryPrice: 10, currency: 'MYR' },
     }, 11, {
         ...defaultCurrencyPerformanceSettings,
         baseCurrency: 'USD',

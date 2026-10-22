@@ -85,7 +85,7 @@ export const CurrencyPerformanceV6 = ({ records, items, theme, onOpen }: {
             {[
                 ['Records checked', results.length],
                 ['Performance available', available.length],
-                ['Needs cost or price', results.length - available.length],
+                ['Needs inputs', results.length - available.length],
             ].map(([label, value]) => <div key={String(label)} className={'rounded border p-3 ' + styles.panelUtility}><p className={'text-xs ' + styles.textMuted}>{label}</p><p className={'mt-1 text-2xl font-bold ' + styles.textPrimary}>{value}</p></div>)}
         </div>
 
@@ -107,7 +107,7 @@ export const CurrencyPerformanceV6 = ({ records, items, theme, onOpen }: {
                                     ['After adjustments', result.totalReturnPercent],
                                     ['Vs saved benchmark', result.relativeToSavedBenchmarkPercent],
                                 ].map(([label, value]) => <div key={String(label)}><p className={'text-[11px] ' + styles.textMuted}>{label}</p><p className={'mt-1 font-mono text-sm font-bold ' + tone(value as number | null, styles.positive, styles.risk, styles.textMuted)}>{percent(value as number | null)}</p></div>)}
-                            </div> : result.costCurrencyMismatch ? <p className={'mt-2 text-xs leading-5 ' + styles.textMuted}>The saved position plan prices use a different currency from the {result.quoteCurrency} quote. Performance is withheld rather than converted.</p> : <p className={'mt-2 text-xs leading-5 ' + styles.textMuted}>Save a positive average cost or planned entry price in Research and wait for a current quote. Missing inputs remain unavailable rather than being estimated.</p>}
+                            </div> : result.costCurrencyMismatch ? <p className={'mt-2 text-xs leading-5 ' + styles.textMuted}>The saved position plan prices use a different currency from the {result.quoteCurrency} quote. Performance is withheld rather than converted.</p> : result.costCurrencyUnknown ? <p className={'mt-2 text-xs leading-5 ' + styles.textMuted}>Record the currency of your position plan prices in Research. Performance is withheld while the cost currency is unknown.</p> : <p className={'mt-2 text-xs leading-5 ' + styles.textMuted}>Save a positive average cost or planned entry price in Research and wait for a current quote. Missing inputs remain unavailable rather than being estimated.</p>}
                             <div className="mt-3 flex flex-wrap gap-3">
                                 <label className={'text-[11px] font-semibold ' + styles.textMuted}>Dividends (% of entry value)
                                     <input type="number" min="0" max="100" step="0.1" value={adjustment?.dividendsPercent ?? 0} onChange={(event) => updateAdjustment(result.symbol, 'dividendsPercent', Math.min(100, Math.max(0, Number(event.target.value) || 0)))} className={'mt-1 h-10 w-36 rounded border px-3 text-xs ' + styles.panelSolid + ' ' + styles.textPrimary} />

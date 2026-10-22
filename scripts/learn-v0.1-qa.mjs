@@ -8,11 +8,15 @@ const baseUrlArgument = baseUrlArgumentIndex >= 0 ? process.argv[baseUrlArgument
 const baseUrl = baseUrlArgument || process.env.SIGNAL_QA_URL || 'http://127.0.0.1:3000';
 const timeoutMs = Number(process.env.SIGNAL_QA_TIMEOUT_MS || 15_000);
 const captureScreenshots = process.env.SIGNAL_QA_SCREENSHOTS !== '0';
-const viewports = [
+const supportedViewports = [
     { name: 'desktop', width: 1280, height: 900 },
     { name: 'tablet', width: 768, height: 900 },
     { name: 'mobile', width: 375, height: 812 },
 ];
+const viewportArgumentIndex = process.argv.indexOf('--viewport');
+const requestedWidth = viewportArgumentIndex >= 0 ? Number(process.argv[viewportArgumentIndex + 1]) : null;
+const viewports = requestedWidth === null ? supportedViewports : supportedViewports.filter(({ width }) => width === requestedWidth);
+if (viewports.length === 0) throw new Error('--viewport must be 1280, 768, or 375.');
 const timestamp = new Date().toISOString().replace(/[.:]/g, '-');
 const evidenceDir = path.resolve(process.env.SIGNAL_QA_EVIDENCE_DIR || path.join('.tmp', 'signal-learn-v0.1-qa', timestamp));
 const report = { command: 'npm run qa:learn', baseUrl, scenarios: [], fatalError: null };
@@ -202,7 +206,17 @@ const main = async () => {
                 addCheck(scenario, 'no browser errors', scenario.issues.length === 0, JSON.stringify(scenario.issues));
                 scenario.status = 'passed';
             } catch (error) {
-                scenario.issues.push({ type: 'blocking', message: error instanceof Error ? error.message : String(error) });
+                const message = error instanceof Error ? error.message : String(error);
+                scenario.issues.push({ type: 'blocking', message, stack: error instanceof Error ? error.stack : undefined });
+                console.error(`${scenario.viewport}: ${message}`);
+                // Failure evidence stays available when CI disables routine success screenshots.
+                try {
+                    const failurePath = path.join(evidenceDir, `failure-${viewport.name}.png`);
+                    await page.screenshot({ path: failurePath, fullPage: false, animations: 'disabled', timeout: 5_000 });
+                    scenario.screenshots.push(failurePath);
+                } catch (captureError) {
+                    scenario.issues.push({ type: 'failure-capture', message: captureError instanceof Error ? captureError.message : String(captureError) });
+                }
             } finally {
                 await context.close();
             }
@@ -215,7 +229,16 @@ const main = async () => {
     }
 
     const failed = Boolean(report.fatalError) || report.scenarios.some((scenario) => scenario.status !== 'passed');
-    console.log(JSON.stringify({ evidenceDir, scenarios: report.scenarios.map(({ viewport, status }) => ({ viewport, status })), fatalError: report.fatalError }, null, 2));
+    console.log(JSON.stringify({
+        evidenceDir,
+        scenarios: report.scenarios.map(({ viewport, status, issues, checks, screenshots }) => ({
+            viewport, status,
+            lastPassedCheck: checks.findLast(check => check.status === 'passed')?.name ?? null,
+            failedChecks: checks.filter(check => check.status === 'failed'),
+            issues, screenshots,
+        })),
+        fatalError: report.fatalError,
+    }, null, 2));
     if (failed) process.exitCode = 1;
 };
 
