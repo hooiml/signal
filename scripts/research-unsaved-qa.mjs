@@ -37,7 +37,7 @@ try {
  await context.route('**/api/**',async route=>{
   const req=route.request(),u=new URL(req.url());
   if(u.pathname==='/api/owner/session')return route.fulfill({json:{success:true,data:{configured:true,unlocked:true}}});
-  if(u.pathname==='/api/signals/v2'){const f=marketRequestFixture();const response=await f.route.GET(f.request(u.search.slice(1)));const payload=await response.json();if(marketScoreCase==='unchanged')payload.data.metadata.score_delta.delta=0;if(marketScoreCase==='missing')delete payload.data.metadata.score_delta;return route.fulfill({json:payload});}
+  if(u.pathname==='/api/signals/v2'){const f=marketRequestFixture({previousSnapshot:{snapshot_date:'2026-09-11',composite_score:45,tier:'neutral',components:{vix:{display_name:'VIX Index',score:45,weight:1}},score_drivers:[],origin:'observed',coverage_note:null}});const response=await f.route.GET(f.request(u.search.slice(1)));const payload=await response.json();if(marketScoreCase==='unchanged')payload.data.metadata.score_delta.delta=0;if(marketScoreCase==='missing')delete payload.data.metadata.score_delta;return route.fulfill({json:payload});}
   if(u.pathname.startsWith('/api/signals/'))return route.fulfill({status:503,json:{success:false,error:'Fixture archive unavailable'}});
   if(u.pathname==='/api/research/search') {
    const q=u.searchParams.get('q'),market=u.searchParams.get('market');searches.push({q,market});
@@ -111,6 +111,14 @@ try {
  const geometry=await assessment.locator('h2,h3,button,summary,p,li').evaluateAll(nodes=>nodes.filter(n=>n.getClientRects().length).map(n=>{const r=n.getBoundingClientRect();return {text:n.textContent.slice(0,45),left:r.left,right:r.right,width:r.width};}));
  assert.ok(geometry.every(r=>r.left>=-1&&r.right<=width+1),'Assessment content outside viewport');
  await read('5347','MY');await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200.00');assert.equal(posts.length,0);await page.getByRole('tab',{name:'Financials',exact:true}).click();await page.locator('dd').filter({hasText:/^MYR 1,000$/}).waitFor();
+ const revenueRow=page.locator('dt').filter({hasText:/^Annual revenue$/}).locator('..');
+ if(width<=600){
+  const boxes=await revenueRow.locator(':scope > dt, :scope > dd').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,bottom:r.bottom,width:r.width,align:getComputedStyle(n).textAlign};}));
+  assert.equal(boxes.length,3);assert.ok(boxes[1].y>=boxes[0].bottom&&boxes[2].y>=boxes[1].bottom,'Mobile financial label, amount and explanation stack without overlap');
+  assert.ok(boxes.every(b=>Math.abs(b.x-boxes[0].x)<1&&b.width>250),'Financial explanations use the available mobile width');
+  assert.ok(boxes.slice(1).every(b=>b.align==='left'));
+ }
+ await revenueRow.scrollIntoViewIfNeeded();await noOverflow();await page.screenshot({path:`${out}/financial-reading-${width}.png`});
  await page.getByRole('tab',{name:'Valuation',exact:true}).click();await page.getByRole('heading',{name:'Price, value and downside'}).waitFor();
  await page.locator('dt').filter({hasText:/^Market capitalization/}).locator('small').filter({hasText:/compatible outstanding shares are unavailable; annual diluted average shares are not substituted/}).waitFor();
  await page.locator('dt').filter({hasText:/^Price \/ earnings/}).locator('small').filter({hasText:/Price paid for each unit of reported annual profit\.[\s\S]*Unavailable because market capitalization is unavailable because compatible outstanding shares are unavailable/}).waitFor();
@@ -182,6 +190,14 @@ try {
  marketScoreCase='missing';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/No earlier comparable score supplied/}).waitFor();
  marketScoreCase='normal';await page.getByLabel('Market',{exact:true}).selectOption('MY');
  await page.locator('[data-indicator="vix"]').filter({hasText:'US VIX (FX proxy unavailable)'}).waitFor();
+ const eligibilityNotice=page.getByText(/MY news eligibility version: previous unknown, current 1/);
+ await eligibilityNotice.waitFor();await eligibilityNotice.scrollIntoViewIfNeeded();await noOverflow();
+ if(width<=600){
+  const driver=page.getByRole('region',{name:'Driver changes',exact:true}).getByRole('button').first();
+  const labelBox=await driver.locator(':scope > span').first().boundingBox();const amountBox=await driver.locator('b').boundingBox();
+  assert.ok(labelBox.width>250&&amountBox.y>=labelBox.y+labelBox.height,'Mobile contributor label has a full readable row above its delta');
+ }
+ await page.screenshot({path:`${out}/market-comparison-limits-${width}.png`});
  await page.getByText('How to read this assessment · methodology and limits',{exact:true}).click();
  const marketAssessment=page.getByRole('region',{name:'Current market assessment',exact:true});
  await marketAssessment.getByRole('heading',{name:'What this reading means'}).waitFor();
@@ -197,6 +213,7 @@ try {
  }
  await page.getByRole('button',{name:'Back to basic view',exact:true}).click();
  const leadingEvidence=page.getByRole('group',{name:'Leading evidence',exact:true});
+ await leadingEvidence.getByText(/Contribution and alignment answer different questions/).waitFor();
  const evidenceBoxes=await leadingEvidence.locator('button').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};}));
  assert.ok(evidenceBoxes.length>0&&evidenceBoxes.every(r=>r.height>=44&&r.x>=-1&&r.x+r.width<=width+1),'Market evidence buttons must fit and be touch-sized');
  await noOverflow();await page.screenshot({path:`${out}/market-summary-${width}.png`,fullPage:true});

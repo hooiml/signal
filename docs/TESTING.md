@@ -877,3 +877,16 @@ Continue running the existing current-layout matrices above. None of these fixtu
 establish live provider availability, production cookie configuration or hardware
 assistive-technology behavior.
 
+The current assessment matrix (`node scripts/research-unsaved-qa.mjs`) also checks
+stacked mobile financial labels, amounts and explanations, readable Market contributor
+names above their bars and deltas, and contribution versus alignment wording. Its
+guest suite checks the visible saved-security selector,
+keyboard selection, cross-market lookup state and Back/Forward without guest-record
+mutations or owner requests. Set `SIGNAL_QA_OWNER_SECRET` to the disposable local
+server secret to exercise real signed-session isolation; provider and owner records
+remain labelled synthetic fixtures. Guest storage and authentication are unchanged.
+MY score comparisons disclose recorded news eligibility versions separately from the
+scoring model version; missing historical version metadata stays unknown. The
+market-assessment regression covers same, changed and unknown versions without
+changing score arithmetic or inferring a news-rule change from snapshot dates.
+

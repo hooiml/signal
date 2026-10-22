@@ -31,6 +31,9 @@ function load(file) {
 
 const { MarketCurrentAssessment } = load('src/components/v8/MarketV8Coverage.tsx');
 const { MarketV81Hero } = load('src/components/v8/MarketV81Hero.tsx');
+const { ConnectedPanels, emptyScenario } = load('src/components/v8/MarketV8ConnectedPanels.tsx');
+const { reconcileScoreChange } = load('src/lib/signal-change.ts');
+const fixture = marketRequestFixture();
 const explanations = {
     standard: 'In Momentum mode, higher scores support positive momentum; lower scores indicate weaker momentum and a more cautious reading.',
     contrarian: 'In Contrarian mode, higher scores indicate crowding or greed risk; lower scores indicate fear and potential opportunity.',
@@ -52,19 +55,89 @@ for (const market of ['US', 'MY']) {
             }));
             const paragraph = html.match(/<p>(.*?)<\/p>/)?.[1];
             assert.equal(paragraph, `The score describes the configured market indicators on a 0–100 scale. ${explanations[mode]} It is not a return estimate or a probability of gains.`, `${market} ${mode} score ${score}`);
+            assert.match(html, /Contribution and alignment answer different questions: a normalized input score above 50 adds more than its weighted 50 baseline, while its category can still differ from the composite tier\. Agreement describes these readings; it is not forecast accuracy\./, `${market} ${mode} contribution and agreement explanation`);
             assert.equal(signal.composite_score, score, 'Mode interpretation must not invert the numeric score');
         }
     }
 }
 
+// MY change accounting carries explicit eligibility evidence; missing legacy metadata stays unknown.
+for (const market of ['US', 'MY']) {
+    for (const mode of ['standard', 'contrarian']) {
+        const response = await fixture.route.GET(fixture.request(`market=${market}&mode=${mode}&enableSocial=false`));
+        const seed = await response.json();
+        for (const scenario of [
+            { name: 'same version', previous: 1, current: 1, changed: false, copy: 'Both snapshots record MY news eligibility version 1.' },
+            { name: 'different version', previous: 1, current: 2, changed: true, copy: 'MY news eligibility version changed from 1 to 2.' },
+            { name: 'unknown previous version', previous: null, current: 1, changed: null, copy: 'previous unknown, current 1. The comparison cannot establish whether both snapshots used the same eligibility rules.' },
+        ]) {
+          for (const includeNews of [false, true]) {
+            const payload = structuredClone(seed);
+            const readings = [{ key: 'vix', name: 'VIX Index', score: 50, weight: includeNews ? .5 : 1, raw_value: 20, last_updated: '2026-10-19', timestamp_basis: 'observed' }, ...(includeNews ? [{key:'news',name:'News Sentiment',score:50,weight:.5,raw_value:0,last_updated:'2026-10-19',timestamp_basis:'retrieved'}] : [])];
+            payload.data.metadata.change_reconciliation = reconcileScoreChange({
+                current: readings, previous: readings, currentScore: 50, previousScore: 50,
+                currentModelVersion: 'fixture-v1', previousModelVersion: 'fixture-v1',
+                currentNewsEligibilityVersion: scenario.current,
+                previousNewsEligibilityVersion: scenario.previous,
+            });
+            const signal = fixture.parseSignal(payload, market, mode);
+            const html = renderToStaticMarkup(createElement(ConnectedPanels, {
+                signal, tab: 'What changed', onSelect: () => assert.fail('Rendering must not select an input'),
+                scenario: emptyScenario(), setScenario: () => assert.fail('Change accounting must not mutate scenarios'),
+            }));
+            const context = `${market} ${mode} ${scenario.name} news included: ${includeNews}`;
+            if (market === 'MY') assert.ok(html.includes(scenario.copy), context);
+            else assert.doesNotMatch(html, /MY news eligibility version/, context);
+            assert.equal(signal.metadata.change_reconciliation.news_eligibility_version.changed, scenario.changed, context);
+            if (market === 'MY' && scenario.changed === true) {
+                assert.ok(html.includes(includeNews ? 'News contributes to at least one snapshot' : 'News has no applied weight in either snapshot'), context);
+                assert.equal(html.includes('may reflect changed eligibility as well as market movement'), includeNews, context);
+            }
+          }
+        }
+        const legacy = structuredClone(seed);
+        const readings = [{ key: 'vix', name: 'VIX Index', score: 50, weight: 1, raw_value: 20, last_updated: '2026-10-19', timestamp_basis: 'observed' }];
+        legacy.data.metadata.change_reconciliation = reconcileScoreChange({
+            current: readings, previous: readings, currentScore: 50, previousScore: 50,
+            currentModelVersion: 'fixture-v1', previousModelVersion: 'fixture-v1',
+        });
+        assert.doesNotThrow(() => fixture.parseSignal(legacy, market, mode), `${market} ${mode}: earlier reconciliation payloads remain valid`);
+        const invalid = structuredClone(seed);
+        const invalidReadings = [{ key: 'vix', name: 'VIX Index', score: 50, weight: 1, raw_value: 20, last_updated: '2026-10-19', timestamp_basis: 'observed' }];
+        invalid.data.metadata.change_reconciliation = reconcileScoreChange({
+            current: invalidReadings, previous: invalidReadings, currentScore: 50, previousScore: 50,
+            currentModelVersion: 'fixture-v1', previousModelVersion: 'fixture-v1',
+        });
+        invalid.data.metadata.change_reconciliation.news_eligibility_version = { previous: null, current: 1, changed: false };
+        assert.throws(() => fixture.parseSignal(invalid, market, mode), /invalid/,
+            `${market} ${mode}: parser rejects a contradictory rule-version comparison`);
+    }
+}
+
 // Parse real route-shaped payloads before rendering the actual headline. A reported
 // delta is not permission to reconstruct an unavailable previous score.
-const fixture = marketRequestFixture();
 for (const market of ['US', 'MY']) {
     for (const mode of ['standard', 'contrarian']) {
         const response = await fixture.route.GET(fixture.request(`market=${market}&mode=${mode}&enableSocial=false`));
         const seed = await response.json();
         assert.equal(response.status, 200);
+        for (const previousVersion of [1, 2, undefined, 0, -1, 1.5, '1']) {
+            const priorSnapshot = {
+                snapshot_date: '2026-09-11', composite_score: 45, tier: 'neutral',
+                components: { vix: { score: 45, weight: 1, raw_value: 20, last_updated: '2026-09-11', display_name: 'VIX Index', timestamp_basis: 'observed' } },
+                score_drivers: [], origin: 'observed', coverage_note: null,
+                metadata_snapshot: { scoring_model_version: 'fixture-v1', ...(previousVersion === undefined ? {} : { my_news_eligibility_version: previousVersion }) },
+            };
+            const routeFixture = marketRequestFixture({ previousSnapshot: priorSnapshot });
+            const routed = await (await routeFixture.route.GET(routeFixture.request(`market=${market}&mode=${mode}&enableSocial=false`))).json();
+            const validVersion = typeof previousVersion === 'number' && Number.isSafeInteger(previousVersion) && previousVersion > 0 ? previousVersion : null;
+            if (market === 'MY') assert.deepEqual(routed.data.metadata.change_reconciliation.news_eligibility_version, {
+                previous: validVersion, current: 1, changed: validVersion === null ? null : validVersion !== 1,
+            }, `${market} ${mode} prior eligibility version ${previousVersion ?? 'unknown'}`);
+            else assert.equal(routed.data.metadata.change_reconciliation.news_eligibility_version, undefined,
+                `${market} ${mode}: MY eligibility metadata is not attached to US comparisons`);
+            assert.doesNotThrow(() => routeFixture.parseSignal(routed, market, mode), 'Malformed provenance must not invalidate otherwise valid signal data');
+        }
         for (const scenario of [
             { name: 'supplied previous score', previous: 53.25, delta: 5.25, pin: 53.25 },
             { name: 'unavailable previous score', previous: null, delta: 5.25, pin: null },

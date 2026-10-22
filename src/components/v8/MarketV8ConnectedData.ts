@@ -89,6 +89,16 @@ function validChangeReconciliation(value: unknown): boolean {
     if (!['previous_missing_weight', 'current_missing_weight', 'previous_points', 'current_points', 'delta'].every((key) => finite(neutral[key]))) return false;
     if (typeof model.current !== 'string' || (model.previous !== null && typeof model.previous !== 'string')
         || (model.changed !== null && typeof model.changed !== 'boolean')) return false;
+    if (value.news_eligibility_version !== undefined) {
+        const eligibility = value.news_eligibility_version;
+        if (!object(eligibility)
+            || !(eligibility.previous === null || (typeof eligibility.previous === 'number' && count(eligibility.previous) && eligibility.previous >= 1))
+            || !(eligibility.current === null || (typeof eligibility.current === 'number' && count(eligibility.current) && eligibility.current >= 1))
+            || (eligibility.changed !== null && typeof eligibility.changed !== 'boolean')) return false;
+        const expectedChanged = eligibility.previous === null || eligibility.current === null
+            ? null : eligibility.previous !== eligibility.current;
+        if (eligibility.changed !== expectedChanged) return false;
+    }
     return value.components.every((row) => object(row)
         && typeof row.key === 'string' && typeof row.name === 'string'
         && componentChangeStatuses.includes(String(row.status))

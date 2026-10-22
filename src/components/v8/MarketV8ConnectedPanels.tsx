@@ -334,6 +334,7 @@ function ChangeAccounting({ signal }: { signal: MarketSignal }) {
     // Earlier payloads may classify offsetting score/weight effects as unchanged.
     const moved = accounting.components.filter(row => row.status !== 'unchanged' || row.previous_score !== row.current_score || row.previous_weight !== row.current_weight);
     const unchanged = accounting.components.length - moved.length;
+    const newsContributed = accounting.components.some(row => row.key === 'news' && ((row.previous_weight ?? 0) > 0 || (row.current_weight ?? 0) > 0));
     return <section className={`${styles.calibration} ${styles.changeAccounting}`} aria-label="Complete score change accounting">
         <h3>Complete accounting</h3>
         <dl className={`${styles.keyValues} ${styles.accountingTotals}`}>
@@ -352,6 +353,13 @@ function ChangeAccounting({ signal }: { signal: MarketSignal }) {
             </dl>
             <p>Missing-input fallback changed by {signed(accounting.neutral_fallback.delta)} points. This accounts for unavailable weight; it is not an observed neutral reading.</p>
         </details>
+        {signal.metadata.market === 'MY' && accounting.news_eligibility_version && <p className={styles.studyNotice}>
+            {accounting.news_eligibility_version.changed === null
+                ? `MY news eligibility version: previous ${accounting.news_eligibility_version.previous ?? 'unknown'}, current ${accounting.news_eligibility_version.current ?? 'unknown'}. The comparison cannot establish whether both snapshots used the same eligibility rules.`
+                : accounting.news_eligibility_version.changed
+                    ? `MY news eligibility version changed from ${accounting.news_eligibility_version.previous} to ${accounting.news_eligibility_version.current}.${newsContributed ? ' News contributes to at least one snapshot, so this comparison may reflect changed eligibility as well as market movement.' : ' News has no applied weight in either snapshot; this is not a scored news contribution.'}`
+                    : `Both snapshots record MY news eligibility version ${accounting.news_eligibility_version.current}.`}
+        </p>}
         {moved.map(row => {
             const scoresChanged = row.previous_score !== row.current_score;
             const weightsChanged = row.previous_weight !== row.current_weight;

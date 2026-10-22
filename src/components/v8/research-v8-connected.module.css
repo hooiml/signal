@@ -162,6 +162,9 @@
 .reviewHeading { flex-wrap: wrap; }
 
 .financialSummary > div { min-width: 0; }
+.guestNavigation { margin: 12px 0; max-width: 480px; }
+.guestNavigation label { display: grid; gap: 6px; color: var(--muted); font-size: var(--text-sm); }
+.guestNavigation select { width: 100%; min-width: 0; min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; }
 .financialSummary dd { overflow-wrap: break-word; }
 .financialSummary details { margin-top: 8px; font-size: var(--text-sm); }
 .financialSummary summary { cursor: pointer; min-height: 44px; padding: 10px 0; }
@@ -171,6 +174,10 @@
 .financialSummary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .financialSummary .financialDetail { font-size: var(--text-sm); font-weight: 400; margin: 0; }
 @media (max-width: 900px) { .financialSummary { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+    .app .financialSummary > div { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+    .app .financialSummary dd { text-align: left; }
+}
 .assessmentFactsBlock { padding: 14px 0; margin: 14px 0; border-block: 1px solid var(--line); }
 .assessmentFactsBlock h3 { margin: 0; }
 .assessmentFacts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 20px; margin: 8px 0 0; }

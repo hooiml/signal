@@ -136,6 +136,8 @@ export type ScoreChangeReconciliation = {
     readonly rounding_residual: number;
     readonly weights_changed: boolean;
     readonly model_version: { readonly previous: string | null; readonly current: string; readonly changed: boolean | null };
+    /** Missing legacy snapshot metadata remains unknown; it is never inferred from the current version. */
+    readonly news_eligibility_version?: { readonly previous: number | null; readonly current: number | null; readonly changed: boolean | null };
 };
 
 const neutralBaseline = 50;
@@ -193,6 +195,8 @@ export const reconcileScoreChange = (input: {
     readonly previousScore: number;
     readonly currentModelVersion: string;
     readonly previousModelVersion: string | null;
+    readonly currentNewsEligibilityVersion?: number | null;
+    readonly previousNewsEligibilityVersion?: number | null;
 }): ScoreChangeReconciliation => {
     const currentByKey = new Map(input.current.map((reading) => [reading.key, reading]));
     const previousByKey = new Map(input.previous.map((reading) => [reading.key, reading]));
@@ -263,5 +267,13 @@ export const reconcileScoreChange = (input: {
             current: input.currentModelVersion,
             changed: input.previousModelVersion === null ? null : input.previousModelVersion !== input.currentModelVersion,
         },
+        ...(input.currentNewsEligibilityVersion !== undefined || input.previousNewsEligibilityVersion !== undefined ? {
+            news_eligibility_version: {
+                previous: input.previousNewsEligibilityVersion ?? null,
+                current: input.currentNewsEligibilityVersion ?? null,
+                changed: input.previousNewsEligibilityVersion == null || input.currentNewsEligibilityVersion == null
+                    ? null : input.previousNewsEligibilityVersion !== input.currentNewsEligibilityVersion,
+            },
+        } : {}),
     };
 };

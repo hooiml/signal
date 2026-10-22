@@ -62,6 +62,7 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
    const unlocked=await context.request.post(`${base}/api/owner/session`,{data:{secret:process.env.SIGNAL_QA_OWNER_SECRET}});assert.equal(unlocked.status(),200);
    await page.reload(); await page.getByText('Owner workspace · Your private saved research',{exact:true}).waitFor();
    await page.getByRole('heading',{name:ownerRecord.companyName,exact:true}).waitFor();
+   assert.equal(await page.getByRole('navigation',{name:'Guest research navigation'}).count(),0);
    assert.equal(await note.count(),0); assert.equal(await raw(),JSON.stringify(first).replace('Guest A note only','Newer note in tab B'));
    assert.ok(privateRequests.length>0&&privateRequests.every(r=>r.method==='GET'),'Unlock may read owner data but never import guest data');
    await page.getByRole('button',{name:'Saved research',exact:true}).click(); await page.getByRole('button',{name:'Lock owner workspace and use guest mode',exact:true}).click();
@@ -92,6 +93,30 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   assert.deepEqual(providerReads,[]); assert.equal(new URL(page.url()).searchParams.get('market'),null);
   await page.getByRole('button',{name:'Read DUAL in Malaysia',exact:true}).click(); await page.getByTestId('research-price').filter({hasText:'MYR'}).waitFor();
   assert.ok(providerReads.every(search=>new URLSearchParams(search).get('market')==='MY'));
+  const quickSwitch=page.getByRole('combobox',{name:'Switch saved security',exact:true});
+  assert.equal(await quickSwitch.inputValue(),'MY:DUAL');
+  const beforeSwitch=await raw(); const privateCount=privateRequests.length;
+  await quickSwitch.selectOption('US:DUAL');
+  await page.getByTestId('research-price').filter({hasText:'USD'}).waitFor();
+  assert.equal(new URL(page.url()).searchParams.get('market'),'US');
+  await page.getByText('Change security',{exact:true}).click();
+  assert.equal(await page.getByRole('combobox',{name:'Lookup market',exact:true}).inputValue(),'US');
+  await page.goBack(); await page.getByTestId('research-price').filter({hasText:'MYR'}).waitFor();
+  assert.equal(await quickSwitch.inputValue(),'MY:DUAL');
+  assert.equal(await page.getByRole('combobox',{name:'Lookup market',exact:true}).inputValue(),'MY');
+  await page.goForward(); await page.getByTestId('research-price').filter({hasText:'USD'}).waitFor();
+  assert.equal(await quickSwitch.inputValue(),'US:DUAL');
+  await quickSwitch.focus(); await quickSwitch.press('ArrowDown');
+  await page.getByTestId('research-price').filter({hasText:'MYR'}).waitFor();
+  assert.equal(await quickSwitch.inputValue(),'MY:DUAL');
+  assert.equal(await raw(),beforeSwitch,'Navigation must not mutate guest records or notes');
+  assert.equal(privateRequests.length,privateCount,'Guest navigation must not request owner records');
+  await page.getByText('Change security',{exact:true}).click();
+  await page.evaluate(()=>scrollTo(0,0)); await overflow();
+  await page.screenshot({path:`${out}/guest-navigation-${width}.png`});
+  await page.evaluate(k=>localStorage.removeItem(k),key); await page.goto(`${base}/research-v8`); await guestReady();
+  await page.getByText('Market shows broad market conditions. Research explores an individual company.',{exact:true}).waitFor();
+  assert.equal(await raw(),null,'The first-use explanation must not create guest records');
   // Real browser Web Locks serialize queued mutations from two different tabs.
   await page.evaluate(k=>localStorage.removeItem(k),key);
   await page.goto(`${base}/research-v8?ticker=MSFT&market=US`); await guestReady(); await page.getByRole('button',{name:'Save security',exact:true}).waitFor();
@@ -104,7 +129,7 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   await page.waitForFunction(k=>JSON.parse(localStorage.getItem(k)||'{}').records?.length===2,key);
   assert.deepEqual(JSON.parse(await raw()).records.map(r=>r.symbol).sort(),['MSFT','TSLA']); await concurrent.close();
   assert.deepEqual(errors,[]);
-  results.push({width,passed:true,realOwnerCookie:!!process.env.SIGNAL_QA_OWNER_SECRET,scenarios:['no access code','local save/reload','profile isolation','cross-tab draft conflict','export','owner isolation/no import','owner lock','quota failure','clear cancel/confirm','corrupt storage preserves original','public data remains readable','ambiguous ticker requires explicit market','serialized concurrent cross-tab saves','no overflow','no runtime errors']});
+  results.push({width,passed:true,realOwnerCookie:!!process.env.SIGNAL_QA_OWNER_SECRET,scenarios:['no access code','local save/reload','profile isolation','cross-tab draft conflict','export','owner isolation/no import','owner lock','quota failure','clear cancel/confirm','corrupt storage preserves original','public data remains readable','ambiguous ticker requires explicit market','guest quick switch and keyboard selection','cross-market lookup and Back/Forward','first-use guidance without storage writes','serialized concurrent cross-tab saves','no overflow','no runtime errors']});
   await context.close(); await other.close();
  }
  await writeFile(`${out}/report.json`,JSON.stringify({dataMode:'Synthetic provider/owner records; actual local owner-session auth and denied private routes when configured',results},null,2));

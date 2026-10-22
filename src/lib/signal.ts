@@ -83,7 +83,7 @@ interface SnapshotSummaryRow {
     coverage_note?: string | null;
     components?: unknown;
     score_drivers?: unknown;
-    metadata_snapshot?: { scoring_model_version?: unknown } | null;
+    metadata_snapshot?: { scoring_model_version?: unknown; my_news_eligibility_version?: unknown } | null;
 }
 
 export const CONFIG = {
@@ -431,6 +431,7 @@ async function persistSignalSnapshot(
         const previousModelVersion = typeof previous?.metadata_snapshot?.scoring_model_version === 'string'
             ? previous.metadata_snapshot.scoring_model_version
             : null;
+        const storedNewsVersion = previous?.metadata_snapshot?.my_news_eligibility_version;
         const changeReconciliation = previous && previousReadings && currentReadings
             ? reconcileScoreChange({
                 current: currentReadings,
@@ -439,6 +440,12 @@ async function persistSignalSnapshot(
                 previousScore: Number(previous.composite_score),
                 currentModelVersion: MARKET_SCORE_MODEL_VERSION,
                 previousModelVersion,
+                ...(options.market === 'MY' ? {
+                    currentNewsEligibilityVersion: signal.metadata.my_news_eligibility_version ?? null,
+                    previousNewsEligibilityVersion: typeof storedNewsVersion === 'number' && Number.isSafeInteger(storedNewsVersion) && storedNewsVersion > 0
+                        ? storedNewsVersion
+                        : null,
+                } : {}),
             })
             : null;
         const history = [
