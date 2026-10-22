@@ -31,7 +31,8 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | ---: | --- | --- | --- | --- |
 | E1 | Price chart visual QA | Verified | UI-LIGHT | None |
 | E2 | Pinned workspaces and attention badges | Verified | Standard | None; uses already-loaded counts only |
-| E8 | V8 dark mode | In progress | Standard | None; added after E2 at the owner's request |
+| E8 | V8 dark mode | Verified | Standard | None; added after E2 at the owner's request |
+| E9 | Market "what moved" bundle | In progress | Standard | None; added after E8 at the owner's request |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -115,6 +116,18 @@ no overflow and a one-row header. Browser suites (light): `v81-ui-qa`, `v81-pres
 **Not covered:** saved-review markers in dark (no saved record loads locally); the browser suites
 run in the light theme only.
 
+### E9 — Market "what moved" bundle
+
+**Scope:** "Since your last visit" (browser-local, per market and mode, compared with the last
+different snapshot), impact chips on observed inputs (`(score − 50) × weight` points), and a
+coverage ring that splits score weight by input and freshness, with a legend that opens each input.
+
+**Evidence — 2026-10-22:** Live US Momentum in Chrome: chips +9.5 / +0.9 / +0.4 pts plus 50 give
+60.8 for a score of 61; first visit shows no note; a seeded 19 Oct visit shows "57 → 61 (+4) ·
+VIX Index +3.4 pts · Put/call ratio −1.2 pts" and survives reload; ring legend opens AAII detail;
+dark and light, 1100px and 375px without overflow. `market-last-visit-regression.mjs` covers impact
+maths, malformed storage, baseline rotation and change ranking (in the harness).
+
 ### E3 — Today promotion review
 
 **Spec:** `NEXT_PRODUCT_ROADMAP.md` Task 0.
@@ -158,3 +171,5 @@ contract is recorded.
 | 2026-10-22 | E1 | Ready | Verified | 52-week label placement fixed; see E1 evidence. |
 | 2026-10-22 | E2 | Ready | Verified | Pins and Queue/Calendar badges; 375px not browser-checked. |
 | 2026-10-22 | E8 | — | In progress | Added after E2 at the owner's request. |
+| 2026-10-22 | E8 | In progress | Verified | PR #30 merged. |
+| 2026-10-22 | E9 | — | In progress | Added after E8 at the owner's request. |

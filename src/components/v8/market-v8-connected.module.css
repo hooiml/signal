@@ -102,3 +102,29 @@
     .spectrum { max-width: none; }
     .longLabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
+
+/* What moved and how much to trust it: last-visit note, coverage ring, impact chips. */
+.lastVisit { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--brand); border-radius: 4px; background: var(--brand-soft); color: var(--ink); font-size: var(--text-sm); }
+.lastVisit b { font-weight: 650; }
+.coverageRing { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: center; margin: 10px 0 6px; }
+.coverageRing svg { width: 112px; height: 112px; }
+.coverageRing circle[data-state=fresh] { stroke: var(--up); }
+.coverageRing circle[data-state=stale] { stroke: var(--caution-mark); }
+.coverageRing circle[data-state=unknown] { stroke: var(--subtle); }
+.coverageRing circle[data-state=fallback] { stroke: var(--line-strong); }
+.ringValue { fill: var(--ink); font-size: 22px; font-weight: 700; }
+.ringLabel { fill: var(--muted); font-size: 11px; }
+.ringLegend { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.ringLegend .ringItem { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; column-gap: 8px; align-items: center; width: 100%; min-height: 36px; padding: 2px 4px; border-radius: 6px; text-align: left; font-size: var(--text-sm); color: var(--ink); }
+.ringLegend button.ringItem:hover { background: var(--surface-muted); }
+.ringItem small { grid-column: 2; font-size: var(--text-xs); color: var(--muted); }
+.ringItem b { grid-column: 3; grid-row: 1; font-variant-numeric: tabular-nums; }
+.ringItem i { width: 10px; height: 10px; border-radius: 2px; grid-row: 1; }
+.ringItem i[data-state=fresh] { background: var(--up); }
+.ringItem i[data-state=stale] { background: var(--caution-mark); }
+.ringItem i[data-state=unknown] { background: var(--subtle); }
+.ringItem i[data-state=fallback] { background: var(--line-strong); }
+.evidenceRow .impact { justify-self: start; font-weight: 650; font-variant-numeric: tabular-nums; }
+.evidenceRow .impact[data-impact=up] { color: var(--up); }
+.evidenceRow .impact[data-impact=down] { color: var(--down); }
+@media (max-width: 600px) { .coverageRing { grid-template-columns: 96px minmax(0, 1fr); } .coverageRing svg { width: 96px; height: 96px; } }
