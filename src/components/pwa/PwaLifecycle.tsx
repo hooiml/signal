@@ -37,14 +37,14 @@ export const PwaLifecycle = () => {
     useEffect(() => {
         const markOnline = () => {
             const current = new Date().toISOString();
-            window.localStorage.setItem(LAST_ONLINE_KEY, current);
+            try { window.localStorage.setItem(LAST_ONLINE_KEY, current); } catch { /* The live online state does not depend on optional timestamp storage. */ }
             setLastOnlineAt(current);
             setOnline(true);
         };
         const markOffline = () => setOnline(false);
         const initialize = window.setTimeout(() => {
             setOnline(navigator.onLine);
-            setLastOnlineAt(window.localStorage.getItem(LAST_ONLINE_KEY));
+            try { setLastOnlineAt(window.localStorage.getItem(LAST_ONLINE_KEY)); } catch { /* A previous online timestamp may be unavailable. */ }
             if (navigator.onLine) markOnline();
         }, 0);
         window.addEventListener('online', markOnline);

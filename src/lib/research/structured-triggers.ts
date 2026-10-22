@@ -9,6 +9,8 @@ import type {
     ResearchStructuredTriggerSet,
 } from '../types/research';
 import type { ResearchSnapshot } from '../types/research-snapshot';
+import { isResearchCalendarDate } from './calendar-input';
+import { personalReviewAgeDays, personalReviewDate } from './review-lifecycle';
 
 export const researchStructuredTriggerLimit = 10;
 
@@ -149,7 +151,10 @@ export type ResearchStructuredTriggerEvaluation = {
 };
 
 export type ResearchStructuredTriggerContext = {
-    readonly record: Pick<ResearchRecord, 'symbol' | 'lastReviewedAt' | 'acceptedEvidence' | 'monitoringRules'>;
+    readonly record: Pick<ResearchRecord, 'symbol' | 'acceptedEvidence' | 'monitoringRules'> & (
+        Pick<ResearchRecord, 'lastReviewedAt' | 'decisionJournal' | 'reviewHistory'>
+        | { readonly lastReviewedAt: string | null }
+    );
     readonly snapshot: ResearchSnapshot | null;
     readonly snapshotStatus: ResearchStructuredTriggerProviderStatus;
     readonly catalyst: DiscoveryCatalyst | null;
@@ -160,6 +165,7 @@ export type ResearchStructuredTriggerContext = {
 const DAY_MS = 86_400_000;
 const snapshotFreshnessDays = 4;
 const annualFundamentalFreshnessDays = 550;
+const clockSkewToleranceMs = 10 * 60_000;
 
 const utcDay = (value: string): number | null => {
     const timestamp = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00.000Z` : value);
@@ -169,6 +175,61 @@ const utcDay = (value: string): number | null => {
 const ageDays = (value: string, now: Date): number | null => {
     const basis = utcDay(value);
     return basis === null ? null : Math.max(0, Math.floor(now.getTime() / DAY_MS) - basis);
+};
+
+// Full records retain authorship; request projections already carry a nullable personal date.
+const authoredReviewDate = (record: ResearchStructuredTriggerContext['record']): string | null =>
+    'decisionJournal' in record && 'reviewHistory' in record ? personalReviewDate(record) : record.lastReviewedAt;
+
+const datedInputIssue = (value: string | null | undefined, now: Date, maximumAgeDays: number, label: string): string | null => {
+    if (!value) return `the ${label} date is unavailable`;
+    const timestamp = Date.parse(value);
+    if (!Number.isFinite(timestamp) || !Number.isFinite(now.getTime())
+        || timestamp > now.getTime() + clockSkewToleranceMs
+        || !isResearchCalendarDate(value.slice(0, 10))) {
+        return `the ${label} date is invalid or in the future`;
+    }
+    return (ageDays(value, now) ?? Infinity) > maximumAgeDays
+        ? `the ${label} is older than ${maximumAgeDays} days`
+        : null;
+};
+
+const technicalInput = (rule: ResearchStructuredTriggerRule, snapshot: ResearchSnapshot) => {
+    const key = rule.metric === 'rsi14' ? 'rsi14' : rule.metric === 'price-vs-ma50-percent' ? 'ma50' : 'ma200';
+    const latest = snapshot.chart.points.at(-1);
+    const value = snapshot.technicals[key];
+    // A fallback summary metric has no proven observation date. Only use the value carried
+    // by the latest ordered chart row; never borrow a date from another bar or the fetch.
+    if (!latest || value === null || !Number.isFinite(value) || latest[key] !== value
+        || snapshot.chart.points.some((point, index, points) => !isResearchCalendarDate(point.time)
+            || (index > 0 && Date.parse(point.time) <= Date.parse(points[index - 1].time)))) return null;
+    return { value, observedAt: latest.time, label: key === 'rsi14' ? 'RSI (14)' : key.toUpperCase() };
+};
+
+const currentInputIssue = (rule: ResearchStructuredTriggerRule, context: ResearchStructuredTriggerContext): string | null => {
+    const { snapshot, now } = context;
+    if (!snapshot || context.snapshotStatus === 'unavailable') return 'the current research snapshot is unavailable';
+    const retrievalIssue = datedInputIssue(snapshot.fetchedAt, now, snapshotFreshnessDays, 'research snapshot retrieval');
+    if (retrievalIssue) return retrievalIssue;
+    const needsQuote = rule.metric === 'price' || rule.metric === 'price-vs-ma50-percent'
+        || rule.metric === 'price-vs-ma200-percent' || rule.metric === 'price-earnings'
+        || rule.metric === 'free-cash-flow-yield-percent';
+    if (needsQuote) {
+        if (snapshot.quote.price === null || !Number.isFinite(snapshot.quote.price)) return 'the required quote is unavailable';
+        const quoteIssue = datedInputIssue(snapshot.quote.observedAt, now, snapshotFreshnessDays, 'quote observation');
+        if (quoteIssue) return quoteIssue;
+    }
+    if (rule.metric === 'rsi14' || rule.metric === 'price-vs-ma50-percent' || rule.metric === 'price-vs-ma200-percent') {
+        const technical = technicalInput(rule, snapshot);
+        if (!technical) return 'the technical value cannot be tied to the latest dated chart observation';
+        const technicalIssue = datedInputIssue(technical.observedAt, now, snapshotFreshnessDays, 'daily technical observation');
+        if (technicalIssue) return technicalIssue;
+    }
+    if (rule.metric === 'price-earnings' || rule.metric === 'free-cash-flow-yield-percent' || rule.metric === 'revenue-growth-percent') {
+        const period = rule.metric === 'revenue-growth-percent' ? snapshot.fundamentals.reportingPeriod : snapshot.valuation.reportingPeriod;
+        return datedInputIssue(period, now, annualFundamentalFreshnessDays, 'annual reporting period');
+    }
+    return null;
 };
 
 const evidenceBasisDate = (evidence: AcceptedResearchEvidence): string => {
@@ -233,19 +294,15 @@ const observedMetric = (
     context: ResearchStructuredTriggerContext,
 ): ResearchStructuredTriggerObserved | null => {
     const { snapshot, now } = context;
-    const snapshotAge = snapshot ? ageDays(snapshot.fetchedAt, now) : null;
-    const snapshotAvailable = snapshot !== null && context.snapshotStatus !== 'unavailable'
-        && snapshotAge !== null && snapshotAge <= snapshotFreshnessDays;
-    const snapshotDate = snapshot?.fetchedAt ?? null;
-    const snapshotFreshness = snapshotAge === null ? 'freshness unavailable' : `${snapshotAge} days old`;
     if (rule.metric === 'research-age-days') {
-        const value = ageDays(context.record.lastReviewedAt, now);
+        const reviewedAt = authoredReviewDate(context.record);
+        const value = personalReviewAgeDays(reviewedAt, now.toISOString().slice(0, 10));
         return value === null ? null : {
             value,
             label: `${value} days`,
-            observedAt: context.record.lastReviewedAt,
+            observedAt: reviewedAt,
             source: 'Research journal',
-            freshness: `reviewed ${context.record.lastReviewedAt}`,
+            freshness: `reviewed ${reviewedAt}`,
         };
     }
     if (rule.metric === 'evidence-age-days') {
@@ -277,25 +334,33 @@ const observedMetric = (
             freshness: `scheduled ${context.catalyst.date}`,
         };
     }
-    if (!snapshotAvailable || !snapshot) return null;
+    if (!snapshot || currentInputIssue(rule, context)) return null;
+    const quoteDate = snapshot.quote.observedAt ?? null;
+    // Keep the exact source timestamp in observedAt. Explanations use its day, so a
+    // no-change refetch cannot create a different date-scoped notification digest.
+    const quoteFreshness = `quote observation ${quoteDate?.slice(0, 10)} (${quoteDate ? ageDays(quoteDate, now) : 'unknown'} days old)`;
     if (rule.metric === 'price') {
         const value = snapshot.quote.price;
-        return value === null ? null : { value, label: `${formatNumber(value)} ${snapshot.quote.currency ?? 'price units'}`, observedAt: snapshotDate, source: 'Yahoo Finance', freshness: snapshotFreshness };
+        return value === null ? null : { value, label: `${formatNumber(value)} ${snapshot.quote.currency ?? 'price units'}`, observedAt: quoteDate, source: 'Yahoo Finance', freshness: quoteFreshness };
     }
     if (rule.metric === 'rsi14') {
-        const value = snapshot.technicals.rsi14;
-        return value === null ? null : { value, label: `${formatNumber(value)} RSI points`, observedAt: snapshotDate, source: 'Yahoo Finance', freshness: snapshotFreshness };
+        const technical = technicalInput(rule, snapshot);
+        return technical === null ? null : {
+            value: technical.value, label: `${formatNumber(technical.value)} RSI points`, observedAt: technical.observedAt,
+            source: 'Yahoo Finance', freshness: `daily chart ${technical.observedAt} (${ageDays(technical.observedAt, now)} days old)`,
+        };
     }
     if (rule.metric === 'price-vs-ma50-percent' || rule.metric === 'price-vs-ma200-percent') {
-        const average = rule.metric === 'price-vs-ma50-percent' ? snapshot.technicals.ma50 : snapshot.technicals.ma200;
-        const value = percentageFromAverage(snapshot.quote.price, average);
-        return value === null ? null : { value, label: `${formatNumber(value)}%`, observedAt: snapshotDate, source: 'Yahoo Finance', freshness: snapshotFreshness };
+        const technical = technicalInput(rule, snapshot);
+        const value = percentageFromAverage(snapshot.quote.price, technical?.value ?? null);
+        return value === null || technical === null ? null : {
+            value, label: `${formatNumber(value)}%`, observedAt: quoteDate, source: 'Yahoo Finance',
+            freshness: `${quoteFreshness}; ${technical.label} from daily chart ${technical.observedAt} (${ageDays(technical.observedAt, now)} days old)`,
+        };
     }
     const reportingPeriod = rule.metric === 'revenue-growth-percent'
         ? snapshot.fundamentals.reportingPeriod
         : snapshot.valuation.reportingPeriod;
-    const reportingAge = reportingPeriod ? ageDays(reportingPeriod, now) : null;
-    if (!reportingPeriod || reportingAge === null || reportingAge > annualFundamentalFreshnessDays) return null;
     if (rule.metric === 'revenue-growth-percent') {
         const value = snapshot.fundamentals.revenueGrowthPercent;
         const source = snapshot.fundamentals.source;
@@ -313,9 +378,9 @@ const observedMetric = (
     return value === null || snapshot.valuation.source === null ? null : {
         value,
         label: rule.metric === 'price-earnings' ? `${formatNumber(value)}x` : `${formatNumber(value)}%`,
-        observedAt: reportingPeriod,
+        observedAt: quoteDate,
         source: snapshot.valuation.source,
-        freshness: `current price with annual period ${reportingPeriod}`,
+        freshness: `${quoteFreshness}; annual period ${reportingPeriod}`,
     };
 };
 
@@ -327,10 +392,11 @@ const missingReason = (rule: ResearchStructuredTriggerRule, context: ResearchStr
         ? 'the earnings provider is unavailable'
         : 'no trustworthy earnings observation is available';
     if (rule.metric === 'evidence-age-days') return 'no dated accepted evidence is available';
-    if (rule.metric === 'research-age-days') return 'the saved review date is invalid';
-    if (!context.snapshot) return 'the current research snapshot is unavailable';
-    const snapshotAge = ageDays(context.snapshot.fetchedAt, context.now);
-    if (snapshotAge === null || snapshotAge > snapshotFreshnessDays) return 'the current research snapshot is stale';
+    if (rule.metric === 'research-age-days') return authoredReviewDate(context.record) === null
+        ? 'no personal review is recorded'
+        : 'the personal review date is invalid or in the future';
+    const inputIssue = currentInputIssue(rule, context);
+    if (inputIssue) return inputIssue;
     if (rule.metric === 'price-earnings' || rule.metric === 'free-cash-flow-yield-percent' || rule.metric === 'revenue-growth-percent') {
         return context.snapshotStatus === 'degraded'
             ? 'the required period-correct provider input is degraded or missing'

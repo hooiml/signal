@@ -14,14 +14,14 @@ import {
 export const RESEARCH_MEMORY_HISTORY_KEY = 'signal-research-memory-history-v1';
 const maxSnapshotsPerTicker = 24;
 
-const toDecision = (decision: ResearchRecord['decisionJournal']['decision']): ResearchMemoryDecision => {
+const toDecision = (decision: ResearchRecord['decisionJournal']['decision']): ResearchMemoryDecision | null => {
     switch (decision) {
         case 'DCA': return 'dca';
         case 'Wait for price': return 'wait';
         case 'Avoid': return 'avoid';
         case 'Ready':
-        case 'Watch':
-        default: return 'watch';
+        case 'Watch': return 'watch';
+        default: return null;
     }
 };
 
@@ -44,15 +44,20 @@ const evidenceFromRecord = (record: ResearchRecord) => record.acceptedEvidence.m
     source: entry.sources.map((source) => source.source).filter(Boolean).join(' + ') || undefined,
 }));
 
-const appendReviewThesis = (state: ResearchMemoryState, review: ResearchReviewSnapshot, index: number) => appendResearchMemoryThesisVersion(state, {
-    id: `review-${review.id}`,
-    createdAt: review.reviewedAt,
-    thesis: review.bullCase || review.whyInterested || 'No explicit thesis saved for this review.',
-    invalidation: review.thesisBreak ? [review.thesisBreak] : [],
-    decision: toDecision(review.decisionJournal.decision),
-    evidenceIds: review.acceptedEvidence.map((entry) => entry.id),
-    reason: review.notes || `Imported from saved review ${index + 1}`,
-});
+const appendReviewThesis = (state: ResearchMemoryState, review: ResearchReviewSnapshot, index: number) => {
+    const decision = toDecision(review.decisionJournal.decision);
+    // Memory thesis versions require a decision; the primary journal retains unrecorded reviews.
+    if (decision === null) return state;
+    return appendResearchMemoryThesisVersion(state, {
+        id: `review-${review.id}`,
+        createdAt: review.reviewedAt,
+        thesis: review.bullCase || review.whyInterested || 'No explicit thesis saved for this review.',
+        invalidation: review.thesisBreak ? [review.thesisBreak] : [],
+        decision,
+        evidenceIds: review.acceptedEvidence.map((entry) => entry.id),
+        reason: review.notes || `Imported from saved review ${index + 1}`,
+    });
+};
 
 export const buildResearchMemoryStateFromRecord = (record: ResearchRecord): ResearchMemoryState => {
     let state = createResearchMemoryState(record.symbol);
@@ -62,12 +67,14 @@ export const buildResearchMemoryStateFromRecord = (record: ResearchRecord): Rese
     record.reviewHistory.forEach((review, index) => {
         state = appendReviewThesis(state, review, index);
     });
+    const decision = toDecision(record.decisionJournal.decision);
+    if (decision === null) return state;
     state = appendResearchMemoryThesisVersion(state, {
         id: `record-${record.revision}`,
         createdAt: record.lastReviewedAt,
         thesis: record.bullCase || record.whyInterested || 'No explicit thesis saved yet.',
         invalidation: record.thesisBreak ? [record.thesisBreak] : [],
-        decision: toDecision(record.decisionJournal.decision),
+        decision,
         evidenceIds: record.acceptedEvidence.map((entry) => entry.id),
         reason: record.notes || 'Current saved research state',
     });
@@ -85,7 +92,7 @@ export const buildResearchMemoryStateFromRecord = (record: ResearchRecord): Rese
     return recordResearchMemoryDecision(state, {
         id: `${record.symbol}-decision-${record.revision}`,
         decidedAt: record.lastReviewedAt,
-        decision: toDecision(record.decisionJournal.decision),
+        decision,
         thesisVersionId: `record-${record.revision}`,
         reason: record.notes || record.whyInterested || 'Saved research decision',
         triggers,

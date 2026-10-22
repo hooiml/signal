@@ -149,10 +149,14 @@ function PriceHistory({ snapshot, loading, advanced, savedMarket, record, chartR
     const lineColor = change === null || change === 0 ? 'var(--muted)' : change > 0 ? 'var(--up)' : 'var(--down)';
     const movement = change === null ? points.length === 1 ? 'One observation; no period change available' : 'A comparable period change is unavailable' : change === 0 ? 'Unchanged over selected period' : `${change > 0 ? 'Rose' : 'Fell'} over selected period`;
     const start = points.length ? Date.parse(points[0].time) : 0;
-    const chart = mobileChart
+    const markers = record ? savedReviewMarkers(record).filter(marker => Date.parse(marker.time) >= start && Date.parse(marker.time) <= end) : [];
+    const chartSize = mobileChart
         ? { width: 375, height: 260, left: 58, right: 360, top: 48, bottom: 205, labelSize: 16 }
         : { width: 750, height: 225, left: 65, right: 715, top: 45, bottom: 180, labelSize: 12 };
-    const labelSize = renderedWidth ? 12 * chart.width / renderedWidth : chart.labelSize;
+    const labelSize = renderedWidth ? 12 * chartSize.width / renderedWidth : chartSize.labelSize;
+    // Give review diamonds their own row above the range labels. Translate the whole plot so its price scale stays unchanged.
+    const markerRowHeight = markers.length ? labelSize * 2 : 0;
+    const chart = { ...chartSize, top: chartSize.top + markerRowHeight, bottom: chartSize.bottom + markerRowHeight, height: chartSize.height + markerRowHeight };
     const x = (time: string) => chart.left + (Date.parse(time) - start) / (end - start || 1) * (chart.right - chart.left);
     const y = (value: number) => chart.bottom - (value - low) / (high - low || 1) * (chart.bottom - chart.top);
     // Visible 52-week lines sit on the plot edges where the close line touches them, so their labels go outside the plot.
@@ -161,7 +165,6 @@ function PriceHistory({ snapshot, loading, advanced, savedMarket, record, chartR
     const lowLabelY = chart.bottom + labelSize + 3;
     const dateY = Math.max(chart.height - 10, (bandLines.some(([, value]) => value === low) ? lowLabelY : chart.bottom) + labelSize * 1.5);
     const viewHeight = dateY + 10;
-    const markers = record ? savedReviewMarkers(record).filter(marker => Date.parse(marker.time) >= start && Date.parse(marker.time) <= end) : [];
     const area = points.length > 1 ? `M${x(points[0].time)},${chart.bottom} ${points.map(item => `L${x(item.time)},${y(item.close)}`).join(' ')} L${x(points[points.length - 1].time)},${chart.bottom} Z` : '';
     const hovered = hoverIndex !== null ? points[hoverIndex] : undefined;
     const hoverChange = hovered && points[0].close ? (hovered.close - points[0].close) / points[0].close * 100 : null;
@@ -185,7 +188,7 @@ function PriceHistory({ snapshot, loading, advanced, savedMarket, record, chartR
             {bandLines.map(([label, value]) => <g key={label} data-testid="research-52w-line"><line x1={chart.left} x2={chart.right} y1={y(value)} y2={y(value)} stroke="var(--subtle)" strokeDasharray="2 4" /><text x={chart.left + 6} y={value === high ? y(value) - 5 : lowLabelY} fill="var(--muted)" style={{ fontSize: labelSize }}>{label}{value === high || value === low ? '' : ` ${number(value)}`}</text></g>)}
             <text x={chart.left - 8} y={chart.top + 4} textAnchor="end" style={{ fontSize: labelSize }}>{number(high)}</text><text x={chart.left - 8} y={chart.bottom + 4} textAnchor="end" style={{ fontSize: labelSize }}>{number(low)}</text>
             {area && <path d={area} fill={`url(#${gradientId})`} />}<polyline data-testid="research-price-line" fill="none" stroke={lineColor} strokeWidth="2.5" points={points.map(item => `${x(item.time)},${y(item.close)}`).join(' ')} /><line x1={x(point.time)} x2={x(point.time)} y1={chart.top - 10} y2={chart.bottom + 8} stroke="var(--muted)" strokeDasharray="4 4" /><circle cx={x(point.time)} cy={y(point.close)} r="5" fill={lineColor} />
-            {markers.map(marker => <g key={`${marker.time}-${marker.label}`} data-testid="research-review-marker"><line x1={x(marker.time)} x2={x(marker.time)} y1={chart.top} y2={chart.bottom} stroke="var(--brand)" strokeOpacity=".45" /><path d={`M${x(marker.time)},${chart.top - 16} l6,6 l-6,6 l-6,-6 Z`} fill="var(--brand)" /><title>{date(marker.time)} · {marker.label}</title></g>)}
+            {markers.map(marker => <g key={`${marker.time}-${marker.label}`} data-testid="research-review-marker"><line x1={x(marker.time)} x2={x(marker.time)} y1={chart.top} y2={chart.bottom} stroke="var(--brand)" strokeOpacity=".45" /><path d={`M${x(marker.time)},${chartSize.top - 16} l6,6 l-6,6 l-6,-6 Z`} fill="var(--brand)" /><title>{date(marker.time)} · {marker.label}</title></g>)}
             {hovered && <g pointerEvents="none"><line x1={x(hovered.time)} x2={x(hovered.time)} y1={chart.top} y2={chart.bottom} stroke="var(--subtle)" /><line x1={chart.left} x2={chart.right} y1={y(hovered.close)} y2={y(hovered.close)} stroke="var(--subtle)" strokeDasharray="3 4" /><circle cx={x(hovered.time)} cy={y(hovered.close)} r="4.5" fill="var(--surface)" stroke={lineColor} strokeWidth="2.5" /></g>}
             <text x={chart.left} y={dateY} style={{ fontSize: labelSize }}>{date(points[0].time)}</text><text x={chart.right} y={dateY} textAnchor="end" style={{ fontSize: labelSize }}>{date(points[points.length - 1].time)}</text>
         </svg>{hovered && <div className={connected.priceTooltip} aria-hidden="true" data-edge={hoverEdge} style={{ left: `${x(hovered.time) / chart.width * 100}%`, top: `${y(hovered.close) / viewHeight * 100}%` }}><b>{price(hovered.close, snapshot?.quote.currency)}</b><span>{date(hovered.time)}{hoverChange !== null ? ` · ${hoverChange >= 0 ? '+' : '−'}${Math.abs(hoverChange).toFixed(2)}% vs ${date(points[0].time)}` : ''}</span></div>}</div>

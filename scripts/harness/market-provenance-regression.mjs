@@ -36,6 +36,7 @@ const { parseConnectedSignal, indicatorStatus, archivedSeries } = load('src/comp
 const { marketEvidenceCoverage } = load('src/lib/market-evidence-coverage.ts');
 const { getMarketReplaySnapshot } = load('src/lib/market-replay.ts');
 const { parseMarketReplaySnapshot } = load('src/lib/types/market-replay.ts');
+const { parseCboePutCallRatio, parseNaaimExposure } = load('src/lib/market-indicators.ts');
 const observed = '2026-10-20T20:00:00.000Z';
 const earlier = '2026-10-19T20:00:00.000Z';
 const later = '2026-10-21T20:00:00.000Z';
@@ -113,6 +114,118 @@ assert.equal(stored.vix.unit, 'VIX points');
 assert.equal(stored.vix.score, current.components.vix.score);
 assert.equal(stored.vix.weight, current.components.vix.weight);
 
+// Use actual provider parsers through real orchestration, snapshot writing and readers.
+// An unchanged source fetched on another day must not become fresh financial evidence.
+const ratioTable = '<table><tr><td>TOTAL PUT/CALL RATIO</td><td>0.74</td></tr></table>';
+const datedCboe = date => `<input type="text" placeholder="yyyy/mm/dd" value="${date}"/>${ratioTable}`;
+const naaimTable = '<table><tr><td>09/09/2026</td><td>65.00</td><td>0</td></tr></table>';
+const firstRetrieval = '2026-09-10T23:00:00.000Z';
+const secondRetrieval = '2026-09-11T23:00:00.000Z';
+const sourceReadings = (cboeHtml, naaimHtml, retrieval) => ({
+    putCallRatio: parseCboePutCallRatio(cboeHtml, retrieval),
+    naaimExposure: parseNaaimExposure(naaimHtml, retrieval),
+});
+async function providerSnapshot(providerReadings, previousSnapshot) {
+    const providerFixture = marketRequestFixture({ providerReadings, previousSnapshot });
+    const result = await providerFixture.signal.getSmartSignal('US', 'standard', false, undefined, { includeAura: false });
+    assert.equal(result.meta.status, 'OK');
+    const insert = providerFixture.calls.find(call => call.query.startsWith('INSERT INTO signal_snapshots'));
+    const components = insert.values.filter(value => typeof value === 'string').map(value => {
+        try { return JSON.parse(value); } catch { return null; }
+    }).find(value => value?.put_call?.raw_value !== undefined);
+    assert.ok(components, 'The parsed provider readings reach the real snapshot write.');
+    return {
+        signal: result.v2,
+        snapshot: { snapshot_date: '2026-09-11', composite_score: result.v2.composite_score, tier: result.v2.tier,
+            components, score_drivers: [], origin: 'observed', coverage_note: null,
+            metadata_snapshot: { scoring_model_version: '2.0.0' } },
+    };
+}
+const datedReadings = sourceReadings(datedCboe('10 September 2026'), naaimTable, firstRetrieval);
+const initialProvider = await providerSnapshot(datedReadings);
+const repeatedProvider = await providerSnapshot(sourceReadings(datedCboe('10 September 2026'), naaimTable, secondRetrieval), initialProvider.snapshot);
+for (const key of ['put_call', 'naaim']) {
+    const component = repeatedProvider.signal.components[key];
+    assert.equal(component.metadata.timestamp_basis, 'observed');
+    assert.equal(component.metadata.retrieved_at, secondRetrieval);
+    assert.equal(repeatedProvider.snapshot.components[key].last_updated, initialProvider.snapshot.components[key].last_updated);
+    const comparison = repeatedProvider.signal.metadata.change_reconciliation.components.find(item => item.key === key);
+    assert.equal(comparison.status, 'unchanged');
+    assert.equal(comparison.observation_change, 'same');
+    assert.equal(comparison.new_observation, false);
+    assert.equal(comparison.current_retrieved_at, secondRetrieval);
+}
+assert.equal(repeatedProvider.signal.composite_score, initialProvider.signal.composite_score);
+const newerProvider = await providerSnapshot(sourceReadings(datedCboe('11 September 2026'), naaimTable, secondRetrieval), initialProvider.snapshot);
+assert.equal(newerProvider.signal.metadata.change_reconciliation.components.find(item => item.key === 'put_call').observation_change, 'newer');
+const revisedProvider = await providerSnapshot(sourceReadings(datedCboe('10 September 2026').replace('0.74', '0.75'), naaimTable, secondRetrieval), initialProvider.snapshot);
+const revision = revisedProvider.signal.metadata.change_reconciliation.components.find(item => item.key === 'put_call');
+assert.equal(revision.observation_change, 'different');
+assert.equal(revision.new_observation, false);
+
+const undatedNaaim = "<h2>This week's NAAIM Exposure Index number is: 65.00</h2>";
+const unknownProvider = await providerSnapshot(sourceReadings(ratioTable, undatedNaaim, firstRetrieval));
+const unknownRefetch = await providerSnapshot(sourceReadings(ratioTable, undatedNaaim, secondRetrieval), unknownProvider.snapshot);
+assert.equal(unknownRefetch.signal.composite_score, initialProvider.signal.composite_score, 'Provenance correction preserves scoring and eligibility.');
+assert.deepEqual(unknownRefetch.signal.metadata.weight_distribution, initialProvider.signal.metadata.weight_distribution);
+for (const key of ['put_call', 'naaim']) {
+    const component = unknownRefetch.signal.components[key];
+    assert.equal(component.last_updated, secondRetrieval);
+    assert.equal(component.metadata.timestamp_basis, 'retrieved');
+    assert.match(indicatorStatus(unknownRefetch.signal, key, '2026-09-12'), /unavailable|unknown/i);
+    assert.ok(marketEvidenceCoverage(unknownRefetch.signal, '2026-09-12').unknownDateKeys.includes(key));
+    const comparison = unknownRefetch.signal.metadata.change_reconciliation.components.find(item => item.key === key);
+    assert.equal(comparison.status, 'unchanged');
+    assert.equal(comparison.observation_change, 'unknown');
+    assert.equal(comparison.new_observation, null);
+    assert.equal(comparison.current_observed_at, null);
+}
+
+// Do not rewrite old records or trust their former retrieval-as-observation labels.
+const legacyProviderSnapshot = structuredClone(initialProvider.snapshot);
+for (const key of ['put_call', 'naaim']) {
+    legacyProviderSnapshot.components[key].last_updated = firstRetrieval;
+    legacyProviderSnapshot.components[key].timestamp_basis = 'observed';
+}
+const legacyComponentsBefore = structuredClone(legacyProviderSnapshot.components);
+const legacyProviderComparison = await providerSnapshot(datedReadings, legacyProviderSnapshot);
+for (const key of ['put_call', 'naaim']) {
+    const comparison = legacyProviderComparison.signal.metadata.change_reconciliation.components.find(item => item.key === key);
+    assert.equal(comparison.previous_timestamp_basis, null);
+    assert.equal(comparison.previous_last_updated, firstRetrieval);
+    assert.equal(comparison.previous_retrieved_at, firstRetrieval);
+    assert.equal(comparison.previous_observed_at, null);
+    assert.equal(comparison.observation_change, 'unknown');
+    assert.equal(comparison.new_observation, null);
+}
+assert.deepEqual(legacyProviderSnapshot.components, legacyComponentsBefore, 'Legacy provenance normalization does not mutate archived records.');
+const futureProviderSnapshot = structuredClone(initialProvider.snapshot);
+for (const key of ['put_call', 'naaim']) futureProviderSnapshot.components[key].last_updated = '2026-09-11';
+const futureProviderComparison = await providerSnapshot(datedReadings, futureProviderSnapshot);
+for (const key of ['put_call', 'naaim']) {
+    const comparison = futureProviderComparison.signal.metadata.change_reconciliation.components.find(item => item.key === key);
+    assert.equal(comparison.previous_timestamp_basis, null, 'An archived observation after its explicit retrieval day is unverified.');
+    assert.equal(comparison.previous_last_updated, '2026-09-11');
+    assert.equal(comparison.previous_retrieved_at, firstRetrieval);
+    assert.equal(comparison.observation_change, 'unknown');
+}
+const malformedRetrievalSnapshot = structuredClone(initialProvider.snapshot);
+for (const key of ['put_call', 'naaim']) {
+    malformedRetrievalSnapshot.components[key].last_updated = '2026-03-01';
+    malformedRetrievalSnapshot.components[key].retrieved_at = '2026-02-30T12:00:00.000Z';
+}
+const malformedRetrievalComparison = await providerSnapshot(datedReadings, malformedRetrievalSnapshot);
+for (const key of ['put_call', 'naaim']) {
+    const comparison = malformedRetrievalComparison.signal.metadata.change_reconciliation.components.find(item => item.key === key);
+    assert.equal(comparison.previous_timestamp_basis, null, 'An impossible archived retrieval day cannot validate an observation through date rollover.');
+    assert.equal(comparison.previous_last_updated, '2026-03-01');
+    assert.equal(comparison.previous_retrieved_at, '2026-02-30T12:00:00.000Z');
+    assert.equal(comparison.observation_change, 'unknown');
+}
+const legacyDated = structuredClone(initialProvider.snapshot.components);
+for (const key of ['put_call', 'naaim']) delete legacyDated[key].retrieved_at;
+assert.ok(parseStoredComponentReadings(legacyDated).filter(item => ['put_call', 'naaim'].includes(item.key)).every(item => item.timestamp_basis === 'observed'), 'Genuine calendar-dated legacy observations do not require a missing retrieval clock to be invented.');
+
 current.metadata.change_reconciliation = offset;
 assert.equal(parseConnectedSignal({ success: true, data: current }, 'US', 'standard').metadata.change_reconciliation.components[0].status, 'changed');
 for (const [field, value] of [['current_timestamp_basis', 'invented'], ['current_retrieved_at', 'not-a-date'], ['current_unit', 42], ['observation_change', 'new']]) {
@@ -168,4 +281,17 @@ assert.deepEqual(archivedSeries('vix', Object.keys(seriesSnapshots).map(date => 
     [{ date: '2026-10-20', value: 20 }],
 ], 'An archive chart never labels unknown or incompatible units with the current unit.');
 
-console.log('Market provenance regression passed: offsetting effects, later/earlier/refetched readings, unknown legacy clocks, snapshot/replay preservation, boundary validation, missing values and comparable chart units.');
+const originalArchive = archivedRow;
+for (const [record, expectedBasis] of [[repeatedProvider.snapshot, 'observed'], [unknownRefetch.snapshot, 'retrieved'], [legacyProviderSnapshot, null], [futureProviderSnapshot, null], [malformedRetrievalSnapshot, null]]) {
+    archivedRow = { ...originalArchive, ...record, updated_at: secondRetrieval };
+    const providerReplay = parseMarketReplaySnapshot({ success: true, data: await getMarketReplaySnapshot('US', 'standard', false, '2026-09-11') });
+    for (const key of ['put_call', 'naaim']) {
+        const item = providerReplay.components.find(component => component.key === key);
+        assert.equal(item.timestampBasis, expectedBasis, 'Replay and reconciliation apply the same observation trust rule.');
+        assert.equal(item.lastUpdated, record.components[key].last_updated);
+        assert.equal(item.retrievedAt, record.components[key].retrieved_at);
+        assert.equal(item.rawValue, record.components[key].raw_value);
+    }
+}
+
+console.log('Market provenance regression passed: provider dates through real orchestration, same/new/revised/undated observations, legacy clock normalization, unchanged scoring, snapshot/replay preservation and comparable chart units.');

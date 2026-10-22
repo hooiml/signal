@@ -1,6 +1,6 @@
 import type { AlertTickerInput } from '../types/research-alert';
 import { defaultResearchMonitoringRules, type ResearchRecord } from '../types/research';
-import { reviewMonitoringRules } from './review-lifecycle';
+import { personalReviewDate, reviewMonitoringRules } from './review-lifecycle';
 
 type ResearchAlertRequestItem = Pick<AlertTickerInput, 'symbol' | 'market' | 'targetBuyZone' | 'lastReviewedAt'>;
 type ResearchAlertRequestRecord = Pick<ResearchRecord, 'symbol' | 'lastReviewedAt' | 'acceptedEvidence' | 'monitoringRules' | 'decisionJournal' | 'reviewHistory'>;
@@ -17,7 +17,7 @@ export const buildResearchAlertRequest = (
             symbol: item.symbol,
             market: item.market,
             targetBuyZone: item.targetBuyZone,
-            lastReviewedAt: record?.lastReviewedAt ?? item.lastReviewedAt,
+            lastReviewedAt: record ? personalReviewDate(record) : null,
             acceptedEvidence: record?.acceptedEvidence ?? [],
             monitoringRules: record ? reviewMonitoringRules(record) : defaultResearchMonitoringRules,
         };

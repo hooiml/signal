@@ -5,6 +5,8 @@ import type { ResearchWatchlistItem } from '@/components/research/ResearchDashbo
 import {
     assessInvestmentPolicy,
     defaultInvestmentPolicy,
+    investmentPolicyAssessmentLabel,
+    investmentPolicyReviewLabel,
     type InvestmentPolicy,
 } from '@/lib/research/investment-policy';
 import { readInvestmentPolicy, writeInvestmentPolicy } from '@/lib/research/investment-policy-client';
@@ -44,6 +46,7 @@ export const InvestmentPolicyGuardrailsV6 = ({ records, items, initialSymbol, th
     })), policy)].sort((left, right) => Number(right.symbol === initialSymbol) - Number(left.symbol === initialSymbol)), [initialSymbol, items, policy, records]);
     const violationCount = assessments.reduce((total, item) => total + item.violations.length, 0);
     const compliantCount = assessments.filter((item) => item.compliant).length;
+    const incompleteReviewCount = assessments.filter((item) => item.reviewAgeDays === null).length;
 
     return <section data-testid="investment-policy-guardrails" aria-labelledby="investment-policy-title" className="min-w-0 flex-1">
         <div className="max-w-3xl">
@@ -99,6 +102,7 @@ export const InvestmentPolicyGuardrailsV6 = ({ records, items, initialSymbol, th
                         <p className={'mt-1 text-2xl font-bold ' + styles.textPrimary}>{value}</p>
                     </div>)}
                 </div>
+                {incompleteReviewCount > 0 ? <p className={'mt-3 text-xs ' + styles.textMuted}>{incompleteReviewCount} {incompleteReviewCount === 1 ? 'record needs' : 'records need'} a dated personal review before policy assessment can be complete.</p> : null}
                 {queueStatus ? <p role="status" className={'mt-3 text-xs ' + styles.positive}>{queueStatus}</p> : null}
                 <h2 id="policy-assessment-title" className="sr-only">Policy assessment</h2>
                 {assessments.length > 0 ? <ul className={'mt-4 divide-y border-y ' + styles.divider}>
@@ -109,13 +113,13 @@ export const InvestmentPolicyGuardrailsV6 = ({ records, items, initialSymbol, th
                                     <h3 className={'text-sm font-bold ' + styles.textPrimary}>{assessment.symbol}</h3>
                                     <span className={'text-xs ' + styles.textMuted}>{assessment.sector}</span>
                                     <span className={'rounded border px-2 py-0.5 text-[10px] font-bold uppercase ' + (assessment.compliant ? styles.positive : styles.risk)}>
-                                        {assessment.compliant ? 'Within policy' : `${assessment.violations.length} violation${assessment.violations.length === 1 ? '' : 's'}`}
+                                        {investmentPolicyAssessmentLabel(assessment)}
                                     </span>
                                 </div>
-                                <p className={'mt-1 text-[11px] ' + styles.textMuted}>{assessment.evidenceCoveragePercent}% evidence coverage · reviewed {assessment.reviewAgeDays} days ago</p>
+                                <p className={'mt-1 text-[11px] ' + styles.textMuted}>{assessment.evidenceCoveragePercent}% evidence coverage · {investmentPolicyReviewLabel(assessment)}</p>
                                 {assessment.violations.length > 0 ? <ul className="mt-2 space-y-1">
                                     {assessment.violations.map((violation) => <li key={violation.kind} className={'text-xs leading-5 ' + styles.risk}>{violation.message}</li>)}
-                                </ul> : <p className={'mt-2 text-xs ' + styles.textSecondary}>No current saved input exceeds these guardrails.</p>}
+                                </ul> : <p className={'mt-2 text-xs ' + styles.textSecondary}>{assessment.compliant ? 'No current saved input exceeds these guardrails.' : 'Review age is unavailable, so this record cannot yet be assessed as within policy.'}</p>}
                             </div>
                             <div className="flex shrink-0 flex-wrap gap-2">
                                 <button type="button" onClick={() => onOpen(assessment.symbol)} className={'min-h-10 rounded border px-3 text-xs font-semibold ' + styles.row}>Open research</button>

@@ -1,4 +1,5 @@
 import type { ResearchRecord } from '../types/research';
+import { isResearchCalendarDate } from './calendar-input';
 
 type ReviewEvidence = Pick<ResearchRecord, 'decisionJournal' | 'reviewHistory'>;
 
@@ -9,6 +10,17 @@ export const hasPersonalReview = (record: ReviewEvidence): boolean =>
 
 export const personalReviewDate = (record: ReviewEvidence & Pick<ResearchRecord, 'lastReviewedAt'>): string | null =>
     hasPersonalReview(record) ? record.lastReviewedAt : null;
+
+// Consumers pass the authored date from personalReviewDate, including nullable projections
+// used by alerts and the exposure map. Unknown or invalid dates never become a zero-day review.
+export const personalReviewAgeDays = (
+    reviewedAt: string | null,
+    today = new Date().toISOString().slice(0, 10),
+): number | null => {
+    if (reviewedAt === null || !isResearchCalendarDate(reviewedAt) || !isResearchCalendarDate(today)) return null;
+    const age = (Date.parse(`${today}T00:00:00.000Z`) - Date.parse(`${reviewedAt}T00:00:00.000Z`)) / 86_400_000;
+    return age < 0 ? null : age;
+};
 
 export type ReviewMarker = { readonly time: string; readonly label: string };
 

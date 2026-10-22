@@ -12,6 +12,7 @@ const { createResearchRecord, appendResearchReview } = isolatedSnapshot().load('
 const bookmark = (symbol = 'AAPL', market = 'US') => createResearchRecord({ symbol, market, companyName: `Fixture ${symbol}`, saveOnly: true });
 const observedAt = '2026-10-20T20:00:00.000Z';
 const fetchedAt = '2026-10-21T10:00:00.000Z';
+const fixtureTime = '2026-10-22T12:00:00.000Z';
 const nullableChart = ['volume', 'ma50', 'ma200', 'ema20', 'ema50', 'sma200', 'averageVolume20', 'rsi14', 'macd', 'macdSignal', 'macdHistogram', 'atr14', 'atrPercent14', 'anchoredVwap', 'adx14', 'plusDi14', 'minusDi14', 'supertrend', 'supertrendDirection'];
 const point = (time, close) => ({ time, open: close, high: close, low: close, close, ...Object.fromEntries(nullableChart.map(key => [key, null])) });
 
@@ -30,7 +31,7 @@ function snapshot(symbol, market, { currencyOverride, dailyChange = null, legacy
     payload.data.quote = {
         name: `Fixture ${symbol}`, price: 120.34, currency: currencyOverride === undefined ? currency : currencyOverride,
         dailyChangePercent: dailyChange, observedAt, sharesOutstanding: market === 'MY' ? 120_000_000 : null, instrumentType: 'EQUITY',
-        classification: { source: 'Yahoo Finance', instrumentType: 'EQUITY', sector: 'Industrials', industry: 'Machinery', retrievedAt: new Date().toISOString() },
+        classification: { source: 'Yahoo Finance', instrumentType: 'EQUITY', sector: 'Industrials', industry: 'Machinery', retrievedAt: fixtureTime },
     };
     payload.data.fundamentals = {
         ...annual, debt: 100_000_000, cash: 30_000_000, shares: market === 'MY' ? 110_000_000 : 115_000_000,
@@ -57,6 +58,7 @@ try {
     for (const width of [1280, 768, 375]) {
         const context = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: width === 375, reducedMotion: 'reduce', serviceWorkers: 'block' });
         const page = await context.newPage();
+        await page.clock.setFixedTime(fixtureTime);
         const errors = [], requests = [];
         let records = [bookmark()], listState = 'ready', quoteOptions = {}, providerFails = false, saveState = 'locked';
         const saveRequests = [];
@@ -140,6 +142,19 @@ try {
             await page.locator('#research-detail').waitFor();
             await page.getByText('Quote response retrieved', { exact: true }).waitFor();
         };
+        const expectAuthoredAge = async (ageDays, name) => {
+            const age = new RegExp(`reviewed ${ageDays} days ago`, 'i');
+            await legacyReady('/research?workspace=research&ticker=AAPL&market=US&tab=overview');
+            await page.getByTestId('research-readiness-details').locator('summary').click();
+            const policyReadiness = page.getByTestId('research-readiness-policy');
+            await policyReadiness.getByText(age).waitFor();
+            await policyReadiness.click();
+            await page.getByRole('heading', { name: 'Investment-policy guardrails', exact: true }).waitFor();
+            const assessment = page.locator('#policy-assessment-title + ul > li').filter({ has: page.getByRole('heading', { name: 'AAPL', exact: true }) });
+            await assessment.getByText(age).waitFor();
+            assert.doesNotMatch(await assessment.innerText(), /Not reviewed|reviewed (?:null|NaN) days ago/i, `${name}: genuine review age is available`);
+            await capture(name, 'section[aria-labelledby="policy-assessment-title"]');
+        };
 
         await open('/research-v8?ticker=AAPL&market=US&tab=financials&advanced=1');
         await page.getByTestId('research-price').filter({ hasText: 'USD 120.34' }).waitFor();
@@ -169,6 +184,8 @@ try {
         const fullReview = financials.getByRole('link', { name: 'Open full research review (new tab) ↗', exact: true });
         assert.equal(new URL(await fullReview.getAttribute('href'), base).searchParams.get('market'), 'US');
         assert.equal(await fullReview.getAttribute('target'), '_blank');
+        assert.equal(records[0].decisionJournal.decision, 'Not recorded');
+        await expectAuthoredAge(12, 'history-only-authored-review-age');
 
         records = [bookmark('5347', 'MY')];
         await open('/research-v8?ticker=5347&market=MY&tab=valuation&advanced=1');
@@ -282,6 +299,7 @@ try {
         assert.equal(await whyInterested.inputValue(), draftText);
         assert.equal(await originalField.evaluate(element => element.isConnected), true);
         assert.equal(saveRequests.length, 2);
+        assert.equal(records[0].reviewHistory.length, 0, 'denied saves cannot start an authored review history');
         await capture('legacy-editor-unconfigured-draft', '[data-testid="research-decision-journal"] [data-testid="owner-access-notice"]');
         saveState = 'ready';
         await saveReview.click();
@@ -290,6 +308,9 @@ try {
         assert.ok(saveRequests.every(draft => draft.whyInterested === draftText));
         assert.equal(records[0].whyInterested, draftText);
         assert.equal(await page.getByTestId('owner-access-notice').count(), 0);
+        assert.equal(records[0].reviewHistory.length, 1, 'the first successful explicit review creates one authored snapshot');
+        assert.equal(records[0].lastReviewedAt, '2026-10-21', 'the successful review uses the fixture save timestamp');
+        await expectAuthoredAge(1, 'first-successful-authored-review-age');
 
         // Unknown legacy cost units must not look compatible with the current USD quote.
         const costRecord = bookmark();

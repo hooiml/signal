@@ -8,7 +8,8 @@ export type AlertTickerInput = {
     readonly symbol: string;
     readonly market: ResearchMarket;
     readonly targetBuyZone: string;
-    readonly lastReviewedAt: string;
+    // Authored review date projected from saved research; a bookmark has no review date.
+    readonly lastReviewedAt: string | null;
     readonly acceptedEvidence: readonly AcceptedResearchEvidence[];
     readonly monitoringRules: ResearchMonitoringRules;
 };

@@ -324,7 +324,14 @@ npm run qa:research-readiness -- --base-url http://127.0.0.1:3000
 The deterministic command covers the fixed next-gap precedence, collapsed seven-signal detail,
 selected-ticker handoff to Evidence and Policy, Valuation/Alerts/Calendar destinations, no Research
 mutation, first-viewport placement, document and strip overflow, blocking console/request errors,
-and responsive captures at 1280px, 768px, and 375px.
+and responsive captures at 1280px, 768px, and 375px. Bookmark cases must show `Not
+reviewed` in readiness and Policy, preserve explicit next-review schedules, and avoid
+a numeric review-age or compliant-review claim before the first authored review.
+The mobile case uses 375×812 even when selected with `--viewport 375`. Its next action
+must remain inside the first viewport. Views and briefing stay mounted behind a mobile
+disclosure; verify Enter/Space access to the existing density controls and briefing,
+with pins, workspace navigation and the basic-view return link still visible. Each run
+writes its measured action position and semantic results beside the screenshots.
 
 ### Targeted Research Continuity QA
 
@@ -534,6 +541,17 @@ Evidence-coverage checks should classify empty fields as missing, unsourced save
 
 Investment-policy checks should reject malformed limits, aggregate positive planned allocations by sector, detect single-name and sector breaches, enforce the configured evidence and review-age rules, and apply the optional cheap/fair valuation requirement only to Ready/DCA decisions. Browser verification should restore `workspace=policy`, edit and persist each setting, reload the policy, show compliant and breached records, queue a deduplicated policy review with provenance, preserve every saved decision, emit no research-record mutation, and avoid document overflow at 1280px, 768px, and 375px.
 
+Authored-review lifecycle checks must distinguish creation-only bookmarks, legacy
+authored decisions and review history with decision `Not recorded`. A first explicit
+review starts the clock; settings and evidence-only updates preserve it. Unreviewed
+records have null policy age and unavailable structured research-age observations;
+they cannot satisfy the review-age guardrail or acquire a fabricated numeric breach.
+Show an incomplete review assessment separately from real policy violations.
+Preserve explicit schedules and the
+same semantics through encrypted backup/restore without a schema change.
+Decision Memory must retain bookmark evidence without inventing a dated thesis or
+`watch` decision, and keep explicit legacy decisions eligible for import.
+
 Currency-performance checks should reject malformed FX assumptions and adjustments, separate local security return from FX contribution, compound price and FX before dividend/fee adjustments, handle MYR and USD base directions correctly, and preserve unavailable states when cost basis or current price is missing. Browser verification should restore `workspace=currency`, change and persist base/FX assumptions plus one ticker adjustment, reload the settings, show both calculated and unavailable records, open Research without editing, emit no research-record mutation, and avoid document overflow at 1280px, 768px, and 375px.
 
 Filing-evidence diff checks should use the second-newest immutable review as the baseline, detect added, changed, removed, and unchanged source versions, preserve reporting periods and citations, categorize only through deterministic labels, and disclose when no prior baseline exists. Browser verification should restore `workspace=filings`, switch to a record with evidence, exercise change/category/unchanged filters, open a citation, queue a deduplicated post-event review with `Filing evidence` provenance, emit no research-record mutation, and avoid document overflow at 1280px, 768px, and 375px.
@@ -669,6 +687,17 @@ MY symbol suffixes, and bookmark authorship. It uses isolated providers/SQL. `--
 reproduces the original two defects at `8b492fa` and requires that revision in local git history.
 The normal check is included in the harness.
 
+`node scripts/harness/market-request-regression.mjs` also runs provider-failure cases
+through the real core/raw market orchestration, with
+only external providers and SQL isolated. Verify a Malaysian FX-proxy result survives
+a rejected or timed-out VIX request, missing FX uses an explicitly labelled valid VIX fallback, and
+two unavailable inputs reject without writing a signal snapshot. Reject non-finite or
+non-positive volatility readings, preserve unavailable raw/context values, and keep
+successful scoring arithmetic and US failure behavior unchanged. A fixture that replaces
+`fetchRawMarketData` cannot establish this failure-isolation contract.
+The held-provider case must prove the optional three-second MY timeout reaches the
+actual Yahoo fetch as an abort signal; a timed-out input remains unavailable.
+
 Against a production local server run `node scripts/research-unsaved-qa.mjs`.
 `SIGNAL_QA_URL` overrides localhost:3101; `CHROME_PATH` can point to an installed Chrome binary.
 The 1280/768/375px matrix intercepts all APIs: US/MY supported readings, partial/missing data,
@@ -734,6 +763,36 @@ with no guessed issuer identity or filing. The separate save and SEC configurati
 
 ### Signal V8.1 evidence and hierarchy
 
+Run `SIGNAL_QA_URL=http://127.0.0.1:3000 node scripts/v8-theme-saved-state-qa.mjs`
+against the production local server for theme and saved-state acceptance. Use isolated
+saved-record fixtures at 1280, 768 and 375 pixels in light and dark. Verify saved-review
+chart markers, pinned navigation, pin limits/reload/malformed storage, and overdue
+Calendar badges derived only from loaded records. V8 theme selection and the independent
+legacy cockpit theme must be reported as separate controls.
+
+Capture Market in each theme at every width. Saved-review markers must match the two
+expected dates exactly, stay within the chart and avoid price/date/range text; containment
+alone does not catch annotation overlap. Measure the actual body/action/semantic-badge
+token pairs against their intended backgrounds at 4.5:1. This is a targeted contrast check,
+not a complete accessibility audit.
+
+Theme failure cases must cover `getItem`, `setItem` and `removeItem` errors, global
+storage denial, Auto/Light/Dark selector-to-DOM agreement, OS changes, normal reload
+persistence and relevant cross-tab changes. Execute the actual boot script separately
+so hydration cannot mask a failed system-theme first paint. Failed persistence keeps a
+choice for the current page session; it cannot promise persistence through reload.
+Reports and captures are written under `.tmp/v8-theme-saved-state-qa/`.
+
+Structured-trigger browser checks must measure the editor and every visible input,
+select and button against horizontal clipping ancestors before and after adding,
+focusing, saving, reloading and showing a conflict. The editor switches columns using
+its own available width; viewport width alone is insufficient inside Inbox. The final
+Alerts page overflow check does not establish editor containment.
+
+The V8.1 workflow runs these checks plus readiness/provenance and real Market provider
+regressions. Artifact upload includes the hidden `.tmp` directories through explicit
+JSON/PNG allowlists; unrelated local files must not be uploaded.
+
 `npm run qa:v81-evidence` runs the deterministic Market data contract suite without providers or database. It asserts the exclusive configured-weight partition (fresh/stale/fallback), unknown dates, non-scored context-only inputs, weight mismatches, missing aggregates, and high-volatility weight overrides. This suite also runs within `npm run harness`. Score-tier reference lines come from `src/lib/market-score-thresholds.ts`; these are **score tiers**, not the independent breadth/VIX-informed market-regime classifier. Historical coverage percentages must come from historical snapshots, never today's configuration.
 
 For responsive connected Market/Research review, verify 1280px, 768px and 375px widths, plus 1440px and 390px reference captures. Check the unified Market assessment (the "Since your last visit" line appears only after this browser has seen an earlier snapshot for the same market and mode; impact chips are `(score − 50) × weight` points that, with the neutral 50, rebuild the composite; the coverage ring legend opens each included input), named leading evidence and coverage limitations near the verdict, chart/evidence alignment on desktop, chart-first DOM and visual order at every width, and all configured inputs: observed inputs as rows (Show all when more than three) and unavailable inputs as one row of buttons that open each input's detail. Raw indicator history lives in its inspector rather than repeated mini-charts in every row. Opening details must retain the main chart, contain mobile focus, and restore the originating control and scroll on close. Missing snapshot dates must not acquire retrieval-time freshness, and context-only inputs must not be called scored model readings.
@@ -757,6 +816,19 @@ null versus zero change, quote currency/observation/retrieval, annual alignment 
 exact/mixed/unknown balance periods. Market cases cover old archives with unknown basis,
 retrieval versus observed clocks, newer/same/older/revised observations, incompatible
 units, null raw values and score/weight changes that offset to a zero net contribution.
+Provider-parser cases carry Cboe/NAAIM source dates through the real signal calculator,
+archive serialization and change comparison. Re-fetching the same report must not
+advance its observation date; missing or invalid dates must remain retrieval-only,
+and legacy full-timestamp observation claims must become unknown in replay and
+reconciliation. Scoring arithmetic must remain unchanged.
+
+Structured-trigger regressions separately age snapshot retrieval, quote observation
+and the latest dated chart value. Freshly fetched old quotes, missing/invalid/future
+dates, stale or mismatched technical rows and provider failure must be unavailable.
+Price-based valuation explanations must retain the current quote date and annual
+reporting period. A no-change refetch must retain the same notification detail and
+digest identity. The browser matrix uses explicitly dated fixtures and verifies
+the observation-date wording in Alerts.
 
 Run these fixture-only browser suites against an owned local production server through
 `SIGNAL_QA_URL` (localhost only); `CHROME_PATH` can select an installed Chromium binary:

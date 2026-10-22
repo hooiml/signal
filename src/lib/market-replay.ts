@@ -1,4 +1,5 @@
 import { sql } from './db';
+import { storedMarketTimestampBasis } from './market-observation-date';
 import type {
     MarketReplayComponent,
     MarketReplayIndex,
@@ -66,8 +67,8 @@ const summaryFromRow = (row: Record<string, unknown>): MarketReplaySummary => {
 const componentsFromRow = (value: unknown): readonly MarketReplayComponent[] =>
     Object.entries(objectValue(value)).map(([key, raw]) => {
         const component = objectValue(raw);
-        const timestampBasis = component.timestamp_basis === 'observed' || component.timestamp_basis === 'retrieved' ? component.timestamp_basis : null;
         const lastUpdated = nullableDate(component.last_updated);
+        const timestampBasis = storedMarketTimestampBasis(key, component.timestamp_basis, lastUpdated, component.retrieved_at);
         return {
             key,
             displayName: stringValue(component.display_name, key),

@@ -22,7 +22,7 @@ import type {
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
 import { DividendCashFlowCalendarV6 } from './DividendCashFlowCalendarV6';
-import { reviewAgeCountdownDays } from '@/lib/research/review-lifecycle';
+import { buildResearchCalendarRequest } from '@/lib/research/calendar-request';
 
 type CalendarView = 'list' | 'calendar';
 type FilterValue = 'ALL';
@@ -194,14 +194,7 @@ export const ResearchCalendarV6 = ({ records, theme, onOpen }: {
     const [visibleMonth, setVisibleMonth] = useState<string | null>(null);
     const [dateChanges, setDateChanges] = useState<ResearchCalendarDateState>({});
 
-    const requestBody = useMemo(() => records.map((record) => ({
-        symbol: record.symbol,
-        market: record.market,
-        nextReviewAt: record.decisionJournal.nextReviewAt,
-        lastReviewedAt: record.lastReviewedAt,
-        reviewAgeDays: reviewAgeCountdownDays(record),
-        earningsWithinDays: record.monitoringRules.earningsWithinDays,
-    })), [records]);
+    const requestBody = useMemo(() => buildResearchCalendarRequest(records), [records]);
     const requestKey = JSON.stringify(requestBody);
 
     useEffect(() => {

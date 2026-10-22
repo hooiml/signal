@@ -1,8 +1,6 @@
 import type { AlertTickerInput } from './research-alert';
 
-export type ResearchInboxInput = AlertTickerInput & {
-    readonly lastReviewedAt: string;
-};
+export type ResearchInboxInput = AlertTickerInput;
 
 export type ResearchInboxKind = 'risk' | 'opportunity' | 'catalyst' | 'stale' | 'expectation' | 'valuation' | 'decision';
 export type ResearchInboxUrgency = 'action' | 'upcoming';

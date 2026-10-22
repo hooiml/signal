@@ -39,12 +39,11 @@ const parseCalendarInput = (value: unknown): ResearchCalendarInput => {
     const input = Object.fromEntries(Object.entries(value));
     if (typeof input.symbol !== 'string' || !/^[A-Z0-9.-]{1,15}$/.test(input.symbol)) throw new ResearchCalendarInputError('Invalid research calendar symbol.');
     if (input.market !== 'US' && input.market !== 'MY') throw new ResearchCalendarInputError('Invalid research calendar market.');
-    if (typeof input.lastReviewedAt !== 'string' || !isResearchCalendarDate(input.lastReviewedAt)) throw new ResearchCalendarInputError('lastReviewedAt must be a valid YYYY-MM-DD date.');
     return {
         symbol: input.symbol,
         market: input.market,
         nextReviewAt: nullableDate(input.nextReviewAt, 'nextReviewAt'),
-        lastReviewedAt: input.lastReviewedAt,
+        lastReviewedAt: nullableDate(input.lastReviewedAt, 'lastReviewedAt'),
         reviewAgeDays: nullableDays(input.reviewAgeDays, 'reviewAgeDays', 365),
         earningsWithinDays: nullableDays(input.earningsWithinDays, 'earningsWithinDays', 90),
     };

@@ -122,13 +122,41 @@ function runProviderBoundaryTests() {
 }
 
 function runPutCallTests() {
+    const retrievedAt = '2026-10-22T01:00:00.000Z';
+    const ratioTable = '<table><tr><td>TOTAL PUT/CALL RATIO</td><td>0.74</td></tr></table>';
     const parsed = parseCboePutCallRatio(
-        '<table><tr><td>TOTAL PUT/CALL RATIO</td><td>0.74</td></tr></table>',
-        '2026-05-13T00:00:00.000Z'
+        ratioTable,
+        retrievedAt,
     );
 
     assertTrue(parsed !== null, 'Cboe put/call ratio parser returns data');
     assertEqual(parsed?.ratio, 0.74, 'Cboe put/call ratio parser value');
+    assertEqual(parsed?.reportDate, null, 'Cboe without a source date never promotes retrieval to observation');
+    assertEqual(parsed?.retrievedAt, retrievedAt, 'Cboe retrieval time remains explicit');
+
+    // Minimal fixture of the dedicated date-control markup observed at the existing
+    // Cboe endpoint on 22 October 2026. Ratios are synthetic test values.
+    const dateControl = (value: string) => `<input type="text" placeholder="yyyy/mm/dd" value="${value}"/>`;
+    const datedHtml = dateControl('21 October 2026') + ratioTable;
+    const firstRead = parseCboePutCallRatio(datedHtml, '2026-10-21T22:00:00.000Z');
+    const nextRead = parseCboePutCallRatio(datedHtml, retrievedAt);
+    assertEqual(firstRead?.reportDate, '2026-10-21', 'Cboe date comes from the selected report');
+    assertEqual(nextRead?.reportDate, firstRead?.reportDate, 'Refetching Cboe does not create another observation date');
+    assertEqual(nextRead?.retrievedAt, retrievedAt, 'A refetch advances only the retrieval clock');
+    assertEqual(nextRead?.ratio, parsed?.ratio, 'Correct observation provenance does not change the reading');
+    for (const [value, expected] of [
+        ['29 February 2024', '2024-02-29'], ['29 February 2025', null],
+        ['31 April 2026', null], ['21 Unknown 2026', null], ['2026-10-21', '2026-10-21'],
+        ['23 October 2026', null], ['2026-10-23', null],
+    ] as const) {
+        assertEqual(parseCboePutCallRatio(dateControl(value) + ratioTable, retrievedAt)?.reportDate, expected, `Cboe validates calendar date ${value}`);
+    }
+    assertEqual(parseCboePutCallRatio('<footer>Copyright 2026. Updated 21 October 2026.</footer>' + ratioTable, retrievedAt)?.reportDate, null, 'An unrelated page date is not the report date');
+    assertEqual(parseCboePutCallRatio(dateControl('20 October 2026') + datedHtml, retrievedAt)?.reportDate, null, 'Conflicting report controls withhold the observation date');
+    assertEqual(parseCboePutCallRatio(dateControl('invalid') + datedHtml, retrievedAt)?.reportDate, null, 'Malformed competing report controls are not silently ignored');
+    assertEqual(parseCboePutCallRatio(dateControl('21 October 2026') + datedHtml, retrievedAt)?.reportDate, '2026-10-21', 'Matching duplicate controls retain the same source date');
+    assertEqual(parseCboePutCallRatio(`<script>const example = '${dateControl('20 October 2026')}';</script>` + datedHtml, retrievedAt)?.reportDate, '2026-10-21', 'Script text cannot supply a conflicting report date');
+    assertEqual(parseCboePutCallRatio(datedHtml, 'invalid')?.reportDate, null, 'A source date cannot be verified against an invalid retrieval clock');
     assertEqual(normalizePutCallRatio(0.55), 100, 'low put/call maps to greed/complacency');
     assertEqual(normalizePutCallRatio(1.25), 0, 'high put/call maps to fear/hedging');
     assertEqual(normalizePutCallRatio(0.90), 50, 'middle put/call maps to neutral');
@@ -143,6 +171,19 @@ function runNaaimTests() {
     assertTrue(parsed !== null, 'NAAIM parser returns data');
     assertEqual(parsed?.exposure, 96.67, 'NAAIM parser value');
     assertEqual(parsed?.reportDate, '2026-05-06', 'NAAIM parser report date');
+    assertEqual(parsed?.retrievedAt, '2026-05-13T00:00:00.000Z', 'NAAIM keeps retrieval separately from the weekly observation');
+    const headline = "<h2>This week's NAAIM Exposure Index number is: 96.67</h2>";
+    const undated = parseNaaimExposure(headline, '2026-05-13T00:00:00.000Z');
+    const refetched = parseNaaimExposure(headline, '2026-05-14T00:00:00.000Z');
+    assertEqual(undated?.reportDate, null, 'An undated NAAIM headline has no observation date');
+    assertEqual(refetched?.reportDate, null, 'Refetching an undated NAAIM headline cannot establish freshness');
+    assertEqual(refetched?.retrievedAt, '2026-05-14T00:00:00.000Z', 'Undated NAAIM retains its actual retrieval time');
+    assertEqual(refetched?.exposure, parsed?.exposure, 'Unknown observation dates do not substitute a new value');
+    assertEqual(parseNaaimExposure('<table><tr><td>02/30/2026</td><td>96.67</td><td>0</td></tr></table>', '2026-05-13T00:00:00.000Z')?.reportDate, null, 'Invalid NAAIM dates remain unknown instead of overflowing to another month');
+    const futureNaaim = parseNaaimExposure('<table><tr><td>05/14/2026</td><td>96.67</td><td>0</td></tr></table>', '2026-05-13T23:59:59.000Z');
+    assertEqual(futureNaaim?.reportDate, null, 'A NAAIM source date after its retrieval day is not a verified observation');
+    assertEqual(futureNaaim?.exposure, parsed?.exposure, 'Withholding a future date preserves the source reading');
+    assertEqual(parseNaaimExposure('<p>Public data is delayed three months. Subscribe for current data.</p><iframe src="https://index.naaim.org/"></iframe>', '2026-05-13T00:00:00.000Z'), null, 'A provider page without a reading remains unavailable; no delay-based date is inferred');
     assertEqual(normalizeNaaimExposure(40), 0, 'low manager exposure maps to fear');
     assertEqual(normalizeNaaimExposure(90), 100, 'high manager exposure maps to greed/crowding');
     assertEqual(normalizeNaaimExposure(65), 50, 'middle manager exposure maps to neutral');

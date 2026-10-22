@@ -10,8 +10,10 @@ import { isolatedSnapshot } from './research-improvements-regression.mjs';
 
 // Exercise actual parsing, adapters and presentation with isolated providers; no SQL/network.
 const modules = new Map();
+const moduleOverrides = new Map();
 function load(file) {
     const absolute = path.resolve(file);
+    if (moduleOverrides.has(absolute)) return moduleOverrides.get(absolute);
     if (modules.has(absolute)) return modules.get(absolute).exports;
     const compiled = { exports: {} };
     modules.set(absolute, compiled);
@@ -137,6 +139,88 @@ const reviewed = detail({ ...record, decisionJournal: { ...record.decisionJourna
 assert.match(reviewed, /Your saved decision · Avoid/);
 assert.match(reviewed, /Calculated checklist status: Watch/);
 
+const oldBookmark = { ...record, lastReviewedAt: '2020-01-01' };
+const { InvestmentPolicyGuardrailsV6 } = load('src/components/v6/InvestmentPolicyGuardrailsV6.tsx');
+const policyMarkup = renderToStaticMarkup(React.createElement(InvestmentPolicyGuardrailsV6, {
+    records: [oldBookmark], items: [item], theme: 'light', onOpen: noop,
+}));
+assert.match(policyMarkup, /Not reviewed/);
+assert.match(policyMarkup, /1 record needs a dated personal review/);
+assert.doesNotMatch(policyMarkup, /Reviewed \d+ days ago|null days|NaN days|>Within policy<\/span>|>0 violations<\/span>/);
+
+const { ResearchMarketContextV6 } = load('src/components/v6/MarketResearchHandoffV6.tsx');
+const handoff = { market: 'US', mode: 'standard', score: 60, tier: 'buy', freshness: 'fresh', coverage: 'strong', conflicts: [], snapshotAt: new Date().toISOString() };
+const contextMarkup = records => renderToStaticMarkup(React.createElement(ResearchMarketContextV6, {
+    handoff, items: [createWatchlistItemV6(records[0], 0)], records, theme: 'light', onOpen: noop,
+}));
+assert.match(contextMarkup([oldBookmark]), /0 owned or stale reviews/, 'The Market handoff does not count an old bookmark as a stale personal review.');
+assert.match(contextMarkup([{ ...oldBookmark, decisionJournal: { ...oldBookmark.decisionJournal, decision: 'Watch' } }]), /1 owned or stale review/, 'Legacy authored decisions keep their stale-review priority.');
+
+const { watchlist } = load('src/components/research/ResearchDashboardV2.tsx');
+const { mergeSavedMarketExposureWatchlist } = load('src/components/v6/MarketWatchlistExposureV6.tsx');
+const { buildMarketWatchlistExposure } = load('src/lib/research/market-exposure.ts');
+const seededSymbol = watchlist.find(candidate => candidate.market === 'US').symbol;
+const savedExposureRecords = [{ ...oldBookmark, symbol: seededSymbol }, { ...oldBookmark, symbol: 'BOOK' }];
+const mappedExposure = mergeSavedMarketExposureWatchlist(savedExposureRecords, []);
+const exposures = buildMarketWatchlistExposure({ metadata: { market: 'US', score_drivers: [] }, components: {} }, mappedExposure);
+for (const symbol of [seededSymbol, 'BOOK']) {
+    assert.equal(mappedExposure.find(candidate => candidate.symbol === symbol).lastReviewedAt, null, 'Both seeded replacements and added bookmarks retain missing authorship in the Exposure mapper.');
+    assert.equal(exposures.find(candidate => candidate.symbol === symbol).reviewAgeDays, null);
+    assert.equal(exposures.find(candidate => candidate.symbol === symbol).reviewStatus, 'not-reviewed');
+}
+
+// Exercise the real request parsers and evaluators; replace only provider/SQL enrichment boundaries.
+moduleOverrides.set(path.resolve('src/lib/research/snapshot.ts'), { getResearchSnapshot: async () => structuredClone(researchSnapshotFixture.data) });
+moduleOverrides.set(path.resolve('src/lib/research/catalysts.ts'), { fetchUpcomingCatalysts: async () => new Map() });
+moduleOverrides.set(path.resolve('src/lib/research/macro-calendar.ts'), { fetchResearchMacroCalendar: async () => ({ events: [], warnings: [] }) });
+moduleOverrides.set(path.resolve('src/lib/research/research-attention.ts'), { enrichResearchInboxWithAttention: async inbox => inbox });
+const { buildResearchAlertRequest } = load('src/lib/research/alert-request.ts');
+const { buildResearchCalendarRequest } = load('src/lib/research/calendar-request.ts');
+const monitoredBookmark = {
+    ...oldBookmark,
+    decisionJournal: { ...oldBookmark.decisionJournal, nextReviewAt: '2026-07-01' },
+    monitoringRules: { ...oldBookmark.monitoringRules, earningsWithinDays: null, structuredTriggers: { version: 1, migrationState: 'current', rules: [
+        { id: 'age', enabled: true, purpose: 'scheduled-evidence-review', metric: 'research-age-days', operator: 'above', threshold: 30 },
+    ] } },
+};
+const alertBody = buildResearchAlertRequest([createWatchlistItemV6(monitoredBookmark, 0)], [monitoredBookmark]);
+const alertsRoute = load('src/app/api/research/alerts/route.ts');
+const inboxRoute = load('src/app/api/research/inbox/route.ts');
+const calendarRoute = load('src/app/api/research/calendar/route.ts');
+const ownerAccess = load('src/lib/owner-access.ts');
+const originalOwnerSecret = process.env.OWNER_ACCESS_SECRET;
+process.env.OWNER_ACCESS_SECRET = 'provenance-fixture-secret-0123456789abcdef';
+try {
+    const cookie = `${ownerAccess.ownerAccessCookieName}=${await ownerAccess.issueOwnerAccessToken(process.env.OWNER_ACCESS_SECRET)}`;
+    const post = (route, body, authenticated = false) => new Request(`http://localhost/api/research/${route}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...(authenticated ? { cookie } : {}) }, body: JSON.stringify(body),
+    });
+    const alerts = await alertsRoute.POST(post('alerts', alertBody));
+    assert.equal(alerts.status, 200, 'The Alerts route accepts null as a missing authored-review date.');
+    const coverage = (await alerts.json()).data.triggerCoverage;
+    assert.equal(coverage[0].status, 'unavailable');
+    assert.equal(coverage[0].observed, null);
+    assert.match(coverage[0].detail, /no personal review is recorded/);
+    assert.equal((await inboxRoute.POST(post('inbox', alertBody))).status, 401, 'Nullable dates do not bypass the real Inbox owner boundary.');
+    const inbox = await inboxRoute.POST(post('inbox', alertBody, true));
+    assert.equal(inbox.status, 200, 'The authenticated Inbox route accepts the nullable authored date.');
+    assert.equal((await inbox.json()).data.items.some(entry => entry.kind === 'stale'), false, 'No legacy or structured stale-review item is fabricated for the bookmark.');
+    for (const invalidDate of ['2026-02-30', undefined]) {
+        const invalid = [{ ...alertBody[0], lastReviewedAt: invalidDate }];
+        assert.equal((await alertsRoute.POST(post('alerts', invalid))).status, 400);
+        assert.equal((await inboxRoute.POST(post('inbox', invalid, true))).status, 400);
+    }
+    const calendar = await calendarRoute.POST(post('calendar', buildResearchCalendarRequest([monitoredBookmark])));
+    assert.equal(calendar.status, 200, 'The Calendar route accepts the nullable personal date.');
+    const events = (await calendar.json()).data.events;
+    assert.equal(events.length, 1);
+    assert.equal(events[0].type, 'review');
+    assert.equal(events[0].sourceDate, '2026-07-01', 'The explicit first-review schedule survives the request boundary unchanged.');
+} finally {
+    if (originalOwnerSecret === undefined) delete process.env.OWNER_ACCESS_SECRET;
+    else process.env.OWNER_ACCESS_SECRET = originalOwnerSecret;
+}
+
 const { ResearchConnectedPanel } = load('src/components/v8/ResearchV8ConnectedPanels.tsx');
 const panel = (tab, snapshot) => renderToStaticMarkup(React.createElement(ResearchConnectedPanel, {
     tab, market: snapshot.market, snapshot, loading: false, advanced: false,
@@ -146,4 +230,4 @@ assert.match(panel('Financials', payload.data), /Components reported 2026-03-31 
 assert.match(panel('Financials', legacy.data), /Reporting date unavailable/);
 assert.match(panel('Valuation', payload.data), /not historical ratios at the financial year end/);
 assert.match(panel('Valuation', my), /Share reporting date unavailable/);
-console.log('Research provenance regression passed: exact balance dates, aligned annual values, unknown legacy provenance, quote units/timestamps and authored-review semantics.');
+console.log('Research provenance regression passed: exact balance dates, aligned annual values, unknown legacy provenance, quote units/timestamps, authored-review projections and nullable route boundaries.');

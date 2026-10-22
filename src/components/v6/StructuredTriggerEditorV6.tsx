@@ -14,6 +14,7 @@ import type {
     ResearchStructuredTriggerSet,
 } from '@/lib/types/research';
 import { getThemeV6 } from './research-v6';
+import editorStyles from './structured-trigger-editor-v6.module.css';
 
 const purposeOptions: readonly { readonly value: ResearchStructuredTriggerPurpose; readonly label: string }[] = [
     { value: 'thesis-invalidation', label: 'Thesis invalidation review' },
@@ -105,7 +106,7 @@ export const StructuredTriggerEditorV6 = ({ value, saving, saveError, theme, onS
     };
 
     return (
-        <section data-testid="structured-trigger-editor" className={'mt-3 rounded border p-3 ' + styles.panelUtility} aria-labelledby="structured-trigger-editor-title">
+        <section data-testid="structured-trigger-editor" className={editorStyles.editor + ' mt-3 rounded border p-3 ' + styles.panelUtility} aria-labelledby="structured-trigger-editor-title">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h3 id="structured-trigger-editor-title" className={'text-sm font-bold ' + styles.textPrimary}>Structured thesis triggers</h3>
@@ -122,7 +123,7 @@ export const StructuredTriggerEditorV6 = ({ value, saving, saveError, theme, onS
                     {rules.map((rule) => {
                         const definition = researchStructuredTriggerDefinitions.find((candidate) => candidate.metric === rule.metric)
                             ?? researchStructuredTriggerDefinitions[0];
-                        return <li key={rule.id} className="grid gap-2 py-3 min-[760px]:grid-cols-[auto_minmax(150px,1fr)_minmax(150px,1fr)_110px_minmax(110px,0.7fr)_auto]">
+                        return <li key={rule.id} className={editorStyles.rule}>
                             <label className={'flex min-h-10 items-center gap-2 text-xs ' + styles.textSecondary}>
                                 <input aria-label={`Enable ${definition.label} rule`} type="checkbox" checked={rule.enabled} onChange={(event) => updateRule(rule.id, { enabled: event.target.checked })} className="size-4 accent-emerald-500" />
                                 <span>{rule.enabled ? 'Enabled' : 'Disabled'}</span>

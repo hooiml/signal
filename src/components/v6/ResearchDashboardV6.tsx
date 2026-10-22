@@ -246,6 +246,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     const [stagedEvidence, setStagedEvidence] = useState<AcceptedResearchEvidence | null>(null);
     const [workflowTemplateId, setWorkflowTemplateId] = useState<ResearchWorkflowTemplateId | null>(null);
     const [density, setDensity] = useState<ResearchLayoutDensity>(requestedDensity ?? 'comfortable');
+    const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
     const [quoteStatus, setQuoteStatus] = useState<string | null>(null);
     const [snapshotStates, setSnapshotStates] = useState<Record<string, { readonly state: 'idle' | 'loading' | 'ready' | 'error'; readonly message: string | null }>>({});
     const [savedLayouts, setSavedLayouts] = useState<readonly SavedResearchLayout[]>([]);
@@ -927,6 +928,22 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         />
     );
 
+    const visitBriefing = workspace === 'research' && recordsLoadState === 'ready' ? (
+        <SinceLastVisitBriefingV6
+            records={inboxRecords}
+            items={items}
+            inboxSummary={inboxSummary}
+            theme={theme}
+            onOpenAction={(briefingAction) => {
+                if (briefingAction.kind === 'market') {
+                    router.push('/');
+                    return;
+                }
+                changeWorkspace(briefingAction.workspace);
+            }}
+        />
+    ) : null;
+
     const atmosphere = theme === 'light'
         ? 'bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.11),_transparent_28%),radial-gradient(circle_at_80%_10%,_rgba(100,116,139,0.1),_transparent_20%)]'
         : 'bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.12),_transparent_24%),radial-gradient(circle_at_80%_10%,_rgba(52,211,153,0.1),_transparent_18%)]';
@@ -958,20 +975,34 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 />
             </div>
             <div className={'relative z-10 mx-auto w-full max-w-[1280px] px-4 pb-5 pt-4 min-[700px]:px-5 ' + (presentation === 'v7' ? liveStyles.researchContentV7 : '')}>
-                <div className={'mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm ' + themeClasses.panelUtility}>
+                <div className={'mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm ' + (presentation === 'v7' ? liveStyles.researchAdvancedNotice + ' ' : '') + themeClasses.panelUtility}>
                     <span>Advanced research workspace · personal analysis and planning</span>
                     <a className="inline-flex min-h-11 items-center font-semibold underline" href={selected ? '/research-v8?' + new URLSearchParams({ ticker: selected.symbol, market: selected.market, tab: activeDetailTab === 'valuation' ? 'valuation' : activeDetailTab === 'fundamentals' ? 'financials' : 'overview' }).toString() : '/research-v8'} target={reviewRequested ? '_blank' : undefined} rel={reviewRequested ? 'noopener noreferrer' : undefined}>{reviewRequested ? 'Open basic view in a new tab ↗' : 'Back to basic view →'}</a>
                 </div>
                 <ResearchWorkspaceTabsV6 active={workspace} theme={theme} onChange={changeWorkspace} attention={workspaceAttention} />
-                <ResearchLayoutControlsV6
-                    current={{ workspace, query, market, action, ticker: selected?.symbol ?? null, tab: activeDetailTab }}
-                    density={density}
-                    theme={theme}
-                    onApply={applySavedLayout}
-                    onDensityChange={changeDensity}
-                    onLayoutsChange={setSavedLayouts}
-                    restoreDensityFromStorage={requestedDensity === null}
-                />
+                <div className={presentation === 'v7' ? liveStyles.researchSecondaryTools : undefined}>
+                    {presentation === 'v7' ? <button
+                        type="button"
+                        className={liveStyles.researchSecondaryToolsToggle}
+                        aria-expanded={mobileToolsOpen}
+                        aria-controls="research-secondary-tools"
+                        onClick={() => setMobileToolsOpen((open) => !open)}
+                    >
+                        Views and briefing <span aria-hidden="true">{mobileToolsOpen ? '−' : '+'}</span>
+                    </button> : null}
+                    <div id="research-secondary-tools" className={presentation === 'v7' ? liveStyles.researchSecondaryToolsContent : undefined} data-expanded={mobileToolsOpen}>
+                        <ResearchLayoutControlsV6
+                            current={{ workspace, query, market, action, ticker: selected?.symbol ?? null, tab: activeDetailTab }}
+                            density={density}
+                            theme={theme}
+                            onApply={applySavedLayout}
+                            onDensityChange={changeDensity}
+                            onLayoutsChange={setSavedLayouts}
+                            restoreDensityFromStorage={requestedDensity === null}
+                        />
+                        {presentation === 'v7' ? visitBriefing : null}
+                    </div>
+                </div>
                 {returnsToToday && workspace !== 'today' ? (
                     <section data-testid="today-return-context" className={'mb-3 flex flex-col gap-3 rounded-[10px] border p-3 sm:flex-row sm:items-center sm:justify-between ' + themeClasses.panelUtility}>
                         <div>
@@ -990,24 +1021,10 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                         </button>
                     </section>
                 ) : null}
-                {marketHandoff ? <ResearchMarketContextV6 handoff={marketHandoff} items={items} theme={theme} onOpen={openResearchFrom('market')} /> : null}
+                {marketHandoff ? <ResearchMarketContextV6 handoff={marketHandoff} items={items} records={records} theme={theme} onOpen={openResearchFrom('market')} /> : null}
                 {workspace === 'research' ? <div>
                     {presentation === 'v6' ? <h1 className="sr-only">Research workspace</h1> : null}
-                    {recordsLoadState === 'ready' ? (
-                        <SinceLastVisitBriefingV6
-                            records={inboxRecords}
-                            items={items}
-                            inboxSummary={inboxSummary}
-                            theme={theme}
-                            onOpenAction={(briefingAction) => {
-                                if (briefingAction.kind === 'market') {
-                                    router.push('/');
-                                    return;
-                                }
-                                changeWorkspace(briefingAction.workspace);
-                            }}
-                        />
-                    ) : null}
+                    {presentation === 'v6' ? visitBriefing : null}
                 </div> : null}
                 <main id={`research-workspace-${workspace}`} data-surface-tier="primary" data-density={density} className={'flex flex-col rounded-[10px] border backdrop-blur min-[700px]:flex-row ' + (presentation === 'v7' ? liveStyles.researchWorkspaceV7 + ' ' : '') + (density === 'compact' ? 'gap-2 p-2 min-[700px]:p-3 ' : 'gap-4 p-3 min-[700px]:p-4 ') + themeClasses.panelPrimary}>
                     <ResearchWorkspaceBoundaryV6 workspace={workspace}>

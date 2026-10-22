@@ -190,7 +190,7 @@ try {
 
         const missingPrevious = await open(width, { variant: 'missing-previous-score' });
         const missingHero = missingPrevious.page.getByRole('region', { name: 'Market assessment', exact: true });
-        const spectrum = missingHero.getByRole('img', { name: /^Score / });
+        const spectrum = missingHero.getByRole('img', { name: /^Score [0-9]+ on a 0 to 100 scale/ });
         assert.doesNotMatch(await spectrum.getAttribute('aria-label'), /Previous score/, 'An unavailable previous score must not be announced as a derived value.');
         assert.equal(await spectrum.locator('[class*="v81PreviousPin"]').count(), 0, 'An unavailable previous score must not acquire a ghost pin.');
         await missingHero.getByRole('button', { name: '+5.25 points vs 19 Oct 2026 ↗', exact: true }).click();

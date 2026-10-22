@@ -12,8 +12,12 @@ roadmap ("Product Direction To Preserve") apply to every item here.
 ## Baseline — 2026-10-22
 
 - All V8 UI/UX batches and V8-16 are verified ([`V8_UI_UX_ENHANCEMENT_PLAN.md`](V8_UI_UX_ENHANCEMENT_PLAN.md)).
-- PRs up to #29 (price chart hover read-out, 52-week context and review markers) are merged.
+- PRs up to #30 (including price-chart context/review markers and V8 dark mode) are merged.
 - The duplicate review-marker fix landed directly on `main` as `0779864`.
+- Follow-up CI diagnostics are in [PR #31](https://github.com/hooiml/signal/pull/31);
+  evidence/review provenance, provider isolation and the acceptance fixes below are in
+  [PR #33](https://github.com/hooiml/signal/pull/33). Their verification does not mean they
+  have been merged or deployed.
 
 ## How We Move
 
@@ -59,8 +63,15 @@ and let the date row drop below a 52-week low label as label size scales on narr
 the fix: no text-to-text or text-to-line overlap, no text outside the chart, no document overflow,
 hover read-out centred 7px above its point. Lint, typecheck, harness and build pass.
 
-**Not covered:** saved-review markers (owner access is not configured locally, so no saved record
-loads) and dark theme (V8 has no dark styles).
+**Initial verification gap:** Saved-review markers were not checked because the local owner
+boundary was unconfigured, and V8 dark styles had not yet landed. Follow-up checks use isolated
+saved-record fixtures so the missing local owner configuration cannot hide these states.
+
+**Follow-up acceptance — 2026-10-22:** Saved reviews now load in both themes at 1280px, 768px
+and 375px. The mobile check found a review diamond overlapping the 52-week high label. Review
+diamonds now have their own annotation row; the plot and labels move together without changing
+prices or review dates. All six cases show the two expected review dates once, contained markers,
+and no marker/text overlap. Fresh screenshots were inspected after the production rebuild.
 
 ### E2 — Pinned workspaces and attention badges
 
@@ -84,9 +95,14 @@ clipping or document overflow. The pin row stays empty until storage is read, so
 false "None yet" before hydration. Research regression tests cover parsing, order, limit, unpin and
 no-badge states. Lint, typecheck, harness and build pass.
 
-**Not covered:** 375px browser check (the Browser pane was hidden, so the page could not hydrate);
-the overdue-review badge in the browser (owner access is not configured locally, so no saved records
-load); an alerts badge (alerts are fetched only inside the Alerts workspace, and E2 adds no fetches).
+**Follow-up acceptance — 2026-10-22:** The fixture browser matrix now covers pins and Calendar at
+1280px, 768px and 375px in both cockpit themes. Holding the saved-record response proves there is
+no overdue badge before records load; releasing one explicitly scheduled overdue review produces
+exactly one badge and the matching Calendar event. Malformed storage, reload persistence, pin
+navigation, the three-pin limit, clearing and control containment pass at every width.
+
+**Remaining scope:** This matrix does not add alerts-badge coverage or alert fetches outside the
+Alerts workspace. These checks use isolated saved records, not production owner data.
 
 ### E8 — V8 dark mode
 
@@ -113,8 +129,29 @@ no overflow and a one-row header. Browser suites (light): `v81-ui-qa`, `v81-pres
 `v8-exploration-qa` (toolbar select lookup scoped to `main`), `research-owner-panels-qa` and
 `pwa-qa` pass. Lint, typecheck, harness and build pass.
 
-**Not covered:** saved-review markers in dark (no saved record loads locally); the browser suites
-run in the light theme only.
+**Initial verification gap:** Saved-review markers in dark were not loaded, and the listed browser
+suites ran in the light theme only. Follow-up saved-state/theme acceptance closes these gaps
+separately from the original implementation evidence.
+
+**Follow-up acceptance — 2026-10-22:** `v8-theme-saved-state-qa.mjs` passes 25 scenarios and
+132 named checks with no blocking browser errors. Fresh Market light/dark captures and saved
+Research light/dark captures were inspected at 1280px, 768px and 375px. The measured body,
+action and semantic-badge token pairs all exceed 4.5:1; the lowest measured pair is 4.84:1.
+This is targeted token/visual acceptance, not a complete accessibility audit.
+
+The actual server-rendered boot script is checked with hydration scripts withheld. Explicit,
+Auto, malformed and denied-storage states resolve correctly. Failed reads, writes or removal
+keep the selector and applied theme aligned for the page session; normal persistence, OS changes
+and cross-tab updates pass. Root theme initialization and PWA reconnect state remain usable
+when all localStorage access is denied. Saved Review tabs and themes survive ordinary reload.
+Saved-state data is supplied by isolated fixtures, not production owner access.
+
+The same acceptance pass closes two narrow-layout defects: structured-trigger controls remain
+inside their container through focus/save/reload/conflict, and the existing readiness action is
+fully visible at 375×812 (bottom 804px, previously 1,147px). Views and briefing remain mounted
+behind a keyboard-accessible mobile disclosure. Lint, typecheck, harness, production build and
+PWA regressions pass; the final chart-only change was rebuilt and browser-verified. The expanded
+V8.1 workflow retains the browser reports and screenshots through explicit artifact allowlists.
 
 ### E9 — Market "what moved" bundle
 
@@ -171,5 +208,7 @@ contract is recorded.
 | 2026-10-22 | E1 | Ready | Verified | 52-week label placement fixed; see E1 evidence. |
 | 2026-10-22 | E2 | Ready | Verified | Pins and Queue/Calendar badges; 375px not browser-checked. |
 | 2026-10-22 | E8 | — | In progress | Added after E2 at the owner's request. |
-| 2026-10-22 | E8 | In progress | Verified | PR #30 merged. |
+| 2026-10-22 | E1 | Verified | Verified | Saved light/dark matrix closes the marker gap; mobile annotation overlap fixed in PR #33. |
+| 2026-10-22 | E2 | Verified | Verified | Pins and loaded-only overdue Calendar badges pass all three widths in both cockpit themes. |
+| 2026-10-22 | E8 | In progress | Verified | PR #30 merged; follow-up storage recovery and 25-scenario acceptance pass in PR #33. |
 | 2026-10-22 | E9 | — | In progress | Added after E8 at the owner's request. |

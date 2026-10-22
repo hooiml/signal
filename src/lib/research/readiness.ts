@@ -1,4 +1,4 @@
-import type { InvestmentPolicyAssessment } from './investment-policy';
+import { investmentPolicyAssessmentLabel, investmentPolicyReviewLabel, type InvestmentPolicyAssessment } from './investment-policy';
 import { buildEvidenceCoverage } from './evidence-coverage';
 import { personalReviewDate } from './review-lifecycle';
 import type { ResearchRecord } from '../types/research';
@@ -90,8 +90,8 @@ export const buildResearchReadiness = ({ record, sector, policyAssessment, today
         },
         {
             id: 'policy', label: 'Policy guardrails',
-            status: policyAssessment === null ? 'Unavailable' : policyAssessment.compliant ? 'Within policy' : `${policyAssessment.violations.length} violations`,
-            detail: policyAssessment === null ? 'Browser-local policy has not been assessed.' : `${policyAssessment.evidenceCoveragePercent}% supported evidence · reviewed ${policyAssessment.reviewAgeDays} days ago`,
+            status: policyAssessment === null ? 'Unavailable' : investmentPolicyAssessmentLabel(policyAssessment),
+            detail: policyAssessment === null ? 'Browser-local policy has not been assessed.' : `${policyAssessment.evidenceCoveragePercent}% supported evidence · ${investmentPolicyReviewLabel(policyAssessment)}`,
             tone: policyAssessment === null ? 'unavailable' : policyAssessment.compliant ? 'ready' : 'attention', destination: 'policy',
         },
         {

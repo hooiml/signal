@@ -48,20 +48,40 @@ Comparisons use finite explicit thresholds. `above` and `below` are strict, so e
 
 | Metric | Operators | Unit and bounds | Trusted observation |
 | --- | --- | --- | --- |
-| Price | above, below | price, `0.0001-1,000,000,000` | Current validated Yahoo quote |
-| RSI (14) | above, below | RSI points, `0-100` | Current calculated daily RSI |
-| Price vs MA50 | above, below | percentage, `-100-1,000` | `(price / MA50 - 1) * 100` |
-| Price vs MA200 | above, below | percentage, `-100-1,000` | `(price / MA200 - 1) * 100` |
+| Price | above, below | price, `0.0001-1,000,000,000` | Validated Yahoo quote with its own observation date |
+| RSI (14) | above, below | RSI points, `0-100` | Calculated RSI carried by the latest dated daily chart row |
+| Price vs MA50 | above, below | percentage, `-100-1,000` | Dated quote and latest dated MA50: `(price / MA50 - 1) * 100` |
+| Price vs MA200 | above, below | percentage, `-100-1,000` | Dated quote and latest dated MA200: `(price / MA200 - 1) * 100` |
 | Earnings date | within | whole days, `0-90` | Bounded Nasdaq earnings-calendar scan |
-| Research age | above | whole days, `1-3,650` | Saved `lastReviewedAt` |
+| Research age | above | whole days, `1-3,650` | Authored personal-review date; unavailable for an unreviewed bookmark |
 | Latest evidence age | above | whole days, `1-3,650` | Latest accepted-evidence reporting period, falling back to accepted date |
 | Price / earnings | above, below | ratio, `0-1,000` | Current price plus latest validated annual inputs |
 | Free-cash-flow yield | above, below | percentage, `-100-1,000` | Current price plus latest validated annual inputs |
 | Annual revenue growth | above, below | percentage, `-100-1,000` | Latest validated annual period |
 
-Current quote and technical observations become unavailable after four days. Annual valuation and fundamental observations require source provenance and a reporting period no older than 550 days. Missing values, missing moving averages, absent dated evidence, stale inputs, unsupported Malaysia earnings coverage, or provider failure produce `unavailable`, never a false match.
+Current quote and technical observations become unavailable after four calendar days.
+The snapshot retrieval clock is a separate four-day gate; fetching old data again
+does not refresh its observation age. Missing or invalid observation dates cannot
+establish freshness; future timestamps beyond ten minutes of clock skew are rejected.
+A fallback last-close price retains that close's original timestamp rather than
+the quote metadata clock. Technical summary values must match the latest ordered
+chart row, so an undated provider fallback cannot borrow a chart date. Price versus
+moving-average explanations retain both the quote and chart dates.
+
+Annual valuation and fundamental observations require source provenance and a
+reporting period no older than 550 days. Price-based valuation additionally requires
+a current dated quote, and its explanation retains both the quote date and annual
+reporting period. Missing values, missing moving averages, absent dated evidence,
+stale inputs, unsupported Malaysia earnings coverage, or provider failure produce
+`unavailable`, never a false match.
 
 A successful 90-day earnings scan with no matching date is a valid non-match. A failed scan is unavailable.
+
+Research age starts with an authored review, including a review-history entry whose
+decision remains `Not recorded`. The creation date retained by a save-only bookmark
+is not review evidence. Before the first review, an enabled research-age trigger is
+unavailable rather than a match or non-match. Settings and evidence-only saves do not
+restart the age; an explicit next-review schedule still applies independently.
 
 ## Validation
 

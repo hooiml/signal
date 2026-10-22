@@ -49,6 +49,7 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 ## Data Sources
 
 - Yahoo Finance helpers provide VIX, indices, stocks, quotes, and Malaysia currency-volatility proxy data.
+- Malaysian core reads isolate the optional US VIX fetch from the local USD/MYR volatility proxy. The optional VIX request has a three-second cancellation limit; a usable FX proxy can complete without VIX, while missing FX can use the explicitly labelled valid VIX fallback. If neither is usable, orchestration fails before signal snapshot persistence. Missing VIX stays null in raw data and optional context instead of becoming a synthetic reading. US VIX requests retain their existing required-source behavior.
 - Cboe daily market statistics provide the US put/call options-positioning input.
 - NAAIM provides weekly active-manager exposure for US positioning context.
 - FRED pages provide the non-scored Buffett Indicator valuation backdrop, 10Y–3M yield spread, and Chicago Fed NFCI context.
@@ -224,10 +225,20 @@ alerts and scheduled delivery) starts only after a genuine review. An explicit `
 schedule still applies to bookmarks. These bookmarks are excluded from outcome attribution until an actual
 review exists. Legacy V6/V7 headers, journals and controls use the same personal-review
 predicate, while calculated checklist status remains separate from the saved decision.
-The optional structured research-age trigger and investment-policy age check still use
-the stored bookmark date; these are known remaining limitations. No schema migration is part of this change.
+Structured research-age triggers and investment-policy checks use the same nullable
+authored-review age. A bookmark has no age observation; its trigger is unavailable,
+and its policy assessment requires a first review rather than claiming compliance
+or inventing a stale-age violation.
+Readiness, Policy and Market exposure display `Not reviewed` until an authored review
+exists. A review-history entry counts even when its decision remains `Not recorded`;
+legacy authored decisions remain supported. Settings and evidence-only saves do not
+advance the review clock. The storage column and encrypted backup format are unchanged.
+Decision Memory also requires an explicit saved decision for its decision-dependent
+imports; `Not recorded` cannot become a dated `watch` decision. Evidence remains
+available, and the primary journal retains reviews without recorded decisions.
 
-Quote `observedAt` comes from Yahoo's `regularMarketTime`; snapshot `fetchedAt` remains
+Quote `observedAt` comes from Yahoo's `regularMarketTime` when the price comes from the
+same quote; a fallback close retains its corresponding chart timestamp. Snapshot `fetchedAt` remains
 retrieval time. Missing observation time stays unavailable. No source freshness thresholds
 or scoring eligibility changed. Company assessment now requires the provider's `EQUITY`
 instrument type. Funds, indices, unknown types and names matching bank/bancorp/financial/
@@ -248,6 +259,9 @@ Research. See WORKFLOWS.md for privacy, caching and stage-timing contracts.
 
 ## Review-driven corrections (October 2026)
 
+- V8 theme selection retains a session choice if browser storage fails, while successful persistence and relevant cross-tab changes continue to synchronize. The boot script resolves the OS theme independently of storage availability. The legacy root theme provider and PWA online-state initialization also tolerate denied storage; optional timestamp persistence cannot prevent in-memory reconnect state. The theme controls keep their separate attributes and preferences.
+- The nested structured-trigger editor uses a container breakpoint rather than the viewport to decide when six columns fit. On narrow legacy Research screens, the selected ticker and quote share a row, while the mounted views/briefing utilities sit behind one keyboard-accessible disclosure. Pins, workspace navigation and the next action retain direct access.
+- Saved-review chart diamonds occupy a separate annotation row above the price plot and 52-week labels. The plot and date labels translate together, preserving the price scale and review-date positions; charts without review markers keep their original layout.
 - SEC Company Facts summary metrics (revenue, growth, margins, net income, FCF) are taken from the latest annual revenue period's row of the aligned `history`. A metric missing from that period is unavailable rather than borrowed from an older year, so `reportingPeriod` describes every flow input. Debt, cash and shares remain the latest reported point-in-time balances.
 - The V8 "Open full chart & technicals" link is shown only for saved securities and carries the saved market. An explicitly linked ticker that is not saved resolves to no selection in the Research workspace, which names the ticker and links back to its V8 reading instead of substituting another saved company.
 - Market snapshots archive each component's `timestamp_basis` and `retrieved_at` beside `last_updated`. The VIX/FX-proxy input uses Yahoo's `regularMarketTime` (or the last returned FX close) as its observation time when supplied, keeping retrieval time in `metadata.retrieved_at`; snapshot time remains `snapshot_date`.

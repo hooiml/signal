@@ -17,7 +17,7 @@ export type ResearchCalendarInput = {
     readonly symbol: string;
     readonly market: ResearchMarket;
     readonly nextReviewAt: string | null;
-    readonly lastReviewedAt: string;
+    readonly lastReviewedAt: string | null;
     readonly reviewAgeDays: number | null;
     readonly earningsWithinDays: number | null;
 };

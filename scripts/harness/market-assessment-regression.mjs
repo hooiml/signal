@@ -15,7 +15,7 @@ function load(file) {
     const compiled = { exports: {} };
     modules.set(absolute, compiled);
     const require = id => {
-        if (id === 'react/jsx-runtime') return createRequire(absolute)(id);
+        if (id === 'react' || id === 'react/jsx-runtime') return createRequire(absolute)(id);
         if (id.endsWith('.module.css')) return { __esModule: true, default: new Proxy({}, { get: (_, key) => key }) };
         assert.ok(id.startsWith('.') || id.startsWith('@/'), `Unexpected dependency: ${id}`);
         const resolved = id.startsWith('@/') ? path.resolve('src', id.slice(2)) : path.resolve(path.dirname(absolute), id);
@@ -93,7 +93,7 @@ for (const market of ['US', 'MY']) {
                 onEvidence: () => assert.fail('Rendering must not open evidence'),
             }));
             const context = `${market} ${mode}: ${scenario.name}`;
-            const spectrum = html.match(/role="img" aria-label="(Score [^"]+)"/)?.[1];
+            const spectrum = html.match(/role="img" aria-label="(Score [0-9]+ on a 0 to 100 scale[^"]+)"/)?.[1];
             assert.ok(spectrum?.startsWith('Score 59 on a 0 to 100 scale;'), context);
             assert.equal(html.includes('class="v81PreviousPin"'), scenario.pin !== null, context);
             if (scenario.pin === null) assert.doesNotMatch(spectrum, /Previous score/, context);

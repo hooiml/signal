@@ -1,3 +1,5 @@
+import { parseMarketReportDate } from './market-observation-date';
+
 const CBOE_DAILY_MARKET_STATS_URL = 'https://www.cboe.com/markets/us/options/market-statistics/daily';
 const NAAIM_EXPOSURE_URL = 'https://naaim.org/programs/naaim-exposure-index/';
 const FRED_GDP_URL = 'https://fred.stlouisfed.org/series/GDP';
@@ -5,14 +7,16 @@ const FRED_EQUITY_MARKET_VALUE_URL = 'https://fred.stlouisfed.org/series/BOGZ1LM
 
 export interface PutCallRatioData {
     ratio: number;
-    reportDate: string;
+    reportDate: string | null;
+    retrievedAt: string;
     source: 'cboe-daily-market-statistics';
     sourceUrl: string;
 }
 
 export interface NaaimExposureData {
     exposure: number;
-    reportDate: string;
+    reportDate: string | null;
+    retrievedAt: string;
     source: 'naaim-exposure-index';
     sourceUrl: string;
 }
@@ -54,10 +58,12 @@ export async function fetchCboePutCallRatio(): Promise<PutCallRatioData | null> 
     }
 }
 
-export function parseCboePutCallRatio(html: string, reportDate: string): PutCallRatioData | null {
-    const text = html
+export function parseCboePutCallRatio(html: string, retrievedAt: string): PutCallRatioData | null {
+    const document = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ');
+    const text = document
         .replace(/<[^>]+>/g, ' ')
         .replace(/&amp;/g, '&')
+        .replace(/&nbsp;/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
     const match = text.match(/TOTAL PUT\/CALL RATIO\s+([0-9]+(?:\.[0-9]+)?)/i);
@@ -73,10 +79,30 @@ export function parseCboePutCallRatio(html: string, reportDate: string): PutCall
 
     return {
         ratio,
-        reportDate,
+        reportDate: parseCboeReportDate(document, retrievedAt),
+        retrievedAt,
         source: 'cboe-daily-market-statistics',
         sourceUrl: CBOE_DAILY_MARKET_STATS_URL,
     };
+}
+
+function parseCboeReportDate(html: string, retrievedAt: string): string | null {
+    // The provider's date control selects the displayed ratios. Unrelated dates and
+    // embedded scripts are not evidence of the table's reporting period.
+    const controls = [...html.matchAll(/<input\b[^>]*>/gi)]
+        .map(match => match[0])
+        .filter(input => /\splaceholder\s*=\s*(["'])yyyy\/mm\/dd\1/i.test(input));
+    const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+    const dates = controls.map(input => {
+        const value = input.match(/\svalue\s*=\s*(["'])(.*?)\1/i)?.[2]?.trim();
+        const isoDate = parseMarketReportDate(value, retrievedAt);
+        if (isoDate) return isoDate;
+        const parts = value?.match(/^(\d{1,2})\s+([a-z]+)\s+(\d{4})$/i);
+        if (!parts) return null;
+        const month = months.indexOf(parts[2].toLowerCase()) + 1;
+        return parseMarketReportDate(`${parts[3]}-${String(month).padStart(2, '0')}-${parts[1].padStart(2, '0')}`, retrievedAt);
+    });
+    return dates.length > 0 && dates.every(date => date !== null && date === dates[0]) ? dates[0] : null;
 }
 
 export function normalizePutCallRatio(ratio: number): number {
@@ -108,10 +134,12 @@ export async function fetchNaaimExposure(): Promise<NaaimExposureData | null> {
     }
 }
 
-export function parseNaaimExposure(html: string, fallbackReportDate: string): NaaimExposureData | null {
+export function parseNaaimExposure(html: string, retrievedAt: string): NaaimExposureData | null {
     const text = html
+        .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
         .replace(/<[^>]+>/g, ' ')
         .replace(/&amp;/g, '&')
+        .replace(/&nbsp;/g, ' ')
         .replace(/&#8217;|&rsquo;/g, "'")
         .replace(/\s+/g, ' ')
         .trim();
@@ -125,7 +153,8 @@ export function parseNaaimExposure(html: string, fallbackReportDate: string): Na
 
     return {
         exposure,
-        reportDate: tableMatch ? parseUSDate(tableMatch[1]) : fallbackReportDate,
+        reportDate: tableMatch ? parseUSDate(tableMatch[1], retrievedAt) : null,
+        retrievedAt,
         source: 'naaim-exposure-index',
         sourceUrl: NAAIM_EXPOSURE_URL,
     };
@@ -139,9 +168,9 @@ export function normalizeNaaimExposure(exposure: number): number {
     return Math.round(((clamped - lowerBound) / (upperBound - lowerBound)) * 100);
 }
 
-function parseUSDate(value: string) {
+function parseUSDate(value: string, retrievedAt: string) {
     const [month, day, year] = value.split('/');
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    return parseMarketReportDate(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`, retrievedAt);
 }
 
 export async function fetchBuffettIndicator(): Promise<BuffettIndicatorData | null> {

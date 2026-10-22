@@ -5,12 +5,12 @@ import type { ResearchWatchlistItem } from '@/components/research/ResearchDashbo
 import { parseResearchInboxResponse } from '@/lib/research/inbox-input';
 import { emptyInboxState, inboxItemChange, inboxItemSignature, parseInboxState, RESEARCH_INBOX_STATE_KEY, snapshotInboxItems } from '@/lib/research/inbox-state';
 import { latestReviewChanges } from '@/lib/research/records';
-import { defaultResearchMonitoringRules, type ResearchRecord, type ResearchUpdateMode } from '@/lib/types/research';
+import type { ResearchRecord, ResearchUpdateMode } from '@/lib/types/research';
 import type { ResearchInboxItem, ResearchInboxResponse, ResearchInboxUrgency } from '@/lib/types/research-inbox';
 import { ResearchInboxWorkflowV6 } from './ResearchInboxWorkflowV6';
 import { ResearchInboxRowV6, researchInboxCategoryLabel } from './ResearchInboxRowV6';
 import { getThemeV6, type ResearchThemeV6, type ResearchTabV6 } from './research-v6';
-import { reviewMonitoringRules } from '@/lib/research/review-lifecycle';
+import { buildResearchAlertRequest } from '@/lib/research/alert-request';
 
 type InboxFilter = 'all' | 'snoozed' | ResearchInboxUrgency;
 export type ResearchInboxSummaryV6 = {
@@ -94,14 +94,7 @@ export const ResearchInboxV6 = ({ items, records, theme, onOpen, onSave, saveErr
     const [clock, setClock] = useState(() => Date.now());
     const styles = getThemeV6(theme);
     const recordBySymbol = useMemo(() => new Map(records.map((record) => [record.symbol, record])), [records]);
-    const inboxRequest = JSON.stringify(items.map(({ symbol, market, targetBuyZone, lastReviewedAt }) => ({
-        symbol,
-        market,
-        targetBuyZone,
-        lastReviewedAt,
-        acceptedEvidence: recordBySymbol.get(symbol)?.acceptedEvidence ?? [],
-        monitoringRules: (() => { const record = recordBySymbol.get(symbol); return record ? reviewMonitoringRules(record) : defaultResearchMonitoringRules; })(),
-    })));
+    const inboxRequest = JSON.stringify(buildResearchAlertRequest(items, records));
 
     useEffect(() => {
         try {
