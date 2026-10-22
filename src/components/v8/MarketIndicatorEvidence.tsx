@@ -6,6 +6,7 @@ import { formatRawValue } from '@/components/v2/cockpit-utils';
 import { fullDate, indicatorReadingLabel, indicatorStatus } from './MarketV8ConnectedData';
 import base from './market-v8.module.css';
 import styles from './market-v8-connected.module.css';
+import { inputImpact } from './market-last-visit';
 
 export function MarketIndicatorEvidence({ signal, inputKeys, configured, date, sourceEnabled, onSelect }: {
     signal: MarketSignal; inputKeys: string[]; configured: Record<string, number>; date: string;
@@ -29,7 +30,7 @@ export function MarketIndicatorEvidence({ signal, inputKeys, configured, date, s
                 const direction = !scored ? 'unavailable' : indicatorReadingLabel(item.signal);
                 return <button type="button" key={key} data-indicator={key} data-overflow={index >= 3} data-available={!!item && !disabled} className={styles.evidenceRow} onClick={event => onSelect(key, event.currentTarget)}>
                     <span><b>{item?.display_name ?? getIndicatorDisplayName(key)}</b><small className={status.startsWith('Stale') ? styles.caution : ''}>{status}</small>{item && <small>{hasRetrievalTimestamp(item) ? 'Retrieved ' : 'Dated '}{fullDate(item.last_updated)}</small>}</span>
-                    <span><strong>{item ? formatRawValue(item, signal.metadata.market) : 'Unavailable'}</strong><span className={styles.direction} data-direction={direction}>{disabled ? 'Disabled' : scored ? `${signal.mode === 'contrarian' ? 'Contrarian' : 'Momentum'}: ${direction}` : item ? 'Context · not scored' : 'No reading'}</span>{conflict && <small>Disagrees with composite</small>}</span>
+                    <span><strong>{item ? formatRawValue(item, signal.metadata.market) : 'Unavailable'}</strong><span className={styles.direction} data-direction={direction}>{disabled ? 'Disabled' : scored ? `${signal.mode === 'contrarian' ? 'Contrarian' : 'Momentum'}: ${direction}` : item ? 'Context · not scored' : 'No reading'}</span>{scored && <ImpactChip impact={inputImpact(item.score, item.weight)} />}{conflict && <small>Disagrees with composite</small>}</span>
                 </button>;
             })}
         </div>
@@ -40,4 +41,11 @@ export function MarketIndicatorEvidence({ signal, inputKeys, configured, date, s
         {observed.length > 3 && <button className={`${base.textButton} ${styles.expandEvidence}`} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? 'Show fewer inputs' : `Show all ${observed.length} observed inputs`} {expanded ? '↑' : '↓'}</button>}
         <p className={styles.evidenceNote}>Unavailable observations are not neutral sentiment. Configured missing weight may use neutral fallback.</p>
     </section>;
+}
+
+// Points this input adds to or takes from the composite, measured from the neutral 50.
+function ImpactChip({ impact }: { impact: number }) {
+    const rounded = Math.round(impact * 10) / 10;
+    const direction = rounded > 0 ? 'up' : rounded < 0 ? 'down' : 'flat';
+    return <small className={styles.impact} data-impact={direction} title="(normalized score − 50) × applied weight">{rounded > 0 ? '+' : rounded < 0 ? '−' : '±'}{Math.abs(rounded).toFixed(1)} pts vs neutral</small>;
 }

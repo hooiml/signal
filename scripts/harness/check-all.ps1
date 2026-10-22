@@ -35,6 +35,8 @@ node (Join-Path $PSScriptRoot "market-assessment-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "Market assessment regression failed with exit code $LASTEXITCODE" }
 node (Join-Path $PSScriptRoot "market-provenance-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "Market provenance regression failed with exit code $LASTEXITCODE" }
+node (Join-Path $PSScriptRoot "market-last-visit-regression.mjs")
+if ($LASTEXITCODE -ne 0) { throw "Market last-visit regression failed with exit code $LASTEXITCODE" }
 node (Join-Path $PSScriptRoot "v81-evidence-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "V8.1 evidence coverage regression failed with exit code $LASTEXITCODE" }
 

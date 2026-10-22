@@ -7,6 +7,8 @@ import { MARKET_SCORE_TIER_THRESHOLDS } from '@/lib/market-score-thresholds';
 import styles from './market-v8.module.css';
 import layout from './market-v8-connected.module.css';
 import { MarketLeadingEvidence } from './MarketV8Coverage';
+import { MarketCoverageRing } from './MarketCoverageRing';
+import { MarketSinceLastVisit } from './MarketSinceLastVisit';
 
 const pct = (value: number) => value.toFixed(1) + '%';
 const onScale = (value: number) => Math.min(100, Math.max(0, value));
@@ -28,6 +30,7 @@ export function MarketV81Hero({ signal, snapshotDate, tierClass, onEvidence, onD
 
     return <section className={layout.assessment} aria-label="Market assessment">
         <div className={layout.assessmentReading}>
+            <MarketSinceLastVisit signal={signal} snapshotDate={snapshotDate} />
             <span className={styles.eyebrow}>{signal.metadata.market === 'MY' ? 'Malaysia' : 'United States'} · {signal.mode === 'contrarian' ? 'Contrarian' : 'Momentum'} · {snapshotDate ? fullDate(snapshotDate) : 'Snapshot date unavailable'}</span>
             <div className={layout.scoreLine}>
                 <h1 className={`${styles.zone} ${tierClass}`}>{marketReadingLabel(signal.tier)}</h1>
@@ -51,14 +54,7 @@ export function MarketV81Hero({ signal, snapshotDate, tierClass, onEvidence, onD
         <section className={layout.coverage} aria-label="Observed evidence weight">
             <div className={layout.coverageHeading}><b>Evidence coverage · {coverage.scoredCount} of {coverage.configuredCount} inputs included</b><b>{coverage.observedPct === null ? 'Weight unverified' : `${pct(coverage.observedPct)} configured weight`}</b></div>
             {coverage.observedPct !== null && coverage.fallbackPct !== null ? <>
-                <div className={styles.v81CoverageBar} role="img" aria-label={coverage.verifiedPartition
-                    ? `Fresh ${pct(coverage.freshPct!)}, stale ${pct(coverage.stalePct!)}, neutral fallback ${pct(coverage.fallbackPct)}`
-                    : `Scored ${pct(coverage.observedPct)}, neutral fallback ${pct(coverage.fallbackPct)}. Observation freshness is not fully verified.`}>
-                    {coverage.verifiedPartition
-                        ? <><span className={styles.v81Fresh} style={{ width: coverage.freshPct + '%' }} /><span className={styles.v81Stale} style={{ width: coverage.stalePct + '%' }} /></>
-                        : <span className={styles.v81Observed} style={{ width: coverage.observedPct + '%' }} />}
-                    <span className={styles.v81Fallback} style={{ width: coverage.fallbackPct + '%' }} />
-                </div>
+                <MarketCoverageRing signal={signal} coverage={coverage} onSelect={onSelect} />
                 <p>{pct(coverage.fallbackPct)} of configured weight uses neutral fallback for missing inputs.</p>
                 {coverage.verifiedPartition && <p>Fresh {pct(coverage.freshPct!)} · stale {pct(coverage.stalePct!)} of model weight.</p>}
             </> : <p>Coverage weights could not be reconciled. Verify the source response.</p>}
