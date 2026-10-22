@@ -324,7 +324,8 @@ try {
         await visible(page.getByRole('heading', { name: 'Value still needs a price.', exact: true }));
         await page.getByRole('tab', { name: 'Overview', exact: true }).click();
         const toolbar = await page.getByRole('searchbox').evaluate(input => {
-            const select = document.querySelector('select');
+            // The header also holds the theme select; compare with the toolbar's own market select.
+            const select = document.querySelector('main select');
             const box = input.getBoundingClientRect(), other = select.getBoundingClientRect();
             return {inputY:box.y,selectY:other.y,inputHeight:box.height,selectHeight:other.height,font:getComputedStyle(document.querySelector('h1')).fontFamily};
         });

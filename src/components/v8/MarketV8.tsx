@@ -10,6 +10,7 @@ import { IndicatorInspector, InvestigationPanel } from './MarketV8Panels';
 import { archiveDate, currentDate, dateLabel, indicatorsFor, scoreHistory, signalFor, signed, stance, tabs, zoneLabel, type Example, type InvestigationTab, type Market, type Mode, type Point } from './market-v8-fixtures';
 import styles from './market-v8.module.css';
 import { VersionSwitcher } from '@/components/navigation/VersionSwitcher';
+import { V8ThemeControl } from './V8ThemeControl';
 
 export function MarketV8({ demo = false, initialMarket = 'US' }: { demo?: boolean; initialMarket?: Market }) {
     return demo ? <MarketV8Demo /> : <MarketV8Connected initialMarket={initialMarket} />;
@@ -91,6 +92,7 @@ function MarketV8Demo() {
             <a className={styles.logo} href="/main-v8" aria-label="Signal Market"><svg viewBox="0 0 34 26" aria-hidden="true"><path d="M2 16h5c4 0 4-12 8-12s3 20 7 20 4-9 7-9h3" /></svg>Signal</a>
             <nav aria-label="Primary"><a href="/main-v8" aria-current="page">Market</a><a href="/research-v8">Research <span aria-hidden="true">↗</span></a></nav>
             <span className={styles.headerNote}><span className={styles.liveDot} />A wider perspective.</span>
+            <V8ThemeControl />
         </header>
         <div className={styles.canvas}>
             <div className={styles.toolbar}>

@@ -6,6 +6,7 @@ import { FinancialCoverageV8, ResearchChecksV8, ResearchToolsV8, ReviewCheckpoin
 import base from './market-v8.module.css';
 import styles from './research-v8.module.css';
 import { VersionSwitcher } from '@/components/navigation/VersionSwitcher';
+import { V8ThemeControl } from './V8ThemeControl';
 
 type EvidenceFilter = 'All' | 'Supports' | 'Challenges' | 'Gaps';
 
@@ -23,6 +24,7 @@ export function ResearchV8() {
             <a className={base.logo} href="/main-v8">∿ Signal</a>
             <nav aria-label="Primary"><a href="/main-v8">Market</a><a href="/research-v8" aria-current="page">Research</a></nav>
             <span className={base.headerNote}>Company research</span>
+            <V8ThemeControl />
         </header>
         <main id="v8-content" tabIndex={-1} className={base.canvas}>
             <div className={styles.toolbar}>

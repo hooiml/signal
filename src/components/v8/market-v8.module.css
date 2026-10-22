@@ -14,6 +14,8 @@
     --down: #be123c; --down-mark: #f43f5e; --down-line: #fecdd3; --down-soft: #fff1f2;
     --caution: #b45309; --caution-mark: #f59e0b; --caution-line: #fde68a; --caution-soft: #fffbeb;
     --chart-line: #334155;
+    /* Text on brand fills, and the base colour for shadows and overlays. */
+    --on-brand: #ffffff; --shadow: #0f172a;
     /* Typography */
     --font-sans: var(--font-source-sans), system-ui, -apple-system, 'Segoe UI', sans-serif;
     --font-mono: var(--font-roboto-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -55,7 +57,7 @@
 .app select { color: var(--ink); border: 1px solid var(--line); border-radius: 7px; min-height: 44px; padding: 0 30px 0 12px; background: var(--surface); font-weight: 600; }
 .segment { margin: 0; padding: 3px; border: 1px solid var(--line); display: flex; gap: 2px; background: var(--surface-muted); border-radius: 8px; }
 .segment button { min-height: 44px; padding: 4px 12px; color: var(--muted); border-radius: 5px; font-size: var(--text-sm); font-weight: 600; }
-.segment button[aria-pressed=true] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 5px color-mix(in srgb, var(--ink) 7%, transparent); }
+.segment button[aria-pressed=true] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 5px color-mix(in srgb, var(--shadow) 7%, transparent); }
 .sourceToggle { font-size: var(--text-sm); color: var(--muted); display: flex; gap: 7px; align-items: center; min-height: 44px; }
 .sourceToggle input { accent-color: var(--brand); width: 15px; height: 15px; }
 .exampleSelect { display: flex; align-items: center; gap: 9px; font-size: var(--text-sm); color: var(--muted); }
@@ -68,7 +70,7 @@
 .fixtureBadge { color: var(--muted); font-size: var(--text-sm); border: 1px solid var(--line); padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
 .app h1 { font-size: clamp(30px, 3.5vw, 46px); font-weight: 720; line-height: 1.13; letter-spacing: -1.8px; margin-bottom: 12px; }
 .hero > p { font-size: var(--text-md); max-width: 680px; line-height: 1.65; }
-.scorePanel { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 10px 45px -30px color-mix(in srgb, var(--ink) 29%, transparent); overflow: hidden; }
+.scorePanel { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 10px 45px -30px color-mix(in srgb, var(--shadow) 29%, transparent); overflow: hidden; }
 .scoreStrip { display: flex; align-items: center; gap: 24px; padding: 15px 23px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .score { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
 .score strong { font-size: var(--text-display); font-weight: 720; line-height: 1; letter-spacing: -3px; }
@@ -133,7 +135,7 @@
 .support { color: var(--up); }
 .conflict { color: var(--down); }
 .muted { color: var(--muted); }
-.rail { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 23px 21px; margin-top: 2px; min-width: 0; box-shadow: 0 16px 60px -40px color-mix(in srgb, var(--ink) 41%, transparent); }
+.rail { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 23px 21px; margin-top: 2px; min-width: 0; box-shadow: 0 16px 60px -40px color-mix(in srgb, var(--shadow) 41%, transparent); }
 .inspectorAccess { position: fixed; left: 24px; top: 48px; z-index: 20; display: flex; gap: 12px; background: var(--surface); padding: 12px; clip-path: inset(50%); pointer-events: none; }
 .inspectorAccess:focus-within { clip-path: none; pointer-events: auto; }
 .inspectorAccess button { text-decoration: underline; }
@@ -158,7 +160,7 @@
 .evidenceCard span span { color: var(--muted); font-size: var(--text-sm); margin-top: 5px; }
 .railSection { border-top: 1px solid var(--line); padding-top: 20px; margin-top: 22px; }
 .railSection h3 { margin-top: 0; }
-.app .primaryButton { border-radius: 7px; background: var(--brand); color: white; padding: 11px 16px; font-size: var(--text-sm); font-weight: 600; min-height: 44px; display: inline-flex; align-items: center; justify-content: space-between; }
+.app .primaryButton { border-radius: 7px; background: var(--brand); color: var(--on-brand); padding: 11px 16px; font-size: var(--text-sm); font-weight: 600; min-height: 44px; display: inline-flex; align-items: center; justify-content: space-between; }
 .primaryButton:hover { background: var(--brand-hover); }
 .rail .primaryButton { width: 100%; }
 .researchLink { display: block; padding-top: 20px; margin-top: 24px; border-top: 1px solid var(--line); }
@@ -276,7 +278,7 @@
 .empty p { max-width: 470px; margin: 0 auto 25px; }
 .mobileChange { display: none; }
 .mobileInspector { margin: auto; border: 1px solid var(--line); background: var(--surface-subtle); color: var(--ink); border-radius: 12px; padding: 22px; width: min(540px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; }
-.mobileInspector::backdrop { background: color-mix(in srgb, var(--ink) 50%, transparent); backdrop-filter: blur(4px); }
+.mobileInspector::backdrop { background: color-mix(in srgb, var(--shadow) 50%, transparent); backdrop-filter: blur(4px); }
 .mobileInspectorTop { display: flex; justify-content: space-between; gap: 12px; font-size: var(--text-sm); color: var(--muted); border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 20px; }
 .mobileInspectorTop button { color: var(--link); font-weight: 650; min-height: 44px; }
 .mobileInspector h2 { margin-bottom: 22px; }
@@ -433,8 +435,8 @@
         background:
             linear-gradient(to right, var(--canvas) 40%, transparent) left / 32px 100% no-repeat local,
             linear-gradient(to left, var(--canvas) 40%, transparent) right / 32px 100% no-repeat local,
-            linear-gradient(to right, color-mix(in srgb, var(--ink) 14%, transparent), transparent) left / 14px 100% no-repeat scroll,
-            linear-gradient(to left, color-mix(in srgb, var(--ink) 14%, transparent), transparent) right / 14px 100% no-repeat scroll,
+            linear-gradient(to right, color-mix(in srgb, var(--shadow) 14%, transparent), transparent) left / 14px 100% no-repeat scroll,
+            linear-gradient(to left, color-mix(in srgb, var(--shadow) 14%, transparent), transparent) right / 14px 100% no-repeat scroll,
             var(--canvas);
     }
     .app .tabs button { flex: 0 0 auto; padding: 8px; max-width: none; white-space: nowrap; }
@@ -539,3 +541,23 @@
 }
 /* The score pins glide when the reading changes (motion is removed under prefers-reduced-motion). */
 .v81ScorePin, .v81PreviousPin { transition: left .6s ease; }
+
+/* Dark theme (E8): neutral slate surfaces; teal stays for actions, selection and focus; green, rose
+   and amber stay for data direction and evidence state. Set on <html> by the boot script or the
+   theme control, from an explicit choice or the system setting. */
+:global(html[data-v8-theme=dark]) .app, :global(html[data-v8-theme=dark]):has(.app) {
+    --canvas: #0b1118; --surface: #111a24; --surface-subtle: #0e161f; --surface-muted: #1a2533;
+    --line: #253345; --line-strong: #364a60;
+    --ink: #e6edf5; --muted: #a3b3c6; --subtle: #8496ab;
+    --brand: #2dd4bf; --brand-hover: #5eead4; --brand-soft: #0f2b2b; --on-brand: #04201c; --focus: var(--brand);
+    --link: #7cb3ff; --link-hover: #a5c9ff;
+    --up: #34d399; --up-mark: #10b981; --up-line: #1d5a46; --up-soft: #0f2a22;
+    --down: #fb7185; --down-mark: #f43f5e; --down-line: #6b2236; --down-soft: #2b1219;
+    --caution: #fbbf24; --caution-mark: #f59e0b; --caution-line: #6b4a12; --caution-soft: #2a2010;
+    --chart-line: #cbd5e1; --shadow: #000000;
+    color-scheme: dark;
+}
+/* Theme control in the V8 header. */
+.themeControl { margin-left: auto; display: flex; align-items: center; }
+.app .themeControl select { font-size: var(--text-xs); padding: 0 26px 0 10px; background: var(--surface); color: var(--ink); border-color: var(--line); }
+@media (max-width: 600px) { .themeControl { margin-left: 0; } .app .themeControl select { padding: 0 22px 0 8px; } }

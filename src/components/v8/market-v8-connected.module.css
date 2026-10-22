@@ -1,5 +1,5 @@
 .layout { display: block; }
-.assessment { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; padding: 22px; margin-bottom: 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 2px 3px color-mix(in srgb, var(--ink) 3%, transparent); }
+.assessment { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; padding: 22px; margin-bottom: 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 2px 3px color-mix(in srgb, var(--shadow) 3%, transparent); }
 .assessmentReading { min-width: 0; align-content: center; }
 .scoreLine { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 14px 0; }
 .scoreLine h1 { margin: 0; font-size: var(--text-xl); line-height: 1.4; letter-spacing: -.4px; text-transform: capitalize; }
