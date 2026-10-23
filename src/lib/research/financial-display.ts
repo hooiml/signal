@@ -1,11 +1,19 @@
 import type { ResearchFundamentalPeriod, ResearchSnapshot } from '../types/research-snapshot';
 
 export type AnnualAmount = 'annualRevenue' | 'annualNetIncome' | 'freeCashFlow';
+export type AnnualMarginField = 'grossMarginPercent' | 'operatingMarginPercent';
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
 // Annual-change summaries and their explanations use the same display precision.
 export function financialPercentage(value: number | null | undefined): string {
     return finite(value) ? `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}%` : 'Unavailable';
+}
+
+export function compactShareCount(value: number | null | undefined): string {
+    if (!finite(value) || value <= 0) return 'Unavailable';
+    const scale = value >= 1e9 ? 1e9 : value >= 1e6 ? 1e6 : 1;
+    const suffix = scale === 1e9 ? ' billion' : scale === 1e6 ? ' million' : '';
+    return `${(value / scale).toLocaleString('en-US', { maximumFractionDigits: 2 })}${suffix} shares`;
 }
 
 export function compactFinancialAmount(value: number | null | undefined, currency?: string | null): string {
@@ -106,6 +114,177 @@ export function annualHistorySeries(f: ResearchSnapshot['fundamentals'] | null |
         hasNegative: points.some(point => point.sign === 'negative'),
         startPeriod: points[0].reportingPeriod,
         endPeriod: points[points.length - 1].reportingPeriod,
+    };
+}
+
+export type AnnualMarginComparison = {
+    readonly current: ResearchFundamentalPeriod;
+    readonly previous: ResearchFundamentalPeriod;
+    readonly deltaPercentagePoints: number;
+};
+
+export function annualMarginComparison(
+    f: ResearchSnapshot['fundamentals'] | null | undefined,
+    field: AnnualMarginField,
+): AnnualMarginComparison | null {
+    if (!f || !f.source || !f.reportingPeriod) return null;
+    const candidates = f.history.filter(row => row.reportingPeriod === f.reportingPeriod);
+    if (candidates.length !== 1) return null;
+    const current = candidates[0];
+    const currentTime = Date.parse(current.reportingPeriod);
+    if (!Number.isFinite(currentTime) || current.source !== f.source || !current.currency.trim()
+        || current.comparableAnnual === false || !finite(current[field]) || current[field] !== f[field]) return null;
+    const earlier = f.history.filter(row => Date.parse(row.reportingPeriod) < currentTime)
+        .sort((a, b) => Date.parse(b.reportingPeriod) - Date.parse(a.reportingPeriod));
+    const previous = earlier[0];
+    if (!previous || earlier.filter(row => row.reportingPeriod === previous.reportingPeriod).length !== 1
+        || previous.source !== current.source || previous.currency !== current.currency || !finite(previous[field])) return null;
+    const days = (currentTime - Date.parse(previous.reportingPeriod)) / 86400000;
+    if (days < 350 || days > 380) return null;
+    const deltaPercentagePoints = Number((current[field]! - previous[field]!).toFixed(2));
+    return finite(deltaPercentagePoints) ? { current, previous, deltaPercentagePoints } : null;
+}
+
+export function annualMarginSeries(
+    f: ResearchSnapshot['fundamentals'] | null | undefined,
+    field: AnnualMarginField,
+): AnnualHistorySeries | null {
+    if (!f || !f.source || !f.reportingPeriod) return null;
+    const currentCandidates = f.history.filter(row => row.reportingPeriod === f.reportingPeriod);
+    if (currentCandidates.length !== 1) return null;
+    const current = currentCandidates[0];
+    const currency = current.currency?.trim();
+    if (!currency || current.source !== f.source || current.comparableAnnual === false || !finite(current[field]) || current[field] !== f[field]) return null;
+    const comparable = f.history.filter(row => {
+        const parsed = Date.parse(row.reportingPeriod);
+        return Number.isFinite(parsed)
+            && row.currency?.trim() === currency
+            && row.source === current.source
+            && row.comparableAnnual !== false
+            && finite(row[field]);
+    });
+    const uniquePeriods = new Set(comparable.map(row => row.reportingPeriod));
+    if (uniquePeriods.size !== comparable.length || comparable.length < 2) return null;
+    const sorted = [...comparable].sort((a, b) => Date.parse(a.reportingPeriod) - Date.parse(b.reportingPeriod));
+    for (let index = 1; index < sorted.length; index += 1) {
+        const days = (Date.parse(sorted[index].reportingPeriod) - Date.parse(sorted[index - 1].reportingPeriod)) / 86400000;
+        if (days < 330 || days > 400) return null;
+    }
+    const maxMagnitude = Math.max(...sorted.map(row => Math.abs(row[field]!)), 0);
+    const points: AnnualHistoryPoint[] = sorted.map(row => {
+        const value = row[field]!;
+        const sign = value > 0 ? 'positive' : value < 0 ? 'negative' : 'zero';
+        const heightPercent = maxMagnitude > 0 ? Math.max(sign === 'zero' ? 6 : 14, Math.round(Math.abs(value) / maxMagnitude * 100)) : 6;
+        return { reportingPeriod: row.reportingPeriod, value, heightPercent, sign };
+    });
+    return {
+        currency,
+        source: current.source,
+        points,
+        hasNegative: points.some(point => point.sign === 'negative'),
+        startPeriod: points[0].reportingPeriod,
+        endPeriod: points[points.length - 1].reportingPeriod,
+    };
+}
+
+export type BalanceSheetCushion = {
+    readonly currency: string;
+    readonly cash: number;
+    readonly debt: number;
+    readonly netCash: number;
+    readonly posture: 'net-cash' | 'net-debt' | 'balanced';
+    readonly cashWidthPercent: number;
+    readonly debtWidthPercent: number;
+};
+
+export function balanceSheetCushion(f: ResearchSnapshot['fundamentals'] | null | undefined): BalanceSheetCushion | null {
+    if (!f || !finite(f.cash) || !finite(f.debt) || f.cash < 0 || f.debt < 0) return null;
+    const currentPeriod = f.history.find(row => row.reportingPeriod === f.reportingPeriod);
+    const cashCurrency = f.metricProvenance?.cash.currency?.trim() || currentPeriod?.currency?.trim() || null;
+    const debtCurrency = f.metricProvenance?.debt.currency?.trim() || currentPeriod?.currency?.trim() || null;
+    if (!cashCurrency || !debtCurrency || cashCurrency !== debtCurrency) return null;
+    const netCash = f.cash - f.debt;
+    const posture: BalanceSheetCushion['posture'] = netCash > 0 ? 'net-cash' : netCash < 0 ? 'net-debt' : 'balanced';
+    const maxSide = Math.max(f.cash, f.debt, 0);
+    const widthPercent = (amount: number): number =>
+        amount === 0 || maxSide === 0 ? 0 : Math.max(8, Math.round((amount / maxSide) * 100));
+    return {
+        currency: cashCurrency,
+        cash: f.cash,
+        debt: f.debt,
+        netCash,
+        posture,
+        cashWidthPercent: widthPercent(f.cash),
+        debtWidthPercent: widthPercent(f.debt),
+    };
+}
+
+export type AnnualSharePoint = {
+    readonly reportingPeriod: string;
+    readonly shares: number;
+    readonly shareChangePercent: number | null;
+    readonly heightPercent: number;
+};
+
+export type AnnualShareSeries = {
+    readonly source: string;
+    readonly shareBasisLabel: string;
+    readonly points: readonly AnnualSharePoint[];
+    readonly startPeriod: string;
+    readonly endPeriod: string;
+    readonly cumulativeChangePercent: number | null;
+    readonly posture: 'buyback' | 'dilution' | 'unchanged';
+};
+
+export function annualShareSeries(f: ResearchSnapshot['fundamentals'] | null | undefined): AnnualShareSeries | null {
+    if (!f || !f.source) return null;
+    const comparable = f.history.filter(row => {
+        const parsed = Date.parse(row.reportingPeriod);
+        return Number.isFinite(parsed)
+            && row.source === f.source
+            && row.comparableAnnual !== false
+            && finite(row.shares)
+            && row.shares > 0;
+    });
+    const uniquePeriods = new Set(comparable.map(row => row.reportingPeriod));
+    if (uniquePeriods.size !== comparable.length || comparable.length < 2) return null;
+    const sorted = [...comparable].sort((a, b) => Date.parse(a.reportingPeriod) - Date.parse(b.reportingPeriod));
+    for (let index = 1; index < sorted.length; index += 1) {
+        const days = (Date.parse(sorted[index].reportingPeriod) - Date.parse(sorted[index - 1].reportingPeriod)) / 86400000;
+        if (days < 330 || days > 400) return null;
+    }
+    const maxShares = Math.max(...sorted.map(row => row.shares!), 1);
+    const points: AnnualSharePoint[] = sorted.map((row, index) => {
+        const shares = row.shares!;
+        const priorShares = index > 0 ? sorted[index - 1].shares! : null;
+        const derivedChange = priorShares !== null && priorShares > 0
+            ? Number((((shares - priorShares) / priorShares) * 100).toFixed(2))
+            : null;
+        const shareChangePercent = finite(row.shareChangePercent) ? row.shareChangePercent : derivedChange;
+        const heightPercent = Math.max(18, Math.round((shares / maxShares) * 100));
+        return {
+            reportingPeriod: row.reportingPeriod,
+            shares,
+            shareChangePercent: finite(shareChangePercent) ? shareChangePercent : null,
+            heightPercent,
+        };
+    });
+    const firstShares = points[0].shares;
+    const lastShares = points[points.length - 1].shares;
+    const cumulativeChangePercent = firstShares > 0
+        ? Number((((lastShares - firstShares) / firstShares) * 100).toFixed(2))
+        : null;
+    const posture: AnnualShareSeries['posture'] = cumulativeChangePercent === null || cumulativeChangePercent === 0
+        ? 'unchanged'
+        : cumulativeChangePercent < 0 ? 'buyback' : 'dilution';
+    return {
+        source: f.source,
+        shareBasisLabel: f.source === 'Yahoo Finance' ? 'Annual diluted average shares' : 'Shares outstanding',
+        points,
+        startPeriod: points[0].reportingPeriod,
+        endPeriod: points[points.length - 1].reportingPeriod,
+        cumulativeChangePercent,
+        posture,
     };
 }
 

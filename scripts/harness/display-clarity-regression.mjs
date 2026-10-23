@@ -9,7 +9,12 @@ function load(file) {
 }
 const {
  compactFinancialAmount:format,
+ compactShareCount:formatShares,
  annualAmountComparison:compare,
+ annualMarginComparison:compareMargin,
+ annualMarginSeries:marginSeries,
+ annualShareSeries:shareSeries,
+ balanceSheetCushion:cushion,
  financialPercentage:percentage,
  annualHistorySeries:series,
  positionPlanPriceContext:planContext,
@@ -94,6 +99,57 @@ assert.equal(JSON.stringify({plan,quote,bounds}),planSnap,'positionPlanPriceCont
 assert.equal(planContext({...plan,currency:'MYR'},quote,bounds),null,'Cross-currency plan comparison must be withheld');
 assert.equal(planContext({...plan,currency:null},quote,bounds),null,'Unrecorded plan currency must be withheld');
 assert.equal(planContext(plan,{price:0,currency:'USD'},bounds),null,'Non-positive quote price must be withheld');
+
+// Profitability margin comparisons, balance-sheet cushion and share dilution series contracts
+assert.equal(formatShares(15230000000),'15.23 billion shares');
+assert.equal(formatShares(115000000),'115 million shares');
+assert.equal(formatShares(0),'Unavailable');
+assert.equal(formatShares(-10),'Unavailable');
+const qualityFundamentals = {
+ source:'SEC EDGAR',
+ reportingPeriod:'2025-12-31',
+ grossMarginPercent:46.2,
+ operatingMarginPercent:31.5,
+ cash:65000000000,
+ debt:100000000000,
+ shares:15200000000,
+ shareChangePercent:-2.56,
+ metricProvenance:{
+  cash:{reportingPeriods:['2025-12-31'],currency:'USD'},
+  debt:{reportingPeriods:['2025-12-31'],currency:'USD'},
+  shares:{reportingPeriods:['2025-12-31'],currency:null},
+  shareChange:{reportingPeriods:['2024-12-31','2025-12-31'],currency:null},
+ },
+ history:[
+  {reportingPeriod:'2025-12-31',currency:'USD',source:'SEC EDGAR',grossMarginPercent:46.2,operatingMarginPercent:31.5,shares:15200000000,shareChangePercent:-2.56},
+  {reportingPeriod:'2024-12-31',currency:'USD',source:'SEC EDGAR',grossMarginPercent:44.1,operatingMarginPercent:29.8,shares:15600000000,shareChangePercent:-1.89},
+  {reportingPeriod:'2023-12-31',currency:'USD',source:'SEC EDGAR',grossMarginPercent:43.0,operatingMarginPercent:28.0,shares:15900000000,shareChangePercent:null},
+ ],
+};
+const qualitySnap = JSON.stringify(qualityFundamentals);
+const gmComp = compareMargin(qualityFundamentals,'grossMarginPercent');
+assert.ok(gmComp);
+assert.equal(gmComp.deltaPercentagePoints,2.1);
+const gmTrend = marginSeries(qualityFundamentals,'grossMarginPercent');
+assert.ok(gmTrend);
+assert.deepEqual(gmTrend.points.map(p=>p.reportingPeriod),['2023-12-31','2024-12-31','2025-12-31']);
+const bsCushion = cushion(qualityFundamentals);
+assert.ok(bsCushion);
+assert.equal(bsCushion.posture,'net-debt');
+assert.equal(bsCushion.netCash,-35000000000);
+assert.equal(bsCushion.cashWidthPercent,65);
+assert.equal(bsCushion.debtWidthPercent,100);
+assert.equal(
+ cushion({...qualityFundamentals,metricProvenance:{...qualityFundamentals.metricProvenance,debt:{reportingPeriods:['2025-12-31'],currency:'MYR'}}}),
+ null,
+ 'Cross-currency cash vs debt comparison must be withheld',
+);
+const shSeries = shareSeries(qualityFundamentals);
+assert.ok(shSeries);
+assert.equal(shSeries.posture,'buyback');
+assert.equal(shSeries.cumulativeChangePercent,-4.4);
+assert.equal(shSeries.points.length,3);
+assert.equal(JSON.stringify(qualityFundamentals),qualitySnap,'Margin, cushion and share helpers do not mutate input');
 
 const signal={tier:'neutral',mode:'standard',components:{a:{enabled:true,weight:.35,signal:'buy'},b:{enabled:true,weight:.2,signal:'neutral'},c:{enabled:true,weight:.1,signal:'neutral'}},confidence:{source_count:3,majority_signal:'NEUTRAL',agreement_pct:67}};
 const immutable=JSON.stringify(signal);

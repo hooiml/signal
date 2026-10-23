@@ -17,10 +17,22 @@ function research(symbol, market) {
  Object.assign(data,{symbol,market,fetchedAt:now});
  Object.assign(data.quote,{name:'Fixture company with a long readable name', currency:market==='MY'?'MYR':'USD',instrumentType:'EQUITY',observedAt:'2026-10-16T20:00:00Z',classification:{source:'Yahoo Finance',instrumentType:'EQUITY',sector:'Technology',industry:'Software',retrievedAt:now}});
  if(symbol!=='MISSING') {
-  const period=(reportingPeriod,revenue,profit,cashFlow)=>({...data.fundamentals,history:undefined, reportingPeriod,source:'Yahoo Finance',currency:data.quote.currency,annualRevenue:revenue,annualNetIncome:profit,freeCashFlow:cashFlow,revenueGrowthPercent:null});
-  const prior=period('2024-12-31',56737100000,4000000000,300000000);
-  const latest=period('2025-12-31',67723100000,4768100000,-439700000);
-  Object.assign(data.fundamentals,latest,{revenueGrowthPercent:19.4,history:[latest,prior]});
+  const period=(reportingPeriod,revenue,profit,cashFlow,grossMargin,operatingMargin,shares,shareChange)=>({...data.fundamentals,history:undefined, reportingPeriod,source:'Yahoo Finance',currency:data.quote.currency,annualRevenue:revenue,annualNetIncome:profit,freeCashFlow:cashFlow,grossMarginPercent:grossMargin,operatingMarginPercent:operatingMargin,shares,shareChangePercent:shareChange,revenueGrowthPercent:null});
+  const oldest=period('2023-12-31',51200000000,3400000000,620000000,42.8,26.4,15900000000,null);
+  const prior=period('2024-12-31',56737100000,4000000000,300000000,44.1,28.9,15600000000,-1.89);
+  const latest=period('2025-12-31',67723100000,4768100000,-439700000,46.2,31.5,15200000000,-2.56);
+  Object.assign(data.fundamentals,latest,{
+   revenueGrowthPercent:19.4,
+   cash:65200000000,
+   debt:96800000000,
+   metricProvenance:{
+    cash:{reportingPeriods:['2025-12-31'],currency:data.quote.currency},
+    debt:{reportingPeriods:['2025-12-31'],currency:data.quote.currency},
+    shares:{reportingPeriods:['2025-12-31'],currency:null},
+    shareChange:{reportingPeriods:['2024-12-31','2025-12-31'],currency:null},
+   },
+   history:[latest,prior,oldest],
+  });
  }
  return result;
 }
@@ -64,6 +76,12 @@ try {
    const panel=page.getByRole('tabpanel');
    await panel.getByText('USD 67.72 billion',{exact:true}).waitFor();
    assert.ok((await panel.innerText()).includes('31 Dec 2024'));
+   await panel.getByTestId('financial-margin-context').waitFor();
+   assert.match(await panel.getByTestId('financial-margin-context').innerText(), /up 2\.1 pp vs 31 Dec 2024/);
+   await panel.getByTestId('balance-sheet-cushion').waitFor();
+   assert.match(await panel.getByTestId('balance-sheet-cushion').innerText(), /Net debt position[\s\S]*USD 65\.2 billion[\s\S]*USD 96\.8 billion/);
+   await panel.getByTestId('share-dilution-context').waitFor();
+   assert.match(await panel.getByTestId('share-dilution-context').innerText(), /Net share reduction \(-4\.4% from 2023 to 2025\)/);
    await panel.getByText('Exact amount and comparison',{exact:true}).first().click();
    await panel.getByText(/USD 67,723,100,000/).first().waitFor();
    assert.equal(await page.getByRole('heading',{name:'Growth and positive earnings reported',exact:true}).count(),0);

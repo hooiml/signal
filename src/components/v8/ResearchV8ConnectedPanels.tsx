@@ -8,7 +8,7 @@ import { financialPeriodLabel, formatResearchTimestamp, netCashCurrency, researc
 import { cashDebtDisplay, compactFinancialAmount } from '@/lib/research/financial-display';
 import { personalReviewDate, savedReviewMarkers } from '@/lib/research/review-lifecycle';
 import { ResearchDataAvailability } from './ResearchDataAvailability';
-import { ResearchFinancialSummary } from './ResearchFinancialSummary';
+import { ResearchFinancialSummary, ResearchQualityAndCushion } from './ResearchFinancialSummary';
 import { HistoricalValuationV8, PositionPlanComparison } from './ResearchV8ValuationContext';
 type ChartStateProps = { chartRange: string; setChartRange: (range: string) => void; chartDate: string | null; setChartDate: (date: string | null) => void };
 import { checklistLabelsV6 } from '@/components/v6/research-v6';
@@ -100,6 +100,7 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
             <span className={base.eyebrow}>PROVIDER-REPORTED DATA</span><h2>Business performance</h2><p>{fundamentals?.source || 'Source unavailable'} · {annualPeriod}. Revenue, profit, margins and free cash flow use this annual period. Balance and share dates are shown separately below.</p>
             <ResearchDataAvailability snapshot={snapshot} section="Financials" loading={loading} error={providerError} />
             <ResearchFinancialSummary fundamentals={fundamentals} />
+            <ResearchQualityAndCushion fundamentals={fundamentals} />
             <details className={connected.evidence}><summary>More financial measures and reporting dates</summary><h3>Annual margins</h3><Metrics rows={[
                 ['Gross margin', number(fundamentals?.grossMarginPercent, '%'), annualPeriod], ['Operating margin', number(fundamentals?.operatingMarginPercent, '%'), annualPeriod],
             ]} /><h3>Reported balances and shares</h3><p>Each value keeps the dates of the facts used. A newer response does not make an older reported balance current.</p><Metrics rows={[

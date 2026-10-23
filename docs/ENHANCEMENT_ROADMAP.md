@@ -38,6 +38,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E8 | V8 dark mode | Verified | Standard | None; added after E2 at the owner's request |
 | E9 | Market "what moved" bundle | Verified | Standard | None; added after E8 at the owner's request |
 | E10 | V8 Research decision context (multi-year trend bars, plan vs price ruler, historical filing multiples) | Verified | Standard | None; added after E9 at the owner's request |
+| E11 | V8 Research unit profitability margins, balance-sheet cushion and share dilution trajectory | Verified | Standard | None; added after E10 at the owner's request |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -177,6 +178,17 @@ maths, malformed storage, baseline rotation and change ranking (in the harness).
 
 **Evidence — 2026-10-23:** `display-clarity-regression.mjs` covers `annualHistorySeries` and `positionPlanPriceContext` contracts and immutability; lint, typecheck, harness, production build and browser visual verification at 1280px, 768px and 375px pass without overflow or console/request errors.
 
+### E11 — V8 Research unit profitability margins, balance-sheet cushion and share dilution trajectory
+
+**Why:** Revenue, Net Income and Free Cash Flow trends alone can mask compressing operating margins, rising debt relative to cash, or ongoing share dilution; those inputs were already fetched in `fundamentals.history` and `metricProvenance` but buried as single-year snapshots inside a collapsed disclosure.
+
+**Scope:**
+1. **Unit Profitability (`ResearchQualityAndCushion`):** Multi-year Gross Margin % and Operating Margin % trajectory bars (`annualMarginSeries`) with percentage-point (`pp`) YoY expansion/compression callouts (`annualMarginComparison`).
+2. **Balance-Sheet Cushion (`balanceSheetCushion`):** Same-currency Cash vs. Debt visual proportion bars with Net Cash / Net Debt posture badge and exact component reporting dates (`researchMetricPeriodLabel`).
+3. **Share Count & Dilution / Buyback Trajectory (`annualShareSeries`):** Multi-year share count bar strip with cumulative net share reduction or expansion percentage across comparable annual periods, keeping `Annual diluted average shares` (Yahoo Finance) and `Shares outstanding` (SEC EDGAR) explicitly labeled.
+
+**Evidence — 2026-10-23:** `display-clarity-regression.mjs` covers `annualMarginComparison`, `annualMarginSeries`, `balanceSheetCushion`, `annualShareSeries` and `compactShareCount`; `v8-display-qa.mjs` and `research-reading-qa.mjs` pass across 1440px, 768px, 390px and 320px without overflow or console/request errors.
+
 ### E3 — Today promotion review
 
 **Spec:** `NEXT_PRODUCT_ROADMAP.md` Task 0.
@@ -226,3 +238,4 @@ contract is recorded.
 | 2026-10-22 | E9 | — | In progress | Added after E8 at the owner's request. |
 | 2026-10-23 | E9 | In progress | Verified | PR #34 merged; Market "what moved" bundle verified in harness and browser. |
 | 2026-10-23 | E10 | — | Verified | V8 Research decision context (multi-year trend bars, plan vs price ruler, historical filing multiples) implemented and verified. |
+| 2026-10-23 | E11 | — | Verified | V8 Research unit profitability margins, balance-sheet cushion and share dilution trajectory implemented and verified. |

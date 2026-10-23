@@ -304,3 +304,40 @@
     .historicalBars { gap: 6px; padding: 10px 8px; }
     .historicalBarValue { font-size: 10px; }
 }
+
+/* Profitability margins, balance-sheet cushion and share dilution context. */
+.qualitySection { margin: 22px 0 8px; }
+.qualityGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.qualityCard { padding: 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-subtle); min-width: 0; }
+.qualityCard h3 { margin: 4px 0 6px; font-size: var(--text-base); color: var(--ink); }
+.qualityCard > p { margin: 0 0 14px; font-size: var(--text-sm); color: var(--muted); }
+.marginList { display: grid; gap: 16px; }
+.marginItem { padding-top: 14px; border-top: 1px solid var(--line); min-width: 0; }
+.marginItem:first-child { padding-top: 0; border-top: 0; }
+.marginHeader { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; }
+.marginHeader strong { color: var(--ink); font-size: var(--text-sm); }
+.marginValue { font-size: var(--text-lg); font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
+.marginDesc { margin: 4px 0 0 !important; font-size: var(--text-sm); color: var(--muted); }
+.cushionBlock { padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin-bottom: 14px; }
+.cushionHeader { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 12px; }
+.cushionHeader strong { font-size: var(--text-sm); color: var(--ink); }
+.cushionNet { padding: 2px 8px; border-radius: 999px; font-size: var(--text-xs); font-weight: 650; font-variant-numeric: tabular-nums; background: var(--surface-muted); color: var(--ink); }
+.cushionNet[data-posture=net-cash] { background: var(--up-soft); color: var(--up); }
+.cushionNet[data-posture=net-debt] { background: var(--caution-soft); color: var(--caution); }
+.cushionBars { display: grid; gap: 10px; }
+.cushionRow { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: var(--text-sm); }
+.cushionRow > span:first-child { color: var(--muted); font-size: var(--text-xs); }
+.cushionTrack { display: block; height: 10px; border-radius: 999px; background: var(--surface-muted); overflow: hidden; }
+.cushionFill { display: block; height: 100%; border-radius: 999px; }
+.cushionFill[data-kind=cash] { background: var(--up-mark); }
+.cushionFill[data-kind=debt] { background: var(--caution-mark); }
+.cushionRow > b { font-size: var(--text-xs); font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+.shareDilutionBlock { padding-top: 14px; border-top: 1px solid var(--line); min-width: 0; }
+@media (max-width: 900px) {
+    .qualityGrid { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+    .qualityCard { padding: 14px; }
+    .cushionRow { grid-template-columns: 40px minmax(0, 1fr); gap: 6px 8px; }
+    .cushionRow > b { grid-column: 2; justify-self: start; }
+}
