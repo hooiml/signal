@@ -36,7 +36,8 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E1 | Price chart visual QA | Verified | UI-LIGHT | None |
 | E2 | Pinned workspaces and attention badges | Verified | Standard | None; uses already-loaded counts only |
 | E8 | V8 dark mode | Verified | Standard | None; added after E2 at the owner's request |
-| E9 | Market "what moved" bundle | In progress | Standard | None; added after E8 at the owner's request |
+| E9 | Market "what moved" bundle | Verified | Standard | None; added after E8 at the owner's request |
+| E10 | V8 Research decision context (multi-year trend bars, plan vs price ruler, historical filing multiples) | Verified | Standard | None; added after E9 at the owner's request |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -165,6 +166,17 @@ VIX Index +3.4 pts · Put/call ratio −1.2 pts" and survives reload; ring legen
 dark and light, 1100px and 375px without overflow. `market-last-visit-regression.mjs` covers impact
 maths, malformed storage, baseline rotation and change ranking (in the harness).
 
+### E10 — V8 Research decision context
+
+**Why:** V8 Research showed only a 2-year text YoY change in `Financials` and current snapshot ratios in `Valuation`, leaving multi-year trajectory, saved plan distance from live price, and filing-aligned historical valuation buried or available only in legacy V6/V7.
+
+**Scope:**
+1. Multi-year comparable annual trend bars (`annualHistorySeries`) inside each `ResearchFinancialSummary` card (`Annual revenue`, `Annual net income`, `Free cash flow`) when at least two consecutive comparable annual periods share currency and source.
+2. Same-currency Position Plan vs. Returned Price visual ruler and signed percentage distance (`PositionPlanComparison` / `positionPlanPriceContext`) in V8 `Valuation` when Advanced tools are enabled and the saved plan currency matches the quote currency.
+3. Lazy-loaded filing-aligned historical valuation disclosure (`HistoricalValuationV8`) in V8 `Valuation` using `GET /api/research/valuation-history/[symbol]?market=US|MY` with current-vs-filing low/median/high summary, selectable P/E, Price/sales and FCF yield bars, accessible table, and explicit Malaysia/SEC 10-K capability disclosures.
+
+**Evidence — 2026-10-23:** `display-clarity-regression.mjs` covers `annualHistorySeries` and `positionPlanPriceContext` contracts and immutability; lint, typecheck, harness, production build and browser visual verification at 1280px, 768px and 375px pass without overflow or console/request errors.
+
 ### E3 — Today promotion review
 
 **Spec:** `NEXT_PRODUCT_ROADMAP.md` Task 0.
@@ -212,3 +224,5 @@ contract is recorded.
 | 2026-10-22 | E2 | Verified | Verified | Pins and loaded-only overdue Calendar badges pass all three widths in both cockpit themes. |
 | 2026-10-22 | E8 | In progress | Verified | PR #30 merged; follow-up storage recovery and 25-scenario acceptance pass in PR #33. |
 | 2026-10-22 | E9 | — | In progress | Added after E8 at the owner's request. |
+| 2026-10-23 | E9 | In progress | Verified | PR #34 merged; Market "what moved" bundle verified in harness and browser. |
+| 2026-10-23 | E10 | — | Verified | V8 Research decision context (multi-year trend bars, plan vs price ruler, historical filing multiples) implemented and verified. |

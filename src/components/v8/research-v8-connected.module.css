@@ -241,3 +241,66 @@
 .chartLegend i[data-swatch=dash] { height: 0; border-top: 2px dashed var(--subtle); border-radius: 0; }
 .chartLegend i[data-swatch=marker] { width: 9px; height: 9px; background: var(--brand); transform: rotate(45deg); border-radius: 1px; }
 .app .chartMarkers { font-size: var(--text-xs); color: var(--muted); margin: 0 0 8px; }
+
+/* Multi-year financial trend bars, position-plan price ruler and filing-aligned historical valuation. */
+.financialTrend { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-subtle); }
+.financialTrendBars { display: flex; align-items: flex-end; gap: 8px; height: 52px; }
+.financialTrendCol { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; }
+.financialTrendTrack { flex: 1; width: 100%; display: flex; align-items: flex-end; border-bottom: 1px solid var(--line-strong); padding: 0 2px; }
+.financialTrendBar { display: block; width: 100%; border-radius: 3px 3px 0 0; background: var(--up-mark); }
+.financialTrendBar[data-sign=negative] { background: var(--down-mark); }
+.financialTrendBar[data-sign=zero] { background: var(--subtle); }
+.financialTrendCol small { font-size: var(--text-xs); color: var(--muted); line-height: 1; font-variant-numeric: tabular-nums; }
+.financialTrendMeta { display: block; margin-top: 6px; font-size: var(--text-xs); color: var(--muted); }
+
+.planComparison { margin: 14px 0 18px; padding: 16px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-subtle); }
+.planComparisonHeader strong { display: block; margin-top: 4px; font-size: var(--text-base); color: var(--ink); }
+.planComparisonHeader p { margin: 6px 0 0; font-size: var(--text-sm); color: var(--muted); }
+.planRuler { margin: 16px 0 12px; }
+.planRulerTrack { position: relative; height: 10px; border-radius: 999px; background: var(--surface-muted); border: 1px solid var(--line-strong); }
+.planRulerPin { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--subtle); border: 2px solid var(--surface); }
+.planRulerPin[data-pin=current] { width: 15px; height: 15px; background: var(--ink); z-index: 2; }
+.planRulerPin[data-pin=entry] { background: var(--brand); z-index: 1; }
+.planRulerPin[data-pin=cost] { background: var(--link); z-index: 1; }
+.planRulerPin[data-pin=invalidation] { background: var(--down-mark); z-index: 1; }
+.planRulerScale { display: flex; justify-content: space-between; margin-top: 6px; font-size: var(--text-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+.planMarkerLegend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 14px; list-style: none; padding: 0; margin: 12px 0 0; font-size: var(--text-sm); }
+.planMarkerLegend li { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); min-width: 0; }
+.planMarkerLegend li > span { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--text-xs); }
+.planMarkerLegend li i { width: 8px; height: 8px; border-radius: 50%; background: var(--subtle); flex-shrink: 0; }
+.planMarkerLegend li[data-pin=current] i { background: var(--ink); }
+.planMarkerLegend li[data-pin=entry] i { background: var(--brand); }
+.planMarkerLegend li[data-pin=cost] i { background: var(--link); }
+.planMarkerLegend li[data-pin=invalidation] i { background: var(--down-mark); }
+.planMarkerLegend li b { font-variant-numeric: tabular-nums; color: var(--ink); }
+.planMarkerLegend li small { color: var(--muted); font-size: var(--text-xs); }
+
+.historicalValuation { margin-top: 12px; }
+.capabilityGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
+.capabilityCard { padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-subtle); min-width: 0; }
+.capabilityTop { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+.capabilityCard p { margin: 8px 0 0; font-size: var(--text-xs); line-height: 1.5; }
+.historicalControls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin: 16px 0 12px; }
+.historicalControls small { margin: 0; color: var(--muted); }
+.historicalSummaryStrip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-subtle); margin-bottom: 14px; }
+.historicalSummaryStrip > div { display: grid; gap: 2px; min-width: 0; }
+.historicalSummaryStrip span { font-size: var(--text-xs); color: var(--muted); }
+.historicalSummaryStrip strong { font-size: var(--text-md); font-variant-numeric: tabular-nums; color: var(--ink); }
+.historicalBars { display: flex; align-items: flex-end; gap: 10px; height: 128px; padding: 14px 12px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-subtle); margin-bottom: 14px; }
+.historicalBarCol { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.historicalBarValue { font-size: var(--text-xs); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.historicalBarTrack { flex: 1; width: 100%; max-width: 44px; display: flex; align-items: flex-end; border-bottom: 1px solid var(--line-strong); padding: 0 3px; }
+.historicalBarFill { display: block; width: 100%; border-radius: 4px 4px 0 0; background: var(--brand); }
+.historicalBarFill[data-amended=true] { background: var(--caution-mark); }
+.historicalBarFill[data-negative=true] { background: var(--down-mark); }
+.historicalBarCol small { margin: 0; font-size: var(--text-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) {
+    .capabilityGrid { grid-template-columns: 1fr; }
+    .planMarkerLegend { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .historicalSummaryStrip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+    .planMarkerLegend { grid-template-columns: 1fr; }
+    .historicalBars { gap: 6px; padding: 10px 8px; }
+    .historicalBarValue { font-size: 10px; }
+}

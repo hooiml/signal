@@ -51,3 +51,151 @@ export function annualAmountComparison(f: ResearchSnapshot['fundamentals'], fiel
     const percentage = previous[field]! > 0 ? delta / previous[field]! * 100 : null;
     return { current, previous, delta, percentage: finite(percentage) ? percentage : null };
 }
+
+export type AnnualHistoryPoint = {
+    readonly reportingPeriod: string;
+    readonly value: number;
+    readonly heightPercent: number;
+    readonly sign: 'positive' | 'negative' | 'zero';
+};
+
+export type AnnualHistorySeries = {
+    readonly currency: string;
+    readonly source: string;
+    readonly points: readonly AnnualHistoryPoint[];
+    readonly hasNegative: boolean;
+    readonly startPeriod: string;
+    readonly endPeriod: string;
+};
+
+// Returns chronological comparable annual observations sharing the current period's currency and source.
+export function annualHistorySeries(f: ResearchSnapshot['fundamentals'] | null | undefined, field: AnnualAmount): AnnualHistorySeries | null {
+    if (!f || !f.source || !f.reportingPeriod) return null;
+    const currentCandidates = f.history.filter(row => row.reportingPeriod === f.reportingPeriod);
+    if (currentCandidates.length !== 1) return null;
+    const current = currentCandidates[0];
+    const currency = current.currency?.trim();
+    if (!currency || current.source !== f.source || current.comparableAnnual === false || !finite(current[field]) || current[field] !== f[field]) return null;
+    const comparable = f.history.filter(row => {
+        const parsed = Date.parse(row.reportingPeriod);
+        return Number.isFinite(parsed)
+            && row.currency?.trim() === currency
+            && row.source === current.source
+            && row.comparableAnnual !== false
+            && finite(row[field]);
+    });
+    const uniquePeriods = new Set(comparable.map(row => row.reportingPeriod));
+    if (uniquePeriods.size !== comparable.length || comparable.length < 2) return null;
+    const sorted = [...comparable].sort((a, b) => Date.parse(a.reportingPeriod) - Date.parse(b.reportingPeriod));
+    // Require consecutive annual-scale intervals (330 to 400 days) so skipped years are not plotted as adjacent bars.
+    for (let index = 1; index < sorted.length; index += 1) {
+        const days = (Date.parse(sorted[index].reportingPeriod) - Date.parse(sorted[index - 1].reportingPeriod)) / 86400000;
+        if (days < 330 || days > 400) return null;
+    }
+    const maxMagnitude = Math.max(...sorted.map(row => Math.abs(row[field]!)), 0);
+    const points: AnnualHistoryPoint[] = sorted.map(row => {
+        const value = row[field]!;
+        const sign = value > 0 ? 'positive' : value < 0 ? 'negative' : 'zero';
+        const heightPercent = maxMagnitude > 0 ? Math.max(sign === 'zero' ? 6 : 14, Math.round(Math.abs(value) / maxMagnitude * 100)) : 6;
+        return { reportingPeriod: row.reportingPeriod, value, heightPercent, sign };
+    });
+    return {
+        currency,
+        source: current.source,
+        points,
+        hasNegative: points.some(point => point.sign === 'negative'),
+        startPeriod: points[0].reportingPeriod,
+        endPeriod: points[points.length - 1].reportingPeriod,
+    };
+}
+
+export type PositionPlanMarker = {
+    readonly id: 'invalidation' | 'entry' | 'cost' | 'current' | 'low52' | 'high52';
+    readonly label: string;
+    readonly price: number;
+    readonly offsetPercent: number;
+    readonly deltaFromCurrentPercent: number | null;
+};
+
+export type PositionPlanPriceContext = {
+    readonly currency: string;
+    readonly currentPrice: number;
+    readonly scaleLow: number;
+    readonly scaleHigh: number;
+    readonly markers: readonly PositionPlanMarker[];
+    readonly distances: {
+        readonly plannedEntryPercent: number | null;
+        readonly averageCostPercent: number | null;
+        readonly invalidationPercent: number | null;
+    };
+};
+
+const validCurrency = (value: unknown): string | null =>
+    typeof value === 'string' && /^[A-Za-z]{3}$/.test(value.trim()) ? value.trim() : null;
+
+// Compares saved position-plan levels with the returned quote only when both carry the exact same 3-letter currency.
+export function positionPlanPriceContext(
+    plan: {
+        readonly currency?: string | null;
+        readonly plannedEntryPrice: number | null;
+        readonly averageCost: number | null;
+        readonly invalidationPrice: number | null;
+    } | null | undefined,
+    quote: {
+        readonly price: number | null;
+        readonly currency: string | null;
+    } | null | undefined,
+    bounds?: {
+        readonly low52Week?: number | null;
+        readonly high52Week?: number | null;
+    } | null,
+): PositionPlanPriceContext | null {
+    if (!plan || !quote || !finite(quote.price) || quote.price <= 0) return null;
+    const planCurrency = validCurrency(plan.currency);
+    const quoteCurrency = validCurrency(quote.currency);
+    if (!planCurrency || !quoteCurrency || planCurrency !== quoteCurrency) return null;
+    const currentPrice = quote.price;
+    const positiveLevel = (value: number | null | undefined): number | null => finite(value) && value > 0 ? value : null;
+    const entry = positiveLevel(plan.plannedEntryPrice);
+    const cost = positiveLevel(plan.averageCost);
+    const invalidation = positiveLevel(plan.invalidationPrice);
+    if (entry === null && cost === null && invalidation === null) return null;
+    const low52 = positiveLevel(bounds?.low52Week);
+    const high52 = positiveLevel(bounds?.high52Week);
+    const include52 = low52 !== null && high52 !== null && high52 > low52;
+    const rawMarkers: Array<{ id: PositionPlanMarker['id']; label: string; price: number }> = [
+        ...(include52 ? [{ id: 'low52' as const, label: '52-wk low', price: low52! }] : []),
+        ...(invalidation !== null ? [{ id: 'invalidation' as const, label: 'Invalidation', price: invalidation }] : []),
+        ...(entry !== null ? [{ id: 'entry' as const, label: 'Planned entry', price: entry }] : []),
+        ...(cost !== null ? [{ id: 'cost' as const, label: 'Average cost', price: cost }] : []),
+        { id: 'current' as const, label: 'Current price', price: currentPrice },
+        ...(include52 ? [{ id: 'high52' as const, label: '52-wk high', price: high52! }] : []),
+    ];
+    const prices = rawMarkers.map(marker => marker.price);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const span = maxPrice - minPrice;
+    const padding = span > 0 ? span * 0.06 : currentPrice * 0.05;
+    const scaleLow = Math.max(0, minPrice - padding);
+    const scaleHigh = maxPrice + padding;
+    const scaleSpan = scaleHigh - scaleLow || 1;
+    const deltaPercent = (target: number | null): number | null =>
+        target === null ? null : (target - currentPrice) / currentPrice * 100;
+    const markers: PositionPlanMarker[] = rawMarkers.map(marker => ({
+        ...marker,
+        offsetPercent: Math.max(2, Math.min(98, (marker.price - scaleLow) / scaleSpan * 100)),
+        deltaFromCurrentPercent: marker.id === 'current' || marker.id === 'low52' || marker.id === 'high52' ? null : deltaPercent(marker.price),
+    }));
+    return {
+        currency: quoteCurrency,
+        currentPrice,
+        scaleLow,
+        scaleHigh,
+        markers,
+        distances: {
+            plannedEntryPercent: deltaPercent(entry),
+            averageCostPercent: deltaPercent(cost),
+            invalidationPercent: deltaPercent(invalidation),
+        },
+    };
+}

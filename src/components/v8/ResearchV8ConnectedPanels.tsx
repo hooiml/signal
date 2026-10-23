@@ -9,6 +9,7 @@ import { cashDebtDisplay, compactFinancialAmount } from '@/lib/research/financia
 import { personalReviewDate, savedReviewMarkers } from '@/lib/research/review-lifecycle';
 import { ResearchDataAvailability } from './ResearchDataAvailability';
 import { ResearchFinancialSummary } from './ResearchFinancialSummary';
+import { HistoricalValuationV8, PositionPlanComparison } from './ResearchV8ValuationContext';
 type ChartStateProps = { chartRange: string; setChartRange: (range: string) => void; chartDate: string | null; setChartDate: (date: string | null) => void };
 import { checklistLabelsV6 } from '@/components/v6/research-v6';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
@@ -146,11 +147,12 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
                 <p>Debt: {money(fundamentals?.debt, fundamentals?.metricProvenance?.debt.currency)} · {researchMetricPeriodLabel(fundamentals, 'debt')}.</p>
                 <p>Net cash = cash − debt = {money(valuation?.netCash, netCashCurrency(fundamentals))}. A negative result is shown above as net debt with its positive magnitude. Source: {fundamentals?.source || 'Unavailable'}.</p>
             </details>
-            {advanced && record && <><h3>Your saved valuation & position plan</h3><p>{planCurrencyNote(record.positionPlan.currency, snapshot?.quote.currency)}</p><Metrics rows={[
+            {advanced && record && <><h3>Your saved valuation & position plan</h3><p>{planCurrencyNote(record.positionPlan.currency, snapshot?.quote.currency)}</p><PositionPlanComparison record={record} snapshot={snapshot} /><Metrics rows={[
                 ['Valuation judgment', record.valuationState], ['Target buy zone', record.targetBuyZone || 'Not recorded'], ['Position', record.positionState],
                 ['Planned allocation', number(record.positionPlan.plannedAllocationPercent, '%')], ['Average cost', planPrice(record.positionPlan.averageCost, record.positionPlan.currency)], ['Planned entry', planPrice(record.positionPlan.plannedEntryPrice, record.positionPlan.currency)], ['Invalidation', planPrice(record.positionPlan.invalidationPrice, record.positionPlan.currency)],
             ]} />
             </>}
+            {(snapshot?.symbol ?? record?.symbol) && <HistoricalValuationV8 symbol={(snapshot?.symbol ?? record?.symbol)!} market={market} snapshot={snapshot} />}
             <details className={connected.evidence} onToggle={event => { if (event.currentTarget.open) onBenchmarkRequest(); }}><summary>Compare past returns with the benchmark</summary>{benchmarkLoading && <p role="status">Loading optional benchmark comparison…</p>}{benchmarkError && <p>Benchmark request failed. Close and reopen this comparison to retry.</p>}{market === 'MY' || snapshot?.benchmark.status === 'not-applicable' ? <><h3>Benchmark coverage</h3><p>The existing research snapshot does not supply a comparable Malaysia benchmark. No cross-market comparison is inferred.</p></> : <><h3>Existing benchmark comparison</h3><p>{snapshot?.benchmark.baselineName || 'Vanguard S&P 500 ETF'} (VOO) · {snapshot?.benchmark.windowStart && snapshot.benchmark.windowEnd ? `${date(snapshot.benchmark.windowStart)} to ${date(snapshot.benchmark.windowEnd)} · ${snapshot.benchmark.commonSessions} common sessions` : 'Comparison window unavailable'} · {snapshot?.benchmark.returnBasis || 'Return basis unavailable'}. Status: {snapshot?.benchmark.status || 'unavailable'}.</p><Metrics rows={[
                 ['Security return', number(snapshot?.benchmark.candidateReturnPercent, '%')], ['Benchmark return', number(snapshot?.benchmark.baselineReturnPercent, '%')], ['Relative return', number(snapshot?.benchmark.relativeReturnPercent, ' percentage points')],
             ]} /></>}</details>

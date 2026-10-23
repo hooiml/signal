@@ -56,9 +56,14 @@ Harness checks should start deterministic and small. Keep early quality signals 
 
 `node scripts/harness/display-clarity-regression.mjs` is included in the harness.
 It checks display-only tier labels in both modes, single-source/unknown agreement,
-compact monetary amounts, retained signs/unknown currencies, and annual comparisons.
+compact monetary amounts, retained signs/unknown currencies, annual comparisons,
+multi-year comparable annual history series (`annualHistorySeries`), and same-currency
+position-plan price context (`positionPlanPriceContext`).
 Comparisons require a unique matching current period, matching current summary values,
-matching source/currency, and adjacent annual endpoints 350–380 days apart. Missing,
+matching source/currency, and adjacent annual endpoints 350–380 days apart. Multi-year
+trend strips require at least two consecutive annual periods (330–400 days apart) sharing
+the current period's currency and source. Position-plan price rulers and percentage distances
+require exact 3-letter currency equality between the saved plan and live quote. Missing,
 ambiguous, incompatible and non-finite inputs are withheld. A zero/negative prior amount
 permits an amount change but never a percentage. No scoring or assessment eligibility
 rules change. Summary financial cards keep exact amounts and provider-reported growth
