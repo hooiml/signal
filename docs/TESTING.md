@@ -4,6 +4,22 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For V8 Financials grouping and the public Chart & technicals tab, run
+`node scripts/research-chart-v8-qa.mjs` against one owned production server
+(`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). The browser matrix uses labelled
+provider/owner fixtures to check lazy chart loading, chart controls, grouped
+Financials, error/retry and empty/incorrect-identity responses, URL/tab keyboard
+behaviour, stale selection, and guest/owner note separation. Fresh guest contexts
+then read real AAPL/US and 5347/MY provider data without API interception. Public
+chart payloads and screenshots are saved under `.tmp/chart-real-data/`; fixture
+results are under `.tmp/research-chart-v8-qa/`. No real owner records are used.
+The chart uses the existing indicator calculation and renderer; missing history
+remains unavailable and shorter snapshot history stays visible when the extended
+history request fails. A chart read never saves a security or note.
+For a capture-only Financials follow-up, set `SIGNAL_QA_FINANCIALS_ONLY=1` with
+the same command. This checks populated synthetic cards and real-provider states
+at 1440/390px, with labels positioned below the sticky tabs.
+
 Guest recovery and saved-only export checks run inside `research-unsaved-qa.mjs`
 using `guest-recovery-qa.mjs`, the same Chromium process and local server. The
 1440/1280/768/390/375px matrix covers export cancel/continue, explicit restore,

@@ -27,6 +27,8 @@ import { V8ThemeControl } from './V8ThemeControl';
 import styles from './research-v8.module.css';
 import connected from './research-v8-connected.module.css';
 
+const tabElementId = (value: ResearchTab) => `connected-tab-${value === 'Chart & technicals' ? 'Chart' : value}`;
+
 export function ResearchV8Connected({ initialTicker = '', initialMarket }: { initialTicker?: string; initialMarket?: ResearchMarket }) {
     const [providerIdentity, setProviderIdentity] = useState<ProviderResearchIdentity | null>(null);
     const [records, setRecords] = useState<ResearchRecord[] | null>(null);
@@ -155,7 +157,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
         const url = new URL(window.location.href);
         url.searchParams.set('ticker', symbol);
         if (nextMarket) url.searchParams.set('market', nextMarket); else url.searchParams.delete('market');
-        url.searchParams.set('tab', nextTab.toLowerCase());
+        url.searchParams.set('tab', nextTab === 'Chart & technicals' ? 'chart' : nextTab.toLowerCase());
         if (nextAdvanced) url.searchParams.set('advanced', '1'); else url.searchParams.delete('advanced');
         if (url.href !== window.location.href) window.history[push ? 'pushState' : 'replaceState'](null, '', url);
         setReturnPath(url.pathname + url.search + url.hash);
@@ -177,7 +179,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
             setReturnPath(url.pathname + url.search + url.hash);
             setSelected(ticker);
             setSelectedMarket(restoredMarket);
-            const restoredTab = researchTabs.find(value => value.toLowerCase() === params.get('tab')?.toLowerCase()) ?? 'Overview';
+            const restoredTab = params.get('tab')?.toLowerCase() === 'chart' ? 'Chart & technicals' : researchTabs.find(value => value.toLowerCase() === params.get('tab')?.toLowerCase()) ?? 'Overview';
             setTab(restoredTab);
             setAdvanced(params.get('advanced') === '1' || restoredTab === 'Thesis' || restoredTab === 'Review');
     });
@@ -484,7 +486,7 @@ function ConnectedCase({ workspace, guestUnavailable, guestIdentity, guestDraft,
         const index = visibleTabs.indexOf(activeTab);
         const next = event.key === 'Home' ? 0 : event.key === 'End' ? visibleTabs.length - 1 : event.key === 'ArrowRight' ? (index + 1) % visibleTabs.length : event.key === 'ArrowLeft' ? (index + visibleTabs.length - 1) % visibleTabs.length : null;
         if (next === null) return;
-        event.preventDefault(); setTab(visibleTabs[next]); document.getElementById(`connected-tab-${visibleTabs[next]}`)?.focus();
+        event.preventDefault(); setTab(visibleTabs[next]); document.getElementById(tabElementId(visibleTabs[next]))?.focus();
     }
     return <>
         <div className={`${styles.workspace} ${connected.focusedWorkspace}`}>
@@ -501,7 +503,7 @@ function ConnectedCase({ workspace, guestUnavailable, guestIdentity, guestDraft,
                 <ResearchCurrentAssessment snapshot={snapshot} previous={readings.previous} loading={loading} error={error} now={assessmentTime} compact />
                 <section className={connected.dataStatus} aria-label="Provider data status"><div role="status">{loading ? snapshot ? `Refreshing provider data. Previous values retrieved ${retrievedAt(snapshot.fetchedAt)} remain visible.` : 'Loading provider data… You can browse while it loads.' : error ? `Provider refresh failed. ${snapshot ? `Previous values retrieved ${retrievedAt(snapshot.fetchedAt)} remain visible.` : 'No current assessment is available.'}` : `Provider sources: ${snapshot?.sources.join(', ') || 'Source not supplied'}`}</div><button className={base.textButton} disabled={loading} onClick={() => { setLoading(true); setError(false); setRefresh(value => value + 1); }}>{error ? 'Retry provider data' : 'Refresh provider data'}</button>{!!snapshot?.warnings.length && !compactFinancialAssessment && <details className={connected.warning}><summary>Source notices and limitations <span>View {snapshot.warnings.length} source notice{snapshot.warnings.length === 1 ? '' : 's'}</span></summary><p>These notices describe missing data or limits on how the returned values can be used. Unavailable inputs are not estimated; refreshing does not necessarily resolve a reporting limitation.</p><ul>{snapshot.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></details>}</section>
 
-                <section className={styles.investigation} aria-label="Company investigation"><div className={`${base.tabs} ${styles.tabs}`} role="tablist" aria-label="Research investigation" onKeyDown={tabKeys}>{visibleTabs.map(value => <button id={`connected-tab-${value}`} role="tab" aria-selected={activeTab === value} aria-controls="connected-panel" tabIndex={activeTab === value ? 0 : -1} key={value} onClick={() => setTab(value)}>{value}</button>)}</div><div id="connected-panel" role="tabpanel" aria-labelledby={`connected-tab-${activeTab}`} tabIndex={0} className={`${base.panel} ${styles.panel}`}>{activeTab === 'Overview' && <ResearchCurrentAssessment snapshot={snapshot} previous={readings.previous} loading={loading} error={error} now={assessmentTime} />}<ResearchConnectedPanel providerError={error} onBenchmarkRequest={() => setBenchmarkRequested(value => value + 1)} benchmarkError={benchmarkError} benchmarkLoading={benchmarkLoading} advanced={advanced} tab={activeTab} record={record} market={market} snapshot={snapshot} loading={loading} chartRange={chartRange} setChartRange={setChartRange} chartDate={chartDate} setChartDate={setChartDate} /></div></section>
+                <section className={styles.investigation} aria-label="Company investigation"><div className={`${base.tabs} ${styles.tabs}`} role="tablist" aria-label="Research investigation" onKeyDown={tabKeys}>{visibleTabs.map(value => <button id={tabElementId(value)} role="tab" aria-selected={activeTab === value} aria-controls="connected-panel" tabIndex={activeTab === value ? 0 : -1} key={value} onClick={() => setTab(value)}>{value}</button>)}</div><div id="connected-panel" role="tabpanel" aria-labelledby={tabElementId(activeTab)} tabIndex={0} className={`${base.panel} ${styles.panel}`}>{activeTab === 'Overview' && <ResearchCurrentAssessment snapshot={snapshot} previous={readings.previous} loading={loading} error={error} now={assessmentTime} />}<ResearchConnectedPanel providerError={error} onBenchmarkRequest={() => setBenchmarkRequested(value => value + 1)} benchmarkError={benchmarkError} benchmarkLoading={benchmarkLoading} advanced={advanced} tab={activeTab} record={record} market={market} snapshot={snapshot} loading={loading} chartRange={chartRange} setChartRange={setChartRange} chartDate={chartDate} setChartDate={setChartDate} /></div></section>
 
                 {advanced && record && <details className={connected.researchChecks}>
                     <summary><b>Optional research tools <span aria-hidden="true">⌄</span></b><span>Thesis, evidence, planning and reminders</span></summary>

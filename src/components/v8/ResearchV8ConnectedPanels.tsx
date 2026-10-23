@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { nearestPricePoint, priceRangeChange, valuationShareCount } from '@/lib/research/reading-display';
 import { formatResearchPrice, researchPriceCurrency } from '@/lib/research/price-format';
 import { financialPeriodLabel, formatResearchTimestamp, netCashCurrency, researchMetricPeriodLabel } from '@/lib/research/metric-provenance';
@@ -16,6 +17,10 @@ import { date, money, number, price, researchHref, sourceHref, type ResearchTab 
 import base from './market-v8.module.css';
 import styles from './research-v8.module.css';
 import connected from './research-v8-connected.module.css';
+
+const ResearchTechnicals = dynamic(() => import('./ResearchTechnicals').then(module => module.ResearchTechnicals), {
+    loading: () => <p role="status">Loading chart tools…</p>,
+});
 
 const planPrice = (value: number | null, currency: string | null | undefined) => value === null ? 'Unavailable' : formatResearchPrice(value, currency);
 
@@ -77,8 +82,11 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
         : valuation?.shareCount === undefined && market === 'US' ? researchMetricPeriodLabel(fundamentals, 'shares') : 'Share reporting date unavailable';
     const valuationShares = valuationShareCount(snapshot);
     return <div className={connected.panelContent}>
+        {tab === 'Chart & technicals' && (snapshot
+            ? <ResearchTechnicals key={`${snapshot.market}:${snapshot.symbol}:${snapshot.fetchedAt}`} snapshot={snapshot} />
+            : <p role="status">{loading ? 'Loading security data for the chart…' : 'Security data is unavailable. Retry provider data above to load the chart.'}</p>)}
         {tab === 'Overview' && <>
-            <PriceHistory snapshot={snapshot} loading={loading} advanced={advanced} savedMarket={record?.market ?? null} record={record} {...chart} />
+            <PriceHistory snapshot={snapshot} loading={loading} record={record} {...chart} />
             {record && (advanced || record.whyInterested || record.notes || record.acceptedEvidence.length > 0 || record.documentEvidence.citations.length > 0) && <details className={connected.evidence}><summary>Your saved notes and evidence · optional</summary>
             <span className={base.eyebrow}>USER-AUTHORED · SAVED {date(record.updatedAt)}</span>{record.whyInterested && <p className={connected.authored}>{record.whyInterested}</p>}{record.notes && <p className={connected.authored}>{record.notes}</p>}
             <h2>The evidence file</h2><p>Accepted research preserves its original sources and mode. A saved interpretation is not an independently verified fact.</p>
@@ -157,7 +165,7 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
     </div>;
 }
 
-function PriceHistory({ snapshot, loading, advanced, savedMarket, record, chartRange: range, setChartRange: setRange, chartDate, setChartDate }: { snapshot: ResearchSnapshot | null; loading: boolean; advanced: boolean; savedMarket: ResearchMarket | null; record?: ResearchRecord } & ChartStateProps) {
+function PriceHistory({ snapshot, loading, record, chartRange: range, setChartRange: setRange, chartDate, setChartDate }: { snapshot: ResearchSnapshot | null; loading: boolean; record?: ResearchRecord } & ChartStateProps) {
     const [mobileChart, setMobileChart] = useState(false);
     // Axis labels are sized in SVG units; scale them against the rendered width so they stay 12px on screen.
     const [chartElement, setChartElement] = useState<SVGSVGElement | null>(null);
@@ -248,10 +256,6 @@ function PriceHistory({ snapshot, loading, advanced, savedMarket, record, chartR
             <span>{date(periodChange.start)} → {date(periodChange.end)} · first and last returned closes.</span>
             <span>Price change only; not total return. This is separate from the quote’s daily change.</span>
         </> : <p>{movement}</p>}</div><p data-testid="research-period-direction" style={{ color: lineColor }}>{movement}. Colour compares the first and last returned closes in this range.</p><p>{points.length} returned observations · {snapshot?.quote.currency || 'Currency unavailable'}. Lines connect returned closes; missing sessions are not filled. These are historical closes, not the latest quote.</p><details><summary>View exact history values</summary><div className={connected.tableScroll} tabIndex={0} role="region" aria-label="Closing price table"><table><thead><tr><th>Date</th><th>Close ({snapshot?.quote.currency || 'currency unavailable'})</th><th>Volume</th></tr></thead><tbody>{points.map(item => <tr key={item.time}><th>{date(item.time)}</th><td>{number(item.close)}</td><td>{number(item.volume)}</td></tr>)}</tbody></table></div></details></> : <p className={styles.gapNote}>{loading ? 'Loading price history…' : 'No price history returned. No illustrative line is shown.'}</p>}
-        {/* The full chart workspace opens saved securities only; an unsaved reading must not hand off to a different saved company. */}
-        {snapshot && advanced && (savedMarket
-            ? <a className={base.textButton} href={researchHref(snapshot.symbol, 'chart', savedMarket)} target="_blank" rel="noopener noreferrer">Open full chart & technicals ↗</a>
-            : <p className={styles.gapNote}>Full chart & technicals open from saved research. Save {snapshot.symbol} to use them; this reading is unchanged.</p>)}
     </section>;
 }
 

@@ -1,7 +1,7 @@
 import { parseResearchRecord } from '@/lib/research/input';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 
-export const researchTabs = ['Overview', 'Financials', 'Thesis', 'Valuation', 'Review'] as const;
+export const researchTabs = ['Overview', 'Chart & technicals', 'Financials', 'Thesis', 'Valuation', 'Review'] as const;
 export type ResearchTab = typeof researchTabs[number];
 
 export function parseWatchlist(payload: unknown): ResearchRecord[] {

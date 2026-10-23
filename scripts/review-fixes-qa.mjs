@@ -4,7 +4,7 @@ import { chromium } from 'playwright';
 import { marketRequestFixture } from './harness/market-request-fixture.mjs';
 import { researchReadFixture, researchSnapshotFixture } from './harness/research-read-fixture.mjs';
 
-// Fixture-only browser checks for owner lock states, the unsaved chart handoff and the Market
+// Fixture-only browser checks for owner lock states, public chart access and the Market
 // change accounting. Requires an owned local production server; never reads a real database.
 const base = process.env.SIGNAL_QA_URL || 'http://127.0.0.1:3101';
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname), 'Fixture QA requires localhost');
@@ -80,6 +80,10 @@ try {
                 return route.fulfill({ json: { success: true, data: { configured: true, unlocked: true } } });
             }
             if (url.pathname.startsWith('/api/research/symbol/')) return route.fulfill({ json: snapshot(decodeURIComponent(url.pathname.split('/').pop())) });
+            if (url.pathname.startsWith('/api/research/chart/')) {
+                const symbol = decodeURIComponent(url.pathname.split('/').pop());
+                return route.fulfill({ json: { success: true, data: { symbol, market: 'US', chart: snapshot(symbol).data.chart } } });
+            }
             if (url.pathname === '/api/signals/v2') {
                 const fixture = marketRequestFixture();
                 const payload = await (await fixture.route.GET(fixture.request(url.search.slice(1)))).json();
@@ -89,19 +93,19 @@ try {
             return route.fulfill({ status: 404, json: { success: false, error: 'Not part of this fixture.' } });
         });
 
-        // An unsaved security offers no full-chart handoff and explains why.
+        // Public chart access does not require a saved security or a workspace handoff.
         await page.goto(`${base}/research-v8?ticker=NVDA&market=US&advanced=1`);
-        await page.getByText('Full chart & technicals open from saved research', { exact: false }).waitFor();
-        assert.equal(await page.getByRole('link', { name: /Open full chart/ }).count(), 0, 'unsaved security has no chart link');
+        await page.getByRole('tab', { name: 'Chart & technicals', exact: true }).click();
+        await page.getByTestId('research-technicals').getByText('Chart & technicals · NVDA · US.', { exact: false }).waitFor();
+        assert.equal(new URL(page.url()).searchParams.get('tab'), 'chart');
         await page.screenshot({ path: `${out}/unsaved-chart-${width}.png`, fullPage: false });
 
-        // The saved security's chart link carries its own ticker and market.
+        // The same public tab uses the requested saved security's identity.
         await page.goto(`${base}/research-v8?ticker=${saved.symbol}&market=${saved.market}&advanced=1`);
-        const chartLink = page.getByRole('link', { name: /Open full chart/ });
-        await chartLink.waitFor();
-        const href = new URL(await chartLink.getAttribute('href'), base);
-        assert.equal(href.searchParams.get('ticker'), saved.symbol);
-        assert.equal(href.searchParams.get('market'), saved.market);
+        await page.getByRole('tab', { name: 'Chart & technicals', exact: true }).click();
+        await page.getByTestId('research-technicals').getByText(`Chart & technicals · ${saved.symbol} · ${saved.market}.`, { exact: false }).waitFor();
+        assert.equal(new URL(page.url()).searchParams.get('ticker'), saved.symbol);
+        assert.equal(new URL(page.url()).searchParams.get('market'), saved.market);
 
         // A direct link to an unsaved ticker never substitutes another saved company.
         await page.goto(`${base}/research?workspace=research&ticker=NVDA&tab=chart`);
