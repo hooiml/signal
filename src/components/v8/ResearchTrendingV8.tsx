@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { DiscoveryContender, InstitutionalOwnershipEvidence, QualityDiscoveryResult } from '@/lib/types/research-discovery';
 import type { DiscoveryScan } from './ResearchDiscoverV8';
 import { retrievedAt } from './research-v8-connected-data';
@@ -19,16 +20,23 @@ export function ScanStatus({ scan }: { scan: DiscoveryScan }) {
     return <p role="status">Scanning liquid US trend candidates… The first scan of the hour can take up to a minute.</p>;
 }
 
-// Top 20 of the existing Trend Discovery scan: 10 Leaders + 10 Contenders.
+// Top 20 of the existing Trend Discovery scan: 10 Leaders, with the 10 Contenders one click away.
 export function ResearchTrendingV8({ scan, onSelect }: { scan: DiscoveryScan; onSelect: (symbol: string) => void }) {
+    const [showContenders, setShowContenders] = useState(false);
     const { data } = scan;
     if (!data) return <ScanStatus scan={scan} />;
-    const rows: { row: Row; rank: number; group: 'Leader' | 'Contender' }[] = [
+    const allRows: { row: Row; rank: number; group: 'Leader' | 'Contender' }[] = [
         ...data.candidates.slice(0, 10).map((row, index) => ({ row, rank: index + 1, group: 'Leader' as const })),
         ...data.contenders.slice(0, 10).map((row, index) => ({ row, rank: Math.min(data.candidates.length, 10) + index + 1, group: 'Contender' as const })),
     ];
+    const leaderCount = allRows.filter(({ group }) => group === 'Leader').length;
+    const rows = showContenders ? allRows : allRows.slice(0, leaderCount);
     return <>
-        <p className={styles.meta}>{data.scannedCount} of {data.universeSize} stocks scanned · {retrievedAt(data.generatedAt)}. Ranked by sustained 3- and 6-month momentum and SEC-confirmed business quality. A research shortlist, not a buy recommendation or a forecast. High-risk and fundamentally unsupported names are excluded. Holder filings are delayed quarterly 13F disclosures, not evidence of current buying.</p>
+        <p className={styles.meta}>{data.scannedCount} of {data.universeSize} stocks scanned · {retrievedAt(data.generatedAt)}</p>
+        <details className={styles.method}>
+            <summary>How this list is built</summary>
+            <p>Ranked by sustained 3- and 6-month momentum and SEC-confirmed business quality. A research shortlist, not a buy recommendation or a forecast. High-risk and fundamentally unsupported names are excluded. Holder filings are delayed quarterly 13F disclosures, not evidence of current buying.</p>
+        </details>
         {rows.length === 0 ? <p>No candidates passed the current eligibility checks.</p> : <ol className={styles.list} data-testid="research-trending">
             <li className={styles.head} aria-hidden="true"><span>#</span><span>Stock</span><span>Score</span><span>3M</span><span>6M</span><span>Risk</span><span>Category</span></li>
             {rows.map(({ row, rank, group }) => <li key={row.symbol} data-group={group}>
@@ -43,6 +51,7 @@ export function ResearchTrendingV8({ scan, onSelect }: { scan: DiscoveryScan; on
                 </button>
             </li>)}
         </ol>}
+        {allRows.length > leaderCount && <button className={styles.more} aria-expanded={showContenders} onClick={() => setShowContenders(value => !value)}>{showContenders ? 'Hide contenders' : `Show ${allRows.length - leaderCount} contenders`}</button>}
         {data.warnings.map(warning => <p key={warning} className={styles.meta}>{warning}</p>)}
     </>;
 }

@@ -187,7 +187,7 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   await page.waitForFunction(()=>document.querySelector('#guest-research-note')?.value==='Replacement workspace note');
   await draftPeer.close();
   await page.evaluate(k=>localStorage.removeItem(k),key); await page.goto(`${base}/research-v8`); await guestReady();
-  await page.getByText('Market shows broad market conditions. Research explores an individual company.',{exact:true}).waitFor();
+  await page.getByText('Search a company or ticker, or pick one from Discover below. Reading saves nothing.',{exact:true}).waitFor();
   assert.equal(await raw(),null,'The first-use explanation must not create guest records');
   // Real browser Web Locks serialize queued mutations from two different tabs.
   await page.evaluate(k=>localStorage.removeItem(k),key);
