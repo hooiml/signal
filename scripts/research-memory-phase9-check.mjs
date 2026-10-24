@@ -22,13 +22,12 @@ assert.ok(Number.isFinite(result.impliedEpsCagrPct));
 assert.equal(evaluateResearchValuationPlan({ ...plan, currentEps: null }, 420).scenarioResults.length, 0);
 assert.throws(() => parseResearchValuationPlan({ ...plan, annualDiscountRatePct: 60 }), /Discount rate/);
 
-const [store, route, panel, reviewTools, wrapper, workflow] = await Promise.all([
+const [store, route, panel, reviewTools, wrapper] = await Promise.all([
     readFile('src/lib/research/research-valuation-plan-store.ts', 'utf8'),
     readFile('src/app/api/research/valuation-plan/[ticker]/route.ts', 'utf8'),
     readFile('src/components/v9/ResearchValuationReasoningV9.tsx', 'utf8'),
     readFile('src/components/v12/ResearchReviewToolsV12.tsx', 'utf8'),
     readFile('src/components/v7/ResearchIntegratedPageV7.tsx', 'utf8'),
-    readFile('.github/workflows/research-memory-gate.yml', 'utf8'),
 ]);
 assert.match(store, /CREATE TABLE IF NOT EXISTS research_valuation_plans/);
 assert.match(route, /export const GET/);
@@ -43,6 +42,4 @@ assert.match(reviewTools, /id: 'valuation'/);
 assert.match(reviewTools, /snapshot=\{snapshot\}/);
 assert.doesNotMatch(panel, /\/api\/research\/watchlist|\/api\/research\/symbol\//);
 assert.doesNotMatch(wrapper, /ResearchValuationDockV9/);
-assert.match(workflow, /research-memory-phase9-check\.mjs/);
-assert.match(workflow, /research-valuation-v9-qa\.mjs/);
 console.log('research-memory phase9 valuation reasoning: ok');

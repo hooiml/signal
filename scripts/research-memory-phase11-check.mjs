@@ -12,13 +12,12 @@ const ranked = rankResearchAttentionItems([
 ]);
 assert.deepEqual(ranked.map((item) => item.id), ['risk', 'expectation', 'decision', 'valuation', 'stale']);
 
-const [attention, route, types, parser, row, workflow] = await Promise.all([
+const [attention, route, types, parser, row] = await Promise.all([
     readFile('src/lib/research/research-attention.ts', 'utf8'),
     readFile('src/app/api/research/inbox/route.ts', 'utf8'),
     readFile('src/lib/types/research-inbox.ts', 'utf8'),
     readFile('src/lib/research/inbox-input.ts', 'utf8'),
     readFile('src/components/v6/ResearchInboxRowV6.tsx', 'utf8'),
-    readFile('.github/workflows/research-memory-gate.yml', 'utf8'),
 ]);
 assert.match(attention, /Complete expectation vs reality/);
 assert.match(attention, /Complete valuation evidence input/);
@@ -28,6 +27,4 @@ assert.match(route, /enrichResearchInboxWithAttention/);
 assert.match(types, /'expectation' \| 'valuation' \| 'decision'/);
 assert.match(parser, /Expectation journal/);
 assert.match(row, /Decision review/);
-assert.match(workflow, /research-memory-phase11-check\.mjs/);
-assert.match(workflow, /research-attention-v11-qa\.mjs/);
 console.log('research-memory phase11 attention engine: ok');

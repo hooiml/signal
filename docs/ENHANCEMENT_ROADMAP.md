@@ -153,7 +153,7 @@ inside their container through focus/save/reload/conflict, and the existing read
 fully visible at 375×812 (bottom 804px, previously 1,147px). Views and briefing remain mounted
 behind a keyboard-accessible mobile disclosure. Lint, typecheck, harness, production build and
 PWA regressions pass; the final chart-only change was rebuilt and browser-verified. The expanded
-V8.1 workflow retains the browser reports and screenshots through explicit artifact allowlists.
+`Signal validation` workflow retains the browser reports and screenshots through explicit artifact allowlists.
 
 ### E9 — Market "what moved" bundle
 

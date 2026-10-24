@@ -90,6 +90,11 @@ function attachErrors(page, result) {
     });
 }
 
+// Reloading or navigating mid-load aborts in-flight fonts and fetches; those cancellations are not app failures.
+async function settle(page) {
+    if (page.url() !== 'about:blank') await page.waitForLoadState('networkidle').catch(() => {});
+}
+
 async function scenario(name, viewport, options, run) {
     const result = { name, viewport, status: 'running', checks: [], errors: [], canceledTransitions: [], requests: [], screenshots: [] };
     report.scenarios.push(result);
@@ -135,6 +140,7 @@ async function scenario(name, viewport, options, run) {
             result.errors.push(`Unexpected mutation: ${request.method()} ${url.pathname}`);
             return json({ success: false, error: 'Fixture forbids mutations' });
         }
+        if (url.pathname === '/api/owner/session') return json({ success: true, data: { configured: true, unlocked: true } });
         if (url.pathname === '/api/signals/v2') return json(market);
         if (url.pathname === '/api/signals/replay' && !url.searchParams.has('date')) {
             const payload = { success: true, data: {
@@ -148,6 +154,8 @@ async function scenario(name, viewport, options, run) {
             return json(payload);
         }
         if (url.pathname === '/api/research/watchlist') { await watchlistGate; return json({ success: true, data: [saved], archivedSymbols: [] }); }
+        // Market exposure classifies saved symbols through the public search; unclassified is acceptable here.
+        if (url.pathname === '/api/research/search') return json({ success: true, data: [] });
         if (url.pathname.startsWith('/api/research/symbol/')) return json(snapshot);
         if (url.pathname.startsWith('/api/research/quote/')) return json({ success: true, data: { quote: snapshot.data.quote } });
         if (url.pathname === '/api/research/inbox') return json({ success: true, data: { generatedAt: fixtureTime, monitoredCount: 1, items: [], warnings: [] } });
@@ -197,17 +205,20 @@ async function scenario(name, viewport, options, run) {
 }
 
 const goMarket = async page => {
+    await settle(page);
     await page.goto(`${baseUrl}/main-v8?market=US`, { waitUntil: 'domcontentloaded' });
     await page.getByTestId('connected-score').waitFor();
     await page.getByRole('combobox', { name: 'Colour theme' }).waitFor();
     await settlePaint(page);
 };
 const goResearch = async page => {
+    await settle(page);
     await page.goto(`${baseUrl}/research-v8?ticker=AAPL&market=US`, { waitUntil: 'domcontentloaded' });
     await page.getByTestId('research-price').waitFor();
     await page.getByTestId('research-review-marker').first().waitFor();
 };
 const goWorkspace = async (page, workspace) => {
+    await settle(page);
     await page.goto(`${baseUrl}/research?workspace=${workspace}&ticker=AAPL`, { waitUntil: 'domcontentloaded' });
     await page.getByTestId('research-pinned-workspaces').waitFor();
 };
@@ -290,7 +301,7 @@ try {
             await page.emulateMedia({ colorScheme: 'light' }); await expectTheme(page, 'system', 'light');
             check('Auto removes the stored override and follows later OS changes');
             await changeTheme(page, 'dark', 'dark');
-            await page.reload({ waitUntil: 'domcontentloaded' }); await expectTheme(page, 'dark', 'dark');
+            await settle(page); await page.reload({ waitUntil: 'domcontentloaded' }); await expectTheme(page, 'dark', 'dark');
             await goResearch(page); await expectTheme(page, 'dark', 'dark');
             check('Explicit choice survives reload and Market-to-Research navigation');
             const second = await context.newPage();
@@ -384,7 +395,7 @@ try {
             await page.getByRole('button', { name: 'Read saved review', exact: true }).click();
             await page.getByText('Fixture saved review note', { exact: true }).first().waitFor();
             await capture('saved-review');
-            await page.reload({ waitUntil: 'domcontentloaded' });
+            await settle(page); await page.reload({ waitUntil: 'domcontentloaded' });
             await expectTheme(page, theme, theme);
             assert.equal(await page.getByRole('tab', { name: 'Review', exact: true }).getAttribute('aria-selected'), 'true');
             check('Saved Review tab and chosen theme persist through reload');
@@ -408,7 +419,7 @@ try {
             check('Malformed pin storage recovers to usable empty navigation');
             await pinned(page).getByRole('button', { name: 'Pin Watchlist', exact: true }).click();
             assert.deepEqual(await storedPins(page), ['research']);
-            await page.reload({ waitUntil: 'domcontentloaded' });
+            await settle(page); await page.reload({ waitUntil: 'domcontentloaded' });
             await pinned(page).getByRole('button', { name: 'Unpin Watchlist', exact: true }).waitFor();
             check('Pinning survives reload');
             await goWorkspace(page, 'calendar');
@@ -432,11 +443,11 @@ try {
             check('Pinned Calendar reaches the saved overdue review');
             await pinned(page).getByRole('button', { name: 'Clear pins', exact: true }).click();
             assert.deepEqual(await storedPins(page), []);
-            await page.reload({ waitUntil: 'domcontentloaded' });
+            await settle(page); await page.reload({ waitUntil: 'domcontentloaded' });
             await pinned(page).getByText('None yet · pin up to 3 workspaces', { exact: true }).waitFor();
             check('Clearing pins persists through reload');
             await page.evaluate(key => localStorage.setItem(key, JSON.stringify(['research', 'research', 'invalid', null, 'calendar', 'queue', 'policy'])), pinsKey);
-            await page.reload({ waitUntil: 'domcontentloaded' });
+            await settle(page); await page.reload({ waitUntil: 'domcontentloaded' });
             await pinned(page).getByRole('button', { name: 'Unpin Calendar', exact: true }).waitFor();
             assert.equal(await pinned(page).getByRole('button').count(), 5);
             check('Malformed entries and duplicates are dropped; stored pins are capped at three');

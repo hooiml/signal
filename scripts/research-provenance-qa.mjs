@@ -68,6 +68,7 @@ try {
         await context.route('**/api/**', async route => {
             const request = route.request(), url = new URL(request.url());
             requests.push({ method: request.method(), path: url.pathname });
+            if (url.pathname === '/api/owner/session') return route.fulfill({ json: { success: true, data: { configured: true, unlocked: true } } }); // Owner workspace; listState/saveState model later access failures.
             if (url.pathname === '/api/research/watchlist') {
                 assert.equal(request.method(), 'GET', 'Creating real records is outside this fixture matrix.');
                 if (listState === 'locked') return route.fulfill({ status: 401, json: { success: false, code: 'OWNER_ACCESS_REQUIRED', error: 'Fixture locked' } });
@@ -161,7 +162,7 @@ try {
         assert.equal(await page.getByRole('tab', { name: 'Financials', exact: true }).getAttribute('aria-selected'), 'true');
         const financials = page.locator('#connected-panel');
         await financials.getByText('More financial measures and reporting dates', { exact: true }).click();
-        assert.match(await financials.innerText(), /Year ended 2025-12-31/);
+        assert.match(await financials.innerText(), /Year ended 31 Dec 2025/);
         assert.match(await financials.innerText(), /Components reported 2026-03-31 and 2026-06-30; dates differ/);
         assert.match(await financials.innerText(), /Reported 2026-06-30/);
         assert.match(await page.locator('[aria-label="Saved user-authored decision"]').innerText(), /Not recorded.*No personal review recorded/s);

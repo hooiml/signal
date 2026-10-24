@@ -45,7 +45,11 @@ try {
         });
         async function shot(name) {
             await page.evaluate(()=>document.fonts.ready);
-            const geometry=await page.locator('main h1,main button,main [role="tab"],main output').evaluateAll(items=>items.filter(e=>e.getClientRects().length).map(e=>({text:e.textContent?.slice(0,80),left:e.getBoundingClientRect().left,right:e.getBoundingClientRect().right})));
+            const geometry=await page.locator('main h1,main button,main [role="tab"],main output').evaluateAll(items=>items.filter(e=>e.getClientRects().length).map(e=>{
+                // Inside a horizontal scroller (the mobile tab strip), the scroller is what must fit the viewport.
+                let box=e;for(let a=e.parentElement;a;a=a.parentElement)if(/auto|scroll/.test(getComputedStyle(a).overflowX)){box=a;break;}
+                const r=box.getBoundingClientRect();return {text:e.textContent?.slice(0,80),left:r.left,right:r.right};
+            }));
             assert.ok(geometry.every(r=>r.left>=-1&&r.right<=width+1),`${name}: visible controls must not be clipped at ${width}`);
             assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name}: horizontal overflow`);
             await page.screenshot({path:`${out}/${name}-${width}.png`,fullPage:true});
