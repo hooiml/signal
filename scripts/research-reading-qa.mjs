@@ -93,7 +93,7 @@ try {
             await page.goto(`${base}/research-v8?ticker=SLOW&market=US`);await page.getByRole('heading',{level:1,name:'SLOW',exact:true}).waitFor();
             for(let i=0;i<100&&!releaseSlow;i++)await page.waitForTimeout(20);
             assert.equal(typeof releaseSlow,'function');
-            await page.getByText('Change security',{exact:true}).click();await page.getByLabel('Company or ticker',{exact:true}).fill('MSFT');await page.getByRole('button',{name:'Read ticker directly',exact:true}).click();
+            await page.getByText('Change stock',{exact:true}).click();await page.getByLabel('Company or ticker',{exact:true}).fill('MSFT');await page.getByRole('button',{name:'Read ticker directly',exact:true}).click();
             await page.getByRole('heading',{level:1,name:'Fixture MSFT company with a long readable name',exact:true}).waitFor();releaseSlow();await page.waitForTimeout(100);
             assert.equal(await page.getByRole('heading',{level:1}).innerText(),'Fixture MSFT company with a long readable name');
         }

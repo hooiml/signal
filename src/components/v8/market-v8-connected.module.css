@@ -68,7 +68,7 @@
 }
 
 /* Keep agreement secondary to the reading and material coverage limitations. */
-.alignment { margin-top: 12px; font-size: var(--text-sm); }
+.alignment { margin-top: 0; font-size: var(--text-sm); }
 .alignment > summary { cursor: pointer; min-height: 44px; padding: 10px 0; }
 .alignment p { margin: 6px 0; color: var(--muted); }
 /* Wider-market context fills the space beneath the score chart; evidence spans both rows. */
@@ -115,8 +115,10 @@
 }
 
 /* What moved and how much to trust it: last-visit note, coverage ring, impact chips. */
-.lastVisit { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--brand); border-radius: 4px; background: var(--brand-soft); color: var(--ink); font-size: var(--text-sm); }
-.lastVisit b { font-weight: 650; }
+.scoreLine > .lastVisit { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0 4px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-subtle); color: var(--muted); font-size: var(--text-sm); }
+.lastVisit b { color: var(--ink); font-weight: 650; font-variant-numeric: tabular-nums; }
+.lastVisit[data-direction=up] b { color: var(--up); }
+.lastVisit[data-direction=down] b { color: var(--down); }
 .coverageRing { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: center; margin: 10px 0 6px; }
 .coverageRing svg { width: 112px; height: 112px; }
 .coverageRing circle[data-indicator] { stroke: var(--line-strong); }

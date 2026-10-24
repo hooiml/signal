@@ -138,7 +138,7 @@ try {
         const beforeUnconfigured = watchlistReads;
         await page.goto(base + returnPath);
         await page.getByText('Saved research is unavailable because owner access has not been configured', { exact: false }).first().waitFor();
-        await page.getByRole('button', { name: /Saved securities · Unavailable/ }).waitFor();
+        await page.getByRole('button', { name: /Watchlist · Unavailable/ }).waitFor();
         assert.equal(watchlistReads - beforeUnconfigured, 1, 'configuration failure is not automatically retried');
         assert.equal(await page.getByRole('link', { name: 'Unlock Signal', exact: true }).count(), 0);
         await page.screenshot({ path: `${out}/unconfigured-${width}.png`, fullPage: false });
@@ -150,11 +150,11 @@ try {
         await retry.waitFor();
         watchlistStatus = 200;
         await retry.click();
-        await page.getByRole('button', { name: 'Saved securities · 1', exact: false }).waitFor();
+        await page.getByRole('button', { name: 'Watchlist · 1', exact: false }).waitFor();
 
         // A session that expires during Save leaves the reading in place and requires another explicit Save.
         saveStatus = 401;
-        await page.getByRole('button', { name: 'Save security', exact: true }).click();
+        await page.getByRole('button', { name: 'Save stock', exact: true }).click();
         const unlockSave = page.getByRole('link', { name: 'Unlock to save', exact: true });
         await unlockSave.waitFor();
         assert.equal(new URL(await unlockSave.getAttribute('href'), base).searchParams.get('next'), returnPath);
@@ -167,10 +167,10 @@ try {
             saveStatus = newerSaveStatus;
             await page.reload();
             await held.started;
-            await page.getByRole('button', { name: 'Save security', exact: true }).click();
+            await page.getByRole('button', { name: 'Save stock', exact: true }).click();
             const state = newerSaveStatus === 201
-                ? page.getByRole('button', { name: 'Saved securities · 1', exact: false })
-                : page.getByRole('button', { name: /Saved securities · Locked/ });
+                ? page.getByRole('button', { name: 'Watchlist · 1', exact: false })
+                : page.getByRole('button', { name: /Watchlist · Locked/ });
             await state.waitFor();
             const response = page.waitForResponse(response => response.url().endsWith('/api/research/watchlist') && response.request().method() === 'GET');
             held.release();
@@ -178,7 +178,7 @@ try {
             await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
             assert.equal(await state.isVisible(), true, `late ${lateReadStatus} read cannot overwrite newer ${newerSaveStatus} save`);
             if (newerSaveStatus === 201) assert.equal(await page.getByRole('link', { name: 'Unlock Signal', exact: true }).count(), 0);
-            else assert.equal(await page.getByRole('button', { name: 'Saved securities · 1', exact: false }).count(), 0);
+            else assert.equal(await page.getByRole('button', { name: 'Watchlist · 1', exact: false }).count(), 0);
         }
 
         // Market change accounting sums to the reported delta.

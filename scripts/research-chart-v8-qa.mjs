@@ -1,3 +1,4 @@
+import { switchWatchlistStock } from './qa-watchlist-switch.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -268,7 +269,7 @@ async function runMode(mode, viewport) {
             chartMode = 'empty';
             const emptyMalaysia = waitChartResponse('MAYBANK', 'MY');
             await page.getByRole('tab', { name: 'Overview', exact: true }).click();
-            await page.getByLabel('Switch saved security').selectOption('MY:MAYBANK');
+            await switchWatchlistStock(page, 'MY:MAYBANK');
             await page.waitForFunction(() => {
                 const identity = document.querySelector('[data-testid="selected-security-identity"]');
                 return identity?.getAttribute('data-symbol') === 'MAYBANK' && identity.getAttribute('data-market') === 'MY';
@@ -293,7 +294,7 @@ async function runMode(mode, viewport) {
 
             // Trigger a delayed request, then change securities using the in-page switcher.
             await page.getByRole('tab', { name: 'Overview', exact: true }).click();
-            await page.getByLabel('Switch saved security').selectOption('US:AAPL');
+            await switchWatchlistStock(page, 'US:AAPL');
             await page.waitForFunction(() => {
                 const identity = document.querySelector('[data-testid="selected-security-identity"]');
                 return identity?.getAttribute('data-symbol') === 'AAPL' && identity.getAttribute('data-market') === 'US';
@@ -302,7 +303,7 @@ async function runMode(mode, viewport) {
             await page.getByRole('tab', { name: 'Chart & technicals', exact: true }).click();
             await chartStarted;
             const selectedMalaysiaChart = waitChartResponse('MAYBANK', 'MY');
-            await page.getByLabel('Switch saved security').selectOption('MY:MAYBANK');
+            await switchWatchlistStock(page, 'MY:MAYBANK');
             await page.waitForFunction(() => document.querySelector('[data-testid="selected-security-identity"]')?.getAttribute('data-symbol') === 'MAYBANK');
             assert.equal((await selectedMalaysiaChart).status(), 200);
             await page.getByTestId('research-chart-explorer').waitFor({ state: 'visible' });

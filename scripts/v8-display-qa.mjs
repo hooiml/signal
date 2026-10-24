@@ -85,7 +85,7 @@ try {
    await panel.getByText('Exact amount and comparison',{exact:true}).first().click();
    await panel.getByText(/USD 67,723,100,000/).first().waitFor();
    assert.equal(await page.getByRole('heading',{name:'Growth and positive earnings reported',exact:true}).count(),0);
-   await page.getByRole('button',{name:'Saved research',exact:true}).click();
+   await page.getByRole('button',{name:'Workspace',exact:true}).click();
    await page.getByRole('button',{name:'Read saved thesis',exact:true}).click();
    assert.equal(await page.getByRole('tab',{name:'Thesis',exact:true}).getAttribute('aria-selected'),'true');
    assert.ok(page.url().includes('ticker=AAPL'));

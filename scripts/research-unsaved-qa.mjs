@@ -64,7 +64,7 @@ try {
   }
   assert.equal(req.method(),'GET','No unexpected mutation');return route.fulfill({json:{success:true,data:[]}});
  });
- async function openLookup(){const disclosure=page.locator('details').filter({has:page.getByText('Change security',{exact:true})});if(await disclosure.count()&&!(await disclosure.getAttribute('open')!==null))await disclosure.locator(':scope > summary').click();}
+ async function openLookup(){const disclosure=page.locator('details').filter({has:page.getByText('Change stock',{exact:true})});if(await disclosure.count()&&!(await disclosure.getAttribute('open')!==null))await disclosure.locator(':scope > summary').click();}
  async function read(symbol,market='US') {await openLookup();await page.getByLabel('Company or ticker',{exact:true}).fill(symbol);await page.getByLabel('Lookup market',{exact:true}).selectOption(market);await page.getByRole('button',{name:'Read ticker directly',exact:true}).click();}
  async function heading(text){
   if(text==='Growth and positive earnings reported') {
@@ -87,7 +87,7 @@ try {
  await page.getByRole('tab',{name:'Overview',exact:true}).click();
  // Name search never navigates or saves until a result is explicitly selected.
  const searchInput=page.getByLabel('Company or ticker',{exact:true});
- const find=()=>page.getByRole('button',{name:'Find security',exact:true}).click();
+ const find=()=>page.getByRole('button',{name:'Find stock',exact:true}).click();
  await openLookup();await searchInput.fill('Apple');assert.equal(searches.length,0);await find();
  const results=page.getByRole('list',{name:'Security search results'});await results.getByRole('button',{name:/Apple Inc/}).waitFor();
  assert.equal(await page.locator('h1').innerText(),'Fixture AAPL');assert.equal(posts.length,0);
@@ -149,12 +149,12 @@ try {
  await read('WRONG');await heading('Provider refresh failed · assessment limited');assert.equal(await page.getByTestId('research-price').innerText(),'Unavailable');
  await read('SLOW');await page.waitForFunction(()=>document.querySelector('h1')?.textContent==='SLOW');assert.equal(await page.getByTestId('research-price').innerText(),'Loading…');await page.waitForTimeout(100);assert.equal(held,true);
  await read('MSFT');await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 400.00');release();await page.waitForTimeout(150);assert.equal(await page.getByTestId('research-price').innerText(),'USD 400.00');assert.equal(await page.locator('h1').innerText(),'Fixture MSFT');
- saveFails=true;await page.getByRole('button',{name:'Save security',exact:true}).click();await page.getByRole('alert').filter({hasText:'could not be saved'}).waitFor();assert.equal(await page.getByTestId('research-price').innerText(),'USD 400.00');saveFails=false;
- await page.getByRole('button',{name:'Save security',exact:true}).click();await page.getByRole('button',{name:'Save security',exact:true}).waitFor({state:'detached'});assert.equal(posts.length,2);assert.deepEqual(posts[1],{symbol:'MSFT',market:'US',companyName:'Fixture MSFT',saveOnly:true});
- await page.getByRole('button',{name:'Saved research',exact:true}).click();await page.getByRole('button',{name:'Advanced tools',exact:true}).click();await page.getByText('No personal review recorded.',{exact:true}).waitFor();assert.ok((await page.getByRole('tab',{name:'Review',exact:true}).count())===1);
+ saveFails=true;await page.getByRole('button',{name:'Save stock',exact:true}).click();await page.getByRole('alert').filter({hasText:'could not be saved'}).waitFor();assert.equal(await page.getByTestId('research-price').innerText(),'USD 400.00');saveFails=false;
+ await page.getByRole('button',{name:'Save stock',exact:true}).click();await page.getByRole('button',{name:'Save stock',exact:true}).waitFor({state:'detached'});assert.equal(posts.length,2);assert.deepEqual(posts[1],{symbol:'MSFT',market:'US',companyName:'Fixture MSFT',saveOnly:true});
+ await page.getByRole('button',{name:'Workspace',exact:true}).click();await page.getByRole('button',{name:'Advanced tools',exact:true}).click();await page.getByText('No personal review recorded.',{exact:true}).waitFor();assert.ok((await page.getByRole('tab',{name:'Review',exact:true}).count())===1);
  await page.getByRole('tab',{name:'Review',exact:true}).click();await page.getByRole('heading',{name:'Your working note',exact:true}).waitFor();await noOverflow();
  // A late list read must not discard an explicit save completed in the meantime.
- list=[];listHold=true;await page.goto(`${base}/research-v8?ticker=AAPL&market=US`);await heading('Growth and positive earnings reported');await page.getByRole('button',{name:'Save security',exact:true}).click();await page.getByRole('button',{name:'Save security',exact:true}).waitFor({state:'detached'});releaseList();listHold=false;await page.waitForTimeout(150);assert.equal(await page.getByRole('button',{name:'Save security',exact:true}).count(),0);
+ list=[];listHold=true;await page.goto(`${base}/research-v8?ticker=AAPL&market=US`);await heading('Growth and positive earnings reported');await page.getByRole('button',{name:'Save stock',exact:true}).click();await page.getByRole('button',{name:'Save stock',exact:true}).waitFor({state:'detached'});releaseList();listHold=false;await page.waitForTimeout(150);assert.equal(await page.getByRole('button',{name:'Save stock',exact:true}).count(),0);
  // Failed saved-list reads cannot block independent provider evidence.
  watchlistFails=true;await page.goto(`${base}/research-v8?ticker=5347&market=MY`);await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'MYR 200.00');const savedWarning=page.getByText(/Saved research could not be refreshed/);await savedWarning.waitFor();watchlistFails=false;await savedWarning.getByRole('button',{name:'Retry saved research',exact:true}).click();await savedWarning.waitFor({state:'detached'});watchlistFails=true;
  // Legacy links must resolve an exact saved market before any provider request.
@@ -205,7 +205,7 @@ try {
  await page.goto(`${base}/main-v8`);
  await page.getByTestId('connected-score').waitFor();
  for(const theme of ['light','dark']) {
-  await page.getByRole('combobox',{name:'Colour theme'}).selectOption(theme);
+  await page.getByRole('radiogroup',{name:'Colour theme'}).locator(`input[value="${theme}"]`).check();
   await page.waitForFunction(value=>document.documentElement.dataset.v8Theme===value,theme);
   const coverage=page.getByRole('img',{name:/^Score weight:/}).locator('..');
   const colours=await coverage.evaluate(node=>Array.from(node.querySelectorAll('circle[data-indicator]')).map(circle=>({key:circle.dataset.indicator,colour:getComputedStyle(circle).stroke,legend:getComputedStyle(node.querySelector(`i[data-indicator="${circle.dataset.indicator}"]`)).backgroundColor})));
@@ -220,7 +220,7 @@ try {
   await noOverflow();await page.screenshot({path:`${out}/market-colours-${theme}-${width}.png`});
   await coverage.screenshot({path:`${out}/market-ring-${theme}-${width}.png`});
  }
- await page.getByRole('combobox',{name:'Colour theme'}).selectOption('light');
+ await page.getByRole('radiogroup',{name:'Colour theme'}).locator('input[value="light"]').check();
  await page.getByText('How to read this assessment · methodology and limits',{exact:true}).click();
  await page.getByRole('region',{name:'Current market assessment',exact:true}).waitFor();
  marketScoreCase='unchanged';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/Score unchanged.*Individual inputs can still differ/}).waitFor();await page.getByTestId('market-hero-unchanged').filter({hasText:/^No change since /}).waitFor();assert.equal(await page.getByRole('region',{name:'Market assessment'}).getByRole('button',{name:/points vs/}).count(),0);

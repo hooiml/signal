@@ -26,7 +26,7 @@ try{
                 for(const tab of ['Evidence','Scenarios','History']){await page.getByRole('tab',{name:tab,exact:true}).click();await geometry(`${route} ${tab} ${width}`);}await page.getByRole('tab',{name:'What changed',exact:true}).click();
             }else{
                 await page.getByRole('button',{name:'Tools',exact:true}).click();await geometry(`research tools ${width}`);await page.getByRole('button',{name:'Close research panel'}).click();
-                await page.getByRole('button',{name:/^Saved securities/}).click();await geometry(`saved selector ${width}`);await page.getByRole('button',{name:'Close research panel'}).click();
+                await page.getByRole('button',{name:/^Watchlist/}).click();await geometry(`saved selector ${width}`);await page.getByRole('button',{name:'Close research panel'}).click();
                 for(const tab of ['Financials','Thesis','Valuation','Review']){await page.getByRole('tab',{name:tab,exact:true}).click();await geometry(`${route} ${tab} ${width}`);}await page.getByRole('tab',{name:'Overview',exact:true}).click();
             }
             if(width===375||width===1280){await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:`${output}/${route.split('?')[0]}-${width}.png`});}

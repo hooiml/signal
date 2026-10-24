@@ -43,16 +43,22 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
 | `/research` (other params) | The V7 integrated workspace (built on the V6 dashboard) that saved-research edit links open. |
 | `/start` | V6 guided start. Not linked from the V8 header. |
 
-- **Primary navigation (V8 header):** Market · Research, plus the theme control.
+- **Primary navigation (V8 header):** Market · Research, plus the Light / Auto / Dark theme toggle.
 - **Market, basic view:** score summary and coverage ring → score history beside the indicator evidence
   list → wider-market strip → historical outcomes → exposure map → links into Research → methodology
   (collapsed) → tabs **What changed · Context**.
 - **Market, Advanced view:** adds the **Evidence**, **History** and **Scenarios** tabs and historical
   snapshot replay.
-- **Research:** security search, then **Discover** (Trending · Early trends · Stock Picker · Calendar ·
-  Alerts), then the selected security's price and status, then tabs **Overview · Chart & technicals ·
-  Financials · Valuation · Peers · Filings**. **Thesis** and **Review** appear only in Advanced view for a
-  saved security.
+- **Research home** (no ticker): stock search, then two tabs: **Watchlist** (saved stocks as cards)
+  and **Discover** (Trending · Early trends · Stock Picker · Calendar · Alerts). The header shows
+  **Workspace** (export, Advanced tools, owner access).
+- **Reading a stock:** the header adds a **Watchlist · N** switcher; **Change stock** and **Discover**
+  sit above the price and status, then tabs **Overview · Chart & technicals · Financials · Valuation ·
+  Peers · Filings**. **Thesis** and **Review** appear only in Advanced view for a saved stock.
+- **Calendar:** a month grid with a labelled marker per event (earnings, trending earnings, review,
+  overdue review, macro) and an agenda for the selected day; phones show colour dots in the grid.
+- **Wording:** user-facing labels say "stock" and "Watchlist"; data-scope notes may still say
+  "security" where ETFs or funds are included.
 - **Content order on every page:** current state → evidence and limits → action or saved record →
   historical learning.
 
@@ -97,8 +103,8 @@ V8 tokens are defined on `.app` in `src/components/v8/market-v8.module.css`, one
   stay explicit, and neutral fallback stays grey.
 - **Dark theme:** the same tokens are redefined under `html[data-v8-theme=dark]`. The boot script in
   `src/components/v8/v8-theme.ts` sets the attribute before first paint from the stored choice
-  (`signal-v8-theme-v1`: `light` or `dark`) or, by default, the system setting. The header control
-  offers Auto / Light / Dark.
+  (`signal-v8-theme-v1`: `light` or `dark`) or, by default, the system setting. The header toggle is
+  a radio group (Light / Auto / Dark) with icons; phones show the icons only.
 
 ### Typography
 

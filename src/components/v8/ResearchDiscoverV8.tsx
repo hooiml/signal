@@ -37,8 +37,10 @@ function useDiscoveryScan(enabled: boolean): DiscoveryScan {
     return { data, error, retry: () => { setError(''); setAttempt(value => value + 1); } };
 }
 
-export function ResearchDiscoverV8({ initialView, defaultOpen, records, workspace, onSelect }: { initialView?: DiscoverView; defaultOpen: boolean; records: readonly ResearchRecord[] | null; workspace: 'checking' | 'guest' | 'owner'; onSelect: (symbol: string, market: ResearchMarket) => void }) {
-    const [open, setOpen] = useState(defaultOpen || !!initialView);
+export function ResearchDiscoverV8({ initialView, defaultOpen, embedded = false, records, workspace, onSelect }: { initialView?: DiscoverView; defaultOpen: boolean; embedded?: boolean; records: readonly ResearchRecord[] | null; workspace: 'checking' | 'guest' | 'owner'; onSelect: (symbol: string, market: ResearchMarket) => void }) {
+    const [expanded, setOpen] = useState(defaultOpen || !!initialView);
+    // On the Research home, Discover is a tab beside the watchlist and is always open.
+    const open = embedded || expanded;
     const [view, setView] = useState<DiscoverView>(initialView ?? 'trending');
     const scan = useDiscoveryScan(open);
     const ref = useRef<HTMLDetailsElement>(null);
@@ -58,8 +60,7 @@ export function ResearchDiscoverV8({ initialView, defaultOpen, records, workspac
         onSelect(symbol, market);
     }
     const savedSymbols = (records ?? []).filter(record => record.market === 'US').map(record => record.symbol);
-    return <details ref={ref} id="discover" className={styles.discover} open={open} onToggle={event => setOpen(event.currentTarget.open)} data-testid="research-discover">
-        <summary><b>Discover</b><span>Trending and early-trend stocks, a Stock Picker, earnings dates and alerts</span></summary>
+    const content = <>
         <div className={styles.views} role="tablist" aria-label="Discover views">{discoverViews.map(value => <button key={value} role="tab" id={`discover-tab-${value}`} aria-selected={view === value} aria-controls="discover-panel" onClick={() => changeView(value)}>{labels[value]}</button>)}</div>
         <div id="discover-panel" role="tabpanel" aria-labelledby={`discover-tab-${view}`} className={styles.body}>
             {view === 'trending' && <ResearchTrendingV8 scan={scan} onSelect={symbol => select(symbol, 'US')} />}
@@ -68,5 +69,10 @@ export function ResearchDiscoverV8({ initialView, defaultOpen, records, workspac
             {view === 'calendar' && <ResearchCalendarV8 records={records} trending={scan.data} onSelect={select} />}
             {view === 'alerts' && <ResearchAlertsV8 records={records} workspace={workspace} onSelect={select} />}
         </div>
+    </>;
+    if (embedded) return <div id="discover" className={`${styles.discover} ${styles.embedded}`} data-testid="research-discover">{content}</div>;
+    return <details ref={ref} id="discover" className={styles.discover} open={open} onToggle={event => setOpen(event.currentTarget.open)} data-testid="research-discover">
+        <summary><b>Discover</b><span>Trending and early-trend stocks, a Stock Picker, earnings dates and alerts</span></summary>
+        {content}
     </details>;
 }

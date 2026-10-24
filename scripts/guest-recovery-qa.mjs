@@ -29,10 +29,10 @@ export async function guestRecoveryQa(browser, base, snapshot) {
   const backups = () => page.evaluate(p=>Object.keys(localStorage).filter(k=>k.startsWith(p)).map(k=>JSON.parse(localStorage.getItem(k))),prefix);
   const settledBackup = text => page.waitForFunction(({p,text})=>Object.keys(localStorage).some(k=>k.startsWith(p)&&JSON.parse(localStorage.getItem(k)).text===text),{p:prefix,text});
   const overflow = async () => assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`overflow at ${width}`);
-  await page.goto(url); await page.getByRole('button',{name:'Save security',exact:true}).click(); await note().waitFor();
+  await page.goto(url); await page.getByRole('button',{name:'Save stock',exact:true}).click(); await note().waitFor();
   await note().fill('Recover this unsaved guest note'); await settledBackup('Recover this unsaved guest note');
   assert.equal(await page.evaluate(k=>JSON.parse(localStorage.getItem(k)).records[0].notes,key),'');
-  await page.getByRole('button',{name:'Saved research',exact:true}).click();
+  await page.getByRole('button',{name:'Workspace',exact:true}).click();
   await page.getByText('Export includes saved notes only.',{exact:false}).waitFor();
   page.once('dialog',d=>{assert.match(d.message(),/Unsaved drafts are not included/);d.dismiss();});
   await page.getByRole('button',{name:'Export guest research',exact:true}).click();
@@ -78,7 +78,7 @@ export async function guestRecoveryQa(browser, base, snapshot) {
   await page.getByRole('button',{name:'Retry draft recovery',exact:true}).click();
   await settledBackup('Draft with blocked backup storage');
   await overflow();
-  const removeBox = await page.getByRole('button',{name:'Remove security',exact:true}).boundingBox();
+  const removeBox = await page.getByRole('button',{name:'Remove from watchlist',exact:true}).boundingBox();
   assert.ok(removeBox.height <= 60 && removeBox.width >= 90, 'note-header action stays readable');
   await page.locator('section[aria-labelledby="guest-note-title"]').screenshot({path:`${out}/draft-actions-${width}.png`});
   page.once('dialog',d=>d.accept()); await page.getByRole('button',{name:'Discard changes',exact:true}).click();
@@ -90,11 +90,11 @@ export async function guestRecoveryQa(browser, base, snapshot) {
   page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Discard AAPL draft',exact:true}).click();
   await page.waitForFunction(p=>!Object.keys(localStorage).some(k=>k.startsWith(p)),prefix);
   await note().fill('Clear backup');await settledBackup('Clear backup');
-  await page.getByRole('button',{name:'Saved research',exact:true}).click();
+  await page.getByRole('button',{name:'Workspace',exact:true}).click();
   page.once('dialog',d=>{assert.match(d.message(),/draft backups/);d.accept();});await page.getByRole('button',{name:'Clear guest research',exact:true}).click();
   await page.waitForFunction(k=>localStorage.getItem(k)===null,key);assert.equal((await backups()).length,0);
   await page.getByRole('button',{name:'Close research panel'}).click();
-  await page.getByRole('button',{name:'Save security',exact:true}).click(); await note().fill('Backup before a delayed restore');
+  await page.getByRole('button',{name:'Save stock',exact:true}).click(); await note().fill('Backup before a delayed restore');
   await settledBackup('Backup before a delayed restore'); await page.close(); page=await context.newPage();monitor(page);await page.goto(url);
   await page.getByRole('button',{name:'Restore AAPL draft',exact:true}).waitFor();
   await page.evaluate(()=>{window.qaHeld=false;void navigator.locks.request('signal.guest-research.v1',()=>new Promise(resolve=>{window.qaRelease=resolve;window.qaHeld=true;}));});
@@ -102,7 +102,7 @@ export async function guestRecoveryQa(browser, base, snapshot) {
   await page.waitForFunction(async()=>((await navigator.locks.query()).pending??[]).length>0);
   await note().fill('New typing while restore waits');await page.evaluate(()=>window.qaRelease());await settledBackup('New typing while restore waits');
   assert.equal(await note().inputValue(),'New typing while restore waits','late recovery cannot erase typing');
-  await page.getByRole('button',{name:'Saved research',exact:true}).click();page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Clear guest research',exact:true}).click();
+  await page.getByRole('button',{name:'Workspace',exact:true}).click();page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Clear guest research',exact:true}).click();
   await page.waitForFunction(k=>localStorage.getItem(k)===null,key);await page.getByRole('button',{name:'Close research panel'}).click();
   // The basic-view control must update the actual signal request in both markets.
   await page.getByRole('link',{name:'Market',exact:true}).click();
