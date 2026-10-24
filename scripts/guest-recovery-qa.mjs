@@ -107,7 +107,7 @@ export async function guestRecoveryQa(browser, base, snapshot) {
   // The basic-view control must update the actual signal request in both markets.
   await page.getByRole('link',{name:'Market',exact:true}).click();
   const toggle=page.getByRole('checkbox',{name:'Include social in score',exact:true});await toggle.waitFor();
-  await page.getByText(/Enabled · no usable social evidence/).waitFor();
+  await page.locator('summary',{hasText:'About these settings'}).click();await page.getByText(/Enabled · no usable social evidence/).waitFor();
   await toggle.uncheck();await page.getByText(/Excluded from score/).waitFor();
   await page.waitForFunction(()=>!document.body.textContent.includes('Updating the market reading'));
   assert.ok(scoreRequests.some(q=>q.includes('enableSocial=false')));

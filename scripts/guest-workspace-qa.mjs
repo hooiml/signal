@@ -22,7 +22,7 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   page.on('requestfailed',r=>{if(!/ERR_ABORTED/.test(r.failure()?.errorText??''))errors.push(r.failure()?.errorText);});
   const url = `${base}/research-v8?ticker=AAPL&market=US`;
   // dataStatus uses a labelled div, so query its accessible label directly.
-  const guestReady = () => page.getByText('Welcome to Signal · Guest workspace. Securities and notes are saved on this device.',{exact:true}).waitFor();
+  const guestReady = () => page.getByText('Welcome to Signal · Guest workspace. Your watchlist and notes are saved on this device.',{exact:true}).waitFor();
   const note = page.getByLabel('Personal note for AAPL',{exact:true});
   const raw = () => page.evaluate(k=>localStorage.getItem(k),key);
   const overflow = async () => assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Guest overflow at ${width}`);
@@ -183,7 +183,7 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   await page.waitForFunction(()=>document.querySelector('#guest-research-note')?.value==='Replacement workspace note');
   await draftPeer.close();
   await page.evaluate(k=>localStorage.removeItem(k),key); await page.goto(`${base}/research-v8`); await guestReady();
-  await page.getByText('Search a company or ticker, or pick one from Discover below. Reading saves nothing.',{exact:true}).waitFor();
+  await page.getByText('Search a company or ticker, or open one from your watchlist or Discover. Reading saves nothing.',{exact:true}).waitFor();
   assert.equal(await raw(),null,'The first-use explanation must not create guest records');
   // Real browser Web Locks serialize queued mutations from two different tabs.
   await page.evaluate(k=>localStorage.removeItem(k),key);

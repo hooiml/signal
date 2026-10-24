@@ -9,9 +9,9 @@ export async function switchWatchlistStock(page, value) {
         await picker.selectOption(value);
         return;
     }
-    const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Button text runs together with an aria-hidden monogram, so match the symbol and market lines on their own.
     await dialog.getByRole('region', { name: 'Saved watchlist' }).getByRole('button')
-        .filter({ hasText: new RegExp(`^${escaped}`) })
-        .filter({ hasText: new RegExp(`\\b${market}\\b`) })
+        .filter({ has: page.getByText(symbol, { exact: true }) })
+        .filter({ has: page.getByText(new RegExp(`^${market}(?: · |$)`)) })
         .first().click();
 }
