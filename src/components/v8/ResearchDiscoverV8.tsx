@@ -4,13 +4,14 @@ import { useEffect, useRef, useState } from 'react';
 import { parseDiscoveryResponseV6 } from '@/components/v6/research-discovery-response-v6';
 import type { DiscoveryResponse } from '@/lib/types/research-discovery';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
+import { ResearchAlertsV8 } from './ResearchAlertsV8';
 import { ResearchCalendarV8 } from './ResearchCalendarV8';
 import { ResearchPickerV8 } from './ResearchPickerV8';
 import { ResearchTrendingV8 } from './ResearchTrendingV8';
 import { discoverViews, type DiscoverView } from './discover-view';
 import styles from './research-discover-v8.module.css';
 
-const labels: Record<DiscoverView, string> = { trending: 'Trending · Top 20', picker: 'Stock Picker', calendar: 'Calendar' };
+const labels: Record<DiscoverView, string> = { trending: 'Trending · Top 20', picker: 'Stock Picker', calendar: 'Calendar', alerts: 'Alerts' };
 
 export type DiscoveryScan = { data: DiscoveryResponse | null; error: string; retry: () => void };
 
@@ -35,7 +36,7 @@ function useDiscoveryScan(enabled: boolean): DiscoveryScan {
     return { data, error, retry: () => { setError(''); setAttempt(value => value + 1); } };
 }
 
-export function ResearchDiscoverV8({ initialView, defaultOpen, records, onSelect }: { initialView?: DiscoverView; defaultOpen: boolean; records: readonly ResearchRecord[] | null; onSelect: (symbol: string, market: ResearchMarket) => void }) {
+export function ResearchDiscoverV8({ initialView, defaultOpen, records, workspace, onSelect }: { initialView?: DiscoverView; defaultOpen: boolean; records: readonly ResearchRecord[] | null; workspace: 'checking' | 'guest' | 'owner'; onSelect: (symbol: string, market: ResearchMarket) => void }) {
     const [open, setOpen] = useState(defaultOpen || !!initialView);
     const [view, setView] = useState<DiscoverView>(initialView ?? 'trending');
     const scan = useDiscoveryScan(open);
@@ -57,12 +58,13 @@ export function ResearchDiscoverV8({ initialView, defaultOpen, records, onSelect
     }
     const savedSymbols = (records ?? []).filter(record => record.market === 'US').map(record => record.symbol);
     return <details ref={ref} id="discover" className={styles.discover} open={open} onToggle={event => setOpen(event.currentTarget.open)} data-testid="research-discover">
-        <summary><b>Discover</b><span>Trending momentum, a rule-based Stock Picker, and upcoming earnings and reviews</span></summary>
+        <summary><b>Discover</b><span>Trending momentum, a rule-based Stock Picker, upcoming earnings and reviews, and alerts on your saved stocks</span></summary>
         <div className={styles.views} role="tablist" aria-label="Discover views">{discoverViews.map(value => <button key={value} role="tab" id={`discover-tab-${value}`} aria-selected={view === value} aria-controls="discover-panel" onClick={() => changeView(value)}>{labels[value]}</button>)}</div>
         <div id="discover-panel" role="tabpanel" aria-labelledby={`discover-tab-${view}`} className={styles.body}>
             {view === 'trending' && <ResearchTrendingV8 scan={scan} onSelect={symbol => select(symbol, 'US')} />}
             {view === 'picker' && <ResearchPickerV8 scan={scan} savedSymbols={savedSymbols} onSelect={symbol => select(symbol, 'US')} />}
             {view === 'calendar' && <ResearchCalendarV8 records={records} trending={scan.data} onSelect={select} />}
+            {view === 'alerts' && <ResearchAlertsV8 records={records} workspace={workspace} onSelect={select} />}
         </div>
     </details>;
 }
