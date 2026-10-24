@@ -51,7 +51,7 @@ Up to the first ten eligible candidates form the high-conviction `Leaders` list.
 
 The V8 Research page (`/research-v8`) has a `Discover` disclosure (`src/components/v8/ResearchDiscoverV8.tsx`) with three views that share one scan request:
 
-- `Trending · Top 20`: the same Leaders and Contenders, read-only.
+- `Trending · Top 20`: the same Leaders and Contenders, read-only. Each row shows the institutional holder-filing balance (increases led, decreases led or mixed, with reported institutional ownership when available) as a delayed quarterly disclosure, never as current buying.
 - `Stock Picker`: the existing `src/lib/research/picker.ts` rules (horizon, risk profile, minimum score, pick count, sector cap, skip saved) applied to the scan, with browser-local paper baskets measured against VOO (`signal-picker-runs-v1`, shared with the V6 Picker). Saved Discovery strategies are not offered here; the default Discovery rank is used.
 - `Calendar`: `/api/research/calendar` for the current workspace's saved securities (guest or owner), plus earnings dates already present on Top 20 candidates and the macro watch.
 - `Alerts`: `/api/research/alerts` for up to 50 saved securities of the current workspace. Market-condition alerts apply to every workspace; numeric review triggers exist only on owner records and are listed for owners, with editing left to the Research workspace.

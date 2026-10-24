@@ -367,6 +367,24 @@ selection order, disclosure mutation safety, exact Discovery request count, docu
 blocking console/request errors, and shortlist screenshots at
 1280px, 768px, and 375px. Use `--viewport 375` only for a focused rerun after a failure.
 
+### Targeted V8 Discover, Peers, Filings and Market Modules QA
+
+For the V8 Discover views (Trending, Stock Picker, Calendar, Alerts), the Research Peers and
+Filings tabs, and the Market outcomes and exposure map, run against a local Signal server:
+
+```powershell
+$env:SIGNAL_QA_URL = 'http://127.0.0.1:3000'; npm run qa:v8-modules
+```
+
+The script reads discovery, one snapshot, one quote and the US signal once to seed fixtures, then
+pins every asserted value and runs as a guest with browser-local records. It covers deep links,
+Leaders and Contenders rows, holder-filing labels and caveat, Picker selection and paper-basket
+save/remove, saved and Top 20 earnings, alert selection leaving Discover, default and edited peer
+sets with median and rank, SEC filing links and the no-Retry configuration failure, outcome
+horizons and the History link, sector normalisation in the exposure map, no owner-route writes,
+no browser errors, and document and Discover-tab overflow at 1280px and 375px. Screenshots go to
+`.tmp/v8-modules/`.
+
 ### Targeted Research Readiness QA
 
 For the ticker-level saved-state readiness strip and its owner navigation, run against a local
