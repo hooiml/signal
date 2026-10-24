@@ -168,7 +168,7 @@ import {
     parseProductAnalyticsState,
 } from '../../src/lib/product-analytics';
 import type { ProductAnalyticsEvent } from '../../src/lib/types/product-analytics';
-import { buildMarketWatchlistExposure } from '../../src/lib/research/market-exposure';
+import { buildMarketWatchlistExposure, normalizeExposureSector } from '../../src/lib/research/market-exposure';
 import type { MarketSignal } from '../../src/lib/types/signal-v2';
 import { buildThesisChangeItems, stageThesisChangeEvidence } from '../../src/lib/research/thesis-change';
 import type { AssistedResearch } from '../../src/lib/types/research-assistant';
@@ -669,6 +669,11 @@ const runMarketWatchlistExposureTests = () => {
     assertEqual(unknownReview.find((item) => item.symbol === 'TECH')?.reviewAgeDays, null, 'exposure map keeps a bookmark age unknown');
     assertEqual(unknownReview.find((item) => item.symbol === 'TECH')?.reviewStatus, 'not-reviewed', 'exposure map distinguishes an unreviewed bookmark');
     assertEqual(unknownReview.find((item) => item.symbol === 'UNKNOWN')?.reviewStatus, 'unavailable', 'exposure map does not treat a future authored date as a fresh review');
+    assertEqual(normalizeExposureSector('Consumer Cyclical'), 'Consumer Discretionary', 'Yahoo cyclical consumer sector maps to the exposure rule name');
+    assertEqual(normalizeExposureSector('Financial Services'), 'Financials', 'Yahoo financial sector maps to the exposure rule name');
+    assertEqual(normalizeExposureSector('Technology'), 'Technology', 'matching sector names pass through');
+    assertEqual(normalizeExposureSector(null), 'Unknown', 'missing sector stays unmapped');
+    assertEqual(normalizeExposureSector('Technology', 'ETF'), 'ETF', 'funds use the ETF exposure rule');
 };
 
 const runThesisChangeTests = () => {

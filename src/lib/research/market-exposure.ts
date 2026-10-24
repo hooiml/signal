@@ -49,7 +49,18 @@ const levelRank: Readonly<Record<MarketExposureLevel, number>> = {
     unmapped: 0,
 };
 
-const driverFamily = (key: string, name: string): 'volatility' | 'positioning' | 'sentiment' | 'broad' => {
+// Yahoo Finance sector names → the GICS-style names the exposure rules use.
+const yahooSectorNames: Readonly<Record<string, string>> = {
+    'Consumer Cyclical': 'Consumer Discretionary',
+    'Consumer Defensive': 'Consumer Staples',
+    'Financial Services': 'Financials',
+    'Basic Materials': 'Materials',
+};
+
+export const normalizeExposureSector = (sector: string | null, instrumentType: 'EQUITY' | 'ETF' | null = null): string =>
+    instrumentType === 'ETF' ? 'ETF' : !sector ? 'Unknown' : yahooSectorNames[sector] ?? sector;
+
+const driverFamily =(key: string, name: string): 'volatility' | 'positioning' | 'sentiment' | 'broad' => {
     const normalized = `${key} ${name}`.toLowerCase();
     if (/vix|volatil/.test(normalized)) return 'volatility';
     if (/put.?call|naaim|aaii|position|fund manager/.test(normalized)) return 'positioning';
