@@ -59,7 +59,7 @@ export function ResearchSecurityLookup({ initialMarket, onSelect }: {
         <form className={`${styles.toolbar} ${connected.toolbar}`} aria-label="Security lookup" onSubmit={event => { event.preventDefault(); void search(); }}>
             <label className={styles.search}><span>Company or ticker</span><span className={styles.searchField}><input ref={input} type="search" maxLength={80} placeholder="Apple, Tenaga, AAPL, 5347…" value={query} onChange={event => { reset(); setQuery(event.target.value); }} /></span></label>
             <label className={styles.stateControl}>Lookup market<select aria-label="Lookup market" value={market} onChange={event => { reset(); setMarket(event.target.value as ResearchMarket); }}><option value="US">US</option><option value="MY">Malaysia</option></select></label>
-            <button className={base.primaryButton} type="submit" disabled={state.status === 'loading'}>{state.status === 'loading' ? 'Searching…' : 'Find security'}</button>
+            <button className={base.primaryButton} type="submit" disabled={state.status === 'loading'}>{state.status === 'loading' ? 'Searching…' : 'Find stock'}</button>
             {direct && <button className={base.textButton} type="button" onClick={() => select(ticker, market)}>Read ticker directly</button>}
         </form>
         <div role="status" aria-live="polite">

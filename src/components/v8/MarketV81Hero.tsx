@@ -31,12 +31,12 @@ export function MarketV81Hero({ signal, snapshotDate, tierClass, onEvidence, onD
 
     return <section className={layout.assessment} aria-label="Market assessment">
         <div className={layout.assessmentReading}>
-            <MarketSinceLastVisit signal={signal} snapshotDate={snapshotDate} />
             <span className={styles.eyebrow}>{signal.metadata.market === 'MY' ? 'Malaysia' : 'United States'} · {signal.mode === 'contrarian' ? 'Contrarian' : 'Momentum'} · {snapshotDate ? fullDate(snapshotDate) : 'Snapshot date unavailable'}</span>
             <div className={layout.scoreLine}>
                 <h1 className={`${styles.zone} ${tierClass}`}>{marketReadingLabel(signal.tier)}</h1>
                 <strong><span data-testid="connected-score">{signal.composite_score.toFixed(0)}</span> <small>/100</small></strong>
                 {unchanged ? <span data-testid="market-hero-unchanged">No change since {fullDate(change!.previous_date)}</span> : compared ? <button className={layout.changeLink} onClick={onDrivers}>{change!.delta! > 0 ? '+' : ''}{change!.delta!.toFixed(2)} points vs {fullDate(change!.previous_date)} ↗</button> : <span>Earlier comparable score unavailable</span>}
+                <MarketSinceLastVisit signal={signal} snapshotDate={snapshotDate} />
             </div>
             {/* Where the score sits on the 0-100 scale; the ghost pin marks the previous comparable score. */}
             <div className={layout.spectrum} role="img" aria-label={`Score ${signal.composite_score.toFixed(0)} on a 0 to 100 scale; neutral band ${neutralLower} to ${neutralUpper - 1}.${previousScore !== null ? ` Previous score ${previousScore.toFixed(0)} on ${fullDate(change!.previous_date)}.` : ''}`}>

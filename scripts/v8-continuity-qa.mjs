@@ -39,8 +39,8 @@ try {
         await page.goto(`${base}/research-v8?ticker=AAPL&tab=valuation&keep=yes`);
         await page.getByRole('article',{name:'AAPL research'}).waitFor();
         await page.getByRole('tab',{name:'Valuation',exact:true}).getAttribute('aria-selected').then(v=>assert.equal(v,'true'));
-        await page.getByRole('button',{name:/^Saved securities/}).click();
-        const picker=page.getByRole('combobox',{name:'Selected saved security'});
+        await page.getByRole('button',{name:/^Watchlist/}).click();
+        const picker=page.getByRole('combobox',{name:'Selected watchlist stock'});
         if(await picker.isVisible())await picker.selectOption('MSFT');
         else await page.getByRole('region',{name:'Saved watchlist'}).getByRole('button',{name:/MSFT/}).click();
         await page.getByRole('article',{name:'MSFT research'}).waitFor();

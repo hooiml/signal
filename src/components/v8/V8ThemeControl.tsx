@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useId, useSyncExternalStore, type ReactNode } from 'react';
 import { V8_THEME_STORAGE_KEY, parseV8ThemeChoice, type V8ThemeChoice } from './v8-theme';
 import styles from './market-v8.module.css';
 
@@ -32,10 +32,22 @@ const readChoice = (): V8ThemeChoice => {
     return lastChoice;
 };
 const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)');
+const change = (next: V8ThemeChoice) => {
+    lastChoice = next;
+    sessionOverride = next;
+    try {
+        if (next === 'system') window.localStorage.removeItem(V8_THEME_STORAGE_KEY);
+        else window.localStorage.setItem(V8_THEME_STORAGE_KEY, next);
+        sessionOverride = null;
+    } catch { /* Storage can be unavailable; the choice still applies until reload. */ }
+    notify();
+};
 
 /** Auto / Light / Dark for the V8 pages. Auto follows the system setting and stores nothing. */
 export function V8ThemeControl() {
     const choice = useSyncExternalStore(subscribe, readChoice, () => 'system' as const);
+    // Each instance needs its own radio group name, or two headers on one page would share one checked radio.
+    const group = useId();
     useEffect(() => {
         const apply = () => document.documentElement.setAttribute('data-v8-theme', choice === 'system' ? systemDark().matches ? 'dark' : 'light' : choice);
         apply();
@@ -44,22 +56,18 @@ export function V8ThemeControl() {
         media.addEventListener('change', apply);
         return () => media.removeEventListener('change', apply);
     }, [choice]);
-    const change = (next: V8ThemeChoice) => {
-        lastChoice = next;
-        sessionOverride = next;
-        try {
-            if (next === 'system') window.localStorage.removeItem(V8_THEME_STORAGE_KEY);
-            else window.localStorage.setItem(V8_THEME_STORAGE_KEY, next);
-            sessionOverride = null;
-        } catch { /* Storage can be unavailable; the choice still applies until reload. */ }
-        notify();
-    };
-    return <label className={styles.themeControl}>
-        <span className={styles.visuallyHidden}>Colour theme</span>
-        <select value={choice} onChange={event => change(parseV8ThemeChoice(event.target.value))}>
-            <option value="system">Auto</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-        </select>
-    </label>;
+    // Native radios give arrow-key movement between the three choices.
+    return <div className={styles.themeControl} role="radiogroup" aria-label="Colour theme">
+        {themeOptions.map(option => <label key={option.value} title={option.title}>
+            <input type="radio" name={group} value={option.value} checked={choice === option.value} onChange={() => change(option.value)} />
+            <svg aria-hidden="true" viewBox="0 0 24 24">{option.icon}</svg>
+            <span>{option.label}</span>
+        </label>)}
+    </div>;
 }
+
+const themeOptions: readonly { value: V8ThemeChoice; label: string; title: string; icon: ReactNode }[] = [
+    { value: 'light', label: 'Light', title: 'Light theme', icon: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></> },
+    { value: 'system', label: 'Auto', title: 'Follow the system setting', icon: <><circle cx="12" cy="12" r="8" /><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" /></> },
+    { value: 'dark', label: 'Dark', title: 'Dark theme', icon: <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" /> },
+];

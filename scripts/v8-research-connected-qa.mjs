@@ -46,7 +46,7 @@ async function go(query = '') {
 }
 async function settled() { await page.getByRole('button', { name: 'Refresh provider data', exact: true }).waitFor(); await page.waitForFunction(() => ![...document.querySelectorAll('button')].find(el => el.textContent === 'Refresh provider data')?.disabled); }
 async function choose(symbol) {
-    const picker = page.getByRole('combobox', { name: 'Selected saved security' });
+    const picker = page.getByRole('combobox', { name: 'Selected watchlist stock' });
     if (await picker.isVisible()) await picker.selectOption(symbol);
     else await page.getByRole('region', { name: 'Saved watchlist' }).getByRole('button', { name: new RegExp(symbol) }).click();
 }
@@ -135,7 +135,7 @@ try {
         const toolLinks = await page.locator('details').filter({ has: page.getByText('Research tools · existing workspaces', { exact: true }) }).getByRole('link').evaluateAll(links => links.map(link => link.href));
         check(`All advanced tools use selected ticker ${width}`, toolLinks.length > 20 && toolLinks.every(link => new URL(link).searchParams.get('ticker') === 'AAPL'));
         await geometry(`Expanded tools and checklist ${width}`);
-        await page.getByRole('searchbox', { name: 'Find a saved security' }).fill('Microsoft');
+        await page.getByRole('searchbox', { name: 'Find in watchlist' }).fill('Microsoft');
         await visible(page.getByText('AAPL remains open below and is outside the current filter.', { exact: true }), `Selection outside filter explained ${width}`);
         await choose('MSFT'); await settled();
         check(`Selected Microsoft quote isolated ${width}`, await page.getByTestId('research-price').innerText() === 'USD 420.25');
@@ -161,11 +161,11 @@ try {
     check('Wrong security response rejected', await page.getByTestId('research-price').innerText() === 'Unavailable');
     snapshotMode = 'ready'; await page.getByRole('button', { name: 'Retry provider data' }).click(); await settled();
     phase = 'controlled'; check('Provider retry recovers', await page.getByTestId('research-price').innerText() === 'USD 201.5');
-    phase = 'expected-failure'; listMode = 'error'; await page.getByRole('button', { name: 'Reload saved research' }).click();
+    phase = 'expected-failure'; listMode = 'error'; await page.getByRole('button', { name: 'Reload watchlist' }).click();
     await visible(page.getByText(/The previously loaded records remain visible/), 'Watchlist refresh failure retains prior saved records');
     listMode = 'malformed'; await go(); await visible(page.getByText(/No example records have been substituted/), 'Malformed watchlist rejected without seeds');
     check('Malformed response does not expose stale research', await page.getByRole('article').count() === 0);
-    listMode = 'empty'; phase = 'controlled'; await page.getByRole('button', { name: 'Reload saved research' }).click();
+    listMode = 'empty'; phase = 'controlled'; await page.getByRole('button', { name: 'Reload watchlist' }).click();
     await visible(page.getByRole('heading', { name: 'Your research starts here.' }), 'Empty watchlist stays empty'); await geometry('Empty mobile'); await shot('empty-mobile');
     listMode = 'ready'; delayApple = true; await go();
     await visible(page.getByText('Loading provider data… Your saved research is available below.', { exact: true }), 'Loading state keeps saved research usable');

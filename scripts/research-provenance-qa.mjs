@@ -205,7 +205,7 @@ try {
         // market state must survive a later expired-access response clearing the records.
         records = [bookmark()]; quoteOptions = {};
         await open('/research-v8?ticker=AAPL&market=US');
-        await page.getByRole('button', { name: /^Saved securities · 1/ }).waitFor();
+        await page.getByRole('button', { name: /^Watchlist · 1/ }).waitFor();
         await page.getByTestId('research-price').filter({ hasText: 'USD 120.34' }).waitFor();
         await page.evaluate(() => {
             window.history.pushState(null, '', '/research-v8?ticker=AAPL&tab=financials&advanced=1#legacy-position');
@@ -215,8 +215,8 @@ try {
         await page.waitForFunction(() => new URL(window.location.href).searchParams.get('market') === 'US');
         assert.equal(await page.getByRole('tab', { name: 'Financials', exact: true }).getAttribute('aria-selected'), 'true');
         listState = 'locked';
-        await page.getByRole('button', { name: /^Saved securities · 1/ }).click();
-        await page.getByRole('button', { name: 'Reload saved research', exact: true }).click();
+        await page.getByRole('button', { name: /^Watchlist · 1/ }).click();
+        await page.getByRole('button', { name: 'Reload watchlist', exact: true }).click();
         await page.getByRole('dialog').getByRole('link', { name: 'Unlock Signal', exact: true }).waitFor();
         await page.getByRole('button', { name: 'Close research panel', exact: true }).click();
         assert.equal(await page.getByTestId('research-price').innerText(), 'USD 120.34');

@@ -55,18 +55,18 @@ const report = { fixtureOnly: true, baseUrl, fixtureTime, viewports, scenarios: 
 const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}) });
 
 const settlePaint = page => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-const themeState = page => page.getByRole('combobox', { name: 'Colour theme' }).evaluate(select => ({
-    choice: select.value, applied: document.documentElement.getAttribute('data-v8-theme'),
+const themeState = page => page.getByRole('radiogroup', { name: 'Colour theme' }).evaluate(group => ({
+    choice: group.querySelector('input:checked')?.value, applied: document.documentElement.getAttribute('data-v8-theme'),
 }));
 const expectTheme = async (page, choice, applied) => {
     await page.waitForFunction(({ choice, applied }) => {
-        const select = [...document.querySelectorAll('label')].find(label => label.textContent.includes('Colour theme'))?.querySelector('select');
-        return select?.value === choice && document.documentElement.getAttribute('data-v8-theme') === applied;
+        const checked = document.querySelector('[role="radiogroup"][aria-label="Colour theme"] input:checked');
+        return checked?.value === choice && document.documentElement.getAttribute('data-v8-theme') === applied;
     }, { choice, applied }, { timeout });
     assert.deepEqual(await themeState(page), { choice, applied });
 };
 const changeTheme = async (page, choice, applied) => {
-    await page.getByRole('combobox', { name: 'Colour theme' }).selectOption(choice);
+    await page.getByRole('radiogroup', { name: 'Colour theme' }).locator(`input[value="${choice}"]`).check();
     await expectTheme(page, choice, applied);
 };
 
@@ -208,7 +208,7 @@ const goMarket = async page => {
     await settle(page);
     await page.goto(`${baseUrl}/main-v8?market=US`, { waitUntil: 'domcontentloaded' });
     await page.getByTestId('connected-score').waitFor();
-    await page.getByRole('combobox', { name: 'Colour theme' }).waitFor();
+    await page.getByRole('radiogroup', { name: 'Colour theme' }).waitFor();
     await settlePaint(page);
 };
 const goResearch = async page => {
@@ -391,7 +391,7 @@ try {
             assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
             await capture('review-markers', page.getByRole('region', { name: 'Price history', exact: true }));
             assert.deepEqual(result.markerLabelOverlaps, [], 'Saved-review diamonds must not obscure price/date/range labels.');
-            await page.getByRole('button', { name: 'Saved research', exact: true }).click();
+            await page.getByRole('button', { name: 'Workspace', exact: true }).click();
             await page.getByRole('button', { name: 'Read saved review', exact: true }).click();
             await page.getByText('Fixture saved review note', { exact: true }).first().waitFor();
             await capture('saved-review');

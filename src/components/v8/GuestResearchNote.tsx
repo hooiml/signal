@@ -84,7 +84,7 @@ export function GuestResearchNote({ record, onSaved, onRemoved, disabled = false
                     <h2 id="guest-note-title">Your note</h2>
                     <p>{draft !== expectedNote ? 'Unsaved changes · Save note to update your saved research. Draft recovery uses this browser’s storage separately.' : 'Your note · saved on this device'}</p>
                 </div>
-                <button className={styles.remove} type="button" onClick={remove} disabled={disabled || saving}>Remove security</button>
+                <button className={styles.remove} type="button" onClick={remove} disabled={disabled || saving}>Remove from watchlist</button>
             </div>
             {disabled && <p className={styles.error} role="status">Saved data unavailable. Your draft is kept here, but saving and removing are paused.</p>}
             <form onSubmit={save}>

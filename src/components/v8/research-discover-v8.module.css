@@ -133,3 +133,57 @@
     .list .earlyRow .move:nth-of-type(6) { grid-area: b; text-align: right; }
     .list .earlyRow .risk { grid-area: risk; text-align: right; }
 }
+
+/* Calendar: month grid with a selected-day agenda. Kind colours label the event type; the text label always accompanies them. */
+.calendarLegend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 10px 16px 0; padding: 0; list-style: none; color: var(--muted); font-size: var(--text-xs); }
+.calendarLegend li { display: inline-flex; align-items: center; gap: 6px; }
+.calendarLegend i { width: 10px; height: 10px; border-radius: 3px; background: var(--kind); }
+.calendarLegend li, .chip, .badge[data-type] { --kind: var(--line-strong); }
+.calendarLegend [data-kind="earnings"], .chip[data-kind="earnings"], .badge[data-type="earnings"] { --kind: var(--up); }
+.calendarLegend [data-kind="trending"], .chip[data-kind="trending"], .badge[data-type="trending"] { --kind: var(--link); }
+.calendarLegend [data-kind="review"], .chip[data-kind="review"], .badge[data-type="review"] { --kind: var(--subtle); }
+.calendarLegend [data-kind="stale"], .chip[data-kind="stale"], .badge[data-type="stale"] { --kind: var(--down); }
+.calendarLegend [data-kind="macro"], .chip[data-kind="macro"], .badge[data-type="macro"] { --kind: var(--caution); }
+.badge[data-type="trending"], .badge[data-type="macro"], .badge[data-type="review"] { border-color: var(--kind); color: var(--kind); }
+.monthBar { display: flex; align-items: center; gap: 4px; margin: 12px 16px 8px; }
+.body .monthBar h3 { min-width: 150px; margin: 0; text-align: center; font-size: var(--text-md); }
+.body .monthBar button { min-width: 44px; min-height: 44px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; font-size: var(--text-lg); line-height: 1; cursor: pointer; }
+.body .monthBar button:disabled { opacity: 0.4; cursor: default; }
+.body .monthBar .todayButton { margin-right: auto; padding: 0 12px; font-size: var(--text-sm); font-weight: 600; }
+.monthGrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin: 0 16px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--line); gap: 1px; }
+.weekday { padding: 6px 8px; background: var(--surface-subtle); color: var(--muted); font-size: var(--text-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.monthGrid .dayCell { display: flex; flex-direction: column; align-items: stretch; gap: 3px; min-width: 0; min-height: 96px; padding: 6px; border: 0; background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.monthGrid .dayCell:hover { background: var(--surface-subtle); }
+.monthGrid .dayCell[data-in-month="false"] { background: var(--surface-subtle); color: var(--subtle); }
+.monthGrid .dayCell[data-in-range="false"] time { opacity: 0.55; }
+.monthGrid .dayCell time { display: inline-flex; align-items: center; justify-content: center; align-self: flex-start; min-width: 24px; height: 24px; padding: 0 4px; border-radius: 6px; font-size: var(--text-xs); font-weight: 600; font-variant-numeric: tabular-nums; }
+.monthGrid .dayCell[data-today="true"] time { background: var(--brand); color: var(--on-brand); opacity: 1; }
+.monthGrid .dayCell[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--brand); }
+.chip { overflow: hidden; padding: 1px 6px; border-left: 3px solid var(--kind); border-radius: 4px; background: color-mix(in srgb, var(--kind) 12%, var(--surface)); color: var(--ink); font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
+.more { color: var(--muted); font-size: var(--text-xs); }
+.agenda { margin: 4px 0 0; }
+.agenda ul { list-style: none; margin: 0 16px; padding: 0; border-top: 1px solid var(--line); }
+.agenda li { display: grid; grid-template-columns: 132px 72px minmax(0, 1fr); gap: 10px; align-items: center; min-height: 48px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }
+.agenda li span:last-child { display: grid; gap: 2px; }
+.agenda small { color: var(--muted); font-size: var(--text-xs); }
+.agenda li[data-urgency="action"] b { color: var(--down); }
+@media (max-width: 600px) {
+    .body .monthBar .todayButton { padding: 0 10px; }
+    .body .monthBar h3 { min-width: 0; flex: 1; font-size: var(--text-base); }
+    .monthGrid { margin: 0 12px; }
+    .weekday { padding: 6px 2px; text-align: center; letter-spacing: 0; }
+    .monthGrid .dayCell { align-items: center; min-height: 52px; padding: 4px 2px; gap: 2px; }
+    .monthGrid .dayCell time { align-self: center; }
+    /* Phones show one colour mark per event; names are in the agenda below. */
+    .chip { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 50%; background: var(--kind); font-size: 0; }
+    .monthGrid .dayCell { flex-flow: row wrap; justify-content: center; align-content: flex-start; }
+    .monthGrid .dayCell time { flex-basis: 100%; justify-content: center; }
+    .more { font-size: 10px; }
+    .agenda ul { margin: 0 12px; }
+    .agenda li { grid-template-columns: auto minmax(0, 1fr); }
+    .agenda li > span:last-child { grid-column: 1 / -1; }
+}
+
+/* Discover inside the Research home tab: no summary row, attached to the tabs above. */
+.embedded { border-top-left-radius: 0; border-top-right-radius: 0; }
+.embedded .views { margin-top: 12px; }

@@ -160,12 +160,24 @@ try {
         check(`Picker URL records view ${width}`, new URL(page.url()).searchParams.get('discover') === 'picker');
         await overflow(`Picker fits ${width}`);
 
-        // Calendar: saved-security earnings and Top 20 earnings.
+        // Calendar: watchlist earnings and Top 20 earnings on the month grid, across the months in range.
         await view('Calendar').click();
-        const saved = page.getByRole('region', { name: 'Saved securities calendar' });
-        await saved.getByText('Earnings announcement').waitFor();
-        check(`Calendar lists saved earnings ${width}`, (await saved.innerText()).includes('AAPL'));
-        check(`Calendar lists trending earnings ${width}`, (await page.getByRole('region', { name: 'Trending stocks reporting soon' }).innerText()).includes(third.symbol));
+        const grid = page.getByTestId('research-calendar-grid');
+        await grid.waitFor();
+        await page.waitForFunction(() => !document.body.innerText.includes('Loading watchlist dates'));
+        const chips = async kind => {
+            const found = [];
+            for (let month = 0; month < 4; month++) {
+                found.push(...await grid.locator(`[data-kind="${kind}"]`).allTextContents());
+                const next = discover().getByRole('button', { name: 'Next month' });
+                if (await next.isDisabled()) break;
+                await next.click();
+            }
+            await discover().getByRole('button', { name: 'Today', exact: true }).click();
+            return found;
+        };
+        check(`Calendar marks watchlist earnings ${width}`, (await chips('earnings')).includes('AAPL'));
+        check(`Calendar marks trending earnings ${width}`, (await chips('trending')).includes(third.symbol));
         await overflow(`Calendar fits ${width}`);
 
         // Alerts: fixture alert, and selecting it opens the reading and leaves Discover.

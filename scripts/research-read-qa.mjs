@@ -44,7 +44,7 @@ await context.route('**/api/**', async intercepted => {
     return intercepted.abort();
 });
 const waitFor = async (condition, label) => { await condition(); checks.push(label); };
-const openSaved = () => page.getByRole('button', { name: /^Saved securities/ }).click();
+const openSaved = () => page.getByRole('button', { name: /^Watchlist/ }).click();
 const closeSaved = () => page.getByRole('button', { name: 'Close research panel' }).click();
 const quote = value => page.getByTestId('research-price').filter({ hasText: value }).waitFor();
 try {
@@ -66,12 +66,12 @@ try {
     assert.equal(new URL(page.url()).searchParams.get('ticker'), 'MSFT');
     fixture.setRows([apple, { ...microsoft, company_name: 'Fixture Microsoft revised', revision: 10 }]);
     await openSaved();
-    await page.getByRole('button', { name: 'Reload saved research', exact: true }).click();
+    await page.getByRole('button', { name: 'Reload watchlist', exact: true }).click();
     await waitFor(() => page.getByRole('heading', { name: 'Fixture Microsoft revised', exact: true }).waitFor(), 'Reload displays revised saved record');
     await closeSaved();
     fixture.setFailure({ match: 'SELECT *', message: 'Fixture database unavailable' });
     await openSaved();
-    await page.getByRole('button', { name: 'Reload saved research', exact: true }).click();
+    await page.getByRole('button', { name: 'Reload watchlist', exact: true }).click();
     await waitFor(() => page.getByText(/The previously loaded records remain visible/).waitFor(), 'Read failure retains record with warning');
     await closeSaved();
     assert.equal(await page.getByRole('heading', { name: 'Fixture Microsoft revised', exact: true }).count(), 1);

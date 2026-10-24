@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { switchWatchlistStock } from './qa-watchlist-switch.mjs';
 
 // Called by the existing matrix so all scenarios share one browser process.
 export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
@@ -28,16 +29,16 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   await page.goto(url); await guestReady(); await page.getByTestId('research-price').filter({hasText:'USD 200.00'}).waitFor();
   assert.equal(await page.getByText(/Unlock saved research|Saved research is locked/).count(),0);
   assert.equal(await raw(),null,'Loading must not create an ID or stored record');
-  await page.getByRole('button',{name:'Save security',exact:true}).click(); await note.waitFor();
+  await page.getByRole('button',{name:'Save stock',exact:true}).click(); await note.waitFor();
   await note.fill('Guest A note only'); await page.getByRole('button',{name:'Save note',exact:true}).click();
   await page.getByRole('status').filter({hasText:'Note saved on this device'}).waitFor();
   const first = JSON.parse(await raw()); assert.equal(first.records[0].notes,'Guest A note only');
   assert.deepEqual(privateRequests,[],'Guest reads and writes must never call owner watchlist');
   await page.reload(); await guestReady(); await note.waitFor(); assert.equal(await note.inputValue(),'Guest A note only');
   assert.equal(JSON.parse(await raw()).guestId,first.guestId,'Identity survives reload');
-  const peer = await other.newPage(); await peer.goto(url); await peer.getByRole('button',{name:'Save security',exact:true}).waitFor();
+  const peer = await other.newPage(); await peer.goto(url); await peer.getByRole('button',{name:'Save stock',exact:true}).waitFor();
   assert.equal(await peer.evaluate(k=>localStorage.getItem(k),key),null,'Separate browser profile has no guest A data');
-  await peer.getByRole('button',{name:'Save security',exact:true}).click(); await peer.getByLabel('Personal note for AAPL').fill('Guest B'); await peer.getByRole('button',{name:'Save note',exact:true}).click();
+  await peer.getByRole('button',{name:'Save stock',exact:true}).click(); await peer.getByLabel('Personal note for AAPL').fill('Guest B'); await peer.getByRole('button',{name:'Save note',exact:true}).click();
   assert.equal(JSON.parse(await raw()).records[0].notes,'Guest A note only');
   assert.notEqual(await peer.evaluate(k=>JSON.parse(localStorage.getItem(k)).guestId,key),first.guestId);
   // Cross-tab refresh preserves a draft and rejects overwriting a newer saved note.
@@ -49,7 +50,7 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   assert.equal(JSON.parse(await raw()).records[0].notes,'Newer note in tab B');
   await page.getByRole('button',{name:'Reload note',exact:true}).click(); assert.equal(await note.inputValue(),'Newer note in tab B'); await sibling.close();
   await overflow(); await page.screenshot({path:`${out}/guest-research-${width}.png`,fullPage:true});
-  await page.getByRole('button',{name:'Saved research',exact:true}).click();
+  await page.getByRole('button',{name:'Workspace',exact:true}).click();
   const download = page.waitForEvent('download'); await page.getByRole('button',{name:'Export guest research',exact:true}).click();
   const downloaded = await download; const exported=JSON.parse(await readFile(await downloaded.path(),'utf8'));
   assert.equal(exported.records[0].notes,'Newer note in tab B'); assert.equal(JSON.stringify(exported).includes(ownerRecord.notes),false);
@@ -65,7 +66,7 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
    assert.equal(await page.getByRole('navigation',{name:'Guest research navigation'}).count(),0);
    assert.equal(await note.count(),0); assert.equal(await raw(),JSON.stringify(first).replace('Guest A note only','Newer note in tab B'));
    assert.ok(privateRequests.length>0&&privateRequests.every(r=>r.method==='GET'),'Unlock may read owner data but never import guest data');
-   await page.getByRole('button',{name:'Saved research',exact:true}).click(); await page.getByRole('button',{name:'Lock owner workspace and use guest mode',exact:true}).click();
+   await page.getByRole('button',{name:'Workspace',exact:true}).click(); await page.getByRole('button',{name:'Lock owner workspace and use guest mode',exact:true}).click();
    await guestReady(); await note.waitFor(); assert.equal(await note.inputValue(),'Newer note in tab B');
    assert.equal((await (await context.request.get(`${base}/api/owner/session`)).json()).data.unlocked,false);
   }
@@ -79,18 +80,18 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   assert.equal(await note.inputValue(),'Must not persist'); assert.equal(await page.getByRole('button',{name:'Save note',exact:true}).isDisabled(),true);
   await storagePeer.evaluate(({k,raw})=>localStorage.setItem(k,raw),{k:key,raw:intact});
   await page.getByRole('alert').filter({hasText:'Showing the last loaded guest records'}).first().waitFor({state:'detached'}); await storagePeer.close();
-  await page.getByRole('button',{name:'Saved research',exact:true}).click();
+  await page.getByRole('button',{name:'Workspace',exact:true}).click();
   page.once('dialog',dialog=>dialog.dismiss()); await page.getByRole('button',{name:'Clear guest research',exact:true}).click();assert.ok(await raw());
   page.once('dialog',dialog=>dialog.accept()); await page.getByRole('button',{name:'Clear guest research',exact:true}).click();await page.waitForFunction(k=>localStorage.getItem(k)===null,key);
   assert.equal(await peer.evaluate(k=>JSON.parse(localStorage.getItem(k)).records[0].notes,key),'Guest B');
   await page.getByRole('button',{name:'Close research panel'}).click();
-  await page.getByRole('button',{name:'Save security',exact:true}).click(); await note.fill('Fresh draft after Clear');
+  await page.getByRole('button',{name:'Save stock',exact:true}).click(); await note.fill('Fresh draft after Clear');
   const resetPeer=await context.newPage(); await resetPeer.goto(`${base}/research-v8?ticker=MSFT&market=US`);
-  await resetPeer.getByRole('button',{name:'Save security',exact:true}).click();
-  await page.getByRole('combobox',{name:'Switch saved security'}).locator('option[value="US:MSFT"]').waitFor({state:'attached'});
+  await resetPeer.getByRole('button',{name:'Save stock',exact:true}).click();
+  await page.getByRole('button',{name:/^Watchlist · 2/}).waitFor();
   assert.equal(await note.inputValue(),'Fresh draft after Clear','Refreshing the new identity must retain its draft');
-  await page.getByRole('combobox',{name:'Switch saved security'}).selectOption('US:MSFT');
-  await page.getByRole('combobox',{name:'Switch saved security'}).selectOption('US:AAPL');
+  await switchWatchlistStock(page,'US:MSFT');
+  await switchWatchlistStock(page,'US:AAPL');
   assert.equal(await note.inputValue(),'Fresh draft after Clear');
   await page.getByRole('button',{name:'Save note',exact:true}).click(); await page.getByRole('status').filter({hasText:'Note saved on this device'}).waitFor(); await resetPeer.close();
   await page.evaluate(k=>localStorage.setItem(k,'invalid original'),key); await page.reload(); await guestReady(); await page.getByRole('alert').filter({hasText:'original browser data was left untouched'}).first().waitFor();
@@ -102,39 +103,36 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   assert.deepEqual(providerReads,[]); assert.equal(new URL(page.url()).searchParams.get('market'),null);
   await page.getByRole('button',{name:'Read DUAL in Malaysia',exact:true}).click(); await page.getByTestId('research-price').filter({hasText:'MYR'}).waitFor();
   assert.ok(providerReads.every(search=>new URLSearchParams(search).get('market')==='MY'));
-  const quickSwitch=page.getByRole('combobox',{name:'Switch saved security',exact:true});
-  assert.equal(await quickSwitch.inputValue(),'MY:DUAL');
+  assert.equal(new URL(page.url()).searchParams.get('market'),'MY');
   const beforeSwitch=await raw(); const privateCount=privateRequests.length;
-  await quickSwitch.selectOption('US:DUAL');
+  await switchWatchlistStock(page,'US:DUAL');
   await page.getByTestId('research-price').filter({hasText:'USD'}).waitFor();
   assert.equal(new URL(page.url()).searchParams.get('market'),'US');
-  await page.getByText('Change security',{exact:true}).click();
+  await page.getByText('Change stock',{exact:true}).click();
   assert.equal(await page.getByRole('combobox',{name:'Lookup market',exact:true}).inputValue(),'US');
   await page.goBack(); await page.getByTestId('research-price').filter({hasText:'MYR'}).waitFor();
-  assert.equal(await quickSwitch.inputValue(),'MY:DUAL');
+  assert.equal(new URL(page.url()).searchParams.get('market'),'MY');
   assert.equal(await page.getByRole('combobox',{name:'Lookup market',exact:true}).inputValue(),'MY');
   await page.goForward(); await page.getByTestId('research-price').filter({hasText:'USD'}).waitFor();
-  assert.equal(await quickSwitch.inputValue(),'US:DUAL');
-  await quickSwitch.focus(); await quickSwitch.press('ArrowDown');
+  assert.equal(new URL(page.url()).searchParams.get('market'),'US');
+  await switchWatchlistStock(page,'MY:DUAL');
   await page.getByTestId('research-price').filter({hasText:'MYR'}).waitFor();
-  assert.equal(await quickSwitch.inputValue(),'MY:DUAL');
+  assert.equal(new URL(page.url()).searchParams.get('market'),'MY');
   assert.equal(await raw(),beforeSwitch,'Navigation must not mutate guest records or notes');
   assert.equal(privateRequests.length,privateCount,'Guest navigation must not request owner records');
-  await page.getByText('Change security',{exact:true}).click();
+  await page.getByText('Change stock',{exact:true}).click();
   await page.evaluate(()=>scrollTo(0,0)); await overflow();
   await page.screenshot({path:`${out}/guest-navigation-${width}.png`});
   // Drafts are keyed by market + ticker and survive selection and history navigation.
   const dualNote=page.getByLabel('Personal note for DUAL',{exact:true});
-  await quickSwitch.selectOption('US:DUAL'); await dualNote.fill('Unsaved US draft');
-  assert.match(await quickSwitch.locator('option[value="US:DUAL"]').innerText(),/US · Unsaved/);
-  await quickSwitch.selectOption('MY:DUAL'); await dualNote.fill('Unsaved MY draft');
+  await switchWatchlistStock(page,'US:DUAL'); await dualNote.fill('Unsaved US draft');
+  await switchWatchlistStock(page,'MY:DUAL'); await dualNote.fill('Unsaved MY draft');
   const guestNav=page.getByRole('navigation',{name:'Guest research navigation'});
   await guestNav.getByRole('status').filter({hasText:'2 unsaved notes'}).waitFor();
-  assert.match(await quickSwitch.locator('option[value="MY:DUAL"]').innerText(),/MY · Unsaved/);
-  await page.getByRole('button',{name:/Saved securities/}).click();
+  await page.getByRole('button',{name:/^Watchlist · /}).click();
   assert.equal(await page.getByRole('region',{name:'Saved watchlist'}).getByText(/· Unsaved/).count(),2);
   await page.getByRole('button',{name:'Close research panel'}).click();
-  await quickSwitch.selectOption('US:DUAL'); assert.equal(await dualNote.inputValue(),'Unsaved US draft');
+  await switchWatchlistStock(page,'US:DUAL'); assert.equal(await dualNote.inputValue(),'Unsaved US draft');
   await page.goBack(); assert.equal(await dualNote.inputValue(),'Unsaved MY draft');
   await page.goForward(); assert.equal(await dualNote.inputValue(),'Unsaved US draft');
   assert.equal(await raw(),beforeSwitch,'Drafts must not be saved automatically');
@@ -143,16 +141,15 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   const warning=await reloadWarning; assert.equal(warning.type(),'beforeunload'); await warning.dismiss(); await cancelledReload;
   assert.equal(await dualNote.inputValue(),'Unsaved US draft');
   // A switched-away draft retains its original conflict baseline after another tab saves.
-  await quickSwitch.selectOption('MY:DUAL');
+  await switchWatchlistStock(page,'MY:DUAL');
   const draftPeer=await context.newPage(); await draftPeer.goto(`${base}/research-v8?ticker=DUAL&market=US`);
   await draftPeer.getByLabel('Personal note for DUAL',{exact:true}).fill('New US note from another tab');
   await draftPeer.getByRole('button',{name:'Save note',exact:true}).click();
   await draftPeer.getByRole('status').filter({hasText:'Note saved on this device'}).waitFor();
-  await quickSwitch.selectOption('US:DUAL'); assert.equal(await dualNote.inputValue(),'Unsaved US draft');
+  await switchWatchlistStock(page,'US:DUAL'); assert.equal(await dualNote.inputValue(),'Unsaved US draft');
   await page.getByRole('button',{name:'Save note',exact:true}).click(); await page.getByRole('alert').filter({hasText:'newer note'}).waitFor();
   await page.getByRole('button',{name:'Reload note',exact:true}).click(); assert.equal(await dualNote.inputValue(),'New US note from another tab');
   await guestNav.getByRole('status').filter({hasText:'1 unsaved note.'}).waitFor();
-  assert.doesNotMatch(await quickSwitch.locator('option[value="US:DUAL"]').innerText(),/Unsaved/);
   // A hidden dirty draft still warns even when the visible security is clean.
   const leaveWarning=page.waitForEvent('dialog',{timeout:5000}); const leave=page.getByRole('link',{name:'Market',exact:true}).click({noWaitAfter:true});
   const leaveDialog=await leaveWarning; assert.equal(leaveDialog.type(),'beforeunload'); await leaveDialog.dismiss(); await leave;
@@ -169,17 +166,16 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   await page.waitForFunction(()=>window.__draftLockHeld);
   await page.getByRole('button',{name:'Save note',exact:true}).click();
   await page.waitForFunction(async()=>((await navigator.locks.query()).pending??[]).length>0);
-  await quickSwitch.selectOption('US:DUAL'); await quickSwitch.selectOption('MY:DUAL');
+  await switchWatchlistStock(page,'US:DUAL'); await switchWatchlistStock(page,'MY:DUAL');
   await dualNote.fill('Newer MY draft while save waits');
   await page.evaluate(()=>window.__draftLockRelease());
   await page.waitForFunction(k=>JSON.parse(localStorage.getItem(k)).records.find(r=>r.market==='MY').notes==='Unsaved MY draft',key);
   assert.equal(await dualNote.inputValue(),'Newer MY draft while save waits');
-  await quickSwitch.selectOption('US:DUAL'); await quickSwitch.selectOption('MY:DUAL');
+  await switchWatchlistStock(page,'US:DUAL'); await switchWatchlistStock(page,'MY:DUAL');
   assert.equal(await dualNote.inputValue(),'Newer MY draft while save waits');
   await overflow(); await page.screenshot({path:`${out}/guest-draft-${width}.png`});
   await page.getByRole('button',{name:'Save note',exact:true}).click(); await page.getByRole('status').filter({hasText:'Note saved on this device'}).waitFor();
   assert.equal(await guestNav.getByRole('status').count(),0);
-  assert.doesNotMatch(await quickSwitch.locator('option[value="MY:DUAL"]').innerText(),/Unsaved/);
   await page.reload(); await dualNote.waitFor(); assert.equal(await dualNote.inputValue(),'Newer MY draft while save waits');
   // Replacing the device workspace must not revive drafts from its previous identity.
   await dualNote.fill('Old identity draft');
@@ -191,11 +187,11 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   assert.equal(await raw(),null,'The first-use explanation must not create guest records');
   // Real browser Web Locks serialize queued mutations from two different tabs.
   await page.evaluate(k=>localStorage.removeItem(k),key);
-  await page.goto(`${base}/research-v8?ticker=MSFT&market=US`); await guestReady(); await page.getByRole('button',{name:'Save security',exact:true}).waitFor();
+  await page.goto(`${base}/research-v8?ticker=MSFT&market=US`); await guestReady(); await page.getByRole('button',{name:'Save stock',exact:true}).waitFor();
   const concurrent = await context.newPage(); await concurrent.goto(`${base}/research-v8?ticker=TSLA&market=US`); await concurrent.getByTestId('research-price').filter({hasText:'USD 200.00'}).waitFor();
   await page.evaluate(()=>{window.__lockHeld=false;void navigator.locks.request('signal.guest-research.v1',()=>new Promise(resolve=>{window.__lockRelease=resolve;window.__lockHeld=true;}));});
   await page.waitForFunction(()=>window.__lockHeld);
-  await Promise.all([page.getByRole('button',{name:'Save security',exact:true}).click(),concurrent.getByRole('button',{name:'Save security',exact:true}).click()]);
+  await Promise.all([page.getByRole('button',{name:'Save stock',exact:true}).click(),concurrent.getByRole('button',{name:'Save stock',exact:true}).click()]);
   await page.waitForFunction(async()=>((await navigator.locks.query()).pending??[]).filter(lock=>lock.name==='signal.guest-research.v1').length===2);
   await page.evaluate(()=>window.__lockRelease());
   await page.waitForFunction(k=>JSON.parse(localStorage.getItem(k)||'{}').records?.length===2,key);

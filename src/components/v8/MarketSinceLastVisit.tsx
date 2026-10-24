@@ -9,7 +9,7 @@ import layout from './market-v8-connected.module.css';
 
 const signedPoints = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value).toFixed(1)}`;
 
-/** One line comparing today's reading with the last different snapshot seen in this browser. */
+/** A tag on the score line comparing today's reading with the last different snapshot seen in this browser; hidden when nothing moved. */
 export function MarketSinceLastVisit({ signal, snapshotDate }: { signal: MarketSignal; snapshotDate: string | null | undefined }) {
     const [visit, setVisit] = useState<{ baseline: MarketVisit; current: MarketVisit } | null>(null);
     const key = `${signal.metadata.market}:${signal.mode}`;
@@ -30,10 +30,12 @@ export function MarketSinceLastVisit({ signal, snapshotDate }: { signal: MarketS
     const { baseline, current } = visit;
     const delta = Math.round(current.score) - Math.round(baseline.score);
     const changes = visitChanges(baseline, current);
+    // The score line already reports "No change"; an unchanged visit adds nothing.
+    if (delta === 0 && changes.length === 0) return null;
     const name = (input: string) => signal.components[input]?.display_name ?? getIndicatorDisplayName(input);
-    return <p className={layout.lastVisit} data-testid="market-last-visit" role="status">
-        <b>Since your last visit</b> ({fullDate(baseline.snapshotDate)}): {Math.round(baseline.score)} → {Math.round(current.score)}
-        {delta !== 0 ? ` (${delta > 0 ? '+' : '−'}${Math.abs(delta)})` : ' (unchanged)'}
-        {changes.length > 0 ? ` · ${changes.map(change => `${name(change.key)} ${signedPoints(change.delta)} pts`).join(' · ')}` : ' · inputs about the same'}
-    </p>;
+    const movers = changes.map(change => `${name(change.key)} ${signedPoints(change.delta)}`).join(' · ');
+    return <span className={layout.lastVisit} data-testid="market-last-visit" data-direction={delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat'} role="status"
+        title={`Since your visit on ${fullDate(baseline.snapshotDate)}: ${Math.round(baseline.score)} → ${Math.round(current.score)}. Input changes are in score points. Stored in this browser only.`}>
+        <b>{delta !== 0 ? `${delta > 0 ? '+' : '−'}${Math.abs(delta)}` : 'Inputs shifted'}</b> since your visit on {fullDate(baseline.snapshotDate)}{movers ? <span> · {movers}</span> : null}
+    </span>;
 }
