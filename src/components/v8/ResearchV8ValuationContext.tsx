@@ -49,7 +49,7 @@ export function PositionPlanComparison({
     return (
         <div className={connected.planComparison} data-testid="position-plan-comparison">
             <div className={connected.planComparisonHeader}>
-                <span className={base.eyebrow}>SAME-CURRENCY COMPARISON · {context.currency}</span>
+                <span className={base.eyebrow}>Same-currency comparison · {context.currency}</span>
                 <strong>Returned price vs your saved plan levels</strong>
                 <p>Percentage distance is measured from the latest returned price ({price(context.currentPrice, context.currency)}). These are your saved thresholds, not fair-value targets.</p>
             </div>

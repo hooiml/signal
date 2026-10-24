@@ -69,7 +69,7 @@
 .mainColumn { min-width: 0; }
 .hero { padding: 1px 4px 21px; }
 .heroKicker { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 12px; }
-.heroKicker > span:first-child { color: var(--brand); font-size: var(--text-sm); font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; }
+.heroKicker > span:first-child { color: var(--muted); font-size: var(--text-sm); font-weight: 600; }
 .fixtureBadge { color: var(--muted); font-size: var(--text-sm); border: 1px solid var(--line); padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
 .app h1 { font-size: clamp(30px, 3.5vw, 46px); font-weight: 720; line-height: 1.13; letter-spacing: -1.8px; margin-bottom: 12px; }
 .hero > p { font-size: var(--text-md); max-width: 680px; line-height: 1.65; }
@@ -147,7 +147,8 @@
 }
 @media (max-width: 900px) { .inspectorAccess { display: none; } }
 .railHeading { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; }
-.eyebrow { font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 650; }
+/* Small context labels: sentence case, grey, normal tracking. */
+.eyebrow { font-size: var(--text-sm); color: var(--muted); font-weight: 600; }
 .orbit { color: var(--line-strong); font-size: var(--text-xl); line-height: 1; }
 .rail > h2 { font-size: var(--text-xl); letter-spacing: -.7px; margin-bottom: 24px; }
 .rail p, .mobileInspector p { font-size: var(--text-sm); margin: 9px 0 15px; line-height: 1.7; }
@@ -328,7 +329,7 @@
     .marketControls > select { min-width: 106px; padding-left: 9px; font-size: var(--text-sm); }
     .sourceToggle { margin-right: auto; font-size: var(--text-sm); min-height: 44px; }
     .exampleSelect { flex-direction: row; align-items: center; width: 100%; justify-content: space-between; font-size: var(--text-sm); } .exampleSelect select { min-height: 44px; font-size: var(--text-sm); }
-    .hero { padding: 0 0 20px; } .heroKicker { gap: 7px; margin-bottom: 10px; } .heroKicker > span:first-child { font-size: var(--text-sm); letter-spacing: .8px; } .fixtureBadge { font-size: var(--text-sm); padding: 2px 6px; }
+    .hero { padding: 0 0 20px; } .heroKicker { gap: 7px; margin-bottom: 10px; } .heroKicker > span:first-child { font-size: var(--text-sm); } .fixtureBadge { font-size: var(--text-sm); padding: 2px 6px; }
     .app h1 { font-size: var(--text-2xl); letter-spacing: -1.3px; max-width: 350px; } .hero > p { font-size: var(--text-base); line-height: 1.65; }
     .scoreStrip { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; padding: 18px; } .score { grid-column: 1; } .score strong { font-size: var(--text-display); } .zone { justify-self: end; }
     .scoreMeta b, .coverageButton b { font-size: var(--text-base); } .scoreMeta b small, .coverageButton b small { font-size: var(--text-sm); } .scoreMeta > span, .coverageButton > span { font-size: var(--text-sm); }
@@ -439,15 +440,7 @@
 .header nav a[aria-current]::after, .liveDot { background: var(--brand); }
 @media (max-width: 600px) {
     .app .tabs { gap: 4px; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; scrollbar-width: none; }
-    /* Edge shadows appear only while more tabs are scrolled out of view. */
-    .app div.tabs {
-        background:
-            linear-gradient(to right, var(--canvas) 40%, transparent) left / 32px 100% no-repeat local,
-            linear-gradient(to left, var(--canvas) 40%, transparent) right / 32px 100% no-repeat local,
-            linear-gradient(to right, color-mix(in srgb, var(--shadow) 14%, transparent), transparent) left / 14px 100% no-repeat scroll,
-            linear-gradient(to left, color-mix(in srgb, var(--shadow) 14%, transparent), transparent) right / 14px 100% no-repeat scroll,
-            var(--canvas);
-    }
+    /* Tabs scroll inside their own row; a cut-off last tab shows there is more. No edge fade. */
     .app .tabs button { flex: 0 0 auto; padding: 8px; max-width: none; white-space: nowrap; }
     .app .chartHeader { flex-wrap: wrap; }
 }

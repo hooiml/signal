@@ -114,8 +114,11 @@ V8 tokens are defined on `.app` in `src/components/v8/market-v8.module.css`, one
 - Size scale: `--text-xs` 12 · `--text-sm` 13 (default secondary text) · `--text-base` 14 · `--text-md` 16 ·
   `--text-lg` 20 · `--text-xl` 24 · `--text-2xl` 32 · `--text-display` 48. SVG user-unit chart labels are
   the only exception.
-- Eyebrows (small uppercase labels above headings) use `.eyebrow`: `--text-sm`, uppercase, wide letter
-  spacing; feature cards may use a brand-coloured `--text-xs` variant.
+- Small context labels above headings use `.eyebrow`: `--text-sm`, weight 600, `--muted`, sentence case
+  and normal letter spacing. No uppercase or tracked labels, and no brand colour on labels; table
+  headers follow the same rule.
+- The optional "Install Signal" offer docks in the page flow above the V8 footer
+  (`#signal-install-slot`); it never floats over content. Offline and update notices keep their top bar.
 
 ### Layout, shape and motion
 

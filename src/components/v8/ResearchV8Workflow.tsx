@@ -17,7 +17,7 @@ export function ResearchToolsV8() {
     return <details className={styles.tools}>
         <summary>Research tools <span aria-hidden="true">＋</span></summary>
         <div className={styles.toolDirectory}>
-            <div className={styles.panelHeading}><div><span className={base.eyebrow}>EXISTING SIGNAL WORKSPACES</span><h2>Find the right tool for the job.</h2></div></div>
+            <div className={styles.panelHeading}><div><span className={base.eyebrow}>Existing Signal workspaces</span><h2>Find the right tool for the job.</h2></div></div>
             <p>These links open saved Research in a new tab. Its own selected security and saved records apply; this fictional company and your session drafts are not transferred.</p>
             <nav aria-label="Existing research tools" className={styles.toolGroups}>{researchWorkspaceGroups.map(group => <section key={group.id}><h3>{group.label}</h3><ul>{group.items.map(item => <li key={item.id}><a href={`/research?workspace=${item.id}`} target="_blank" rel="noopener noreferrer">{item.label}<span aria-hidden="true">↗</span><span className={base.visuallyHidden}> — existing app, new tab</span></a></li>)}</ul></section>)}</nav>
         </div>
@@ -39,7 +39,7 @@ export function ResearchChecksV8({ hasEvidence, blank, onNavigate }: { hasEviden
 
 export function FinancialCoverageV8({ available, onReview }: { available: boolean; onReview: () => void }) {
     return <section className={styles.financialCoverage} aria-label="Fundamental coverage">
-        <div className={styles.panelHeading}><div><span className={base.eyebrow}>WHAT THE NUMBERS DO NOT YET TELL US</span><h2>Fundamental coverage</h2></div><span className={base.tag}>FY2025 example</span></div>
+        <div className={styles.panelHeading}><div><span className={base.eyebrow}>What the numbers do not yet tell us</span><h2>Fundamental coverage</h2></div><span className={base.tag}>FY2025 example</span></div>
         <dl className={styles.fundamentalGrid}>
             <div><dt>Revenue</dt><dd>{available ? '$120m' : 'Unavailable'}</dd><small>{available ? 'USD · synthetic annual value' : 'No comparable report'}</small></div>
             <div><dt>Free cash flow</dt><dd>{available ? '$8m' : 'Unavailable'}</dd><small>{available ? 'USD · synthetic annual value' : 'No comparable report'}</small></div>
@@ -58,7 +58,7 @@ export function ReviewCheckpointV8({ date, reason, onDate, onReason }: {
     date: string; reason: string; onDate: (value: string) => void; onReason: (value: string) => void;
 }) {
     return <section className={styles.reviewCheckpoint} aria-label="Draft review checkpoint">
-        <div className={styles.panelHeading}><div><span className={base.eyebrow}>WHEN WOULD YOU REVISIT THIS?</span><h2>Next review checkpoint</h2></div><span className={base.tag}>Draft · session only</span></div>
+        <div className={styles.panelHeading}><div><span className={base.eyebrow}>When would you revisit this?</span><h2>Next review checkpoint</h2></div><span className={base.tag}>Draft · session only</span></div>
         <div className={styles.checkpointFields}><label>Draft review date<input type="date" value={date} onChange={event => onDate(event.target.value)} /></label><label>Reason to revisit<input value={reason} onChange={event => onReason(event.target.value)} maxLength={300} placeholder="For example: a new filing or a thesis-changing result" /></label></div>
         <p className={styles.helper}>This draft creates no reminder, calendar entry or monitoring rule. It resets with this case’s session. Earnings dates and events have not been supplied.</p>
         {(date || reason.trim()) && <output className={styles.checkpointPreview}>Draft checkpoint: {date || 'date undecided'}{reason.trim() ? ` · ${reason.trim()}` : ' · reason not written'}</output>}

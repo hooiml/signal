@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
 
 type InstallPromptEvent = Event & {
@@ -32,7 +33,14 @@ export const PwaLifecycle = () => {
     const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
     const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
     const [message, setMessage] = useState<string | null>(null);
+    const [installSlot, setInstallSlot] = useState<HTMLElement | null>(null);
     const reloadForUpdate = useRef(false);
+
+    // Pages that provide an install slot (the V8 footers) host the optional offer in the page flow.
+    useEffect(() => {
+        const find = window.setTimeout(() => setInstallSlot(installPrompt || message ? document.getElementById('signal-install-slot') : null), 0);
+        return () => window.clearTimeout(find);
+    }, [installPrompt, message, pathname]);
 
     useEffect(() => {
         const markOnline = () => {
@@ -122,20 +130,23 @@ export const PwaLifecycle = () => {
     if (online && !waitingWorker && !installPrompt && !message) return null;
     const hasPriorityNotice = !online || waitingWorker !== null;
     const compactOptional = !hasPriorityNotice && (pathname === '/main-v8' || pathname === '/research-v8');
-    // V8 pages are light and expose their tokens on <html>; the optional prompt follows them there.
+    const docked = compactOptional && installSlot !== null && installSlot.isConnected;
+    // V8 pages expose their tokens on <html>; the optional prompt follows them there. Docked inside a V8
+    // page, the page's button reset applies, so the offer's own fills are marked important.
     const tone = compactOptional
-        ? { title: 'text-[var(--ink)]', body: 'text-[var(--muted)]', primary: 'border-transparent bg-[var(--brand)] text-[var(--on-brand)] hover:bg-[var(--brand-hover)]', quiet: 'text-[var(--muted)] decoration-[var(--line-strong)]' }
+        ? { title: 'text-[var(--ink)]', body: 'text-[var(--muted)]', primary: 'border-transparent bg-[var(--brand)]! text-[var(--on-brand)]! hover:bg-[var(--brand-hover)]!', quiet: 'text-[var(--muted)]! decoration-[var(--line-strong)]' }
         : { title: 'text-slate-100', body: 'text-slate-300', primary: 'border-slate-500', quiet: 'text-slate-300 decoration-slate-500' };
-    return (
+    const notice = (
         <aside
             data-testid="pwa-lifecycle"
             data-priority={hasPriorityNotice ? 'essential' : 'optional'}
-            className={(compactOptional ? 'fixed bottom-4 right-4 z-[100] w-[calc(100vw-2rem)] max-w-[380px] rounded-xl border px-4 py-3 shadow-xl text-xs ' : 'relative z-[100] w-full border-b px-3 py-3 text-xs text-slate-100 ') + (hasPriorityNotice
+            data-placement={docked ? 'docked' : 'floating'}
+            className={docked ? 'mt-8 text-xs text-[var(--ink)]' : (compactOptional ?'fixed bottom-4 right-4 z-[100] w-[calc(100vw-2rem)] max-w-[380px] rounded-xl border px-4 py-3 shadow-xl text-xs ' : 'relative z-[100] w-full border-b px-3 py-3 text-xs text-slate-100 ') + (hasPriorityNotice
                 ? 'border-amber-400/50 bg-[#101820] shadow-md'
                 : compactOptional ? 'border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] shadow-[0_12px_32px_-12px_color-mix(in_srgb,var(--shadow)_35%,transparent)]' : 'border-slate-700 bg-[#071019] text-slate-100')}
             aria-live="polite"
         >
-            <div className="mx-auto max-w-[1280px] space-y-3">
+            <div className={docked ? 'space-y-3' : 'mx-auto max-w-[1280px] space-y-3'}>
             {!online ? (
                 <div role="status">
                     <p className="font-bold text-amber-300">Offline — live server data is unavailable</p>
@@ -172,4 +183,5 @@ export const PwaLifecycle = () => {
             </div>
         </aside>
     );
+    return docked && installSlot ? createPortal(notice, installSlot) : notice;
 };

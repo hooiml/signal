@@ -1,7 +1,7 @@
 .card { margin: 20px 0 0; padding: 18px 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 16px; }
 .heading h2 { margin: 4px 0 0; font-size: var(--text-md); }
-.eyebrow { color: var(--brand); font-size: var(--text-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+.eyebrow { color: var(--muted); font-size: var(--text-sm); font-weight: 600; }
 .meta { margin: 8px 0 0; color: var(--muted); font-size: var(--text-sm); }
 .tag { padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: var(--text-xs); font-weight: 600; white-space: nowrap; }
 .tag[data-state="insufficient"], .tag[data-state="unavailable"] { color: var(--caution); border-color: var(--caution-line); }
@@ -16,7 +16,7 @@
 .horizons h3 { margin: 0; font-size: var(--text-base); }
 .horizons p { margin: 10px 0 0; font-size: var(--text-sm); }
 .horizons dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0 0; }
-.horizons dt { color: var(--muted); font-size: var(--text-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.horizons dt { color: var(--muted); font-size: var(--text-sm); font-weight: 400; }
 .horizons dd { margin: 4px 0 2px; font-family: var(--font-mono); font-size: var(--text-xl); font-weight: 700; font-variant-numeric: tabular-nums; }
 .horizons dd[data-direction="up"] { color: var(--up); }
 .horizons dd[data-direction="down"] { color: var(--down); }
