@@ -10,21 +10,21 @@
 .module a { color: var(--link); }
 .module a:focus-visible, .module button:focus-visible, .module input:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
 .empty { margin: 14px 0 0; padding: 14px; border: 1px dashed var(--line-strong); border-radius: 8px; color: var(--muted); font-size: var(--text-sm); }
-.module .secondary { min-height: 40px; padding: 0 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--link); font-size: var(--text-sm); font-weight: 600; }
+.module .secondary { min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--link); font-size: var(--text-sm); font-weight: 600; }
 .module .secondary:disabled { opacity: 0.5; }
 .module .link { min-height: 32px; padding: 0; border: 0; background: none; color: var(--link); font-family: var(--font-mono); font-weight: 700; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 0; }
-.chip { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 4px 0 12px; border: 1px solid var(--brand); border-radius: 999px; background: var(--brand-soft); font-family: var(--font-mono); font-size: var(--text-sm); }
+.chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px 0 12px; border: 1px solid var(--brand); border-radius: 999px; background: var(--brand-soft); font-family: var(--font-mono); font-size: var(--text-sm); }
 .chip[data-state="error"] { border-color: var(--down-line); background: var(--down-soft); }
 .chip small { display: inline; font-family: var(--font-sans); }
 .chip button { width: 32px; height: 32px; border: 0; border-radius: 50%; background: none; color: var(--muted); font-size: var(--text-md); }
 .chip button:hover { color: var(--ink); background: var(--surface); }
-.module .suggestion { min-height: 40px; padding: 0 12px; border: 1px dashed var(--line-strong); border-radius: 999px; background: none; color: var(--link); font-family: var(--font-mono); font-size: var(--text-sm); }
+.module .suggestion { min-height: 44px; padding: 0 12px; border: 1px dashed var(--line-strong); border-radius: 999px; background: none; color: var(--link); font-family: var(--font-mono); font-size: var(--text-sm); }
 .module .suggestion:disabled { opacity: 0.45; }
 .addRow { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 10px; margin: 12px 0 4px; }
 .addRow label { display: grid; gap: 4px; color: var(--muted); font-size: var(--text-sm); }
-.addRow input { min-height: 40px; width: 160px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font-family: var(--font-mono); text-transform: uppercase; }
+.addRow input { min-height: 44px; width: 160px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font-family: var(--font-mono); text-transform: uppercase; }
 .addRow p { flex-basis: 100%; margin: 0; color: var(--down); font-size: var(--text-sm); }
 
 .tableScroll { margin: 12px 0 0; overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
