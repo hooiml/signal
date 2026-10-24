@@ -12,6 +12,9 @@ import styles from './market-v8-outcomes.module.css';
 
 const levelLabel: Record<MarketExposureLevel, string> = { higher: 'Higher connection', moderate: 'Moderate connection', lower: 'Lower connection', unmapped: 'Unmapped' };
 const maximumClassified = 20;
+
+// Drivers that share a rule read as one line instead of repeating the same sentence.
+const groupByRule = (connections: readonly { driverName: string; rule: string }[]) => [...connections.reduce((groups, connection) => groups.set(connection.rule, [...(groups.get(connection.rule) ?? []), connection.driverName]), new Map<string, string[]>())].map(([rule, drivers]) => ({ rule, drivers }));
 type Classification = { sector: string; industry: string };
 
 // Saved securities from whichever workspace this browser uses; guest records never touch owner routes.
@@ -81,7 +84,7 @@ export function MarketV8Exposure({ signal }: { signal: MarketSignal }) {
                             <small>{classifying && item.sector === 'Unknown' ? 'Classifying…' : `${item.sector} · ${item.industry}`}{item.owned ? ' · Owned' : ''}</small>
                             <span className={styles.level} data-level={item.highestLevel}>{levelLabel[item.highestLevel]}</span>
                         </div>
-                        {item.highestLevel !== 'unmapped' && <ul className={styles.connections}>{item.connections.slice(0, 3).map(connection => <li key={connection.driverKey}><b>{connection.driverName}</b><span>{connection.rule}</span></li>)}</ul>}
+                        {item.highestLevel !== 'unmapped' && <ul className={styles.connections}>{groupByRule(item.connections).map(group => <li key={group.rule}><b>{group.drivers.join(', ')}</b><span>{group.rule}</span></li>)}</ul>}
                         {state.workspace === 'owner' && <small>{item.reviewStatus === 'not-reviewed' ? 'Not reviewed yet' : item.reviewAgeDays === null ? 'Review date unavailable' : `Reviewed ${item.reviewAgeDays} days ago`}</small>}
                     </li>)}</ul>}
         {state.records.filter(record => record.market === market).length > maximumClassified && <p className={styles.meta}>Showing the first {maximumClassified} saved {market} stocks.</p>}
