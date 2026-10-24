@@ -60,7 +60,7 @@ try {
         await page.locator('summary').filter({ hasText: /^Source notices and limitations/ }).waitFor();
         const panel = page.getByRole('tabpanel');
         assert.ok((await panel.innerText()).includes(snapshots.get('5347').data.valuation.shareCount.toLocaleString('en-US')));
-        await panel.getByText('How the ratios are calculated · exact inputs', { exact: true }).click();
+        await panel.getByText('What the ratios mean · exact inputs', { exact: true }).click();
         await capture('real-tenaga-valuation', 'Real Yahoo provider response');
         await page.getByRole('tab', { name: 'Financials', exact: true }).click();
         await page.getByText('Sales before expenses.', { exact: true }).waitFor();

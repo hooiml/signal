@@ -103,6 +103,11 @@
 .contextCard .indexList { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
 .contextCard .indexList li { flex-direction: column; gap: 2px; }
 .longLabel { display: inline; }
+/* Setting explanations stay one click away instead of a second toolbar row. */
+.controlHelp { position: relative; font-size: var(--text-sm); }
+.controlHelp > summary { display: flex; align-items: center; min-height: 44px; color: var(--link); cursor: pointer; }
+.controlHelp > div { position: absolute; z-index: 20; top: 100%; left: 0; display: grid; gap: 6px; width: min(360px, calc(100vw - 32px)); padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: 0 6px 18px color-mix(in srgb, var(--shadow) 14%, transparent); }
+.controlHelp p { margin: 0; }
 @media (max-width: 600px) {
     .scoreLine > strong { font-size: var(--text-2xl); }
     .spectrum { max-width: none; }

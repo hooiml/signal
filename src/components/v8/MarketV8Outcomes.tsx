@@ -18,7 +18,7 @@ function Horizon({ outcome }: { outcome: SimilarScoreOutcome }) {
                         <div><dt>Median return</dt><dd data-direction={tone(cohort.median_forward_return_pct)}>{percent(cohort.median_forward_return_pct)}</dd>{baseline && <small>all scores {percent(baseline.median_forward_return_pct)} · {points((cohort.median_forward_return_pct ?? 0) - (baseline.median_forward_return_pct ?? 0), 1)}</small>}</div>
                         <div><dt>Positive periods</dt><dd>{cohort.positive_return_rate_pct ?? '—'}%</dd>{baseline && <small>all scores {baseline.positive_return_rate_pct ?? '—'}% · {points((cohort.positive_return_rate_pct ?? 0) - (baseline.positive_return_rate_pct ?? 0), 0)}</small>}</div>
                     </dl>
-                    <p className={styles.meta}>{cohort.sample_count} similar-score periods ({cohort.observed_count} observed · {cohort.reconstructed_count} reconstructed){baseline ? ` vs ${baseline.sample_count} all-score periods` : ' · all-score baseline unavailable'}</p>
+                    <details className={styles.sample}><summary>{cohort.sample_count} similar-score periods</summary><p>{cohort.observed_count} observed · {cohort.reconstructed_count} reconstructed{baseline ? ` · compared with ${baseline.sample_count} all-score periods` : ' · all-score baseline unavailable'}. Overlapping observations, before costs.</p></details>
                 </>}
     </article>;
 }
@@ -33,7 +33,7 @@ export function MarketV8Outcomes({ signal, onHistory }: { signal: MarketSignal; 
             <div><span className={styles.eyebrow}>Historical outcomes</span><h2 id="market-outcomes-title">After scores like today’s {signal.composite_score}</h2></div>
             <button className={styles.link} onClick={onHistory}>Full historical calibration →</button>
         </div>
-        <p className={styles.meta}>{calibration.benchmark_name} returns after comparable past scores, compared with all eligible scores. Overlapping observations, before costs. Descriptive history, not a prediction of the next move.</p>
+        <p className={styles.meta}>{calibration.benchmark_name} returns after comparable past scores, compared with all eligible scores. Descriptive history, not a prediction.</p>
         <div className={styles.horizons}>{outcomes.map(outcome => <Horizon key={outcome.days} outcome={outcome} />)}</div>
     </section>;
 }

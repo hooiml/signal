@@ -34,18 +34,26 @@ function missingValuationContext(kind: 'marketCap' | 'pe' | 'ps' | 'fcfYield', s
         ? ''
         : [priceMissing ? 'a positive current price is unavailable' : '', sharesMissing ? `compatible outstanding shares are unavailable${market === 'MY' ? '; annual diluted average shares are not substituted' : ''}` : '', market === 'MY' && snapshot?.quote.currency !== 'MYR' ? 'the quote currency is not confirmed as MYR; no currency conversion is applied' : ''].filter(Boolean).join(' and ');
     if (kind === 'marketCap') return marketCap == null ? `Unavailable because ${marketCapReason || 'the required inputs were not returned'}.` : 'Current price multiplied by the returned share count; observation dates may differ.';
-    const meaning = kind === 'pe' ? 'Price paid for each unit of reported annual profit. This uses past earnings, not an earnings forecast.' : kind === 'ps' ? 'Price paid for each unit of annual sales. Sales do not account for costs or profit margins.' : 'Annual cash left after capital spending, expressed as a percentage of market capitalization. This is not a dividend yield or promised return.';
-    if (snapshot?.valuation[kind === 'pe' ? 'priceEarnings' : kind === 'ps' ? 'priceSales' : 'freeCashFlowYieldPercent'] != null) return meaning;
-    const reasons = [marketCapReason ? `market capitalization is unavailable because ${marketCapReason}` : ''];
+    if (snapshot?.valuation[kind === 'pe' ? 'priceEarnings' : kind === 'ps' ? 'priceSales' : 'freeCashFlowYieldPercent'] != null) return undefined;
+    // The market-capitalization row and the availability notice already explain why it is missing; ratios only name what they need.
+    const missing = [marketCap == null ? 'market capitalization' : ''];
+    let note = '';
     if (kind === 'pe') {
         const income = snapshot?.fundamentals.annualNetIncome;
-        reasons.push(income == null ? 'annual net income was not supplied' : income <= 0 ? 'annual net income is zero or negative' : '');
+        if (income == null) missing.push('annual net income'); else if (income <= 0) note = 'Annual net income is zero or negative.';
     } else if (kind === 'ps') {
         const revenue = snapshot?.fundamentals.annualRevenue;
-        reasons.push(revenue == null ? 'annual revenue was not supplied' : revenue <= 0 ? 'annual revenue is not positive' : '');
-    } else if (snapshot?.fundamentals.freeCashFlow == null) reasons.push('annual free cash flow was not supplied');
-    return `${meaning} Unavailable because ${reasons.filter(Boolean).join('; ') || 'a required input was not returned'}.`;
+        if (revenue == null) missing.push('annual revenue'); else if (revenue <= 0) note = 'Annual revenue is not positive.';
+    } else if (snapshot?.fundamentals.freeCashFlow == null) missing.push('annual free cash flow');
+    const needs = missing.filter(Boolean);
+    return [needs.length ? `Needs ${needs.join(' and ')}.` : '', note].filter(Boolean).join(' ') || 'A required input was not returned.';
 }
+
+const ratioMeanings = [
+    ['Price / earnings', 'Price paid for each unit of reported annual profit. This uses past earnings, not an earnings forecast.'],
+    ['Price / sales', 'Price paid for each unit of annual sales. Sales do not account for costs or profit margins.'],
+    ['Free cash flow yield', 'Annual cash left after capital spending, expressed as a percentage of market capitalization. This is not a dividend yield or promised return.'],
+] as const;
 
 function planCurrencyNote(planCurrency: string | null | undefined, quoteCurrency: string | null | undefined) {
     const plan = researchPriceCurrency(planCurrency);
@@ -132,7 +140,8 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
                 ['Price / sales', number(valuation?.priceSales, '×'), missingValuationContext('ps', snapshot, market)],
                 ['Free cash flow yield', number(valuation?.freeCashFlowYieldPercent, '%'), missingValuationContext('fcfYield', snapshot, market)],
             ]} />
-            <details className={connected.evidence}><summary>How the ratios are calculated · exact inputs</summary>
+            <details className={connected.evidence}><summary>What the ratios mean · exact inputs</summary>
+                {ratioMeanings.map(([label, meaning]) => <p key={label}><b>{label}:</b> {meaning}</p>)}
                 <p>These current-price ratios combine the returned price and share count with reported annual amounts. The quote, shares and financial statements may have different observation dates; no currency conversion is applied.</p>
                 <p>Market capitalization = price × shares = {price(snapshot?.quote.price, snapshot?.quote.currency)} × {number(valuationShares)} = {money(valuation?.marketCap, snapshot?.quote.currency)}.</p>
                 <p>Price / earnings = market capitalization ÷ annual net income = {money(valuation?.marketCap, snapshot?.quote.currency)} ÷ {money(fundamentals?.annualNetIncome, currency)} = {number(valuation?.priceEarnings, '×')}. A non-positive or missing denominator is unavailable.</p>

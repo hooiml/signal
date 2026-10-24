@@ -140,7 +140,7 @@ try {
  await revenueRow.scrollIntoViewIfNeeded();await noOverflow();await page.screenshot({path:`${out}/financial-reading-${width}.png`});
  await page.getByRole('tab',{name:'Valuation',exact:true}).click();await page.getByRole('heading',{name:'Price, value and downside'}).waitFor();
  await page.locator('dt').filter({hasText:/^Market capitalization/}).locator('small').filter({hasText:/compatible outstanding shares are unavailable; annual diluted average shares are not substituted/}).waitFor();
- await page.locator('dt').filter({hasText:/^Price \/ earnings/}).locator('small').filter({hasText:/Price paid for each unit of reported annual profit\.[\s\S]*Unavailable because market capitalization is unavailable because compatible outstanding shares are unavailable/}).waitFor();
+ await page.locator('dt').filter({hasText:/^Price \/ earnings/}).locator('small').filter({hasText:/^Needs market capitalization/}).waitFor();
  await read('PARTIAL');await heading('Partial financial picture');assert.equal(await page.getByTestId('research-price').innerText(),'USD 200.00');
  await read('MISSING');await heading('Not enough financial data');await page.getByRole('region',{name:'Financial assessment status',exact:true}).getByText('Insufficient evidence',{exact:true}).waitFor();
  await page.getByRole('button',{name:'Refresh provider data',exact:true}).click();await assessment.getByText(/Insufficient financial evidence returned/).waitFor();assert.equal(await assessment.getByText(/No new financial evidence/).count(),0);
@@ -254,6 +254,7 @@ try {
  }
  await page.getByRole('button',{name:'Back to basic view',exact:true}).click();
  const leadingEvidence=page.getByRole('group',{name:'Leading evidence',exact:true});
+ await leadingEvidence.locator('summary',{hasText:'What support and conflict mean'}).click();
  await leadingEvidence.getByText(/A conflict means a different indicator category, not necessarily a negative reading/).waitFor();
  assert.ok(await leadingEvidence.getByText(/Indicator category:.*overall:/).count()>0);
  const evidenceBoxes=await leadingEvidence.locator('button').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};}));

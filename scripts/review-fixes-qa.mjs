@@ -185,6 +185,7 @@ try {
         await page.goto(`${base}/main-v8`);
         const accounting = page.getByRole('region', { name: 'Complete score change accounting' });
         await accounting.waitFor();
+        await accounting.locator('summary', { hasText: 'Complete accounting' }).click();
         for (const label of ['Input contributions', 'Missing-input fallback', 'Rounding and clamp residual', 'Reported score delta']) {
             await accounting.getByText(label, { exact: true }).waitFor();
         }

@@ -68,13 +68,15 @@ export function MarketV8Exposure({ signal }: { signal: MarketSignal }) {
     const exposures = buildMarketWatchlistExposure(signal, items);
     const drivers = (signal.metadata.score_drivers ?? []).filter(driver => signal.components[driver.key]?.enabled === true);
     const classifying = !!pending;
+    // With nothing saved, the card is only a pointer to Research; driver chips and rules add no information.
+    const empty = state.status === 'ready' && exposures.length === 0;
     return <section className={styles.card} aria-labelledby="market-exposure-title" data-testid="market-watchlist-exposure">
         <div className={styles.heading}>
             <div><span className={styles.eyebrow}>Market → your saved stocks</span><h2 id="market-exposure-title">Exposure map</h2></div>
             {exposures.length > 0 && <span className={styles.tag}>{exposures.length} mapped · {exposures.filter(item => item.highestLevel === 'higher').length} higher</span>}
         </div>
-        <p className={styles.meta}>Connects today’s active score drivers to your saved {market} stocks by sector, using visible rules. A prompt to review, not a measured price sensitivity.</p>
-        {drivers.length > 0 && <ul className={styles.drivers} aria-label="Active score drivers">{drivers.map(driver => <li key={driver.key} data-impact={driver.impact}><b>{driver.name}</b> · {driver.impact}</li>)}</ul>}
+        {!empty && <p className={styles.meta}>Connects today’s active score drivers to your saved {market} stocks by sector, using visible rules. A prompt to review, not a measured price sensitivity.</p>}
+        {!empty && drivers.length > 0 && <ul className={styles.drivers} aria-label="Active score drivers">{drivers.map(driver => <li key={driver.key} data-impact={driver.impact}><b>{driver.name}</b> · {driver.impact}</li>)}</ul>}
         {state.status === 'loading' ? <p role="status">Loading saved securities…</p>
             : state.status === 'error' ? <p role="alert">Saved research could not be read. The market reading above is unaffected.</p>
                 : exposures.length === 0 ? <p className={styles.empty}>No saved {market} stocks to map. <a href={`/research-v8?market=${market}`}>Save a security in Research</a> to see how today’s drivers connect to it.</p>
@@ -88,6 +90,6 @@ export function MarketV8Exposure({ signal }: { signal: MarketSignal }) {
                         {state.workspace === 'owner' && <small>{item.reviewStatus === 'not-reviewed' ? 'Not reviewed yet' : item.reviewAgeDays === null ? 'Review date unavailable' : `Reviewed ${item.reviewAgeDays} days ago`}</small>}
                     </li>)}</ul>}
         {state.records.filter(record => record.market === market).length > maximumClassified && <p className={styles.meta}>Showing the first {maximumClassified} saved {market} stocks.</p>}
-        <p className={styles.meta}>Rules use only market and sector. They do not use beta, fund look-through, revenue geography or factor models; unknown sectors stay unmapped.</p>
+        {!empty && <details className={styles.sample}><summary>How connections are mapped</summary><p>Rules use only market and sector. They do not use beta, fund look-through, revenue geography or factor models; unknown sectors stay unmapped.</p></details>}
     </section>;
 }

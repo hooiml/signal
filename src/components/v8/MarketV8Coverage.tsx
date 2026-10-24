@@ -17,10 +17,11 @@ export function MarketLeadingEvidence({ signal, date, onSelect }: {
             {entry ? <button onClick={event => onSelect(entry[0], event.currentTarget)}>
                 <span><i className={styles.indicatorMarker} data-indicator={entry[0]} aria-hidden="true" /><b>{label}:</b> {entry[1].display_name} <span aria-hidden="true">↗</span></span>
                 <small>Indicator category: {marketReadingLabel(entry[1].signal)} · overall: {marketReadingLabel(signal.tier)}</small>
-                <small>{indicatorStatus(signal, entry[0], date)} · {entry[1].metadata?.timestamp_basis === 'observed' ? 'Observed' : entry[1].metadata?.timestamp_basis === 'retrieved' ? 'Retrieved' : 'Recorded'} {marketTimestampLabel(entry[1].last_updated)}</small>
+                {/* Fresh inputs keep their dates in the evidence list; only exceptions surface here. */}
+                {indicatorStatus(signal, entry[0], date) !== 'Included' && <small>{indicatorStatus(signal, entry[0], date)} · {entry[1].metadata?.timestamp_basis === 'observed' ? 'Observed' : entry[1].metadata?.timestamp_basis === 'retrieved' ? 'Retrieved' : 'Recorded'} {marketTimestampLabel(entry[1].last_updated)}</small>}
             </button> : <p><b>{label}:</b> {label === 'Leading support' ? 'No aligned included input identified.' : conflicts.length ? 'Reported conflict has no matching included observation.' : 'No conflicting included input identified; missing evidence can still limit this reading.'}</p>}
         </div>)}
-        <p>Categories follow the selected mode. A conflict means a different indicator category, not necessarily a negative reading. Leading inputs are selected by weight; alignment is agreement, not forecast accuracy.</p>
+        <details className={styles.leadingNote}><summary>What support and conflict mean</summary><p>Categories follow the selected mode. A conflict means a different indicator category, not necessarily a negative reading. Leading inputs are selected by weight; alignment is agreement, not forecast accuracy.</p></details>
     </div>;
 }
 

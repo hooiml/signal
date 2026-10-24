@@ -34,6 +34,9 @@
 .leadingEvidence button small { color: var(--muted); font-size: var(--text-sm); }
 .leadingEvidence p { font-size: var(--text-sm); line-height: 1.5; }
 .leadingEvidence > p { font-size: var(--text-sm); }
+.leadingNote { color: var(--muted); font-size: var(--text-sm); }
+.leadingNote > summary { min-height: 44px; padding: 10px 0; color: var(--ink); cursor: pointer; }
+.leadingNote p { margin: 0; }
 @media (max-width: 600px) {
     .assessment { padding: 16px; }
     .evidenceGrid { grid-template-columns: minmax(0, 1fr); gap: 14px; }

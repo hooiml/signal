@@ -21,6 +21,9 @@
 .horizons dd[data-direction="up"] { color: var(--up); }
 .horizons dd[data-direction="down"] { color: var(--down); }
 .horizons small { color: var(--muted); font-size: var(--text-xs); }
+.sample { margin-top: 6px; color: var(--muted); font-size: var(--text-sm); }
+.sample > summary { min-height: 44px; padding: 12px 0; cursor: pointer; }
+.sample p, .horizons .sample p { margin: 0 0 4px; }
 
 .drivers { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; }
 .drivers li { padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); font-size: var(--text-sm); }

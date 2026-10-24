@@ -30,7 +30,8 @@ export function ResearchCurrentAssessment({ snapshot, previous = null, loading, 
     // Keep unavailable assessments inspectable without pushing the returned price history down the page.
     if (snapshot && (assessment.status === 'unsupported' || assessment.coverage === 0)) {
         return <section className={`${styles.assessment} ${styles.assessmentCompact}`} aria-label="Current research assessment" aria-busy={loading}>
-            <AssessmentFacts snapshot={snapshot} />
+            {/* With no inputs, three "Unavailable" cards repeat the status above the tabs. */}
+            {assessment.coverage > 0 && <AssessmentFacts snapshot={snapshot} />}
             <details className={styles.assessmentDetails}>
                 <summary>Assessment evidence and limitations · {labels[assessment.status]} · {assessment.coverage}/3 inputs</summary>
                 <p>{error ? 'Provider refresh failed. The previous response remains visible with its original dates.' : assessment.summary}</p>

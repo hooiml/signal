@@ -278,7 +278,7 @@ function ChangePanel({ signal, onSelect }: { signal: MarketSignal; onSelect: Con
 
     return <>
         <SectionHeading eyebrow="What changed" title="Reported score changes" tag={formatMarketDates(scoreDelta?.label ?? 'Latest comparison')} />
-        {scoreDelta && finiteNumber(scoreDelta.delta) && Math.abs(scoreDelta.delta) < 0.005 ? <p className={styles.unchangedScore} data-testid="what-changed-unchanged"><strong>{signal.composite_score.toFixed(0)}</strong><span>Score unchanged since {scoreDelta.previous_date ? formatDate(scoreDelta.previous_date) : 'the previous snapshot'} · snapshot {formatDate(scoreDelta.snapshot_date)}. Individual inputs can still move in offsetting directions; see the accounting below.</span></p> : scoreDelta && finiteNumber(scoreDelta.delta) ? <div className={styles.studyMetrics}><div><span>Current score</span><strong>{signal.composite_score.toFixed(0)}</strong><small>Snapshot {formatDate(scoreDelta.snapshot_date)}</small></div><div><span>Previous score</span><strong>{finiteNumber(scoreDelta.previous_score) ? scoreDelta.previous_score.toFixed(0) : 'Unavailable'}</strong><small>{scoreDelta.previous_date ? formatDate(scoreDelta.previous_date) : 'No prior date'}</small></div><div><span>Score delta</span><strong>{signed(scoreDelta.delta, 0)}</strong><small>Reported comparison</small></div></div> : <Unavailable title="Score change unavailable" detail="No comparable previous score is available." />}
+        {scoreDelta && finiteNumber(scoreDelta.delta) && Math.abs(scoreDelta.delta) < 0.005 ? <p className={styles.unchangedScore} data-testid="what-changed-unchanged"><strong>{signal.composite_score.toFixed(0)}</strong><span>Score unchanged since {scoreDelta.previous_date ? formatDate(scoreDelta.previous_date) : 'the previous snapshot'} · snapshot {formatDate(scoreDelta.snapshot_date)}. Individual inputs can still move in offsetting directions; open Complete accounting below.</span></p> : scoreDelta && finiteNumber(scoreDelta.delta) ? <div className={styles.studyMetrics}><div><span>Current score</span><strong>{signal.composite_score.toFixed(0)}</strong><small>Snapshot {formatDate(scoreDelta.snapshot_date)}</small></div><div><span>Previous score</span><strong>{finiteNumber(scoreDelta.previous_score) ? scoreDelta.previous_score.toFixed(0) : 'Unavailable'}</strong><small>{scoreDelta.previous_date ? formatDate(scoreDelta.previous_date) : 'No prior date'}</small></div><div><span>Score delta</span><strong>{signed(scoreDelta.delta, 0)}</strong><small>Reported comparison</small></div></div> : <Unavailable title="Score change unavailable" detail="No comparable previous score is available." />}
 
         <section className={styles.calibration} aria-label="Driver changes">
             <h3>Reported contribution changes</h3>
@@ -335,8 +335,10 @@ function ChangeAccounting({ signal }: { signal: MarketSignal }) {
     const moved = accounting.components.filter(row => row.status !== 'unchanged' || row.previous_score !== row.current_score || row.previous_weight !== row.current_weight);
     const unchanged = accounting.components.length - moved.length;
     const newsContributed = accounting.components.some(row => row.key === 'news' && ((row.previous_weight ?? 0) > 0 || (row.current_weight ?? 0) > 0));
+    // The totals and per-input rows are audit detail; the contribution bars above carry the summary.
     return <section className={`${styles.calibration} ${styles.changeAccounting}`} aria-label="Complete score change accounting">
-        <h3>Complete accounting</h3>
+        <details className={styles.accountingFold}>
+        <summary>Complete accounting · {signed(accounting.reported_delta, 0)} points reported</summary>
         <dl className={`${styles.keyValues} ${styles.accountingTotals}`}>
             <div><dt>Input contributions</dt><dd>{signed(accounting.component_delta)} points</dd></div>
             <div><dt>Missing-input fallback</dt><dd>{signed(accounting.neutral_fallback.delta)} points</dd></div>
@@ -381,6 +383,7 @@ function ChangeAccounting({ signal }: { signal: MarketSignal }) {
         })}
         {unchanged > 0 && <p className={styles.muted}>{unchanged} input{unchanged === 1 ? '' : 's'} unchanged between snapshots.</p>}
         <p className={styles.studyNotice}>Points are normalized score × applied weight. Input contributions, missing-input fallback and residual sum to the reported delta.</p>
+        </details>
     </section>;
 }
 
@@ -421,15 +424,15 @@ function ContextPanel({ signal }: { signal: MarketSignal }) {
     const context = signal.metadata.market_context;
     const backdrop = signal.metadata.valuation_backdrop;
     const backdropUrls = safeHttpUrls(backdrop?.source_url);
-    const indices = signal.metadata.index_trend ?? [];
+    // The source string lists the market-value series first, then GDP.
+    const backdropLinkLabel = (index: number) => backdropUrls.length === 2 ? index === 0 ? 'Market value source →' : 'GDP source →' : 'Open valuation source →';
 
     return <>
         <SectionHeading eyebrow="Context" title="Market context outside the score" tag="Context only" />
         <p className={styles.panelIntro}>These dated records provide context and do not change the composite score.</p>
-        {backdrop ? <section className={styles.calibration} aria-label="Valuation backdrop"><h3>{backdrop.name}</h3><dl className={styles.keyValues}><div><dt>Ratio</dt><dd>{backdrop.ratio_pct.toFixed(1)}%</dd></div><div><dt>Label</dt><dd>{backdrop.label}</dd></div><div><dt>Market value</dt><dd>{backdrop.market_value_billions.toFixed(1)}bn</dd></div><div><dt>GDP</dt><dd>{backdrop.gdp_billions.toFixed(1)}bn</dd></div><div><dt>Report date</dt><dd>{formatDate(backdrop.report_date)}</dd></div></dl><p>{backdrop.detail}</p>{backdropUrls.length ? <div>{backdropUrls.map((sourceUrl) => <p key={sourceUrl}><a className={styles.textButton} href={sourceUrl} target="_blank" rel="noreferrer">Open valuation source →</a></p>)}</div> : <p className={styles.muted}>Source URL unavailable.</p>}</section> : <Unavailable title="Valuation backdrop unavailable" />}
+        {backdrop ? <section className={styles.calibration} aria-label="Valuation backdrop"><h3>{backdrop.name}</h3><dl className={styles.keyValues}><div><dt>Ratio</dt><dd>{backdrop.ratio_pct.toFixed(1)}%</dd></div><div><dt>Label</dt><dd>{backdrop.label}</dd></div><div><dt>Market value</dt><dd>{backdrop.market_value_billions.toFixed(1)}bn</dd></div><div><dt>GDP</dt><dd>{backdrop.gdp_billions.toFixed(1)}bn</dd></div><div><dt>Report date</dt><dd>{formatDate(backdrop.report_date)}</dd></div></dl><p>{backdrop.detail}</p>{backdropUrls.length ? <div>{backdropUrls.map((sourceUrl, index) => <p key={sourceUrl}><a className={styles.textButton} href={sourceUrl} target="_blank" rel="noreferrer">{backdropLinkLabel(index)}</a></p>)}</div> : <p className={styles.muted}>Source URL unavailable.</p>}</section> : <Unavailable title="Valuation backdrop unavailable" />}
 
         <section className={styles.calibration} aria-label="Market context"><h3>Market context</h3>{context ? <ContextData context={context} /> : <Unavailable title="Market context unavailable" />}</section>
-        <section className={styles.calibration} aria-label="Index trend"><h3>Index trend</h3>{indices.length ? <div className={styles.contextList}>{indices.map((index) => <div key={index.symbol} className={styles.evidenceButton}><span><b>{index.symbol}</b><small>{finiteNumber(index.price) ? `Price ${index.price.toFixed(2)}` : 'Price unavailable'} · {index.trend}</small></span><span className={index.changePercent >= 0 ? styles.support : styles.conflict}>{signed(index.changePercent)}%</span></div>)}</div> : <Unavailable title="Index trend unavailable" />}</section>
         <section className={styles.calibration} aria-label="Market headlines"><h3>Market headlines</h3><p>Headlines are withheld here because market relevance has not been verified. They are not score-attribution evidence.</p></section>
     </>;
 }
