@@ -38,10 +38,10 @@ export function ResearchTrendingV8({ scan, onSelect }: { scan: DiscoveryScan; on
             <p>Ranked by sustained 3- and 6-month momentum and SEC-confirmed business quality. A research shortlist, not a buy recommendation or a forecast. High-risk and fundamentally unsupported names are excluded. Holder filings are delayed quarterly 13F disclosures, not evidence of current buying.</p>
         </details>
         {rows.length === 0 ? <p>No candidates passed the current eligibility checks.</p> : <ol className={styles.list} data-testid="research-trending">
-            <li className={styles.head} aria-hidden="true"><span>#</span><span>Stock</span><span>Score</span><span>3M</span><span>6M</span><span>Risk</span><span>Category</span></li>
+            <li className={styles.head} aria-hidden="true"><span>#</span><span>Stock</span><span>Score</span><span className={styles.num}>3M</span><span className={styles.num}>6M</span><span>Risk</span><span>Category</span></li>
             {rows.map(({ row, rank, group }) => <li key={row.symbol} data-group={group}>
                 <button onClick={() => onSelect(row.symbol)} aria-label={`Read ${row.symbol}, ${row.name}, rank ${rank}`}>
-                    <span className={styles.rank}>{String(rank).padStart(2, '0')}</span>
+                    <span className={styles.rank}>{rank}</span>
                     <span className={styles.name}><b>{row.symbol}</b><small>{row.name} · ${row.price.toFixed(2)}</small></span>
                     <span className={styles.score}><b>{row.discoveryScore}</b><small>trend {row.trendScore} · quality {row.qualityScore ?? '—'}</small></span>
                     <span className={styles.move} data-direction={direction(row.momentum3MonthPercent)}><small>3M </small>{signedPercent(row.momentum3MonthPercent)}</span>

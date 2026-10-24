@@ -116,7 +116,7 @@ export function ResearchQualityAndCushion({ fundamentals }: { fundamentals: Rese
             <div className={connected.qualityGrid}>
                 {hasMarginData && (
                     <div className={connected.qualityCard} data-testid="financial-margin-context">
-                        <span className={base.eyebrow}>UNIT PROFITABILITY</span>
+                        <span className={base.eyebrow}>Unit profitability</span>
                         <h3>Annual margin trajectory</h3>
                         <p>Compares how much of each revenue unit remained after direct and operating costs across comparable annual filings.</p>
                         <div className={connected.marginList}>
@@ -164,7 +164,7 @@ export function ResearchQualityAndCushion({ fundamentals }: { fundamentals: Rese
                 )}
                 {hasBalanceOrShares && (
                     <div className={connected.qualityCard} data-testid="financial-cushion-dilution">
-                        <span className={base.eyebrow}>BALANCE SHEET & OWNERSHIP</span>
+                        <span className={base.eyebrow}>Balance sheet & ownership</span>
                         <h3>Cash cushion and share count</h3>
                         <p>Reported cash relative to debt and annual changes in share count. Balance and share dates can differ from the annual income statement period.</p>
                         {cushion && (

@@ -232,7 +232,7 @@ try {
  assert.match(await myCoverage.innerText(),/0 eligible dated articles.*0 dated within 24h.*aggregate sentiment observation unavailable/);
  await myCoverage.screenshot({path:`${out}/market-my-news-freshness-${width}.png`});
  const eligibilityNotice=page.getByText(/MY news eligibility version: previous unknown, current 1/);
- await eligibilityNotice.waitFor();await eligibilityNotice.scrollIntoViewIfNeeded();await noOverflow();
+ await page.locator('summary',{hasText:'Complete accounting'}).click();await eligibilityNotice.waitFor();await eligibilityNotice.scrollIntoViewIfNeeded();await noOverflow();
  if(width<=600){
   const driver=page.getByRole('region',{name:'Driver changes',exact:true}).getByRole('button').first();
   const labelBox=await driver.locator(':scope > span').first().boundingBox();const amountBox=await driver.locator('b').boundingBox();

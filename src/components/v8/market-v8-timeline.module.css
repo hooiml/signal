@@ -25,7 +25,7 @@
 .timeline button, .timeline summary { font: inherit; cursor: pointer; }
 .timeline :where(button, summary, [role='slider']):focus-visible { outline: 3px solid var(--timeline-blue); outline-offset: 4px; }
 .headingRow { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
-.kicker, .panelEyebrow, .rangeLabel, .readoutLabel { color: var(--timeline-muted); font-size: var(--text-sm); letter-spacing: .08em; text-transform: uppercase; }
+.kicker, .panelEyebrow, .rangeLabel, .readoutLabel { color: var(--timeline-muted); font-size: var(--text-sm);  }
 .kicker { color: var(--timeline-green); font-weight: 650; }
 .headingRow h2 { margin-top: 9px; font-size: var(--text-xl); font-weight: 600; letter-spacing: -.03em; }
 .intro { color: var(--timeline-muted); margin-top: 6px !important; max-width: 650px; font-size: var(--text-sm); }

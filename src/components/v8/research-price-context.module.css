@@ -1,5 +1,6 @@
-.context { margin: 12px 0; padding: 14px 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 20px; margin: 0; }
+/* Sits inside the quote band, which owns the card edge. */
+.context { min-width: 0; margin: 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 14px 20px; margin: 0; }
 .item { min-width: 0; }
 .item dt { font-size: var(--text-sm); color: var(--muted); }
 .item dd { display: grid; gap: 4px; margin: 2px 0 0; }
@@ -9,6 +10,5 @@
 .range > span { position: absolute; top: -3px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--ink); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--line); }
 .note { margin: 10px 0 0; font-size: var(--text-sm); color: var(--muted); }
 @media (max-width: 600px) {
-    .context { padding: 12px 14px; }
     .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

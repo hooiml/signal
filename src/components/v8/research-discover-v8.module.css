@@ -20,31 +20,32 @@
 .list, .picks { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
 .list > li, .picks > li { border-bottom: 1px solid var(--line); }
 .list > li[data-group="Leader"] + li[data-group="Contender"] { border-top: 2px solid var(--line-strong); }
-.head, .list button { display: grid; grid-template-columns: 32px minmax(150px, 1.4fr) minmax(110px, 0.9fr) 72px 72px 96px minmax(140px, 1.2fr); gap: 10px; align-items: center; width: 100%; padding: 9px 16px; text-align: left; }
+/* The identity and category columns take the spare width; figures sit in fixed columns beside the name. */
+.head, .list button { display: grid; grid-template-columns: 32px minmax(180px, 1fr) 120px 72px 72px 110px minmax(220px, 1.4fr); gap: 10px; align-items: center; width: 100%; padding: 9px 16px; text-align: left; column-gap: 16px; }
 .picks button { display: grid; grid-template-columns: 32px minmax(150px, 1.2fr) minmax(110px, 0.8fr) 72px minmax(200px, 2fr); gap: 10px; align-items: center; width: 100%; padding: 9px 16px; text-align: left; }
-.head { color: var(--muted); font-size: var(--text-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.head { color: var(--muted); font-size: var(--text-sm); font-weight: 400; }
+.head .num { text-align: right; }
 .list button, .picks button { min-height: 52px; border: 0; background: none; color: var(--ink); font: inherit; cursor: pointer; }
 .list button:hover, .picks button:hover { background: var(--surface-muted); }
 .body small { display: block; color: var(--muted); font-size: var(--text-xs); font-weight: 400; }
 .list small, .name small, .score small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rank { color: var(--muted); font-family: var(--font-mono); font-size: var(--text-sm); }
+.rank { color: var(--muted); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 .name, .score, .category, .brief { min-width: 0; }
 .name b { font-family: var(--font-mono); }
-.score b { font-family: var(--font-mono); color: var(--brand); }
+.score b { font-variant-numeric: tabular-nums; }
 .brief { font-size: var(--text-sm); }
-.move { white-space: nowrap;  font-family: var(--font-mono); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+/* Signs carry direction; only a fall takes colour. */
+.move { white-space: nowrap; text-align: right; font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 .move small { display: none; }
-.move[data-direction="up"] { color: var(--up); }
 .move[data-direction="down"] { color: var(--down); }
 .risk { font-size: var(--text-sm); text-transform: capitalize; }
-.risk[data-risk="low"] { color: var(--up); }
+.risk[data-risk="low"] { color: var(--muted); }
 .risk[data-risk="moderate"] { color: var(--caution); }
 .risk[data-risk="high"] { color: var(--down); }
 .category { font-size: var(--text-sm); text-transform: capitalize; }
 .category small { text-transform: none; }
 .list .category .holders { white-space: normal; overflow: visible; }
-.category .holders[data-activity="increases-led"] { color: var(--up); }
-.category .holders[data-activity="decreases-led"] { color: var(--down); }
+/* Holder filings are delayed disclosures: stated in words, not signalled in colour. */
 
 /* Picker controls and baskets */
 .controls { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: end; margin-bottom: 12px; }
@@ -71,7 +72,7 @@
 .segment button[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); color: var(--brand); }
 .days { list-style: none; margin: 0 16px; padding: 0; }
 .days > li { padding: 8px 0; border-top: 1px solid var(--line); }
-.days h4 { margin: 0 0 4px; color: var(--muted); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em; }
+.days h4 { margin: 0 0 4px; color: var(--muted); font-size: var(--text-xs); }
 .days ul { list-style: none; margin: 0; padding: 0; }
 .days ul li { display: grid; grid-template-columns: 104px 72px minmax(0, 1fr); gap: 10px; align-items: center; min-height: 44px; font-size: var(--text-sm); }
 .days ul li[data-urgency="action"] b { color: var(--down); }
@@ -80,22 +81,14 @@
 .badge[data-type="stale"] { border-color: var(--down-line); color: var(--down); }
 
 @media (max-width: 760px) {
-    .views { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: auto; }
+    .views { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: auto; }
     .views button { white-space: normal; }
-    .head { display: none; }
-    .list button, .picks button { grid-template-columns: 28px minmax(0, 1fr) auto; grid-template-areas: "rank name score" "rank a b" "rank c d"; gap: 4px 10px; padding: 10px 12px; }
-    .rank { grid-area: rank; }
-    .name { grid-area: name; }
-    .score { grid-area: score; text-align: right; }
-    .list .score small { display: none; }
-    .list .move:nth-of-type(4) { grid-area: a; }
-    .list .move:nth-of-type(5) { grid-area: b; text-align: right; }
-    .move small { display: inline; }
-    .risk { grid-area: c; }
-    .category { grid-area: d; text-align: right; }
-    .category small { display: none; }
-    .category .holders { display: block; }
-    .picks .move { grid-area: a; }
+    .picks button { grid-template-columns: 28px minmax(0, 1fr) auto; grid-template-areas: "rank name score" "rank a b" "rank c d"; gap: 4px 10px; padding: 10px 12px; }
+    .picks .rank { grid-area: rank; }
+    .picks .name { grid-area: name; }
+    .picks .score { grid-area: score; text-align: right; }
+    .picks .move small { display: inline; }
+    .picks .move { grid-area: a; text-align: left; }
     .picks .brief { grid-column: 2 / -1; grid-row: 3; }
     .controls label { flex: 1 1 40%; }
     .controls select { width: 100%; }
@@ -125,8 +118,21 @@
 .stage { min-width: 0; font-size: var(--text-sm); font-weight: 600; }
 .stage[data-stage="emerging"] { color: var(--up); }
 .stage small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 760px) {
-    .views { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 960px) {
+    .head { display: none; }
+    /* Tablet: figures stay in columns on line one; risk and holder filings take line two. */
+    .list button { grid-template-columns: 28px 110px minmax(0, 1fr) 56px 72px 72px; grid-template-areas: "rank name name score a b" "rank c d d d d"; gap: 4px 10px; padding: 10px 12px; }
+    .list .rank { grid-area: rank; }
+    .list .name { grid-area: name; }
+    .list .score { grid-area: score; text-align: right; }
+    .list .score small { display: none; }
+    .list .move:nth-of-type(4) { grid-area: a; }
+    .list .move:nth-of-type(5) { grid-area: b; }
+    .list .move small { display: inline; }
+    .list .risk { grid-area: c; }
+    .list .category { grid-area: d; }
+    .list .category small { display: none; }
+    .list .category .holders { display: block; }
     .list button.earlyRow { grid-template-columns: 28px minmax(0, 1fr) auto; grid-template-areas: "rank name score" "rank stage risk" "rank a b"; }
     .earlyRow .stage { grid-area: stage; }
     .list .earlyRow .move:nth-of-type(5) { grid-area: a; text-align: left; }
@@ -151,7 +157,7 @@
 .body .monthBar button:disabled { opacity: 0.4; cursor: default; }
 .body .monthBar .todayButton { margin-right: auto; padding: 0 12px; font-size: var(--text-sm); font-weight: 600; }
 .monthGrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin: 0 16px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--line); gap: 1px; }
-.weekday { padding: 6px 8px; background: var(--surface-subtle); color: var(--muted); font-size: var(--text-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.weekday { padding: 6px 8px; background: var(--surface-subtle); color: var(--muted); font-size: var(--text-xs); font-weight: 600; }
 .monthGrid .dayCell { display: flex; flex-direction: column; align-items: stretch; gap: 3px; min-width: 0; min-height: 96px; padding: 6px; border: 0; background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .monthGrid .dayCell:hover { background: var(--surface-subtle); }
 .monthGrid .dayCell[data-in-month="false"] { background: var(--surface-subtle); color: var(--subtle); }
@@ -187,3 +193,9 @@
 /* Discover inside the Research home tab: no summary row, attached to the tabs above. */
 .embedded { border-top-left-radius: 0; border-top-right-radius: 0; }
 .embedded .views { margin-top: 12px; }
+@media (max-width: 600px) {
+    /* Phone: holder filings wrap in the wide column; risk sits right, under 6M. */
+    .list button:not(.earlyRow) { grid-template-columns: 28px minmax(0, 1fr) auto; grid-template-areas: "rank name score" "rank a b" "rank d c"; }
+    .list .move:nth-of-type(4) { text-align: left; }
+    .list .risk { text-align: right; align-self: end; }
+}

@@ -202,8 +202,10 @@
 .availabilityNote h3 { margin: 0; font-size: var(--text-base); }
 .availabilityNote p { margin: 8px 0; }
 .availabilityNote summary { cursor: pointer; min-height: 44px; font-size: var(--text-sm); }
-.rangeChange { display: grid; gap: 6px; margin: 14px 0; font-size: var(--text-sm); }
-.rangeChange > span { color: var(--muted); }
+.rangeChange { margin: 4px 0 0; font-size: var(--text-sm); color: var(--muted); }
+.rangeChange > strong { font-size: var(--text-base); font-variant-numeric: tabular-nums; }
+.chartNotes > summary { min-height: 44px; align-content: center; color: var(--link); cursor: pointer; }
+.chartNotes p { margin: 6px 0; }
 .priceChart { cursor: crosshair; }
 .chartInteractionHint { color: var(--muted); }
 .metricContext { display: block; margin-top: 5px; font-size: var(--text-sm); line-height: 1.5; font-weight: 400; overflow-wrap: anywhere; }
@@ -371,3 +373,22 @@
     .homeTabs button { flex: 1; justify-content: center; padding: 0 10px; }
     .homeList { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Quote band: the price and Save beside the price context, one card divided by a rule. */
+.quoteBand { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px 28px; margin: 0 0 16px; padding: 20px 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.quoteBand:has(> [data-testid="research-price-context"]) { grid-template-columns: minmax(260px, 4fr) minmax(0, 7fr); }
+.quoteBand > [data-testid="research-price-context"] { align-self: center; padding-left: 28px; border-left: 1px solid var(--line); }
+.quoteMain { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.app .quoteBand .summary { grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; }
+.saveAction { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; color: var(--muted); font-size: var(--text-sm); }
+.app .saveAction .primaryButton { justify-content: center; }
+.app .primaryButton:disabled { opacity: .55; cursor: default; }
+/* Inside a tab panel, blocks are sections of the panel's card, not cards of their own. */
+.app [role=tabpanel] .assessment, .app [role=tabpanel] .priceHistory { padding: 0; border: 0; border-radius: 0; background: none; }
+.app [role=tabpanel] .assessmentCompact { margin: 0 0 8px; }
+.app [role=tabpanel] .priceHistory { margin: 20px 0 8px; }
+@media (max-width: 900px) {
+    .quoteBand:has(> [data-testid="research-price-context"]) { grid-template-columns: minmax(0, 1fr); }
+    .quoteBand > [data-testid="research-price-context"] { padding: 16px 0 0; border-left: 0; border-top: 1px solid var(--line); }
+}
+@media (max-width: 600px) { .quoteBand { padding: 16px; } .app .quoteBand .summary { padding: 0; } }

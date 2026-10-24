@@ -380,8 +380,8 @@ try {
         await cash.locator('..').getByRole('button', { name: 'Investigate this gap' }).click();
         await page.locator('textarea:focus').waitFor({ state: 'attached', timeout: 3000 });
         assert.equal(await page.locator('textarea').evaluate(element => element === document.activeElement), true);
-        await visible(page.getByText('REVIEW FOCUS', { exact: true }));
-        const origin = await page.locator('div').filter({ has: page.getByText('REVIEW FOCUS', { exact: true }) }).last().locator('p').innerText();
+        await visible(page.getByText('Review focus', { exact: true }));
+        const origin = await page.locator('div').filter({ has: page.getByText('Review focus', { exact: true }) }).last().locator('p').innerText();
         assert.equal(origin, 'The working-capital bridge and capital-spending detail are missing.');
         await page.getByRole('button', { name: 'Add working note', exact: true }).click();
         await visible(page.getByRole('status').filter({ hasText: 'Write a research question' }));
