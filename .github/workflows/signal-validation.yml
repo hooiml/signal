@@ -1,9 +1,9 @@
-name: Signal V8.1 browser verification
+name: Signal validation
 
 on:
   push:
     branches:
-      - feat/signal-v81-market-evidence
+      - main
   pull_request:
     branches:
       - main
@@ -13,41 +13,66 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     env:
       DATABASE_URL: postgresql://signal_ci:signal_ci@127.0.0.1:5432/signal_ci
       NEXT_TELEMETRY_DISABLED: '1'
       SIGNAL_QA_URL: http://127.0.0.1:3000
+      SIGNAL_QA_SCREENSHOTS: '0'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run qa:v81-evidence
-      - run: node scripts/harness/research-currency-regression.mjs
-      - run: node scripts/harness/market-assessment-regression.mjs
-      - run: node scripts/harness/display-clarity-regression.mjs
-      - run: node scripts/harness/research-reading-regression.mjs
-      - run: node scripts/harness/research-provenance-regression.mjs
-      - run: node scripts/harness/market-request-regression.mjs
-      - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - name: Run V8.1 responsive fixture browser checks
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # Includes qa:v81-evidence and the Research/Market regression scripts.
+      - name: Harness
+        shell: pwsh
+        run: ./scripts/harness/check-all.ps1
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start production server
         run: |
-          set -euo pipefail
-          node node_modules/next/dist/bin/next start --hostname 127.0.0.1 > /tmp/signal-v81-server.log 2>&1 &
-          server=$!
-          trap 'kill "$server" 2>/dev/null || true' EXIT
-          ready=false
+          node node_modules/next/dist/bin/next start --hostname 127.0.0.1 > /tmp/signal-server.log 2>&1 &
           for attempt in {1..60}; do
-            if curl --fail --silent http://127.0.0.1:3000/main-v8 >/dev/null; then ready=true; break; fi
+            if curl --fail --silent http://127.0.0.1:3000/learn > /dev/null \
+              && curl --fail --silent http://127.0.0.1:3000/main-v8 > /dev/null; then
+              exit 0
+            fi
             sleep 1
           done
-          if [ "$ready" != true ]; then echo "Local server did not become ready"; exit 1; fi
+          cat /tmp/signal-server.log
+          exit 1
+
+      - name: Run Learn browser QA
+        run: |
+          npm run qa:learn
+          npm run qa:learn-v0.2
+
+      - name: Run V8.1 responsive fixture browser checks
+        if: success() || failure()
+        run: |
+          set -euo pipefail
           node scripts/v81-ui-qa.mjs
           node scripts/market-clarity-qa.mjs
           node scripts/research-provenance-qa.mjs
@@ -57,16 +82,22 @@ jobs:
           node scripts/research-readiness-qa.mjs
           node scripts/research-structured-triggers-qa.mjs
           node scripts/v8-theme-saved-state-qa.mjs
-      - name: Show app errors
+
+      - name: Show server log on failure
         if: failure()
-        run: cat /tmp/signal-v81-server.log || true
-      - name: Upload screenshots and assertions
+        run: cat /tmp/signal-server.log || true
+
+      - name: Upload browser diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: signal-v81-browser
+          name: signal-browser-diagnostics
           include-hidden-files: true
           path: |
+            .tmp/signal-learn-v0.1-qa/**/report.json
+            .tmp/signal-learn-v0.1-qa/**/failure-*.png
+            .tmp/signal-learn-v0.2-qa/**/report.json
+            .tmp/signal-learn-v0.2-qa/**/failure-*.png
             .tmp/v81/browser/*.json
             .tmp/v81/browser/*.png
             .tmp/display-clarity/after/*.json

@@ -65,8 +65,8 @@ API matrix covers 1280px, 768px and 375px, US/Malaysia unsaved readings, explici
 rapid selection, partial/missing/old/unsupported data, changed/unchanged refresh evidence,
 visible limitations, Market summary keyboard inspection, control geometry and overflow.
 Evidence is saved under `.tmp/current-assessment/browser/`. This is not live-provider or
-database verification. The `Current Assessment QA` workflow runs the standard gates and
-this browser matrix on `feat/current-assessment`; it uses a placeholder DB URL and no secrets.
+database verification. The `Signal validation` workflow runs this browser matrix with the
+other V8.1 checks; it uses a placeholder DB URL and no secrets.
 Live US fundamentals still require the operator's valid `SEC_USER_AGENT` configuration.
 
 The same matrix checks delayed/failed saved-list reads for ticker-only legacy links, exact
@@ -88,7 +88,7 @@ but unknown or mismatched cost currencies never produce performance. Mixed-case 
 normalize to uppercase; explicit provider minor units such as GBp retain their scale.
 The existing Research provenance browser matrix also verifies unknown-currency performance,
 mixed-case compatibility, and repeated invalid Saves after clearing a known currency at
-1280/768/375px. The V8.1 PR workflow runs both currency/Market headline regressions and
+1280/768/375px. The `Signal validation` workflow runs both currency/Market headline regressions and
 both affected browser matrices. Market and Research read fixtures
 assert independent reads start together and snapshot writes still wait for their inputs.
 For live-watchlist changes, verify slow loading, failed-read retry, an empty saved list,
@@ -862,7 +862,7 @@ focusing, saving, reloading and showing a conflict. The editor switches columns 
 its own available width; viewport width alone is insufficient inside Inbox. The final
 Alerts page overflow check does not establish editor containment.
 
-The V8.1 workflow runs these checks plus readiness/provenance and real Market provider
+The `Signal validation` workflow runs these checks plus readiness/provenance and real Market provider
 regressions. Artifact upload includes the hidden `.tmp` directories through explicit
 JSON/PNG allowlists; unrelated local files must not be uploaded.
 

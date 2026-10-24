@@ -121,6 +121,7 @@ async function open(width, options = {}) {
     await page.route('**/api/**', async route => {
         const url = new URL(route.request().url());
         assert.equal(route.request().method(), 'GET', 'This suite must never mutate data.');
+        if (url.pathname === '/api/owner/session') return route.fulfill({ json: { success: true, data: { configured: false, unlocked: false } } });
         if (url.pathname === '/api/signals/v2') { scoreRequests++; return route.fulfill({ json: payload(url.searchParams.get('mode') || 'standard', variant) }); }
         if (url.pathname === '/api/signals/replay') {
             const date = url.searchParams.get('date');

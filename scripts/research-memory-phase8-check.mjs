@@ -35,13 +35,12 @@ const mixed = compareResearchExpectationEvent({
 assert.equal(mixed.primaryOutcome, 'mixed');
 assert.equal(mixed.reactionDivergence, 'unknown');
 
-const [store, route, panel, reviewTools, wrapper, workflow] = await Promise.all([
+const [store, route, panel, reviewTools, wrapper] = await Promise.all([
     readFile('src/lib/research/research-expectation-store.ts', 'utf8'),
     readFile('src/app/api/research/expectations/[ticker]/route.ts', 'utf8'),
     readFile('src/components/v8/ResearchExpectationRealityV8.tsx', 'utf8'),
     readFile('src/components/v12/ResearchReviewToolsV12.tsx', 'utf8'),
     readFile('src/components/v7/ResearchIntegratedPageV7.tsx', 'utf8'),
-    readFile('.github/workflows/research-memory-gate.yml', 'utf8'),
 ]);
 assert.match(store, /CREATE TABLE IF NOT EXISTS research_expectation_events/);
 assert.match(store, /OFFSET \$\{MAX_EVENTS_PER_TICKER\}/);
@@ -57,6 +56,4 @@ assert.match(reviewTools, /id: 'expectations'/);
 assert.match(reviewTools, /<ResearchExpectationRealityV8/);
 assert.doesNotMatch(reviewTools, /createPortal|document\.querySelector|document\.createElement|MutationObserver/);
 assert.doesNotMatch(wrapper, /ResearchExpectationDockV8/);
-assert.match(workflow, /research-memory-phase8-check\.mjs/);
-assert.match(workflow, /research-expectation-v8-qa\.mjs/);
 console.log('research-memory phase8 expectation-vs-reality: ok');
