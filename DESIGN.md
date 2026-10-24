@@ -53,7 +53,8 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
   and **Discover** (Trending · Early trends · Stock Picker · Calendar · Alerts). The header shows
   **Workspace** (export, Advanced tools, owner access).
 - **Reading a stock:** the header adds a **Watchlist · N** switcher; **Change stock** and **Discover**
-  sit above the price and status, then tabs **Overview · Chart & technicals · Financials · Valuation ·
+  sit above the quote band (price, daily change and the primary **Save stock** button, with the price
+  context strip beside it), then tabs **Overview · Chart & technicals · Financials · Valuation ·
   Peers · Filings**. **Thesis** and **Review** appear only in Advanced view for a saved stock.
 - **Calendar:** a month grid with a labelled marker per event (earnings, trending earnings, review,
   overdue review, macro) and an agenda for the selected day; phones show colour dots in the grid.
@@ -120,7 +121,14 @@ V8 tokens are defined on `.app` in `src/components/v8/market-v8.module.css`, one
 
 - **Page:** `.canvas` up to 1520px wide, 20px × 32px padding (16px sides on phones).
 - **Cards:** 12px corner radius for top-level cards, 8–10px for inner panels and rows, 6px for buttons
-  and inputs, pill shapes only for tags and chips. 1px `--line` borders; shadows stay faint.
+  and inputs, pill shapes only for tags and chips. 1px `--line` borders and no shadow on resting cards;
+  shadows are only for what floats (menus, dialogs, tooltips). One level of card: blocks inside a card
+  or tab panel are separated by a rule or spacing, never nested in a card of their own.
+- **Tables and ranked lists:** sentence-case grey headers, plain rank numbers, figures right-aligned in
+  tabular figures. Colour marks only what needs attention (a fall, moderate or high risk); signs and
+  words carry the rest.
+- **Charts:** round y-ticks with one step of room above and below the data, faint gridlines, four to
+  six evenly spaced dates; the range's finding sits beside the chart title.
 - **Spacing:** 12–20px inside cards, 20–22px between cards.
 - **Motion:** short colour and disclosure transitions only. Everything respects
   `prefers-reduced-motion` (already handled on `.app`).

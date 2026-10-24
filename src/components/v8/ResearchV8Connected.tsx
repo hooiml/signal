@@ -497,13 +497,18 @@ function ConnectedCase({ workspace, guestUnavailable, guestIdentity, guestDraft,
     return <>
         <div className={`${styles.workspace} ${connected.focusedWorkspace}`}>
             <article className={styles.case} aria-label={`${symbol} research`}>
+                {/* One quote band: the price and Save on the left, price context beside it. */}
+                <div className={connected.quoteBand}>
+                <div className={connected.quoteMain}>
                 <section className={`${styles.reading} ${connected.summary} ${snapshot?.fundamentals.reportingPeriod || snapshot?.fundamentals.source ? '' : connected.summarySingle}`} aria-label="Current provider quote">
                     <div><small>Latest returned price</small><span className={connected.priceLine}><strong data-testid="research-price">{loading && !snapshot ? 'Loading…' : price(snapshot?.quote.price, snapshot?.quote.currency)}</strong>{snapshot && <DailyChange value={snapshot.quote.dailyChangePercent} observedAt={snapshot.quote.observedAt} />}</span><span>Quote observed: {snapshot?.quote.observedAt ? retrievedAt(snapshot.quote.observedAt) : 'Observation time unavailable'}</span><span>Provider response retrieved: {retrievedAt(snapshot?.fetchedAt)}</span></div>
                     {snapshot && (snapshot.fundamentals.reportingPeriod || snapshot.fundamentals.source) && <div><small>Financial reporting period</small><b>{date(snapshot.fundamentals.reportingPeriod)}</b><span>{snapshot.fundamentals.source || 'Financial source unavailable'}</span></div>}
                     {record && <div className={connected.savedDecision} aria-label="Saved user-authored decision"><span className={base.eyebrow}>USER-AUTHORED · SAVED</span><strong>{record.decisionJournal.decision}</strong><span>{lastPersonalReview ? `Last reviewed ${date(lastPersonalReview)}.` : 'No personal review recorded.'}</span><a className={base.textButton} href={researchHref(record.symbol, 'review', record.market)} target="_blank" rel="noopener noreferrer">Open saved review (new tab) ↗</a></div>}
                 </section>
+                {!savedRecord && <div className={connected.saveAction}><button className={base.primaryButton} disabled={saving || !snapshot || workspace === 'checking' || (workspace === 'guest' && guestUnavailable)} onClick={saveSecurity}>{saving ? 'Saving…' : 'Save stock'}</button><span>{workspace === 'guest' ? 'Save this stock to your watchlist to add your own note.' : 'Reading without a saved record'}</span></div>}
+                </div>
                 <ResearchPriceContext snapshot={snapshot} />
-                {!savedRecord && <div className={connected.dataStatus}><span>{workspace === 'guest' ? 'Save this stock to your watchlist to add your own note.' : 'Reading without a saved record'}</span><button className={base.textButton} disabled={saving || !snapshot || workspace === 'checking' || (workspace === 'guest' && guestUnavailable)} onClick={saveSecurity}>{saving ? 'Saving…' : 'Save stock'}</button></div>}
+                </div>
                 {workspace === 'guest' && savedRecord && <GuestResearchNote key={guestIdentity} draftState={guestDraft} onDraftChange={onDraftChange} disabled={guestUnavailable} record={savedRecord} onSaved={onSaved} onRemoved={onGuestRemoved} />}
                 {saveError && <p role="alert">{saveError}{saveAccessIssue === 'locked' && <> <a className={base.textButton} href={unlockHref}>Unlock to save</a></>}</p>}
                 <ResearchCurrentAssessment snapshot={snapshot} previous={readings.previous} loading={loading} error={error} now={assessmentTime} compact />

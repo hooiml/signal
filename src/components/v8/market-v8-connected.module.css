@@ -1,5 +1,5 @@
 .layout { display: block; }
-.assessment { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; padding: 22px; margin-bottom: 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 2px 3px color-mix(in srgb, var(--shadow) 3%, transparent); }
+.assessment { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; padding: 22px; margin-bottom: 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .assessmentReading { min-width: 0; align-content: center; }
 .scoreLine { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 14px 0; }
 .scoreLine h1 { margin: 0; font-size: var(--text-xl); line-height: 1.4; letter-spacing: -.4px; text-transform: capitalize; }
@@ -9,7 +9,8 @@
 .scoreLine > span { font-size: var(--text-sm); color: var(--muted); }
 .assessmentReading > p { margin-top: 8px; }
 .assessmentReading .agreement { font-size: var(--text-sm); margin-top: 14px; }
-.coverage { border: 1px solid var(--line); border-radius: 9px; padding: 14px; background: var(--surface-subtle); align-self: start; }
+/* Coverage is a second column of the reading, divided by a rule rather than nested in its own card. */
+.coverage { border-left: 1px solid var(--line); padding: 2px 0 2px 24px; align-self: stretch; }
 .coverageHeading { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; font-size: var(--text-sm); }
 .coverage p { margin-top: 6px; font-size: var(--text-sm); }
 .coverage .caution, .caution { color: var(--caution); }
@@ -22,10 +23,10 @@
 .historyDetails > summary { min-height: 44px; padding: 12px 24px; color: var(--brand); cursor: pointer; font-size: var(--text-sm); }
 .evidence, .inspector { padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 .evidence h2 { font-size: var(--text-md); }
-.evidenceRows { display: grid; gap: 8px; }
-.evidenceRows .evidenceRow { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; gap: 12px; width: 100%; padding: 13px; text-align: left; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
-.evidenceRow:hover { border-color: var(--link); }
-.evidenceRow[data-available=false] { background: var(--surface-subtle); border-style: dashed; }
+.evidenceRows { display: grid; gap: 0; }
+/* Evidence rows are rows of one list: a rule between them, no card per row. */
+.evidenceRows .evidenceRow { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; gap: 12px; width: 100%; padding: 14px 0; text-align: left; border-bottom: 1px solid var(--line); }
+.evidenceRow:hover b { color: var(--link); }
 .evidenceRow > span { min-width: 0; display: grid; gap: 4px; }
 .evidenceRow b, .evidenceRow strong { font-size: var(--text-base); }
 .evidenceRow strong { font-variant-numeric: tabular-nums; }
@@ -36,7 +37,7 @@
 .direction[data-direction$=negative] { color: var(--down); border-color: var(--down-line); background: var(--down-soft); }
 .evidence .evidenceNote { margin-top: 12px; font-size: var(--text-sm); }
 .evidence .expandEvidence { display: none; }
-.researchLinks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 20px 0 0; padding: 12px 18px; border: 1px solid var(--line); border-left: 3px solid var(--brand); border-radius: 8px; background: var(--surface); }
+.researchLinks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 20px 0 0; padding: 12px 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .researchLinks > div { display: grid; gap: 2px; flex: 1 1 260px; }
 .researchLinks > div span { color: var(--muted); font-size: var(--text-sm); }
 .researchLinks a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; color: var(--link); font-size: var(--text-sm); font-weight: 600; text-decoration: none; }
@@ -64,7 +65,8 @@
     .scoreLine .changeLink { padding-left: 0; border: 0; flex-basis: 100%; }
     .evidence, .inspector { padding: 14px; }
     .history svg[role=slider] { height: 235px; }
-    .evidenceRows .evidenceRow { padding: 12px; gap: 10px; }
+    .evidenceRows .evidenceRow { padding: 12px 0; gap: 10px; }
+    .coverage { border-left: 0; border-top: 1px solid var(--line); padding: 16px 0 0; }
 }
 
 /* Keep agreement secondary to the reading and material coverage limitations. */
@@ -77,7 +79,9 @@
 .contextCard h3 { margin: 6px 0 10px; font-size: var(--text-md); }
 .contextCard p { margin: 10px 0 6px; font-size: var(--text-sm); color: var(--muted); }
 .indexList { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
-.indexList li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: var(--text-sm); }
+.indexList li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 14px; font-size: var(--text-sm); }
+.indexList li + li { border-left: 1px solid var(--line); }
+.indexList li:first-child { padding-left: 0; }
 .indexList b { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .indexList li[data-trend=positive] b { color: var(--up); }
 .indexList li[data-trend=negative] b { color: var(--down); }
@@ -91,16 +95,17 @@
 .scoreLine > strong small { letter-spacing: 0; }
 .spectrum { display: grid; gap: 6px; max-width: 420px; margin: 4px 0 14px; }
 /* Unavailable inputs: one compact row; each name opens its detail. */
-.missingRow { display: grid; gap: 8px; padding: 12px 13px; border: 1px dashed var(--line-strong); border-radius: 8px; background: var(--surface-subtle); margin-top: 8px; }
+/* Unavailable inputs: one line of names, not a box of cards. */
+.missingRow { display: grid; gap: 4px; padding: 14px 0 0; }
 .missingRow > span:first-child { display: grid; gap: 2px; }
 .missingRow b { font-size: var(--text-base); }
 .missingRow small { font-size: var(--text-xs); color: var(--muted); }
-.missingList { display: flex; flex-wrap: wrap; gap: 6px; }
-.missingList > .missingChip { display: grid; gap: 2px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font-size: var(--text-sm); text-align: left; }
+.missingList { display: flex; flex-wrap: wrap; gap: 0 20px; }
+.missingList > .missingChip { display: grid; gap: 0; padding: 4px 0; color: var(--link); font-size: var(--text-sm); text-align: left; }
 .missingList > .missingChip small { color: var(--muted); font-size: var(--text-xs); }
-.missingList > .missingChip:hover { border-color: var(--link); }
+.missingList > .missingChip:hover { color: var(--link-hover); }
 /* Wider-market context: all tracked indexes on one row where space allows. */
-.contextCard .indexList { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+.contextCard .indexList { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0; }
 .contextCard .indexList li { flex-direction: column; gap: 2px; }
 .longLabel { display: inline; }
 /* Setting explanations stay one click away instead of a second toolbar row. */
@@ -142,4 +147,8 @@
 .evidenceRow .impact { justify-self: start; font-weight: 650; font-variant-numeric: tabular-nums; }
 .evidenceRow .impact[data-impact=up] { color: var(--up); }
 .evidenceRow .impact[data-impact=down] { color: var(--down); }
+@media (max-width: 600px) {
+    .contextCard .indexList { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; }
+    .contextCard .indexList li:nth-child(odd) { border-left: 0; padding-left: 0; }
+}
 @media (max-width: 600px) { .coverageRing { grid-template-columns: 96px minmax(0, 1fr); } .coverageRing svg { width: 96px; height: 96px; } }
