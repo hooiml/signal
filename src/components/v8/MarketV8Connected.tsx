@@ -14,6 +14,8 @@ import { MarketV81Hero } from './MarketV81Hero';
 import { MarketContextSummary } from './MarketV8ContextSummary';
 import { MarketIndicatorEvidence } from './MarketIndicatorEvidence';
 import layout from './market-v8-connected.module.css';
+import { MarketV8Exposure } from './MarketV8Exposure';
+import { MarketV8Outcomes } from './MarketV8Outcomes';
 import { marketEvidenceCoverage } from '@/lib/market-evidence-coverage';
 import { marketReadingLabel, marketTimestampLabel } from '@/lib/market-display';
 import { ConnectedIndicator, ConnectedPanels, emptyScenario } from './MarketV8ConnectedPanels';
@@ -260,6 +262,8 @@ export function MarketV8Connected({ initialMarket = 'US' }: { initialMarket?: Ma
                             {!historical && <MarketContextSummary signal={data} onExplore={()=>openTab('Context')} />}
                         </div>
                         {!historical && <>
+                            <MarketV8Outcomes signal={data} onHistory={() => { setAdvanced(true); openTab('History'); }} />
+                            <MarketV8Exposure key={market} signal={data} />
                             <nav className={layout.researchLinks} aria-label="Find stocks in Research"><div><b>From market to stocks</b><span>US large caps with sustained momentum, a rule-based shortlist, and upcoming earnings.{market === 'MY' ? ' The trend scan covers US stocks only.' : ''}</span></div><a href="/research-v8?market=US&discover=trending#discover">Trending · Top 20 →</a><a href="/research-v8?market=US&discover=picker#discover">Stock Picker →</a><a href={`/research-v8?market=${market}&discover=calendar#discover`}>Earnings calendar →</a></nav>
                             <details className={layout.readingDetails}><summary>How to read this assessment · methodology and limits</summary><div><MarketCurrentAssessment signal={data} date={date} onSelect={openIndicator} showLeadingEvidence={false} /><MarketCoverageNotices signal={data} inputKeys={inputKeys} date={date} sourceEnabled={social} onReview={()=>openTab('Evidence')} /></div></details>
                             <section className={styles.investigation} id="investigation"><div className={styles.tabs} role="tablist" aria-label="Market investigation">{visibleTabs.map((name,index)=><button key={name} id={`tab-${index}`} role="tab" aria-selected={tab===name} aria-controls="investigation-panel" tabIndex={tab===name?0:-1} onClick={()=>setTab(name)} onKeyDown={event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?visibleTabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+visibleTabs.length)%visibleTabs.length;document.getElementById(`tab-${next}`)?.focus();}}>{name}</button>)}</div><div className={styles.panel} id="investigation-panel" role="tabpanel" tabIndex={-1} aria-labelledby={`tab-${visibleTabs.indexOf(tab)}`} key={`${key}-${tab}`}>{tab==='History'?<ConnectedHistory signal={data} state={historyState} setState={setHistoryState}/>:<ConnectedPanels advanced={advanced} signal={data} tab={tab} onSelect={openIndicator} scenario={scenario} setScenario={setScenario}/>}</div></section>
