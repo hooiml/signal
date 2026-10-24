@@ -201,6 +201,7 @@ try {
                     assert.doesNotMatch(panel, /Stocks making|retire|Latest source updates/);
                     assert.match(panel, /Reported contribution changes/);
                     const residual = (mode === 'standard' ? standard : contrarian).data.metadata.change_reconciliation.rounding_residual;
+                    await page.getByRole('region', { name: 'Complete score change accounting' }).locator('summary', { hasText: 'Complete accounting' }).click();
                     const residualRow = page.getByRole('region', { name: 'Complete score change accounting' }).getByText('Rounding and clamp residual', { exact: true }).locator('..');
                     assert.ok((await residualRow.innerText()).includes(`${residual < 0 ? '−' : residual > 0 ? '+' : ''}${Math.abs(residual).toFixed(2)} points`), 'Display the calculated rounding residual.');
                 }

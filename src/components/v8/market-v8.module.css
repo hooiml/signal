@@ -227,8 +227,9 @@
 .changeRow > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto 16px; align-items: center; gap: 12px; list-style: none; font-size: var(--text-base); }
 .changeRow > summary small { display: block; margin-top: 4px; color: var(--muted); }
 .changeRow > summary strong { color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: var(--text-sm); }
-.changeAccounting > .disclosure { padding-top: 10px; margin-top: 12px; }
-.changeAccounting > .disclosure > summary { font-size: var(--text-base); }
+.accountingFold > summary { min-height: 44px; padding: 12px 0; color: var(--link); font-weight: 600; cursor: pointer; }
+.accountingFold > .disclosure { padding-top: 10px; margin-top: 12px; }
+.accountingFold > .disclosure > summary { font-size: var(--text-base); }
 .warning, .historyBanner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 13px 17px; border-radius: 8px; margin: -6px 0 19px; font-size: var(--text-sm); background: var(--caution-soft); color: var(--caution); border: 1px solid var(--caution-line); }
 .warning span { flex-basis: 100%; }
 .warning button { color: var(--caution); font-weight: 650; padding: 4px 0; }

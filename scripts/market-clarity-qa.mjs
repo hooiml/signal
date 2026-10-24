@@ -167,6 +167,7 @@ try {
         await hero.getByRole('button', { name: /Leading conflict: VIX Index/ }).waitFor();
         await page.getByText('No weighted-contribution changes.', { exact: true }).waitFor();
         const accounting = page.getByRole('region', { name: 'Complete score change accounting' });
+        await accounting.locator('summary', { hasText: 'Complete accounting' }).click();
         await accounting.locator('summary', { hasText: 'VIX Index' }).click();
         await accounting.locator('summary', { hasText: 'Put/call ratio' }).click();
         await accounting.locator('summary', { hasText: 'AAII' }).click();
@@ -174,7 +175,7 @@ try {
         assert.match(await accounting.innerText(), /% bullish/); assert.match(await accounting.innerText(), /VIX points/); assert.match(await accounting.innerText(), /put\/call ratio/);
         assert.match(await accounting.innerText(), /14:30:00 UTC/); assert.match(await accounting.innerText(), /15:02:00 UTC/);
         assert.match(await accounting.innerText(), /10:00:00 UTC/);
-        const surveyReading = await accounting.locator('details').filter({ hasText: 'AAII' }).innerText();
+        const surveyReading = await accounting.locator('details details').filter({ hasText: 'AAII' }).innerText();
         assert.match(surveyReading, /Observed 20 Oct 2026/);
         assert.doesNotMatch(surveyReading, /00:00:00/, 'A date-only report must not imply midnight precision.');
         assert.match(await accounting.innerText(), /9\.80 points/);
@@ -241,6 +242,7 @@ try {
         if (variant === 'missing') await session.page.getByText('Driver comparison unavailable.', { exact: true }).waitFor();
         else {
             const accounting = session.page.getByRole('region', { name: 'Complete score change accounting' });
+            await accounting.locator('summary', { hasText: 'Complete accounting' }).click();
             await accounting.locator('summary', { hasText: 'VIX Index' }).click();
             assert.match(await accounting.innerText(), /Retrieval alone does not establish a new observation/);
             if (variant === 'legacy') { assert.match(await accounting.innerText(), /Timestamp basis unavailable/); assert.match(await accounting.innerText(), /unit unavailable/); }
