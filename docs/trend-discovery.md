@@ -54,8 +54,9 @@ The V8 Research page (`/research-v8`) has a `Discover` disclosure (`src/componen
 - `Trending · Top 20`: the same Leaders and Contenders, read-only.
 - `Stock Picker`: the existing `src/lib/research/picker.ts` rules (horizon, risk profile, minimum score, pick count, sector cap, skip saved) applied to the scan, with browser-local paper baskets measured against VOO (`signal-picker-runs-v1`, shared with the V6 Picker). Saved Discovery strategies are not offered here; the default Discovery rank is used.
 - `Calendar`: `/api/research/calendar` for the current workspace's saved securities (guest or owner), plus earnings dates already present on Top 20 candidates and the macro watch.
+- `Alerts`: `/api/research/alerts` for up to 50 saved securities of the current workspace. Market-condition alerts apply to every workspace; numeric review triggers exist only on owner records and are listed for owners, with editing left to the Research workspace.
 
-The disclosure is open when no security is selected or when the URL has `discover=trending|picker|calendar`, fetches the scan only once opened, and choosing a stock opens its V8 reading and removes `discover` from the URL. The V8 Market page links to each view. Filters, saved views, strategies, and add-to-research remain in the Discovery workspace.
+The disclosure is open when no security is selected or when the URL has `discover=trending|picker|calendar|alerts`, fetches the scan only once opened, and choosing a stock opens its V8 reading and removes `discover` from the URL. The V8 Market page links to each view. Filters, saved views, strategies, and add-to-research remain in the Discovery workspace.
 
 The Discovery workspace filters the current scan instantly by sector, risk, trend stage, and valuation guardrail. Filters use AND semantics, retain each ticker's original scan rank, apply to both Leaders and Contenders, and can be reset without fetching the upstream providers again.
 

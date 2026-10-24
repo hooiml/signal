@@ -52,7 +52,7 @@ const isAlert = (value: unknown): value is ResearchAlert => {
         && (value.structuredTrigger === null || isTriggerEvaluation(value.structuredTrigger));
 };
 
-const parseResponse = (payload: unknown): ResearchAlertsResponse => {
+export const parseResearchAlertsResponse = (payload: unknown): ResearchAlertsResponse => {
     if (!isRecord(payload) || payload.success !== true || !isRecord(payload.data)) throw new Error('Invalid research alerts response.');
     const data = payload.data;
     if (typeof data.generatedAt !== 'string' || typeof data.monitoredCount !== 'number'
@@ -101,7 +101,7 @@ export const ResearchAlertsV6 = ({ items, records, theme, onOpen }: ResearchAler
                 });
                 const payload: unknown = await response.json();
                 if (!response.ok && isRecord(payload) && typeof payload.error === 'string') throw new Error(payload.error);
-                const parsed = parseResponse(payload);
+                const parsed = parseResearchAlertsResponse(payload);
                 if (active) setData(parsed);
             } catch (caught) {
                 if (active) setError(caught instanceof Error ? caught.message : 'Research alerts are unavailable.');

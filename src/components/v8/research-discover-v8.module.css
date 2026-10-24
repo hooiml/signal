@@ -96,3 +96,14 @@
     .days ul li { grid-template-columns: auto minmax(0, 1fr); }
     .days ul li > span:last-child { grid-column: 1 / -1; }
 }
+
+/* Alerts */
+.alertList { list-style: none; margin: 0 16px; padding: 0; border-top: 1px solid var(--line); }
+.alertList li { display: grid; grid-template-columns: 104px 72px minmax(0, 1fr); gap: 10px; align-items: center; min-height: 52px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }
+.badge[data-type="risk"] { border-color: var(--down-line); color: var(--down); }
+.badge[data-type="watch"] { border-color: var(--caution-line); color: var(--caution); }
+.badge[data-type="opportunity"] { border-color: var(--up-line); color: var(--up); }
+@media (max-width: 760px) {
+    .alertList li { grid-template-columns: auto minmax(0, 1fr); }
+    .alertList li > span:last-child { grid-column: 1 / -1; }
+}

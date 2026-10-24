@@ -1,3 +1,4 @@
+- V8 Research adds `Peers` and `Filings` tabs after the existing reading tabs. `ResearchPeersV8` loads up to five same-market peer snapshots (`benchmark=defer`), defaults to the first saved same-market securities until the set is edited, and renders `buildPeerBenchmark` medians and ranks beside per-peer values and `buildComparisonMetrics` price and trend rows. `ResearchFilingsV8` lists recent SEC EDGAR filings from `/api/research/filings/[symbol]` for US securities and shows the owner record's saved document citations read-only; capturing excerpts stays in the Research workspace.
 # Architecture
 
 Signal is a Next.js App Router application for market signal dashboards. The app combines live market data, social/news sentiment, institutional indicators, and persisted snapshots into a decision-support UI.
