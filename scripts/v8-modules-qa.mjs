@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
-// V8 Discover (Trending, Picker, Calendar, Alerts), Research Peers/Filings, and Market outcomes/exposure.
+// V8 Discover (Trending, Early trends, Picker, Calendar, Alerts), Research Peers/Filings, and Market outcomes/exposure.
 // Uses an existing Signal server. Seeds fixtures from live read-only responses, then pins every value an
 // assertion depends on. Runs as a guest with browser-local records; owner routes are never written.
 const base = process.env.SIGNAL_QA_URL ?? 'http://127.0.0.1:3000';
@@ -29,7 +29,15 @@ const [first, second, third] = pinnedDiscovery.data.candidates;
 first.ownership = ownership('increases-led', 72.4); first.discoveryScore = 88; first.risk = 'low';
 second.ownership = ownership('decreases-led', 41.2); second.discoveryScore = 86; second.risk = 'low';
 third.ownership = null; third.catalyst = { date: inDays(5), type: 'earnings', timing: 'after-hours', fiscalQuarterEnding: null, epsForecast: null, source: 'Nasdaq earnings calendar' };
-const totalRows = Math.min(10, pinnedDiscovery.data.candidates.length) + Math.min(10, pinnedDiscovery.data.contenders.length);
+const leaderRows = Math.min(10, pinnedDiscovery.data.candidates.length);
+const totalRows = leaderRows + Math.min(10, pinnedDiscovery.data.contenders.length);
+// Pinned early trends: a Top 20 emerging name, a Top 20 confirmed name, and one outside the Top 20.
+const pinnedEarly = [
+    { ...structuredClone(first), earlyTrendStage: 'emerging', distanceFromMa50Percent: 3.2 },
+    { ...structuredClone(second), earlyTrendStage: 'confirmed', distanceFromMa50Percent: 9.1 },
+    { ...structuredClone(third), symbol: 'QAEARLY', name: 'QA Early Trend Inc.', earlyTrendStage: 'emerging', distanceFromMa50Percent: -1.4 },
+];
+pinnedDiscovery.data.emergingCandidates = pinnedEarly;
 
 const guestRecords = [
     { symbol: 'AAPL', market: 'US', companyName: 'Apple Inc.', notes: '' },
@@ -108,15 +116,31 @@ try {
         const trending = page.getByTestId('research-trending');
         await trending.waitFor();
         check(`Discover open on deep link ${width}`, await discover().evaluate(element => element.open));
-        check(`Trending shows Leaders and Contenders ${width}`, await trending.locator('li[data-group]').count() === totalRows);
+        check(`Trending shows Leaders first ${width}`, await trending.locator('li[data-group]').count() === leaderRows);
+        await discover().getByRole('button', { name: `Show ${totalRows - leaderRows} contenders`, exact: true }).click();
+        check(`Contenders revealed on request ${width}`, await trending.locator('li[data-group]').count() === totalRows);
         const firstRow = trending.locator('li[data-group]').first();
         check(`First row is the scan leader ${width}`, (await firstRow.innerText()).includes(first.symbol));
         check(`Increases-led holder filings shown ${width}`, (await firstRow.innerText()).includes('Holder filings: increases led · 72% institutional'));
         check(`Decreases-led holder filings shown ${width}`, (await trending.locator('li[data-group]').nth(1).innerText()).includes('Holder filings: decreases led · 41% institutional'));
         check(`Missing holder filings labelled ${width}`, (await trending.locator('li[data-group]').nth(2).innerText()).includes('Holder filings unavailable'));
+        await discover().getByText('How this list is built', { exact: true }).click();
         check(`Holder caveat stated ${width}`, (await discover().innerText()).includes('not evidence of current buying'));
         await overflow(`Trending fits ${width}`);
         await shot(`trending-${width}`);
+
+        // Early trends: same scan, emerging before confirmed, Top 20 overlap marked.
+        await view('Early trends').click();
+        const early = page.getByTestId('research-early-trends');
+        await early.waitFor();
+        const earlyRows = early.locator('li[data-stage]');
+        check(`Early trends lists the scan's early candidates ${width}`, await earlyRows.count() === pinnedEarly.length);
+        check(`Emerging stage shown with MA50 distance ${width}`, /Emerging[\s\S]*\+3\.2% vs 50-day avg · also in Trending/.test(await earlyRows.first().innerText()), await earlyRows.first().innerText());
+        check(`Confirmed stage shown ${width}`, (await earlyRows.nth(1).innerText()).includes('Confirmed'));
+        check(`Names outside the Top 20 are not marked as trending ${width}`, !(await earlyRows.nth(2).innerText()).includes('also in Trending'));
+        check(`Early trends URL records view ${width}`, new URL(page.url()).searchParams.get('discover') === 'early');
+        await overflow(`Early trends fits ${width}`);
+        await shot(`early-trends-${width}`);
 
         // Picker: rule changes the shortlist; a paper basket persists and can be removed.
         await view('Stock Picker').click();

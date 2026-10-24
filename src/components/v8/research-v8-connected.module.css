@@ -8,7 +8,7 @@
 .tools { font-size: var(--text-sm); }
 .tools > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 14px; }
 .tools a { display: flex; align-items: center; min-height: 44px; padding: 8px 0; }
-.dataStatus { display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; padding: 0 4px; font-size: var(--text-sm); color: var(--muted); }
+.dataStatus { display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; margin-bottom: 12px; padding: 0 4px; font-size: var(--text-sm); color: var(--muted); }
 .dataStatus > div { flex: 1; min-width: 180px; }
 .warning { padding: 12px 16px; border-left: 3px solid var(--caution-mark); background: var(--caution-soft); color: var(--caution); width: 100%; }
 .warning ul { padding-left: 18px; margin: 8px 0; }
@@ -33,6 +33,13 @@
 .lookupDisclosure { margin: 0 0 14px; }
 .lookupDisclosure > summary { display: flex; align-items: center; width: fit-content; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); cursor: pointer; }
 .lookupDisclosure[open] { margin-bottom: 18px; }
+/* Closed toggles sit side by side; an opened disclosure wraps onto its own full-width line. */
+.toolRow { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin: 0 0 16px; }
+.toolRow > details, .toolRow > details[open] { margin: 0; }
+.toolRow > details[open] { flex: 1 0 100%; }
+.toolRow > details:not([open]) { border-color: transparent; background: none; }
+.toolRow > details:not([open]) > summary { display: flex; align-items: center; width: fit-content; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
+.toolRow > details:not([open]) > summary span { display: none; }
 .app .summary { grid-template-columns: 1.3fr 1fr; border-radius: 10px; padding: 18px 20px; }
 .app .summarySingle { grid-template-columns: minmax(0, 1fr); }
 .summary > div { min-width: 0; }

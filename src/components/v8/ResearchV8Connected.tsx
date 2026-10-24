@@ -343,6 +343,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
             setGuestError('');
         } catch (failure) { setGuestError(failure instanceof Error ? failure.message : 'Device storage is unavailable.'); }
     }
+    const discover = <ResearchDiscoverV8 initialView={initialDiscover} defaultOpen={!selected} records={records} workspace={workspace} onSelect={(symbol, nextMarket) => { navigate(symbol, 'Overview', true, nextMarket); window.scrollTo({ top: 0 }); }} />;
     return <div className={`${base.app} ${styles.app} ${connected.app}`}>
         <a className={base.skip} href="#v8-content">Skip to content</a>
         <header className={base.header}><a className={base.logo} href="/main-v8">∿ Signal</a><nav aria-label="Primary"><a href={readingMarket ? `/main-v8?market=${readingMarket}` : '/main-v8'}>Market</a><a href="/research-v8" aria-current="page">Research</a></nav><V8ThemeControl /></header>
@@ -359,7 +360,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
             </section>
             <div className={connected.dataStatus} aria-label="Research workspace">
                 <span>{workspace === 'checking' ? 'Welcome to Signal. Explore company data while your workspace loads.' : workspace === 'guest' ? 'Welcome to Signal · Guest workspace. Securities and notes are saved on this device.' : 'Owner workspace · Your private saved research'}</span>
-                {workspace === 'guest' && <span>No account or code needed. This browser’s guest data stays separate from owner research.</span>}
+                {!selected && <span>Search a company or ticker, or pick one from Discover below. Reading saves nothing.</span>}
             </div>
             {workspace === 'guest' && !!records?.length && <nav className={connected.guestNavigation} aria-label="Guest research navigation">
                 <label>Switch saved security<select value={record ? `${record.market}:${record.symbol}` : ''} onChange={event => chooseSecurity(event.target.value)}>
@@ -368,8 +369,8 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
                 </select></label>
                 {unsavedRecords.length > 0 && <p role="status">{unsavedRecords.length} unsaved {unsavedRecords.length === 1 ? 'note' : 'notes'}. Save each note before leaving Research.{hiddenDraft && <> <button className={base.textButton} onClick={() => navigate(hiddenDraft.symbol, 'Overview', true, hiddenDraft.market)}>Return to {hiddenDraft.symbol} · {hiddenDraft.market} draft</button></>}</p>}
             </nav>}
-            {validSelection ? <details className={connected.lookupDisclosure}><summary>Change security</summary><ResearchSecurityLookup key={readingMarket ?? initialMarket ?? 'US'} initialMarket={readingMarket ?? initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} /></details> : <ResearchSecurityLookup key={readingMarket ?? initialMarket ?? 'US'} initialMarket={readingMarket ?? initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} />}
-            <ResearchDiscoverV8 initialView={initialDiscover} defaultOpen={!selected} records={records} workspace={workspace} onSelect={(symbol, nextMarket) => { navigate(symbol, 'Overview', true, nextMarket); window.scrollTo({ top: 0 }); }} />
+            {/* While reading, Change security and Discover share one row of closed toggles; an opened one takes the full width. */}
+            {validSelection ? <div className={connected.toolRow}><details className={connected.lookupDisclosure}><summary>Change security</summary><ResearchSecurityLookup key={readingMarket ?? initialMarket ?? 'US'} initialMarket={readingMarket ?? initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} /></details>{discover}</div> : <><ResearchSecurityLookup key={readingMarket ?? initialMarket ?? 'US'} initialMarket={readingMarket ?? initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} />{discover}</>}
             {savedState}
             {workspace === 'guest' && <>
                 {recoveryError && <p role="alert">{recoveryError} <button className={base.textButton} onClick={retryDraftRecovery}>Retry draft recovery</button></p>}
@@ -401,7 +402,6 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
                     </>}
                 </div>}
             </dialog>
-            {!selected && <section className={styles.emptyWorkspace}><h2>Read a security without saving it.</h2><p>Market shows broad market conditions. Research explores an individual company.</p><p>Search by company name or ticker above, or choose a saved security. Notes and decisions are optional.</p></section>}
             {selected && !validSelection && <p role="alert">Invalid security ticker. Enter a valid ticker above.</p>}
             {validSelection && !readingMarket && <section className={styles.emptyWorkspace} aria-label="Resolve security market">
                 <h2>{loading ? 'Resolving saved security market…' : 'Choose this security’s market'}</h2>

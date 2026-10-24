@@ -113,3 +113,23 @@
     .alertList li { grid-template-columns: auto minmax(0, 1fr); }
     .alertList li > span:last-child { grid-column: 1 / -1; }
 }
+
+/* Collapsed methodology and progressive Trending rows */
+.method { margin: 0 16px 10px; font-size: var(--text-sm); }
+.method > summary { display: flex; align-items: center; width: fit-content; min-height: 40px; color: var(--link); cursor: pointer; }
+.body .method p { margin: 0 0 8px; color: var(--muted); }
+.discover .more { display: block; min-height: 44px; margin: 4px 16px 6px; padding: 0; border: 0; background: none; color: var(--link); font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+
+/* Early trends */
+.head.earlyRow, .list button.earlyRow { grid-template-columns: 32px minmax(150px, 1.4fr) minmax(130px, 1fr) minmax(110px, 0.9fr) 72px 72px 96px; }
+.stage { min-width: 0; font-size: var(--text-sm); font-weight: 600; }
+.stage[data-stage="emerging"] { color: var(--up); }
+.stage small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 760px) {
+    .views { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .list button.earlyRow { grid-template-columns: 28px minmax(0, 1fr) auto; grid-template-areas: "rank name score" "rank stage risk" "rank a b"; }
+    .earlyRow .stage { grid-area: stage; }
+    .list .earlyRow .move:nth-of-type(5) { grid-area: a; text-align: left; }
+    .list .earlyRow .move:nth-of-type(6) { grid-area: b; text-align: right; }
+    .list .earlyRow .risk { grid-area: risk; text-align: right; }
+}
