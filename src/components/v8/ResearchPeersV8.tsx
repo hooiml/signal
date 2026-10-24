@@ -59,6 +59,7 @@ export function ResearchPeersV8({ symbol, market, snapshot, saved, onOpen }: { s
     const benchmark = snapshot ? buildPeerBenchmark(snapshot, peerSnapshots) : null;
     const columns = peerSnapshots.map(peer => ({ symbol: peer.symbol, metrics: buildPeerBenchmark(peer, []).metrics, trend: buildComparisonMetrics(peer) }));
     const subjectTrend = snapshot ? buildComparisonMetrics(snapshot) : null;
+    const hasFundamentals = !!benchmark?.metrics.some((metric, index) => metric.subjectValue !== null || columns.some(column => column.metrics[index]?.subjectValue != null));
     const failed = peers.filter(peer => loaded[peer] === 'error');
     const loading = peers.some(peer => loaded[peer] === 'loading' || !loaded[peer]);
     return <section className={styles.module} aria-labelledby="peers-title" data-testid="research-peers">
@@ -81,7 +82,8 @@ export function ResearchPeersV8({ symbol, market, snapshot, saved, onOpen }: { s
                     <div className={styles.tableScroll}><table className={styles.table}>
                         <thead><tr><th scope="col">Metric</th><th scope="col">{symbol}</th><th scope="col">Peer median</th><th scope="col" title="Share of peers the company is at least as favourable as">Rank vs peers</th>{columns.map(column => <th scope="col" key={column.symbol}><button className={styles.link} onClick={() => onOpen(column.symbol, market)}>{column.symbol}</button></th>)}</tr></thead>
                         <tbody>
-                            {benchmark?.metrics.map((metric, index) => <tr key={metric.key}>
+                            {!hasFundamentals && <tr><td colSpan={4 + columns.length} className={styles.note}>No growth, margin, balance-sheet or valuation figures were returned for {symbol} or its peers{loading ? ' yet' : ''}. Price and trend still compare below.</td></tr>}
+                            {hasFundamentals && benchmark?.metrics.map((metric, index) => <tr key={metric.key}>
                                 <th scope="row">{metric.label}<small>{metric.higherIsBetter ? 'higher is better' : 'lower is better'}</small></th>
                                 <td className={styles.subject}>{value(metric.subjectValue, metric.suffix)}</td>
                                 <td>{value(metric.peerMedian, metric.suffix)}</td>

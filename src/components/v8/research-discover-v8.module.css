@@ -77,6 +77,8 @@
 .badge[data-type="stale"] { border-color: var(--down-line); color: var(--down); }
 
 @media (max-width: 760px) {
+    .views { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: auto; }
+    .views button { white-space: normal; }
     .head { display: none; }
     .list button, .picks button { grid-template-columns: 28px minmax(0, 1fr) auto; grid-template-areas: "rank name score" "rank a b" "rank c d"; gap: 4px 10px; padding: 10px 12px; }
     .rank { grid-area: rank; }

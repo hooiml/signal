@@ -42,7 +42,7 @@ export function ResearchAlertsV8({ records, workspace, onSelect }: { records: re
                     : current.error ? <p role="alert">{current.error} <button className={styles.secondary} onClick={() => { setResult(null); setAttempt(value => value + 1); }}>Retry</button></p>
                         : current.data && <>
                             <div className={styles.resultHead}><p className={styles.meta}>{current.data.monitoredCount} monitored · {alerts.filter(alert => alert.severity === 'risk').length} risk · {alerts.filter(alert => alert.severity === 'watch').length} watch · {alerts.filter(alert => alert.severity === 'opportunity').length} opportunity · checked {retrievedAt(current.data.generatedAt)}</p></div>
-                            {alerts.length === 0 ? <p className={styles.meta}>No active conditions right now.</p>
+                            {alerts.length === 0 ? <p className={styles.meta}>No active conditions right now for {[...marketBySymbol.keys()].slice(0, maximumMonitored).join(', ')}.</p>
                                 : <ul className={styles.alertList}>{alerts.map(alert => <li key={alert.id} data-severity={alert.severity}>
                                     <span className={styles.badge} data-type={alert.severity}>{severityLabel[alert.severity]}</span>
                                     <button className={styles.link} onClick={() => onSelect(alert.symbol, marketBySymbol.get(alert.symbol) ?? 'US')}>{alert.symbol}</button>
