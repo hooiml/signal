@@ -36,6 +36,11 @@
 .direction[data-direction$=negative] { color: var(--down); border-color: var(--down-line); background: var(--down-soft); }
 .evidence .evidenceNote { margin-top: 12px; font-size: var(--text-sm); }
 .evidence .expandEvidence { display: none; }
+.researchLinks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 20px 0 0; padding: 12px 18px; border: 1px solid var(--line); border-left: 3px solid var(--brand); border-radius: 8px; background: var(--surface); }
+.researchLinks > div { display: grid; gap: 2px; flex: 1 1 260px; }
+.researchLinks > div span { color: var(--muted); font-size: var(--text-sm); }
+.researchLinks a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; color: var(--link); font-size: var(--text-sm); font-weight: 600; text-decoration: none; }
+.researchLinks a:hover { border-color: var(--brand); }
 .readingDetails { margin: 20px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .readingDetails > summary { cursor: pointer; padding: 12px 18px; min-height: 44px; color: var(--brand); }
 .readingDetails > div { padding: 0 18px 18px; }

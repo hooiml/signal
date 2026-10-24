@@ -49,6 +49,14 @@ Candidates are labelled `quality compounder`, `cyclical acceleration`, `turnarou
 
 Up to the first ten eligible candidates form the high-conviction `Leaders` list. Up to the next ten are returned as expandable `Contenders`, retaining their overall ranks and an explicit ranking reason such as a moderate risk deduction, missing SEC confirmation, or a lower combined score than the current leaders. Valuation remains visible as a separate guardrail rather than being presented as a ranking input. Contenders use the same add-to-research workflow but do not replace or dilute the Top 10.
 
+The V8 Research page (`/research-v8`) has a `Discover` disclosure (`src/components/v8/ResearchDiscoverV8.tsx`) with three views that share one scan request:
+
+- `Trending · Top 20`: the same Leaders and Contenders, read-only.
+- `Stock Picker`: the existing `src/lib/research/picker.ts` rules (horizon, risk profile, minimum score, pick count, sector cap, skip saved) applied to the scan, with browser-local paper baskets measured against VOO (`signal-picker-runs-v1`, shared with the V6 Picker). Saved Discovery strategies are not offered here; the default Discovery rank is used.
+- `Calendar`: `/api/research/calendar` for the current workspace's saved securities (guest or owner), plus earnings dates already present on Top 20 candidates and the macro watch.
+
+The disclosure is open when no security is selected or when the URL has `discover=trending|picker|calendar`, fetches the scan only once opened, and choosing a stock opens its V8 reading and removes `discover` from the URL. The V8 Market page links to each view. Filters, saved views, strategies, and add-to-research remain in the Discovery workspace.
+
 The Discovery workspace filters the current scan instantly by sector, risk, trend stage, and valuation guardrail. Filters use AND semantics, retain each ticker's original scan rank, apply to both Leaders and Contenders, and can be reset without fetching the upstream providers again.
 
 Up to five named filter views and the most recent ranked visit are stored in the browser. A return visit compares the current Leaders and Contenders with that snapshot and surfaces new entrants, moves of at least three ranks, and changed risk, valuation, or earnings-catalyst state. This comparison is personal workspace state and does not trigger another provider scan.

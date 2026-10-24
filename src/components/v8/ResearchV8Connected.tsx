@@ -21,6 +21,8 @@ import { ResearchCurrentAssessment } from './ResearchCurrentAssessment';
 import { assessCurrentResearch } from '@/lib/research/current-assessment';
 import { ResearchConnectedPanel } from './ResearchV8ConnectedPanels';
 import { ResearchPriceContext } from './ResearchPriceContext';
+import { ResearchDiscoverV8 } from './ResearchDiscoverV8';
+import type { DiscoverView } from './discover-view';
 import { date, parseWatchlist, price, researchHref, researchTabs, retrievedAt, type ResearchTab } from './research-v8-connected-data';
 import base from './market-v8.module.css';
 import { V8ThemeControl } from './V8ThemeControl';
@@ -29,7 +31,7 @@ import connected from './research-v8-connected.module.css';
 
 const tabElementId = (value: ResearchTab) => `connected-tab-${value === 'Chart & technicals' ? 'Chart' : value}`;
 
-export function ResearchV8Connected({ initialTicker = '', initialMarket }: { initialTicker?: string; initialMarket?: ResearchMarket }) {
+export function ResearchV8Connected({ initialTicker = '', initialMarket, initialDiscover }: { initialTicker?: string; initialMarket?: ResearchMarket; initialDiscover?: DiscoverView }) {
     const [providerIdentity, setProviderIdentity] = useState<ProviderResearchIdentity | null>(null);
     const [records, setRecords] = useState<ResearchRecord[] | null>(null);
     const [selected, setSelected] = useState(initialTicker);
@@ -365,6 +367,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket }: { ini
                 {unsavedRecords.length > 0 && <p role="status">{unsavedRecords.length} unsaved {unsavedRecords.length === 1 ? 'note' : 'notes'}. Save each note before leaving Research.{hiddenDraft && <> <button className={base.textButton} onClick={() => navigate(hiddenDraft.symbol, 'Overview', true, hiddenDraft.market)}>Return to {hiddenDraft.symbol} · {hiddenDraft.market} draft</button></>}</p>}
             </nav>}
             {validSelection ? <details className={connected.lookupDisclosure}><summary>Change security</summary><ResearchSecurityLookup key={readingMarket ?? initialMarket ?? 'US'} initialMarket={readingMarket ?? initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} /></details> : <ResearchSecurityLookup key={readingMarket ?? initialMarket ?? 'US'} initialMarket={readingMarket ?? initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} />}
+            <ResearchDiscoverV8 initialView={initialDiscover} defaultOpen={!selected} records={records} onSelect={(symbol, nextMarket) => { navigate(symbol, 'Overview', true, nextMarket); window.scrollTo({ top: 0 }); }} />
             {savedState}
             {workspace === 'guest' && <>
                 {recoveryError && <p role="alert">{recoveryError} <button className={base.textButton} onClick={retryDraftRecovery}>Retry draft recovery</button></p>}
