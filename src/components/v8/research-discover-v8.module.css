@@ -3,14 +3,14 @@
 .discover > summary span { color: var(--muted); font-size: var(--text-sm); }
 .discover summary:focus-visible, .discover button:focus-visible, .discover select:focus-visible, .discover a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
 .views { display: flex; gap: 4px; margin: 0 16px; padding: 4px; width: fit-content; max-width: calc(100% - 32px); overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
-.views button { min-height: 40px; padding: 0 14px; border: 0; border-radius: 6px; background: none; color: var(--muted); font: inherit; font-size: var(--text-sm); font-weight: 600; white-space: nowrap; cursor: pointer; }
+.views button { min-height: 44px; padding: 0 14px; border: 0; border-radius: 6px; background: none; color: var(--muted); font: inherit; font-size: var(--text-sm); font-weight: 600; white-space: nowrap; cursor: pointer; }
 .views button[aria-selected="true"] { background: var(--brand-soft); color: var(--brand); }
 .body { padding: 12px 0 6px; }
 .body p, .body h3, .controls, .resultHead, .small, .baskets > p { margin-left: 16px; margin-right: 16px; }
 .body p { font-size: var(--text-sm); }
 .body h3 { margin-top: 18px; margin-bottom: 8px; font-size: var(--text-base); }
 .meta { color: var(--muted); }
-.discover .primary, .discover .secondary { min-height: 40px; padding: 0 14px; border-radius: 6px; font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+.discover .primary, .discover .secondary { min-height: 44px; padding: 0 14px; border-radius: 6px; font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
 .discover .primary { border: 1px solid var(--brand); background: var(--brand); color: var(--on-brand); }
 .discover .primary:disabled { opacity: 0.5; cursor: default; }
 .discover .secondary { margin-left: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--link); }
@@ -49,12 +49,12 @@
 /* Picker controls and baskets */
 .controls { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: end; margin-bottom: 12px; }
 .controls label { display: grid; gap: 4px; color: var(--muted); font-size: var(--text-sm); }
-.controls select { min-height: 40px; min-width: 110px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; }
-.controls .check { display: flex; align-items: center; gap: 8px; min-height: 40px; color: var(--ink); }
+.controls select { min-height: 44px; min-width: 110px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; }
+.controls .check { display: flex; align-items: center; gap: 8px; min-height: 44px; color: var(--ink); }
 .resultHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .resultHead p { margin: 0; }
 .small { margin-top: 10px; margin-bottom: 10px; font-size: var(--text-sm); }
-.small summary { min-height: 40px; display: flex; align-items: center; color: var(--link); cursor: pointer; }
+.small summary { min-height: 44px; display: flex; align-items: center; color: var(--link); cursor: pointer; }
 .small ul { margin: 4px 0 8px; padding-left: 18px; }
 .baskets { margin-top: 14px; border-top: 1px solid var(--line); }
 .basket { margin: 0 16px 10px; border: 1px solid var(--line); border-radius: 8px; }
@@ -63,11 +63,11 @@
 .basket > .secondary { margin: 8px 12px 12px; }
 .basketRows { list-style: none; margin: 0 16px; padding: 0; }
 .basket .basketRows { margin: 0 12px; }
-.basketRows li { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 40px; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }
+.basketRows li { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 44px; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }
 
 /* Calendar */
 .segment { display: flex; gap: 4px; }
-.segment button { min-height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--muted); font: inherit; font-size: var(--text-sm); cursor: pointer; }
+.segment button { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--muted); font: inherit; font-size: var(--text-sm); cursor: pointer; }
 .segment button[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); color: var(--brand); }
 .days { list-style: none; margin: 0 16px; padding: 0; }
 .days > li { padding: 8px 0; border-top: 1px solid var(--line); }
@@ -116,7 +116,7 @@
 
 /* Collapsed methodology and progressive Trending rows */
 .method { margin: 0 16px 10px; font-size: var(--text-sm); }
-.method > summary { display: flex; align-items: center; width: fit-content; min-height: 40px; color: var(--link); cursor: pointer; }
+.method > summary { display: flex; align-items: center; width: fit-content; min-height: 44px; color: var(--link); cursor: pointer; }
 .body .method p { margin: 0 0 8px; color: var(--muted); }
 .discover .more { display: block; min-height: 44px; margin: 4px 16px 6px; padding: 0; border: 0; background: none; color: var(--link); font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
 
