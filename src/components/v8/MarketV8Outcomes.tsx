@@ -16,7 +16,7 @@ function Horizon({ outcome }: { outcome: SimilarScoreOutcome }) {
                 : <>
                     <dl>
                         <div><dt>Median return</dt><dd data-direction={tone(cohort.median_forward_return_pct)}>{percent(cohort.median_forward_return_pct)}</dd>{baseline && <small>all scores {percent(baseline.median_forward_return_pct)} · {points((cohort.median_forward_return_pct ?? 0) - (baseline.median_forward_return_pct ?? 0), 1)}</small>}</div>
-                        <div><dt>Positive periods</dt><dd>{cohort.positive_return_rate_pct ?? '—'}%</dd>{baseline && <small>all scores {baseline.positive_return_rate_pct ?? '—'}% · {points((cohort.positive_return_rate_pct ?? 0) - (baseline.positive_return_rate_pct ?? 0), 0)}</small>}</div>
+                        <div><dt>Positive periods</dt><dd>{cohort.positive_return_rate_pct === null ? '—' : `${cohort.positive_return_rate_pct}%`}</dd>{baseline && <small>all scores {baseline.positive_return_rate_pct === null ? '—' : `${baseline.positive_return_rate_pct}%`} · {points((cohort.positive_return_rate_pct ?? 0) - (baseline.positive_return_rate_pct ?? 0), 0)}</small>}</div>
                     </dl>
                     <details className={styles.sample}><summary>{cohort.sample_count} similar-score periods</summary><p>{cohort.observed_count} observed · {cohort.reconstructed_count} reconstructed{baseline ? ` · compared with ${baseline.sample_count} all-score periods` : ' · all-score baseline unavailable'}. Overlapping observations, before costs.</p></details>
                 </>}

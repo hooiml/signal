@@ -39,6 +39,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E9 | Market "what moved" bundle | Verified | Standard | None; added after E8 at the owner's request |
 | E10 | V8 Research decision context (multi-year trend bars, plan vs price ruler, historical filing multiples) | Verified | Standard | None; added after E9 at the owner's request |
 | E11 | V8 Research unit profitability margins, balance-sheet cushion and share dilution trajectory | Verified | Standard | None; added after E10 at the owner's request |
+| E12 | V8 app-screen review fixes (Calendar window and marks, Market polish) | Verified | Standard | None; added after a taste review at the owner's request |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -189,6 +190,35 @@ maths, malformed storage, baseline rotation and change ranking (in the harness).
 
 **Evidence — 2026-10-23:** `display-clarity-regression.mjs` covers `annualMarginComparison`, `annualMarginSeries`, `balanceSheetCushion`, `annualShareSeries` and `compactShareCount`; `v8-display-qa.mjs` and `research-reading-qa.mjs` pass across 1440px, 768px, 390px and 320px without overflow or console/request errors.
 
+### E12 — V8 app-screen review fixes
+
+**Why:** An app-screen design review of Market, Discover and the new Calendar found the Calendar
+spent four of five rows on past days while three of its "8 dates in the next 30 days" sat behind
+the next-month arrow, and used five hues for five event kinds. Market had monospace outcome
+figures, score and evidence columns ending about 100px apart, and a 46px loading title.
+
+**Scope:**
+1. Calendar starts at the current week and pages in six-week blocks: a 30-day window always fits
+   one page (no arrows); a 90-day window has Earlier/Later weeks. The header names the visible
+   range. One data hue (`--link`) marks watchlist earnings; trending earnings are an outline,
+   reviews a dashed outline, macro releases a hatch, and only overdue reviews take `--down`. The
+   legend lists only kinds on screen, each swatch drawn as its mark.
+2. Market: outcome figures in tabular text figures (no monospace), a missing positive-period rate
+   prints `—` instead of `—%`, the evidence and context cards stretch so both columns end on one
+   line, the V8 title is 24–32px, and loading skeleton cards keep their own height.
+3. Opening a stock from the Research home's Discover tab no longer reopens the reading view's
+   Discover from the spent deep link.
+
+**Left as is:** the coverage ring keeps one identity hue per indicator; that identity is shared
+with Leading evidence and the coverage list and is asserted by `research-unsaved-qa`. The slate
+dark ground stays as decided in E8.
+
+**Evidence — 2026-10-25:** Browser at 1440px and 390px (dark) and 1280px (light): the 30-day
+grid shows Oct 25 – Nov 24 with all eight dates, the 90-day grid pages Oct 25 – Dec 5 onward, no
+document overflow; Market score/evidence and context columns end on the same line. Typecheck,
+lint, harness and production build pass; `v8-modules-qa` (74 checks, updated for week paging and
+the embedded Discover) and `research-unsaved-qa` (1440–375px) pass against the production build.
+
 ### E3 — Today promotion review
 
 **Spec:** `NEXT_PRODUCT_ROADMAP.md` Task 0.
@@ -239,3 +269,4 @@ contract is recorded.
 | 2026-10-23 | E9 | In progress | Verified | PR #34 merged; Market "what moved" bundle verified in harness and browser. |
 | 2026-10-23 | E10 | — | Verified | V8 Research decision context (multi-year trend bars, plan vs price ruler, historical filing multiples) implemented and verified. |
 | 2026-10-23 | E11 | — | Verified | V8 Research unit profitability margins, balance-sheet cushion and share dilution trajectory implemented and verified. |
+| 2026-10-25 | E12 | — | Verified | Calendar week window and per-kind marks, Market outcome figures, column alignment and title size; Discover reopen fix. |

@@ -59,6 +59,14 @@
     .evidence .expandEvidence { display: inline-flex; }
 }
 @media (min-width: 901px) { .evidenceSlot[data-inspecting=true] .evidenceList { display: none; } }
+/* Desktop: both columns end on one line. The evidence card and the context card stretch to the row;
+   the space opens above their foot (unavailable inputs, the context link), never as a band below it. */
+@media (min-width: 901px) {
+    .analysisGrid > .evidenceSlot, .analysisGrid > .contextCard { align-self: stretch; display: flex; flex-direction: column; }
+    .evidenceSlot > .evidenceList, .evidenceList > .evidence { display: flex; flex: 1; flex-direction: column; }
+    .evidence > .evidenceRows { margin-bottom: auto; }
+    .contextCard > :last-child { align-self: flex-start; margin-top: auto; }
+}
 @media (max-width: 600px) {
     .assessment { grid-template-columns: minmax(0, 1fr); padding: 16px; gap: 14px; }
     .scoreLine { gap: 8px; }
