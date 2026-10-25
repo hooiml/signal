@@ -325,9 +325,9 @@ restoring an edge fade. Keyboard selection, direct links and resizing keep the a
 
 ## Project-wide additions · New (added 2026-10-25, after syncing main)
 
-Items marked **New** are added in this pass. They look past Market and Research at the rest of
-the project: V8 has no portfolio surface, no link into Learn, and older V2–V7 routes are still live
-next to it. IDs start with G (global).
+These ideas were added to address gaps beyond Market and Research. At the time, V8 had no
+portfolio surface or Learn links, and older V2–V7 routes were still live beside it. IDs start
+with G (global); the current delivery status and remaining scope are recorded under each item.
 
 #### G1 · Portfolio in V8 · First slice implemented (E18)
 
