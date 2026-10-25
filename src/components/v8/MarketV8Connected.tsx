@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { VersionSwitcher } from '@/components/navigation/VersionSwitcher';
-import { V8ThemeControl } from './V8ThemeControl';
+import { V8Settings } from './V8Settings';
+import { readSignalConfig, type SignalConfig } from '@/lib/signal-config';
 import { readData as read, readPolicies } from './read-data';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import { parseMarketReplayIndex, parseMarketReplaySnapshot, type MarketReplaySnapshot, type MarketReplaySummary } from '@/lib/types/market-replay';
@@ -34,15 +35,26 @@ const tierClasses: Record<MarketSignal['tier'], string> = {
     sell: styles.tierSell, 'strong-sell': styles.tierStrongSell,
 };
 
-export function MarketV8Connected({ initialMarket = 'US' }: { initialMarket?: Market }) {
+export function MarketV8Connected({ initialMarket }: { initialMarket?: Market }) {
+    const [defaults, setDefaults] = useState<ReturnType<typeof readSignalConfig> | null>(null);
+    useEffect(() => {
+        const timer = window.setTimeout(() => setDefaults(readSignalConfig()), 0);
+        return () => window.clearTimeout(timer);
+    }, []);
+    if (!defaults) return <div className={styles.app}><main className={styles.canvas}><p role="status">Loading Market preferences…</p></main></div>;
+    return <MarketView initialConfig={{ ...defaults.config, market: initialMarket ?? defaults.config.market }} initialPreferenceError={defaults.error} />;
+}
+
+function MarketView({ initialConfig, initialPreferenceError }: { initialConfig: SignalConfig; initialPreferenceError: string }) {
+    const [preferenceError, setPreferenceError] = useState(initialPreferenceError);
     const [advanced, setAdvanced] = useState(false);
     const [archiveRequested, setArchiveRequested] = useState(false);
     const indicatorsRef = useRef<HTMLDivElement>(null);
     // Basic view: the indicator list beside the chart already shows the inputs, so the Evidence tab is advanced-only.
     const visibleTabs = tabs.filter(name => advanced || (name !== 'History' && name !== 'Scenarios' && name !== 'Evidence'));
-    const [market, setMarket] = useState<Market>(initialMarket);
-    const [mode, setMode] = useState<Mode>('standard');
-    const [social, setSocial] = useState(true);
+    const [market, setMarketState] = useState<Market>(initialConfig.market);
+    const [mode, setMode] = useState<Mode>(initialConfig.mode);
+    const [social, setSocial] = useState(initialConfig.enableSocial);
     const [revision, setRevision] = useState(0);
     const [archiveRevision, setArchiveRevision] = useState(0);
     const [tab, setTab] = useState<InvestigationTab>('What changed');
@@ -69,11 +81,12 @@ export function MarketV8Connected({ initialMarket = 'US' }: { initialMarket?: Ma
     const archiveData = archive.key === key ? archive : null;
     const loading = response.key !== key || response.loading;
 
-    useEffect(() => {
+    function setMarket(next: Market) {
         const url = new URL(window.location.href);
-        url.searchParams.set('market', market);
+        url.searchParams.set('market', next);
         window.history.replaceState(null, '', url);
-    }, [market]);
+        setMarketState(next);
+    }
 
     useEffect(() => {
         const controller = new AbortController();
@@ -241,7 +254,8 @@ export function MarketV8Connected({ initialMarket = 'US' }: { initialMarket?: Ma
 
     return <div className={styles.app} onKeyDown={event => { if (event.key === 'Escape' && selected) closeInspector(); }}>
         <a className={styles.skip} href="#market-content">Skip to market conditions</a>
-        <header className={styles.header}><a className={styles.logo} href="/main-v8">∿ Signal</a><nav aria-label="Primary"><a href="/main-v8" aria-current="page">Market</a><a href={`/research-v8?market=${market}`}>Research</a></nav><V8ThemeControl /></header>
+        <header className={styles.header}><a className={styles.logo} href="/main-v8">∿ Signal</a><nav aria-label="Primary"><a href="/main-v8" aria-current="page">Market</a><a href={`/research-v8?market=${market}`}>Research</a></nav><V8Settings onDefaultsSaved={() => setPreferenceError('')} /></header>
+        {preferenceError && <p role="status" className={styles.canvas}>{preferenceError}</p>}
         <div className={styles.canvas}>
             <div className={styles.toolbar}><div className={styles.marketControls}><label className={styles.visuallyHidden} htmlFor="market-select">Market</label><select id="market-select" value={market} onChange={event => { setMarket(event.target.value as Market); resetView(); }}><option value="US">US Market</option><option value="MY">Malaysia</option></select><fieldset className={styles.segment}><legend className={styles.visuallyHidden}>Interpretation mode</legend>{(['standard','contrarian'] as const).map(value => <button key={value} aria-pressed={mode===value} onClick={() => { setMode(value); resetView(); }}>{value==='standard'?'Momentum':'Contrarian'}</button>)}</fieldset><label className={styles.sourceToggle}><input type="checkbox" checked={social} onChange={event => { setSocial(event.target.checked); resetView(); }} />{market==='MY'?'Include news in score':'Include social in score'}</label><details className={`${styles.muted} ${layout.controlHelp}`}><summary>About these settings</summary><div><p data-testid="mode-explanation">{mode === 'standard' ? 'Momentum: high scores read as trend confirmation' : 'Contrarian: high scores read as crowding risk, low scores as opportunity'}</p><p data-testid="social-inclusion-status">{marketSourceToggleStatus(market, social, data, loading, response.key === key ? response.error : '')}</p></div></details></div><div className={styles.depthActions}><button className={styles.secondaryButton} aria-pressed={advanced} onClick={() => { if (advanced) { if (historical) returnCurrent(); if (tab === 'History' || tab === 'Scenarios' || tab === 'Evidence' || historical) setTab('What changed'); } setAdvanced(!advanced); }}>{advanced ? 'Back to basic view' : <>Advanced<span className={layout.longLabel}> tools</span></>}</button><button className={styles.secondaryButton} disabled={loading} onClick={() => { setRevision(value=>value+1); }}>{loading?'Loading…':<>Reload<span className={layout.longLabel}> data</span></>}</button></div></div>
             <main id="market-content" tabIndex={-1} className={`${styles.workspace} ${layout.layout}`}>

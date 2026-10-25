@@ -14,7 +14,7 @@ import { V8ThemeControl } from './V8ThemeControl';
 import { MetricGlossary } from './MetricGlossary';
 import { metricForIndicator } from '@/lib/learn/metric-links';
 
-export function MarketV8({ demo = false, initialMarket = 'US' }: { demo?: boolean; initialMarket?: Market }) {
+export function MarketV8({ demo = false, initialMarket }: { demo?: boolean; initialMarket?: Market }) {
     return demo ? <MarketV8Demo /> : <MarketV8Connected initialMarket={initialMarket} />;
 }
 

@@ -38,7 +38,7 @@ const summarizeMarketUpdate = (previous: MarketSignal, next: MarketSignal) => {
 export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentation?: 'v6' | 'v7' }) => {
     const searchParams = useSearchParams();
     const returnsToToday = searchParams.get('returnTo') === 'today';
-    const { config, updateConfig, isLoaded } = useSignalConfig();
+    const { config, updateConfig, isLoaded, storageError } = useSignalConfig();
     const [signal, setSignal] = useState<MarketSignal | null>(null);
     const [signalEnableSocial, setSignalEnableSocial] = useState(true);
     const [loading, setLoading] = useState(true);
@@ -198,6 +198,7 @@ export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentati
                 testId="market-v7"
             >
                 <main className={liveStyles.marketPage}>
+                    {storageError && <p role="alert" className="mb-4">{storageError}</p>}
                     {returnsToToday ? (
                         <section data-testid="today-return-context" className={'mb-4 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between ' + themeClasses.panel}>
                             <div>
@@ -247,6 +248,7 @@ export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentati
                     />
                 </AppNavV6>
                 <div className="mx-auto w-full max-w-[1280px] px-4 pb-16 pt-5 min-[700px]:px-5">
+                    {storageError && <p role="alert" className="mb-4">{storageError}</p>}
                     {returnsToToday ? (
                         <section data-testid="today-return-context" className={'mb-4 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between ' + themeClasses.panel}>
                             <div>

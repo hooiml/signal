@@ -27,7 +27,7 @@ const getSafeArticleUrlV5 = (value?: string | null): string | null => {
 };
 
 export const MarketDashboardV5 = () => {
-    const { config, updateConfig, isLoaded } = useSignalConfig();
+    const { config, updateConfig, isLoaded, storageError } = useSignalConfig();
     const [signalData, setSignalData] = useState<MarketSignal | null>(null);
     const [loading, setLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -172,6 +172,7 @@ export const MarketDashboardV5 = () => {
 
             {/* Centered Maximum Width Workspace */}
             <div className="flex-grow flex flex-col w-full max-w-[1180px] mx-auto px-4 py-6 space-y-6">
+                {storageError && <p role="alert">{storageError}</p>}
                 
                 {/* Collapsible View Settings Accodion */}
                 <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden shadow-sm">

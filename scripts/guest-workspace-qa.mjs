@@ -50,12 +50,12 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   assert.equal(JSON.parse(await raw()).records[0].notes,'Newer note in tab B');
   await page.getByRole('button',{name:'Reload note',exact:true}).click(); assert.equal(await note.inputValue(),'Newer note in tab B'); await sibling.close();
   await overflow(); await page.screenshot({path:`${out}/guest-research-${width}.png`,fullPage:true});
-  await page.getByRole('button',{name:'Workspace',exact:true}).click();
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
   const download = page.waitForEvent('download'); await page.getByRole('button',{name:'Export guest research',exact:true}).click();
   const downloaded = await download; const exported=JSON.parse(await readFile(await downloaded.path(),'utf8'));
   assert.equal(exported.records[0].notes,'Newer note in tab B'); assert.equal(JSON.stringify(exported).includes(ownerRecord.notes),false);
   await overflow(); await page.screenshot({path:`${out}/guest-tools-${width}.png`});
-  await page.getByRole('button',{name:'Close research panel'}).click();
+  await page.getByRole('button',{name:'Close settings',exact:true}).click();
   // Exercise the real signed owner cookie when the local test server is configured.
   if (process.env.SIGNAL_QA_OWNER_SECRET) {
    const locked=await context.request.post(`${base}/api/research/watchlist`,{data:{symbol:'AAPL',market:'US',saveOnly:true}});assert.equal(locked.status(),401);
@@ -80,11 +80,11 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   assert.equal(await note.inputValue(),'Must not persist'); assert.equal(await page.getByRole('button',{name:'Save note',exact:true}).isDisabled(),true);
   await storagePeer.evaluate(({k,raw})=>localStorage.setItem(k,raw),{k:key,raw:intact});
   await page.getByRole('alert').filter({hasText:'Showing the last loaded guest records'}).first().waitFor({state:'detached'}); await storagePeer.close();
-  await page.getByRole('button',{name:'Workspace',exact:true}).click();
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
   page.once('dialog',dialog=>dialog.dismiss()); await page.getByRole('button',{name:'Clear guest research',exact:true}).click();assert.ok(await raw());
   page.once('dialog',dialog=>dialog.accept()); await page.getByRole('button',{name:'Clear guest research',exact:true}).click();await page.waitForFunction(k=>localStorage.getItem(k)===null,key);
   assert.equal(await peer.evaluate(k=>JSON.parse(localStorage.getItem(k)).records[0].notes,key),'Guest B');
-  await page.getByRole('button',{name:'Close research panel'}).click();
+  await page.getByRole('button',{name:'Close settings',exact:true}).click();
   await page.getByRole('button',{name:'Save stock',exact:true}).click(); await note.fill('Fresh draft after Clear');
   const resetPeer=await context.newPage(); await resetPeer.goto(`${base}/research-v8?ticker=MSFT&market=US`);
   await resetPeer.getByRole('button',{name:'Save stock',exact:true}).click();

@@ -370,12 +370,14 @@ next to it. IDs start with G (global).
   an adjacent definition control, and accounting disclosures expose it when opened. Narrative
   mentions and other metrics are outside this glossary. See DESIGN.md and docs/TESTING.md.
 
-#### G4 · V8 settings in one place · New
+#### G4 · V8 settings in one place · Implemented (E20)
 
 - What: one settings view for theme, default market and mode, social-in-score default, guest data
   (export or clear this device's data) and owner unlock.
 - Why: these live across the header, the Workspace menu and per-page toggles today.
 - Guardrail: clearing guest data is a confirmed, recoverable-where-possible action (rule 8).
+- Design: [`V8_SETTINGS_DESIGN.md`](V8_SETTINGS_DESIGN.md); one modal preserves Research drafts,
+  existing keys and owner access, with explicit defaults and guest-only data actions.
 
 #### G5 · First visit to V8 · New
 

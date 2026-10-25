@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useId, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { V8_THEME_STORAGE_KEY, parseV8ThemeChoice, type V8ThemeChoice } from './v8-theme';
 import styles from './market-v8.module.css';
 
@@ -33,18 +33,21 @@ const readChoice = (): V8ThemeChoice => {
 };
 const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)');
 export const setV8ThemeChoice = (next: V8ThemeChoice) => {
+    let persisted = true;
     lastChoice = next;
     sessionOverride = next;
     try {
         if (next === 'system') window.localStorage.removeItem(V8_THEME_STORAGE_KEY);
         else window.localStorage.setItem(V8_THEME_STORAGE_KEY, next);
         sessionOverride = null;
-    } catch { /* Storage can be unavailable; the choice still applies until reload. */ }
+    } catch { persisted = false; }
     notify();
+    return persisted;
 };
 
 /** Auto / Light / Dark for the V8 pages. Auto follows the system setting and stores nothing. */
 export function V8ThemeControl() {
+    const [storageError, setStorageError] = useState(false);
     const choice = useSyncExternalStore(subscribe, readChoice, () => 'system' as const);
     // Each instance needs its own radio group name, or two headers on one page would share one checked radio.
     const group = useId();
@@ -57,13 +60,13 @@ export function V8ThemeControl() {
         return () => media.removeEventListener('change', apply);
     }, [choice]);
     // Native radios give arrow-key movement between the three choices.
-    return <div className={styles.themeControl} role="radiogroup" aria-label="Colour theme">
+    return <><div className={styles.themeControl} role="radiogroup" aria-label="Colour theme">
         {themeOptions.map(option => <label key={option.value} title={option.title}>
-            <input type="radio" name={group} value={option.value} checked={choice === option.value} onChange={() => setV8ThemeChoice(option.value)} />
+            <input type="radio" name={group} value={option.value} checked={choice === option.value} onChange={() => setStorageError(!setV8ThemeChoice(option.value))} />
             <svg aria-hidden="true" viewBox="0 0 24 24">{option.icon}</svg>
             <span>{option.label}</span>
         </label>)}
-    </div>;
+    </div>{storageError && <p role="alert">Theme applied for this session. Browser storage is unavailable, so it may reset after reload.</p>}</>;
 }
 
 const themeOptions: readonly { value: V8ThemeChoice; label: string; title: string; icon: ReactNode }[] = [

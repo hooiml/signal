@@ -20,6 +20,16 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 
 ## Runtime Shape
 
+Connected V8 Market, Research and Learn share `V8Settings`, a modal that leaves the current
+page mounted. `src/lib/signal-config.ts` owns validated reads and explicit writes of the existing
+`signal-dashboard-config` contract, reused by the legacy config hook. V8 Market hydrates defaults
+before mounting its provider-request view; an explicit valid URL market wins over the saved
+market. Page controls stay temporary. Theme retains its independent key, API and boot script.
+Guest export/clear use the existing guest store; successful clear emits a same-tab event and
+native storage events refresh other tabs. The clear lock snapshots affected bytes, restores
+partial removals on error where storage permits, and preserves the existing identity checks on
+queued writes. No private data or secrets enter settings. See [`V8_SETTINGS_DESIGN.md`](V8_SETTINGS_DESIGN.md).
+
 - Framework: Next.js 16 with React 19.
 - Language: TypeScript with `strict` enabled.
 - Styling: Tailwind CSS 4 through PostCSS.

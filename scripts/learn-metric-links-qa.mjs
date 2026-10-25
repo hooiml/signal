@@ -137,11 +137,15 @@ function observe(page, scenario) {
 
 async function selectTheme(page, theme) {
     await page.getByTestId('learn-shell').waitFor();
-    const control = page.getByRole('radio', { name: theme === 'light' ? 'Light' : 'Dark' });
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
+    await settings.waitFor();
+    const control = settings.getByRole('radio', { name: theme === 'light' ? 'Light' : 'Dark' });
     // Force the explicit choice through the real control even when Auto currently resolves to it.
-    if (await control.isChecked()) await page.getByRole('radio', { name: theme === 'light' ? 'Dark' : 'Light' }).check();
+    if (await control.isChecked()) await settings.getByRole('radio', { name: theme === 'light' ? 'Dark' : 'Light' }).check();
     await control.check();
     await page.waitForFunction(expected => document.documentElement.dataset.v8Theme === expected, theme);
+    await settings.getByRole('button', { name: 'Close settings', exact: true }).click();
     // Learn streams its loading boundary; DOMContentLoaded can precede the final lesson.
     await page.reload({ waitUntil: 'networkidle', timeout: timeoutMs });
     await page.getByTestId('learn-shell').waitFor();

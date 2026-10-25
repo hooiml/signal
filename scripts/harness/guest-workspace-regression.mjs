@@ -87,11 +87,13 @@ const localStorage = {
     },
     removeItem(key) { if (blockPrimaryRemove && key === 'signal.guest-research.v1') throw new Error('blocked remove'); values.delete(key); },
 };
-Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage } });
+const events = [];
+Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage, dispatchEvent: event => { events.push(event.type); return true; } } });
 Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { locks: lockManager } });
 
 const {
     clearGuestWorkspace,
+    readGuestWorkspace,
     exportGuestWorkspace,
     readGuestRecords,
     removeGuestSecurity,
@@ -230,7 +232,15 @@ assert.equal(values.has(storageKey), false, 'failed storage writes leave workspa
 await saveGuestSecurity('CLEAR', 'US', 'Clear Test');
 const clearId = JSON.parse(values.get(storageKey)).guestId;
 await writeGuestDraftBackup(clearId, { ...draftA, symbol: 'CLEAR' });
+const beforeFailedClear = new Map(values);
+const beforeFailedEvents = events.length;
+blockPrimaryRemove = true;
+await assert.rejects(clearGuestWorkspace(), /Could not clear guest research/);
+blockPrimaryRemove = false;
+assert.deepEqual(values, beforeFailedClear, 'failed primary removal restores already removed draft bytes');
+assert.equal(events.length, beforeFailedEvents, 'failed clear never publishes a success event');
 await clearGuestWorkspace();
+assert.equal(events.at(-1), 'signal:guest-workspace-cleared', 'successful clear notifies this tab');
 assert.deepEqual(readGuestRecords(), []);
 assert.equal([...values.keys()].some(key => key.startsWith(`${storageKey}.draft.`)), false, 'clear removes all draft backups');
 
@@ -263,6 +273,16 @@ held.release();
 await Promise.all([held.completed, queuedWrite, queuedClear]);
 assert.deepEqual(readGuestRecords(), [], 'clear reads after earlier writes and cannot be undone by stale storage state');
 assert.equal(values.has(storageKey), false, 'queued clear removes the entire workspace after the earlier write');
+
+await saveGuestSecurity('CLEAR-DRAFT', 'US', 'Pending Draft');
+const pendingIdentity = readGuestWorkspace().guestId;
+const pendingLock = await lockManager.hold(storageKey);
+const clearBeforeDraft = clearGuestWorkspace();
+const staleDraft = writeGuestDraftBackup(pendingIdentity, { ...draftA, symbol: 'CLEAR-DRAFT' });
+const staleRejection = assert.rejects(staleDraft, /workspace changed/);
+pendingLock.release();
+await Promise.all([pendingLock.completed, clearBeforeDraft, staleRejection]);
+assert.equal([...values.keys()].some(key => key.startsWith(storageKey)), false, 'a queued old draft cannot resurrect cleared data');
 
 // Queued mutations cannot change a replacement workspace with identical records/baselines.
 for (const action of ['note', 'remove', 'bookmark']) {

@@ -65,6 +65,7 @@ try {
   assert.equal(req.method(),'GET','No unexpected mutation');return route.fulfill({json:{success:true,data:[]}});
  });
  async function openLookup(){const disclosure=page.locator('details').filter({has:page.getByText('Change stock',{exact:true})});if(await disclosure.count()&&!(await disclosure.getAttribute('open')!==null))await disclosure.locator(':scope > summary').click();}
+ async function selectTheme(theme){await page.getByRole('button',{name:'Settings',exact:true}).click();const settings=page.getByRole('dialog',{name:'Settings',exact:true});await settings.waitFor();await settings.getByRole('radio',{name:theme==='light'?'Light':'Dark',exact:true}).check();await page.waitForFunction(value=>document.documentElement.dataset.v8Theme===value,theme);await settings.getByRole('button',{name:'Close settings',exact:true}).click();}
  async function read(symbol,market='US') {await openLookup();await page.getByLabel('Company or ticker',{exact:true}).fill(symbol);await page.getByLabel('Lookup market',{exact:true}).selectOption(market);await page.getByRole('button',{name:'Read ticker directly',exact:true}).click();}
  async function heading(text){
   if(text==='Growth and positive earnings reported') {
@@ -207,8 +208,7 @@ try {
  await page.goto(`${base}/main-v8`);
  await page.getByTestId('connected-score').waitFor();
  for(const theme of ['light','dark']) {
-  await page.getByRole('radiogroup',{name:'Colour theme'}).locator(`input[value="${theme}"]`).check();
-  await page.waitForFunction(value=>document.documentElement.dataset.v8Theme===value,theme);
+  await selectTheme(theme);
   const coverage=page.getByRole('img',{name:/^Score weight:/}).locator('..');
   const colours=await coverage.evaluate(node=>Array.from(node.querySelectorAll('circle[data-indicator]')).map(circle=>({key:circle.dataset.indicator,colour:getComputedStyle(circle).stroke,legend:getComputedStyle(node.querySelector(`i[data-indicator="${circle.dataset.indicator}"]`)).backgroundColor})));
   assert.ok(colours.length>=3,'Multiple inputs and fallback must render');
@@ -222,13 +222,13 @@ try {
   await noOverflow();await page.screenshot({path:`${out}/market-colours-${theme}-${width}.png`});
   await coverage.screenshot({path:`${out}/market-ring-${theme}-${width}.png`});
  }
- await page.getByRole('radiogroup',{name:'Colour theme'}).locator('input[value="light"]').check();
+ await selectTheme('light');
  await page.getByText('How to read this assessment · methodology and limits',{exact:true}).click();
  await page.getByRole('region',{name:'Current market assessment',exact:true}).waitFor();
  marketScoreCase='unchanged';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/Score unchanged.*Individual inputs can still differ/}).waitFor();await page.getByTestId('market-hero-unchanged').filter({hasText:/^No change since /}).waitFor();assert.equal(await page.getByRole('region',{name:'Market assessment'}).getByRole('button',{name:/points vs/}).count(),0);
  marketScoreCase='missing';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/No earlier comparable score supplied/}).waitFor();
  marketScoreCase='normal';await page.getByLabel('Market',{exact:true}).selectOption('MY');
- await page.locator('[data-indicator="vix"]').filter({hasText:'US VIX (FX proxy unavailable)'}).waitFor();
+ await page.getByRole('region',{name:'Explore indicators',exact:true}).getByRole('button',{name:'US VIX (FX proxy unavailable)',exact:true}).waitFor();
  const myCoverage=page.getByRole('img',{name:/^Score weight:/}).locator('..');
  await myCoverage.getByText(/^MY news:/).waitFor();
  assert.match(await myCoverage.innerText(),/0 eligible dated articles.*0 dated within 24h.*aggregate sentiment observation unavailable/);

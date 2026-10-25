@@ -55,7 +55,7 @@ const report = { fixtureOnly: true, baseUrl, fixtureTime, viewports, scenarios: 
 const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}) });
 
 const settlePaint = page => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-const themeState = page => page.getByRole('radiogroup', { name: 'Colour theme' }).evaluate(group => ({
+const themeState = page => page.locator('[role="radiogroup"][aria-label="Colour theme"]').evaluate(group => ({
     choice: group.querySelector('input:checked')?.value, applied: document.documentElement.getAttribute('data-v8-theme'),
 }));
 const expectTheme = async (page, choice, applied) => {
@@ -66,7 +66,10 @@ const expectTheme = async (page, choice, applied) => {
     assert.deepEqual(await themeState(page), { choice, applied });
 };
 const changeTheme = async (page, choice, applied) => {
-    await page.getByRole('radiogroup', { name: 'Colour theme' }).locator(`input[value="${choice}"]`).check();
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const settings = page.getByRole('dialog', { name: 'Settings', exact: true }); await settings.waitFor();
+    await settings.getByRole('radiogroup', { name: 'Colour theme' }).locator(`input[value="${choice}"]`).check();
+    await settings.getByRole('button', { name: 'Close settings', exact: true }).click();
     await expectTheme(page, choice, applied);
 };
 
@@ -208,7 +211,7 @@ const goMarket = async page => {
     await settle(page);
     await page.goto(`${baseUrl}/main-v8?market=US`, { waitUntil: 'domcontentloaded' });
     await page.getByTestId('connected-score').waitFor();
-    await page.getByRole('radiogroup', { name: 'Colour theme' }).waitFor();
+    await page.getByRole('button', { name: 'Settings', exact: true }).waitFor();
     await settlePaint(page);
 };
 const goResearch = async page => {

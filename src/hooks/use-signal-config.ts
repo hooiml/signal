@@ -2,68 +2,30 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-
-export type MarketMode = 'standard' | 'contrarian';
-export type MarketRegion = 'US' | 'MY';
-
-interface SignalConfig {
-    mode: MarketMode;
-    market: MarketRegion;
-    enableSocial: boolean;
-}
-
-const STORAGE_KEY = 'signal-dashboard-config';
-const DEFAULT_CONFIG: SignalConfig = {
-    mode: 'standard',
-    market: 'US',
-    enableSocial: true
-};
-
-const isSignalConfig = (value: unknown): value is SignalConfig => {
-    if (!value || typeof value !== 'object') return false;
-    const config = value as Partial<SignalConfig>;
-    return (config.mode === 'standard' || config.mode === 'contrarian')
-        && (config.market === 'US' || config.market === 'MY')
-        && typeof config.enableSocial === 'boolean';
-};
-
-const getInitialConfig = (): SignalConfig => {
-    if (typeof window === 'undefined') return DEFAULT_CONFIG;
-
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (!stored) return DEFAULT_CONFIG;
-
-    try {
-        const parsed: unknown = JSON.parse(stored);
-        return isSignalConfig(parsed) ? parsed : DEFAULT_CONFIG;
-    } catch (error) {
-        console.error('Failed to parse signal configuration:', error);
-        return DEFAULT_CONFIG;
-    }
-};
+import { DEFAULT_SIGNAL_CONFIG, readSignalConfig, writeSignalConfig, type SignalConfig } from '../lib/signal-config';
+export type { MarketMode, MarketRegion } from '../lib/signal-config';
 
 export function useSignalConfig() {
-    const [config, setConfig] = useState<SignalConfig>(DEFAULT_CONFIG);
+    const [config, setConfig] = useState<SignalConfig>(DEFAULT_SIGNAL_CONFIG);
     const [isLoaded, setIsLoaded] = useState(false);
+    const [storageError, setStorageError] = useState('');
 
     useEffect(() => {
         const timeoutId = window.setTimeout(() => {
-            setConfig(getInitialConfig());
+            const saved = readSignalConfig();
+            setConfig(saved.config);
+            setStorageError(saved.error);
             setIsLoaded(true);
         }, 0);
 
         return () => window.clearTimeout(timeoutId);
     }, []);
 
-    // Save to localStorage on change
-    useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-        }
-    }, [config, isLoaded]);
-
     const updateConfig = (updates: Partial<SignalConfig>) => {
-        setConfig(prev => ({ ...prev, ...updates }));
+        const next = { ...config, ...updates };
+        setConfig(next);
+        try { writeSignalConfig(next); setStorageError(''); }
+        catch (error) { setStorageError(error instanceof Error ? error.message : 'Could not save defaults.'); }
     };
 
     // Preset configurations
@@ -88,6 +50,7 @@ export function useSignalConfig() {
         config,
         updateConfig,
         applyPreset,
-        isLoaded
+        isLoaded,
+        storageError
     };
 }

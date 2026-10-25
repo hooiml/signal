@@ -16,7 +16,7 @@ import { CockpitTheme, getThemeClasses } from './cockpit-utils';
 const THEME_STORAGE_KEY = 'signal-dashboard-theme-v2';
 
 export const SignalDashboardV2 = () => {
-    const { config, updateConfig, isLoaded } = useSignalConfig();
+    const { config, updateConfig, isLoaded, storageError } = useSignalConfig();
     const [signalData, setSignalData] = useState<MarketSignal | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -84,6 +84,7 @@ export const SignalDashboardV2 = () => {
             <AppNav active="signal" tone={theme} isV2={true} />
 
             <div className={`cockpit-theme-scope mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 lg:px-8 transition-all duration-300 ${themeClasses.pageText}`}>
+                {storageError && <p role="alert" className="mb-4">{storageError}</p>}
                 <DashboardHeaderV2
                     market={config.market}
                     mode={config.mode}

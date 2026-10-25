@@ -146,7 +146,7 @@ try {
             await measure.click();const resetPoints=await chartPoints();await page.mouse.click(resetPoints.first.x,resetPoints.first.y);await page.mouse.click(resetPoints.last.x,resetPoints.last.y);await measurementText('4 returned observations');
             await chart.getByRole('button',{name:'1M',exact:true}).click();assert.equal(await measurement.count(),0,'Changing the range clears measurement state.');assert.equal(await measure.getAttribute('aria-pressed'),'false');
             await chart.getByRole('button',{name:'All',exact:true}).click();
-            if(width!==320) {await page.getByRole('radio',{name:'Dark',exact:true}).check();await page.waitForFunction(()=>document.documentElement.getAttribute('data-v8-theme')==='dark');}
+            if(width!==320) {await page.getByRole('button',{name:'Settings',exact:true}).click();const settings=page.getByRole('dialog',{name:'Settings',exact:true});await settings.waitFor();await settings.getByRole('radio',{name:'Dark',exact:true}).check();await settings.getByRole('button',{name:'Close settings',exact:true}).click();await page.waitForFunction(()=>document.documentElement.getAttribute('data-v8-theme')==='dark');}
             await measure.click();const darkPoints=await chartPoints();await page.mouse.click(darkPoints.first.x,darkPoints.first.y);await page.mouse.click(darkPoints.last.x,darkPoints.last.y);await measurementText('4 returned observations');
             if(width!==320)await shot('measurement-dark');
             assert.equal(apiRequests.length,requestsBeforeMeasurement,'Drag, keyboard, range and theme exploration must not request data.');
