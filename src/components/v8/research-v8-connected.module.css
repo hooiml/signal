@@ -79,7 +79,13 @@
 .app .chartHeader fieldset { flex: 0 0 auto; }
 .app .chartHeader button { white-space: nowrap; }
 .priceReadout { display: block; color: var(--ink); font-size: var(--text-base); font-weight: 650; }
-.priceChart { display: block; width: 100%; height: auto; margin: 12px 0; overflow: visible; }
+.priceChart { display: block; width: 100%; height: auto; margin: 12px 0; overflow: visible; touch-action: pan-y; user-select: none; }
+.chartTools { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
+.app .chartTools button, .app .measurement button { min-height: 44px; }
+.app .chartTools button[aria-pressed=true] { text-decoration: underline; text-underline-offset: 4px; }
+.measurement { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; padding: 10px 0; border-block: 1px solid var(--line); }
+.measurement > div { display: grid; gap: 3px; min-width: 0; font-size: var(--text-sm); color: var(--muted); }
+.measurement strong { font-size: var(--text-base); font-variant-numeric: tabular-nums; }
 .priceChart text { font: 12px var(--font-sans); fill: var(--muted); }
 .scrubber { display: grid; gap: 6px; font-size: var(--text-sm); color: var(--muted); }
 .scrubber input { width: 100%; min-height: 44px; accent-color: var(--brand); }

@@ -28,6 +28,15 @@ export function priceRangeChange(points: readonly ClosePoint[]) {
     return { amount, percentage, start: first.time, end: last.time };
 }
 
+/** A measured span uses chronological closes and counts only observations actually returned. */
+export function priceSpanChange(points: readonly ClosePoint[], anchor: number, end: number) {
+    if (!Number.isInteger(anchor) || !Number.isInteger(end)
+        || Math.min(anchor, end) < 0 || Math.max(anchor, end) >= points.length) return null;
+    const first = Math.min(anchor, end), last = Math.max(anchor, end);
+    const change = priceRangeChange(points.slice(first, last + 1));
+    return change ? { ...change, observations: last - first + 1 } : null;
+}
+
 /** Nearest actual observation in time; never fabricate a price in a missing session. */
 export function nearestPricePoint(points: readonly ClosePoint[], timestamp: number): number | null {
     if (!points.length || !finite(timestamp)) return null;

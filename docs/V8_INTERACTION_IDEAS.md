@@ -102,6 +102,10 @@ The stock page's question: *"Where is this stock now against its own history and
 
 ### R1 · Measure — drag across the price chart for the change between two dates
 
+Selected as [E14 in the enhancement roadmap](ENHANCEMENT_ROADMAP.md#e14--research-price-chart-measurement-r1).
+The implementation counts **returned observations**, rather than implying complete trading-session
+coverage, and uses a visible Measure button for the phone's two-tap path.
+
 Click-and-drag (or tap one point, then another) draws a shaded span and reads
 **"18 Aug → 9 Sep · +USD 21.40 (+7.0%) · 16 sessions"**. Keyboard: Shift + arrows extends the span.
 

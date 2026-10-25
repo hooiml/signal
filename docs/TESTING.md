@@ -4,6 +4,17 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For the V8 Overview chart's R1 measurement, run `node scripts/research-reading-qa.mjs`
+against one owned production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`).
+The same Chromium session covers normal inspection, forward/reverse drag, two-tap touch,
+Shift + arrows, clear/Escape/outside, range/snapshot/reload resets, currency, sparse/flat/zero/
+single/empty history, and no extra API calls. The 1280/768/375/320px matrix records span and
+readout geometry, console/request failures, and fresh light/dark measurement screenshots at
+1280/768/375px in `.tmp/research-reading/after/`. Fixtures intercept all API reads and reject
+mutations; this proves local interaction, not live provider availability or deployment.
+The harness includes chronological span arithmetic and invalid-input checks in
+`scripts/harness/research-reading-regression.mjs`.
+
 For V8 Financials grouping and the public Chart & technicals tab, run
 `node scripts/research-chart-v8-qa.mjs` against one owned production server
 (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). The browser matrix uses labelled

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { nearestPricePoint, priceRangeChange, valuationShareCount } from '@/lib/research/reading-display';
+import { nearestPricePoint, priceRangeChange, priceSpanChange, valuationShareCount } from '@/lib/research/reading-display';
 import { formatResearchPrice, researchPriceCurrency } from '@/lib/research/price-format';
 import { financialPeriodLabel, formatResearchTimestamp, netCashCurrency, researchMetricPeriodLabel } from '@/lib/research/metric-provenance';
 import { cashDebtDisplay, compactFinancialAmount } from '@/lib/research/financial-display';
@@ -95,7 +95,7 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
             ? <ResearchTechnicals key={`${snapshot.market}:${snapshot.symbol}:${snapshot.fetchedAt}`} snapshot={snapshot} />
             : <p role="status">{loading ? 'Loading security data for the chart…' : 'Security data is unavailable. Retry provider data above to load the chart.'}</p>)}
         {tab === 'Overview' && <>
-            <PriceHistory snapshot={snapshot} loading={loading} record={record} {...chart} />
+            <PriceHistory key={`${snapshot?.market}:${snapshot?.symbol}:${snapshot?.fetchedAt}:${chart.chartRange}`} snapshot={snapshot} loading={loading} record={record} {...chart} />
             {record && (advanced || record.whyInterested || record.notes || record.acceptedEvidence.length > 0 || record.documentEvidence.citations.length > 0) && <details className={connected.evidence}><summary>Your saved notes and evidence · optional</summary>
             <span className={base.eyebrow}>User-authored · saved {date(record.updatedAt)}</span>{record.whyInterested && <p className={connected.authored}>{record.whyInterested}</p>}{record.notes && <p className={connected.authored}>{record.notes}</p>}
             <h2>The evidence file</h2><p>Accepted research preserves its original sources and mode. A saved interpretation is not an independently verified fact.</p>
@@ -195,7 +195,27 @@ function PriceHistory({ snapshot, loading, record, chartRange: range, setChartRa
     const [chartElement, setChartElement] = useState<SVGSVGElement | null>(null);
     const [renderedWidth, setRenderedWidth] = useState(0);
     const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+    const [measuring, setMeasuring] = useState(false);
+    const [measurement, setMeasurement] = useState<{ anchor: number; end: number; pending: boolean } | null>(null);
+    const historyElement = useRef<HTMLElement>(null);
+    const pointer = useRef<{ id: number; index: number; x: number; y: number; moved: boolean } | null>(null);
+    const measurementHintId = useId();
     const gradientId = 'price-fill-' + useId().replace(/[^a-zA-Z0-9_-]/g, '');
+    const clearMeasurement = () => {
+        setMeasuring(false);
+        setMeasurement(null);
+        pointer.current = null;
+    };
+    useEffect(() => {
+        const clear = () => { setMeasuring(false); setMeasurement(null); pointer.current = null; };
+        const outside = (event: PointerEvent) => {
+            if (event.target instanceof Node && !historyElement.current?.contains(event.target)) clear();
+        };
+        const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') clear(); };
+        document.addEventListener('pointerdown', outside);
+        document.addEventListener('keydown', escape);
+        return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
+    }, []);
     useEffect(() => {
         if (!chartElement) return;
         const observer = new ResizeObserver(([entry]) => setRenderedWidth(entry.contentRect.width));
@@ -227,6 +247,7 @@ function PriceHistory({ snapshot, loading, record, chartRange: range, setChartRa
     const low = ticks[0];
     const high = ticks[ticks.length - 1];
     const periodChange = priceRangeChange(points);
+    const measured = measurement ? priceSpanChange(points, measurement.anchor, measurement.end) : null;
     const change = periodChange?.amount ?? null;
     const lineColor = change === null || change === 0 ? 'var(--muted)' : change > 0 ? 'var(--up)' : 'var(--down)';
     const movement = change === null ? points.length === 1 ? 'One observation; no period change available' : 'A comparable period change is unavailable' : change === 0 ? 'Unchanged over selected period' : `${change > 0 ? 'Rose' : 'Fell'} over selected period`;
@@ -252,7 +273,7 @@ function PriceHistory({ snapshot, loading, record, chartRange: range, setChartRa
     const dateTicks = Array.from({ length: dateCount }, (_, i) => dateCount === 1 ? start : start + i * (end - start) / (dateCount - 1));
     const viewHeight = dateY + 10;
     const area = points.length > 1 ? `M${x(points[0].time)},${chart.bottom} ${points.map(item => `L${x(item.time)},${y(item.close)}`).join(' ')} L${x(points[points.length - 1].time)},${chart.bottom} Z` : '';
-    const hovered = hoverIndex !== null ? points[hoverIndex] : undefined;
+    const hovered = !measuring && hoverIndex !== null ? points[hoverIndex] : undefined;
     const hoverChange = hovered && points[0].close ? (hovered.close - points[0].close) / points[0].close * 100 : null;
     const hoverEdge = hovered ? x(hovered.time) / chart.width < .18 ? 'start' : x(hovered.time) / chart.width > .82 ? 'end' : 'mid' : 'mid';
     const nearestAt = (event: { currentTarget: SVGSVGElement; clientX: number; clientY: number }) => {
@@ -262,23 +283,68 @@ function PriceHistory({ snapshot, loading, record, chartRange: range, setChartRa
         const fraction = Math.max(0, Math.min(1, (local.x - chart.left) / (chart.right - chart.left)));
         return nearestPricePoint(points, start + fraction * (end - start));
     };
-    return <section className={connected.priceHistory} aria-label="Price history">
+    return <section ref={historyElement} className={connected.priceHistory} aria-label="Price history">
         <div className={connected.chartHeader}><div><h3>Price history</h3>{point && <p className={connected.rangeChange} data-testid="research-range-change">{periodChange ? <><strong style={{ color: lineColor }}>{periodChange.amount > 0 ? '+' : ''}{price(periodChange.amount, snapshot?.quote.currency)}{periodChange.percentage !== null ? ` (${periodChange.percentage > 0 ? '+' : ''}${number(periodChange.percentage, '%')})` : ' · percentage unavailable: starting close is zero'}</strong> <span>{date(periodChange.start)} → {date(periodChange.end)} · returned daily closes</span></> : movement}</p>}</div><fieldset className={base.segment}><legend className={base.visuallyHidden}>Price history range</legend>{['1M', '3M', '1Y', 'All'].map(value => <button key={value} aria-pressed={range === value} onClick={() => { setRange(value); setChartDate(null); }}>{value}</button>)}</fieldset></div>
-        {point ? <><output className={connected.priceReadout} aria-live="polite">{date(point.time)} · close {price(point.close, snapshot?.quote.currency)}</output><div className={connected.priceChartFrame}><svg ref={setChartElement} className={connected.priceChart} viewBox={`0 0 ${chart.width} ${viewHeight}`} role="img" onClick={event => {
+        {point ? <><div className={connected.chartTools}><output className={connected.priceReadout} aria-live="polite">{date(point.time)} · close {price(point.close, snapshot?.quote.currency)}</output><button className={base.textButton} aria-pressed={measuring} disabled={!periodChange} aria-describedby={measurementHintId} onClick={() => { if (measuring) clearMeasurement(); else setMeasuring(true); }}>Measure</button></div><div className={connected.priceChartFrame}><svg ref={setChartElement} className={connected.priceChart} viewBox={`0 0 ${chart.width} ${viewHeight}`} role="img" onPointerDown={event => {
+            if (!event.isPrimary || event.button !== 0 || pointer.current) return;
             const nearest = nearestAt(event);
-            if (nearest !== null) setChartDate(points[nearest].time);
-        }} onPointerMove={event => { if (event.pointerType === 'mouse') setHoverIndex(nearestAt(event)); }} onPointerLeave={() => setHoverIndex(null)} aria-label={`${snapshot?.symbol} daily closing price, ${date(points[0].time)} to ${date(points[points.length - 1].time)}. Exact values are available in the history table.`}>
+            if (nearest === null) return;
+            pointer.current = { id: event.pointerId, index: nearest, x: event.clientX, y: event.clientY, moved: false };
+            event.currentTarget.setPointerCapture(event.pointerId);
+        }} onPointerMove={event => {
+            const nearest = nearestAt(event);
+            if (event.pointerType === 'mouse') setHoverIndex(nearest);
+            const drag = pointer.current;
+            if (!drag || drag.id !== event.pointerId || nearest === null) return;
+            if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) > 6) drag.moved = true;
+            // Touch keeps vertical page scrolling; measuring on a phone uses two deliberate taps.
+            if (drag.moved && event.pointerType !== 'touch' && periodChange) {
+                setMeasuring(true);
+                setMeasurement({ anchor: drag.index, end: nearest, pending: false });
+                setChartDate(points[nearest].time);
+            }
+        }} onPointerUp={event => {
+            const drag = pointer.current;
+            if (!drag || drag.id !== event.pointerId) return;
+            pointer.current = null;
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+            const nearest = nearestAt(event);
+            if (nearest === null) return;
+            if (!drag.moved) {
+                setChartDate(points[nearest].time);
+                if (measuring && periodChange) setMeasurement(previous => previous?.pending
+                    ? { anchor: previous.anchor, end: nearest, pending: nearest === previous.anchor }
+                    : { anchor: nearest, end: nearest, pending: true });
+            }
+        }} onPointerCancel={event => { if (pointer.current?.id === event.pointerId) pointer.current = null; }} onLostPointerCapture={event => { if (pointer.current?.id === event.pointerId) pointer.current = null; }} onPointerLeave={() => setHoverIndex(null)} aria-label={`${snapshot?.symbol} daily closing price, ${date(points[0].time)} to ${date(points[points.length - 1].time)}. Exact values are available in the history table.`}>
             <defs><linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor={lineColor} stopOpacity=".2" /><stop offset="1" stopColor={lineColor} stopOpacity="0" /></linearGradient></defs>
             {showBand && band && <rect data-testid="research-52w-band" x={chart.left} width={chart.right - chart.left} y={y(band.high)} height={y(band.low) - y(band.high)} fill="var(--surface-muted)" />}
             {ticks.map(tick => <g key={tick}><line x1={chart.left} x2={chart.right} y1={y(tick)} y2={y(tick)} stroke={tick === low ? 'var(--line-strong)' : 'var(--line)'} /><text x={chart.left - 8} y={y(tick) + labelSize / 3} textAnchor="end" fill="var(--muted)" style={{ fontSize: labelSize }}>{number(tick)}</text></g>)}
             {bandLines.map(([label, value]) => <g key={label} data-testid="research-52w-line"><line x1={chart.left} x2={chart.right} y1={y(value)} y2={y(value)} stroke="var(--subtle)" strokeDasharray="2 4" /><text x={chart.left + 6} y={bandLabelY(label, value)} fill="var(--muted)" style={{ fontSize: labelSize }}>{label} {number(value)}</text></g>)}
-            {area && <path d={area} fill={`url(#${gradientId})`} />}<polyline data-testid="research-price-line" fill="none" stroke={lineColor} strokeWidth="2.5" points={points.map(item => `${x(item.time)},${y(item.close)}`).join(' ')} /><line x1={x(point.time)} x2={x(point.time)} y1={chart.top - 10} y2={chart.bottom + 8} stroke="var(--muted)" strokeDasharray="4 4" /><circle cx={x(point.time)} cy={y(point.close)} r="5" fill={lineColor} />
+            {area && <path d={area} fill={`url(#${gradientId})`} />}
+            {measurement && <g pointerEvents="none" aria-hidden="true">
+                <rect data-testid="research-measurement-span" x={Math.min(x(points[measurement.anchor].time), x(points[measurement.end].time))} width={Math.abs(x(points[measurement.end].time) - x(points[measurement.anchor].time))} y={chart.top} height={chart.bottom - chart.top} fill="var(--ink)" fillOpacity=".08" />
+                {[...new Set([measurement.anchor, measurement.end])].map(endpoint => <line key={endpoint} x1={x(points[endpoint].time)} x2={x(points[endpoint].time)} y1={chart.top} y2={chart.bottom} stroke="var(--ink)" strokeDasharray="3 3" />)}
+            </g>}
+            <polyline data-testid="research-price-line" fill="none" stroke={lineColor} strokeWidth="2.5" points={points.map(item => `${x(item.time)},${y(item.close)}`).join(' ')} /><line x1={x(point.time)} x2={x(point.time)} y1={chart.top - 10} y2={chart.bottom + 8} stroke="var(--muted)" strokeDasharray="4 4" /><circle cx={x(point.time)} cy={y(point.close)} r="5" fill={lineColor} />
             {markers.map(marker => <g key={`${marker.time}-${marker.label}`} data-testid="research-review-marker"><line x1={x(marker.time)} x2={x(marker.time)} y1={chart.top} y2={chart.bottom} stroke="var(--brand)" strokeOpacity=".45" /><path d={`M${x(marker.time)},${chartSize.top - 16} l6,6 l-6,6 l-6,-6 Z`} fill="var(--brand)" /><title>{date(marker.time)} · {marker.label}</title></g>)}
             {hovered && <g pointerEvents="none"><line x1={x(hovered.time)} x2={x(hovered.time)} y1={chart.top} y2={chart.bottom} stroke="var(--subtle)" /><line x1={chart.left} x2={chart.right} y1={y(hovered.close)} y2={y(hovered.close)} stroke="var(--subtle)" strokeDasharray="3 4" /><circle cx={x(hovered.time)} cy={y(hovered.close)} r="4.5" fill="var(--surface)" stroke={lineColor} strokeWidth="2.5" /></g>}
             {dateTicks.map((time, i) => <text key={time} x={chart.left + (dateCount === 1 ? 0 : i / (dateCount - 1)) * (chart.right - chart.left)} y={dateY} textAnchor={i === 0 ? 'start' : i === dateCount - 1 ? 'end' : 'middle'} fill="var(--muted)" style={{ fontSize: labelSize }}>{date(new Date(time).toISOString())}</text>)}
         </svg>{/* The chart's keyboard control: Tab focuses it, arrow keys, Home and End move the selected close; the frame shows the focus. */}
-            <label className={connected.scrubber}><span>Inspect a trading date</span><input type="range" min="0" max={points.length - 1} value={index} disabled={points.length === 1} onChange={event => setChartDate(points[Number(event.target.value)]?.time ?? null)} aria-valuetext={`${date(point.time)}, close ${price(point.close, snapshot?.quote.currency)}`} /></label>
+            <label className={connected.scrubber}><span>Inspect a trading date</span><input type="range" min="0" max={points.length - 1} value={index} disabled={points.length === 1} aria-describedby={measurementHintId} onChange={event => setChartDate(points[Number(event.target.value)]?.time ?? null)} onKeyDown={event => {
+                if (!event.shiftKey || !periodChange || !['ArrowLeft', 'ArrowDown', 'ArrowRight', 'ArrowUp'].includes(event.key)) return;
+                event.preventDefault();
+                const next = Math.max(0, Math.min(points.length - 1, index + (['ArrowRight', 'ArrowUp'].includes(event.key) ? 1 : -1)));
+                setMeasuring(true);
+                setMeasurement({ anchor: measurement?.anchor ?? index, end: next, pending: false });
+                setChartDate(points[next].time);
+            }} aria-valuetext={`${date(point.time)}, close ${price(point.close, snapshot?.quote.currency)}`} /></label>
             {hovered && <div className={connected.priceTooltip} aria-hidden="true" data-edge={hoverEdge} style={{ left: `${x(hovered.time) / chart.width * 100}%`, top: `${y(hovered.close) / viewHeight * 100}%` }}><b>{price(hovered.close, snapshot?.quote.currency)}</b><span>{date(hovered.time)}{hoverChange !== null ? ` · ${hoverChange >= 0 ? '+' : '−'}${Math.abs(hoverChange).toFixed(2)}% vs ${date(points[0].time)}` : ''}</span></div>}</div>
+        {measuring && <div className={connected.measurement} data-testid="research-measurement" role="status" aria-atomic="true">
+            <div><span>Exploring · not saved</span>{measured ? <><strong style={{ color: measured.amount === 0 ? 'var(--ink)' : measured.amount > 0 ? 'var(--up)' : 'var(--down)' }}>{measured.amount > 0 ? '+' : ''}{price(measured.amount, snapshot?.quote.currency)}{measured.percentage !== null ? ` (${measured.percentage > 0 ? '+' : ''}${number(measured.percentage, '%')})` : ' · percentage unavailable: starting close is zero'}</strong><span>{date(measured.start)} → {date(measured.end)} · {measured.observations} returned observations</span><span>Price change only; not total return.</span></> : <span>{measurement ? `Start: ${date(points[measurement.anchor].time)}. Choose a different date.` : 'Tap a start date, then an end date.'}</span>}</div>
+            <button className={base.textButton} onClick={clearMeasurement}>Clear measurement</button>
+        </div>}
+        <p id={measurementHintId} className={connected.chartInteractionHint}>{periodChange ? 'Drag to measure, or choose Measure and tap two dates. Keyboard: Shift + arrow keys. Esc or a tap outside clears.' : 'Measurement needs at least two comparable returned closes.'}</p>
         {(showBand || bandLines.length > 0 || markers.length > 0) && <div className={connected.chartLegend} aria-hidden="true"><span><i data-swatch="line" style={{ background: lineColor }} />Daily close</span>{showBand ? <span><i data-swatch="band" />52-week range</span> : bandLines.length > 0 && <span><i data-swatch="dash" />52-week high/low</span>}{markers.length > 0 && <span><i data-swatch="marker" />Your saved review</span>}</div>}
         {markers.length > 0 && <p className={connected.chartMarkers}>Your saved reviews in this range: {markers.map(marker => `${date(marker.time)} · ${marker.label}`).join('; ')}.</p>}
         <details className={connected.chartNotes}><summary>How to read this chart</summary><p className={connected.chartInteractionHint}>Tap or click the chart to inspect a returned close. With a keyboard, Tab to the chart and use the arrow keys, Home and End.</p><p>The change beside the title compares the first and last returned closes in this range. Price change only; not total return. This is separate from the quote’s daily change.</p><p data-testid="research-period-direction">{movement}. Line colour compares the first and last returned closes in this range.</p><p>{points.length} returned observations · {snapshot?.quote.currency || 'Currency unavailable'}. Lines connect returned closes; missing sessions are not filled. These are historical closes, not the latest quote.</p></details><details><summary>View exact history values</summary><div className={connected.tableScroll} tabIndex={0} role="region" aria-label="Closing price table"><table><thead><tr><th>Date</th><th>Close ({snapshot?.quote.currency || 'currency unavailable'})</th><th>Volume</th></tr></thead><tbody>{points.map(item => <tr key={item.time}><th>{date(item.time)}</th><td>{number(item.close)}</td><td>{number(item.volume)}</td></tr>)}</tbody></table></div></details></> : <p className={styles.gapNote}>{loading ? 'Loading price history…' : 'No price history returned. No illustrative line is shown.'}</p>}

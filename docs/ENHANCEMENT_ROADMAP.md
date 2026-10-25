@@ -44,6 +44,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E11 | V8 Research unit profitability margins, balance-sheet cushion and share dilution trajectory | Verified | Standard | None; added after E10 at the owner's request |
 | E12 | V8 app-screen review fixes (Calendar window and marks, Market polish) | Verified | Standard | None; added after a taste review at the owner's request |
 | E13 | Research stock page: tighter price chart and header | Verified | Standard | None; second taste review item at the owner's request |
+| E14 | Research price-chart measurement (R1) | Verified | Standard | Uses already-loaded daily closes; temporary exploration only |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -241,6 +242,42 @@ removed on purpose in `b7cf762`), and the full-width "Insufficient evidence" fin
 **Evidence — 2026-10-25:** AAPL page height 1,684 → 1,545px at 1440 and 2,119 → 2,006px at 390,
 no overflow; Home/End on the focused chart move the readout and the frame shows an outline.
 
+### E14 — Research price-chart measurement (R1)
+
+**Why:** Measuring between two dates answers a daily reading question using existing chart data.
+It has no provider, request, persistence or saved-record dependency. R3 would add a Calendar
+request; M1 needs separate scoring-formula verification; M5 needs agreed publication cadences.
+
+**Scope:** The V8 Overview price chart supports mouse/pen drag, a visible Measure button for
+two-tap selection, and Shift + arrows on the existing keyboard date control. The shaded span
+shows chronological dates, currency, amount and percentage change, and the inclusive count of
+returned observations. Sparse data is never described as a complete session count. The original
+full-range change and exact-values table remain available.
+
+**Guardrails:** Measurements say "Exploring · not saved" and "Price change only; not total
+return". Escape, a tap outside the chart section or Clear measurement exits. Changing range,
+security, provider snapshot or reloading resets it. One-point/empty histories cannot measure;
+a zero starting close has an amount but no percentage. No new fetches or storage writes.
+
+**Verification:** Standard lane: lint, typecheck, harness, production build for browser QA,
+and the consolidated `scripts/research-reading-qa.mjs` matrix with drag, touch, keyboard,
+reset, currency and boundary states plus light/dark screenshots at 1280/768/375px.
+
+**Evidence — 2026-10-25:** Lint, typecheck, harness, production build and the browser matrix
+pass locally at `http://127.0.0.1:3000`. The 1280/768/375/320px run captures 22 visual states
+and four interaction summaries in `.tmp/research-reading/after/report.json`. Light/dark span
+and readout screenshots pass containment, overlap and overflow checks. Measurement causes no
+API calls; no unexpected console/request errors remain. Expected service-worker blocking and
+the deliberate 503 fixture are recorded separately. Independent review found a secondary-pointer
+cleanup bug; a browser regression reproduced it before the pointer-ID guards and passes after
+the fix. This is fixture-based local verification; live-provider availability, hardware touch
+assistive technology and deployment are not established.
+
+**Changed files:** `src/components/v8/ResearchV8ConnectedPanels.tsx`,
+`src/components/v8/research-v8-connected.module.css`, `src/lib/research/reading-display.ts`,
+`scripts/harness/research-reading-regression.mjs`, `scripts/research-reading-qa.mjs`,
+`docs/TESTING.md`, `docs/V8_INTERACTION_IDEAS.md`, and this roadmap.
+
 ### E3 — Today promotion review
 
 **Spec:** `NEXT_PRODUCT_ROADMAP.md` Task 0.
@@ -293,3 +330,4 @@ contract is recorded.
 | 2026-10-23 | E11 | — | Verified | V8 Research unit profitability margins, balance-sheet cushion and share dilution trajectory implemented and verified. |
 | 2026-10-25 | E12 | — | Verified | Calendar week window and per-kind marks, Market outcome figures, column alignment and title size; Discover reopen fix. |
 | 2026-10-25 | E13 | — | Verified | Stock page chart top padding, keyboard-only date control, workspace line in the tool row. |
+| 2026-10-25 | E14 | — | Verified | R1 temporary chart measurement; drag/tap/keyboard, pointer isolation, reset and arithmetic regressions; local Standard checks pass. |
