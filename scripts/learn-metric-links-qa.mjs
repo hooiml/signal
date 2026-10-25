@@ -158,13 +158,17 @@ async function assertDisplayedLearnTarget(page, scenario, concept) {
         check(scenario, 'rsi query selects the Momentum module', selectedControls.some(text => /Momentum/i.test(text)), JSON.stringify(selectedControls));
         check(scenario, 'rsi query renders the Momentum concept heading', await lesson.getByRole('heading', { name: 'Momentum' }).count() === 1);
     } else if (concept.id === 'pe') {
+        // The query-selected lesson renders after hydration; wait before reading it.
+        await page.getByRole('heading', { name: 'P/E ratio' }).waitFor();
         check(scenario, 'pe query selects the P/E module', await page.getByRole('button', { name: /P\/E ratio/ }).getAttribute('aria-pressed') === 'true');
         check(scenario, 'pe query renders the P/E lesson heading', await page.getByRole('heading', { name: 'P/E ratio' }).count() === 1);
     } else if (concept.id === 'fcf-yield') {
         check(scenario, 'fcf-yield query selects FCF yield in the valuation lab', await page.getByLabel('Preferred valuation metric').inputValue() === 'fcf-yield');
     } else if (concept.id === 'put-call') {
+        await page.getByRole('heading', { name: 'Put/call volume ratio' }).waitFor();
         check(scenario, 'put-call query renders the exact market lesson heading', await page.getByRole('heading', { name: 'Put/call volume ratio' }).count() === 1);
     } else {
+        await page.getByRole('heading', { name: 'NAAIM Exposure Index' }).waitFor();
         check(scenario, 'naaim query renders the exact market lesson heading', await page.getByRole('heading', { name: 'NAAIM Exposure Index' }).count() === 1);
     }
 }
@@ -238,8 +242,12 @@ async function runAfter(browser, viewport, theme) {
         if (viewport.width === 1280 && theme === 'light') {
             await page.goto(`${baseUrl}/learn`, { waitUntil: 'domcontentloaded' });
             await selectTheme(page, theme);
-            await page.keyboard.press('Control+k');
             const palette = page.getByRole('dialog', { name: 'Signal command palette' });
+            // The shortcut listener attaches on hydration, which can trail domcontentloaded on slow runners.
+            for (let attempt = 0; attempt < 10 && !(await palette.isVisible()); attempt += 1) {
+                await page.keyboard.press('Control+k');
+                await palette.waitFor({ timeout: 1500 }).catch(() => {});
+            }
             await palette.waitFor();
             await palette.getByRole('option', { name: 'Use dark theme' }).click();
             await page.waitForFunction(() => document.documentElement.dataset.v8Theme === 'dark');
@@ -281,7 +289,12 @@ async function runAfter(browser, viewport, theme) {
                 check(scenario, `invalid or repeated concept ${query} falls back to trading`, await page.getByRole('button', { name: 'Trading process v0.4' }).getAttribute('aria-pressed') === 'true');
             }
             await page.goto(`${baseUrl}/learn?concept=put-call`, { waitUntil: 'domcontentloaded' });
-            await page.getByLabel('Illustrative call option volume').fill('0');
+            // A fill that lands before hydration is reset by React; refill until the recomputed ratio shows.
+            const undefinedRatio = page.locator('main').getByText('Undefined').first();
+            for (let attempt = 0; attempt < 10 && !(await undefinedRatio.isVisible()); attempt += 1) {
+                await page.getByLabel('Illustrative call option volume').fill('0');
+                await undefinedRatio.waitFor({ timeout: 1500 }).catch(() => {});
+            }
             check(scenario, 'put/call lesson marks a zero denominator undefined', (await page.locator('main').innerText()).includes('Undefined'));
             await page.goto(`${baseUrl}/learn?concept=naaim`, { waitUntil: 'domcontentloaded' });
             const naaimSlider = page.getByLabel('Hypothetical manager equity exposure');
@@ -310,6 +323,8 @@ async function runAfter(browser, viewport, theme) {
             scenario.screenshots.push(file);
         }
         await page.goto(`${baseUrl}/learn?concept=rsi`, { waitUntil: 'domcontentloaded' });
+        // Focus only after the query-selected lesson renders, so hydration cannot steal it.
+        await page.getByTestId('trading-concept').waitFor();
         const focusTarget = page.getByRole('button', { name: 'Trading process v0.4' });
         await focusTarget.focus();
         check(scenario, 'keyboard focus reaches an in-viewport Learn control', await focusTarget.evaluate(element => { const rect = element.getBoundingClientRect(); return document.activeElement === element && rect.left >= 0 && rect.right <= innerWidth; }));
