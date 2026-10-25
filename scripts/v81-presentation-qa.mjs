@@ -140,13 +140,26 @@ try {
         await page.goto(base + '/main-v8');
         await page.getByTestId('connected-score').waitFor();
         await page.getByRole('heading', { name: 'Market condition score', exact: true }).waitFor();
+        const modes = page.getByRole('group', { name: 'Interpretation mode', exact: true });
+        assert.equal(await modes.evaluate(element => element.tagName), 'FIELDSET');
+        const momentum = modes.getByRole('button', { name: 'Momentum', exact: true });
+        await momentum.focus(); await momentum.press('ArrowRight');
+        assert.equal(await momentum.evaluate(element => element === document.activeElement), true, 'Pressed buttons do not use tablist arrow navigation.');
+        assert.equal(await momentum.getAttribute('aria-pressed'), 'true');
+        assert.equal(await modes.locator('[role="tab"], [aria-selected]').count(), 0);
+        assert.deepEqual(await modes.getByRole('button').evaluateAll(buttons => buttons.map(button => button.tabIndex)), [0, 0]);
+        const settingsSummary = page.locator('summary', { hasText: 'About these settings' });
+        await settingsSummary.focus(); await settingsSummary.press('Enter');
+        assert.equal(await settingsSummary.evaluate(element => element.parentElement.open), true);
+        await settingsSummary.press('Enter');
+        assert.equal(await settingsSummary.evaluate(element => element.parentElement.open), false);
         await page.evaluate(() => scrollTo(0, 0)); await shot('market-summary', width);
         const matrix = [];
         for (const mode of ['standard', 'contrarian']) {
             if (mode === 'contrarian') {
                 await page.getByRole('button', { name: 'Advanced tools', exact: true }).click();
                 await page.getByRole('button', { name: 'Contrarian', exact: true }).click();
-                await page.getByText('Contrarian: high scores read as crowding risk, low scores as opportunity · Social on', { exact: true }).waitFor();
+                await page.waitForFunction(() => document.querySelector('[data-testid="mode-explanation"]')?.textContent === 'Contrarian: high scores read as crowding risk, low scores as opportunity');
                 await page.getByRole('button', { name: 'Back to basic view', exact: true }).click();
             }
             for (const advanced of [false, true]) {
@@ -154,7 +167,7 @@ try {
                 await page.getByTestId('connected-score').waitFor();
                 const score = await page.getByTestId('connected-score').innerText();
                 assert.equal(score, '62');
-                const card = page.locator('[data-indicator="vix"]');
+                const card = page.getByRole('region', { name: 'Explore indicators', exact: true }).locator('button[data-indicator="vix"]');
                 const text = await card.innerText();
                 if (phase === 'after') {
                     assert.match(text, mode === 'standard' ? /Momentum: positive/ : /Contrarian: negative/);
@@ -183,6 +196,13 @@ try {
                 }
                 await card.scrollIntoViewIfNeeded();
                 await shot(`market-${mode}-${advanced ? 'advanced' : 'basic'}-indicators`, width);
+                const phoneDisclosure = page.getByTestId('market-mobile-investigation').locator(':scope > h2 > button');
+                if (width <= 600) {
+                    assert.equal(await phoneDisclosure.isVisible(), true, 'Phone investigation disclosure is visible.');
+                    if (await phoneDisclosure.getAttribute('aria-expanded') === 'false') await phoneDisclosure.click();
+                    assert.equal(await phoneDisclosure.getAttribute('aria-expanded'), 'true');
+                }
+                await page.getByRole('tablist', { name: 'Market investigation' }).waitFor({ state: 'visible' });
                 const tabs = await page.getByRole('tablist', { name: 'Market investigation' }).getByRole('tab').evaluateAll(items => items.map(item => ({
                     text: item.textContent, whiteSpace: getComputedStyle(item).whiteSpace, height: item.getBoundingClientRect().height,
                 })));
@@ -201,8 +221,10 @@ try {
                     assert.doesNotMatch(panel, /Stocks making|retire|Latest source updates/);
                     assert.match(panel, /Reported contribution changes/);
                     const residual = (mode === 'standard' ? standard : contrarian).data.metadata.change_reconciliation.rounding_residual;
-                    await page.getByRole('region', { name: 'Complete score change accounting' }).locator('summary', { hasText: 'Complete accounting' }).click();
+                    const accounting = page.getByRole('region', { name: 'Complete score change accounting' }).locator(':scope > details');
+                    if (!await accounting.evaluate(element => element.open)) await accounting.locator(':scope > summary').click();
                     const residualRow = page.getByRole('region', { name: 'Complete score change accounting' }).getByText('Rounding and clamp residual', { exact: true }).locator('..');
+                    await residualRow.waitFor({ state: 'visible' });
                     assert.ok((await residualRow.innerText()).includes(`${residual < 0 ? '−' : residual > 0 ? '+' : ''}${Math.abs(residual).toFixed(2)} points`), 'Display the calculated rounding residual.');
                 }
                 if (advanced) await page.getByRole('button', { name: 'Back to basic view', exact: true }).click();

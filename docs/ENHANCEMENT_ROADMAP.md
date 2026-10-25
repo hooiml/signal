@@ -54,6 +54,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E21 | First visit to V8 (G5) | Verified | High | Local-only orientation, explicit save evidence, restart and storage safety |
 | E22 | Retire legacy route aliases (G6) | Verified | High | Preserve advanced Research/Market jobs, deep links, Today continuity and existing storage |
 | E23 | Visual comparisons in CI (G7) | Verified | Standard | Reviewed platform-specific baselines and a passing pinned Linux comparison |
+| E24 | Shared V8 component kit (G8) | Verified | High | Preserve markup, classes, selection semantics and freshness provenance; G7 regression guard |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -530,6 +531,28 @@ metadata and fail only for missing goldens. Independent visual review accepted a
 the normal pinned-container comparison then passed 20/20 in run `40193090823` at head
 `0764ebc`. Fixture proof does not establish deployment.
 
+### E24 — Shared V8 component kit (G8)
+
+**Scope:** five shared primitives for cards, native disclosures with summaries, segmented
+controls, compact empty states and freshness lines, adopted by connected Market and Research.
+`DESIGN.md` documents their APIs, examples and ownership. Consumers keep existing classes,
+data/state logic and timestamp wording. Phone disclosures and specialized investigation
+navigation retain their owners. No API, scoring, persistence, provider, CSS layout or
+advanced-workspace changes.
+
+**Local verification (2026-10-25):** lint, production build, post-build typecheck and full
+harness passed; independent review found no material issues. LSP diagnostics were unavailable;
+compiler and lint checks supply the local diagnostic proof. Market phone disclosures, Research Holdings,
+Research tabs, unsaved/guest recovery, V8 UI and presentation browser matrices pass.
+Coverage includes pressed-button semantics, automatic tab focus/wrapping, native disclosure
+keyboard actions and retained phone behavior. Existing presentation selectors and disclosure
+readiness checks were repaired without changing application behavior. All twenty G7 Windows
+comparisons pass at zero tolerance, with no baseline changes; visual review scored 100/100
+for fidelity. Evidence is in `.tmp/g8-component-kit/` and `.tmp/visual-checks/`.
+Remote CI and the pinned Linux comparison remain the parent chat's delivery checks.
+G1 remains cost-only, with advanced portfolio migration outstanding. G6's canonical
+`/research` and `/market/tools` retain their specialized engines.
+
 ### E3 — Today promotion review
 
 **Spec:** `NEXT_PRODUCT_ROADMAP.md` Task 0.
@@ -588,3 +611,4 @@ contract is recorded.
 | 2026-10-25 | E20 | — | Verified | Shared settings, safe defaults and guest actions; High lane and independent review passed. |
 | 2026-10-25 | E21 | — | Verified | V8 first-visit orientation; strict local progress, successful explicit-save evidence, safe restart, High verification and independent review. |
 | 2026-10-25 | E23 | — | Verified | Twenty reviewed Windows and Linux baselines, deliberate failure probes, independent review and a passing pinned Linux comparison in run 40193090823. |
+| 2026-10-25 | E24 | — | Verified | Five shared primitives with Market/Research consumers, full local checks, affected browser matrices, independent review and 20 unchanged Windows visual comparisons. |

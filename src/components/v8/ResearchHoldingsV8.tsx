@@ -9,6 +9,7 @@ import {
 } from '@/lib/portfolio/holdings-client';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import styles from './research-holdings-v8.module.css';
+import { V8EmptyState } from './V8Primitives';
 
 type HoldingsState = { readonly status: 'loading' } | PortfolioHoldingsLoadResult;
 const importHref = '/research?workspace=portfolio';
@@ -54,10 +55,10 @@ export function ResearchHoldingsV8({ records, onOpen }: {
             {importLink}
         </header>
         {state.status === 'loading' ? <p role="status" className={styles.state}>Loading saved holdings…</p> : null}
-        {state.status === 'empty' ? <p className={styles.state}>No holdings have been imported in this browser. {importLink}</p> : null}
+        {state.status === 'empty' ? <V8EmptyState className={styles.state} message="No holdings have been imported in this browser." action={importLink} /> : null}
         {state.status === 'invalid' || state.status === 'unavailable' ? <p className={styles.state} role="alert">{state.message} {importLink}</p> : null}
         {snapshot ? <>
-            {!snapshot.holdings.length && !snapshot.cashBalances.length ? <p className={styles.state}>The saved snapshot contains no holdings or cash balances. {importLink}</p> : null}
+            {!snapshot.holdings.length && !snapshot.cashBalances.length ? <V8EmptyState className={styles.state} message="The saved snapshot contains no holdings or cash balances." action={importLink} /> : null}
             <div className={styles.note}>
                 <p>Current prices are not loaded in this view. Market value and actual weight are unavailable; open the <a href={importHref} target="_blank" rel="noreferrer">Portfolio workspace</a> for price-aware tools.</p>
                 {records === null ? <p>Research matches are unavailable until the watchlist is loaded.</p> : null}

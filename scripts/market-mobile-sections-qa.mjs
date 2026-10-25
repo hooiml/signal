@@ -187,7 +187,7 @@ async function toggle(page, id, key) {
     const bodyId = await button.getAttribute('aria-controls');
     const beforeRequests = result.requests.length;
     await button.focus(); await page.keyboard.press(key);
-    await page.waitForTimeout(75);
+    await page.waitForFunction(sectionId => document.querySelector(`[data-testid="${sectionId}"] > h2 > button`)?.getAttribute('aria-expanded') === 'true', id, { timeout: 5000 });
     assert.equal(await button.getAttribute('aria-expanded'), 'true', `${id}: ${key} expands`);
     assert.equal(await body(page, bodyId).isVisible(), true, `${id}: body becomes visible`);
     assert.equal(result.requests.length, beforeRequests, `${id}: opening performs no API request`);
@@ -204,6 +204,7 @@ async function core(browser, market, width, theme) {
     if (mobile) {
         const heroChange = page.getByRole('button', { name: /points vs/i }).first();
         await heroChange.click();
+        await page.locator('#investigation-panel:focus').waitFor();
         const investigationToggle = page.getByTestId('market-mobile-investigation').getByRole('button').first();
         assert.equal(await investigationToggle.getAttribute('aria-expanded'), 'true', `${label}: hero change opens the investigation section`);
         assert.equal(await page.getByRole('tab', { name: 'What changed', exact: true }).getAttribute('aria-selected'), 'true', `${label}: hero change selects What changed`);

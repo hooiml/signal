@@ -4,6 +4,19 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For G8 shared V8 primitives, run lint, build, post-build typecheck and the full harness.
+Against one owned production server on port 3000, run `market-mobile-sections-qa.mjs`,
+`research-holdings-qa.mjs`, `research-tabs-qa.mjs`, `research-unsaved-qa.mjs`,
+`v81-ui-qa.mjs`, `v81-presentation-qa.mjs` and `npm run qa:visual`. These existing matrices
+cover phone disclosures, automatic Research Home versus manual Market investigation tabs,
+pressed controls, empty/loading/error states, retained dates, panel associations, responsive
+geometry and request safety. Authenticated fixtures require matching disposable server
+`OWNER_ACCESS_SECRET` and test `SIGNAL_QA_OWNER_SECRET` values of at least 32 visible ASCII
+characters, with the documented placeholder DB URL. No real owner records or provider
+credentials are needed. Inspect fresh screenshots against G7's Windows baselines locally;
+Linux baselines are separately verified by pinned CI. Do not update either set for a
+behavior-preserving extraction. The API and ownership contract is in `DESIGN.md`.
+
 For G7 screenshot regression checks, run `npm run qa:visual` against the owned
 production server on port 3000. Twenty fixture images cover Market, Research,
 Holdings, Settings and glossary at desktop/phone in light/dark. The separate

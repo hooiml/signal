@@ -1,9 +1,10 @@
 'use client';
 
-import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import { ResearchHoldingsV8 } from './ResearchHoldingsV8';
 import styles from './research-v8-connected.module.css';
+import { V8SegmentedControl } from './V8SegmentedControl';
 
 const homeTabs = ['watchlist', 'discover', 'holdings'] as const;
 type HomeTab = typeof homeTabs[number];
@@ -21,23 +22,11 @@ export function ResearchHomeV8({ records, status, preferDiscover, discover, isUn
     // Until the user picks a tab, open the watchlist when it has stocks and Discover otherwise.
     const tab: HomeTab = chosen ?? (records?.length ? 'watchlist' : 'discover');
     const count = records ? `${records.length}` : '…';
-    const tabList = useRef<HTMLDivElement>(null);
-    function tabKeys(event: KeyboardEvent<HTMLDivElement>) {
-        const index = homeTabs.indexOf(tab);
-        const next = event.key === 'ArrowRight' ? (index + 1) % homeTabs.length
-            : event.key === 'ArrowLeft' ? (index + homeTabs.length - 1) % homeTabs.length
-                : event.key === 'Home' ? 0 : event.key === 'End' ? homeTabs.length - 1 : null;
-        if (next === null) return;
-        event.preventDefault();
-        setChosen(homeTabs[next]);
-        tabList.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
-    }
     return <section className={styles.home} aria-label="Research home">
-        <div ref={tabList} className={styles.homeTabs} role="tablist" aria-label="Research home" onKeyDown={tabKeys}>
-            {homeTabs.map(value => <button key={value} id={`home-tab-${value}`} role="tab" aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} aria-controls={`home-panel-${value}`} onClick={() => setChosen(value)}>
-                {value === 'watchlist' ? <>Watchlist <span className={styles.homeCount}>{count}</span></> : value === 'discover' ? 'Discover' : 'Holdings'}
-            </button>)}
-        </div>
+        <V8SegmentedControl kind="tabs" label="Research home" className={styles.homeTabs} value={tab} onChange={setChosen} options={homeTabs.map(value => ({
+            value, id: `home-tab-${value}`, controls: `home-panel-${value}`,
+            label: value === 'watchlist' ? <>Watchlist <span className={styles.homeCount}>{count}</span></> : value === 'discover' ? 'Discover' : 'Holdings',
+        }))} />
         {tab === 'watchlist' ? <div id="home-panel-watchlist" role="tabpanel" aria-labelledby="home-tab-watchlist" className={styles.homePanel}>
             {status}
             {records && records.length === 0 && <div className={styles.homeEmpty}>

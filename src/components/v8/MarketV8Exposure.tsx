@@ -12,6 +12,7 @@ import styles from './market-v8-outcomes.module.css';
 import { MarketMobileSection } from './MarketMobileSection';
 import { MetricGlossary } from './MetricGlossary';
 import { metricForIndicator } from '@/lib/learn/metric-links';
+import { V8EmptyState } from './V8Primitives';
 
 const levelLabel: Record<MarketExposureLevel, string> = { higher: 'Higher connection', moderate: 'Moderate connection', lower: 'Lower connection', unmapped: 'Unmapped' };
 const maximumClassified = 20;
@@ -91,7 +92,7 @@ export function MarketV8Exposure({ signal }: { signal: MarketSignal }) {
         {!empty && drivers.length > 0 && <ul className={styles.drivers} aria-label="Active score drivers">{drivers.map(driver => <li key={driver.key} data-impact={driver.impact}><b><MetricGlossary metric={metricForIndicator(driver.key)}>{driver.name}</MetricGlossary></b> · {driver.impact}</li>)}</ul>}
         {state.status === 'loading' ? <p role="status">Loading saved securities…</p>
             : state.status === 'error' ? <p role="alert">Saved research could not be read. The market reading above is unaffected.</p>
-                : exposures.length === 0 ? <p className={styles.empty}>No saved {market} stocks to map. <a href={`/research-v8?market=${market}`}>Save a security in Research</a> to see how today’s drivers connect to it.</p>
+                : exposures.length === 0 ? <V8EmptyState className={styles.empty} message={<>No saved {market} stocks to map.</>} action={<><a href={`/research-v8?market=${market}`}>Save a security in Research</a> to see how today’s drivers connect to it.</>} />
                     : <ul className={styles.exposures}>{exposures.map(item => <li key={item.symbol}>
                         <div className={styles.exposureHead}>
                             <a href={`/research-v8?ticker=${encodeURIComponent(item.symbol)}&market=${market}`}><b>{item.symbol}</b></a>
