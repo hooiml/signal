@@ -8,8 +8,8 @@ import { financialPeriodLabel, formatResearchTimestamp, netCashCurrency, researc
 import { cashDebtDisplay, compactFinancialAmount } from '@/lib/research/financial-display';
 import { personalReviewDate, savedReviewMarkers } from '@/lib/research/review-lifecycle';
 import { ResearchDataAvailability } from './ResearchDataAvailability';
-import { MetricLearnLink } from './MetricLearnLink';
-import type { LearnMetric } from '@/lib/learn/metric-links';
+import { MetricGlossary } from './MetricGlossary';
+import { metricLessons, type LearnMetric } from '@/lib/learn/metric-links';
 import { ResearchFinancialSummary, ResearchQualityAndCushion } from './ResearchFinancialSummary';
 import { HistoricalValuationV8, PositionPlanComparison } from './ResearchV8ValuationContext';
 type ChartStateProps = { chartRange: string; setChartRange: (range: string) => void; chartDate: string | null; setChartDate: (date: string | null) => void };
@@ -52,9 +52,9 @@ function missingValuationContext(kind: 'marketCap' | 'pe' | 'ps' | 'fcfYield', s
 }
 
 const ratioMeanings = [
-    ['Price / earnings', 'Price paid for each unit of reported annual profit. This uses past earnings, not an earnings forecast.'],
+    ['Price / earnings', metricLessons.find(lesson => lesson.id === 'pe')!.definition],
     ['Price / sales', 'Price paid for each unit of annual sales. Sales do not account for costs or profit margins.'],
-    ['Free cash flow yield', 'Annual cash left after capital spending, expressed as a percentage of market capitalization. This is not a dividend yield or promised return.'],
+    ['Free cash flow yield', metricLessons.find(lesson => lesson.id === 'fcf-yield')!.definition],
 ] as const;
 
 function planCurrencyNote(planCurrency: string | null | undefined, quoteCurrency: string | null | undefined) {
@@ -66,7 +66,7 @@ function planCurrencyNote(planCurrency: string | null | undefined, quoteCurrency
 }
 
 function Metrics({ rows }: { rows: readonly (readonly [string, string, string?, LearnMetric?])[] }) {
-    return <dl className={`${styles.valuationInputs} ${connected.metricList}`}>{rows.map(([label, value, context, metric]) => <div key={label}><dt>{metric ? <MetricLearnLink metric={metric}>{label}</MetricLearnLink> : label}{context && <small className={connected.metricContext}>{context}</small>}</dt><dd>{value}</dd></div>)}</dl>;
+    return <dl className={`${styles.valuationInputs} ${connected.metricList}`}>{rows.map(([label, value, context, metric]) => <div key={label}><dt><MetricGlossary metric={metric}>{label}</MetricGlossary>{context && <small className={connected.metricContext}>{context}</small>}</dt><dd>{value}</dd></div>)}</dl>;
 }
 
 function SourceLink({ url, label }: { url: string | null; label: string }) {

@@ -11,6 +11,8 @@ import type {
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { date, number, price } from './research-v8-connected-data';
+import { MetricGlossary } from './MetricGlossary';
+import type { LearnMetric } from '@/lib/learn/metric-links';
 import base from './market-v8.module.css';
 import styles from './research-v8.module.css';
 import connected from './research-v8-connected.module.css';
@@ -20,12 +22,13 @@ type MetricKey = 'priceEarnings' | 'priceSales' | 'freeCashFlowYield';
 const historicalMetrics: readonly {
     readonly id: MetricKey;
     readonly label: string;
+    readonly glossary?: LearnMetric;
     readonly suffix: string;
     readonly snapshotKey: 'priceEarnings' | 'priceSales' | 'freeCashFlowYieldPercent';
 }[] = [
-    { id: 'priceEarnings', label: 'P/E', suffix: '×', snapshotKey: 'priceEarnings' },
+    { id: 'priceEarnings', label: 'P/E', glossary: 'pe', suffix: '×', snapshotKey: 'priceEarnings' },
     { id: 'priceSales', label: 'Price / sales', suffix: '×', snapshotKey: 'priceSales' },
-    { id: 'freeCashFlowYield', label: 'FCF yield', suffix: '%', snapshotKey: 'freeCashFlowYieldPercent' },
+    { id: 'freeCashFlowYield', label: 'FCF yield', glossary: 'fcf-yield', suffix: '%', snapshotKey: 'freeCashFlowYieldPercent' },
 ];
 
 const signedPercent = (value: number | null): string =>
@@ -215,21 +218,20 @@ export function HistoricalValuationV8({
                                     <fieldset className={base.segment}>
                                         <legend className={base.visuallyHidden}>Historical valuation metric</legend>
                                         {historicalMetrics.map(item => (
-                                            <button
+                                            <MetricGlossary
                                                 key={item.id}
-                                                type="button"
-                                                aria-pressed={metricKey === item.id}
-                                                onClick={() => setMetricKey(item.id)}
+                                                metric={item.glossary}
+                                                buttonProps={{ 'aria-pressed': metricKey === item.id, onClick: () => setMetricKey(item.id) }}
                                             >
                                                 {item.label}
-                                            </button>
+                                            </MetricGlossary>
                                         ))}
                                     </fieldset>
                                     <small>{chronological.length} of {report.observations.length} {selectedMetric.label} filing observations calculable</small>
                                 </div>
                                 {stats && (
                                     <div className={connected.historicalSummaryStrip}>
-                                        <div><span>Current snapshot {selectedMetric.label}</span><strong>{number(currentMultiple, selectedMetric.suffix)}</strong></div>
+                                        <div><span>Current snapshot <MetricGlossary metric={selectedMetric.glossary}>{selectedMetric.label}</MetricGlossary></span><strong>{number(currentMultiple, selectedMetric.suffix)}</strong></div>
                                         <div><span>Filing low</span><strong>{number(stats.low, selectedMetric.suffix)}</strong></div>
                                         <div><span>Filing median</span><strong>{number(stats.median, selectedMetric.suffix)}</strong></div>
                                         <div><span>Filing high</span><strong>{number(stats.high, selectedMetric.suffix)}</strong></div>
@@ -268,9 +270,9 @@ export function HistoricalValuationV8({
                                                 <th scope="col">Fiscal period</th>
                                                 <th scope="col">Filed / form</th>
                                                 <th scope="col">Post-filing close</th>
-                                                <th scope="col">P/E</th>
+                                                <th scope="col"><MetricGlossary metric="pe" /></th>
                                                 <th scope="col">Price / sales</th>
-                                                <th scope="col">FCF yield</th>
+                                                <th scope="col"><MetricGlossary metric="fcf-yield" /></th>
                                             </tr>
                                         </thead>
                                         <tbody>

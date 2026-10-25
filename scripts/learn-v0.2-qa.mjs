@@ -156,7 +156,9 @@ const main = async () => {
                 await page.getByRole('button', { name: 'Mark Apply complete' }).click();
                 addCheck(scenario, 'Apply mastery updates', (await page.getByTestId('business-mastery').innerText()).includes('1/1'));
 
-                await page.reload({ waitUntil: 'domcontentloaded' });
+                // Wait for streamed hydration before choosing the release. Otherwise a late
+                // hydration update can replace the user selection on narrower viewports.
+                await page.reload({ waitUntil: 'networkidle', timeout: timeoutMs });
                 await page.getByRole('button', { name: 'Business foundations v0.2' }).click();
                 await page.getByTestId('business-mastery').waitFor();
                 await page.waitForFunction(() => document.querySelector('[data-testid="business-mastery"]')?.textContent?.includes('2/2'));

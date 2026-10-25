@@ -1,7 +1,9 @@
 import type { MarketSignal } from '@/lib/types/signal-v2';
-import { getIndicatorBaseWeights } from '@/lib/indicator-registry';
+import { getIndicatorBaseWeights, getIndicatorDisplayName } from '@/lib/indicator-registry';
 import { dateLabel, stance, type ExplorerIndicator, type Market } from './market-v8-fixtures';
 import styles from './market-v8.module.css';
+import { MetricGlossary } from './MetricGlossary';
+import { metricForIndicator } from '@/lib/learn/metric-links';
 
 type Rule = {
     formula: string;
@@ -276,7 +278,7 @@ export function Developments({ market, partial, historical = false }: { market: 
 
 export function SummaryLimits({ signal, indicators }: { signal: MarketSignal; indicators: ExplorerIndicator[] }) {
     const conflicts = indicators.filter(indicator => stance(indicator, signal) === 'Conflict');
-    const components = Object.values(signal.components);
+    const components = Object.entries(signal.components).map(([key, component]) => ({ key, ...component }));
     const coverage = signal.metadata.coverage_adjustment;
     const activeWeight = coverage?.active_weight ?? components.reduce((sum, component) => sum + component.weight, 0);
     const missingWeight = coverage?.missing_weight ?? Math.max(0, 1 - activeWeight);
@@ -291,10 +293,10 @@ export function SummaryLimits({ signal, indicators }: { signal: MarketSignal; in
         <div className={styles.studyMetrics}>
             <div><span>Conflicting inputs</span><strong>{conflicts.length}</strong><small>{conflicts.length ? 'Full V8 stance list below' : 'None in this reading'}</small></div>
             <div><span>Eligible configured weight</span><strong>{Math.round(activeWeight * 100)}%</strong><small>{Math.round(missingWeight * 100)}% neutral reserve</small></div>
-            <div><span>Largest active weight</span><strong>{largest ? `${Math.round(largest.weight * 100)}%` : '—'}</strong><small>{largest?.display_name ?? 'No active component'}</small></div>
+            <div><span>Largest active weight</span><strong>{largest ? `${Math.round(largest.weight * 100)}%` : '—'}</strong><small>{largest ? <MetricGlossary metric={metricForIndicator(largest.key)}>{largest.display_name}</MetricGlossary> : 'No active component'}</small></div>
         </div>
-        {conflicts.length ? <div className={styles.contextList} data-testid="summary-limit-conflicts"><details open><summary><span><b>All conflicts ({conflicts.length})</b><small>V8 displayed stance</small></span><span className={styles.conflict}>Conflict</span></summary><ul>{conflicts.map(indicator => <li key={indicator.key}>{indicator.name}</li>)}</ul></details></div> : <p className={styles.studyNotice}>No indicator is classified as Conflict by the current V8 stance helper. Mixed, unavailable, stale and context-only states remain distinct.</p>}
-        <p className={styles.studyNotice}>{configuredLeader ? `${configuredLeader[0]} has the largest normal configured share at ${Math.round(configuredLeader[1] * 100)}% for ${signal.metadata.market}.` : 'No configured scored inputs are available.'} {neutralPoints.toFixed(2)} points come from the neutral 50 baseline for missing or ineligible weight. Several inputs can reflect related sentiment or positioning, so concentration and source overlap limit how much agreement can tell us.</p>
+        {conflicts.length ? <div className={styles.contextList} data-testid="summary-limit-conflicts"><details open><summary><span><b>All conflicts ({conflicts.length})</b><small>V8 displayed stance</small></span><span className={styles.conflict}>Conflict</span></summary><ul>{conflicts.map(indicator => <li key={indicator.key}><MetricGlossary metric={metricForIndicator(indicator.key)}>{indicator.name}</MetricGlossary></li>)}</ul></details></div> : <p className={styles.studyNotice}>No indicator is classified as Conflict by the current V8 stance helper. Mixed, unavailable, stale and context-only states remain distinct.</p>}
+        <p className={styles.studyNotice}>{configuredLeader ? <><MetricGlossary metric={metricForIndicator(configuredLeader[0])}>{getIndicatorDisplayName(configuredLeader[0])}</MetricGlossary> has the largest normal configured share at {Math.round(configuredLeader[1] * 100)}% for {signal.metadata.market}.</> : 'No configured scored inputs are available.'} {neutralPoints.toFixed(2)} points come from the neutral 50 baseline for missing or ineligible weight. Several inputs can reflect related sentiment or positioning, so concentration and source overlap limit how much agreement can tell us.</p>
         <details className={styles.disclosure}><summary>Glossary and stance definition</summary><p><b>Score:</b> a normalized 0–100 input where 50 is mixed. <b>Weight:</b> the configured share used for an eligible component. <b>Neutral reserve:</b> missing or stale configured weight multiplied by the fixed 50 baseline; it is accounting, not evidence.</p><p><b>V8 stance:</b> component and composite scores below 40 are negative, 40–64 are mixed, and 65 or above are positive. Matching directional buckets are Support; a mixed component is Mixed; an opposite directional bucket is Conflict. Context-only, unavailable, disabled and stale-excluded records keep their own labels.</p><p><b>Coverage:</b> eligible weight and source count describe what is present at this snapshot. They do not establish source independence, forecast accuracy or a causal explanation.</p></details>
     </section>;
 }

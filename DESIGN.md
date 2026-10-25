@@ -47,11 +47,20 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
 - **Primary navigation (V8 header):** Market · Research, plus the Light / Auto / Dark theme toggle.
   Learn uses the same header with a current Learn link; its navigation wraps below the wordmark and
   theme controls on phones. Existing courses and the command palette remain available.
-- **Metric lessons:** dotted-underlined labels with a small external-tab mark open Learn in a new
-  tab, preserving the reading and unsaved work. RSI lives in Research price context; P/E and FCF
-  yield in current valuation; put/call and NAAIM in Market indicator details. Keyboard focus is
-  visible, targets are at least 44px tall, and accessible names announce the new tab. Learn's metric
-  navigation stays in the same tab. Examples are educational, never copied current readings.
+- **Metric glossary:** RSI, P/E, FCF yield, put/call and NAAIM share short definitions in
+  `src/lib/learn/metric-links.ts`. Dotted labels open the same small native popover on tap or
+  keyboard focus. Existing Market metric buttons open the definition first; **View indicator**
+  retains their evidence-inspector action. Escape, Close, outside click and leaving by keyboard
+  dismiss it. The top layer avoids clipping in tables and panels; position stays within the
+  viewport. **Learn more** opens the existing lesson in a new tab, preserving the reading and
+  unsaved work. Controls are at least 44px tall and have visible focus. Learn navigation itself
+  stays in the same tab. Examples are educational, never copied current readings.
+- The glossary covers connected and demo Market labels, Research price context, valuation and
+  filing history, peers and the reused chart's RSI controls/readout/guide. Native select options
+  keep plain text with a definition control beside the selected supported metric. Accounting
+  disclosure summaries retain their toggle; their definition control appears inside the opened
+  disclosure. Narrative prose, chart image descriptions and Learn lesson content are not automatic
+  glossary triggers. Other metrics, including free cash flow itself, are outside this vocabulary.
 - **Market, basic view:** score summary and coverage ring → score history beside the indicator evidence
   list → wider-market strip → historical outcomes → exposure map → links into Research → methodology
   (collapsed) → tabs **What changed · Context**.

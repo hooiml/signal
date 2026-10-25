@@ -358,11 +358,17 @@ next to it. IDs start with G (global).
   five allowlisted lesson URLs, illustrative market exercises, and the V8 Learn header/theme.
   Existing courses, progress and command-palette actions remain available. Verification is in E17.
 
-#### G3 · One glossary, one popover · New
+#### G3 · One glossary, one popover · Implemented
 
 - What: a short definition for each metric in one shared glossary, shown in a small popover on tap
   or focus wherever the label appears, with "Learn more" to G2's lab.
 - Why: definitions are currently spread across per-panel notes and "How to read" disclosures.
+- Delivered: one shared short definition for each of G2's five metrics (RSI, P/E, FCF yield,
+  put/call and NAAIM), native top-layer popovers, new-tab lessons, and repeated-label coverage in
+  Market, Research, peers, filing history and chart tools. Existing metric selection controls keep
+  their actions; Market's View indicator action follows the definition. Plain native options have
+  an adjacent definition control, and accounting disclosures expose it when opened. Narrative
+  mentions and other metrics are outside this glossary. See DESIGN.md and docs/TESTING.md.
 
 #### G4 · V8 settings in one place · New
 

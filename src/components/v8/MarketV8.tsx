@@ -11,6 +11,8 @@ import { archiveDate, currentDate, dateLabel, indicatorsFor, scoreHistory, signa
 import styles from './market-v8.module.css';
 import { VersionSwitcher } from '@/components/navigation/VersionSwitcher';
 import { V8ThemeControl } from './V8ThemeControl';
+import { MetricGlossary } from './MetricGlossary';
+import { metricForIndicator } from '@/lib/learn/metric-links';
 
 export function MarketV8({ demo = false, initialMarket = 'US' }: { demo?: boolean; initialMarket?: Market }) {
     return demo ? <MarketV8Demo /> : <MarketV8Connected initialMarket={initialMarket} />;
@@ -120,11 +122,11 @@ function MarketV8Demo() {
                             {!hasEvidence ? <div className={styles.unavailable}><b>Historical indicator records unavailable</b><p>No current readings are substituted. The 28 August example includes underlying records.</p><button className={styles.textButton} onClick={() => selectDate({ date: archiveDate, value: archived.composite_score })}>Inspect complete historical example →</button></div> : <div className={styles.indicatorGrid}>{indicators.map(indicator => {
                                 const label = stance(indicator, signal);
                                 const isStale = indicator.date === '2026-08-20';
-                                return <button key={indicator.key} data-indicator={indicator.key} className={`${styles.indicatorTile} ${selected === indicator.key ? styles.selectedTile : ''}`} aria-pressed={selected === indicator.key} onClick={e => selectIndicator(indicator.key, e.currentTarget)}>
+                                return <MetricGlossary key={indicator.key} metric={metricForIndicator(indicator.key)} onInspect={element => selectIndicator(indicator.key, element)} buttonProps={{ 'data-indicator': indicator.key, className: `${styles.indicatorTile} ${selected === indicator.key ? styles.selectedTile : ''}`, 'aria-pressed': selected === indicator.key, 'aria-label': indicator.short }}>
                                     <span className={styles.tileName}>{indicator.short}<span aria-hidden="true">↗</span></span><strong>{indicator.value === null ? '—' : indicator.value.toFixed(indicator.key === 'put_call' ? 3 : indicator.key === 'social' || indicator.key === 'news' ? 2 : 1)}</strong><span className={styles.tileUnits}>{indicator.units || 'Context only'}</span>
                                     <Sparkline points={indicator.history} weekly={indicator.cadence === 'Weekly'} />
                                     <span className={label === 'Conflict' || isStale ? styles.conflict : label === 'Support' ? styles.support : styles.muted}>{isStale ? 'Stale · excluded' : label}</span><small>{indicator.value === null ? 'No observation' : `${dateLabel(indicator.date)} · ${indicator.cadence}`}</small>
-                                </button>;
+                                </MetricGlossary>;
                             })}</div>}<p className={styles.indicatorFootnote}>Raw trends · 3 Jun–{dateLabel(activeDate)} 2026 · weekly observations retain their cadence · context is not scored</p>
                         </section>
                         {!historical && <MarketConfirmation market={market} partial={example === 'missing'} onOpen={() => openInvestigation('Context')} />}

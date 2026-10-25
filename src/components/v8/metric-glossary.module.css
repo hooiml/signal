@@ -1,0 +1,26 @@
+.trigger.trigger {
+    display: inline-flex; align-items: center; min-height: 44px; max-width: 100%; padding: 0;
+    border: 0; background: transparent; color: inherit; font: inherit; text-align: inherit;
+    text-decoration: underline dotted; text-underline-offset: 4px; cursor: pointer;
+}
+.trigger.trigger:hover { color: var(--link); text-decoration-style: solid; }
+.control.control.control { min-height: 44px; }
+.trigger.trigger:focus-visible, .popover a:focus-visible, .popover button:focus-visible {
+    outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px;
+}
+.popover.popover {
+    position: fixed; inset: auto; margin: 0; box-sizing: border-box;
+    width: min(320px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow: auto;
+    padding: 16px; border: 1px solid var(--line-strong); border-radius: 10px;
+    background: var(--surface); color: var(--ink); box-shadow: 0 8px 24px color-mix(in srgb, var(--shadow) 18%, transparent);
+    font-family: var(--font-sans); font-size: 14px; line-height: 1.5; font-weight: 400;
+    text-align: left; white-space: normal; text-transform: none; letter-spacing: normal;
+}
+.title.title { display: block; color: var(--ink); font-size: 16px; font-weight: 600; }
+.definition.definition { display: block; margin-top: 6px; color: var(--muted); }
+.actions.actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.actions a, .actions button { display: inline-flex; align-items: center; min-height: 44px; font: inherit; }
+.actions a { color: var(--link); text-decoration: underline; text-underline-offset: 3px; }
+.actions button { border: 0; padding: 0 6px; background: transparent; color: var(--ink); cursor: pointer; }
+.inspect.inspect { display: inline-flex; min-height: 44px; align-items: center; padding: 0; border: 0; background: transparent; color: var(--link); font: inherit; text-decoration: underline; cursor: pointer; }
+.inspect.inspect:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }

@@ -9,6 +9,8 @@ import layout from './market-v8-connected.module.css';
 import { MarketLeadingEvidence } from './MarketV8Coverage';
 import { MarketCoverageRing } from './MarketCoverageRing';
 import { MarketSinceLastVisit } from './MarketSinceLastVisit';
+import { MetricGlossary } from './MetricGlossary';
+import { metricForIndicator } from '@/lib/learn/metric-links';
 
 const pct = (value: number) => value.toFixed(1) + '%';
 const onScale = (value: number) => Math.min(100, Math.max(0, value));
@@ -58,8 +60,8 @@ export function MarketV81Hero({ signal, snapshotDate, tierClass, onEvidence, onD
                 <MarketCoverageRing signal={signal} coverage={coverage} onSelect={onSelect} />
                 <p>{pct(coverage.fallbackPct)} of configured weight uses neutral fallback for missing inputs.</p>
             </> : <p>Coverage weights could not be reconciled. Verify the source response.</p>}
-            {coverage.unknownDateKeys.map(key => <p className={layout.caution} key={key}><b>{name(key)}:</b> {hasRetrievalTimestamp(signal.components[key]) ? 'Observation date unknown.' : 'Observation freshness unknown.'}</p>)}
-            {coverage.staleKeys.map(key => <p className={layout.caution} key={key}><b>{name(key)}:</b> Stale · {fullDate(signal.components[key]?.last_updated)} · included.</p>)}
+            {coverage.unknownDateKeys.map(key => <p className={layout.caution} key={key}><b><MetricGlossary metric={metricForIndicator(key)}>{name(key)}</MetricGlossary>:</b> {hasRetrievalTimestamp(signal.components[key]) ? 'Observation date unknown.' : 'Observation freshness unknown.'}</p>)}
+            {coverage.staleKeys.map(key => <p className={layout.caution} key={key}><b><MetricGlossary metric={metricForIndicator(key)}>{name(key)}</MetricGlossary>:</b> Stale · {fullDate(signal.components[key]?.last_updated)} · included.</p>)}
             <button type="button" className={styles.textButton} onClick={onEvidence}>Review source coverage →</button>
         </section>
     </section>;

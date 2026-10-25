@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import {
     CandlestickSeries,
     ColorType,
@@ -152,7 +152,7 @@ const chartIndicatorReadout = ({ point, indicator, setup, vwapAnchor, vwap, comp
     return items;
 };
 
-export const ResearchChartV6 = ({ snapshot, chart, historyState, benchmarkChart, benchmarkLabel, benchmarkState, compareBenchmark, onToggleBenchmark, onRetryBenchmark, onRetryHistory, theme, presentation = 'v6' }: {
+export const ResearchChartV6 = ({ snapshot, chart, historyState, benchmarkChart, benchmarkLabel, benchmarkState, compareBenchmark, onToggleBenchmark, onRetryBenchmark, onRetryHistory, theme, presentation = 'v6', renderMetricLabel }: {
     readonly snapshot: ResearchSnapshot;
     readonly chart: ResearchSnapshot['chart'];
     readonly historyState: 'loading' | 'ready' | 'error';
@@ -165,6 +165,7 @@ export const ResearchChartV6 = ({ snapshot, chart, historyState, benchmarkChart,
     readonly onRetryHistory: () => void;
     readonly theme: ResearchThemeV6;
     readonly presentation?: 'v6' | 'v7';
+    readonly renderMetricLabel?: (label: string) => ReactNode;
 }) => {
     const [range, setRange] = useState<Range>('6M');
     const [indicator, setIndicator] = useState<MomentumIndicator>('RSI');
@@ -443,6 +444,7 @@ export const ResearchChartV6 = ({ snapshot, chart, historyState, benchmarkChart,
                                 <option value="ADX">ADX / DMI</option>
                             </select>
                         </label>
+                        {indicator === 'RSI' && renderMetricLabel ? <span>{renderMetricLabel('RSI')}</span> : null}
                         {setup === 'levels' ? <label className={'grid gap-1 text-xs font-semibold ' + styles.textMuted}>
                             <span>Anchored VWAP</span>
                             <select value={vwapAnchor} onChange={(event) => setVwapAnchor(event.target.value as VwapAnchor)} className={'min-h-10 rounded border bg-transparent px-3 ' + styles.textPrimary}>
@@ -503,7 +505,7 @@ export const ResearchChartV6 = ({ snapshot, chart, historyState, benchmarkChart,
                 {setup === 'levels' ? <span><span className="mr-1 inline-block h-0.5 w-4 border-t-2 border-dashed border-violet-400 align-middle" />Anchored VWAP · {vwapAnchor.replace('-', ' ')}</span> : null}
                 <span><span className="mr-1 inline-block h-0.5 w-4 align-middle bg-purple-400" />20d average volume</span>
                 {compareBenchmark && benchmarkChart ? <span><span className="mr-1 inline-block h-0.5 w-4 border-t-2 border-violet-400 align-middle" />Relative-strength pane vs {benchmarkLabel} · 100 at range start</span> : null}
-                <span>{indicator === 'RSI' ? 'RSI pane: 30 oversold · 70 overbought' : indicator === 'MACD' ? 'MACD pane: MACD · signal · histogram' : 'ADX/DMI pane: ADX · +DI · −DI · 25 trend threshold'}</span>
+                <span>{indicator === 'RSI' ? <>{renderMetricLabel ? renderMetricLabel('RSI') : 'RSI'} pane: 30 oversold · 70 overbought</> : indicator === 'MACD' ? 'MACD pane: MACD · signal · histogram' : 'ADX/DMI pane: ADX · +DI · −DI · 25 trend threshold'}</span>
                 <span>Dotted levels: 1.5× ATR volatility reference</span>
                 <span>Dashed green: support{snapshot.technicals.support === null ? '' : ` ${snapshot.technicals.support.toFixed(2)}`}</span>
                 <span>Dashed red: resistance{snapshot.technicals.resistance === null ? '' : ` ${snapshot.technicals.resistance.toFixed(2)}`}</span>
@@ -552,7 +554,7 @@ export const ResearchChartV6 = ({ snapshot, chart, historyState, benchmarkChart,
                             <ChartReadoutItemV6 label="Low" value={formatChartNumber(selectedPoint.low)} theme={theme} />
                             <ChartReadoutItemV6 label="Close" value={formatChartNumber(selectedPoint.close)} theme={theme} />
                             <ChartReadoutItemV6 label="Volume" value={formatChartVolume(selectedPoint.volume)} theme={theme} />
-                            {indicatorReadout.map((item) => <ChartReadoutItemV6 key={item.label} label={item.label} value={item.value} theme={theme} />)}
+                            {indicatorReadout.map((item) => <ChartReadoutItemV6 key={item.label} label={renderMetricLabel ? renderMetricLabel(item.label) : item.label} value={item.value} theme={theme} />)}
                         </dl>
                     </div>
                     <span className="sr-only" aria-live="polite">{formatChartDate(selectedPoint.time)}. Open {formatChartNumber(selectedPoint.open)}, high {formatChartNumber(selectedPoint.high)}, low {formatChartNumber(selectedPoint.low)}, close {formatChartNumber(selectedPoint.close)}, volume {formatChartVolume(selectedPoint.volume)}.</span>
@@ -570,7 +572,7 @@ export const ResearchChartV6 = ({ snapshot, chart, historyState, benchmarkChart,
                             <h4 id={`indicator-guide-${group.setup.replaceAll(' ', '-').toLowerCase()}`} className={'text-xs font-bold uppercase tracking-wide ' + styles.textSecondary}>{group.setup}</h4>
                             <dl className="mt-2 space-y-3">
                                 {group.items.map((item) => <div key={item.term} className={'rounded-md border p-3 ' + styles.row}>
-                                    <dt className={'text-sm font-bold ' + styles.textPrimary}>{item.term}</dt>
+                                    <dt className={'text-sm font-bold ' + styles.textPrimary}>{renderMetricLabel ? renderMetricLabel(item.term) : item.term}</dt>
                                     <dd className={'mt-1 text-xs leading-5 ' + styles.textMuted}>{item.meaning} <span className={styles.textSecondary}>{item.use}</span></dd>
                                 </div>)}
                             </dl>
@@ -636,7 +638,7 @@ export const ResearchChartV6 = ({ snapshot, chart, historyState, benchmarkChart,
     </section>;
 };
 
-const ChartReadoutItemV6 = ({ label, value, theme }: { label: string; value: string; theme: ResearchThemeV6 }) => {
+const ChartReadoutItemV6 = ({ label, value, theme }: { label: ReactNode; value: string; theme: ResearchThemeV6 }) => {
     const styles = getThemeV6(theme);
     return (
         <div className="min-w-0">

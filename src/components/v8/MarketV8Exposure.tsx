@@ -10,6 +10,8 @@ import type { MarketSignal } from '@/lib/types/signal-v2';
 import { readData, readPolicies } from './read-data';
 import styles from './market-v8-outcomes.module.css';
 import { MarketMobileSection } from './MarketMobileSection';
+import { MetricGlossary } from './MetricGlossary';
+import { metricForIndicator } from '@/lib/learn/metric-links';
 
 const levelLabel: Record<MarketExposureLevel, string> = { higher: 'Higher connection', moderate: 'Moderate connection', lower: 'Lower connection', unmapped: 'Unmapped' };
 const maximumClassified = 20;
@@ -86,7 +88,7 @@ export function MarketV8Exposure({ signal }: { signal: MarketSignal }) {
             {exposures.length > 0 && <span className={styles.tag}>{classifying ? 'Classifying…' : `${mappedCount} mapped · ${exposures.filter(item => item.highestLevel === 'higher').length} higher`}</span>}
         </div>
         {!empty && <p className={styles.meta}>Connects today’s active score drivers to your saved {market} stocks by sector, using visible rules. A prompt to review, not a measured price sensitivity.</p>}
-        {!empty && drivers.length > 0 && <ul className={styles.drivers} aria-label="Active score drivers">{drivers.map(driver => <li key={driver.key} data-impact={driver.impact}><b>{driver.name}</b> · {driver.impact}</li>)}</ul>}
+        {!empty && drivers.length > 0 && <ul className={styles.drivers} aria-label="Active score drivers">{drivers.map(driver => <li key={driver.key} data-impact={driver.impact}><b><MetricGlossary metric={metricForIndicator(driver.key)}>{driver.name}</MetricGlossary></b> · {driver.impact}</li>)}</ul>}
         {state.status === 'loading' ? <p role="status">Loading saved securities…</p>
             : state.status === 'error' ? <p role="alert">Saved research could not be read. The market reading above is unaffected.</p>
                 : exposures.length === 0 ? <p className={styles.empty}>No saved {market} stocks to map. <a href={`/research-v8?market=${market}`}>Save a security in Research</a> to see how today’s drivers connect to it.</p>
@@ -96,7 +98,7 @@ export function MarketV8Exposure({ signal }: { signal: MarketSignal }) {
                             <small>{classes[`${market}:${item.symbol}`]?.unavailable ? 'Classification unavailable' : classifying && item.sector === 'Unknown' ? 'Classifying…' : `${item.sector} · ${item.industry}`}{item.owned ? ' · Owned' : ''}</small>
                             <span className={styles.level} data-level={item.highestLevel}>{classes[`${market}:${item.symbol}`]?.unavailable ? 'Unavailable' : levelLabel[item.highestLevel]}</span>
                         </div>
-                        {item.highestLevel !== 'unmapped' && <ul className={styles.connections}>{groupByRule(item.connections).map(group => <li key={group.rule}><b>{group.drivers.join(', ')}</b><span>{group.rule}</span></li>)}</ul>}
+                        {item.highestLevel !== 'unmapped' && <ul className={styles.connections}>{groupByRule(item.connections).map(group => <li key={group.rule}><b>{group.drivers.map((name, index) => { const driver = drivers.find(item => item.name === name); return <span key={name}><MetricGlossary metric={metricForIndicator(driver?.key ?? '')}>{name}</MetricGlossary>{index < group.drivers.length - 1 ? ', ' : ''}</span>; })}</b><span>{group.rule}</span></li>)}</ul>}
                         {state.workspace === 'owner' && <small>{item.reviewStatus === 'not-reviewed' ? 'Not reviewed yet' : item.reviewAgeDays === null ? 'Review date unavailable' : `Reviewed ${item.reviewAgeDays} days ago`}</small>}
                     </li>)}</ul>}
         {state.records.filter(record => record.market === market).length > maximumClassified && <p className={styles.meta}>Showing the first {maximumClassified} saved {market} stocks.</p>}

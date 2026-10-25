@@ -1,6 +1,6 @@
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import styles from './research-price-context.module.css';
-import { MetricLearnLink } from './MetricLearnLink';
+import { MetricGlossary } from './MetricGlossary';
 
 const finite = (value: number | null | undefined): value is number => typeof value === 'number' && Number.isFinite(value);
 const price = (value: number) => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -44,7 +44,7 @@ export function ResearchPriceContext({ snapshot }: { snapshot: ResearchSnapshot 
     return <section className={styles.context} aria-label="Price context" data-testid="research-price-context">
         <dl className={styles.grid}>
             {items.map(item => <div key={item.key} className={styles.item}>
-                <dt>{item.key === 'rsi' ? <MetricLearnLink metric="rsi">{item.label}</MetricLearnLink> : item.label}</dt>
+                <dt><MetricGlossary metric={item.key === 'rsi' ? 'rsi' : undefined}>{item.label}</MetricGlossary></dt>
                 <dd><b>{item.value}</b>{'bar' in item && item.bar !== null && item.bar !== undefined && <span className={styles.range} aria-hidden="true"><span style={{ left: `${item.bar}%` }} /></span>}{item.note && <small>{item.note}</small>}</dd>
             </div>)}
         </dl>
