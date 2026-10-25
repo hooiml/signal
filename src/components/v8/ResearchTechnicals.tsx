@@ -5,6 +5,7 @@ import { ResearchChartV6 } from '@/components/v6/ResearchChartV6';
 import { parseResearchChartResponse } from '@/lib/research/snapshot-input';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { readData, readPolicies } from './read-data';
+import { MetricGlossary } from './MetricGlossary';
 import styles from './research-technicals.module.css';
 
 type Chart = ResearchSnapshot['chart'];
@@ -70,6 +71,7 @@ export function ResearchTechnicals({ snapshot }: { snapshot: ResearchSnapshot })
             onToggleBenchmark={() => { setBenchmark({ chart: null, state: 'loading' }); setCompare(value => !value); }}
             onRetryBenchmark={() => { setBenchmark({ chart: null, state: 'loading' }); setBenchmarkRevision(value => value + 1); }}
             onRetryHistory={retry} theme={theme} presentation="v7"
+            renderMetricLabel={label => <MetricGlossary metric={label === 'RSI' || label === 'RSI (14)' ? 'rsi' : undefined}>{label}</MetricGlossary>}
         />}
     </div>;
 }

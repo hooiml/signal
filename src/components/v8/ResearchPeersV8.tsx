@@ -7,6 +7,7 @@ import { parseResearchSnapshotResponse } from '@/lib/research/snapshot-input';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { readData, readPolicies } from './read-data';
+import { MetricGlossary } from './MetricGlossary';
 import styles from './research-v8-modules.module.css';
 
 const maximumPeers = 5;
@@ -84,14 +85,14 @@ export function ResearchPeersV8({ symbol, market, snapshot, saved, onOpen }: { s
                         <tbody>
                             {!hasFundamentals && <tr><td colSpan={4 + columns.length} className={styles.note}>No growth, margin, balance-sheet or valuation figures were returned for {symbol} or its peers{loading ? ' yet' : ''}. Price and trend still compare below.</td></tr>}
                             {hasFundamentals && benchmark?.metrics.map((metric, index) => <tr key={metric.key}>
-                                <th scope="row">{metric.label}<small>{metric.higherIsBetter ? 'higher is better' : 'lower is better'}</small></th>
+                                <th scope="row"><MetricGlossary metric={metric.key === 'priceEarnings' ? 'pe' : metric.key === 'freeCashFlowYield' ? 'fcf-yield' : undefined}>{metric.label}</MetricGlossary><small>{metric.higherIsBetter ? 'higher is better' : 'lower is better'}</small></th>
                                 <td className={styles.subject}>{value(metric.subjectValue, metric.suffix)}</td>
                                 <td>{value(metric.peerMedian, metric.suffix)}</td>
                                 <td>{metric.percentile === null ? '—' : <span className={styles.rank} data-tone={metric.percentile >= 67 ? 'good' : metric.percentile <= 33 ? 'weak' : 'mid'}>{metric.percentile}%</span>}</td>
                                 {columns.map(column => <td key={column.symbol}>{value(column.metrics[index]?.subjectValue ?? null, metric.suffix)}</td>)}
                             </tr>)}
                             <tr className={styles.group}><th scope="rowgroup" colSpan={4 + columns.length}>Price and trend</th></tr>
-                            {subjectTrend && trendRows.map(([key, label]) => <tr key={key}><th scope="row">{label}</th><td className={styles.subject}>{subjectTrend[key]}</td><td>—</td><td>—</td>{columns.map(column => <td key={column.symbol}>{column.trend[key]}</td>)}</tr>)}
+                            {subjectTrend && trendRows.map(([key, label]) => <tr key={key}><th scope="row"><MetricGlossary metric={key === 'rsi' ? 'rsi' : undefined}>{label}</MetricGlossary></th><td className={styles.subject}>{subjectTrend[key]}</td><td>—</td><td>—</td>{columns.map(column => <td key={column.symbol}>{column.trend[key]}</td>)}</tr>)}
                         </tbody>
                     </table></div>
                     <p className={styles.meta}>Rank vs peers is the share of loaded peers {symbol} matches or beats on that metric. Coverage varies; “—” means the provider returned no value.</p>

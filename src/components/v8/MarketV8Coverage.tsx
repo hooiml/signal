@@ -3,6 +3,8 @@ import type { MarketSignal } from '@/lib/types/signal-v2';
 import { marketReadingLabel, marketTimestampLabel } from '@/lib/market-display';
 import { fullDate, indicatorStatus } from './MarketV8ConnectedData';
 import styles from './market-v8-coverage.module.css';
+import { MetricGlossary } from './MetricGlossary';
+import { metricForIndicator } from '@/lib/learn/metric-links';
 
 export function MarketLeadingEvidence({ signal, date, onSelect }: {
     signal: MarketSignal; date: string; onSelect: (key: string, element: HTMLButtonElement) => void;
@@ -14,12 +16,12 @@ export function MarketLeadingEvidence({ signal, date, onSelect }: {
     const conflicting = entries.find(disagrees);
     return <div className={styles.leadingEvidence} role="group" aria-label="Leading evidence">
         {([[aligned, 'Leading support'], [conflicting, 'Leading conflict']] as const).map(([entry, label]) => <div key={label}>
-            {entry ? <button onClick={event => onSelect(entry[0], event.currentTarget)}>
+            {entry ? <MetricGlossary metric={metricForIndicator(entry[0])} onInspect={element => onSelect(entry[0], element)} buttonProps={{ 'data-indicator': entry[0], 'aria-label': `${label}: ${entry[1].display_name}` }}>
                 <span><i className={styles.indicatorMarker} data-indicator={entry[0]} aria-hidden="true" /><b>{label}:</b> {entry[1].display_name} <span aria-hidden="true">↗</span></span>
                 <small>Indicator category: {marketReadingLabel(entry[1].signal)} · overall: {marketReadingLabel(signal.tier)}</small>
                 {/* Fresh inputs keep their dates in the evidence list; only exceptions surface here. */}
                 {indicatorStatus(signal, entry[0], date) !== 'Included' && <small>{indicatorStatus(signal, entry[0], date)} · {entry[1].metadata?.timestamp_basis === 'observed' ? 'Observed' : entry[1].metadata?.timestamp_basis === 'retrieved' ? 'Retrieved' : 'Recorded'} {marketTimestampLabel(entry[1].last_updated)}</small>}
-            </button> : <p><b>{label}:</b> {label === 'Leading support' ? 'No aligned included input identified.' : conflicts.length ? 'Reported conflict has no matching included observation.' : 'No conflicting included input identified; missing evidence can still limit this reading.'}</p>}
+            </MetricGlossary> : <p><b>{label}:</b> {label === 'Leading support' ? 'No aligned included input identified.' : conflicts.length ? 'Reported conflict has no matching included observation.' : 'No conflicting included input identified; missing evidence can still limit this reading.'}</p>}
         </div>)}
         <details className={styles.leadingNote}><summary>What support and conflict mean</summary><p>Categories follow the selected mode. A conflict means a different indicator category, not necessarily a negative reading. Leading inputs are selected by weight; alignment is agreement, not forecast accuracy.</p></details>
     </div>;
@@ -96,8 +98,8 @@ export function MarketCoverageNotices({ signal, inputKeys, date, sourceEnabled, 
             <p>{quality.length > 0 ? `${quality[0]} ` : ''}{stale.length} stale {stale.length === 1 ? 'input' : 'inputs'} · {missing.length} unavailable.{coverage && coverage.missing_weight > 0 ? ` ${(coverage.missing_weight * 100).toFixed(0)}% of configured weight uses a neutral reserve, not observed evidence.` : ''}</p>
             <details><summary>Source-quality details</summary>
             <ul>
-                {stale.map(([key, item]) => <li key={key}><b>{item.display_name}: stale observation.</b> Dated {fullDate(item.last_updated)} · still included in the score.</li>)}
-                {missing.length > 0 && <li><b>Current values unavailable:</b> {missing.map(getIndicatorDisplayName).join(', ')}.</li>}
+                {stale.map(([key, item]) => <li key={key}><b><MetricGlossary metric={metricForIndicator(key)}>{item.display_name}</MetricGlossary>: stale observation.</b> Dated {fullDate(item.last_updated)} · still included in the score.</li>)}
+                {missing.length > 0 && <li><b>Current values unavailable:</b> {missing.map(key => <span key={key}><MetricGlossary metric={metricForIndicator(key)}>{getIndicatorDisplayName(key)}</MetricGlossary>{missing.at(-1) === key ? '' : ', '}</span>)}.</li>}
                 {quality.map(text => <li key={text}>{text}</li>)}
             </ul>
             {coverage && coverage.missing_weight > 0 && <p>{(coverage.missing_weight * 100).toFixed(0)}% of configured weight uses the service’s neutral baseline ({coverage.neutral_points.toFixed(2)} points). This is missing-input accounting, not observed neutral evidence.</p>}

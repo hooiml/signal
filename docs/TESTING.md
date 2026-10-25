@@ -13,7 +13,7 @@ writes its snapshot or requests a quote. Evidence is saved in `.tmp/research-hol
 `--before` captures the previous home. CI runs the same suite and uploads its diagnostics.
 This proves local UI behavior, not deployment.
 
-For G2 metric-to-Learn handoffs, run `node scripts/learn-metric-links-qa.mjs` against one owned
+For G2 metric-to-Learn handoffs and G3 shared definitions, run `node scripts/learn-metric-links-qa.mjs` against one owned
 production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). The controlled API fixtures
 exercise five metric destinations, new-tab isolation, allowlisted concept URLs, lesson navigation,
 reload/history, existing course progress, and the V8 theme at 1280/768/375/320px. `--before`
@@ -22,6 +22,12 @@ Screenshots and console/request evidence live in `.tmp/learn-metric-links/`. Thi
 UI behavior, not provider health or deployment. Saved research and scoring remain untouched.
 `npm run qa:learn-metric-links` runs the same suite in CI; diagnostics are uploaded. The existing
 four Learn QA suites use the V8 theme radios and continue to cover each course's progress.
+G3 adds tap/focus, Tab/Escape/Close/outside dismissal, single-popover behavior, viewport bounds,
+repeated definitions in peers/chart/history and Market/demo labels, and unchanged research storage.
+Market metric buttons show the definition before the explicit View indicator action. Native
+select options and accounting summaries keep their original control semantics; glossary controls
+sit beside the selected metric or inside the opened disclosure. The five supported metrics and
+exact vocabulary boundary are documented in DESIGN.md. The same CI command covers both G2/G3.
 
 For L1 Market phone disclosures, run `node scripts/market-mobile-sections-qa.mjs` against one
 owned production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). The US/MY light/dark

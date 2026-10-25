@@ -1,4 +1,6 @@
 import type { MarketSignal } from '@/lib/types/signal-v2';
+import { MetricGlossary } from './MetricGlossary';
+import { metricForIndicator } from '@/lib/learn/metric-links';
 import type { MarketEvidenceCoverage } from '@/lib/market-evidence-coverage';
 import { marketTimestampLabel } from '@/lib/market-display';
 import layout from './market-v8-connected.module.css';
@@ -52,7 +54,7 @@ export function MarketCoverageRing({ signal, coverage, onSelect }: {
             {segments.map(segment => <li key={segment.key}>
                 {segment.state === 'fallback'
                     ? <span className={layout.ringItem}><i data-indicator="fallback" aria-hidden="true" />{segment.label}<b>{segment.weight.toFixed(0)}%</b></span>
-                    : <button type="button" className={layout.ringItem} onClick={event => onSelect(segment.key, event.currentTarget)}><i data-indicator={segment.key} aria-hidden="true" />{segment.label}<small>{stateLabel[segment.state]}</small><b>{segment.weight.toFixed(0)}%</b></button>}
+                    : <MetricGlossary metric={metricForIndicator(segment.key)} onInspect={element => onSelect(segment.key, element)} buttonProps={{ type: 'button', className: layout.ringItem, 'data-indicator': segment.key, 'aria-label': segment.label }}><i data-indicator={segment.key} aria-hidden="true" />{segment.label}<small>{stateLabel[segment.state]}</small><b>{segment.weight.toFixed(0)}%</b></MetricGlossary>}
             </li>)}
         </ul>
         <p className={layout.ringNote}>Scored weight: {coverage.observedPct.toFixed(1)}%.</p>

@@ -7,6 +7,8 @@ import { fullDate, indicatorReadingLabel, indicatorStatus } from './MarketV8Conn
 import base from './market-v8.module.css';
 import styles from './market-v8-connected.module.css';
 import { inputImpact } from './market-last-visit';
+import { MetricGlossary } from './MetricGlossary';
+import { metricForIndicator } from '@/lib/learn/metric-links';
 
 export function MarketIndicatorEvidence({ signal, inputKeys, configured, date, sourceEnabled, onSelect }: {
     signal: MarketSignal; inputKeys: string[]; configured: Record<string, number>; date: string;
@@ -28,15 +30,15 @@ export function MarketIndicatorEvidence({ signal, inputKeys, configured, date, s
                 const conflict = scored && (signal.confidence.conflicting_indicators.includes(key) || signal.confidence.conflicting_indicators.includes(item.display_name));
                 const status = disabled ? 'Disabled' : item ? indicatorStatus(signal, key, date) : 'Current observation unavailable';
                 const direction = !scored ? 'unavailable' : indicatorReadingLabel(item.signal);
-                return <button type="button" key={key} data-indicator={key} data-overflow={index >= 3} data-available={!!item && !disabled} className={styles.evidenceRow} onClick={event => onSelect(key, event.currentTarget)}>
+                return <MetricGlossary key={key} metric={metricForIndicator(key)} onInspect={element => onSelect(key, element)} buttonProps={{ type: 'button', 'data-indicator': key, 'data-overflow': index >= 3, 'data-available': !!item && !disabled, className: styles.evidenceRow, 'aria-label': item?.display_name ?? getIndicatorDisplayName(key) }}>
                     <span><b>{item?.display_name ?? getIndicatorDisplayName(key)}</b><small className={status.startsWith('Stale') ? styles.caution : ''}>{status}</small>{item && <small>{hasRetrievalTimestamp(item) ? 'Retrieved ' : 'Dated '}{fullDate(item.last_updated)}</small>}</span>
                     <span><strong>{item ? formatRawValue(item, signal.metadata.market) : 'Unavailable'}</strong><span className={styles.direction} data-direction={direction}>{disabled ? 'Disabled' : scored ? `${signal.mode === 'contrarian' ? 'Contrarian' : 'Momentum'}: ${direction}` : item ? 'Context · not scored' : 'No reading'}</span>{scored && <ImpactChip impact={inputImpact(item.score, item.weight)} />}{conflict && <small>Disagrees with composite</small>}</span>
-                </button>;
+                </MetricGlossary>;
             })}
         </div>
         {missing.length > 0 && <div className={styles.missingRow} role="group" aria-label="Unavailable inputs">
             <span><b>{missing.length} {missing.length === 1 ? 'input' : 'inputs'} unavailable</b><small>No current observation · select one for details</small></span>
-            <span className={styles.missingList}>{missing.map(key => <button type="button" key={key} data-indicator={key} data-available="false" aria-label={getIndicatorDisplayName(key)} className={styles.missingChip} onClick={event => onSelect(key, event.currentTarget)}><span>{getIndicatorDisplayName(key)}</span><small>{(configured[key] ?? 0) > 0 ? `${((configured[key] ?? 0) * 100).toFixed(1)}% configured weight · neutral reserve` : 'No configured scoring weight'}</small></button>)}</span>
+            <span className={styles.missingList}>{missing.map(key => <MetricGlossary key={key} metric={metricForIndicator(key)} onInspect={element => onSelect(key, element)} buttonProps={{ type: 'button', 'data-indicator': key, 'data-available': false, 'aria-label': getIndicatorDisplayName(key), className: styles.missingChip }}><span>{getIndicatorDisplayName(key)}</span><small>{(configured[key] ?? 0) > 0 ? `${((configured[key] ?? 0) * 100).toFixed(1)}% configured weight · neutral reserve` : 'No configured scoring weight'}</small></MetricGlossary>)}</span>
         </div>}
         {observed.length > 3 && <button className={`${base.textButton} ${styles.expandEvidence}`} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? 'Show fewer inputs' : `Show all ${observed.length} observed inputs`} {expanded ? '↑' : '↓'}</button>}
         <p className={styles.evidenceNote}>Unavailable observations are not neutral sentiment. Configured missing weight may use neutral fallback.</p>

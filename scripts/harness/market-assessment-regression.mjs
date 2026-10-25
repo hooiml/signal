@@ -111,7 +111,7 @@ assert.match(ringHtml, /<circle[^>]*data-indicator="vix" data-state="fresh"/);
 assert.match(ringHtml, /<circle[^>]*data-indicator="social" data-state="stale"/);
 assert.match(ringHtml, /<circle[^>]*data-indicator="news" data-state="unknown"/);
 assert.match(ringHtml, /<circle[^>]*data-indicator="fallback" data-state="fallback"/);
-assert.match(ringHtml, /<button type="button" class="ringItem"><i data-indicator="vix"/);
+assert.match(ringHtml, /<button type="button" class="ringItem"[^>]*><i data-indicator="vix"/);
 assert.match(ringHtml, /VIX Index<small>fresh<\/small>/);
 assert.match(ringHtml, /Social Sentiment<small>stale<\/small>/);
 assert.match(ringHtml, /News Sentiment<small>freshness unverified<\/small>/);
