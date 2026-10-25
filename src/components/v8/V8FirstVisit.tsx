@@ -42,22 +42,24 @@ export function FirstVisitCallout({ tour, surface, ready = false, saved = false,
     if (!tour.progress || hiddenRevision === (revision ?? 'invalid') || state?.stage === 'skipped' || state?.stage === 'complete') return null;
     const error = tour.error || ('error' in tour.progress ? tour.progress.error : '');
     const step = state?.stage === 'market' ? 1 : state?.stage === 'stock' ? 2 : 3;
+    const action = !state ? null : state.stage === 'market'
+        ? surface === 'market'
+            ? <button className={styles.primary} type="button" disabled={!ready} onClick={() => void advance(state, 'stock')}>I understand</button>
+            : <a href="/main-v8" target="_blank" rel="noopener noreferrer">Open Market (new tab)</a>
+        : surface === 'market' ? <a href="/research-v8">Open Research</a>
+        : state.stage === 'save' && saved ? <button className={styles.primary} type="button" onClick={() => void advance(state, 'complete')}>Finish with this saved stock</button>
+        : null;
+    const text = !state ? '' : state.stage === 'market'
+        ? `${surface === 'market' ? mode === 'contrarian' ? 'In Contrarian mode, higher scores mean crowding risk.' : 'In Momentum mode, higher scores mean stronger trend confirmation.' : 'Its meaning depends on the selected mode.'} It is context, not a forecast.${surface === 'market' && !ready ? ' Waiting for a current reading.' : ''}`
+        : state.stage === 'stock'
+            ? surface === 'market' ? 'Search or pick from your watchlist. Opening a stock saves nothing.' : 'This step finishes once the stock’s price loads. Opening it saves nothing.'
+            : surface === 'research' && saved ? 'This stock is already in your watchlist; no new save is needed.' : 'Use Save stock beside the price to keep it. Reading alone saves nothing.';
     return <section className={styles.callout} aria-label="First visit to V8" data-testid="v8-first-visit">
-        <div className={styles.heading}><span className={styles.label}>{state ? `First visit · ${step} of 3` : 'First visit'}</span>{state && <button type="button" onClick={() => void advance(state, 'skipped')}>Skip tour</button>}</div>
-        {state && <>
-            <h2>{state.stage === 'market' ? 'Understand the Market score' : state.stage === 'stock' ? 'Open a stock' : 'Save a stock'}</h2>
-            {state.stage === 'market' ? <>
-                <p>The score summarizes available market conditions. {surface === 'market' ? mode === 'contrarian' ? 'In Contrarian mode, higher scores indicate crowding risk; lower scores can suggest opportunity.' : 'In Momentum mode, higher scores indicate stronger trend confirmation.' : 'Its meaning depends on the selected mode.'} It is context, not a price forecast. Check the date and evidence gaps.</p>
-                {surface === 'market' ? <div className={styles.actions}><button className={styles.primary} type="button" disabled={!ready} onClick={() => void advance(state, 'stock')}>I understand</button>{!ready && <span>Waiting for a successful current Market reading.</span>}</div> : <a href="/main-v8" target="_blank" rel="noopener noreferrer">Open Market (new tab)</a>}
-            </> : state.stage === 'stock' ? <>
-                <p>Choose a company using search or your watchlist. Read its returned price and source limitations. Opening a stock does not save it.</p>
-                {surface === 'market' ? <a href="/research-v8">Open Research</a> : <p>This step finishes when the selected stock has an available price reading.</p>}
-            </> : <>
-                <p>{surface === 'research' && saved ? 'This stock is already in your watchlist. You can finish with it; no new save or note change is needed.' : 'When you want to keep a stock, use its Save stock button. Reading alone saves nothing. A failed save will not finish this tour.'}</p>
-                {surface === 'market' ? <a href="/research-v8">Open Research</a> : saved ? <button className={styles.primary} type="button" onClick={() => void advance(state, 'complete')}>Finish with this saved stock</button> : <p>Use Save stock beside the price after a reading is available.</p>}
-            </>}
-            <small>Progress stays in this browser on this device. Restart from Settings.</small>
-        </>}
-        {error && <div className={styles.error}><p role="alert">{error}</p>{state?.stage === 'stock' && surface === 'research' && ready && <button type="button" onClick={() => void advance(state, 'save')}>Retry progress</button>}<button type="button" onClick={() => setHiddenRevision(revision ?? 'invalid')}>Hide for this visit</button><small>Hiding here is temporary; progress has not been saved.</small></div>}
+        <div className={styles.text}>
+            <div className={styles.title}><h2>{!state ? 'First visit' : state.stage === 'market' ? 'Understand the Market score' : state.stage === 'stock' ? 'Open a stock' : 'Save a stock'}</h2>{state && <span className={styles.step}>Tour {step} of 3</span>}</div>
+            {text && <p>{text}</p>}
+        </div>
+        {state && <div className={styles.actions}>{action}<button type="button" className={styles.quiet} onClick={() => void advance(state, 'skipped')}>Skip tour</button></div>}
+        {error && <div className={styles.error}><p role="alert">{error}</p>{state?.stage === 'stock' && surface === 'research' && ready && <button type="button" onClick={() => void advance(state, 'save')}>Retry progress</button>}<button type="button" onClick={() => setHiddenRevision(revision ?? 'invalid')}>Hide for this visit</button></div>}
     </section>;
 }

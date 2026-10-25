@@ -49,7 +49,7 @@ recomputes the composite with the remaining weights and shows it beside the real
 
 ### M2 · Rewind — scrub the score history and the page follows
 
-Today the score chart previews a date, and Advanced tools replay a stored snapshot. Make the chart
+Today the score chart previews a date, and Detailed view replays a stored snapshot. Make the chart
 the page's time control: dragging (or arrow keys) along the history re-points the reading, the
 coverage ring and the evidence rows to that day, with a persistent banner
 **"Viewing 12 Sep 2026 · Return to today"**.

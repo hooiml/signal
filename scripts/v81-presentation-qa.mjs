@@ -157,13 +157,13 @@ try {
         const matrix = [];
         for (const mode of ['standard', 'contrarian']) {
             if (mode === 'contrarian') {
-                await page.getByRole('button', { name: 'Advanced tools', exact: true }).click();
+                await page.getByRole('button', { name: 'Detailed view', exact: true }).click();
                 await page.getByRole('button', { name: 'Contrarian', exact: true }).click();
                 await page.waitForFunction(() => document.querySelector('[data-testid="mode-explanation"]')?.textContent === 'Contrarian: high scores read as crowding risk, low scores as opportunity');
-                await page.getByRole('button', { name: 'Back to basic view', exact: true }).click();
+                await page.getByRole('button', { name: 'Detailed view', exact: true }).click();
             }
             for (const advanced of [false, true]) {
-                if (advanced) await page.getByRole('button', { name: 'Advanced tools', exact: true }).click();
+                if (advanced) await page.getByRole('button', { name: 'Detailed view', exact: true }).click();
                 await page.getByTestId('connected-score').waitFor();
                 const score = await page.getByTestId('connected-score').innerText();
                 assert.equal(score, '62');
@@ -227,7 +227,7 @@ try {
                     await residualRow.waitFor({ state: 'visible' });
                     assert.ok((await residualRow.innerText()).includes(`${residual < 0 ? '−' : residual > 0 ? '+' : ''}${Math.abs(residual).toFixed(2)} points`), 'Display the calculated rounding residual.');
                 }
-                if (advanced) await page.getByRole('button', { name: 'Back to basic view', exact: true }).click();
+                if (advanced) await page.getByRole('button', { name: 'Detailed view', exact: true }).click();
             }
         }
         if (phase === 'after') {
@@ -235,9 +235,9 @@ try {
             assert.equal(matrix[0].color, matrix[1].color, 'Basic/Advanced preserve positive colour.');
             assert.equal(matrix[2].color, matrix[3].color, 'Basic/Advanced preserve negative colour.');
         }
-        await page.getByRole('button', { name: 'Advanced tools', exact: true }).click();
+        await page.getByRole('button', { name: 'Detailed view', exact: true }).click();
         await page.getByRole('button', { name: 'Momentum', exact: true }).click();
-        await page.getByRole('button', { name: 'Back to basic view', exact: true }).click();
+        await page.getByRole('button', { name: 'Detailed view', exact: true }).click();
         const chart = page.getByRole('slider', { name: 'Market condition score', exact: true });
         const markers = [];
         for (const key of ['Home', 'End']) {

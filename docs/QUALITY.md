@@ -91,7 +91,7 @@ provider validation or usability-test results. Also run the existing `v81-ui-qa.
 The Research home shows two tabs, Watchlist and Discover; opening Research without a ticker
 lists the watchlist instead of opening its first stock. While reading a stock, the header has a
 Watchlist switcher (selection) and a Workspace menu (current-stock content). Workspace opens
-direct Thesis/Review reading, editing links, the existing Advanced tools switch, and all
+direct Thesis/Review reading, editing links, the existing Detailed view toggle, and all
 existing workspace links. Legacy advanced/tab URLs still restore. No notes are created by opening these
 controls; unsaved reading remains available.
 

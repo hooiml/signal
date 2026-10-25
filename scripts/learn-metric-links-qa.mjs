@@ -294,7 +294,7 @@ async function assertRepeatedLabels(page, scenario) {
     await page.goto(`${baseUrl}/main-v8?market=US`, { waitUntil: 'domcontentloaded' });
     await page.locator('[data-indicator="put_call"]').first().waitFor();
     await inspectVisible(page.locator('main'), 'Market overview');
-    await page.getByRole('button', { name: 'Advanced tools', exact: true }).click();
+    await page.getByRole('button', { name: 'Detailed view', exact: true }).click();
     const investigationToggle = page.locator('#investigation').getByRole('button', { expanded: false }).first();
     if (await investigationToggle.isVisible()) await investigationToggle.click();
     await page.getByRole('tab', { name: 'Evidence', exact: true }).click();

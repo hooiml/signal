@@ -211,7 +211,7 @@ and every existing workspace destination remain unchanged.
 
 ## Reading-first Market and Research
 
-The connected V8 pages default to a basic reading with an explicit Advanced tools control.
+The connected V8 pages default to a basic reading with an explicit Detailed view toggle (`aria-pressed`, one fixed label). The separate Reading view / Advanced tools links switch routes.
 Research keeps Overview, Financials and Valuation available without authoring anything.
 Advanced reveals Thesis, Review, saved decisions, optional research checks, and all existing
 workspaces. The URL preserves Research depth (`advanced=1`); existing Thesis/Review deep links

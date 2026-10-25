@@ -154,7 +154,7 @@ try {
  await read('MSFT');await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 400.00');release();await page.waitForTimeout(150);assert.equal(await page.getByTestId('research-price').innerText(),'USD 400.00');assert.equal(await page.locator('h1').innerText(),'Fixture MSFT');
  saveFails=true;await page.getByRole('button',{name:'Save stock',exact:true}).click();await page.getByRole('alert').filter({hasText:'could not be saved'}).waitFor();assert.equal(await page.getByTestId('research-price').innerText(),'USD 400.00');saveFails=false;
  await page.getByRole('button',{name:'Save stock',exact:true}).click();await page.getByRole('button',{name:'Save stock',exact:true}).waitFor({state:'detached'});assert.equal(posts.length,2);assert.deepEqual(posts[1],{symbol:'MSFT',market:'US',companyName:'Fixture MSFT',saveOnly:true});
- await page.getByRole('button',{name:'Workspace',exact:true}).click();await page.getByRole('button',{name:'Advanced tools',exact:true}).click();await page.getByText('No personal review recorded.',{exact:true}).waitFor();assert.ok((await page.getByRole('tab',{name:'Review',exact:true}).count())===1);
+ await page.getByRole('button',{name:'Workspace',exact:true}).click();await page.getByRole('button', { name: 'Detailed view', exact: true }).click();await page.getByText('No personal review recorded.',{exact:true}).waitFor();assert.ok((await page.getByRole('tab',{name:'Review',exact:true}).count())===1);
  await page.getByRole('tab',{name:'Review',exact:true}).click();await page.getByRole('heading',{name:'Your working note',exact:true}).waitFor();await noOverflow();
  // A late list read must not discard an explicit save completed in the meantime.
  list=[];listHold=true;await page.goto(`${base}/research-v8?ticker=AAPL&market=US`);await heading('Growth and positive earnings reported');await page.getByRole('button',{name:'Save stock',exact:true}).click();await page.getByRole('button',{name:'Save stock',exact:true}).waitFor({state:'detached'});releaseList();listHold=false;await page.waitForTimeout(150);assert.equal(await page.getByRole('button',{name:'Save stock',exact:true}).count(),0);
@@ -247,7 +247,7 @@ try {
  await marketAssessment.getByRole('heading',{name:'What this reading means'}).waitFor();
  await marketAssessment.getByText(/Reading limits:/).waitFor();
  await marketAssessment.getByText(/In Momentum mode, higher scores support positive momentum/).waitFor();
- await page.getByRole('button',{name:'Advanced tools',exact:true}).click();
+ await page.getByRole('button', { name: 'Detailed view', exact: true }).click();
  for(const mode of ['Contrarian','Momentum','Contrarian','Momentum']) {
   await page.getByRole('button',{name:mode,exact:true}).click();
   await page.getByTestId('connected-score').waitFor();
@@ -255,7 +255,7 @@ try {
   await marketAssessment.getByText(mode==='Contrarian'?/In Contrarian mode, higher scores indicate crowding or greed risk/:/In Momentum mode, higher scores support positive momentum/).waitFor();
   if(mode==='Contrarian'){await noOverflow();await page.screenshot({path:`${out}/market-contrarian-${width}.png`,fullPage:true});}
  }
- await page.getByRole('button',{name:'Back to basic view',exact:true}).click();
+ await page.getByRole('button', { name: 'Detailed view', exact: true }).click();
  const leadingEvidence=page.getByRole('group',{name:'Leading evidence',exact:true});
  await leadingEvidence.locator('summary',{hasText:'What support and conflict mean'}).click();
  await leadingEvidence.getByText(/A conflict means a different indicator category, not necessarily a negative reading/).waitFor();

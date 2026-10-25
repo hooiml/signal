@@ -45,12 +45,12 @@ export function V8Settings({ hasUnsavedGuestNotes = false, onDefaultsSaved }: { 
         try {
             writeSignalConfig(config); setPreferenceError('');
             onDefaultsSaved?.();
-            setSaved('Defaults saved. They apply the next time you open or reload Market.');
+            setSaved('Defaults saved. They apply the next time Market opens.');
         } catch (cause) { setPreferenceError(cause instanceof Error ? cause.message : 'Could not save defaults.'); setSaved(''); }
     }
     async function restartTour() {
         setTourBusy(true); setTourError(''); setTourStatus('');
-        try { await restartFirstVisit(); setTourStatus('Tour restarted. Your current page and unsaved work stay open. Start with Market.'); }
+        try { await restartFirstVisit(); setTourStatus('Tour restarted. Start with Market.'); }
         catch (cause) { setTourError(cause instanceof Error ? cause.message : 'Tour progress was not saved.'); }
         finally { setTourBusy(false); }
     }
@@ -95,35 +95,33 @@ export function V8Settings({ hasUnsavedGuestNotes = false, onDefaultsSaved }: { 
             onClose={() => { setOpen(false); trigger.current?.focus({ preventScroll: true }); }}>
             <div className={styles.heading}><h2 id={title}>Settings</h2><button type="button" aria-label="Close settings" disabled={busy} onClick={() => dialog.current?.close()}>Close</button></div>
             <section className={styles.section} aria-label="Appearance">
-                <h3>Appearance</h3><p>Theme applies immediately. Auto follows your device.</p>
+                <h3>Appearance</h3><p>Auto follows your device.</p>
                 <V8ThemeControl />
             </section>
             <section className={styles.section} aria-label="Market defaults">
-                <h3>Market defaults</h3><p>Used when you open or reload Market. A market in the link takes priority. Page controls change only the current view.</p>
+                <h3>Market defaults</h3><p>Used when Market opens in this browser. A market in the link takes priority.</p>
                 <div className={styles.fields}>
                     <div><label htmlFor={`${title}-market`}>Default market</label><select id={`${title}-market`} value={config.market} onChange={event => { setConfig({ ...config, market: event.target.value === 'MY' ? 'MY' : 'US' }); setSaved(''); }}><option value="US">United States</option><option value="MY">Malaysia</option></select></div>
                     <div><label htmlFor={`${title}-mode`}>Default mode</label><select id={`${title}-mode`} value={config.mode} onChange={event => { setConfig({ ...config, mode: event.target.value === 'contrarian' ? 'contrarian' : 'standard' }); setSaved(''); }}><option value="standard">Momentum</option><option value="contrarian">Contrarian</option></select></div>
                 </div>
                 <label className={styles.check}><input type="checkbox" checked={config.enableSocial} onChange={event => { setConfig({ ...config, enableSocial: event.target.checked }); setSaved(''); }} />Include social in score</label>
-                <p>Defaults are saved in this browser. Closing without saving discards these default changes.</p>
                 {preferenceError && <p role="alert">{preferenceError}</p>}
                 <div><button className={styles.primary} type="button" onClick={saveDefaults}>Save defaults</button></div>
                 {saved && <p role="status">{saved}</p>}
             </section>
             <section className={styles.section} aria-label="First visit">
-                <h3>First visit</h3><p>A short tour of the Market score, reading a stock and saving it. Progress stays in this browser. Restart replaces only tour progress, including unreadable progress.</p>
+                <h3>First visit</h3><p>Three steps: the Market score, reading a stock and saving it.</p>
                 <div><button type="button" disabled={tourBusy} onClick={() => void restartTour()}>{tourBusy ? 'Restarting…' : 'Restart tour'}</button></div>
                 {tourError && <p role="alert">{tourError}</p>}
                 {tourStatus && <><p role="status">{tourStatus}</p><a href="/main-v8" target="_blank" rel="noopener noreferrer">Open Market (new tab)</a></>}
             </section>
             <section className={styles.section} aria-label="Guest data">
-                <h3>Guest data on this device</h3><p>Guest research is saved only in this browser on this website. People sharing this browser profile can read it.</p>
-                <p>Export includes saved notes only. Save open or recovered drafts in Research first to include them. Export a copy before clearing.</p>
+                <h3>Guest data on this device</h3><p>Saved only in this browser. Anyone using this browser profile can read it.</p>
+                <p>Export includes saved notes only. Save drafts in Research first.</p>
                 <div className={styles.actions}><button type="button" disabled={busy} onClick={() => void guestAction('export')}>Export guest research</button><button type="button" className={styles.danger} disabled={busy} onClick={() => void guestAction('clear')}>{busy ? 'Clearing…' : 'Clear guest research'}</button></div>
-                <p>Clear removes guest securities, notes and draft backups. Owner research, holdings, Learn progress and settings stay unchanged.</p>
                 {guestError && <p role="alert">{guestError}</p>}{guestStatus && <p role="status">{guestStatus}</p>}
             </section>
-            <section className={styles.section} aria-label="Owner workspace"><h3>Owner workspace</h3><p>Open private research through the existing unlock page. Guest data is never imported or merged.</p><a href={unlockHref} target="_blank" rel="noopener noreferrer">Open owner workspace (new tab) ↗</a></section>
+            <section className={styles.section} aria-label="Owner workspace"><h3>Owner workspace</h3><p>Guest data is never merged into it.</p><a href={unlockHref} target="_blank" rel="noopener noreferrer">Open owner workspace (new tab) ↗</a></section>
         </dialog>
     </>;
 }

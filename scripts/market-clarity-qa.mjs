@@ -185,7 +185,7 @@ try {
         await geometry(page, width, 'accounting-and-leading-evidence');
         await accounting.screenshot({ path: `${output}/accounting-${width}.png` });
         await hero.screenshot({ path: `${output}/leading-evidence-${width}.png` });
-        await page.getByRole('button', { name: 'Advanced tools', exact: true }).click();
+        await page.getByRole('button', { name: 'Detailed view', exact: true }).click();
         await page.getByRole('slider', { name: /Market condition score/ }).press('Home');
         await page.getByRole('button', { name: 'Open historical snapshot', exact: true }).click();
         await page.getByText('Leaning negative', { exact: true }).waitFor();
@@ -256,7 +256,8 @@ try {
     const tiers = await open(375, { variant: 'tiers' });
     for (const mode of ['standard', 'contrarian']) {
         if (mode === 'contrarian') await tiers.page.getByRole('button', { name: 'Contrarian', exact: true }).click();
-        if (await tiers.page.getByRole('button', { name: 'Advanced tools', exact: true }).isVisible()) await tiers.page.getByRole('button', { name: 'Advanced tools', exact: true }).click();
+        const detailed = tiers.page.getByRole('button', { name: 'Detailed view', exact: true });
+        if (await detailed.getAttribute('aria-pressed') !== 'true') await detailed.click();
         await tiers.page.getByRole('tab', { name: 'Scenarios', exact: true }).click();
         const slider = tiers.page.getByRole('slider', { name: /Hypothetical normalized score/ });
         const labels = mode === 'standard' ? ['strong-sell', 'sell', 'neutral', 'buy', 'strong-buy'] : ['strong-buy', 'buy', 'neutral', 'sell', 'strong-sell'];
