@@ -398,15 +398,16 @@ next to it. IDs start with G (global).
   sensitivity, calibration, context and exposure is not a claim of full Market parity.
 - Inventory, route contract and migration boundary: [LEGACY_ROUTE_RETIREMENT.md](LEGACY_ROUTE_RETIREMENT.md).
 
-#### G7 · Visual checks in CI · In progress (E23)
+#### G7 · Visual checks in CI · Verified (E23)
 
 - What: keep baseline screenshots from the existing browser suites and flag pixel differences in the
   `Signal validation` workflow; optionally run the taste inspector in app mode as a warning step.
 - Why: E12–E16 were verified by eye; a baseline catches the next regression without a manual pass.
 - Implementation: twenty fixture screenshots cover Market, Research, Holdings, Settings and
   glossary at desktop/phone sizes in both themes, with separate Windows and pinned Linux
-  baselines. Local comparisons and deliberate failure probes pass; Linux enrollment is being
-  reviewed. See [VISUAL_CHECKS.md](VISUAL_CHECKS.md).
+  baselines. Local comparisons and deliberate failure probes pass; all twenty independently
+  reviewed Linux baselines pass the normal pinned-container CI comparison. See
+  [VISUAL_CHECKS.md](VISUAL_CHECKS.md).
 
 #### G8 · A shared V8 component kit · New
 

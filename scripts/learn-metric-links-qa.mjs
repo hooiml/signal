@@ -137,7 +137,9 @@ function observe(page, scenario) {
 
 async function selectTheme(page, theme) {
     await page.getByTestId('learn-shell').filter({ visible: true }).waitFor();
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const settingsButton = page.getByRole('button', { name: 'Settings', exact: true });
+    await waitForHydration(settingsButton);
+    await settingsButton.click();
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
     await settings.waitFor();
     const control = settings.getByRole('radio', { name: theme === 'light' ? 'Light' : 'Dark' });
