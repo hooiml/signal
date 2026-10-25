@@ -150,6 +150,12 @@ async function verifyHomeTabs(page, home, holdingsTab, panel) {
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'home-tab-watchlist', 'Home moves focus to Watchlist');
     await page.keyboard.press('End');
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'home-tab-holdings', 'End moves focus to Holdings');
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'home-tab-watchlist', 'Right wraps focus to Watchlist');
+    assert.equal(await home.locator('#home-tab-watchlist').getAttribute('aria-selected'), 'true', 'Arrow navigation automatically selects');
+    await page.keyboard.press('ArrowLeft');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'home-tab-holdings', 'Left wraps focus to Holdings');
+    assert.equal(await holdingsTab.getAttribute('aria-selected'), 'true');
 }
 
 function assertCostOnly(result) {

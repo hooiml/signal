@@ -198,6 +198,54 @@ Shared V8 building blocks, reused before adding new ones:
   dashboard of the editing workspace (via `ResearchReviewToolsV12`), so it follows that workspace's
   Tailwind styling, not V8 tokens.
 
+### Shared V8 component kit (G8)
+
+`src/components/v8/V8Primitives.tsx` owns the four presentation primitives below;
+`V8SegmentedControl.tsx` owns controlled selection. Features retain copy, state, request
+handling and CSS customization. The kit adds no wrapper nodes, reads or persisted state.
+
+| Component | API and rendered contract | Current consumers |
+| --- | --- | --- |
+| `V8Card` | `as="section"` (default) or `"div"`; native HTML attributes and children. Adds the existing `.panel` surface before optional consumer `className`, including its tab-attached border. | Market and Research investigation panels use `as="div"`, retaining IDs, tabpanel roles, labels, focusability and Market's remount key. |
+| `V8Disclosure` | `summary: ReactNode`, children and native `<details>` props, including `open` and `onToggle`. Direct `<summary>` followed by existing content. Consumer classes own spacing and summary styling. | Market settings explanation; Research source notices with their summary count. |
+| `V8SegmentedControl` | Required `kind`, `label`, `className`, `value`, `onChange` and ordered `options` (`value`, `label`). Pressed mode also requires `legendClassName`; tabs require each option's `id` and `controls`. | Market interpretation uses a fieldset/legend and `aria-pressed` buttons with ordinary Tab stops. Research Home uses automatic roving tabs: arrows wrap, Home/End select and focus, and IDs associate tabs with panels. |
+| `V8EmptyState` | `message: ReactNode`, optional inline `action`, and native paragraph props. One `<p>` with a space before the action. Caller supplies its class and decides when data is empty. | Market exposure's no-saved-stocks branch; both Research Holdings empty branches. Loading/errors remain distinct. |
+| `V8FreshnessLine` | `label`, already formatted string `value`, optional `separator` (default `": "`), `as="span"` or `"small"`, and native HTML attributes. | Market indicator `Dated`/`Retrieved` lines use a space separator. Research keeps separate observation and retrieval spans. |
+
+```tsx
+<V8Card as="div" id="connected-panel" role="tabpanel"
+    aria-labelledby={researchTabId(activeTab)} tabIndex={0} className={styles.panel}>
+    {content}
+</V8Card>
+<V8Disclosure className={connected.warning} summary={<>Source notices <span>{count}</span></>}>
+    {notices}
+</V8Disclosure>
+<V8SegmentedControl kind="pressed" label="Interpretation mode"
+    className={base.segment} legendClassName={base.visuallyHidden} value={mode} onChange={setMode}
+    options={[{ value: 'standard', label: 'Momentum' }, { value: 'contrarian', label: 'Contrarian' }]} />
+<V8SegmentedControl kind="tabs" label="Research home" className={styles.homeTabs}
+    value={tab} onChange={setChosen} options={homeTabs.map(value => ({
+        value, label: value, id: `home-tab-${value}`, controls: `home-panel-${value}`,
+    }))} />
+<V8EmptyState className={styles.state}
+    message="No holdings have been imported in this browser." action={importLink} />
+<V8FreshnessLine label="Quote observed"
+    value={snapshot?.quote.observedAt ? retrievedAt(snapshot.quote.observedAt) : 'Observation time unavailable'} />
+```
+
+Freshness provenance and formatting stay with each feature. The kit never parses a date,
+substitutes retrieval for observation, computes age or supplies a timestamp. Market's
+`Date unavailable`, Research's missing-observation wording and `Not recorded` retrieval
+fallback remain distinct. Options must be nonempty, have unique values, and contain the
+controlled value; tab and panel IDs remain the consumer's responsibility.
+
+`MarketMobileSection` keeps mounted children, desktop visibility, phone ARIA, controlled/local
+open state and focus-capture opening. It is not a native-details substitute. Market investigation's
+manual activation and Research investigation's scrolling/automatic navigation keep their owners.
+V6/V7 advanced engines, `/market/tools` and canonical `/research` are outside this kit. Use the G8
+checks in `docs/TESTING.md` and separate-platform review in `docs/VISUAL_CHECKS.md`; an extraction
+alone is not a reason to refresh screenshots.
+
 ## Accessibility
 
 - Keyboard-operable controls with semantic headings, labels, tables and live status text.

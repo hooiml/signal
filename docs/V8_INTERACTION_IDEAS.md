@@ -409,11 +409,17 @@ next to it. IDs start with G (global).
   reviewed Linux baselines pass the normal pinned-container CI comparison. See
   [VISUAL_CHECKS.md](VISUAL_CHECKS.md).
 
-#### G8 · A shared V8 component kit · New
+#### G8 · A shared V8 component kit · Verified (E24)
 
 - What: pull the repeated V8 pieces (card, disclosure with summary line, segmented control, empty
   state, freshness line) into one set of components documented in `DESIGN.md`.
 - Why: Market and Research each carry their own copies; L2 and L5 would otherwise be done twice.
+- Implementation: connected Market and Research share the five primitives while preserving
+  markup, classes, copy and state ownership. Pressed controls and automatic tabs have separate
+  contracts. Phone disclosures and specialized navigation keep their owners. `DESIGN.md`
+  documents the API and examples. Local full checks, affected browser matrices and all
+  twenty G7 Windows comparisons pass with no baseline changes; see E24 for evidence and
+  the separate remote CI/Linux verification boundary.
 
 ## Suggested order
 
@@ -432,8 +438,10 @@ next to it. IDs start with G (global).
 
 The later items are not ranked against these yet. L1 and L3 are implemented (E16, E15). Quick
 wins remaining: L2 empty states and T2 data-gap explainer (small, no new data); W1 review queue fits
-next to R2. Among the project-wide items, G2 and G3 are small and help every screen; G1 is the
-largest gap and needs a design doc first.
+next to R2. G2–G8 are implemented, including G8's shared kit (E24). G1's read-only,
+cost-only Holdings slice is implemented; import, reconciliation, attribution and what-if
+editing still live in G6's canonical `/research` Portfolio workspace. Migrating those advanced
+jobs into V8 remains a separate design task. Retained Market engines live at `/market/tools`.
 
 ## Not doing
 
