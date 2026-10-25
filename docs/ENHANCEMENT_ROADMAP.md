@@ -40,6 +40,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E10 | V8 Research decision context (multi-year trend bars, plan vs price ruler, historical filing multiples) | Verified | Standard | None; added after E9 at the owner's request |
 | E11 | V8 Research unit profitability margins, balance-sheet cushion and share dilution trajectory | Verified | Standard | None; added after E10 at the owner's request |
 | E12 | V8 app-screen review fixes (Calendar window and marks, Market polish) | Verified | Standard | None; added after a taste review at the owner's request |
+| E13 | Research stock page: tighter price chart and header | Verified | Standard | None; second taste review item at the owner's request |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -219,6 +220,24 @@ document overflow; Market score/evidence and context columns end on the same lin
 lint, harness and production build pass; `v8-modules-qa` (74 checks, updated for week paging and
 the embedded Discover) and `research-unsaved-qa` (1440–375px) pass against the production build.
 
+### E13 — Research stock page: tighter price chart and header
+
+**Why:** On the stock page the price chart left about 90px of empty space above its plot, a
+full-width "Inspect a trading date" slider repeated what clicking the chart does, and the guest
+workspace sentence took its own row between the company name and the price.
+
+**Scope:** Chart top padding cut from 45/48 to 24/26 SVG units (desktop/phone); the review-marker
+row still opens only when markers exist. The date slider stays as the chart's keyboard control but
+is no longer drawn; the chart frame shows its focus ring. On a stock page the workspace sentence
+shares the Change stock / Discover row (unchanged on the Research home). The 52-week note reads
+"Price at N% of range".
+
+**Left as is:** the phone tab bar still scrolls with "Filings" cut at the edge (the edge fade was
+removed on purpose in `b7cf762`), and the full-width "Insufficient evidence" financial card.
+
+**Evidence — 2026-10-25:** AAPL page height 1,684 → 1,545px at 1440 and 2,119 → 2,006px at 390,
+no overflow; Home/End on the focused chart move the readout and the frame shows an outline.
+
 ### E3 — Today promotion review
 
 **Spec:** `NEXT_PRODUCT_ROADMAP.md` Task 0.
@@ -270,3 +289,4 @@ contract is recorded.
 | 2026-10-23 | E10 | — | Verified | V8 Research decision context (multi-year trend bars, plan vs price ruler, historical filing multiples) implemented and verified. |
 | 2026-10-23 | E11 | — | Verified | V8 Research unit profitability margins, balance-sheet cushion and share dilution trajectory implemented and verified. |
 | 2026-10-25 | E12 | — | Verified | Calendar week window and per-kind marks, Market outcome figures, column alignment and title size; Discover reopen fix. |
+| 2026-10-25 | E13 | — | Verified | Stock page chart top padding, keyboard-only date control, workspace line in the tool row. |

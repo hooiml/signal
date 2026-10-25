@@ -348,6 +348,10 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
     }
     // Picking a stock from the home's Discover tab mounts the reading view's own Discover; the deep link is spent, so it starts closed.
     const openFromDiscover = (symbol: string, nextMarket: ResearchMarket) => { setDiscoverLinkUsed(true); navigate(symbol, 'Overview', true, nextMarket); window.scrollTo({ top: 0 }); };
+    const workspaceStatus = <div className={connected.dataStatus} aria-label="Research workspace">
+                <span>{workspace === 'checking' ? 'Welcome to Signal. Explore company data while your workspace loads.' : workspace === 'guest' ? 'Welcome to Signal · Guest workspace. Your watchlist and notes are saved on this device.' : 'Owner workspace · Your private saved research'}</span>
+                {!selected && <span>Search a company or ticker, or open one from your watchlist or Discover. Reading saves nothing.</span>}
+            </div>;
     const discover = <ResearchDiscoverV8 initialView={discoverLinkUsed ? undefined : initialDiscover} defaultOpen={false} records={records} workspace={workspace} onSelect={openFromDiscover} />;
     const homeDiscover = <ResearchDiscoverV8 initialView={initialDiscover} defaultOpen embedded records={records} workspace={workspace} onSelect={openFromDiscover} />;
     return <div className={`${base.app} ${styles.app} ${connected.app}`}>
@@ -365,15 +369,12 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
                     <button className={connected.actionButton} aria-haspopup="dialog" aria-expanded={panel === 'tools'} onClick={event => openPanel('tools', event.currentTarget)}>Workspace<span aria-hidden="true">⌄</span></button>
                 </div>
             </section>
-            <div className={connected.dataStatus} aria-label="Research workspace">
-                <span>{workspace === 'checking' ? 'Welcome to Signal. Explore company data while your workspace loads.' : workspace === 'guest' ? 'Welcome to Signal · Guest workspace. Your watchlist and notes are saved on this device.' : 'Owner workspace · Your private saved research'}</span>
-                {!selected && <span>Search a company or ticker, or open one from your watchlist or Discover. Reading saves nothing.</span>}
-            </div>
+            {!validSelection && workspaceStatus}
             {workspace === 'guest' && unsavedRecords.length > 0 && <nav className={connected.guestNavigation} aria-label="Guest research navigation">
                 {unsavedRecords.length > 0 && <p role="status">{unsavedRecords.length} unsaved {unsavedRecords.length === 1 ? 'note' : 'notes'}. Save each note before leaving Research.{hiddenDraft && <> <button className={base.textButton} onClick={() => navigate(hiddenDraft.symbol, 'Overview', true, hiddenDraft.market)}>Return to {hiddenDraft.symbol} · {hiddenDraft.market} draft</button></>}</p>}
             </nav>}
             {/* While reading, Change stock and Discover share one row of closed toggles; an opened one takes the full width. */}
-            {validSelection ? <div className={connected.toolRow}><details className={connected.lookupDisclosure}><summary>Change stock</summary><ResearchSecurityLookup key={readingMarket ?? initialMarket ?? 'US'} initialMarket={readingMarket ?? initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} /></details>{discover}</div> : <><ResearchSecurityLookup key={readingMarket ?? initialMarket ?? 'US'} initialMarket={readingMarket ?? initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} /><ResearchHomeV8 records={records} status={savedState} preferDiscover={!!initialDiscover} discover={homeDiscover} isUnsaved={hasUnsavedDraft} onOpen={(symbol, market) => navigate(symbol, 'Overview', true, market)} /></>}
+            {validSelection ? <div className={connected.toolRow}><details className={connected.lookupDisclosure}><summary>Change stock</summary><ResearchSecurityLookup key={readingMarket ?? initialMarket ?? 'US'} initialMarket={readingMarket ?? initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} /></details>{discover}{workspaceStatus}</div> : <><ResearchSecurityLookup key={readingMarket ?? initialMarket ?? 'US'} initialMarket={readingMarket ?? initialMarket ?? 'US'} onSelect={(symbol, market) => navigate(symbol, 'Overview', true, market)} /><ResearchHomeV8 records={records} status={savedState} preferDiscover={!!initialDiscover} discover={homeDiscover} isUnsaved={hasUnsavedDraft} onOpen={(symbol, market) => navigate(symbol, 'Overview', true, market)} /></>}
             {validSelection && savedState}
             {workspace === 'guest' && <>
                 {recoveryError && <p role="alert">{recoveryError} <button className={base.textButton} onClick={retryDraftRecovery}>Retry draft recovery</button></p>}

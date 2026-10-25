@@ -33,7 +33,7 @@ export function ResearchPriceContext({ snapshot }: { snapshot: ResearchSnapshot 
     const ma200 = distanceLabel(quote.price, t.ma200);
     const rsi = rsiLabel(t.rsi14);
     const items = [
-        finite(t.low52Week) && finite(t.high52Week) ? { key: 'range', label: '52-week range', value: `${price(t.low52Week)} – ${price(t.high52Week)}`, note: position === null ? null : `${position.toFixed(0)}% of the way from low to high`, bar: position } : null,
+        finite(t.low52Week) && finite(t.high52Week) ? { key: 'range', label: '52-week range', value: `${price(t.low52Week)} – ${price(t.high52Week)}`, note: position === null ? null : `Price at ${position.toFixed(0)}% of range`, bar: position } : null,
         finite(t.ma50) ? { key: 'ma50', label: '50-day average', value: price(t.ma50), note: ma50 && `Price ${ma50}` } : null,
         finite(t.ma200) ? { key: 'ma200', label: '200-day average', value: price(t.ma200), note: ma200 && `Price ${ma200}` } : null,
         finite(t.rsi14) ? { key: 'rsi', label: 'RSI (14-day)', value: t.rsi14.toFixed(1), note: rsi } : null,
