@@ -791,8 +791,8 @@ const runResearchWorkflowQueueTests = () => {
         marketExposureDestination?.kind === 'market'
             ? marketExposureDestination.pathname
             : null,
-        '/',
-        'market-exposure Queue tasks return to Market',
+        '/market/tools#market-watchlist-exposure-title',
+        'market-exposure Queue tasks return to the retained exposure tool',
     );
     for (const source of ['factor-exposure', 'portfolio-holdings', 'portfolio-reconciliation'] as const) {
         const destination = getResearchWorkflowSourceDestination(source);

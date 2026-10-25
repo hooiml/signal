@@ -680,30 +680,21 @@ const main = async () => {
                 const scenarioStartedAt = Date.now();
                 try {
                     await page.setViewportSize({ width: viewport.width, height: viewport.height });
-                    const navigationResponse = await page.goto(new URL('/main-v6', baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+                    const navigationResponse = await page.goto(new URL(`/market/tools?qaViewport=${viewport.width}#score-evidence-title`, baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: timeoutMs });
                     runCheck(scenario.checks, 'document response', navigationResponse?.ok() === true, navigationResponse ? `HTTP ${navigationResponse.status()}` : 'navigation did not return a response');
                     await page.locator('#score-evidence-title').waitFor({ state: 'visible', timeout: timeoutMs });
                     const details = await inspectScoreEvidence(page);
                     const validationDetails = await inspectCalibrationViews(page);
                     runCheck(scenario.checks, 'section order', details.orderIsCorrect, JSON.stringify(details));
-                    runCheck(scenario.checks, 'score bridge connected', details.scoreBridgeConnected, JSON.stringify(details));
                     runCheck(scenario.checks, 'score evidence visible', details.scoreSectionVisible && details.driverHeadingVisible && details.oldDisclosureAbsent, JSON.stringify(details));
                     runCheck(scenario.checks, 'coverage adjustment explains neutral reserve', details.coverageText.includes('95% configured weight') && details.coverageText.includes('neutral reserve (5% × 50)') && details.coverageText.includes('not redistributed'), details.coverageText);
                     runCheck(scenario.checks, 'driver weights are visible', details.driverTableText.includes('35% configured weight') && details.driverTableText.includes('20% configured weight') && details.driverTableText.includes('10% configured weight'), details.driverTableText);
                     runCheck(scenario.checks, 'desktop Quick Read duplication is removed', details.quickReadAbsent, JSON.stringify(details));
-                    runCheck(scenario.checks, 'market story exposes trust context', details.storyTrustText.includes('Composite score') && details.storyTrustText.includes('Indicator agreement') && details.storyTrustText.includes('Data freshness') && details.storyTrustText.includes('Conditions as of'), details.storyTrustText);
-                    runCheck(scenario.checks, 'score comparison is attached to the current score', details.scoreComparisonText.includes('64 previous') && details.scoreComparisonText.includes('+2 vs 15 Jul'), details.scoreComparisonText);
                     runCheck(scenario.checks, 'driver comparisons are attached to weighted values', details.driverComparisonDateText.includes('Compared with 15 Jul') && details.driverComparisonTexts.length === 5 && details.driverComparisonTexts.some((text) => text.includes('26.8 previous') && text.includes('+0.8')) && details.driverComparisonTexts.some((text) => text.includes('11.2 previous') && text.includes('-0.4')) && details.driverComparisonTexts.filter((text) => text.includes('No change')).length === 3, JSON.stringify({ date: details.driverComparisonDateText, comparisons: details.driverComparisonTexts }));
-                    runCheck(scenario.checks, 'increase and decrease comparisons use distinct tones', new Set(details.driverComparisonTones).size >= 3 && details.scoreComparisonTone !== '', JSON.stringify({ score: details.scoreComparisonTone, drivers: details.driverComparisonTones }));
+                    runCheck(scenario.checks, 'increase and decrease driver comparisons use distinct tones', new Set(details.driverComparisonTones).size >= 3, JSON.stringify({ drivers: details.driverComparisonTones }));
                     runCheck(scenario.checks, 'standalone change summary is removed', details.standaloneChangeSummaryAbsent, JSON.stringify({ standaloneChangeSummaryAbsent: details.standaloneChangeSummaryAbsent }));
-                    runCheck(scenario.checks, 'market story keeps readings without audit math', details.storyEvidenceText.includes('16.20') && details.storyEvidenceText.includes('36.3% bullish') && details.storyEvidenceText.includes('0.00 sentiment') && details.storyAuditMathAbsent, details.storyEvidenceText);
-                    runCheck(scenario.checks, 'market story uses ranked evidence roles', details.storyEvidenceText.includes('Strongest influence') && details.storyEvidenceText.includes('Conflicting signal') && !details.storyEvidenceText.includes('Evidence chapter'), details.storyEvidenceText);
-                    runCheck(scenario.checks, 'market story cards fit their container', details.storyCardsContained && details.storyTrustOverflow <= 1 && details.storyEvidenceOverflow <= 1, JSON.stringify({ storyCardsContained: details.storyCardsContained, storyTrustOverflow: details.storyTrustOverflow, storyEvidenceOverflow: details.storyEvidenceOverflow }));
-                    runCheck(scenario.checks, 'market story uses divider-led driver groups', details.storyCardsFlattened, JSON.stringify({ storyCardsFlattened: details.storyCardsFlattened }));
-                    runCheck(scenario.checks, 'market story freshness states are visible text', details.storyTextHierarchy, JSON.stringify({ storyTextHierarchy: details.storyTextHierarchy }));
                     runCheck(scenario.checks, 'lower-priority supporting sections retain bounded surfaces', details.supportingSectionsStructured, JSON.stringify({ supportingSectionsStructured: details.supportingSectionsStructured }));
-                    runCheck(scenario.checks, 'conditions header separates snapshot date and availability', details.commandText.includes('Conditions as of') && details.commandText.includes('Conditions available'), details.commandText);
-                    runCheck(scenario.checks, 'main page uses distinct primary, secondary, utility, and action surfaces', details.pageSurfaceHierarchy, JSON.stringify({ counts: details.pageSurfaceCounts, styles: details.pageSurfaceStyles }));
+                    runCheck(scenario.checks, 'conditions header retains snapshot date and availability', details.commandText.includes('16 Jul') && details.commandText.includes('Conditions available'), details.commandText);
                     runCheck(scenario.checks, 'document has no horizontal overflow', details.documentOverflow <= 1, `${details.documentOverflow}px overflow`);
                     runCheck(scenario.checks, 'secondary context starts collapsed', details.valuationCollapsed !== false && details.marketContextCollapsed !== false, JSON.stringify(details));
                     runCheck(scenario.checks, 'market-to-research handoff is evidence-only', details.handoffText.includes('Carry this market context into Research') && details.handoffText.includes('does not change any ticker decision'), details.handoffText);
@@ -848,8 +839,8 @@ const main = async () => {
                         if (captureFullPage) await page.screenshot({ path: screenshotPath, fullPage: true });
                         else await page.locator('section[aria-labelledby="score-evidence-title"]').screenshot({ path: screenshotPath });
                         scenario.screenshot = screenshotPath;
-                        const storyScreenshotPath = path.join(evidenceDir, `market-story-${viewport.name}-${viewport.width}x${viewport.height}.png`);
-                        await page.locator('section[aria-labelledby="market-story-title"]').screenshot({ path: storyScreenshotPath });
+                        const storyScreenshotPath = path.join(evidenceDir, `market-first-reading-${viewport.name}-${viewport.width}x${viewport.height}.png`);
+                        await page.getByTestId('market-first-reading').screenshot({ path: storyScreenshotPath });
                         scenario.storyScreenshot = storyScreenshotPath;
                         const outcomesScreenshotPath = path.join(evidenceDir, `similar-score-outcomes-${viewport.name}-${viewport.width}x${viewport.height}.png`);
                         await page.locator('[data-testid="similar-score-outcomes"]').screenshot({ path: outcomesScreenshotPath });
@@ -963,6 +954,7 @@ const main = async () => {
 
         if (runPhase12Polish) {
             signalFixtureProfile = 'single-vix-conflict';
+            await context.addInitScript(() => localStorage.removeItem('signal-v7-market-advanced-evidence-v1'));
             const polishViewports = viewports;
             for (const viewport of polishViewports) {
                 const scenario = { name: 'phase12-polish', viewport: `${viewport.width}x${viewport.height}`, screenshot: null, checks: [], issues: [], durationMs: 0, status: 'failed' };
@@ -971,7 +963,7 @@ const main = async () => {
                 const scenarioStartedAt = Date.now();
                 try {
                     await page.setViewportSize({ width: viewport.width, height: viewport.height });
-                    const navigationResponse = await page.goto(new URL('/main-v7', baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+                    const navigationResponse = await page.goto(new URL(`/market/tools?qaPhase=polish&qaViewport=${viewport.width}`, baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: timeoutMs });
                     runCheck(scenario.checks, 'document response', navigationResponse?.ok() === true, navigationResponse ? `HTTP ${navigationResponse.status()}` : 'navigation did not return a response');
                     await page.locator('#market-posture-v7').waitFor({ state: 'visible', timeout: timeoutMs });
                     const details = await page.evaluate(() => {
@@ -999,6 +991,15 @@ const main = async () => {
                             compactMetadataCount: compactMetadata.length,
                             compactMetadataText: compactMetadata[0]?.textContent || '',
                             compactMetadataHeight: compactMetadata[0]?.getBoundingClientRect().height ?? 0,
+                            compactMetadataLimit: (() => {
+                                const label = compactMetadata[0]?.querySelector('p');
+                                const detail = label?.querySelector('span:last-child');
+                                if (!label || !detail) return 0;
+                                // One status line plus at most two detail lines, using the bundled font.
+                                return parseFloat(getComputedStyle(label).lineHeight)
+                                    + 2 * parseFloat(getComputedStyle(detail).lineHeight)
+                                    + parseFloat(getComputedStyle(label).rowGap) + 1;
+                            })(),
                             footerText,
                             advancedEvidenceCollapsed: Boolean(advancedEvidence && !advancedEvidence.hasAttribute('open')),
                             postureText: document.querySelector('[aria-labelledby="market-posture-v7"]')?.textContent || '',
@@ -1013,7 +1014,7 @@ const main = async () => {
                         && details.compactMetadataText.includes('16 Jul')
                         && details.compactMetadataText.includes('Retrieved')
                         && details.compactMetadataText.includes('All 5 inputs available')
-                        && (viewport.width > 620 || details.compactMetadataHeight <= 52), JSON.stringify({ text: details.compactMetadataText, height: details.compactMetadataHeight }));
+                        && (viewport.width > 620 || details.compactMetadataHeight <= details.compactMetadataLimit), JSON.stringify({ text: details.compactMetadataText, height: details.compactMetadataHeight, limit: details.compactMetadataLimit }));
                     runCheck(scenario.checks, 'singular conflict copy is grammatical', details.postureText.includes('The VIX Index does not confirm the majority reading'), shorten(details.postureText));
                     runCheck(scenario.checks, 'Market hierarchy remains focused', details.postureText.includes('Conditions are mixed')
                         && details.orientationText.includes('Composite score')
@@ -1051,7 +1052,7 @@ const main = async () => {
             try {
                 await context.clearCookies();
                 await page.setViewportSize({ width: viewport.width, height: viewport.height });
-                await page.goto(new URL('/main-v7', baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+                await page.goto(new URL('/market/tools', baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: timeoutMs });
                 await page.locator('#market-posture-v7').waitFor({ state: 'visible', timeout: timeoutMs });
                 const advancedEvidence = page.getByTestId('market-advanced-evidence');
                 if (await advancedEvidence.getAttribute('open') === null) await advancedEvidence.locator('summary').first().click();

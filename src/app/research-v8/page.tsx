@@ -2,11 +2,13 @@ import type { Metadata } from 'next';
 import { ResearchV8 } from '@/components/v8/ResearchV8';
 import { ResearchV8Connected } from '@/components/v8/ResearchV8Connected';
 import { parseDiscoverView } from '@/components/v8/discover-view';
+import { firstRouteValue } from '@/lib/legacy-routes';
 
 export const metadata: Metadata = { title: 'Company research · Signal V8', robots: { index: false, follow: false } };
 
-export default async function ResearchPageV8({ searchParams }: { searchParams: Promise<{ demo?: string; market?: string; ticker?: string | string[]; discover?: string }> }) {
+export default async function ResearchPageV8({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
     const params = await searchParams;
-    const ticker = typeof params.ticker === 'string' ? params.ticker.trim().toUpperCase() : undefined;
-    return params.demo === '1' ? <ResearchV8 /> : <ResearchV8Connected initialMarket={params.market === 'MY' ? 'MY' : params.market === 'US' ? 'US' : undefined} initialTicker={ticker} initialDiscover={parseDiscoverView(params.discover)} />;
+    const ticker = firstRouteValue(params.ticker)?.trim().toUpperCase();
+    const market = firstRouteValue(params.market);
+    return firstRouteValue(params.demo) === '1' ? <ResearchV8 /> : <ResearchV8Connected initialMarket={market === 'MY' ? 'MY' : market === 'US' ? 'US' : undefined} initialTicker={ticker} initialDiscover={parseDiscoverView(firstRouteValue(params.discover))} />;
 }

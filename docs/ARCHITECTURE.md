@@ -5,18 +5,18 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 ## User-Facing Routes
 
 - `/start`: guided daily journey from the latest US market score through current Discovery candidates and same-day market context into Research.
-- `/`: redirects to `/main-v8`, the default connected V8 Market experience. The previous homepage used `MarketDashboardV7` and remains available at `/main-v7` without a duplicate V7.1 route.
-- `/main-v8` and `/research-v8`: connected V8 Market and Research; `?demo=1` opens their explicitly illustrative prototypes. A shared, route-scoped UI version bar links between V6, V7 and V8 while retaining the Market/Research experience. Switching versions opens the destination's default view; transient filters, chart selection and drafts are not transferred.
-- `/research`: ordinary entry (including ticker-only links) redirects to the reading-first `/research-v8`. Explicit workspace, review, tab and setup links retain the V7 advanced workspace, implemented by `ResearchDashboardV7` over the shared Research controller and existing workspace owners.
+- `/`: redirects to `/main-v8` with its query intact, including Today's return context.
+- `/main-v8` and `/research-v8`: connected V8 Market and Research; `?demo=1` opens their explicitly illustrative prototypes. Reading view / Advanced tools navigation preserves URL context. Market's retained tools live at `/market/tools`.
+- `/research`: ordinary entry (including ticker, market and unknown safe parameters) redirects to `/research-v8`. Explicit task links retain the V7 advanced workspace, implemented by `ResearchDashboardV7` over the shared Research controller and existing workspace owners. The exact task-key and fragment contract is in [LEGACY_ROUTE_RETIREMENT.md](LEGACY_ROUTE_RETIREMENT.md).
 - `/research-v8?market=US&ticker=AAPL&tab=chart`: public Chart & technicals tab for guests and owners, independent of saved records. It lazy-loads the existing `ResearchChartV6` renderer and validated five-year `/api/research/chart/[symbol]` data; optional benchmark reads use VOO/US or KLCI/MY. The resolved V8 theme applies to canvas and controls. Guest storage and owner records remain separate; reading charts never saves either. The existing Overview price-history chart remains available.
 - `/learn`: evidence-based financial education using the shared V7 shell. The current v0.4 path teaches price structure, technical transforms, execution, risk sizing, expectancy, point-in-time trading replay, append-only trade review, and cost-aware strategy validation without producing trade signals. The v0.3 investment, v0.2 business, and v0.1 valuation paths remain selectable with separate progress contracts.
 - `/demo`: isolated session-only guided example of Market, Research, and Portfolio. It uses fixed
   local fixtures, labels every surface as example/not live, and has no application API or
   persistence path.
-- `/main-v6` and `/research-v6`: retained V6 rollback references for direct comparison and existing links; removal requires separate approval.
-- `/main-v7` and `/research-v7`: retained live V7 routes; Market preserves the previous homepage and Research uses the same shared controller and domain surfaces as `/research`.
+- The twelve existing V2/V4/V5/V6/V7 and backup aliases are HTTP 307 redirects. Basic reading reaches V8; advanced Research reaches `/research`. There were no V3 aliases. `src/proxy.ts` owns the shared boundary and retains duplicate query values.
+- `/market/tools`: retained `MarketDashboardV7` and `MarketBriefingV6` jobs, including saved Market alerts and queued exposure reviews that V8 does not yet replace. Existing legacy Market evidence anchors reach and open these tools.
 - The Phase 1 static Market and Research prototypes remain preserved in `src/components/v7/V7Prototype.tsx`; they are no longer mounted by the live V7 aliases.
-- `/backup/main` and `/backup/research`: previous market and research experiences retained as rollback references.
+- Shared V6/V7 components remain where canonical tools and other routes still consume them; alias retirement is separate from advanced-feature migration.
 
 ## Runtime Shape
 

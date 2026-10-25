@@ -82,6 +82,7 @@ jobs:
           set -euo pipefail
           npm run qa:v8-settings
           npm run qa:v8-first-visit
+          npm run qa:legacy-routes
           node scripts/v81-ui-qa.mjs
           node scripts/market-clarity-qa.mjs
           node scripts/research-provenance-qa.mjs

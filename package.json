@@ -39,6 +39,7 @@
     "qa:first-run": "node scripts/first-run-setup-qa.mjs",
     "qa:v8-settings": "node scripts/v8-settings-qa.mjs",
     "qa:v8-first-visit": "node scripts/v8-first-visit-qa.mjs",
+    "qa:legacy-routes": "node scripts/legacy-routes-qa.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:social-sentiment": "powershell -ExecutionPolicy Bypass -File scripts/harness/check-social-sentiment.ps1",

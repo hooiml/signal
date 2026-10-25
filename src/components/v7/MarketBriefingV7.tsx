@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
 import type { MarketSignal } from '@/lib/types/signal-v2';
+import { legacyMarketAnchors } from '@/lib/legacy-routes';
 import { getReadLimitations } from '@/components/v2/cockpit-utils';
 import { MarketBriefingV6 } from '@/components/v6/MarketBriefingV6';
 import { MarketToResearchLinkV6 } from '@/components/v6/MarketResearchHandoffV6';
@@ -25,7 +26,7 @@ type MarketBriefingV7Props = {
 
 const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 const advancedEvidenceStorageKey = 'signal-v7-market-advanced-evidence-v1';
-const evidenceTargets = new Set(['drivers-title', 'market-trust-limitations']);
+const evidenceTargets = legacyMarketAnchors;
 
 type MarketEvidenceHistoryState = {
     readonly signalV7MarketEvidence?: string;
@@ -117,7 +118,9 @@ export const MarketBriefingV7 = ({ signal, enableSocial, theme, updating, refres
         window.history.replaceState(returnState, '', window.location.href);
         const nextUrl = new URL(window.location.href);
         nextUrl.hash = targetId;
+        const previousUrl = window.location.href;
         window.history.pushState({ ...returnState, signalV7MarketEvidence: targetId }, '', nextUrl);
+        window.dispatchEvent(new HashChangeEvent('hashchange', { oldURL: previousUrl, newURL: nextUrl.href }));
         focusEvidence(targetId);
     };
 

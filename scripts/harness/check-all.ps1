@@ -67,4 +67,7 @@ if ($LASTEXITCODE -ne 0) { throw "V8 settings regression failed with exit code $
 node (Join-Path $PSScriptRoot "v8-first-visit-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "V8 first-visit regression failed with exit code $LASTEXITCODE" }
 
+node (Join-Path $PSScriptRoot "legacy-routes-regression.mjs")
+if ($LASTEXITCODE -ne 0) { throw "Legacy route regression failed with exit code $LASTEXITCODE" }
+
 Write-Host "Repo harness checks passed."
