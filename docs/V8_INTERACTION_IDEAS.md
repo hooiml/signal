@@ -335,8 +335,15 @@ next to it. IDs start with G (global).
   reconciliation, covered attribution, what-if), starting with a read-only holdings view.
 - Why: V8 is the default (`/` redirects to `/main-v8`), so portfolio users must leave it to reach
   their own records.
-- Guardrails: rules 4–6 (authored holdings stay out of analytics, storage kinds stay distinct, no
-  cross-currency totals without FX evidence). Needs its own design doc before any code.
+- First slice: scoped as [E18](ENHANCEMENT_ROADMAP.md#e18--read-only-v8-holdings-view-g1). It reuses
+  the browser-local holdings snapshot and the existing holdings and covered-attribution contracts,
+  so it adds no provider, storage, network behaviour or authentication and needs no separate design
+  doc (rule 9 is not triggered).
+- A design doc is needed first only if a later slice brings import, reconciliation or what-if
+  editing into V8 (mutations, rule 8), adds new storage or API endpoints (rule 9), or shows a total
+  across currencies (rule 6, approved FX evidence).
+- Guardrails: rules 4–6 (holdings stay out of analytics, storage kinds stay distinct, no
+  cross-currency totals without FX evidence).
 
 #### G2 · Learn from where you read · Implemented (E17)
 

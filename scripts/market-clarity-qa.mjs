@@ -141,6 +141,9 @@ async function open(width, options = {}) {
     });
     await page.goto(`${base}/main-v8`, { waitUntil: 'domcontentloaded' });
     await page.getByTestId('connected-score').waitFor();
+    // Phones fold the investigation section; open it so checks can read its contents.
+    const investigationToggle = page.getByTestId('market-mobile-investigation').locator('h2 > button');
+    if (await investigationToggle.isVisible() && await investigationToggle.getAttribute('aria-expanded') !== 'true') await investigationToggle.click();
     return { context, page, setArchivePhase: next => { archivePhase = next; }, setVariant: next => { variant = next; }, scoreRequests: () => scoreRequests };
 }
 async function geometry(page, width, name) {
