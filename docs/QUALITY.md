@@ -103,8 +103,9 @@ user-authored; missing names fall back to the ticker. No exchange is inferred.
 Late requests must not replace another security's identity or quote.
 
 Price chart clicks/taps select the closest returned observation by elapsed time,
-including irregularly spaced dates. The native date slider and exact-values table
-remain available. Selected-period change uses the first/last returned closes and
+including irregularly spaced dates. The native date slider stays as the chart's
+keyboard control (unseen; the chart frame shows its focus) and the exact-values
+table remains available. Selected-period change uses the first/last returned closes and
 shows their actual dates separately from daily quote change; it is not total return.
 Single observations, invalid or reversed dates and non-finite values cannot produce
 a range comparison. A zero starting close permits an amount change but no percentage.

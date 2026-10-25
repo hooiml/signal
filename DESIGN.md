@@ -42,8 +42,16 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
 | `/research-v8` | Company research. `/research?ticker=…` (ticker only) redirects here. |
 | `/research` (other params) | The V7 integrated workspace (built on the V6 dashboard) that saved-research edit links open. |
 | `/start` | V6 guided start. Not linked from the V8 header. |
+| `/learn` | Existing courses in the V8 shell; `?concept=rsi`, `put-call`, `naaim`, `pe` or `fcf-yield` opens its matching lab. |
 
 - **Primary navigation (V8 header):** Market · Research, plus the Light / Auto / Dark theme toggle.
+  Learn uses the same header with a current Learn link; its navigation wraps below the wordmark and
+  theme controls on phones. Existing courses and the command palette remain available.
+- **Metric lessons:** dotted-underlined labels with a small external-tab mark open Learn in a new
+  tab, preserving the reading and unsaved work. RSI lives in Research price context; P/E and FCF
+  yield in current valuation; put/call and NAAIM in Market indicator details. Keyboard focus is
+  visible, targets are at least 44px tall, and accessible names announce the new tab. Learn's metric
+  navigation stays in the same tab. Examples are educational, never copied current readings.
 - **Market, basic view:** score summary and coverage ring → score history beside the indicator evidence
   list → wider-market strip → historical outcomes → exposure map → links into Research → methodology
   (collapsed) → tabs **What changed · Context**.
@@ -87,7 +95,8 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
 
 ### Colour
 
-V8 tokens are defined on `.app` in `src/components/v8/market-v8.module.css`, one colour per job:
+V8 tokens are defined on `.app` and the token-only `.tokens` scope in
+`src/components/v8/market-v8.module.css`, one colour per job:
 
 | Job | Tokens |
 | --- | --- |
@@ -154,7 +163,7 @@ Shared V8 building blocks, reused before adding new ones:
   Calendar, Alerts), price context strip, financial status card (`ResearchCurrentAssessment`), tab
   panels (`ResearchV8ConnectedPanels`), technicals chart, Peers, Filings.
 - **States every component handles:** loading, empty, partial, error with retry, and stale.
-- **Ownership:** V8 tokens live on `.app` in `market-v8.module.css`; each feature keeps its own CSS
+- **Ownership:** V8 tokens live in `market-v8.module.css`; each feature keeps its own CSS
   module next to its component. Add no separate design-system package.
 - **Exception:** `ResearchExpectationRealityV8` lives in `src/components/v8/` but renders inside the V6
   dashboard of the editing workspace (via `ResearchReviewToolsV12`), so it follows that workspace's
@@ -193,8 +202,10 @@ Shared V8 building blocks, reused before adding new ones:
 
 ## Implementation constraints
 
-- Next.js App Router, React and TypeScript. V8 styles use CSS modules with the tokens above; Tailwind is
-  only for V6/V7 surfaces.
+- Next.js App Router, React and TypeScript. V8 styles use CSS modules with the tokens above.
+  Existing Learn exercises retain their Tailwind layout with locally scoped V7-to-V8 token aliases
+  in `learn-v8.module.css`; the shared V8 page reset is not applied to those lessons. Other legacy
+  V6/V7 surfaces retain their own styling.
 - Add no dependencies, providers or persisted state without the review in `NEXT_PRODUCT_ROADMAP.md`.
 - Browser-local data (guest workspace, paper baskets, last visit) must stay visibly separate from
   server-saved research and must never modify it.

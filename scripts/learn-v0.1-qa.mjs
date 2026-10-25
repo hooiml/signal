@@ -193,10 +193,11 @@ const main = async () => {
                 const masteryAfterReload = await page.getByTestId('learn-mastery').innerText();
                 addCheck(scenario, 'mastery survives reload', masteryAfterReload.includes('1/6') && masteryAfterReload.includes('2/2') && masteryAfterReload.includes('1/1'));
 
-                const themeButton = page.locator('button[aria-label^="Switch to"]');
-                const beforeTheme = await page.locator('[data-testid="learn-shell"]').getAttribute('data-theme');
-                await themeButton.click();
-                const afterTheme = await page.locator('[data-testid="learn-shell"]').getAttribute('data-theme');
+                const beforeTheme = await page.locator('html').getAttribute('data-v8-theme');
+                const nextTheme = beforeTheme === 'dark' ? 'light' : 'dark';
+                await page.getByRole('radio', { name: nextTheme === 'dark' ? 'Dark' : 'Light', exact: true }).check();
+                await page.waitForFunction(expected => document.documentElement.dataset.v8Theme === expected, nextTheme);
+                const afterTheme = await page.locator('html').getAttribute('data-v8-theme');
                 addCheck(scenario, 'theme toggle changes Learn theme', beforeTheme !== afterTheme, `${beforeTheme} -> ${afterTheme}`);
                 if (captureScreenshots) {
                     const darkPath = path.join(evidenceDir, `learn-${viewport.name}-dark.png`);

@@ -1,0 +1,7 @@
+.metricLink.metricLink {
+    display: inline-flex; align-items: center; gap: 5px; min-height: 44px;
+    color: inherit; text-decoration: underline dotted; text-underline-offset: 4px;
+}
+.metricLink.metricLink:hover { color: var(--link); text-decoration-style: solid; }
+.metricLink.metricLink:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; border-radius: 4px; }
+.metricLink > span { font-size: 12px; color: var(--muted); }

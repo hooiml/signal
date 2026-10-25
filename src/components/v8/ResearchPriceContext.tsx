@@ -1,5 +1,6 @@
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import styles from './research-price-context.module.css';
+import { MetricLearnLink } from './MetricLearnLink';
 
 const finite = (value: number | null | undefined): value is number => typeof value === 'number' && Number.isFinite(value);
 const price = (value: number) => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -33,7 +34,7 @@ export function ResearchPriceContext({ snapshot }: { snapshot: ResearchSnapshot 
     const ma200 = distanceLabel(quote.price, t.ma200);
     const rsi = rsiLabel(t.rsi14);
     const items = [
-        finite(t.low52Week) && finite(t.high52Week) ? { key: 'range', label: '52-week range', value: `${price(t.low52Week)} – ${price(t.high52Week)}`, note: position === null ? null : `${position.toFixed(0)}% of the way from low to high`, bar: position } : null,
+        finite(t.low52Week) && finite(t.high52Week) ? { key: 'range', label: '52-week range', value: `${price(t.low52Week)} – ${price(t.high52Week)}`, note: position === null ? null : `Price at ${position.toFixed(0)}% of range`, bar: position } : null,
         finite(t.ma50) ? { key: 'ma50', label: '50-day average', value: price(t.ma50), note: ma50 && `Price ${ma50}` } : null,
         finite(t.ma200) ? { key: 'ma200', label: '200-day average', value: price(t.ma200), note: ma200 && `Price ${ma200}` } : null,
         finite(t.rsi14) ? { key: 'rsi', label: 'RSI (14-day)', value: t.rsi14.toFixed(1), note: rsi } : null,
@@ -43,7 +44,7 @@ export function ResearchPriceContext({ snapshot }: { snapshot: ResearchSnapshot 
     return <section className={styles.context} aria-label="Price context" data-testid="research-price-context">
         <dl className={styles.grid}>
             {items.map(item => <div key={item.key} className={styles.item}>
-                <dt>{item.label}</dt>
+                <dt>{item.key === 'rsi' ? <MetricLearnLink metric="rsi">{item.label}</MetricLearnLink> : item.label}</dt>
                 <dd><b>{item.value}</b>{'bar' in item && item.bar !== null && item.bar !== undefined && <span className={styles.range} aria-hidden="true"><span style={{ left: `${item.bar}%` }} /></span>}{item.note && <small>{item.note}</small>}</dd>
             </div>)}
         </dl>

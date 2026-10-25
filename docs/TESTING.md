@@ -4,6 +4,45 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For G2 metric-to-Learn handoffs, run `node scripts/learn-metric-links-qa.mjs` against one owned
+production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). The controlled API fixtures
+exercise five metric destinations, new-tab isolation, allowlisted concept URLs, lesson navigation,
+reload/history, existing course progress, and the V8 theme at 1280/768/375/320px. `--before`
+captures the earlier screens; `--scenario=boundary` runs the focused desktop/light flow.
+Screenshots and console/request evidence live in `.tmp/learn-metric-links/`. This verifies local
+UI behavior, not provider health or deployment. Saved research and scoring remain untouched.
+`npm run qa:learn-metric-links` runs the same suite in CI; diagnostics are uploaded. The existing
+four Learn QA suites use the V8 theme radios and continue to cover each course's progress.
+
+For L1 Market phone disclosures, run `node scripts/market-mobile-sections-qa.mjs` against one
+owned production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). The US/MY light/dark
+matrix covers 1280/768/375/320px, summaries, keyboard toggles, investigation handoffs, resize and
+reload, focused desktop-to-phone controls, data gaps, exposure loading/error/empty/saved states,
+valid unmapped versus failed/malformed classifications, numeric summaries, overflow and request safety.
+Use `--before` for baseline captures, or `--scenario=core` and the named boundary scenarios in
+the script for focused reruns. Evidence goes to `.tmp/market-mobile-sections/`. All API responses
+are controlled local fixtures; this establishes UI behavior, not live-provider or deployment health.
+
+For L3 stock-page tab navigation, run `node scripts/research-tabs-qa.mjs` against one owned
+production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). The local read-only fixture
+matrix covers 1280/768/375/320px, light/dark, six public and eight saved-stock Advanced tabs,
+scroll controls, keyboard/URL/history restoration, resizing, panel association and overflow.
+Scroll controls must cause no selection, API or saved-record changes. Geometry, screenshots
+and console/request evidence are saved in `.tmp/research-tabs/after/`; `--before` captures the
+old tab strip without expecting the new controls. This is local UI proof, not live-provider
+or deployment verification.
+
+For the V8 Overview chart's R1 measurement, run `node scripts/research-reading-qa.mjs`
+against one owned production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`).
+The same Chromium session covers normal inspection, forward/reverse drag, two-tap touch,
+Shift + arrows, clear/Escape/outside, range/snapshot/reload resets, currency, sparse/flat/zero/
+single/empty history, and no extra API calls. The 1280/768/375/320px matrix records span and
+readout geometry, console/request failures, and fresh light/dark measurement screenshots at
+1280/768/375px in `.tmp/research-reading/after/`. Fixtures intercept all API reads and reject
+mutations; this proves local interaction, not live provider availability or deployment.
+The harness includes chronological span arithmetic and invalid-input checks in
+`scripts/harness/research-reading-regression.mjs`.
+
 For V8 Financials grouping and the public Chart & technicals tab, run
 `node scripts/research-chart-v8-qa.mjs` against one owned production server
 (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). The browser matrix uses labelled

@@ -5,6 +5,9 @@
 The working order for enhancements after the V8 UI/UX plan, so they can be delivered one at a time.
 Each item is small enough for one branch and one pull request.
 
+Unscheduled interaction ideas for Market and Research are collected in
+[`V8_INTERACTION_IDEAS.md`](V8_INTERACTION_IDEAS.md); one becomes an `E` item only when chosen.
+
 Full specifications for E3–E7 live in [`NEXT_PRODUCT_ROADMAP.md`](NEXT_PRODUCT_ROADMAP.md) (Tasks 0
 and 5–8); this file only fixes their order and adds the near-term items. Product rules from that
 roadmap ("Product Direction To Preserve") apply to every item here.
@@ -40,6 +43,11 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E10 | V8 Research decision context (multi-year trend bars, plan vs price ruler, historical filing multiples) | Verified | Standard | None; added after E9 at the owner's request |
 | E11 | V8 Research unit profitability margins, balance-sheet cushion and share dilution trajectory | Verified | Standard | None; added after E10 at the owner's request |
 | E12 | V8 app-screen review fixes (Calendar window and marks, Market polish) | Verified | Standard | None; added after a taste review at the owner's request |
+| E13 | Research stock page: tighter price chart and header | Verified | Standard | None; second taste review item at the owner's request |
+| E14 | Research price-chart measurement (R1) | Verified | Standard | Uses already-loaded daily closes; temporary exploration only |
+| E15 | Phone stock-page tab navigation (L3) | Verified | Standard | Existing tabs and URLs; no data or persistence change |
+| E16 | Fold secondary Market sections on phones (L1) | Verified | Standard | Existing evidence and requests; session-only disclosure state |
+| E17 | Learn from V8 metric labels (G2) | Verified | High | Existing lessons and progress; no provider or saved-research changes |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -219,6 +227,153 @@ document overflow; Market score/evidence and context columns end on the same lin
 lint, harness and production build pass; `v8-modules-qa` (74 checks, updated for week paging and
 the embedded Discover) and `research-unsaved-qa` (1440–375px) pass against the production build.
 
+### E13 — Research stock page: tighter price chart and header
+
+**Why:** On the stock page the price chart left about 90px of empty space above its plot, a
+full-width "Inspect a trading date" slider repeated what clicking the chart does, and the guest
+workspace sentence took its own row between the company name and the price.
+
+**Scope:** Chart top padding cut from 45/48 to 24/26 SVG units (desktop/phone); the review-marker
+row still opens only when markers exist. The date slider stays as the chart's keyboard control but
+is no longer drawn; the chart frame shows its focus ring. On a stock page the workspace sentence
+shares the Change stock / Discover row (unchanged on the Research home). The 52-week note reads
+"Price at N% of range".
+
+**Left as is in E13:** the phone tab bar with "Filings" cut at the edge (subsequently addressed
+by E15 without restoring the fade removed in `b7cf762`), and the full-width "Insufficient evidence"
+financial card.
+
+**Evidence — 2026-10-25:** AAPL page height 1,684 → 1,545px at 1440 and 2,119 → 2,006px at 390,
+no overflow; Home/End on the focused chart move the readout and the frame shows an outline.
+
+### E14 — Research price-chart measurement (R1)
+
+**Why:** Measuring between two dates answers a daily reading question using existing chart data.
+It has no provider, request, persistence or saved-record dependency. R3 would add a Calendar
+request; M1 needs separate scoring-formula verification; M5 needs agreed publication cadences.
+
+**Scope:** The V8 Overview price chart supports mouse/pen drag, a visible Measure button for
+two-tap selection, and Shift + arrows on the existing keyboard date control. The shaded span
+shows chronological dates, currency, amount and percentage change, and the inclusive count of
+returned observations. Sparse data is never described as a complete session count. The original
+full-range change and exact-values table remain available.
+
+**Guardrails:** Measurements say "Exploring · not saved" and "Price change only; not total
+return". Escape, a tap outside the chart section or Clear measurement exits. Changing range,
+security, provider snapshot or reloading resets it. One-point/empty histories cannot measure;
+a zero starting close has an amount but no percentage. No new fetches or storage writes.
+
+**Verification:** Standard lane: lint, typecheck, harness, production build for browser QA,
+and the consolidated `scripts/research-reading-qa.mjs` matrix with drag, touch, keyboard,
+reset, currency and boundary states plus light/dark screenshots at 1280/768/375px.
+
+**Evidence — 2026-10-25:** Lint, typecheck, harness, production build and the browser matrix
+pass locally at `http://127.0.0.1:3000`. The 1280/768/375/320px run captures 22 visual states
+and four interaction summaries in `.tmp/research-reading/after/report.json`. Light/dark span
+and readout screenshots pass containment, overlap and overflow checks. Measurement causes no
+API calls; no unexpected console/request errors remain. Expected service-worker blocking and
+the deliberate 503 fixture are recorded separately. Independent review found a secondary-pointer
+cleanup bug; a browser regression reproduced it before the pointer-ID guards and passes after
+the fix. This is fixture-based local verification; live-provider availability, hardware touch
+assistive technology and deployment are not established.
+
+**Changed files:** `src/components/v8/ResearchV8ConnectedPanels.tsx`,
+`src/components/v8/research-v8-connected.module.css`, `src/lib/research/reading-display.ts`,
+`scripts/harness/research-reading-regression.mjs`, `scripts/research-reading-qa.mjs`,
+`docs/TESTING.md`, `docs/V8_INTERACTION_IDEAS.md`, and this roadmap.
+
+### E15 — Phone stock-page tab navigation (L3)
+
+**Why:** Peers and Filings can sit beyond the phone's visible tab strip with no clear scroll
+control. L3 is a bounded navigation improvement over existing data. L4's price-based Watchlist
+sorting needs a separate data scope because the current home list only loads saved records.
+
+**Scope:** At 600px and narrower, an overflowing stock-page tab strip has left/right scroll buttons with
+44px targets and disabled end states. Native swipe scrolling remains available. Scrolling does
+not select a tab or request data. The selected tab stays visible after keyboard selection,
+deep links, Back/Forward and resizing, without automatically scrolling the page vertically.
+The six public tabs and eight saved-stock Advanced tabs keep their labels, URLs and ARIA links.
+No edge fade, new provider, dependency, saved preference or record mutation is added.
+
+**Verification (2026-10-25):** Standard lane passed lint, typecheck, harness and a production build.
+`scripts/research-tabs-qa.mjs` passed 808 assertions across 16 scenarios: 1280/768/375/320px,
+light/dark, and six public/eight saved-stock tabs. All eight phone scenarios used real Chromium
+touch gestures. Arrow end states, keyboard wrapping, Filings reload/history, selected-tab resize
+visibility, ARIA links, 44px targets and overflow passed; scrolling did not select tabs or fetch
+data, and navigation sent no mutations. No unexpected console or request failures occurred.
+Sixteen baseline and 32 updated viewport screenshots plus geometry are under
+`.tmp/research-tabs/`; visual comparison passed without restoring a fade. One independent source
+review found no functional issue; the documented 600px boundary matches the existing breakpoint.
+GitNexus's local index refresh failed, so impact review used current source and callers instead.
+This is local fixture-based UI verification, not live-provider or deployment proof.
+
+### E16 — Fold secondary Market sections on phones (L1)
+
+**Why:** Market's secondary detail makes a short phone visit unnecessarily long. L1 keeps the
+reading, since-last-visit note, chart and evidence visible while making the rest easier to scan.
+
+**Scope:** At 600px and narrower, Market context, available Historical outcomes, Exposure map
+and What changed start closed. Each heading retains a compact summary from its existing data:
+index movement/breadth, evidence-qualified one-week outcomes, saved-stock mapping state, and
+dated score change. Missing, insufficient, loading and failed states remain explicit. Desktop
+and tablet content remains visible. Keyboard controls and links into investigation panels work,
+opening a destination before moving focus. Content stays mounted; disclosure state is temporary
+and makes no new requests or saved-record changes. No scoring, provider, persistence or route
+contracts change. Continue in the existing PR at the owner's request.
+
+**Verification (2026-10-25):** Standard lane passed lint, typecheck, harness and production build.
+`scripts/market-mobile-sections-qa.mjs` passed 28 scenarios: the US/MY light/dark matrix at
+1280/768/375/320px plus loading, read failure, mapped/unmapped stocks, failed/malformed
+classification, insufficient/missing data and numeric summaries. Keyboard disclosure controls,
+investigation handoffs, resize/reload, focused-link preservation, 44px targets and overflow passed.
+Toggling disclosures caused no requests after the existing scroll-triggered archive read settled;
+all API traffic was intercepted and no mutations occurred. No unexpected console/request errors.
+Eight baseline and 32 updated captures plus request/geometry evidence are under
+`.tmp/market-mobile-sections/`. At 375px the empty-watchlist US fixture fell from 4,494px to
+3,292px (about 27% shorter); desktop/tablet heights stayed unchanged. This is a controlled layout
+comparison, not a performance or live-provider claim.
+
+Independent review caught classification failures being treated as valid unknown-sector results.
+The failure was reproduced before the fix; HTTP failures and malformed responses now retain an
+explicit unavailable state, while valid unknown sectors remain unmapped. The expanded mapped
+count agrees with the summary. Review recheck and the failure/unmapped browser regressions passed.
+GitNexus recovered its index; source/caller review confined the change to connected V8 Market.
+Visual comparison passed. Deployment, real provider health and assistive-technology testing are
+not established by these local fixtures.
+
+### E17 — Learn from V8 metric labels (G2)
+
+**Why:** Readers can understand a metric where they encounter it, using the existing Learn labs.
+
+**Scope:** RSI in Research price context, P/E and FCF yield in current valuation, and put/call
+and NAAIM in Market indicator details open the matching lesson in a new tab. Allowlisted concept
+URLs survive reloads and browser history; invalid or repeated values open the default course.
+Reuse the existing RSI, P/E and FCF labs, add illustrative put/call and NAAIM exercises, and give
+Learn the V8 header, typography and theme. Keep the existing courses and progress contracts.
+
+**Acceptance:** Five working metric handoffs, keyboard access, narrow-screen overflow checks,
+light/dark consistency, preserved reading tabs and progress, and passing repository checks.
+Use full applicable checks, build, consolidated browser proof and one independent review because
+the final diff spans the Learn route and shared V8 presentation.
+
+**Non-goals:** No glossary popover (G3), portfolio migration, new persistence, provider calls,
+scoring changes, or writes to saved research. Continue in PR #47 as requested.
+
+**Verification (2026-10-25):** Lint, typecheck, full harness and production build passed.
+The new `qa:learn-metric-links` suite passed 389 checks in eight light/dark scenarios at
+1280/768/375/320px, with 24 screenshots at 1280/768/375px. All five destinations, safe new tabs,
+history/reload, invalid/repeated queries, existing progress, command-palette theme control,
+zero put/call denominator, keyboard NAAIM exposure and overflow passed. The final fixture run
+recorded 192 API reads, zero mutations and no unexpected console/request errors. All four
+existing Learn browser suites also passed at desktop/tablet/phone widths (12 scenarios).
+
+Independent review found outdated theme selectors and omitted command-palette actions; both
+were fixed and rechecked. G2 runs in CI with diagnostics upload. Visual review passed against
+the prior Learn/Market/Research captures and V8 design contract; artifacts are under
+`.tmp/learn-metric-links/`. GitNexus change detection over-associated common names with unrelated
+flows; direct source/caller review and the full harness establish the relevant scope. These are
+local fixture results, not deployment, live-provider or assistive-technology verification.
+
 ### E3 — Today promotion review
 
 **Spec:** `NEXT_PRODUCT_ROADMAP.md` Task 0.
@@ -270,3 +425,6 @@ contract is recorded.
 | 2026-10-23 | E10 | — | Verified | V8 Research decision context (multi-year trend bars, plan vs price ruler, historical filing multiples) implemented and verified. |
 | 2026-10-23 | E11 | — | Verified | V8 Research unit profitability margins, balance-sheet cushion and share dilution trajectory implemented and verified. |
 | 2026-10-25 | E12 | — | Verified | Calendar week window and per-kind marks, Market outcome figures, column alignment and title size; Discover reopen fix. |
+| 2026-10-25 | E13 | — | Verified | Stock page chart top padding, keyboard-only date control, workspace line in the tool row. |
+| 2026-10-25 | E14 | — | Verified | R1 temporary chart measurement; drag/tap/keyboard, pointer isolation, reset and arithmetic regressions; local Standard checks pass. |
+| 2026-10-25 | E17 | — | Verified | Five V8 metric lessons, V8 Learn shell, existing course/theme compatibility; full checks, independent review and 20 browser scenarios pass. |

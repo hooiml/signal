@@ -68,6 +68,7 @@ jobs:
         run: |
           npm run qa:learn
           npm run qa:learn-v0.2
+          npm run qa:learn-metric-links
 
       - name: Run V8.1 responsive fixture browser checks
         if: success() || failure()
@@ -98,6 +99,7 @@ jobs:
             .tmp/signal-learn-v0.1-qa/**/failure-*.png
             .tmp/signal-learn-v0.2-qa/**/report.json
             .tmp/signal-learn-v0.2-qa/**/failure-*.png
+            .tmp/learn-metric-links/after/**
             .tmp/v81/browser/*.json
             .tmp/v81/browser/*.png
             .tmp/display-clarity/after/*.json

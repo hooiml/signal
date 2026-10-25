@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { V7Shell } from '@/components/v7/foundation/V7Foundation';
+import Link from 'next/link';
+import { LearnShellV8 } from './LearnShellV8';
+import { LearnMarketMetricLesson } from './LearnMarketMetricLesson';
+import { metricLessons, metricLessonHref, type LearnMetric } from '@/lib/learn/metric-links';
+import styles from './learn-v8.module.css';
 import { LearnConceptLabV1 } from './LearnConceptLabV1';
 import { LearnApplyV1 } from './LearnApplyV1';
 import { LearnCompareV1 } from './LearnCompareV1';
@@ -19,14 +23,14 @@ import {
 } from '@/lib/learn/v0-1';
 
 type LearnWorkspace = 'learn' | 'compare' | 'apply' | 'replay';
-type LearnRelease = 'v0.1' | 'v0.2' | 'v0.3' | 'v0.4';
+type LearnRelease = 'v0.1' | 'v0.2' | 'v0.3' | 'v0.4' | 'market';
 
 const progressKey = 'signal-learn-v0.1-progress';
 
-export const LearnDashboardV1 = () => {
-    const [release, setRelease] = useState<LearnRelease>('v0.4');
+export const LearnDashboardV1 = ({ initialConcept }: { initialConcept?: LearnMetric }) => {
+    const [release, setRelease] = useState<LearnRelease>(initialConcept === 'pe' ? 'v0.1' : initialConcept === 'fcf-yield' ? 'v0.3' : initialConcept === 'put-call' || initialConcept === 'naaim' ? 'market' : 'v0.4');
     const [workspace, setWorkspace] = useState<LearnWorkspace>('learn');
-    const [moduleId, setModuleId] = useState<LearnModuleIdV01>('evidence');
+    const [moduleId, setModuleId] = useState<LearnModuleIdV01>(initialConcept === 'pe' ? 'pe' : 'evidence');
     const [progressState, setProgressState] = useState<LearnProgressV01>(emptyLearnProgressV01);
     const [progressReady, setProgressReady] = useState(false);
 
@@ -71,6 +75,8 @@ export const LearnDashboardV1 = () => {
     const completedCaseIds = progressState.reflections.map((item) => item.caseId);
 
     const commands = [
+        { id: 'route-market', label: 'Go to Market', group: 'Route', run: () => window.location.assign('/main-v8') },
+        { id: 'route-research', label: 'Go to Research', group: 'Route', run: () => window.location.assign('/research-v8') },
         { id: 'learn-trading', label: 'Open trading process', group: 'Learn', keywords: ['price structure risk expectancy replay'], run: () => setRelease('v0.4') },
         { id: 'learn-investment', label: 'Open investment analysis', group: 'Learn', keywords: ['thesis scenarios macro valuation'], run: () => setRelease('v0.3') },
         { id: 'learn-business', label: 'Open business foundations', group: 'Learn', keywords: ['financial statements cash flow debt roic'], run: () => setRelease('v0.2') },
@@ -81,16 +87,19 @@ export const LearnDashboardV1 = () => {
     ] as const;
 
     return (
-        <V7Shell active="learn" commands={commands} footer={`Signal Learn ${release} · Evidence over shortcuts · Educational analysis, not investment advice`} testId="learn-shell">
-            <main className="min-h-[calc(100dvh-132px)] bg-[var(--v7-surface)] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+        <LearnShellV8 commands={commands} footer="Signal Learn · Evidence over shortcuts · Educational analysis, not investment advice">
+            <main id="learn-content" tabIndex={-1} className="min-h-[calc(100dvh-132px)] bg-[var(--v7-surface)] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
                 <div className="mx-auto w-full max-w-[1180px]">
+                    <nav className={styles.metrics} aria-label="Metric lessons">
+                        {metricLessons.map(lesson => <Link key={lesson.id} href={metricLessonHref(lesson.id)} prefetch={false} aria-current={initialConcept === lesson.id ? 'page' : undefined}>{lesson.label}</Link>)}
+                    </nav>
                     <nav aria-label="Learn release" className="research-scrollbar mb-5 flex w-full gap-1 overflow-x-auto rounded-[8px] border border-[var(--v7-border)] bg-[var(--v7-surface-quiet)] p-1 sm:w-fit">
                         <button type="button" aria-pressed={release === 'v0.4'} onClick={() => setRelease('v0.4')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.4' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Trading process v0.4</button>
                         <button type="button" aria-pressed={release === 'v0.3'} onClick={() => setRelease('v0.3')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.3' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Investment analysis v0.3</button>
                         <button type="button" aria-pressed={release === 'v0.2'} onClick={() => setRelease('v0.2')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.2' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Business foundations v0.2</button>
                         <button type="button" aria-pressed={release === 'v0.1'} onClick={() => setRelease('v0.1')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.1' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Valuation foundations v0.1</button>
                     </nav>
-                    {release === 'v0.4' ? <LearnTradingWorkspaceV4 /> : release === 'v0.3' ? <LearnInvestmentWorkspaceV3 /> : release === 'v0.2' ? <LearnBusinessWorkspaceV2 /> : <div data-testid="learn-v0-1">
+                    {release === 'market' ? <><h1 className="mb-4 text-2xl font-bold">Read market positioning in context.</h1><LearnMarketMetricLesson concept={initialConcept === 'naaim' ? 'naaim' : 'put-call'} /></> : release === 'v0.4' ? <LearnTradingWorkspaceV4 initialModule={initialConcept === 'rsi' ? 'momentum' : undefined} /> : release === 'v0.3' ? <LearnInvestmentWorkspaceV3 initialMetric={initialConcept === 'fcf-yield' ? 'fcf-yield' : undefined} /> : release === 'v0.2' ? <LearnBusinessWorkspaceV2 /> : <div data-testid="learn-v0-1">
                     <section className="grid gap-5 border-b border-[var(--v7-border)] pb-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
                         <div>
                             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--v7-accent)]">Signal Learn · v0.1</p>
@@ -144,6 +153,6 @@ export const LearnDashboardV1 = () => {
                     </div>}
                 </div>
             </main>
-        </V7Shell>
+        </LearnShellV8>
     );
 };

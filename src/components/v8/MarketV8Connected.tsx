@@ -16,6 +16,7 @@ import { MarketIndicatorEvidence } from './MarketIndicatorEvidence';
 import layout from './market-v8-connected.module.css';
 import { MarketV8Exposure } from './MarketV8Exposure';
 import { MarketV8Outcomes } from './MarketV8Outcomes';
+import { MarketMobileSection } from './MarketMobileSection';
 import { marketEvidenceCoverage } from '@/lib/market-evidence-coverage';
 import { marketReadingLabel, marketTimestampLabel } from '@/lib/market-display';
 import { ConnectedIndicator, ConnectedPanels, emptyScenario } from './MarketV8ConnectedPanels';
@@ -43,6 +44,7 @@ export function MarketV8Connected({ initialMarket = 'US' }: { initialMarket?: Ma
     const [revision, setRevision] = useState(0);
     const [archiveRevision, setArchiveRevision] = useState(0);
     const [tab, setTab] = useState<InvestigationTab>('What changed');
+    const [investigationOpen, setInvestigationOpen] = useState(false);
     const [selected, setSelected] = useState<string | null>(null);
     const [historical, setHistorical] = useState<Point | null>(null);
     const [currentPoint, setCurrentPoint] = useState<Point | null>(null);
@@ -180,7 +182,7 @@ export function MarketV8Connected({ initialMarket = 'US' }: { initialMarket?: Ma
             }
         });
     }
-    function openTab(name: InvestigationTab) { setTab(name); requestAnimationFrame(() => { const panel = document.getElementById('investigation-panel'); panel?.scrollIntoView({ block: 'start' }); panel?.focus({ preventScroll: true }); }); }
+    function openTab(name: InvestigationTab) { setTab(name); setInvestigationOpen(true); requestAnimationFrame(() => { const panel = document.getElementById('investigation-panel'); panel?.scrollIntoView({ block: 'start' }); panel?.focus({ preventScroll: true }); }); }
     function reviewEvidence() {
         if (advanced) { openTab('Evidence'); return; }
         requestAnimationFrame(() => { indicatorsRef.current?.scrollIntoView({ block: 'start' }); indicatorsRef.current?.focus({ preventScroll: true }); });
@@ -220,6 +222,10 @@ export function MarketV8Connected({ initialMarket = 'US' }: { initialMarket?: Ma
     const archived = historical && replay.date === historical.date ? replay.snapshot : null;
     const score = historical ? archived?.summary.score ?? historical.value : data?.composite_score;
     const hasScore = !!data && Object.keys(data.components).length > 0;
+    const scoreDelta = data?.metadata.score_delta;
+    const changeSummary = typeof scoreDelta?.delta === 'number' && Number.isFinite(scoreDelta.delta)
+        ? `${Math.abs(scoreDelta.delta) < 0.005 ? 'Score unchanged' : `${signed(scoreDelta.delta)} score points`} · ${scoreDelta.previous_date ? `since ${fullDate(scoreDelta.previous_date)}` : 'prior date unavailable'}`
+        : 'Score comparison unavailable';
     const archiveStates = Object.values(archiveData?.states ?? {});
     const indicatorHistoryState = {
         loading: !archiveData || archiveData.loading, error: archiveData?.error ?? '',
@@ -271,7 +277,9 @@ export function MarketV8Connected({ initialMarket = 'US' }: { initialMarket?: Ma
                             <MarketV8Exposure key={market} signal={data} />
                             <nav className={layout.researchLinks} aria-label="Find stocks in Research"><div><b>From market to stocks</b><span>US large caps with sustained momentum, a rule-based shortlist, and upcoming earnings.{market === 'MY' ? ' The trend scan covers US stocks only.' : ''}</span></div><a href="/research-v8?market=US&discover=trending#discover">Trending · Top 20 →</a><a href="/research-v8?market=US&discover=picker#discover">Stock Picker →</a><a href={`/research-v8?market=${market}&discover=calendar#discover`}>Earnings calendar →</a></nav>
                             <details className={layout.readingDetails}><summary>How to read this assessment · methodology and limits</summary><div><MarketCurrentAssessment signal={data} date={date} onSelect={openIndicator} showLeadingEvidence={false} /><MarketCoverageNotices signal={data} inputKeys={inputKeys} date={date} sourceEnabled={social} onReview={reviewEvidence} /></div></details>
-                            <section className={styles.investigation} id="investigation"><div className={styles.tabs} role="tablist" aria-label="Market investigation">{visibleTabs.map((name,index)=><button key={name} id={`tab-${index}`} role="tab" aria-selected={tab===name} aria-controls="investigation-panel" tabIndex={tab===name?0:-1} onClick={()=>setTab(name)} onKeyDown={event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?visibleTabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+visibleTabs.length)%visibleTabs.length;document.getElementById(`tab-${next}`)?.focus();}}>{name}</button>)}</div><div className={styles.panel} id="investigation-panel" role="tabpanel" tabIndex={-1} aria-labelledby={`tab-${visibleTabs.indexOf(tab)}`} key={`${key}-${tab}`}>{tab==='History'?<ConnectedHistory signal={data} state={historyState} setState={setHistoryState}/>:<ConnectedPanels advanced={advanced} signal={data} tab={tab} onSelect={openIndicator} scenario={scenario} setScenario={setScenario}/>}</div></section>
+                            <MarketMobileSection name="investigation" title="What changed" summary={changeSummary} className={`${styles.investigation} ${layout.mobileInvestigation}`} id="investigation" open={investigationOpen} onOpenChange={setInvestigationOpen}>
+                                <div className={styles.tabs} role="tablist" aria-label="Market investigation">{visibleTabs.map((name,index)=><button key={name} id={`tab-${index}`} role="tab" aria-selected={tab===name} aria-controls="investigation-panel" tabIndex={tab===name?0:-1} onClick={()=>setTab(name)} onKeyDown={event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?visibleTabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+visibleTabs.length)%visibleTabs.length;document.getElementById(`tab-${next}`)?.focus();}}>{name}</button>)}</div><div className={styles.panel} id="investigation-panel" role="tabpanel" tabIndex={-1} aria-labelledby={`tab-${visibleTabs.indexOf(tab)}`} key={`${key}-${tab}`}>{tab==='History'?<ConnectedHistory signal={data} state={historyState} setState={setHistoryState}/>:<ConnectedPanels advanced={advanced} signal={data} tab={tab} onSelect={openIndicator} scenario={scenario} setScenario={setScenario}/>}</div>
+                            </MarketMobileSection>
                         </>}
                     </>}
                     {data && !hasScore && <section className={styles.empty}><h2>No usable observations returned.</h2><p>The service supplied no current components. A neutral placeholder is not shown as market evidence.</p>{history.length>0&&<><h3>Stored history only</h3><MarketChart points={history} sourced name="Stored score history"/><details><summary>Stored score records</summary><table className={styles.zoneTable}><thead><tr><th>Date</th><th>Score</th></tr></thead><tbody>{history.map(point=><tr key={point.date}><td>{fullDate(point.date)}</td><td>{point.value}</td></tr>)}</tbody></table></details></>}</section>}

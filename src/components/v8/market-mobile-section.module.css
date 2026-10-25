@@ -1,0 +1,13 @@
+.heading { display: none; }
+.body { display: contents; }
+@media (max-width: 600px) {
+    .section { min-width: 0; }
+    .section .heading { display: block; margin: 0; font-size: var(--text-base); }
+    .section .heading button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 0; text-align: left; }
+    .heading button > span:first-child { min-width: 0; }
+    .heading button:focus-visible { outline: 2px solid var(--link); outline-offset: 4px; }
+    .summary { display: block; margin-top: 5px; font-size: var(--text-sm); font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }
+    .chevron { flex: none; font-size: 20px; }
+    .body { display: block; padding-top: 16px; }
+    .section[data-expanded=false] > .body { display: none; }
+}

@@ -14,6 +14,7 @@
     "qa:learn-v0.2": "node scripts/learn-v0.2-qa.mjs",
     "qa:learn-v0.3": "node scripts/learn-v0.3-qa.mjs",
     "qa:learn-v0.4": "node scripts/learn-v0.4-qa.mjs",
+    "qa:learn-metric-links": "node scripts/learn-metric-links-qa.mjs",
     "qa:v7-phase1": "node scripts/v7-phase1-interaction-qa.mjs",
     "qa:v7-phase2": "node scripts/v7-phase2-interaction-qa.mjs",
     "qa:performance": "node scripts/performance-baseline.mjs",

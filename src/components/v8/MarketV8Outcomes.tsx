@@ -1,6 +1,7 @@
 import { selectSimilarScoreOutcomes, type SimilarScoreOutcome } from '@/lib/market-calibration';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import styles from './market-v8-outcomes.module.css';
+import { MarketMobileSection } from './MarketMobileSection';
 
 const percent = (value: number | null) => value === null ? 'Unavailable' : `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value).toFixed(1)}%`;
 const points = (value: number, digits: 0 | 1) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value).toFixed(digits)} pts`;
@@ -28,12 +29,18 @@ export function MarketV8Outcomes({ signal, onHistory }: { signal: MarketSignal; 
     const calibration = signal.metadata.historical_validation;
     if (!calibration) return null;
     const outcomes = selectSimilarScoreOutcomes(signal.composite_score, calibration);
-    return <section className={styles.card} aria-labelledby="market-outcomes-title" data-testid="similar-score-outcomes">
+    const week = outcomes[0];
+    const summary = !week.cohort || week.state === 'unavailable' ? 'One-week outcomes unavailable'
+        : week.state === 'insufficient' ? `One-week evidence insufficient · ${week.cohort.sample_count}/${week.minimumSampleSize} periods needed`
+            : `One-week median ${percent(week.cohort.median_forward_return_pct)} · ${week.cohort.sample_count} periods · ${evidence[week.state].toLowerCase()} evidence`;
+    return <MarketMobileSection name="outcomes" title="Historical outcomes" summary={`${summary} · not a prediction`} className={styles.card}>
+        <div data-testid="similar-score-outcomes">
         <div className={styles.heading}>
             <div><span className={styles.eyebrow}>Historical outcomes</span><h2 id="market-outcomes-title">After scores like today’s {signal.composite_score}</h2></div>
             <button className={styles.link} onClick={onHistory}>Full historical calibration →</button>
         </div>
         <p className={styles.meta}>{calibration.benchmark_name} returns after comparable past scores, compared with all eligible scores. Descriptive history, not a prediction.</p>
         <div className={styles.horizons}>{outcomes.map(outcome => <Horizon key={outcome.days} outcome={outcome} />)}</div>
-    </section>;
+        </div>
+    </MarketMobileSection>;
 }
