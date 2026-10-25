@@ -142,7 +142,8 @@ async function selectTheme(page, theme) {
     if (await control.isChecked()) await page.getByRole('radio', { name: theme === 'light' ? 'Dark' : 'Light' }).check();
     await control.check();
     await page.waitForFunction(expected => document.documentElement.dataset.v8Theme === expected, theme);
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    // Learn streams its loading boundary; DOMContentLoaded can precede the final lesson.
+    await page.reload({ waitUntil: 'networkidle', timeout: timeoutMs });
     await page.getByTestId('learn-shell').waitFor();
     await page.waitForFunction(expected => document.documentElement.dataset.v8Theme === expected, theme);
 }
@@ -226,12 +227,14 @@ async function openGlossary(page, concept) {
 async function assertRepeatedLabels(page, scenario) {
     const definitions = new Map();
     async function inspectVisible(scope, name) {
+        // Market's independent reads can replace a loading/empty section after its first paint.
+        await page.waitForLoadState('networkidle', { timeout: timeoutMs });
         const triggers = scope.locator('button[data-glossary]:visible');
-        const count = await triggers.count();
-        check(scenario, `${name} exposes glossary controls`, count > 0);
-        for (let index = 0; index < count; index += 1) {
+        const targets = await triggers.evaluateAll(elements => elements.map(element => element.getAttribute('popovertarget')));
+        check(scenario, `${name} exposes glossary controls`, targets.length > 0);
+        for (const target of targets) {
             await page.keyboard.press('Escape');
-            const trigger = triggers.nth(index);
+            const trigger = scope.locator(`button[popovertarget=${JSON.stringify(target)}]`);
             await trigger.scrollIntoViewIfNeeded();
             await trigger.click();
             const id = await trigger.getAttribute('popovertarget');
@@ -474,11 +477,13 @@ async function runAfter(browser, viewport, theme) {
             await page.screenshot({ path: file, fullPage: true });
             scenario.screenshots.push(file);
         }
-        await page.goto(`${baseUrl}/learn?concept=rsi`, { waitUntil: 'domcontentloaded' });
+        await page.goto(`${baseUrl}/learn?concept=rsi`, { waitUntil: 'networkidle', timeout: timeoutMs });
         // Focus only after the query-selected lesson renders, so hydration cannot steal it.
         await page.getByTestId('trading-concept').waitFor();
         const focusTarget = page.getByRole('button', { name: 'Trading process v0.4' });
         await focusTarget.focus();
+        await page.keyboard.press('Tab');
+        await page.keyboard.press('Shift+Tab');
         check(scenario, 'keyboard focus reaches an in-viewport Learn control', await focusTarget.evaluate(element => { const rect = element.getBoundingClientRect(); return document.activeElement === element && rect.left >= 0 && rect.right <= innerWidth; }));
         check(scenario, 'fixture run made no API writes', observations.mutations.length === 0, JSON.stringify(observations.mutations));
         check(scenario, 'browser has no blocking errors', scenario.issues.length === 0, JSON.stringify(scenario.issues));

@@ -49,6 +49,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E16 | Fold secondary Market sections on phones (L1) | Verified | Standard | Existing evidence and requests; session-only disclosure state |
 | E17 | Learn from V8 metric labels (G2) | Verified | High | Existing lessons and progress; no provider or saved-research changes |
 | E18 | Read-only V8 holdings view (G1) | Verified | High | Reuses the browser-local holdings snapshot and existing contracts; no new storage, request or analytics |
+| E19 | Shared V8 metric glossary (G3) | Verified | High | Five existing lesson metrics; no provider, scoring or saved-research changes |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -430,6 +431,21 @@ storage failures and external refresh. Opening Holdings made zero API requests; 
 and outbound-payload assertions passed. Independent review's test gaps were corrected and the
 full matrix rerun. Screenshots and report: `.tmp/research-holdings/after/`. This is local proof;
 provider health and deployment are not established. Later portfolio editing remains out of scope.
+
+### E19 — Shared V8 metric glossary (G3)
+
+**Scope:** one short definition for RSI, P/E, FCF yield, put/call and NAAIM, reused across
+V8 Market and Research labels, peers, filing history and chart controls. Tap or keyboard focus
+opens an accessible popover. Learn more opens the existing lesson in another tab; Market's
+View indicator action preserves the inspector. Native select options have an adjacent definition
+control. Narrative mentions and metrics without one of these lessons remain outside this slice.
+
+**Verification (2026-10-25):** lint, typecheck, harness, production build and independent review
+passed. The eight-case 1280/768/375/320px light/dark browser matrix passed 1,525 assertions with
+zero browser errors or API writes, including dismissal, containment and unsaved-note preservation.
+Evidence is in `.tmp/learn-metric-links/after/`. The Learn QA navigation waits for its streamed
+lesson to settle before shell/focus assertions, following the earlier Linux CI loading-boundary
+failure. This is local fixture proof; deployment and live-provider behavior are not established.
 
 ### E3 — Today promotion review
 
