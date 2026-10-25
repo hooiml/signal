@@ -195,11 +195,131 @@ Ideas that give Signal a face of its own without decoration. Each is optional an
 - **Score history as a tape.** On 1M, label the chart's turning points with the input that moved
   most that day ("VIX +3.4 pts"), taken from stored snapshots, so the line tells its own story.
 
+## More enhancements · New (added 2026-10-25)
+
+Every item in this section is **new** since the first version of this document. They come from the
+same review and are not all interactions: some are layout, trust and platform work that make the
+interactions above easier to use. IDs continue the existing letters (M, R) or start new ones
+(L layout, T trust, W workflow, Q quality, P needs review).
+
+### Layout and ease of use
+
+#### L1 · Market on phones, folded · New
+
+- What: on phones keep the reading, "since your last visit" and the evidence open; fold Market
+  context, Historical outcomes, Exposure map and What changed into closed sections, each with a
+  one-line summary ("S&P 500 −0.52%, 4 of 4 indexes down").
+- Why: Market measures about 4,700px at 390px wide, roughly five and a half phone screens.
+- Check: every folded section's summary carries its key figure; nothing is hidden without one.
+
+#### L2 · Empty states as one line · New
+
+- What: "No saved US stocks to map", "Insufficient evidence" and similar cards shrink to one sentence
+  and the action that fills them, keeping their heading so the section stays findable.
+- Why: a full bordered card that says "nothing here" is the largest thing on some screens.
+
+#### L3 · Stock page tabs on phones · New
+
+- What: show that the six-tab bar scrolls, or group Peers and Filings under "More" below 600px.
+- Why: "Filings" is cut at the screen edge with no hint; the edge fade was removed in `b7cf762`, so
+  the fix must not bring a fade back.
+
+#### L4 · Watchlist sorting and review of the populated list · New
+
+- What: sort the Watchlist by review due, closest to the 52-week high, or biggest move; figures
+  right-aligned in tabular digits. First review the populated Watchlist screen, which has not been
+  checked with saved stocks.
+- Why: the Watchlist is the home for returning users and currently has one fixed order.
+
+#### L5 · One "last updated" line per screen · New
+
+- What: a single freshness line at the top ("Provider data retrieved 04:14 UTC"); a card shows its
+  own time only when it differs.
+- Why: repeated retrieval stamps on every card add reading without adding information.
+- Guardrail: product rule 7 still holds; every timestamp stays available, only duplicates go.
+
+### Trust and clarity
+
+#### T1 · Source health · New
+
+- What: a small panel listing each provider used on the screen with its last success or failure,
+  from responses the page already received.
+- Why: when something is missing, users can see whether a source is down instead of guessing.
+
+#### T2 · Data-gap explainer · New
+
+- What: "Insufficient evidence" names exactly what is missing ("SEC fundamentals not returned for
+  this listing") and what would fill it.
+- Why: a generic gap message reads like a bug; a specific one reads like an honest limit.
+
+#### T3 · Malaysia coverage note · New
+
+- What: on MY stocks, one line listing the panels that are US-only and why.
+- Why: missing SEC-based panels then read as expected, not broken. Related to E7.
+
+### Research workflow
+
+#### W1 · Review queue · New
+
+- What: stocks with a review due this week as a short inbox, oldest first, one tap to start each.
+- Why: Calendar counts overdue reviews; this makes clearing them a single place. Pairs with R2.
+
+#### W2 · Side-by-side compare · New
+
+- What: two saved stocks on the same panels (price context, margins, valuation multiples).
+- Guardrail: same currency only, or each side in its own currency with no combined figures (rule 6).
+
+#### W3 · Things to watch on a saved stock · New
+
+- What: pin up to three measures to a saved stock ("operating margin above 30%") and see each one's
+  current value against the user's own line.
+- Guardrail: display only; it never alerts, scores or edits the thesis on its own (rule 3).
+
+### Market
+
+#### M6 · Malaysia and US side by side · New
+
+- What: both markets' readings on one screen, each with its own coverage and date.
+- Why: users who follow both switch markets back and forth today.
+
+#### M7 · Indicator detail pages · New
+
+- What: each indicator's own history, cadence, source and weight in one place, linked from its
+  evidence row. Natural home for M5's freshness clock.
+
+### Quality and platform
+
+#### Q1 · Accessibility pass · New
+
+- What: chart descriptions for screen readers, focus order across tabs and disclosures, and 200%
+  zoom at 1280px on Market and the stock page.
+
+#### Q2 · First-screen speed · New
+
+- What: measure time to the first useful screen on Market and a stock page (`qa:performance`), then
+  let slow panels (outcomes, peers, filings) arrive after the reading.
+
+#### Q3 · Offline reading · New
+
+- What: when offline, show the last loaded reading with its date, clearly labelled as cached.
+- Guardrail: cached data never looks current; extends the existing PWA reconnect state.
+
+### Needs an architecture or privacy review first (product rule 9)
+
+#### P1 · Due-review reminders · New
+
+- What: an opt-in browser reminder when a saved review comes due. Background delivery needs review.
+
+#### P2 · Export · New
+
+- What: export a stock's reading or the user's own review notes as Markdown or PDF.
+- Guardrail: authored notes stay private; nothing leaves the device without an explicit action.
+
 ## Suggested order
 
 | Order | Idea | Value | Effort | Lane | First check |
 | ---: | --- | --- | --- | --- | --- |
-| 1 | R1 Measure on the price chart | High, daily use | Small | Standard | Phone tap-tap path and keyboard Shift+arrows |
+| 1 | R1 Measure on the price chart (done, E14) | High, daily use | Small | Standard | Phone tap-tap path and keyboard Shift+arrows |
 | 2 | R3 Earnings ticket | High, time-sensitive | Small | UI-LIGHT | Calendar endpoint returns one symbol cheaply |
 | 3 | M1 Score anatomy | High, explains the product | Medium | Standard | Recomputed score matches the server's formula |
 | 4 | M5 Freshness clock | Medium, reduces worry | Small | UI-LIGHT | Agree expected cadences per indicator |
@@ -209,6 +329,9 @@ Ideas that give Signal a face of its own without decoration. Each is optional an
 | 8 | M4 Similar days as dots | Medium | Medium–Large | Standard | Per-period rows exist in the payload |
 | 9 | M3 Two readings | Teaching value | Medium | Standard | Extra request only on toggle |
 | 10 | R4 Peers overlay, R5 Plan ruler | Niche | Medium | Standard | Currency and fixture coverage |
+
+The new items are not ranked against these yet. Quick wins among them: L1 Market on phones, L2
+empty states and T2 data-gap explainer (small, no new data); W1 review queue fits next to R2.
 
 ## Not doing
 
