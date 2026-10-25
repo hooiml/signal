@@ -77,6 +77,8 @@ try {
   await page.getByRole('region',{name:'Financial assessment status',exact:true}).getByText(compactStatus,{exact:true}).waitFor();
   await page.getByRole('region',{name:'Current research assessment',exact:true}).locator('summary').filter({hasText:'Assessment evidence and limitations'}).click();
  }
+ // Phones fold the market investigation behind a toggle; open it before reading its contents.
+ async function openInvestigation(){const toggle=page.getByTestId('market-mobile-investigation').locator('h2 > button');if(await toggle.isVisible()&&await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();}
  async function noOverflow(){assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Overflow ${width}`);}
  await page.goto(`${base}/research-v8?ticker=AAPL&market=US`);
  await heading('Growth and positive earnings reported');assert.equal(await page.getByTestId('research-price').innerText(),'USD 200.00');assert.equal(posts.length,0);
@@ -232,7 +234,7 @@ try {
  assert.match(await myCoverage.innerText(),/0 eligible dated articles.*0 dated within 24h.*aggregate sentiment observation unavailable/);
  await myCoverage.screenshot({path:`${out}/market-my-news-freshness-${width}.png`});
  const eligibilityNotice=page.getByText(/MY news eligibility version: previous unknown, current 1/);
- await page.locator('summary',{hasText:'Complete accounting'}).click();await eligibilityNotice.waitFor();await eligibilityNotice.scrollIntoViewIfNeeded();await noOverflow();
+ await openInvestigation();await page.locator('summary',{hasText:'Complete accounting'}).click();await eligibilityNotice.waitFor();await eligibilityNotice.scrollIntoViewIfNeeded();await noOverflow();
  if(width<=600){
   const driver=page.getByRole('region',{name:'Driver changes',exact:true}).getByRole('button').first();
   const labelBox=await driver.locator(':scope > span').first().boundingBox();const amountBox=await driver.locator('b').boundingBox();
