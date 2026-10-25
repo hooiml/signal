@@ -195,9 +195,9 @@ Ideas that give Signal a face of its own without decoration. Each is optional an
 - **Score history as a tape.** On 1M, label the chart's turning points with the input that moved
   most that day ("VIX +3.4 pts"), taken from stored snapshots, so the line tells its own story.
 
-## More enhancements · New (added 2026-10-25)
+## More enhancements (added 2026-10-25)
 
-Every item in this section is **new** since the first version of this document. They come from the
+These items were added after the first version of this document. They come from the
 same review and are not all interactions: some are layout, trust and platform work that make the
 interactions above easier to use. IDs continue the existing letters (M, R) or start new ones
 (L layout, T trust, W workflow, Q quality, P needs review).
@@ -216,7 +216,7 @@ Desktop content stays visible; keyboard controls and investigation links reveal 
 - Why: Market measures about 4,700px at 390px wide, roughly five and a half phone screens.
 - Check: every folded section's summary carries its key figure; nothing is hidden without one.
 
-#### L2 · Empty states as one line · New
+#### L2 · Empty states as one line
 
 - What: "No saved US stocks to map", "Insufficient evidence" and similar cards shrink to one sentence
   and the action that fills them, keeping their heading so the section stays findable.
@@ -232,14 +232,14 @@ restoring an edge fade. Keyboard selection, direct links and resizing keep the a
 - Why: "Filings" is cut at the screen edge with no hint; the edge fade was removed in `b7cf762`, so
   the fix must not bring a fade back.
 
-#### L4 · Watchlist sorting and review of the populated list · New
+#### L4 · Watchlist sorting and review of the populated list
 
 - What: sort the Watchlist by review due, closest to the 52-week high, or biggest move; figures
   right-aligned in tabular digits. First review the populated Watchlist screen, which has not been
   checked with saved stocks.
 - Why: the Watchlist is the home for returning users and currently has one fixed order.
 
-#### L5 · One "last updated" line per screen · New
+#### L5 · One "last updated" line per screen
 
 - What: a single freshness line at the top ("Provider data retrieved 04:14 UTC"); a card shows its
   own time only when it differs.
@@ -248,36 +248,36 @@ restoring an edge fade. Keyboard selection, direct links and resizing keep the a
 
 ### Trust and clarity
 
-#### T1 · Source health · New
+#### T1 · Source health
 
 - What: a small panel listing each provider used on the screen with its last success or failure,
   from responses the page already received.
 - Why: when something is missing, users can see whether a source is down instead of guessing.
 
-#### T2 · Data-gap explainer · New
+#### T2 · Data-gap explainer
 
 - What: "Insufficient evidence" names exactly what is missing ("SEC fundamentals not returned for
   this listing") and what would fill it.
 - Why: a generic gap message reads like a bug; a specific one reads like an honest limit.
 
-#### T3 · Malaysia coverage note · New
+#### T3 · Malaysia coverage note
 
 - What: on MY stocks, one line listing the panels that are US-only and why.
 - Why: missing SEC-based panels then read as expected, not broken. Related to E7.
 
 ### Research workflow
 
-#### W1 · Review queue · New
+#### W1 · Review queue
 
 - What: stocks with a review due this week as a short inbox, oldest first, one tap to start each.
 - Why: Calendar counts overdue reviews; this makes clearing them a single place. Pairs with R2.
 
-#### W2 · Side-by-side compare · New
+#### W2 · Side-by-side compare
 
 - What: two saved stocks on the same panels (price context, margins, valuation multiples).
 - Guardrail: same currency only, or each side in its own currency with no combined figures (rule 6).
 
-#### W3 · Things to watch on a saved stock · New
+#### W3 · Things to watch on a saved stock
 
 - What: pin up to three measures to a saved stock ("operating margin above 30%") and see each one's
   current value against the user's own line.
@@ -285,43 +285,102 @@ restoring an edge fade. Keyboard selection, direct links and resizing keep the a
 
 ### Market
 
-#### M6 · Malaysia and US side by side · New
+#### M6 · Malaysia and US side by side
 
 - What: both markets' readings on one screen, each with its own coverage and date.
 - Why: users who follow both switch markets back and forth today.
 
-#### M7 · Indicator detail pages · New
+#### M7 · Indicator detail pages
 
 - What: each indicator's own history, cadence, source and weight in one place, linked from its
   evidence row. Natural home for M5's freshness clock.
 
 ### Quality and platform
 
-#### Q1 · Accessibility pass · New
+#### Q1 · Accessibility pass
 
 - What: chart descriptions for screen readers, focus order across tabs and disclosures, and 200%
   zoom at 1280px on Market and the stock page.
 
-#### Q2 · First-screen speed · New
+#### Q2 · First-screen speed
 
 - What: measure time to the first useful screen on Market and a stock page (`qa:performance`), then
   let slow panels (outcomes, peers, filings) arrive after the reading.
 
-#### Q3 · Offline reading · New
+#### Q3 · Offline reading
 
 - What: when offline, show the last loaded reading with its date, clearly labelled as cached.
 - Guardrail: cached data never looks current; extends the existing PWA reconnect state.
 
 ### Needs an architecture or privacy review first (product rule 9)
 
-#### P1 · Due-review reminders · New
+#### P1 · Due-review reminders
 
 - What: an opt-in browser reminder when a saved review comes due. Background delivery needs review.
 
-#### P2 · Export · New
+#### P2 · Export
 
 - What: export a stock's reading or the user's own review notes as Markdown or PDF.
 - Guardrail: authored notes stay private; nothing leaves the device without an explicit action.
+
+## Project-wide additions · New (added 2026-10-25, after syncing main)
+
+Items marked **New** are added in this pass. They look past Market and Research at the rest of
+the project: V8 has no portfolio surface, no link into Learn, and older V2–V7 routes are still live
+next to it. IDs start with G (global).
+
+#### G1 · Portfolio in V8 · New
+
+- What: a V8 home for the portfolio work that today lives in the V6/V7 cockpit (holdings, import,
+  reconciliation, covered attribution, what-if), starting with a read-only holdings view.
+- Why: V8 is the default (`/` redirects to `/main-v8`), so portfolio users must leave it to reach
+  their own records.
+- Guardrails: rules 4–6 (authored holdings stay out of analytics, storage kinds stay distinct, no
+  cross-currency totals without FX evidence). Needs its own design doc before any code.
+
+#### G2 · Learn from where you read · New
+
+- What: metric labels in V8 (RSI, put/call ratio, NAAIM, P/E, free-cash-flow yield) link to the
+  matching Learn concept lab; Learn takes the V8 tokens and header so it feels like the same product.
+- Why: Learn exists but nothing in V8 points to it; definitions arrive at the moment of confusion.
+
+#### G3 · One glossary, one popover · New
+
+- What: a short definition for each metric in one shared glossary, shown in a small popover on tap
+  or focus wherever the label appears, with "Learn more" to G2's lab.
+- Why: definitions are currently spread across per-panel notes and "How to read" disclosures.
+
+#### G4 · V8 settings in one place · New
+
+- What: one settings view for theme, default market and mode, social-in-score default, guest data
+  (export or clear this device's data) and owner unlock.
+- Why: these live across the header, the Workspace menu and per-page toggles today.
+- Guardrail: clearing guest data is a confirmed, recoverable-where-possible action (rule 8).
+
+#### G5 · First visit to V8 · New
+
+- What: a three-step, skippable orientation on first visit: read the Market score, open a stock,
+  save it to the Watchlist. Shown once per device, restartable from G4.
+- Why: `/start` predates V8; new users land on a dense screen with no path through it.
+
+#### G6 · Retire legacy routes · New
+
+- What: redirect `main-v2`…`main-v7`, `research-v2`…`research-v7` and `backup/*` to their V8
+  equivalents once V8 covers their jobs (G1 is the main gap), keeping deep-link parameters.
+- Why: fewer routes to keep working, fewer QA suites, a smaller build.
+- Check: list which V6/V7-only features each route still serves before redirecting it.
+
+#### G7 · Visual checks in CI · New
+
+- What: keep baseline screenshots from the existing browser suites and flag pixel differences in the
+  `Signal validation` workflow; optionally run the taste inspector in app mode as a warning step.
+- Why: E12–E16 were verified by eye; a baseline catches the next regression without a manual pass.
+
+#### G8 · A shared V8 component kit · New
+
+- What: pull the repeated V8 pieces (card, disclosure with summary line, segmented control, empty
+  state, freshness line) into one set of components documented in `DESIGN.md`.
+- Why: Market and Research each carry their own copies; L2 and L5 would otherwise be done twice.
 
 ## Suggested order
 
@@ -338,8 +397,10 @@ restoring an edge fade. Keyboard selection, direct links and resizing keep the a
 | 9 | M3 Two readings | Teaching value | Medium | Standard | Extra request only on toggle |
 | 10 | R4 Peers overlay, R5 Plan ruler | Niche | Medium | Standard | Currency and fixture coverage |
 
-The new items are not ranked against these yet. Quick wins among them: L1 Market on phones, L2
-empty states and T2 data-gap explainer (small, no new data); W1 review queue fits next to R2.
+The later items are not ranked against these yet. L1 and L3 are implemented (E16, E15). Quick
+wins remaining: L2 empty states and T2 data-gap explainer (small, no new data); W1 review queue fits
+next to R2. Among the project-wide items, G2 and G3 are small and help every screen; G1 is the
+largest gap and needs a design doc first.
 
 ## Not doing
 
