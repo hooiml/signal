@@ -98,7 +98,11 @@ const main = async () => {
                 addCheck(scenario, 'v0.3 mastery persists independently', (await page.getByTestId('investment-mastery').innerText()).includes('1/14'));
                 await page.getByRole('button', { name: /^Journal/ }).first().click(); await page.getByTestId('journal-original').waitFor(); addCheck(scenario, 'immutable journal persists after reload', (await page.getByTestId('journal-original').innerText()).includes('Business evidence is explicit'));
                 await page.getByRole('button', { name: 'Business foundations v0.2' }).click(); addCheck(scenario, 'v0.2 remains reachable', await page.getByTestId('learn-v0-2').count() === 1); await page.getByRole('button', { name: 'Valuation foundations v0.1' }).click(); addCheck(scenario, 'v0.1 remains reachable', await page.getByTestId('learn-v0-1').count() === 1); await page.getByRole('button', { name: 'Investment analysis v0.3' }).click();
-                const themeButton = page.locator('button[aria-label^="Switch to"]'); const shell = page.getByTestId('learn-shell'); const beforeTheme = await shell.getAttribute('data-theme'); await themeButton.click(); addCheck(scenario, 'theme toggle remains functional', await shell.getAttribute('data-theme') !== beforeTheme);
+                const beforeTheme = await page.locator('html').getAttribute('data-v8-theme');
+                const nextTheme = beforeTheme === 'dark' ? 'light' : 'dark';
+                await page.getByRole('radio', { name: nextTheme === 'dark' ? 'Dark' : 'Light', exact: true }).check();
+                await page.waitForFunction(expected => document.documentElement.dataset.v8Theme === expected, nextTheme);
+                addCheck(scenario, 'theme toggle remains functional', await page.locator('html').getAttribute('data-v8-theme') !== beforeTheme);
                 overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth); addCheck(scenario, 'completed flow has no horizontal overflow', overflow <= 1, `${overflow}px`);
                 if (captureScreenshots) { const file = path.join(evidenceDir, `learn-v0.3-${viewport.name}-dark.png`); await page.screenshot({ path: file, fullPage: true }); scenario.screenshots.push(file); }
                 addCheck(scenario, 'no browser errors', scenario.issues.length === 0, JSON.stringify(scenario.issues)); scenario.status = 'passed';

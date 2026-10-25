@@ -9,6 +9,7 @@ import { formatRawValue, getIndicatorCadence } from '@/components/v2/cockpit-uti
 import type { IndicatorData, MarketSignal } from '@/lib/types/signal-v2';
 import styles from './market-v8.module.css';
 import { missingInputExplanation, newsEvidenceText } from './MarketV8Coverage';
+import { MetricLearnLink } from './MetricLearnLink';
 import { fullDate, formatMarketDates } from './MarketV8ConnectedData';
 
 type Point = { date: string; value: number };
@@ -227,7 +228,7 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, his
     if (!indicator) {
         return <>
             <div className={styles.railHeading}><span className={styles.eyebrow}>Indicator detail</span><button onClick={onClose} aria-label="Close indicator detail" className={styles.closeButton}>×</button></div>
-            <h2>{registry?.displayName ?? indicatorKey}</h2>
+            <h2>{indicatorKey === 'put_call' || indicatorKey === 'naaim' ? <MetricLearnLink metric={indicatorKey === 'put_call' ? 'put-call' : 'naaim'}>{registry?.displayName ?? indicatorKey}</MetricLearnLink> : registry?.displayName ?? indicatorKey}</h2>
             <Unavailable title={(indicatorKey === 'social' || indicatorKey === 'news') && !sourceEnabled ? 'Input switched off' : 'Current value unavailable'} detail={missingInputExplanation(indicatorKey, sourceEnabled, sourceAvailability)} />
             <dl className={styles.keyValues}><div><dt>Configured model weight</dt><dd>{finiteNumber(configuredWeight) && configuredWeight > 0 ? `${(configuredWeight * 100).toFixed(1)}% · held as neutral reserve` : 'No configured scoring weight'}</dd></div></dl>
             {indicatorKey === 'news' && newsEvidence && <p className={styles.muted}>{newsEvidenceText(newsEvidence)}</p>}
@@ -239,7 +240,7 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, his
 
     return <>
         <div className={styles.railHeading}><span className={styles.eyebrow}>Indicator detail</span><button onClick={onClose} aria-label="Close indicator detail" className={styles.closeButton}>×</button></div>
-        <h2>{indicator?.display_name ?? driver?.name ?? registry?.displayName ?? indicatorKey}</h2>
+        <h2>{indicatorKey === 'put_call' || indicatorKey === 'naaim' ? <MetricLearnLink metric={indicatorKey === 'put_call' ? 'put-call' : 'naaim'}>{indicator?.display_name ?? driver?.name ?? registry?.displayName ?? indicatorKey}</MetricLearnLink> : indicator?.display_name ?? driver?.name ?? registry?.displayName ?? indicatorKey}</h2>
         <div className={styles.tagLine}><span className={styles.tag}>{status}</span><span className={styles.muted}>{registry?.category ?? 'Unclassified'}</span></div>
         <div className={styles.rawValue}>{rawValue(indicator, driver, signal.metadata.market)} <small>{indicator ? '' : 'raw value'}</small></div>
         <dl className={`${styles.keyValues} ${styles.observationTimes}`}>

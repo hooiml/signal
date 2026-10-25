@@ -1,7 +1,7 @@
 /* V8 design tokens: one colour per job. Market and Research V8 surfaces read only these.
    They are also set on <html> while a V8 page is mounted so the page scrollbar and
    app-level overlays (such as the install prompt) can use them. */
-.app, :global(html):has(.app) {
+.app, .tokens, :global(html):has(.app, .tokens) {
     /* Neutrals */
     --canvas: #f8fafc; --surface: #ffffff; --surface-subtle: #f8fafc; --surface-muted: #f1f5f9;
     --line: #e2e8f0; --line-strong: #cbd5e1;
@@ -26,7 +26,7 @@
     --text-lg: 20px; --text-xl: 24px; --text-2xl: 32px; --text-display: 48px;
 }
 /* Replace the dark global scrollbar with a light one on V8 pages. */
-:global(html):has(.app) { scrollbar-color: var(--line-strong) var(--canvas); background: var(--canvas); }
+:global(html):has(.app, .tokens) { scrollbar-color: var(--line-strong) var(--canvas); background: var(--canvas); }
 .app {
     min-height: 100vh; background: var(--canvas); color: var(--ink); font-family: var(--font-sans);
     font-size: var(--text-base); line-height: 1.55; color-scheme: light; isolation: isolate;
@@ -547,7 +547,7 @@
 /* Dark theme (E8): neutral slate surfaces; teal stays for actions, selection and focus; green, rose
    and amber stay for data direction and evidence state. Set on <html> by the boot script or the
    theme control, from an explicit choice or the system setting. */
-:global(html[data-v8-theme=dark]) .app, :global(html[data-v8-theme=dark]):has(.app) {
+:global(html[data-v8-theme=dark]) .app, :global(html[data-v8-theme=dark]) .tokens, :global(html[data-v8-theme=dark]):has(.app, .tokens) {
     --canvas: #0b1118; --surface: #111a24; --surface-subtle: #0e161f; --surface-muted: #1a2533;
     --line: #253345; --line-strong: #364a60;
     --ink: #e6edf5; --muted: #a3b3c6; --subtle: #8496ab;

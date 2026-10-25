@@ -32,7 +32,7 @@ const readChoice = (): V8ThemeChoice => {
     return lastChoice;
 };
 const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)');
-const change = (next: V8ThemeChoice) => {
+export const setV8ThemeChoice = (next: V8ThemeChoice) => {
     lastChoice = next;
     sessionOverride = next;
     try {
@@ -59,7 +59,7 @@ export function V8ThemeControl() {
     // Native radios give arrow-key movement between the three choices.
     return <div className={styles.themeControl} role="radiogroup" aria-label="Colour theme">
         {themeOptions.map(option => <label key={option.value} title={option.title}>
-            <input type="radio" name={group} value={option.value} checked={choice === option.value} onChange={() => change(option.value)} />
+            <input type="radio" name={group} value={option.value} checked={choice === option.value} onChange={() => setV8ThemeChoice(option.value)} />
             <svg aria-hidden="true" viewBox="0 0 24 24">{option.icon}</svg>
             <span>{option.label}</span>
         </label>)}

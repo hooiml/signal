@@ -4,6 +4,16 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For G2 metric-to-Learn handoffs, run `node scripts/learn-metric-links-qa.mjs` against one owned
+production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). The controlled API fixtures
+exercise five metric destinations, new-tab isolation, allowlisted concept URLs, lesson navigation,
+reload/history, existing course progress, and the V8 theme at 1280/768/375/320px. `--before`
+captures the earlier screens; `--scenario=boundary` runs the focused desktop/light flow.
+Screenshots and console/request evidence live in `.tmp/learn-metric-links/`. This verifies local
+UI behavior, not provider health or deployment. Saved research and scoring remain untouched.
+`npm run qa:learn-metric-links` runs the same suite in CI; diagnostics are uploaded. The existing
+four Learn QA suites use the V8 theme radios and continue to cover each course's progress.
+
 For L1 Market phone disclosures, run `node scripts/market-mobile-sections-qa.mjs` against one
 owned production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). The US/MY light/dark
 matrix covers 1280/768/375/320px, summaries, keyboard toggles, investigation handoffs, resize and

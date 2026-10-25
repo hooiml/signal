@@ -338,11 +338,14 @@ next to it. IDs start with G (global).
 - Guardrails: rules 4–6 (authored holdings stay out of analytics, storage kinds stay distinct, no
   cross-currency totals without FX evidence). Needs its own design doc before any code.
 
-#### G2 · Learn from where you read · New
+#### G2 · Learn from where you read · Implemented (E17)
 
 - What: metric labels in V8 (RSI, put/call ratio, NAAIM, P/E, free-cash-flow yield) link to the
   matching Learn concept lab; Learn takes the V8 tokens and header so it feels like the same product.
 - Why: Learn exists but nothing in V8 points to it; definitions arrive at the moment of confusion.
+- Delivered: new-tab links from Research RSI/current valuation and Market put/call/NAAIM details,
+  five allowlisted lesson URLs, illustrative market exercises, and the V8 Learn header/theme.
+  Existing courses, progress and command-palette actions remain available. Verification is in E17.
 
 #### G3 · One glossary, one popover · New
 

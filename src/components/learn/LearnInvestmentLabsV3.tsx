@@ -12,14 +12,14 @@ import {
 } from '@/lib/learn/v0-3';
 
 export type InvestmentLabV3 = 'valuation' | 'macro' | 'portfolio';
-type Props = { readonly lab: InvestmentLabV3; readonly onComplete: (id: string) => void };
+type Props = { readonly lab: InvestmentLabV3; readonly initialMetric?: ValuationMetricIdV03; readonly onComplete: (id: string) => void };
 
 const numberInput = 'min-h-10 w-full rounded-[6px] border border-[var(--v7-border)] bg-[var(--v7-surface)] px-3 font-mono text-sm text-[var(--v7-text)]';
 const fieldLabel = 'grid gap-1.5 text-xs font-semibold text-[var(--v7-text-secondary)]';
 
-const ValuationLab = ({ onComplete }: Pick<Props, 'onComplete'>) => {
+const ValuationLab = ({ onComplete, initialMetric = 'ev-sales' }: Pick<Props, 'onComplete' | 'initialMetric'>) => {
     const [businessType, setBusinessType] = useState('software');
-    const [selectedMetric, setSelectedMetric] = useState<ValuationMetricIdV03>('ev-sales');
+    const [selectedMetric, setSelectedMetric] = useState<ValuationMetricIdV03>(initialMetric);
     const [reason, setReason] = useState('');
     const [inputs, setInputs] = useState({ marketCap: 120, enterpriseValue: 125, revenue: 20, ebitda: 5, freeCashFlow: 4, bookValue: 12 });
     const [bridge, setBridge] = useState({ startingEps: 5, endingEps: 7, startingMultiple: 30, endingMultiple: 20, dividends: 0 });
@@ -85,4 +85,4 @@ const PortfolioLab = ({ onComplete }: Pick<Props, 'onComplete'>) => {
 
 const Exposure = ({ label, weight, holdingCount }: { label: string; weight: number; holdingCount: number }) => <div className="mt-3"><div className="flex items-center justify-between gap-3 text-xs"><span>{label}</span><span className="font-mono">{weight}% · {holdingCount} lines</span></div><div className="mt-1 h-2 overflow-hidden rounded bg-[var(--v7-border)]"><div className="h-full bg-[var(--v7-accent)]" style={{ width: `${Math.min(weight, 100)}%` }} /></div></div>;
 
-export const LearnInvestmentLabsV3 = ({ lab, onComplete }: Props) => <div className="border-y border-[var(--v7-border)] py-5">{lab === 'valuation' ? <ValuationLab onComplete={onComplete} /> : lab === 'macro' ? <MacroLab onComplete={onComplete} /> : <PortfolioLab onComplete={onComplete} />}</div>;
+export const LearnInvestmentLabsV3 = ({ lab, initialMetric, onComplete }: Props) => <div className="border-y border-[var(--v7-border)] py-5">{lab === 'valuation' ? <ValuationLab initialMetric={initialMetric} onComplete={onComplete} /> : lab === 'macro' ? <MacroLab onComplete={onComplete} /> : <PortfolioLab onComplete={onComplete} />}</div>;

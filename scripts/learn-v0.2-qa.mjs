@@ -166,11 +166,11 @@ const main = async () => {
                 addCheck(scenario, 'v0.1 remains reachable', await page.getByRole('button', { name: /0\.3 .*P\/E ratio/ }).count() > 0);
                 await page.getByRole('button', { name: 'Business foundations v0.2' }).click();
 
-                const themeButton = page.locator('button[aria-label^="Switch to"]');
-                const shell = page.getByTestId('learn-shell');
-                const beforeTheme = await shell.getAttribute('data-theme');
-                await themeButton.click();
-                addCheck(scenario, 'theme toggle remains functional', await shell.getAttribute('data-theme') !== beforeTheme);
+                const beforeTheme = await page.locator('html').getAttribute('data-v8-theme');
+                const nextTheme = beforeTheme === 'dark' ? 'light' : 'dark';
+                await page.getByRole('radio', { name: nextTheme === 'dark' ? 'Dark' : 'Light', exact: true }).check();
+                await page.waitForFunction(expected => document.documentElement.dataset.v8Theme === expected, nextTheme);
+                addCheck(scenario, 'theme toggle remains functional', await page.locator('html').getAttribute('data-v8-theme') !== beforeTheme);
                 overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
                 addCheck(scenario, 'completed flow has no horizontal overflow', overflow <= 1, `${overflow}px`);
                 if (captureScreenshots) { const file = path.join(evidenceDir, `learn-v0.2-${viewport.name}-dark.png`); await page.screenshot({ path: file, fullPage: true }); scenario.screenshots.push(file); }

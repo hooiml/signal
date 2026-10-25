@@ -13,6 +13,7 @@ import {
     type LearnModuleIdV03,
     type LearnProgressV03,
     type LearnReflectionV03,
+    type ValuationMetricIdV03,
 } from '@/lib/learn/v0-3';
 
 type Workspace = 'concepts' | 'valuation' | 'macro' | 'research' | 'scenarios' | 'portfolio' | 'journal' | 'replay' | 'apply';
@@ -29,8 +30,8 @@ const workspaces: readonly [Workspace, string, string][] = [
     ['apply', 'Apply current', 'Complete analysis'],
 ];
 
-export const LearnInvestmentWorkspaceV3 = () => {
-    const [workspace, setWorkspace] = useState<Workspace>('concepts');
+export const LearnInvestmentWorkspaceV3 = ({ initialMetric }: { initialMetric?: ValuationMetricIdV03 }) => {
+    const [workspace, setWorkspace] = useState<Workspace>(initialMetric ? 'valuation' : 'concepts');
     const [moduleId, setModuleId] = useState<LearnModuleIdV03>('valuation-metrics');
     const [progressState, setProgressState] = useState<LearnProgressV03>(emptyLearnProgressV03);
     const [progressReady, setProgressReady] = useState(false);
@@ -52,7 +53,7 @@ export const LearnInvestmentWorkspaceV3 = () => {
         <nav aria-label="Investment learning workspace" className="research-scrollbar mt-5 flex gap-2 overflow-x-auto pb-1">{workspaces.map(([id, label, note]) => <button key={id} type="button" aria-pressed={workspace === id} onClick={() => setWorkspace(id)} className={`min-h-11 min-w-[170px] shrink-0 rounded-[8px] border px-4 text-left ${workspace === id ? 'border-[var(--v7-accent)] bg-[var(--v7-accent-quiet)]' : 'border-[var(--v7-border)]'}`}><span className="block text-sm font-bold text-[var(--v7-text)]">{label}</span><span className="mt-0.5 block text-[11px] text-[var(--v7-text-muted)]">{note}</span></button>)}</nav>
         <div className="mt-5">
             {workspace === 'concepts' ? <div className="grid gap-4 lg:grid-cols-[250px_minmax(0,1fr)]"><aside className="min-w-0 rounded-[8px] border border-[var(--v7-border)] bg-[var(--v7-surface-quiet)] p-3 lg:self-start"><p className="px-2 pb-2 text-[11px] font-bold uppercase text-[var(--v7-text-muted)]">v0.3 path</p><div className="research-scrollbar flex gap-2 overflow-x-auto lg:grid lg:max-h-[680px] lg:overflow-y-auto" aria-label="Investment analysis modules">{learnModulesV03.map((module) => { const selected = module.id === moduleId; const done = completed.includes(module.id); return <button key={module.id} type="button" aria-pressed={selected} onClick={() => setModuleId(module.id)} className={`min-h-11 min-w-[190px] rounded-[8px] border px-3 py-2 text-left lg:min-w-0 ${selected ? 'border-[var(--v7-accent)] bg-[var(--v7-accent-quiet)]' : 'border-transparent hover:border-[var(--v7-border)]'}`}><span className="flex items-center justify-between gap-2"><span className="text-xs font-semibold text-[var(--v7-text)]">{module.eyebrow} - {module.title}</span><span aria-label={done ? 'Completed' : 'Not completed'} className={`h-2.5 w-2.5 shrink-0 rounded-full ${done ? 'bg-[var(--v7-accent)]' : 'border border-[var(--v7-border-strong)]'}`} /></span></button>; })}</div></aside><LearnInvestmentConceptsV3 moduleId={moduleId} completed={completed.includes(moduleId)} onComplete={toggleModule} /></div> : null}
-            {['valuation', 'macro', 'portfolio'].includes(workspace) ? <LearnInvestmentLabsV3 lab={workspace as InvestmentLabV3} onComplete={completeWorkspace} /> : null}
+            {['valuation', 'macro', 'portfolio'].includes(workspace) ? <LearnInvestmentLabsV3 lab={workspace as InvestmentLabV3} initialMetric={initialMetric} onComplete={completeWorkspace} /> : null}
             <div className={['research', 'scenarios', 'journal'].includes(workspace) ? '' : 'hidden'}><LearnInvestmentResearchV3 view={['research', 'scenarios', 'journal'].includes(workspace) ? workspace as InvestmentResearchViewV3 : 'research'} onComplete={completeWorkspace} /></div>
             {workspace === 'replay' ? <LearnInvestmentReplayV3 completedCaseIds={completedCaseIds} onReflectionSave={saveReflection} /> : null}
             {workspace === 'apply' ? <LearnInvestmentApplyV3 completed={applyCompleted} onComplete={() => completeWorkspace('apply')} /> : null}

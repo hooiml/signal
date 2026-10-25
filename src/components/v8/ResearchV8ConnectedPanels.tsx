@@ -8,6 +8,8 @@ import { financialPeriodLabel, formatResearchTimestamp, netCashCurrency, researc
 import { cashDebtDisplay, compactFinancialAmount } from '@/lib/research/financial-display';
 import { personalReviewDate, savedReviewMarkers } from '@/lib/research/review-lifecycle';
 import { ResearchDataAvailability } from './ResearchDataAvailability';
+import { MetricLearnLink } from './MetricLearnLink';
+import type { LearnMetric } from '@/lib/learn/metric-links';
 import { ResearchFinancialSummary, ResearchQualityAndCushion } from './ResearchFinancialSummary';
 import { HistoricalValuationV8, PositionPlanComparison } from './ResearchV8ValuationContext';
 type ChartStateProps = { chartRange: string; setChartRange: (range: string) => void; chartDate: string | null; setChartDate: (date: string | null) => void };
@@ -63,8 +65,8 @@ function planCurrencyNote(planCurrency: string | null | undefined, quoteCurrency
     return `Saved prices are recorded in ${plan}.`;
 }
 
-function Metrics({ rows }: { rows: readonly (readonly [string, string, string?])[] }) {
-    return <dl className={`${styles.valuationInputs} ${connected.metricList}`}>{rows.map(([label, value, context]) => <div key={label}><dt>{label}{context && <small className={connected.metricContext}>{context}</small>}</dt><dd>{value}</dd></div>)}</dl>;
+function Metrics({ rows }: { rows: readonly (readonly [string, string, string?, LearnMetric?])[] }) {
+    return <dl className={`${styles.valuationInputs} ${connected.metricList}`}>{rows.map(([label, value, context, metric]) => <div key={label}><dt>{metric ? <MetricLearnLink metric={metric}>{label}</MetricLearnLink> : label}{context && <small className={connected.metricContext}>{context}</small>}</dt><dd>{value}</dd></div>)}</dl>;
 }
 
 function SourceLink({ url, label }: { url: string | null; label: string }) {
@@ -136,9 +138,9 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
             {market === 'MY' && valuationShares != null && valuation?.shareDate && <p data-testid="reported-share-limitation">This is the latest reported ordinary-share count returned by the provider, not a live share register. Issuance, buybacks or splits since {date(valuation.shareDate)} may change it. Confirm the latest issuer or Bursa announcement before relying on these ratios.</p>}
             <h3>Ratios using annual financials</h3><p>{annualPeriod}{currency ? ` · ${currency}` : ' · Financial currency unavailable'}. These ratios combine that annual period with the returned price and shares above; they are not historical ratios at the financial year end.</p>
             <Metrics rows={[
-                ['Price / earnings', number(valuation?.priceEarnings, '×'), missingValuationContext('pe', snapshot, market)],
+                ['Price / earnings', number(valuation?.priceEarnings, '×'), missingValuationContext('pe', snapshot, market), 'pe'],
                 ['Price / sales', number(valuation?.priceSales, '×'), missingValuationContext('ps', snapshot, market)],
-                ['Free cash flow yield', number(valuation?.freeCashFlowYieldPercent, '%'), missingValuationContext('fcfYield', snapshot, market)],
+                ['Free cash flow yield', number(valuation?.freeCashFlowYieldPercent, '%'), missingValuationContext('fcfYield', snapshot, market), 'fcf-yield'],
             ]} />
             <details className={connected.evidence}><summary>What the ratios mean · exact inputs</summary>
                 {ratioMeanings.map(([label, meaning]) => <p key={label}><b>{label}:</b> {meaning}</p>)}

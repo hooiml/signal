@@ -47,6 +47,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E14 | Research price-chart measurement (R1) | Verified | Standard | Uses already-loaded daily closes; temporary exploration only |
 | E15 | Phone stock-page tab navigation (L3) | Verified | Standard | Existing tabs and URLs; no data or persistence change |
 | E16 | Fold secondary Market sections on phones (L1) | Verified | Standard | Existing evidence and requests; session-only disclosure state |
+| E17 | Learn from V8 metric labels (G2) | Verified | High | Existing lessons and progress; no provider or saved-research changes |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -340,6 +341,39 @@ GitNexus recovered its index; source/caller review confined the change to connec
 Visual comparison passed. Deployment, real provider health and assistive-technology testing are
 not established by these local fixtures.
 
+### E17 — Learn from V8 metric labels (G2)
+
+**Why:** Readers can understand a metric where they encounter it, using the existing Learn labs.
+
+**Scope:** RSI in Research price context, P/E and FCF yield in current valuation, and put/call
+and NAAIM in Market indicator details open the matching lesson in a new tab. Allowlisted concept
+URLs survive reloads and browser history; invalid or repeated values open the default course.
+Reuse the existing RSI, P/E and FCF labs, add illustrative put/call and NAAIM exercises, and give
+Learn the V8 header, typography and theme. Keep the existing courses and progress contracts.
+
+**Acceptance:** Five working metric handoffs, keyboard access, narrow-screen overflow checks,
+light/dark consistency, preserved reading tabs and progress, and passing repository checks.
+Use full applicable checks, build, consolidated browser proof and one independent review because
+the final diff spans the Learn route and shared V8 presentation.
+
+**Non-goals:** No glossary popover (G3), portfolio migration, new persistence, provider calls,
+scoring changes, or writes to saved research. Continue in PR #47 as requested.
+
+**Verification (2026-10-25):** Lint, typecheck, full harness and production build passed.
+The new `qa:learn-metric-links` suite passed 389 checks in eight light/dark scenarios at
+1280/768/375/320px, with 24 screenshots at 1280/768/375px. All five destinations, safe new tabs,
+history/reload, invalid/repeated queries, existing progress, command-palette theme control,
+zero put/call denominator, keyboard NAAIM exposure and overflow passed. The final fixture run
+recorded 192 API reads, zero mutations and no unexpected console/request errors. All four
+existing Learn browser suites also passed at desktop/tablet/phone widths (12 scenarios).
+
+Independent review found outdated theme selectors and omitted command-palette actions; both
+were fixed and rechecked. G2 runs in CI with diagnostics upload. Visual review passed against
+the prior Learn/Market/Research captures and V8 design contract; artifacts are under
+`.tmp/learn-metric-links/`. GitNexus change detection over-associated common names with unrelated
+flows; direct source/caller review and the full harness establish the relevant scope. These are
+local fixture results, not deployment, live-provider or assistive-technology verification.
+
 ### E3 — Today promotion review
 
 **Spec:** `NEXT_PRODUCT_ROADMAP.md` Task 0.
@@ -393,3 +427,4 @@ contract is recorded.
 | 2026-10-25 | E12 | — | Verified | Calendar week window and per-kind marks, Market outcome figures, column alignment and title size; Discover reopen fix. |
 | 2026-10-25 | E13 | — | Verified | Stock page chart top padding, keyboard-only date control, workspace line in the tool row. |
 | 2026-10-25 | E14 | — | Verified | R1 temporary chart measurement; drag/tap/keyboard, pointer isolation, reset and arithmetic regressions; local Standard checks pass. |
+| 2026-10-25 | E17 | — | Verified | Five V8 metric lessons, V8 Learn shell, existing course/theme compatibility; full checks, independent review and 20 browser scenarios pass. |
