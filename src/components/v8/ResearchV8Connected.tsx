@@ -30,6 +30,7 @@ import type { DiscoverView } from './discover-view';
 import { date, parseWatchlist, price, researchHref, researchTabs, retrievedAt, type ResearchTab } from './research-v8-connected-data';
 import base from './market-v8.module.css';
 import { V8Settings } from './V8Settings';
+import { FirstVisitCallout, V8FirstVisit, useFirstVisit } from './V8FirstVisit';
 import styles from './research-v8.module.css';
 import connected from './research-v8-connected.module.css';
 
@@ -361,6 +362,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
                 </div>
             </section>
             {!validSelection && workspaceStatus}
+            {(!validSelection || !readingMarket) && <V8FirstVisit surface="research" />}
             {workspace === 'guest' && unsavedRecords.length > 0 && <nav className={connected.guestNavigation} aria-label="Guest research navigation">
                 {unsavedRecords.length > 0 && <p role="status">{unsavedRecords.length} unsaved {unsavedRecords.length === 1 ? 'note' : 'notes'}. Save each note before leaving Research.{hiddenDraft && <> <button className={base.textButton} onClick={() => navigate(hiddenDraft.symbol, 'Overview', true, hiddenDraft.market)}>Return to {hiddenDraft.symbol} · {hiddenDraft.market} draft</button></>}</p>}
             </nav>}
@@ -411,6 +413,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
 function ConnectedCase({ workspace, guestUnavailable, guestIdentity, guestDraft, onDraftChange, symbol, market, record: savedRecord, savedRecords, onOpenSecurity, onSaved, onGuestRemoved, unlockHref, onAccessDenied, onIdentity, advanced, tab, setTab, chartRange, setChartRange }: { workspace: 'checking' | 'guest' | 'owner'; guestUnavailable: boolean; guestIdentity: string | null; guestDraft?: GuestNoteDraft; onDraftChange: (draft: GuestNoteDraft | null, submitted?: GuestNoteSave) => void; symbol: string; market: ResearchMarket; record?: ResearchRecord; savedRecords: readonly ResearchRecord[]; onOpenSecurity: (symbol: string, market: ResearchMarket) => void; onSaved: (record: ResearchRecord) => void; onGuestRemoved: () => void; unlockHref: string; onAccessDenied: (issue: OwnerAccessIssue) => void; onIdentity: (identity: ProviderResearchIdentity) => void; advanced: boolean; tab: ResearchTab; setTab: (tab: ResearchTab) => void; chartRange: string; setChartRange: (range: string) => void }) {
     // Owner-only reviews and advanced tools never receive guest bookmarks.
     const record = workspace === 'owner' ? savedRecord : undefined;
+    const tour = useFirstVisit();
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
     const [saveAccessIssue, setSaveAccessIssue] = useState<OwnerAccessIssue | null>(null);
@@ -418,9 +421,11 @@ function ConnectedCase({ workspace, guestUnavailable, guestIdentity, guestDraft,
     async function saveSecurity() {
         if (savePending.current || savedRecord || workspace === 'checking') return;
         savePending.current = true; setSaving(true); setSaveError(''); setSaveAccessIssue(null);
+        const tourAtSave = !loading && !error && snapshot?.quote.price != null && snapshot.quote.price > 0 ? tour.progress?.state : null;
         try {
             if (workspace === 'guest') {
                 onSaved(await saveGuestSecurity(symbol, market, snapshot?.quote.name || symbol));
+                if (tourAtSave?.stage === 'save') await tour.advance(tourAtSave, 'complete');
                 return;
             }
             const response = await fetch('/api/research/watchlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbol, market, companyName: snapshot?.quote.name || symbol, saveOnly: true }) });
@@ -437,6 +442,7 @@ function ConnectedCase({ workspace, guestUnavailable, guestIdentity, guestDraft,
             const saved = parseResearchRecord(body.data);
             if (saved.symbol !== symbol || saved.market !== market) throw new Error('Saved security did not match the request.');
             onSaved(saved);
+            if (tourAtSave?.stage === 'save') await tour.advance(tourAtSave, 'complete');
         } catch (error) { setSaveError(error instanceof Error ? error.message : 'Saving failed.'); }
         finally { savePending.current = false; setSaving(false); }
     }
@@ -481,6 +487,7 @@ function ConnectedCase({ workspace, guestUnavailable, guestIdentity, guestDraft,
     const visibleChecks = [...(readiness?.items ?? [])].sort((a, b) => Number(a.tone === 'ready') - Number(b.tone === 'ready'));
     const activeTab = visibleTabs.includes(tab) ? tab : 'Overview';
     return <>
+        <FirstVisitCallout tour={tour} surface="research" ready={!loading && !error && snapshot?.quote.price != null && Number.isFinite(snapshot.quote.price) && snapshot.quote.price > 0} saved={!!savedRecord} />
         <div className={`${styles.workspace} ${connected.focusedWorkspace}`}>
             <article className={styles.case} aria-label={`${symbol} research`}>
                 {/* One quote band: the price and Save on the left, price context beside it. */}

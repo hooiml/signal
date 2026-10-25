@@ -4,6 +4,17 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For G5/E21 first visit, run `npm run qa:v8-first-visit` against the owned production
+server at `SIGNAL_QA_URL` (default `http://127.0.0.1:3000`). One Chromium process covers
+first entry, skip/reload/resume, guest/owner explicit Save, failure/retry, saved-stock
+acknowledgement, unavailable/mismatched reading, corrupt/blocked storage, Settings restart
+with dirty notes, cross-tab state and delayed-Save restart. Light/dark keyboard and geometry
+checks cover 1280/768/375/320px. Use `-- --scenario=<name>` for focused reruns. Evidence is
+in `.tmp/v8-first-visit/`; CI runs the same command and uploads diagnostics. The harness
+includes `v8-first-visit-regression.mjs` for schema privacy, guarded writes, subscriptions,
+skip/restart/clear races and numeric bounds. Fixtures prove local UI/storage/request
+boundaries, not live-provider availability or deployment.
+
 For G4 shared V8 Settings, run `npm run qa:v8-settings` against the owned production server
 (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). Its fixture scenarios cover first-request
 preference hydration and explicit URL precedence, corrupt/blocked storage, explicit saving,
