@@ -65,9 +65,10 @@
     .analysisGrid > .evidenceSlot, .analysisGrid > .contextCard { align-self: stretch; display: flex; flex-direction: column; }
     .evidenceSlot > .evidenceList, .evidenceList > .evidence { display: flex; flex: 1; flex-direction: column; }
     .evidence > .evidenceRows { margin-bottom: auto; }
-    .contextCard > :last-child { align-self: flex-start; margin-top: auto; }
+    .contextCard [data-mobile-section-body] > :last-child { align-self: flex-start; margin-top: auto; }
 }
 @media (max-width: 600px) {
+    .mobileInvestigation { padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
     .assessment { grid-template-columns: minmax(0, 1fr); padding: 16px; gap: 14px; }
     .scoreLine { gap: 8px; }
     .scoreLine .changeLink { padding-left: 0; border: 0; flex-basis: 100%; }

@@ -204,7 +204,11 @@ interactions above easier to use. IDs continue the existing letters (M, R) or st
 
 ### Layout and ease of use
 
-#### L1 · Market on phones, folded · New
+#### L1 · Market on phones, folded · Implemented (E16)
+
+Implemented as [E16 in the enhancement roadmap](ENHANCEMENT_ROADMAP.md#e16--fold-secondary-market-sections-on-phones-l1).
+At 600px and narrower, summaries preserve evidence limits while the details start closed.
+Desktop content stays visible; keyboard controls and investigation links reveal the right panel.
 
 - What: on phones keep the reading, "since your last visit" and the evidence open; fold Market
   context, Historical outcomes, Exposure map and What changed into closed sections, each with a

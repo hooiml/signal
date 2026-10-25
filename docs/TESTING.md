@@ -4,6 +4,15 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For L1 Market phone disclosures, run `node scripts/market-mobile-sections-qa.mjs` against one
+owned production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). The US/MY light/dark
+matrix covers 1280/768/375/320px, summaries, keyboard toggles, investigation handoffs, resize and
+reload, focused desktop-to-phone controls, data gaps, exposure loading/error/empty/saved states,
+valid unmapped versus failed/malformed classifications, numeric summaries, overflow and request safety.
+Use `--before` for baseline captures, or `--scenario=core` and the named boundary scenarios in
+the script for focused reruns. Evidence goes to `.tmp/market-mobile-sections/`. All API responses
+are controlled local fixtures; this establishes UI behavior, not live-provider or deployment health.
+
 For L3 stock-page tab navigation, run `node scripts/research-tabs-qa.mjs` against one owned
 production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). The local read-only fixture
 matrix covers 1280/768/375/320px, light/dark, six public and eight saved-stock Advanced tabs,

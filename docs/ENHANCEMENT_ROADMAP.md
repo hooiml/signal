@@ -46,6 +46,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E13 | Research stock page: tighter price chart and header | Verified | Standard | None; second taste review item at the owner's request |
 | E14 | Research price-chart measurement (R1) | Verified | Standard | Uses already-loaded daily closes; temporary exploration only |
 | E15 | Phone stock-page tab navigation (L3) | Verified | Standard | Existing tabs and URLs; no data or persistence change |
+| E16 | Fold secondary Market sections on phones (L1) | Verified | Standard | Existing evidence and requests; session-only disclosure state |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -304,6 +305,40 @@ Sixteen baseline and 32 updated viewport screenshots plus geometry are under
 review found no functional issue; the documented 600px boundary matches the existing breakpoint.
 GitNexus's local index refresh failed, so impact review used current source and callers instead.
 This is local fixture-based UI verification, not live-provider or deployment proof.
+
+### E16 — Fold secondary Market sections on phones (L1)
+
+**Why:** Market's secondary detail makes a short phone visit unnecessarily long. L1 keeps the
+reading, since-last-visit note, chart and evidence visible while making the rest easier to scan.
+
+**Scope:** At 600px and narrower, Market context, available Historical outcomes, Exposure map
+and What changed start closed. Each heading retains a compact summary from its existing data:
+index movement/breadth, evidence-qualified one-week outcomes, saved-stock mapping state, and
+dated score change. Missing, insufficient, loading and failed states remain explicit. Desktop
+and tablet content remains visible. Keyboard controls and links into investigation panels work,
+opening a destination before moving focus. Content stays mounted; disclosure state is temporary
+and makes no new requests or saved-record changes. No scoring, provider, persistence or route
+contracts change. Continue in the existing PR at the owner's request.
+
+**Verification (2026-10-25):** Standard lane passed lint, typecheck, harness and production build.
+`scripts/market-mobile-sections-qa.mjs` passed 28 scenarios: the US/MY light/dark matrix at
+1280/768/375/320px plus loading, read failure, mapped/unmapped stocks, failed/malformed
+classification, insufficient/missing data and numeric summaries. Keyboard disclosure controls,
+investigation handoffs, resize/reload, focused-link preservation, 44px targets and overflow passed.
+Toggling disclosures caused no requests after the existing scroll-triggered archive read settled;
+all API traffic was intercepted and no mutations occurred. No unexpected console/request errors.
+Eight baseline and 32 updated captures plus request/geometry evidence are under
+`.tmp/market-mobile-sections/`. At 375px the empty-watchlist US fixture fell from 4,494px to
+3,292px (about 27% shorter); desktop/tablet heights stayed unchanged. This is a controlled layout
+comparison, not a performance or live-provider claim.
+
+Independent review caught classification failures being treated as valid unknown-sector results.
+The failure was reproduced before the fix; HTTP failures and malformed responses now retain an
+explicit unavailable state, while valid unknown sectors remain unmapped. The expanded mapped
+count agrees with the summary. Review recheck and the failure/unmapped browser regressions passed.
+GitNexus recovered its index; source/caller review confined the change to connected V8 Market.
+Visual comparison passed. Deployment, real provider health and assistive-technology testing are
+not established by these local fixtures.
 
 ### E3 — Today promotion review
 
