@@ -449,13 +449,12 @@ async function runAfter(browser, viewport, theme) {
                 await page.goto(`${baseUrl}/learn?concept=${query}`, { waitUntil: 'domcontentloaded' });
                 check(scenario, `invalid or repeated concept ${query} falls back to trading`, await page.getByRole('button', { name: 'Trading process v0.4' }).getAttribute('aria-pressed') === 'true');
             }
-            await page.goto(`${baseUrl}/learn?concept=put-call`, { waitUntil: 'domcontentloaded' });
-            // A fill that lands before hydration is reset by React; refill until the recomputed ratio shows.
+            // Wait for the streamed lesson before changing a controlled input; refilling the same
+            // DOM value after hydration would not replay the missed React change event.
+            await page.goto(`${baseUrl}/learn?concept=put-call`, { waitUntil: 'networkidle', timeout: timeoutMs });
             const undefinedRatio = page.locator('main').getByText('Undefined').first();
-            for (let attempt = 0; attempt < 10 && !(await undefinedRatio.isVisible()); attempt += 1) {
-                await page.getByLabel('Illustrative call option volume').fill('0');
-                await undefinedRatio.waitFor({ timeout: 1500 }).catch(() => {});
-            }
+            await page.getByLabel('Illustrative call option volume').fill('0');
+            await undefinedRatio.waitFor();
             check(scenario, 'put/call lesson marks a zero denominator undefined', (await page.locator('main').innerText()).includes('Undefined'));
             // Learn streams its client lesson after DOMContentLoaded; wait before sending keys.
             await page.goto(`${baseUrl}/learn?concept=naaim`, { waitUntil: 'networkidle', timeout: timeoutMs });
