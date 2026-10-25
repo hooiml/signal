@@ -237,6 +237,13 @@
 .checkRows button > span:last-child { color: var(--link); }
 .investigation { margin-top: 20px; }
 .app .tabs { position: sticky; top: 0; z-index: 2; background: var(--surface-subtle); gap: 25px; }
+.tabNavigation { display: flex; align-items: stretch; position: sticky; top: 0; z-index: 2; min-width: 0; border-bottom: 1px solid var(--line); background: var(--surface-subtle); }
+.app .tabNavigation .tabs { position: static; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; border-bottom: 0; }
+.app .tabScrollButton { display: none; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px; min-height: 44px; font-size: 24px; color: var(--ink); }
+.app .tabScrollButton:disabled { color: var(--subtle); cursor: default; }
+@media (max-width: 600px) {
+    .app .tabNavigation[data-overflow=true] .tabScrollButton { display: inline-flex; }
+}
 .overviewBrief { padding-bottom: 24px; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
 .overviewBrief h2 { margin: 7px 0 10px; }
 .overviewBrief > p { font-size: var(--text-sm); line-height: 1.75; }

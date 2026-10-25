@@ -4,6 +4,15 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For L3 stock-page tab navigation, run `node scripts/research-tabs-qa.mjs` against one owned
+production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). The local read-only fixture
+matrix covers 1280/768/375/320px, light/dark, six public and eight saved-stock Advanced tabs,
+scroll controls, keyboard/URL/history restoration, resizing, panel association and overflow.
+Scroll controls must cause no selection, API or saved-record changes. Geometry, screenshots
+and console/request evidence are saved in `.tmp/research-tabs/after/`; `--before` captures the
+old tab strip without expecting the new controls. This is local UI proof, not live-provider
+or deployment verification.
+
 For the V8 Overview chart's R1 measurement, run `node scripts/research-reading-qa.mjs`
 against one owned production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`).
 The same Chromium session covers normal inspection, forward/reverse drag, two-tap touch,

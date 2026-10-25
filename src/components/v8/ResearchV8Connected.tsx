@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useEffectEvent, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { VersionSwitcher } from '@/components/navigation/VersionSwitcher';
 import { parseResearchSnapshotResponse } from '@/lib/research/snapshot-input';
 import { readData, readFailure, readOwnerAccessIssue, readPolicies } from './read-data';
@@ -25,14 +25,13 @@ import { ResearchFilingsV8 } from './ResearchFilingsV8';
 import { ResearchPeersV8 } from './ResearchPeersV8';
 import { ResearchDiscoverV8 } from './ResearchDiscoverV8';
 import { ResearchHomeV8 } from './ResearchHomeV8';
+import { ResearchInvestigationTabs, researchTabId } from './ResearchInvestigationTabs';
 import type { DiscoverView } from './discover-view';
 import { date, parseWatchlist, price, researchHref, researchTabs, retrievedAt, type ResearchTab } from './research-v8-connected-data';
 import base from './market-v8.module.css';
 import { V8ThemeControl } from './V8ThemeControl';
 import styles from './research-v8.module.css';
 import connected from './research-v8-connected.module.css';
-
-const tabElementId = (value: ResearchTab) => `connected-tab-${value === 'Chart & technicals' ? 'Chart' : value}`;
 
 export function ResearchV8Connected({ initialTicker = '', initialMarket, initialDiscover }: { initialTicker?: string; initialMarket?: ResearchMarket; initialDiscover?: DiscoverView }) {
     const [providerIdentity, setProviderIdentity] = useState<ProviderResearchIdentity | null>(null);
@@ -491,12 +490,6 @@ function ConnectedCase({ workspace, guestUnavailable, guestIdentity, guestDraft,
     const readiness = record ? buildResearchReadiness({ record, sector: '', policyAssessment: null }) : null;
     const visibleChecks = [...(readiness?.items ?? [])].sort((a, b) => Number(a.tone === 'ready') - Number(b.tone === 'ready'));
     const activeTab = visibleTabs.includes(tab) ? tab : 'Overview';
-    function tabKeys(event: KeyboardEvent<HTMLDivElement>) {
-        const index = visibleTabs.indexOf(activeTab);
-        const next = event.key === 'Home' ? 0 : event.key === 'End' ? visibleTabs.length - 1 : event.key === 'ArrowRight' ? (index + 1) % visibleTabs.length : event.key === 'ArrowLeft' ? (index + visibleTabs.length - 1) % visibleTabs.length : null;
-        if (next === null) return;
-        event.preventDefault(); setTab(visibleTabs[next]); document.getElementById(tabElementId(visibleTabs[next]))?.focus();
-    }
     return <>
         <div className={`${styles.workspace} ${connected.focusedWorkspace}`}>
             <article className={styles.case} aria-label={`${symbol} research`}>
@@ -517,7 +510,7 @@ function ConnectedCase({ workspace, guestUnavailable, guestIdentity, guestDraft,
                 <ResearchCurrentAssessment snapshot={snapshot} previous={readings.previous} loading={loading} error={error} now={assessmentTime} compact />
                 <section className={connected.dataStatus} aria-label="Provider data status"><div role="status">{loading ? snapshot ? `Refreshing provider data. Previous values retrieved ${retrievedAt(snapshot.fetchedAt)} remain visible.` : 'Loading provider data… You can browse while it loads.' : error ? `Provider refresh failed. ${snapshot ? `Previous values retrieved ${retrievedAt(snapshot.fetchedAt)} remain visible.` : 'No current assessment is available.'}` : `Provider sources: ${snapshot?.sources.join(', ') || 'Source not supplied'}`}</div><button className={base.textButton} disabled={loading} onClick={() => { setLoading(true); setError(false); setRefresh(value => value + 1); }}>{error ? 'Retry provider data' : 'Refresh provider data'}</button>{!!snapshot?.warnings.length && !compactFinancialAssessment && <details className={connected.warning}><summary>Source notices and limitations <span>View {snapshot.warnings.length} source notice{snapshot.warnings.length === 1 ? '' : 's'}</span></summary><p>These notices describe missing data or limits on how the returned values can be used. Unavailable inputs are not estimated; refreshing does not necessarily resolve a reporting limitation.</p><ul>{snapshot.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></details>}</section>
 
-                <section className={styles.investigation} aria-label="Company investigation"><div className={`${base.tabs} ${styles.tabs}`} role="tablist" aria-label="Research investigation" onKeyDown={tabKeys}>{visibleTabs.map(value => <button id={tabElementId(value)} role="tab" aria-selected={activeTab === value} aria-controls="connected-panel" tabIndex={activeTab === value ? 0 : -1} key={value} onClick={() => setTab(value)}>{value}</button>)}</div><div id="connected-panel" role="tabpanel" aria-labelledby={tabElementId(activeTab)} tabIndex={0} className={`${base.panel} ${styles.panel}`}>{activeTab === 'Overview' && <ResearchCurrentAssessment snapshot={snapshot} previous={readings.previous} loading={loading} error={error} now={assessmentTime} />}<ResearchConnectedPanel providerError={error} onBenchmarkRequest={() => setBenchmarkRequested(value => value + 1)} benchmarkError={benchmarkError} benchmarkLoading={benchmarkLoading} advanced={advanced} tab={activeTab} record={record} market={market} snapshot={snapshot} loading={loading} chartRange={chartRange} setChartRange={setChartRange} chartDate={chartDate} setChartDate={setChartDate} />{activeTab === 'Peers' && <ResearchPeersV8 symbol={symbol} market={market} snapshot={snapshot} saved={savedRecords} onOpen={onOpenSecurity} />}{activeTab === 'Filings' && <ResearchFilingsV8 symbol={symbol} market={market} record={record} />}</div></section>
+                <section className={styles.investigation} aria-label="Company investigation"><ResearchInvestigationTabs tabs={visibleTabs} activeTab={activeTab} onChange={setTab} /><div id="connected-panel" role="tabpanel" aria-labelledby={researchTabId(activeTab)} tabIndex={0} className={`${base.panel} ${styles.panel}`}>{activeTab === 'Overview' && <ResearchCurrentAssessment snapshot={snapshot} previous={readings.previous} loading={loading} error={error} now={assessmentTime} />}<ResearchConnectedPanel providerError={error} onBenchmarkRequest={() => setBenchmarkRequested(value => value + 1)} benchmarkError={benchmarkError} benchmarkLoading={benchmarkLoading} advanced={advanced} tab={activeTab} record={record} market={market} snapshot={snapshot} loading={loading} chartRange={chartRange} setChartRange={setChartRange} chartDate={chartDate} setChartDate={setChartDate} />{activeTab === 'Peers' && <ResearchPeersV8 symbol={symbol} market={market} snapshot={snapshot} saved={savedRecords} onOpen={onOpenSecurity} />}{activeTab === 'Filings' && <ResearchFilingsV8 symbol={symbol} market={market} record={record} />}</div></section>
 
                 {advanced && record && <details className={connected.researchChecks}>
                     <summary><b>Optional research tools <span aria-hidden="true">⌄</span></b><span>Thesis, evidence, planning and reminders</span></summary>

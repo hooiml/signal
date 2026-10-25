@@ -45,6 +45,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E12 | V8 app-screen review fixes (Calendar window and marks, Market polish) | Verified | Standard | None; added after a taste review at the owner's request |
 | E13 | Research stock page: tighter price chart and header | Verified | Standard | None; second taste review item at the owner's request |
 | E14 | Research price-chart measurement (R1) | Verified | Standard | Uses already-loaded daily closes; temporary exploration only |
+| E15 | Phone stock-page tab navigation (L3) | Verified | Standard | Existing tabs and URLs; no data or persistence change |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -236,8 +237,9 @@ is no longer drawn; the chart frame shows its focus ring. On a stock page the wo
 shares the Change stock / Discover row (unchanged on the Research home). The 52-week note reads
 "Price at N% of range".
 
-**Left as is:** the phone tab bar still scrolls with "Filings" cut at the edge (the edge fade was
-removed on purpose in `b7cf762`), and the full-width "Insufficient evidence" financial card.
+**Left as is in E13:** the phone tab bar with "Filings" cut at the edge (subsequently addressed
+by E15 without restoring the fade removed in `b7cf762`), and the full-width "Insufficient evidence"
+financial card.
 
 **Evidence — 2026-10-25:** AAPL page height 1,684 → 1,545px at 1440 and 2,119 → 2,006px at 390,
 no overflow; Home/End on the focused chart move the readout and the frame shows an outline.
@@ -277,6 +279,31 @@ assistive technology and deployment are not established.
 `src/components/v8/research-v8-connected.module.css`, `src/lib/research/reading-display.ts`,
 `scripts/harness/research-reading-regression.mjs`, `scripts/research-reading-qa.mjs`,
 `docs/TESTING.md`, `docs/V8_INTERACTION_IDEAS.md`, and this roadmap.
+
+### E15 — Phone stock-page tab navigation (L3)
+
+**Why:** Peers and Filings can sit beyond the phone's visible tab strip with no clear scroll
+control. L3 is a bounded navigation improvement over existing data. L4's price-based Watchlist
+sorting needs a separate data scope because the current home list only loads saved records.
+
+**Scope:** At 600px and narrower, an overflowing stock-page tab strip has left/right scroll buttons with
+44px targets and disabled end states. Native swipe scrolling remains available. Scrolling does
+not select a tab or request data. The selected tab stays visible after keyboard selection,
+deep links, Back/Forward and resizing, without automatically scrolling the page vertically.
+The six public tabs and eight saved-stock Advanced tabs keep their labels, URLs and ARIA links.
+No edge fade, new provider, dependency, saved preference or record mutation is added.
+
+**Verification (2026-10-25):** Standard lane passed lint, typecheck, harness and a production build.
+`scripts/research-tabs-qa.mjs` passed 808 assertions across 16 scenarios: 1280/768/375/320px,
+light/dark, and six public/eight saved-stock tabs. All eight phone scenarios used real Chromium
+touch gestures. Arrow end states, keyboard wrapping, Filings reload/history, selected-tab resize
+visibility, ARIA links, 44px targets and overflow passed; scrolling did not select tabs or fetch
+data, and navigation sent no mutations. No unexpected console or request failures occurred.
+Sixteen baseline and 32 updated viewport screenshots plus geometry are under
+`.tmp/research-tabs/`; visual comparison passed without restoring a fade. One independent source
+review found no functional issue; the documented 600px boundary matches the existing breakpoint.
+GitNexus's local index refresh failed, so impact review used current source and callers instead.
+This is local fixture-based UI verification, not live-provider or deployment proof.
 
 ### E3 — Today promotion review
 

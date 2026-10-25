@@ -218,7 +218,11 @@ interactions above easier to use. IDs continue the existing letters (M, R) or st
   and the action that fills them, keeping their heading so the section stays findable.
 - Why: a full bordered card that says "nothing here" is the largest thing on some screens.
 
-#### L3 · Stock page tabs on phones · New
+#### L3 · Stock page tabs on phones · Implemented (E15)
+
+Implemented as [E15 in the enhancement roadmap](ENHANCEMENT_ROADMAP.md#e15--phone-stock-page-tab-navigation-l3):
+visible scroll buttons at 600px and narrower preserve the existing tabs and swipe path without
+restoring an edge fade. Keyboard selection, direct links and resizing keep the active tab visible.
 
 - What: show that the six-tab bar scrolls, or group Peers and Filings under "More" below 600px.
 - Why: "Filings" is cut at the screen edge with no hint; the edge fade was removed in `b7cf762`, so
