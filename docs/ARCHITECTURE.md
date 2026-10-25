@@ -148,6 +148,12 @@ a numeric Malaysia ticker as a US symbol. See
 
 ## Architecture Rules
 
+V8 Research home's Holdings tab reads the existing validated browser-local holdings snapshot.
+It uses the shared reconciliation and summary helpers with no current quotes: cost and cash
+stay separated by currency; current prices, market values and weights remain unavailable.
+Exact saved market/symbol matches open V8 Research. The import/update link opens the existing
+Portfolio workspace. Rendering and navigation never write or transmit holdings data.
+
 - Full Research initializes from persisted active records only. Demo watchlist values are
   never a fallback for loading, empty or failed saved-record reads. Deep-linked ticker
   selection is resolved only after that read succeeds.
