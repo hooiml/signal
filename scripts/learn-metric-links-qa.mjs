@@ -137,7 +137,9 @@ function observe(page, scenario) {
 
 async function selectTheme(page, theme) {
     await page.getByTestId('learn-shell').filter({ visible: true }).waitFor();
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const settingsButton = page.getByRole('button', { name: 'Settings', exact: true });
+    await waitForHydration(settingsButton);
+    await settingsButton.click();
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
     await settings.waitFor();
     const control = settings.getByRole('radio', { name: theme === 'light' ? 'Light' : 'Dark' });
@@ -152,10 +154,23 @@ async function selectTheme(page, theme) {
     await page.waitForFunction(expected => document.documentElement.dataset.v8Theme === expected, theme);
 }
 
+async function selectResearchTab(page, name, queryValue) {
+    await page.getByTestId('research-price').waitFor({ state: 'visible' });
+    await page.waitForFunction(() => {
+        const price = document.querySelector('[data-testid="research-price"]')?.textContent?.trim();
+        return !!price && price !== 'Loading…';
+    });
+    const tab = page.getByRole('tab', { name, exact: true });
+    await waitForHydration(tab);
+    await tab.click();
+    await page.getByRole('tab', { name, exact: true, selected: true }).waitFor();
+    await page.waitForURL(url => url.searchParams.get('tab') === queryValue);
+}
+
 async function prepareMetricSource(page, route, concept) {
     await page.goto(`${baseUrl}${route}`, { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => document.fonts.ready);
-    if (route.startsWith('/research') && concept.id !== 'rsi') await page.getByRole('tab', { name: /^Valuation/ }).click();
+    if (route.startsWith('/research') && concept.id !== 'rsi') await selectResearchTab(page, 'Valuation', 'valuation');
     if (route.startsWith('/main')) {
         const indicator = page.locator(`button[data-indicator="${concept.id === 'put-call' ? 'put_call' : 'naaim'}"]`).first();
         const showAll = page.getByRole('button', { name: /Show all/i });
@@ -261,7 +276,7 @@ async function assertRepeatedLabels(page, scenario) {
         await page.keyboard.press('Escape');
     }
     await page.goto(`${baseUrl}/research-v8?ticker=AAPL&market=US`, { waitUntil: 'domcontentloaded' });
-    await page.getByRole('tab', { name: /^Peers/ }).click();
+    await selectResearchTab(page, 'Peers', 'peers');
     await page.getByLabel('Add a ticker').fill('MSFT');
     await page.getByRole('button', { name: 'Add peer', exact: true }).click();
     await page.getByRole('columnheader', { name: 'MSFT' }).waitFor();

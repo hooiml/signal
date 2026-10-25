@@ -18,6 +18,59 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  visual:
+    name: Visual comparisons
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # Capture and comparison use this exact userspace, browser and headless mode.
+    container:
+      image: mcr.microsoft.com/playwright:v1.60.0-noble@sha256:9bd26ad900bb5e0f4dee75839e957a89ae89c2b7ab1e76050e559790e946b948
+      options: --ipc=host
+    env:
+      DATABASE_URL: postgresql://signal_ci:signal_ci@127.0.0.1:5432/signal_ci
+      NEXT_TELEMETRY_DISABLED: '1'
+      SIGNAL_QA_URL: http://127.0.0.1:3000
+      SIGNAL_VISUAL_CONTAINER: mcr.microsoft.com/playwright:v1.60.0-noble@sha256:9bd26ad900bb5e0f4dee75839e957a89ae89c2b7ab1e76050e559790e946b948
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build fixture target
+        run: npm run build
+      - name: Typecheck after build
+        run: npm run typecheck
+      - name: Compare reviewed screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp/visual-checks
+          node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3000 > .tmp/visual-checks/server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:3000/main-v8 > /dev/null; then ready=1; break; fi
+            kill -0 "$server_pid"
+            sleep 1
+          done
+          test "$ready" = 1
+          # Missing baselines fail and upload candidates; CI never updates or accepts them.
+          npm run qa:visual -- --update-snapshots=none
+      - name: Upload visual comparisons
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: signal-visual-comparisons
+          include-hidden-files: true
+          path: .tmp/visual-checks/
+          if-no-files-found: warn
+
   validate:
     # Pinned so the ubuntu-latest move to Ubuntu 26 cannot change browser QA timing or Playwright deps unannounced.
     runs-on: ubuntu-24.04

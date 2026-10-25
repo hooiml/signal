@@ -53,6 +53,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E20 | V8 settings in one place (G4) | Verified | High | Existing theme, config and guest storage contracts; explicit defaults/clear and safe owner handoff |
 | E21 | First visit to V8 (G5) | Verified | High | Local-only orientation, explicit save evidence, restart and storage safety |
 | E22 | Retire legacy route aliases (G6) | Verified | High | Preserve advanced Research/Market jobs, deep links, Today continuity and existing storage |
+| E23 | Visual comparisons in CI (G7) | Verified | Standard | Reviewed platform-specific baselines and a passing pinned Linux comparison |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -512,6 +513,23 @@ retained Market evidence/polish/controls passed. Visual review scored 94/100. Ev
 suite directories. Older V7 interaction scripts were retargeted and syntax-checked, not run
 as full matrices. This proves local fixture behavior, not remote CI, deployment or providers.
 
+### E23 — Visual comparisons in CI (G7)
+
+**Scope:** twenty deterministic fixture screenshots cover Market, Research, Holdings,
+Settings and the metric glossary at desktop/phone sizes in both themes. Windows and
+digest-pinned Linux baselines remain separate. CI fails on any changed pixel or missing
+golden and uploads candidates, expected/actual/diff images, traces and environment metadata.
+No application behavior or dependency changes. See [`VISUAL_CHECKS.md`](VISUAL_CHECKS.md).
+
+**Local verification (2026-10-25):** build, post-build typecheck, lint, full harness and
+independent review passed. All twenty Windows comparisons pass at zero tolerance; a
+controlled visual change and a missing golden fail as intended, and restoration passes.
+The related Learn QA readiness repair passes all eight viewport/theme cases with no browser
+issues. Linux candidates from run `40192599021`, head `3d8c0f5`, have matching rendering
+metadata and fail only for missing goldens. Independent visual review accepted all 20;
+the normal pinned-container comparison then passed 20/20 in run `40193090823` at head
+`0764ebc`. Fixture proof does not establish deployment.
+
 ### E3 — Today promotion review
 
 **Spec:** `NEXT_PRODUCT_ROADMAP.md` Task 0.
@@ -569,3 +587,4 @@ contract is recorded.
 | 2026-10-25 | E18 | — | Proposed | Read-only V8 holdings view scoped from G1; reuses existing holdings contracts, so this slice needs no design doc. |
 | 2026-10-25 | E20 | — | Verified | Shared settings, safe defaults and guest actions; High lane and independent review passed. |
 | 2026-10-25 | E21 | — | Verified | V8 first-visit orientation; strict local progress, successful explicit-save evidence, safe restart, High verification and independent review. |
+| 2026-10-25 | E23 | — | Verified | Twenty reviewed Windows and Linux baselines, deliberate failure probes, independent review and a passing pinned Linux comparison in run 40193090823. |
