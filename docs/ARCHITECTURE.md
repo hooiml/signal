@@ -20,6 +20,16 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 
 ## Runtime Shape
 
+Connected V8 Market and Research mount a separate first-visit orientation. The guarded
+`src/lib/v8-first-visit.ts` store keeps only version, fixed stage and concurrency revision
+in `signal-v8-first-visit-v1`. Web Locks and compare-and-set prevent stale completion after
+skip/restart; same-tab and native storage events reread current bytes. Invalid data is
+retained until explicit Settings restart, and failed persistence is shown separately from
+the existing stock Save result. The tour issues no provider request, analytics, unlock or
+research write. It observes current resolved readings and successful explicit stock saves;
+already-saved stocks require acknowledgement. Settings preserves open Research drafts.
+Demo routes and `/start` remain separate. See [`V8_FIRST_VISIT_DESIGN.md`](V8_FIRST_VISIT_DESIGN.md).
+
 Connected V8 Market, Research and Learn share `V8Settings`, a modal that leaves the current
 page mounted. `src/lib/signal-config.ts` owns validated reads and explicit writes of the existing
 `signal-dashboard-config` contract, reused by the legacy config hook. V8 Market hydrates defaults

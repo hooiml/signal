@@ -379,11 +379,13 @@ next to it. IDs start with G (global).
 - Design: [`V8_SETTINGS_DESIGN.md`](V8_SETTINGS_DESIGN.md); one modal preserves Research drafts,
   existing keys and owner access, with explicit defaults and guest-only data actions.
 
-#### G5 · First visit to V8 · New
+#### G5 · First visit to V8 · Verified (E21)
 
 - What: a three-step, skippable orientation on first visit: read the Market score, open a stock,
   save it to the Watchlist. Shown once per device, restartable from G4.
 - Why: `/start` predates V8; new users land on a dense screen with no path through it.
+- Design: [`V8_FIRST_VISIT_DESIGN.md`](V8_FIRST_VISIT_DESIGN.md); separate validated local
+  progress, real reading/save evidence, already-saved acknowledgement and safe restart.
 
 #### G6 · Retire legacy routes · New
 

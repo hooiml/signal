@@ -56,6 +56,14 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
   Use the existing V8 tokens, a 560px maximum width, 44px targets, visible focus, native modal
   inertness and bounded vertical scrolling at narrow widths. Storage errors remain visible.
   The architecture and privacy boundaries are in [`V8_SETTINGS_DESIGN.md`](docs/V8_SETTINGS_DESIGN.md).
+- **First visit (G5/E21):** connected Market and Research show one inline, skippable
+  three-step orientation: understand the current score, open a stock, explicitly save it.
+  Its compact bordered strip uses existing theme tokens, 44px controls and visible focus;
+  it never steals focus or overlays the reading. Already-saved stocks offer an explicit
+  finish without another save. Progress resumes locally; skip/completion stays dismissed.
+  Settings restarts without navigation or draft loss, with an explicit new-tab Market link.
+  Storage and unavailable-reading errors stay honest. See
+  [`V8_FIRST_VISIT_DESIGN.md`](docs/V8_FIRST_VISIT_DESIGN.md) for the reviewed lifecycle.
 - **Metric glossary:** RSI, P/E, FCF yield, put/call and NAAIM share short definitions in
   `src/lib/learn/metric-links.ts`. Dotted labels open the same small native popover on tap or
   keyboard focus. Existing Market metric buttons open the definition first; **View indicator**

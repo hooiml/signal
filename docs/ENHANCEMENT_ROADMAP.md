@@ -51,6 +51,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E18 | Read-only V8 holdings view (G1) | Verified | High | Reuses the browser-local holdings snapshot and existing contracts; no new storage, request or analytics |
 | E19 | Shared V8 metric glossary (G3) | Verified | High | Five existing lesson metrics; no provider, scoring or saved-research changes |
 | E20 | V8 settings in one place (G4) | Verified | High | Existing theme, config and guest storage contracts; explicit defaults/clear and safe owner handoff |
+| E21 | First visit to V8 (G5) | Verified | High | Local-only orientation, explicit save evidence, restart and storage safety |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -468,6 +469,28 @@ Research reading (26 captured states), unsaved/guest recovery at five widths, an
 passed. The visual verdict is 94/100. Evidence is under `.tmp/v8-settings/` and the existing
 suite directories. This is local fixture proof; deployment and live providers are unverified.
 
+### E21 — First visit to V8 (G5)
+
+**Scope:** nonblocking three-step orientation on connected Market/Research, with local
+resume, persistent skip/completion and draft-preserving Settings restart. Existing saved
+stocks have an explicit finish; reading and save failures cannot count as completion.
+
+**Design:** [`V8_FIRST_VISIT_DESIGN.md`](V8_FIRST_VISIT_DESIGN.md) records the independently
+reviewed state, revision/CAS, storage, privacy and concurrency contract. No new dependency,
+provider call, analytics, owner unlock or automatic stock save. `/start` remains independent.
+
+**Verification (2026-10-25):** production build, post-build typecheck, lint, full harness and
+independent review passed. The new browser suite passed 20 scenarios / 166 assertions with
+zero browser issues, including both Market and Research at 1280/768/375/320px in light/dark,
+guest/owner Save, exact owner payload, failed Save versus failed tour write, already-saved
+acknowledgement with an unavailable quote, corrupt/blocked storage, cross-tab updates and
+late Save after restart. Settings (22 scenarios), Research reading (26 captured states),
+unsaved Research/guest recovery, Learn/metric links (8 scenarios) and theme/saved state
+(25 scenarios) also passed. The visual
+verdict is 94/100. Durable command and CI diagnostics are in `docs/TESTING.md`; evidence is
+under `.tmp/v8-first-visit/` and the existing suite directories. This establishes local
+fixture behavior, not live-provider availability, remote CI, merge or deployment.
+
 ### E3 — Today promotion review
 
 **Spec:** `NEXT_PRODUCT_ROADMAP.md` Task 0.
@@ -524,3 +547,4 @@ contract is recorded.
 | 2026-10-25 | E17 | — | Verified | Five V8 metric lessons, V8 Learn shell, existing course/theme compatibility; full checks, independent review and 20 browser scenarios pass. |
 | 2026-10-25 | E18 | — | Proposed | Read-only V8 holdings view scoped from G1; reuses existing holdings contracts, so this slice needs no design doc. |
 | 2026-10-25 | E20 | — | Verified | Shared settings, safe defaults and guest actions; High lane and independent review passed. |
+| 2026-10-25 | E21 | — | Verified | V8 first-visit orientation; strict local progress, successful explicit-save evidence, safe restart, High verification and independent review. |

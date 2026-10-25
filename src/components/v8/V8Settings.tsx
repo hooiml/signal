@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { DEFAULT_SIGNAL_CONFIG, readSignalConfig, writeSignalConfig, type SignalConfig } from '@/lib/signal-config';
 import { clearGuestWorkspace, exportGuestWorkspace, readGuestDraftRecovery } from '@/lib/research/guest-workspace';
 import { ownerUnlockHref } from '@/lib/owner-access-client';
+import { restartFirstVisit } from '@/lib/v8-first-visit';
 import { V8ThemeControl } from './V8ThemeControl';
 import styles from './v8-settings.module.css';
 
@@ -19,6 +20,9 @@ export function V8Settings({ hasUnsavedGuestNotes = false, onDefaultsSaved }: { 
     const [guestError, setGuestError] = useState('');
     const [guestStatus, setGuestStatus] = useState('');
     const [busy, setBusy] = useState(false);
+    const [tourStatus, setTourStatus] = useState('');
+    const [tourError, setTourError] = useState('');
+    const [tourBusy, setTourBusy] = useState(false);
     const [unlockHref, setUnlockHref] = useState(ownerUnlockHref('/research-v8'));
 
     useEffect(() => {
@@ -32,6 +36,7 @@ export function V8Settings({ hasUnsavedGuestNotes = false, onDefaultsSaved }: { 
         const defaults = readSignalConfig();
         setConfig(defaults.config); setPreferenceError(defaults.error); setSaved('');
         setGuestError(''); setGuestStatus('');
+        setTourStatus(''); setTourError('');
         setUnlockHref(ownerUnlockHref(window.location.pathname + window.location.search + window.location.hash));
         dialog.current?.showModal();
         setOpen(true);
@@ -42,6 +47,12 @@ export function V8Settings({ hasUnsavedGuestNotes = false, onDefaultsSaved }: { 
             onDefaultsSaved?.();
             setSaved('Defaults saved. They apply the next time you open or reload Market.');
         } catch (cause) { setPreferenceError(cause instanceof Error ? cause.message : 'Could not save defaults.'); setSaved(''); }
+    }
+    async function restartTour() {
+        setTourBusy(true); setTourError(''); setTourStatus('');
+        try { await restartFirstVisit(); setTourStatus('Tour restarted. Your current page and unsaved work stay open. Start with Market.'); }
+        catch (cause) { setTourError(cause instanceof Error ? cause.message : 'Tour progress was not saved.'); }
+        finally { setTourBusy(false); }
     }
     async function guestAction(action: 'export' | 'clear') {
         if (busy) return;
@@ -98,6 +109,12 @@ export function V8Settings({ hasUnsavedGuestNotes = false, onDefaultsSaved }: { 
                 {preferenceError && <p role="alert">{preferenceError}</p>}
                 <div><button className={styles.primary} type="button" onClick={saveDefaults}>Save defaults</button></div>
                 {saved && <p role="status">{saved}</p>}
+            </section>
+            <section className={styles.section} aria-label="First visit">
+                <h3>First visit</h3><p>A short tour of the Market score, reading a stock and saving it. Progress stays in this browser. Restart replaces only tour progress, including unreadable progress.</p>
+                <div><button type="button" disabled={tourBusy} onClick={() => void restartTour()}>{tourBusy ? 'Restarting…' : 'Restart tour'}</button></div>
+                {tourError && <p role="alert">{tourError}</p>}
+                {tourStatus && <><p role="status">{tourStatus}</p><a href="/main-v8" target="_blank" rel="noopener noreferrer">Open Market (new tab)</a></>}
             </section>
             <section className={styles.section} aria-label="Guest data">
                 <h3>Guest data on this device</h3><p>Guest research is saved only in this browser on this website. People sharing this browser profile can read it.</p>
