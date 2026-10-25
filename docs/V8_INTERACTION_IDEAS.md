@@ -329,7 +329,7 @@ Items marked **New** are added in this pass. They look past Market and Research 
 the project: V8 has no portfolio surface, no link into Learn, and older V2–V7 routes are still live
 next to it. IDs start with G (global).
 
-#### G1 · Portfolio in V8 · New
+#### G1 · Portfolio in V8 · First slice implemented (E18)
 
 - What: a V8 home for the portfolio work that today lives in the V6/V7 cockpit (holdings, import,
   reconciliation, covered attribution, what-if), starting with a read-only holdings view.
@@ -344,6 +344,10 @@ next to it. IDs start with G (global).
   across currencies (rule 6, approved FX evidence).
 - Guardrails: rules 4–6 (holdings stay out of analytics, storage kinds stay distinct, no
   cross-currency totals without FX evidence).
+- Delivered: Research home's Holdings tab reads the existing snapshot, separates cost/cash
+  totals by currency, shows missing prices explicitly and opens exact saved-stock matches.
+  This first slice is cost-only. Import, reconciliation, attribution and what-if remain in the
+  linked Portfolio workspace; their migration into V8 is still outstanding.
 
 #### G2 · Learn from where you read · Implemented (E17)
 

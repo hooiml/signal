@@ -48,7 +48,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E15 | Phone stock-page tab navigation (L3) | Verified | Standard | Existing tabs and URLs; no data or persistence change |
 | E16 | Fold secondary Market sections on phones (L1) | Verified | Standard | Existing evidence and requests; session-only disclosure state |
 | E17 | Learn from V8 metric labels (G2) | Verified | High | Existing lessons and progress; no provider or saved-research changes |
-| E18 | Read-only V8 holdings view (G1) | Proposed | Standard | Reuses the browser-local holdings snapshot and existing contracts; no new storage, request or analytics |
+| E18 | Read-only V8 holdings view (G1) | Verified | High | Reuses the browser-local holdings snapshot and existing contracts; no new storage, request or analytics |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -410,11 +410,26 @@ identity, no fuzzy matching). If V8 does not already load those prices on the Re
 first browser pass decides whether to request them only when the Holdings view is opened (an
 existing endpoint, on demand) or to show cost-only figures; either way no new endpoint.
 
+**Implementation decision (2026-10-25):** Holdings is the third Research home tab. The home reads
+saved research but has no current watchlist quotes, so this first slice shows cost-only figures.
+Prices, market value and actual weight remain unavailable; cost basis and cash are separated by
+currency. Opening Holdings adds no request and never sends the local snapshot or any holding
+fields to analytics or providers. Existing V6/V7 price-aware tools stay available through the
+import/update link. Arrow keys, Home and End navigate the three home tabs.
+
 **Done when:** at 1280px, 768px and 375px in both themes, with fixture snapshots (empty, malformed,
 USD-only, USD + MYR with cash, one unmatched holding, one holding without a price): figures match
 the V6 Portfolio for the same snapshot, no cross-currency total appears, no holdings data appears
 in analytics or network payloads, and storage is never written. Lint, typecheck, harness, build and
 a focused browser suite pass.
+
+**Verification (2026-10-25):** lint, typecheck, full harness and production build passed.
+The fixture browser suite passed all 17 scenarios at `http://127.0.0.1:3000`, including
+1280/768/375/320px in both themes, currency arithmetic, missing prices, exact saved matches,
+storage failures and external refresh. Opening Holdings made zero API requests; storage-mutator
+and outbound-payload assertions passed. Independent review's test gaps were corrected and the
+full matrix rerun. Screenshots and report: `.tmp/research-holdings/after/`. This is local proof;
+provider health and deployment are not established. Later portfolio editing remains out of scope.
 
 ### E3 — Today promotion review
 

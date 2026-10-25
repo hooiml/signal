@@ -4,6 +4,15 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For E18 read-only V8 Holdings, run `node scripts/research-holdings-qa.mjs` against one owned
+production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). Local API/storage fixtures
+cover guest and owner research matches, USD/MYR costs and cash, missing quotes, empty/invalid/
+unavailable storage, watchlist loading/failure and external snapshot refresh. The light/dark
+1280/768/375/320px matrix checks keyboard tabs, overflow and stock handoffs. Holdings never
+writes its snapshot or requests a quote. Evidence is saved in `.tmp/research-holdings/`;
+`--before` captures the previous home. CI runs the same suite and uploads its diagnostics.
+This proves local UI behavior, not deployment.
+
 For G2 metric-to-Learn handoffs, run `node scripts/learn-metric-links-qa.mjs` against one owned
 production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). The controlled API fixtures
 exercise five metric destinations, new-tab isolation, allowlisted concept URLs, lesson navigation,

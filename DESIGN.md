@@ -57,8 +57,11 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
   (collapsed) → tabs **What changed · Context**.
 - **Market, Advanced view:** adds the **Evidence**, **History** and **Scenarios** tabs and historical
   snapshot replay.
-- **Research home** (no ticker): stock search, then two tabs: **Watchlist** (saved stocks as cards)
-  and **Discover** (Trending · Early trends · Stock Picker · Calendar · Alerts). The header shows
+- **Research home** (no ticker): stock search, then **Watchlist** (saved stocks as cards),
+  **Discover** (Trending · Early trends · Stock Picker · Calendar · Alerts) and **Holdings**
+  (read-only device snapshot; cost/cash totals by currency, missing prices explicit). The Holdings
+  table scrolls horizontally inside a named keyboard-focusable region. Import and advanced
+  portfolio tools remain in the linked Portfolio workspace. The header shows
   **Workspace** (export, Advanced tools, owner access).
 - **Reading a stock:** the header adds a **Watchlist · N** switcher; **Change stock** and **Discover**
   sit above the quote band (price, daily change and the primary **Save stock** button, with the price

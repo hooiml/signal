@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
+import { ResearchHoldingsV8 } from './ResearchHoldingsV8';
 import styles from './research-v8-connected.module.css';
 
-type HomeTab = 'watchlist' | 'discover';
+const homeTabs = ['watchlist', 'discover', 'holdings'] as const;
+type HomeTab = typeof homeTabs[number];
 
-// The Research home before a stock is chosen: your watchlist and Discover as two sibling tabs.
+// The Research home before a stock is chosen; holdings stay separate from saved research.
 export function ResearchHomeV8({ records, status, preferDiscover, discover, isUnsaved, onOpen }: {
     records: readonly ResearchRecord[] | null;
     status: ReactNode;
@@ -19,10 +21,21 @@ export function ResearchHomeV8({ records, status, preferDiscover, discover, isUn
     // Until the user picks a tab, open the watchlist when it has stocks and Discover otherwise.
     const tab: HomeTab = chosen ?? (records?.length ? 'watchlist' : 'discover');
     const count = records ? `${records.length}` : '…';
+    const tabList = useRef<HTMLDivElement>(null);
+    function tabKeys(event: KeyboardEvent<HTMLDivElement>) {
+        const index = homeTabs.indexOf(tab);
+        const next = event.key === 'ArrowRight' ? (index + 1) % homeTabs.length
+            : event.key === 'ArrowLeft' ? (index + homeTabs.length - 1) % homeTabs.length
+                : event.key === 'Home' ? 0 : event.key === 'End' ? homeTabs.length - 1 : null;
+        if (next === null) return;
+        event.preventDefault();
+        setChosen(homeTabs[next]);
+        tabList.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+    }
     return <section className={styles.home} aria-label="Research home">
-        <div className={styles.homeTabs} role="tablist" aria-label="Research home">
-            {(['watchlist', 'discover'] as const).map(value => <button key={value} id={`home-tab-${value}`} role="tab" aria-selected={tab === value} aria-controls={`home-panel-${value}`} onClick={() => setChosen(value)}>
-                {value === 'watchlist' ? <>Watchlist <span className={styles.homeCount}>{count}</span></> : 'Discover'}
+        <div ref={tabList} className={styles.homeTabs} role="tablist" aria-label="Research home" onKeyDown={tabKeys}>
+            {homeTabs.map(value => <button key={value} id={`home-tab-${value}`} role="tab" aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} aria-controls={`home-panel-${value}`} onClick={() => setChosen(value)}>
+                {value === 'watchlist' ? <>Watchlist <span className={styles.homeCount}>{count}</span></> : value === 'discover' ? 'Discover' : 'Holdings'}
             </button>)}
         </div>
         {tab === 'watchlist' ? <div id="home-panel-watchlist" role="tabpanel" aria-labelledby="home-tab-watchlist" className={styles.homePanel}>
@@ -41,6 +54,10 @@ export function ResearchHomeV8({ records, status, preferDiscover, discover, isUn
                 </button>
             </li>)}</ul>}
             {!records && !status && <p role="status">Loading your watchlist…</p>}
-        </div> : <div id="home-panel-discover" role="tabpanel" aria-labelledby="home-tab-discover">{discover}</div>}
+        </div> : tab === 'discover' ? <div id="home-panel-discover" role="tabpanel" aria-labelledby="home-tab-discover">{discover}</div>
+            : <div id="home-panel-holdings" role="tabpanel" aria-labelledby="home-tab-holdings" className={styles.homePanel}>
+                {records === null && status}
+                <ResearchHoldingsV8 records={records} onOpen={onOpen} />
+            </div>}
     </section>;
 }
