@@ -228,6 +228,7 @@ try {
  marketScoreCase='unchanged';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/Score unchanged.*Individual inputs can still differ/}).waitFor();await page.getByTestId('market-hero-unchanged').filter({hasText:/^No change since /}).waitFor();assert.equal(await page.getByRole('region',{name:'Market assessment'}).getByRole('button',{name:/points vs/}).count(),0);
  marketScoreCase='missing';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/No earlier comparable score supplied/}).waitFor();
  marketScoreCase='normal';await page.getByLabel('Market',{exact:true}).selectOption('MY');
+ // Scope the repeated VIX label to its visible indicator-list control.
  await page.getByRole('region',{name:'Explore indicators',exact:true}).getByRole('button',{name:'US VIX (FX proxy unavailable)',exact:true}).waitFor();
  const myCoverage=page.getByRole('img',{name:/^Score weight:/}).locator('..');
  await myCoverage.getByText(/^MY news:/).waitFor();

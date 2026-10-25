@@ -12,9 +12,15 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same PR supersedes the older run; main pushes always finish.
+concurrency:
+  group: signal-validation-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    # Pinned so the ubuntu-latest move to Ubuntu 26 cannot change browser QA timing or Playwright deps unannounced.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       DATABASE_URL: postgresql://signal_ci:signal_ci@127.0.0.1:5432/signal_ci
@@ -23,10 +29,10 @@ jobs:
       SIGNAL_QA_SCREENSHOTS: '0'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -92,7 +98,7 @@ jobs:
 
       - name: Upload browser diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: signal-browser-diagnostics
           include-hidden-files: true
