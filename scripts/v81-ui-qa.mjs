@@ -137,9 +137,14 @@ try {
         assert.equal(await hero.getByTestId('connected-score').innerText(), '62');
         assert.match(await hero.innerText(), /65\.0% configured weight/);
         await hero.getByText('35.0% of configured weight uses neutral fallback for missing inputs.', { exact: true }).waitFor();
-        assert.equal(await page.locator('button[data-indicator]').count(), 6);
-        // Observed inputs are rows; unavailable inputs share one row of buttons, so all six stay inspectable.
-        assert.equal(await page.getByRole('group', { name: 'Unavailable inputs' }).locator('[data-indicator]').count(), 3);
+        const indicatorEvidence = page.getByRole('region', { name: 'Explore indicators', exact: true });
+        const observedIndicators = indicatorEvidence.locator('button[data-indicator][data-available="true"]');
+        const unavailableIndicators = indicatorEvidence.getByRole('group', { name: 'Unavailable inputs' }).locator('button[data-indicator]');
+        // Only the Market observation rows and unavailable-input row establish this coverage.
+        // G3 glossary controls may add indicator-adjacent buttons elsewhere on the page.
+        assert.equal(await observedIndicators.count(), 3);
+        assert.equal(await unavailableIndicators.count(), 3);
+        assert.equal(await observedIndicators.count() + await unavailableIndicators.count(), 6);
         await page.getByRole('button', { name: /BofA SSI/ }).waitFor();
         const skip = page.locator('a[href="#market-content"]');
         await skip.focus();
@@ -170,17 +175,21 @@ try {
 
         if (width === 1280) {
             unknownDate = true;
-            await page.reload();
+            await page.reload({ waitUntil: 'networkidle' });
             await page.getByTestId('connected-score').waitFor();
             await hero.getByText('65.0% configured weight', { exact: true }).waitFor();
-            await hero.getByText(/Put\/call ratio: Observation date unknown/).waitFor();
+            await hero.getByText(/Observation (?:date|freshness) unknown/).waitFor();
+            assert.match(await hero.innerText(), /Put\/call ratio: Observation date unknown/, 'Retrieved put/call fixture must disclose that its observation date is unknown.');
             await noOverflow('Market unknown date');
             missingSnapshot = true; unknownDate = false; contextOnly = true;
             await page.reload(); await page.getByTestId('connected-score').waitFor();
-            await page.locator('button[data-indicator="put_call"]').getByText('Freshness unknown', { exact: true }).waitFor();
-            await page.locator('button[data-indicator="vix"]').getByText('Context · not scored', { exact: true }).waitFor();
-            assert.doesNotMatch(await page.locator('button[data-indicator="vix"]').innerText(), /Momentum:|Contrarian:/);
-            await page.locator('button[data-indicator="put_call"]').click();
+            const putCallEvidence = indicatorEvidence.locator('button[data-indicator="put_call"]');
+            const vixEvidence = indicatorEvidence.locator('button[data-indicator="vix"]');
+            await putCallEvidence.getByText('Freshness unknown', { exact: true }).waitFor();
+            await vixEvidence.getByText('Context · not scored', { exact: true }).waitFor();
+            assert.doesNotMatch(await vixEvidence.innerText(), /Momentum:|Contrarian:/);
+            await putCallEvidence.click();
+            await page.locator('[data-glossary-panel="put-call"]').getByRole('button', { name: 'View indicator', exact: true }).click();
             const inspector = page.getByRole('complementary', { name: 'Selected indicator', exact: true });
             await inspector.getByText('Freshness unavailable', { exact: true }).waitFor();
             await inspector.getByRole('button', { name: 'Close indicator detail' }).click();
