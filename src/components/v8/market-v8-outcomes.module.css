@@ -17,7 +17,7 @@
 .horizons p { margin: 10px 0 0; font-size: var(--text-sm); }
 .horizons dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0 0; }
 .horizons dt { color: var(--muted); font-size: var(--text-sm); font-weight: 400; }
-.horizons dd { margin: 4px 0 2px; font-family: var(--font-mono); font-size: var(--text-xl); font-weight: 700; font-variant-numeric: tabular-nums; }
+.horizons dd { margin: 4px 0 2px; font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
 .horizons dd[data-direction="up"] { color: var(--up); }
 .horizons dd[data-direction="down"] { color: var(--down); }
 .horizons small { color: var(--muted); font-size: var(--text-xs); }

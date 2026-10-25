@@ -115,7 +115,8 @@ try {
         await page.goto(`${base}/research-v8?market=US&discover=trending`, { waitUntil: 'domcontentloaded' });
         const trending = page.getByTestId('research-trending');
         await trending.waitFor();
-        check(`Discover open on deep link ${width}`, await discover().evaluate(element => element.open));
+        // Discover is a <details> on its own and an always-open block inside the Research home tabs.
+        check(`Discover open on deep link ${width}`, await discover().evaluate(element => element.tagName !== 'DETAILS' || element.open));
         check(`Trending shows Leaders first ${width}`, await trending.locator('li[data-group]').count() === leaderRows);
         await discover().getByRole('button', { name: `Show ${totalRows - leaderRows} contenders`, exact: true }).click();
         check(`Contenders revealed on request ${width}`, await trending.locator('li[data-group]').count() === totalRows);
@@ -160,17 +161,18 @@ try {
         check(`Picker URL records view ${width}`, new URL(page.url()).searchParams.get('discover') === 'picker');
         await overflow(`Picker fits ${width}`);
 
-        // Calendar: watchlist earnings and Top 20 earnings on the month grid, across the months in range.
+        // Calendar: watchlist earnings and Top 20 earnings on the week grid, across the pages in range.
         await view('Calendar').click();
         const grid = page.getByTestId('research-calendar-grid');
         await grid.waitFor();
         await page.waitForFunction(() => !document.body.innerText.includes('Loading watchlist dates'));
         const chips = async kind => {
             const found = [];
-            for (let month = 0; month < 4; month++) {
+            for (let block = 0; block < 4; block++) {
                 found.push(...await grid.locator(`[data-kind="${kind}"]`).allTextContents());
-                const next = discover().getByRole('button', { name: 'Next month' });
-                if (await next.isDisabled()) break;
+                const next = discover().getByRole('button', { name: 'Later weeks' });
+                // A 30-day window fits one page and has no paging buttons.
+                if (await next.count() === 0 || await next.isDisabled()) break;
                 await next.click();
             }
             await discover().getByRole('button', { name: 'Today', exact: true }).click();

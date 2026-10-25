@@ -71,7 +71,7 @@
 .heroKicker { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 12px; }
 .heroKicker > span:first-child { color: var(--muted); font-size: var(--text-sm); font-weight: 600; }
 .fixtureBadge { color: var(--muted); font-size: var(--text-sm); border: 1px solid var(--line); padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
-.app h1 { font-size: clamp(30px, 3.5vw, 46px); font-weight: 720; line-height: 1.13; letter-spacing: -1.8px; margin-bottom: 12px; }
+.app h1 { font-size: clamp(24px, 2.2vw, 32px); font-weight: 720; line-height: 1.13; letter-spacing: -1px; margin-bottom: 12px; }
 .hero > p { font-size: var(--text-md); max-width: 680px; line-height: 1.65; }
 .scorePanel { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
 .scoreStrip { display: flex; align-items: center; gap: 24px; padding: 15px 23px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
@@ -330,7 +330,7 @@
     .sourceToggle { margin-right: auto; font-size: var(--text-sm); min-height: 44px; }
     .exampleSelect { flex-direction: row; align-items: center; width: 100%; justify-content: space-between; font-size: var(--text-sm); } .exampleSelect select { min-height: 44px; font-size: var(--text-sm); }
     .hero { padding: 0 0 20px; } .heroKicker { gap: 7px; margin-bottom: 10px; } .heroKicker > span:first-child { font-size: var(--text-sm); } .fixtureBadge { font-size: var(--text-sm); padding: 2px 6px; }
-    .app h1 { font-size: var(--text-2xl); letter-spacing: -1.3px; max-width: 350px; } .hero > p { font-size: var(--text-base); line-height: 1.65; }
+    .app h1 { font-size: var(--text-xl); letter-spacing: -0.6px; max-width: 350px; } .hero > p { font-size: var(--text-base); line-height: 1.65; }
     .scoreStrip { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; padding: 18px; } .score { grid-column: 1; } .score strong { font-size: var(--text-display); } .zone { justify-self: end; }
     .scoreMeta b, .coverageButton b { font-size: var(--text-base); } .scoreMeta b small, .coverageButton b small { font-size: var(--text-sm); } .scoreMeta > span, .coverageButton > span { font-size: var(--text-sm); }
     .coverageButton { grid-column: 1 / -1; margin: 0; flex-direction: row; justify-content: space-between; align-items: center; border-top: 1px solid var(--line) !important; padding-top: 12px !important; }
@@ -453,7 +453,7 @@
 
 /* V8.1: readable loading geometry and available-first evidence without hiding missing inputs. */
 .loadingSkeleton { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 24px; }
-.loadingSkeleton > div { min-height: 132px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 18px; display: grid; align-content: space-between; gap: 14px; }
+.loadingSkeleton > div { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 18px; display: grid; align-content: start; gap: 14px; }
 .skeletonLine { height: 18px; border-radius: 5px; background: linear-gradient(90deg,var(--line),var(--surface-muted),var(--line)); background-size: 200% 100%; animation: signalSkeleton 1.8s ease-in-out infinite; }
 .loadingSkeleton > div > .skeletonLine:last-child { width: 65%; height: 35px; }
 @keyframes signalSkeleton { to { background-position-x: -200%; } }

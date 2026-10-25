@@ -39,6 +39,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
     const [records, setRecords] = useState<ResearchRecord[] | null>(null);
     const [selected, setSelected] = useState(initialTicker);
     const [selectedMarket, setSelectedMarket] = useState<ResearchMarket | undefined>(initialMarket);
+    const [discoverLinkUsed, setDiscoverLinkUsed] = useState(false);
     const [tab, setTab] = useState<ResearchTab>('Overview');
     const [advanced, setAdvanced] = useState(false);
     const [chartRange, setChartRange] = useState('3M');
@@ -345,8 +346,9 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
             setGuestError('');
         } catch (failure) { setGuestError(failure instanceof Error ? failure.message : 'Device storage is unavailable.'); }
     }
-    const openFromDiscover = (symbol: string, nextMarket: ResearchMarket) => { navigate(symbol, 'Overview', true, nextMarket); window.scrollTo({ top: 0 }); };
-    const discover = <ResearchDiscoverV8 initialView={initialDiscover} defaultOpen={false} records={records} workspace={workspace} onSelect={openFromDiscover} />;
+    // Picking a stock from the home's Discover tab mounts the reading view's own Discover; the deep link is spent, so it starts closed.
+    const openFromDiscover = (symbol: string, nextMarket: ResearchMarket) => { setDiscoverLinkUsed(true); navigate(symbol, 'Overview', true, nextMarket); window.scrollTo({ top: 0 }); };
+    const discover = <ResearchDiscoverV8 initialView={discoverLinkUsed ? undefined : initialDiscover} defaultOpen={false} records={records} workspace={workspace} onSelect={openFromDiscover} />;
     const homeDiscover = <ResearchDiscoverV8 initialView={initialDiscover} defaultOpen embedded records={records} workspace={workspace} onSelect={openFromDiscover} />;
     return <div className={`${base.app} ${styles.app} ${connected.app}`}>
         <a className={base.skip} href="#v8-content">Skip to content</a>

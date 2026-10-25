@@ -56,8 +56,11 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
   sit above the quote band (price, daily change and the primary **Save stock** button, with the price
   context strip beside it), then tabs **Overview · Chart & technicals · Financials · Valuation ·
   Peers · Filings**. **Thesis** and **Review** appear only in Advanced view for a saved stock.
-- **Calendar:** a month grid with a labelled marker per event (earnings, trending earnings, review,
-  overdue review, macro) and an agenda for the selected day; phones show colour dots in the grid.
+- **Calendar:** a week grid that starts this week and covers the chosen 30- or 90-day window (90
+  days pages in six-week blocks), with an agenda for the selected day. One data hue marks watchlist
+  earnings; trending earnings are an outline, reviews a dashed outline, macro a hatch, and only an
+  overdue review takes the risk colour. The legend lists only kinds on screen; phones show the
+  same marks as small dots.
 - **Wording:** user-facing labels say "stock" and "Watchlist"; data-scope notes may still say
   "security" where ETFs or funds are included.
 - **Content order on every page:** current state → evidence and limits → action or saved record →

@@ -15,28 +15,26 @@ type Item = { id: string; date: string; kind: Kind; symbol?: string; market?: Re
 const kindLabel: Record<Kind, string> = { earnings: 'Earnings', review: 'Review', stale: 'Overdue review', trending: 'Trending earnings', macro: 'Macro' };
 const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const visibleChips = 3;
+const kindOrder: readonly Kind[] = ['earnings', 'trending', 'review', 'stale', 'macro'];
+// Six weeks hold any 30-day window from today; a 90-day window pages in six-week blocks.
+const weeksPerPage = 6;
 
 const addDays = (value: string, days: number) => {
     const date = new Date(`${value}T00:00:00Z`);
     date.setUTCDate(date.getUTCDate() + days);
     return date.toISOString().slice(0, 10);
 };
-const addMonths = (month: string, months: number) => {
-    const date = new Date(`${month}-01T00:00:00Z`);
-    date.setUTCMonth(date.getUTCMonth() + months);
-    return date.toISOString().slice(0, 7);
-};
 const weekday = (value: string) => new Date(`${value}T00:00:00Z`).getUTCDay();
-const monthLabel = (month: string) => new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${month}-01T00:00:00Z`));
+const shortDate = (value: string, year = false) => new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}), timeZone: 'UTC' }).format(new Date(`${value}T00:00:00Z`));
 const dayLabel = (value: string) => new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${value}T00:00:00Z`));
 const timingLabel = (timing: string | null | undefined) => timing === 'pre-market' ? 'before open' : timing === 'after-hours' ? 'after close' : 'time not supplied';
 
-// Watchlist earnings and review dates, earnings already known for the trending list, and macro releases, on a month grid.
+// Watchlist earnings and review dates, earnings already known for the trending list, and macro releases, on a week grid that starts this week.
 export function ResearchCalendarV8({ records, trending, onSelect }: { records: readonly ResearchRecord[] | null; trending: DiscoveryResponse | null; onSelect: (symbol: string, market: ResearchMarket) => void }) {
     const [range, setRange] = useState<ResearchCalendarRange>(30);
     const [now] = useState(() => Date.now());
     const today = new Date(now).toISOString().slice(0, 10);
-    const [month, setMonth] = useState(today.slice(0, 7));
+    const [page, setPage] = useState(0);
     const [selectedDay, setSelectedDay] = useState(today);
     const [result, setResult] = useState<{ key: string; data: ResearchCalendarResponse | null; error: string } | null>(null);
     // The calendar API takes unique symbols; the first saved market wins for a duplicated ticker.
@@ -57,9 +55,9 @@ export function ResearchCalendarV8({ records, trending, onSelect }: { records: r
     }, [hasRecords, range, body, key]);
     const current = result?.key === key ? result : null;
     const end = addDays(today, range);
-    const firstMonth = today.slice(0, 7);
-    const lastMonth = end.slice(0, 7);
-    const activeMonth = month < firstMonth ? firstMonth : month > lastMonth ? lastMonth : month;
+    const firstWeek = addDays(today, -weekday(today));
+    const pageCount = Math.ceil((weekday(today) + range + 1) / 7 / weeksPerPage);
+    const activePage = Math.min(page, pageCount - 1);
 
     // Watchlist events, trending earnings not already on the watchlist, and macro releases, in date order.
     const items: Item[] = [];
@@ -73,10 +71,12 @@ export function ResearchCalendarV8({ records, trending, onSelect }: { records: r
     items.sort((a, b) => a.date.localeCompare(b.date) || a.kind.localeCompare(b.kind));
     const byDay = items.reduce((days, item) => days.set(item.date, [...(days.get(item.date) ?? []), item]), new Map<string, Item[]>());
 
-    const monthStart = `${activeMonth}-01`;
-    const monthEnd = addDays(`${addMonths(activeMonth, 1)}-01`, -1);
-    const gridStart = addDays(monthStart, -weekday(monthStart));
-    const gridDays = Array.from({ length: Math.ceil((weekday(monthStart) + Number(monthEnd.slice(-2))) / 7) * 7 }, (_, index) => addDays(gridStart, index));
+    const gridStart = addDays(firstWeek, activePage * weeksPerPage * 7);
+    const pageWeeks = Math.min(weeksPerPage, Math.ceil((weekday(today) + range + 1) / 7) - activePage * weeksPerPage);
+    const gridDays = Array.from({ length: pageWeeks * 7 }, (_, index) => addDays(gridStart, index));
+    const pageFrom = gridDays[0] < today ? today : gridDays[0];
+    const pageTo = gridDays[gridDays.length - 1] > end ? end : gridDays[gridDays.length - 1];
+    const shownKinds = kindOrder.filter(kind => items.some(item => item.kind === kind));
     const selectedItems = byDay.get(selectedDay) ?? [];
     const upcoming = items.filter(item => item.date >= today).length;
     const status = !trending && !records ? 'Loading watchlist and trend scan…'
@@ -90,25 +90,24 @@ export function ResearchCalendarV8({ records, trending, onSelect }: { records: r
         </div>
         {!hasRecords && records && <p className={styles.meta}>Add stocks to your watchlist to see their earnings and review dates here. Trending earnings are shown meanwhile.</p>}
         {status && <p role={current?.error ? 'alert' : 'status'} className={styles.meta}>{status}</p>}
-        <ul className={styles.calendarLegend} aria-label="Calendar legend">{(['earnings', 'trending', 'review', 'stale', 'macro'] as const).map(kind => <li key={kind} data-kind={kind}><i aria-hidden="true" />{kindLabel[kind]}</li>)}</ul>
-        <div className={styles.monthBar} role="group" aria-label="Calendar month">
-            <button type="button" className={styles.todayButton} onClick={() => { setMonth(firstMonth); setSelectedDay(today); }}>Today</button>
-            <button type="button" aria-label="Previous month" disabled={activeMonth <= firstMonth} onClick={() => setMonth(addMonths(activeMonth, -1))}>‹</button>
-            <h3 aria-live="polite">{monthLabel(activeMonth)}</h3>
-            <button type="button" aria-label="Next month" disabled={activeMonth >= lastMonth} onClick={() => setMonth(addMonths(activeMonth, 1))}>›</button>
+        {shownKinds.length > 0 && <ul className={styles.calendarLegend} aria-label="Calendar legend">{shownKinds.map(kind => <li key={kind} data-kind={kind}><i aria-hidden="true" />{kindLabel[kind]}</li>)}</ul>}
+        <div className={styles.monthBar} role="group" aria-label="Calendar weeks">
+            <button type="button" className={styles.todayButton} onClick={() => { setPage(0); setSelectedDay(today); }}>Today</button>
+            {pageCount > 1 && <button type="button" aria-label="Earlier weeks" disabled={activePage === 0} onClick={() => setPage(activePage - 1)}>‹</button>}
+            <h3 aria-live="polite">{shortDate(pageFrom)} – {shortDate(pageTo, true)}</h3>
+            {pageCount > 1 && <button type="button" aria-label="Later weeks" disabled={activePage >= pageCount - 1} onClick={() => setPage(activePage + 1)}>›</button>}
         </div>
         <div className={styles.monthGrid} data-testid="research-calendar-grid">
             {weekdays.map(day => <span key={day} className={styles.weekday} aria-hidden="true">{day}</span>)}
             {gridDays.map(date => {
                 const dayItems = byDay.get(date) ?? [];
-                const inMonth = date.startsWith(activeMonth);
                 const inRange = date >= today && date <= end;
-                return <button key={date} type="button" className={styles.dayCell} data-in-month={inMonth} data-in-range={inRange} data-today={date === today} aria-pressed={date === selectedDay}
+                return <button key={date} type="button" className={styles.dayCell} data-in-range={inRange} data-today={date === today} aria-pressed={date === selectedDay}
                     aria-label={`${dayLabel(date)}: ${dayItems.length ? dayItems.map(item => `${item.symbol ?? item.title} ${kindLabel[item.kind]}`).join(', ') : 'no events'}`}
                     onClick={() => setSelectedDay(date)}>
-                    <time dateTime={date}>{Number(date.slice(-2))}</time>
-                    {inMonth && dayItems.slice(0, visibleChips).map(item => <span key={item.id} className={styles.chip} data-kind={item.kind}>{item.symbol ?? kindLabel[item.kind]}</span>)}
-                    {inMonth && dayItems.length > visibleChips && <span className={styles.more}>+{dayItems.length - visibleChips}</span>}
+                    <time dateTime={date}>{date.endsWith('-01') || date === gridDays[0] ? shortDate(date) : Number(date.slice(-2))}</time>
+                    {dayItems.slice(0, visibleChips).map(item => <span key={item.id} className={styles.chip} data-kind={item.kind}>{item.symbol ?? kindLabel[item.kind]}</span>)}
+                    {dayItems.length > visibleChips && <span className={styles.more}>+{dayItems.length - visibleChips}</span>}
                 </button>;
             })}
         </div>
