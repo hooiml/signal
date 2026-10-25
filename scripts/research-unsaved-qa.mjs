@@ -228,7 +228,8 @@ try {
  marketScoreCase='unchanged';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/Score unchanged.*Individual inputs can still differ/}).waitFor();await page.getByTestId('market-hero-unchanged').filter({hasText:/^No change since /}).waitFor();assert.equal(await page.getByRole('region',{name:'Market assessment'}).getByRole('button',{name:/points vs/}).count(),0);
  marketScoreCase='missing';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/No earlier comparable score supplied/}).waitFor();
  marketScoreCase='normal';await page.getByLabel('Market',{exact:true}).selectOption('MY');
- await page.locator('[data-indicator="vix"]').filter({hasText:'US VIX (FX proxy unavailable)'}).waitFor();
+ // The hero, ring and evidence list each carry the VIX label; any one proves the MY proxy label.
+ await page.locator('[data-indicator="vix"]').filter({hasText:'US VIX (FX proxy unavailable)'}).first().waitFor();
  const myCoverage=page.getByRole('img',{name:/^Score weight:/}).locator('..');
  await myCoverage.getByText(/^MY news:/).waitFor();
  assert.match(await myCoverage.innerText(),/0 eligible dated articles.*0 dated within 24h.*aggregate sentiment observation unavailable/);

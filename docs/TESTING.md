@@ -202,6 +202,15 @@ Then open `http://localhost:3000` and check:
 - social toggle still affects the signal request
 - desktop and mobile layouts do not overlap text or controls
 
+Browser QA scripts run on slower CI runners than local machines. Routes stream
+through `src/app/loading.tsx`, so after `domcontentloaded` the server markup can
+be visible before React hydrates it, and a hidden streamed copy can briefly sit
+beside it. Before typing, filling, pressing shortcuts or counting elements, wait
+for the target to hydrate (see `waitForHydration` in
+`scripts/learn-metric-links-qa.mjs`) and scope test-id lookups to visible
+elements. To approximate CI locally, wrap a script with Chromium CPU throttling
+(`Emulation.setCPUThrottlingRate` at 4x).
+
 ### Reproducible Performance Baseline
 
 For shared route, bundle, or request-hydration performance work, build the
