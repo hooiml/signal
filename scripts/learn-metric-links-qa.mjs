@@ -136,7 +136,7 @@ function observe(page, scenario) {
 }
 
 async function selectTheme(page, theme) {
-    await page.getByTestId('learn-shell').waitFor();
+    await page.getByTestId('learn-shell').filter({ visible: true }).waitFor();
     const control = page.getByRole('radio', { name: theme === 'light' ? 'Light' : 'Dark' });
     // Force the explicit choice through the real control even when Auto currently resolves to it.
     if (await control.isChecked()) await page.getByRole('radio', { name: theme === 'light' ? 'Dark' : 'Light' }).check();
@@ -144,7 +144,7 @@ async function selectTheme(page, theme) {
     await page.waitForFunction(expected => document.documentElement.dataset.v8Theme === expected, theme);
     // Learn streams its loading boundary; DOMContentLoaded can precede the final lesson.
     await page.reload({ waitUntil: 'networkidle', timeout: timeoutMs });
-    await page.getByTestId('learn-shell').waitFor();
+    await page.getByTestId('learn-shell').filter({ visible: true }).waitFor();
     await page.waitForFunction(expected => document.documentElement.dataset.v8Theme === expected, theme);
 }
 
@@ -194,6 +194,12 @@ async function assertMetricAnchors(page, scenario, route, routeConcepts, observa
         await page.keyboard.press('Tab');
         await trigger.focus();
         await panel.waitFor();
+        // The popover can paint before the trigger's toggle handler re-renders aria-expanded.
+        await trigger.evaluate(element => new Promise(resolve => {
+            const started = Date.now();
+            const poll = () => element.getAttribute('aria-expanded') === 'true' || Date.now() - started > 5000 ? resolve() : setTimeout(poll, 25);
+            poll();
+        }));
         check(scenario, `${concept.id} keyboard focus opens the definition`, await trigger.getAttribute('aria-expanded') === 'true');
         await page.keyboard.press('Tab');
         check(scenario, `${concept.id} Tab reaches Learn more`, await anchor.evaluate(element => document.activeElement === element));
@@ -284,8 +290,24 @@ async function assertRepeatedLabels(page, scenario) {
     check(scenario, 'all five metric definitions recur consistently', definitions.size === 5);
 }
 
+// Learn streams through the root loading boundary, so server HTML is visible before React hydrates it.
+// Slow CI runners leave a gap where keys, fills and DOM reads hit markup React has not attached to yet,
+// and the streamed copy can sit in a hidden `S:` container beside the visible shell, so shell lookups stay visible-only.
+async function waitForHydration(locator) {
+    await locator.waitFor();
+    await locator.evaluate(element => new Promise(resolve => {
+        const ready = () => Object.keys(element).some(key => key.startsWith('__reactProps$'));
+        const poll = () => ready() ? resolve() : setTimeout(poll, 25);
+        poll();
+    }));
+}
+
+async function headingCountDetail(page, name) {
+    return JSON.stringify(await page.getByRole('heading', { name }).allTextContents());
+}
+
 async function assertDisplayedLearnTarget(page, scenario, concept) {
-    await page.getByTestId('learn-shell').waitFor();
+    await waitForHydration(page.getByTestId('learn-shell').filter({ visible: true }));
     await page.evaluate(() => document.fonts.ready);
     if (concept.id === 'rsi') {
         const lesson = page.getByTestId('trading-concept');
@@ -294,18 +316,17 @@ async function assertDisplayedLearnTarget(page, scenario, concept) {
         check(scenario, 'rsi query selects the Momentum module', selectedControls.some(text => /Momentum/i.test(text)), JSON.stringify(selectedControls));
         check(scenario, 'rsi query renders the Momentum concept heading', await lesson.getByRole('heading', { name: 'Momentum' }).count() === 1);
     } else if (concept.id === 'pe') {
-        // The query-selected lesson renders after hydration; wait before reading it.
-        await page.getByRole('heading', { name: 'P/E ratio' }).waitFor();
+        await waitForHydration(page.getByRole('heading', { name: 'P/E ratio' }).first());
         check(scenario, 'pe query selects the P/E module', await page.getByRole('button', { name: /P\/E ratio/ }).getAttribute('aria-pressed') === 'true');
         check(scenario, 'pe query renders the P/E lesson heading', await page.getByRole('heading', { name: 'P/E ratio' }).count() === 1);
     } else if (concept.id === 'fcf-yield') {
         check(scenario, 'fcf-yield query selects FCF yield in the valuation lab', await page.getByLabel('Preferred valuation metric').inputValue() === 'fcf-yield');
     } else if (concept.id === 'put-call') {
-        await page.getByRole('heading', { name: 'Put/call volume ratio' }).waitFor();
-        check(scenario, 'put-call query renders the exact market lesson heading', await page.getByRole('heading', { name: 'Put/call volume ratio' }).count() === 1);
+        await waitForHydration(page.getByRole('heading', { name: 'Put/call volume ratio' }).first());
+        check(scenario, 'put-call query renders the exact market lesson heading', await page.getByRole('heading', { name: 'Put/call volume ratio' }).count() === 1, await headingCountDetail(page, 'Put/call volume ratio'));
     } else {
-        await page.getByRole('heading', { name: 'NAAIM Exposure Index' }).waitFor();
-        check(scenario, 'naaim query renders the exact market lesson heading', await page.getByRole('heading', { name: 'NAAIM Exposure Index' }).count() === 1);
+        await waitForHydration(page.getByRole('heading', { name: 'NAAIM Exposure Index' }).first());
+        check(scenario, 'naaim query renders the exact market lesson heading', await page.getByRole('heading', { name: 'NAAIM Exposure Index' }).count() === 1, await headingCountDetail(page, 'NAAIM Exposure Index'));
     }
 }
 
@@ -352,7 +373,7 @@ async function runAfter(browser, viewport, theme) {
     try {
         await page.goto(`${baseUrl}/learn`, { waitUntil: 'domcontentloaded' });
         await selectTheme(page, theme);
-        check(scenario, 'Learn uses the V8 shell', await page.getByTestId('learn-shell').count() === 1);
+        check(scenario, 'Learn uses the V8 shell', await page.getByTestId('learn-shell').filter({ visible: true }).count() === 1);
         check(scenario, 'requested V8 theme is applied to the document', await page.locator('html').getAttribute('data-v8-theme') === theme);
         check(scenario, 'Learn starts on the trading course without a metric query', await page.getByRole('button', { name: 'Trading process v0.4' }).getAttribute('aria-pressed') === 'true');
         const metricNav = page.getByRole('navigation', { name: 'Metric lessons' });
@@ -381,7 +402,8 @@ async function runAfter(browser, viewport, theme) {
             await page.goto(`${baseUrl}/learn`, { waitUntil: 'domcontentloaded' });
             await selectTheme(page, theme);
             const palette = page.getByRole('dialog', { name: 'Signal command palette' });
-            // The shortcut listener attaches on hydration, which can trail domcontentloaded on slow runners.
+            // The shortcut listener attaches in an effect after hydration; retry briefly once hydrated.
+            await waitForHydration(page.getByTestId('learn-shell').filter({ visible: true }));
             for (let attempt = 0; attempt < 10 && !(await palette.isVisible()); attempt += 1) {
                 await page.keyboard.press('Control+k');
                 await palette.waitFor({ timeout: 1500 }).catch(() => {});
@@ -411,7 +433,7 @@ async function runAfter(browser, viewport, theme) {
                 check(scenario, `${concept.id} handoff preserves guest research storage`, JSON.stringify(await page.evaluate(() => Object.fromEntries(Object.entries(localStorage).filter(([key]) => key.startsWith('signal.guest-research'))))) === JSON.stringify(researchBefore));
                 check(scenario, `${concept.id} link opens the correct Learn URL`, new URL(lesson.url()).pathname === '/learn' && new URL(lesson.url()).searchParams.get('concept') === concept.id, lesson.url());
                 check(scenario, `${concept.id} new tab has no browser opener`, await lesson.evaluate(() => window.opener === null));
-                await lesson.getByTestId('learn-shell').waitFor();
+                await lesson.getByTestId('learn-shell').filter({ visible: true }).waitFor();
                 await assertDisplayedLearnTarget(lesson, scenario, concept);
                 await lesson.close();
             }
@@ -441,18 +463,20 @@ async function runAfter(browser, viewport, theme) {
             await assertDisplayedLearnTarget(page, scenario, concepts[1]);
             for (const query of ['invalid', 'rsi&concept=pe']) {
                 await page.goto(`${baseUrl}/learn?concept=${query}`, { waitUntil: 'domcontentloaded' });
+                await waitForHydration(page.getByRole('button', { name: 'Trading process v0.4' }));
                 check(scenario, `invalid or repeated concept ${query} falls back to trading`, await page.getByRole('button', { name: 'Trading process v0.4' }).getAttribute('aria-pressed') === 'true');
             }
             await page.goto(`${baseUrl}/learn?concept=put-call`, { waitUntil: 'domcontentloaded' });
-            // A fill that lands before hydration is reset by React; refill until the recomputed ratio shows.
-            const undefinedRatio = page.locator('main').getByText('Undefined').first();
-            for (let attempt = 0; attempt < 10 && !(await undefinedRatio.isVisible()); attempt += 1) {
-                await page.getByLabel('Illustrative call option volume').fill('0');
-                await undefinedRatio.waitFor({ timeout: 1500 }).catch(() => {});
-            }
+            // A fill that lands before hydration is reset by React.
+            const callVolume = page.getByLabel('Illustrative call option volume');
+            await waitForHydration(callVolume);
+            await callVolume.fill('0');
+            await page.locator('main').getByText('Undefined').first().waitFor();
             check(scenario, 'put/call lesson marks a zero denominator undefined', (await page.locator('main').innerText()).includes('Undefined'));
             await page.goto(`${baseUrl}/learn?concept=naaim`, { waitUntil: 'domcontentloaded' });
             const naaimSlider = page.getByLabel('Hypothetical manager equity exposure');
+            // Arrow keys before hydration move the native slider, then React restores its controlled value.
+            await waitForHydration(naaimSlider);
             await naaimSlider.focus();
             await page.keyboard.press('Home');
             for (let index = 0; index < 40; index += 1) await page.keyboard.press('ArrowRight');
@@ -481,6 +505,7 @@ async function runAfter(browser, viewport, theme) {
         // Focus only after the query-selected lesson renders, so hydration cannot steal it.
         await page.getByTestId('trading-concept').waitFor();
         const focusTarget = page.getByRole('button', { name: 'Trading process v0.4' });
+        await waitForHydration(focusTarget);
         await focusTarget.focus();
         await page.keyboard.press('Tab');
         await page.keyboard.press('Shift+Tab');
