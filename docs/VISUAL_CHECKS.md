@@ -120,11 +120,11 @@ holding and cash totals. This is Windows-only proof, not Linux CI acceptance.
 
 ### Initial Linux enrollment (parent-owned remote follow-up)
 
-The initial implementation contains reviewed Windows PNGs and local pass/fail/pass
-proof. Docker was unavailable locally, so Linux CI baselines are **not yet proven**.
-The first CI job intentionally fails for missing Linux goldens. It must not compare
-Windows PNGs or autoaccept its own output. Complete these bounded steps before
-calling the Linux gate established:
+The initial implementation contained reviewed Windows PNGs and local pass/fail/pass
+proof. Docker was unavailable locally. The first CI job intentionally failed for missing
+Linux goldens; it did not compare Windows PNGs or autoaccept its own output. The
+reviewed candidates are now committed; a normal comparison is still required before
+calling the Linux gate established. This enrollment process remains the update contract:
 
 1. Download `signal-visual-comparisons` for the exact reviewed PR head. All 20 tests
    must reach only the missing-golden assertion, with empty environment error arrays.
@@ -144,3 +144,12 @@ calling the Linux gate established:
 
 The task that creates this PR hands remote verification to its parent immediately
 after local proof and PR attachment; it does not wait for CI or merge the PR.
+
+**Linux candidate review (2026-10-25):** accepted all 20 images from workflow run
+`40192599021`, artifact `12598059704`, head `3d8c0f583f55504bcb48fa0aa597691242042056`.
+Every test reached only the missing-golden assertion. Browser/image/font/clock/locale/
+timezone/DPR metadata matched this contract; browser error arrays were empty.
+Independent visual review accepted each candidate against the corresponding Windows
+reference for intended state and layout, without cross-platform pixel equality. Phone
+table scrolling and viewport crops are intentional. Only these reviewed PNGs were copied
+to the Linux namespace. The next normal pinned-container comparison remains pending.
