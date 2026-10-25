@@ -38,7 +38,7 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
 | Route | What it is |
 | --- | --- |
 | `/` | Redirects to `/main-v8`. |
-| `/main-v8` | Market conditions. Basic view by default; **Advanced tools** adds tabs and replay. |
+| `/main-v8` | Market conditions. Basic view by default; the **Detailed view** toggle adds tabs and replay. |
 | `/research-v8` | Company research. `/research?ticker=…` (ticker only) redirects here. |
 | `/research` (other params) | The V7 integrated workspace (built on the V6 dashboard) that saved-research edit links open. |
 | `/start` | V6 guided start. Not linked from the V8 header. |
@@ -52,7 +52,7 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
   Market defaults save explicitly for the next opening/reload; a valid URL market takes priority.
   Guest data actions use saved-only export with draft warnings, and confirmed clear of guest
   securities, notes and recovery backups only. Owner access opens the existing unlock page in a
-  new tab with the full return context. Workspace retains Advanced tools and owner lock.
+  new tab with the full return context. Workspace retains the Detailed view toggle and owner lock.
   Use the existing V8 tokens, a 560px maximum width, 44px targets, visible focus, native modal
   inertness and bounded vertical scrolling at narrow widths. Storage errors remain visible.
   The architecture and privacy boundaries are in [`V8_SETTINGS_DESIGN.md`](docs/V8_SETTINGS_DESIGN.md).
@@ -85,10 +85,13 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
   snapshot replay.
 - **Research home** (no ticker): stock search, then **Watchlist** (saved stocks as cards),
   **Discover** (Trending · Early trends · Stock Picker · Calendar · Alerts) and **Holdings**
-  (read-only device snapshot; cost/cash totals by currency, missing prices explicit). The Holdings
-  table scrolls horizontally inside a named keyboard-focusable region. Import and advanced
+  (read-only device snapshot; cost/cash totals by currency, missing prices explicit). One line under
+  the heading states the snapshot time, a shared import source, the device and that prices are not
+  loaded. The table shows only cost columns, right-aligned; a Source column appears only when rows
+  come from different imports, and Cash by account only when it adds accounts beyond the currency
+  totals. The table scrolls horizontally inside a named keyboard-focusable region. Import and advanced
   portfolio tools remain in the linked Portfolio workspace. The header shows
-  **Workspace** (Advanced tools and owner workflow actions); guest export/clear and unlock live in Settings.
+  **Workspace** (Detailed view and owner workflow actions); guest export/clear and unlock live in Settings.
 - **Reading a stock:** the header adds a **Watchlist · N** switcher; **Change stock** and **Discover**
   sit above the quote band (price, daily change and the primary **Save stock** button, with the price
   context strip beside it), then tabs **Overview · Chart & technicals · Financials · Valuation ·

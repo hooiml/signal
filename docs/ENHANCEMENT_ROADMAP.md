@@ -55,6 +55,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E22 | Retire legacy route aliases (G6) | Verified | High | Preserve advanced Research/Market jobs, deep links, Today continuity and existing storage |
 | E23 | Visual comparisons in CI (G7) | Verified | Standard | Reviewed platform-specific baselines and a passing pinned Linux comparison |
 | E24 | Shared V8 component kit (G8) | Verified | High | Preserve markup, classes, selection semantics and freshness provenance; G7 regression guard |
+| E25 | Trim G-series V8 UI | In progress | Standard | Same data, storage and flows; Linux visual baselines need re-enrollment from CI |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -553,6 +554,27 @@ Remote CI and the pinned Linux comparison remain the parent chat's delivery chec
 G1 remains cost-only, with advanced portfolio migration outstanding. G6's canonical
 `/research` and `/market/tools` retain their specialized engines.
 
+### E25 — Trim G-series V8 UI
+
+**Why:** A design review of G1–G8 found that Holdings, the first-visit card and Settings
+repeated their own caveats, and that "Advanced tools" named both an in-page toggle and a route.
+
+**Scope:** Holdings states snapshot time, shared source, device and "Prices not loaded" once, drops
+the always-empty price columns, the note box and the eyebrow, right-aligns cost figures, and shows a
+Source column or Cash by account only when they add information. The first-visit card becomes one
+compact strip without the accent bar or footer note. Settings keeps one short line per section. The
+in-page depth toggle is now **Detailed view** with a fixed label and `aria-pressed`; the Reading view
+/ Advanced tools route links are unchanged. No data, storage, request or flow changes.
+
+**Local verification (2026-10-25):** lint, production build, post-build typecheck and full harness
+passed. Browser suites passed on one owned production server: Holdings (18 scenarios, including a
+new mixed-source case), first visit, Settings, V8.1 presentation and UI, Market phone sections,
+Research tabs, Research unsaved/guest recovery (five widths), legacy routes, Learn metric links and
+Market clarity. Twelve Windows G7 baselines (Market, Holdings, Settings × four projects) were
+reviewed and updated; all 20 comparisons then passed. `research-improvements-qa.mjs`, which is not
+in CI, timed out loading Market before reaching any changed control. Linux baselines still show the
+old screens and need re-enrollment from the next CI run's candidates (see `VISUAL_CHECKS.md`).
+
 ### E3 — Today promotion review
 
 **Spec:** `NEXT_PRODUCT_ROADMAP.md` Task 0.
@@ -612,3 +634,4 @@ contract is recorded.
 | 2026-10-25 | E21 | — | Verified | V8 first-visit orientation; strict local progress, successful explicit-save evidence, safe restart, High verification and independent review. |
 | 2026-10-25 | E23 | — | Verified | Twenty reviewed Windows and Linux baselines, deliberate failure probes, independent review and a passing pinned Linux comparison in run 40193090823. |
 | 2026-10-25 | E24 | — | Verified | Five shared primitives with Market/Research consumers, full local checks, affected browser matrices, independent review and 20 unchanged Windows visual comparisons. |
+| 2026-10-25 | E25 | — | In progress | Holdings, first-visit, Settings and toggle-naming trim; local checks and Windows baselines pass; Linux re-enrollment pending CI. |

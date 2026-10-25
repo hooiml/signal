@@ -20,6 +20,7 @@ const formatDate = (value: string) => {
     return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 };
 const importLink = <a className={styles.action} href={importHref} target="_blank" rel="noreferrer">Import or update holdings</a>;
+const sourceOf = (row: { readonly provenanceLabel: string; readonly importedAt: string }) => `${row.provenanceLabel} · ${formatDate(row.importedAt)}`;
 
 export function ResearchHoldingsV8({ records, onOpen }: {
     readonly records: readonly ResearchRecord[] | null;
@@ -44,13 +45,23 @@ export function ResearchHoldingsV8({ records, onOpen }: {
     const summaries = useMemo(() => snapshot
         ? buildPortfolioActualSummary(snapshot, reconciled)
         : [], [reconciled, snapshot]);
+    // One import shares one source, stated once; mixed sources keep a source on every row.
+    const sources = useMemo(() => snapshot
+        ? [...new Set([...snapshot.holdings, ...snapshot.cashBalances].map(sourceOf))]
+        : [], [snapshot]);
+    const perRowSource = sources.length > 1;
+    const first = snapshot?.holdings[0] ?? snapshot?.cashBalances[0];
+    // A source imported at the snapshot's own time needs no second timestamp.
+    const sharedSource = !first || perRowSource ? '' : first.importedAt === snapshot?.updatedAt ? first.provenanceLabel : sources[0];
+    // Currency totals already carry cash; list accounts only when they add information.
+    const showCashAccounts = snapshot !== null && snapshot.cashBalances.length > 0
+        && (new Set(snapshot.cashBalances.map(cash => cash.accountLabel)).size > 1 || !snapshot.holdings.length);
 
     return <section className={styles.root} aria-labelledby="research-holdings-title">
         <header className={styles.header}>
             <div>
-                <p className={styles.eyebrow}>Browser-local snapshot · read only</p>
                 <h2 id="research-holdings-title">Holdings</h2>
-                <p>Saved on this device. Actual holdings stay separate from research position plans.</p>
+                {snapshot ? <p>Snapshot updated {formatDate(snapshot.updatedAt)}{sharedSource ? ` · ${sharedSource}` : ''} · Saved on this device · Prices not loaded</p> : null}
             </div>
             {importLink}
         </header>
@@ -59,10 +70,7 @@ export function ResearchHoldingsV8({ records, onOpen }: {
         {state.status === 'invalid' || state.status === 'unavailable' ? <p className={styles.state} role="alert">{state.message} {importLink}</p> : null}
         {snapshot ? <>
             {!snapshot.holdings.length && !snapshot.cashBalances.length ? <V8EmptyState className={styles.state} message="The saved snapshot contains no holdings or cash balances." action={importLink} /> : null}
-            <div className={styles.note}>
-                <p>Current prices are not loaded in this view. Market value and actual weight are unavailable; open the <a href={importHref} target="_blank" rel="noreferrer">Portfolio workspace</a> for price-aware tools.</p>
-                {records === null ? <p>Research matches are unavailable until the watchlist is loaded.</p> : null}
-            </div>
+            {records === null ? <p className={styles.note}>Research matches are unavailable until the watchlist is loaded.</p> : null}
             {summaries.length > 0 ? <div className={styles.summaries} aria-label="Totals by currency">
                 {summaries.map(summary => <section className={styles.summary} key={summary.currency}>
                     <h3>{summary.currency} totals</h3>
@@ -73,30 +81,28 @@ export function ResearchHoldingsV8({ records, onOpen }: {
             </div> : null}
             {snapshot.holdings.length ? <div className={styles.tableWrap} role="region" aria-label="Imported holdings table" tabIndex={0}>
                 <table>
-                    <caption>Imported holdings · market value and weight are unavailable until prices are loaded</caption>
-                    <thead><tr><th>Account</th><th>Stock</th><th>Market</th><th>Quantity</th><th>Average cost</th><th>Cost basis</th><th>Current price</th><th>Market value</th><th>Actual weight</th><th>Research match</th><th>Source</th></tr></thead>
+                    <caption className={styles.visuallyHidden}>Imported holdings at cost</caption>
+                    <thead><tr><th>Account</th><th>Stock</th><th className={styles.num}>Quantity</th><th className={styles.num}>Average cost</th><th className={styles.num}>Cost basis</th>{perRowSource ? <th>Source</th> : null}</tr></thead>
                     <tbody>{reconciled.map(row => <tr key={`${row.holding.accountLabel}:${row.holding.market}:${row.holding.symbol}`}>
                         <td>{row.holding.accountLabel}</td>
-                        <th scope="row">{records === null ? row.holding.symbol : row.researchRecord
+                        <th scope="row">{records !== null && row.researchRecord
                             ? <button type="button" className={styles.stockLink} onClick={() => onOpen(row.holding.symbol, row.holding.market)}>{row.holding.symbol}</button>
-                            : row.holding.symbol}</th>
-                        <td>{row.holding.market}</td><td>{row.holding.quantity}</td>
-                        <td>{formatMoney(row.holding.averageCost, row.holding.currency)}</td>
-                        <td>{formatMoney(row.costBasis, row.holding.currency)}</td>
-                        <td>—</td><td>—</td><td>—</td>
-                        <td>{records === null ? 'Unavailable' : row.researchRecord ? 'Exact match' : 'No saved match'}</td>
-                        <td><span>{row.holding.provenanceLabel}</span><small>{formatDate(row.holding.importedAt)}</small></td>
+                            : <span>{row.holding.symbol}</span>}
+                            <small>{row.holding.market}{records !== null && !row.researchRecord ? <> · <span>No saved match</span></> : null}</small></th>
+                        <td className={styles.num}>{row.holding.quantity}</td>
+                        <td className={styles.num}>{formatMoney(row.holding.averageCost, row.holding.currency)}</td>
+                        <td className={styles.num}>{formatMoney(row.costBasis, row.holding.currency)}</td>
+                        {perRowSource ? <td>{sourceOf(row.holding)}</td> : null}
                     </tr>)}</tbody>
                 </table>
             </div> : null}
-            {snapshot.cashBalances.length ? <div className={styles.cashList}>
+            {showCashAccounts ? <div className={styles.cashList}>
                 <h3>Cash by account</h3>
                 <ul>{snapshot.cashBalances.map((cash, index) => <li key={`${cash.accountLabel}:${cash.currency}:${index}`}>
                     <span>{cash.accountLabel} · {cash.currency}</span><b>{formatMoney(cash.balance, cash.currency)}</b>
-                    <small>{cash.provenanceLabel} · {formatDate(cash.importedAt)}</small>
+                    {perRowSource ? <small>{sourceOf(cash)}</small> : null}
                 </li>)}</ul>
             </div> : null}
-            <p className={styles.updated}>Snapshot updated {formatDate(snapshot.updatedAt)} · Saved on this device</p>
         </> : null}
     </section>;
 }

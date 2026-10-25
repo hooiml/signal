@@ -248,7 +248,7 @@ try {
         for (const viewport of views) for (const theme of ['light', 'dark']) await runScenario(browser, {
             name: `matched-no-quote-mixed-${theme}-${viewport.name}`, viewport, theme, snapshot: mixedSnapshot, mode: viewport.width === 768 ? 'owner' : 'guest',
             async verify({ page, panel, result }) {
-                await panel.getByText('Browser-local snapshot · read only').waitFor({ timeout });
+                await panel.getByRole('heading', { name: 'Holdings', exact: true }).waitFor({ timeout });
                 const usd = panel.getByRole('heading', { name: 'USD totals', exact: true }).locator('..');
                 const myr = panel.getByRole('heading', { name: 'MYR totals', exact: true }).locator('..');
                 await usd.waitFor({ timeout }); await myr.waitFor({ timeout });
@@ -258,13 +258,17 @@ try {
                 await usd.getByText('Holdings without current price').waitFor({ timeout });
                 assert.equal(await usd.getByText('2', { exact: true }).count(), 1, 'USD summary counts two holdings without prices');
                 assert.equal(await myr.getByText('1', { exact: true }).count(), 1, 'MYR summary counts one holding without a price');
-                assert.equal(await panel.getByText('—', { exact: true }).count(), 9, 'all three market values, prices and weights stay unavailable');
                 const table = panel.getByRole('region', { name: 'Imported holdings table' });
+                assert.deepEqual(await table.locator('thead th').allInnerTexts(), ['Account', 'Stock', 'Quantity', 'Average cost', 'Cost basis'], 'cost-only table shows no price-derived or always-empty columns');
+                assert.equal(await panel.getByText('—', { exact: true }).count(), 0, 'no column of placeholder dashes stands in for unloaded prices');
                 const unmatched = table.getByRole('row', { name: /UNMATCHED/ });
-                assert.equal(await unmatched.getByText('—', { exact: true }).count(), 3, 'unmatched holding leaves price, market value and actual weight unavailable');
-                assert.equal(await table.getByText('Fixture import 25 Oct', { exact: true }).count(), 3, 'each holding row preserves fixture provenance');
+                await unmatched.getByText('No saved match', { exact: true }).waitFor({ timeout });
+                assert.equal(await unmatched.getByRole('button').count(), 0, 'unmatched holding stays display-only');
+                await panel.getByText(`Snapshot updated ${fixtureDisplayTime} · Fixture import 25 Oct · Saved on this device`, { exact: false }).waitFor({ timeout });
+                assert.equal(await panel.getByText(/Fixture import 25 Oct/).count(), 1, 'one shared import source is stated once in the provenance line');
+                await panel.getByText(/Saved on this device · Prices not loaded/).waitFor({ timeout });
                 const cashList = panel.getByRole('heading', { name: 'Cash by account', exact: true }).locator('..');
-                assert.equal(await cashList.getByText(/Fixture import 25 Oct/).count(), 2, 'each cash row preserves fixture provenance');
+                await cashList.getByText('Brokerage USD · USD', { exact: true }).waitFor({ timeout }); await cashList.getByText('Malaysia cash account · MYR', { exact: true }).waitFor({ timeout });
                 await panel.getByText(new RegExp(`Snapshot updated ${fixtureDisplayTime.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)).waitFor({ timeout });
                 await panel.getByRole('link', { name: 'Import or update holdings' }).evaluate(anchor => ({ href: anchor.href, target: anchor.target })).then(link => {
                     assert.equal(new URL(link.href).pathname + new URL(link.href).search, '/research?workspace=portfolio'); assert.equal(link.target, '_blank');
@@ -308,7 +312,7 @@ try {
             await panel.getByRole('alert').getByText(/Browser storage is unavailable/).waitFor({ timeout }); result.checks.push('storage failure remains an explicit non-writing state');
         } });
         await runScenario(browser, { name: 'usd-only-light-desktop', viewport: views[0], theme: 'light', snapshot: usdSnapshot, mode: 'guest', async verify({ panel, result }) {
-            const usd = panel.getByRole('heading', { name: 'USD totals', exact: true }).locator('..'); await usd.waitFor({ timeout }); assert.equal(await panel.getByText('MYR totals').count(), 0); await usd.getByText(money(500, 'USD'), { exact: true }).waitFor({ timeout }); result.checks.push('USD-only summary has exact cost total');
+            const usd = panel.getByRole('heading', { name: 'USD totals', exact: true }).locator('..'); await usd.waitFor({ timeout }); assert.equal(await panel.getByText('MYR totals').count(), 0); await usd.getByText(money(500, 'USD'), { exact: true }).waitFor({ timeout }); assert.equal(await panel.getByText('Cash by account').count(), 0, 'no cash accounts means no cash list'); result.checks.push('USD-only summary has exact cost total');
         } });
         await runScenario(browser, { name: 'cash-mixed-dark-desktop', viewport: views[0], theme: 'dark', snapshot: cashSnapshot, mode: 'guest', async verify({ panel, result }) {
             await panel.getByText('Cash by account').waitFor({ timeout }); const cash = panel.getByRole('heading', { name: 'Cash by account', exact: true }).locator('..'); await cash.getByText(money(120, 'USD'), { exact: true }).waitFor({ timeout }); await cash.getByText(money(80, 'MYR'), { exact: true }).waitFor({ timeout }); result.checks.push('USD and MYR cash remain per-currency and per-account');
@@ -316,14 +320,26 @@ try {
         await runScenario(browser, { name: 'unmatched-light-desktop', viewport: views[0], theme: 'light', snapshot: { ...usdSnapshot, holdings: [{ ...usdSnapshot.holdings[0], symbol: 'NOLOOKUP' }] }, records: [], mode: 'guest', async verify({ panel, result }) {
             await panel.getByText('No saved match', { exact: true }).waitFor({ timeout }); assert.equal(await panel.getByRole('button', { name: 'NOLOOKUP', exact: true }).count(), 0); result.checks.push('unmatched symbol stays display-only and never guesses a lookup');
         } });
+        await runScenario(browser, { name: 'mixed-sources-light-desktop', viewport: views[0], theme: 'light', mode: 'guest', snapshot: {
+            ...usdSnapshot,
+            holdings: [...usdSnapshot.holdings, { ...usdSnapshot.holdings[0], symbol: 'MSFT', provenanceLabel: 'Second import' }],
+            cashBalances: [{ accountLabel: 'USD only', currency: 'USD', balance: 10, importedAt: fixtureTime, provenanceLabel: 'USD fixture' }],
+        }, async verify({ panel, result }) {
+            const table = panel.getByRole('region', { name: 'Imported holdings table' });
+            await table.getByRole('columnheader', { name: 'Source', exact: true }).waitFor({ timeout });
+            await table.getByRole('row', { name: /MSFT/ }).getByText(/Second import/).waitFor({ timeout });
+            await table.getByRole('row', { name: /AAPL/ }).getByText(/USD fixture/).waitFor({ timeout });
+            assert.equal(await panel.getByText('Cash by account').count(), 0, 'one cash account is carried by the currency total');
+            result.checks.push('mixed import sources stay attributed per row; a single cash account is not listed twice');
+        } });
         let releaseLoading;
         const loadingGate = new Promise(resolve => { releaseLoading = resolve; });
         const loadingRun = runScenario(browser, { name: 'records-loading-light-desktop', viewport: views[0], theme: 'light', snapshot: usdSnapshot, mode: 'owner', watchlistGate: loadingGate, async verify({ panel, result }) {
-            await panel.getByText('Research matches are unavailable until the watchlist is loaded.', { exact: true }).waitFor({ timeout }); await panel.getByText('Unavailable', { exact: true }).waitFor({ timeout }); releaseLoading(); await panel.getByRole('button', { name: 'AAPL', exact: true }).waitFor({ timeout }); result.checks.push('records loading remains separate from local holdings');
+            await panel.getByText('Research matches are unavailable until the watchlist is loaded.', { exact: true }).waitFor({ timeout }); assert.equal(await panel.getByText('No saved match', { exact: true }).count(), 0, 'unresolved records never claim a missing match'); releaseLoading(); await panel.getByRole('button', { name: 'AAPL', exact: true }).waitFor({ timeout }); result.checks.push('records loading remains separate from local holdings');
         } });
         await loadingRun;
         await runScenario(browser, { name: 'records-failure-dark-desktop', viewport: views[0], theme: 'dark', snapshot: usdSnapshot, mode: 'owner', watchlistFailure: true, async verify({ panel, result }) {
-            await panel.getByText('Research matches are unavailable until the watchlist is loaded.', { exact: true }).waitFor({ timeout }); await panel.getByText('Unavailable', { exact: true }).waitFor({ timeout }); await panel.getByRole('button', { name: 'Retry saved research', exact: true }).waitFor({ timeout }); assert.equal(await panel.getByRole('button', { name: 'AAPL', exact: true }).count(), 0); result.checks.push('failed records read stays unresolved, exposes the existing retry, and does not make an optimistic match');
+            await panel.getByText('Research matches are unavailable until the watchlist is loaded.', { exact: true }).waitFor({ timeout }); assert.equal(await panel.getByText('No saved match', { exact: true }).count(), 0, 'unresolved records never claim a missing match'); await panel.getByRole('button', { name: 'Retry saved research', exact: true }).waitFor({ timeout }); assert.equal(await panel.getByRole('button', { name: 'AAPL', exact: true }).count(), 0); result.checks.push('failed records read stays unresolved, exposes the existing retry, and does not make an optimistic match');
         } });
         await runScenario(browser, { name: 'storage-events-light-desktop', viewport: views[0], theme: 'light', snapshot: usdSnapshot, mode: 'guest', expectedHoldingStorageWrites: 1, async verify({ page, panel, result }) {
             const original = await page.evaluate(key => localStorage.getItem(key), holdingsKey);

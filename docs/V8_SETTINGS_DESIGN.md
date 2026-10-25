@@ -33,7 +33,7 @@ partial removal if a browser operation fails, reporting any failed restoration.
 
 Owner access remains a link to the existing `/unlock` flow with a safe complete
 return path. Research opens it in a new tab to preserve drafts. Settings never
-accepts secrets or writes private APIs. Existing owner lock and Advanced tools stay
+accepts secrets or writes private APIs. Existing owner lock and the Detailed view toggle stay
 in Workspace; owner, holdings, Learn and preferences are outside guest clear.
 
 ## Non-goals and proof
