@@ -429,6 +429,8 @@ async function runLegacyConfigSmoke(browser) {
         try {
             await page.goto(`${base}/market/tools`, { waitUntil: 'domcontentloaded' });
             await page.locator('[data-market-controls]').waitFor();
+            // The controls are server-rendered; the signal request only fires after hydration, which trails them on slow CI runners.
+            for (const started = Date.now(); !observations.signalQueries.length && Date.now() - started < 15000;) await page.waitForTimeout(50);
             const request = new URLSearchParams(observations.signalQueries.at(-1));
             check(item, 'retained Market tools reads the validated defaults', request.get('market') === testCase.expected.market && request.get('mode') === testCase.expected.mode && request.get('enableSocial') === String(testCase.expected.enableSocial));
             if (testCase.error) {
