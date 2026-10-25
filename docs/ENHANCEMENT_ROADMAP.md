@@ -48,6 +48,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E15 | Phone stock-page tab navigation (L3) | Verified | Standard | Existing tabs and URLs; no data or persistence change |
 | E16 | Fold secondary Market sections on phones (L1) | Verified | Standard | Existing evidence and requests; session-only disclosure state |
 | E17 | Learn from V8 metric labels (G2) | Verified | High | Existing lessons and progress; no provider or saved-research changes |
+| E18 | Read-only V8 holdings view (G1) | Proposed | Standard | Reuses the browser-local holdings snapshot and existing contracts; no new storage, request or analytics |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -374,6 +375,47 @@ the prior Learn/Market/Research captures and V8 design contract; artifacts are u
 flows; direct source/caller review and the full harness establish the relevant scope. These are
 local fixture results, not deployment, live-provider or assistive-technology verification.
 
+### E18 — Read-only V8 holdings view (G1)
+
+**Why:** V8 is the default route, but imported holdings are only visible in the V6/V7 Research →
+Portfolio workspace. Users must leave V8 to see what they actually hold next to what they research.
+
+**Why no design doc first:** this slice only reads what already exists. Holdings are the validated
+browser-local snapshot (`signal-portfolio-holdings-v1`, [`portfolio-holdings-import.md`](portfolio-holdings-import.md)),
+read with `loadPortfolioHoldingsSnapshot` and shaped with `reconcilePortfolioHoldings` and
+`buildPortfolioActualSummary`; coverage follows [`portfolio-covered-attribution.md`](portfolio-covered-attribution.md).
+No provider, storage, request, authentication or analytics change, so rule 9 does not apply.
+
+**Scope:**
+1. A Holdings view in V8 Research (a third home tab beside Watchlist and Discover, or a section on
+   the Watchlist tab; decide in the first browser pass) listing each holding by account: symbol,
+   market, quantity, average cost, currency, and, where an exact watchlist price exists, current
+   price, market value and actual weight.
+2. Per-currency summaries only (cost basis, cash, known market value), each with "N holdings without
+   a current price". No USD + MYR total, no FX.
+3. Unmatched holdings (no exact research record or price) stay listed with a dash for value and
+   weight, never a guessed price or a zero.
+4. Provenance line: the snapshot's provenance label and import time, and "Saved on this device".
+5. Tapping a matched holding opens its V8 stock page. A link "Import or update holdings" opens the
+   existing V6/V7 Portfolio workspace.
+6. Empty state (no snapshot, malformed or unreadable storage): one sentence and the import link; a
+   malformed snapshot is reported, never cleared.
+
+**Out of scope:** import, editing, reconciliation, transactions, what-if, scenarios, attribution
+beyond the covered summary, queue tasks, and any total across currencies. Each needs its own item,
+and those that change records or storage need a design doc first.
+
+**Prices:** use the same exact watchlist price source as the V6 Portfolio (records' `market:symbol`
+identity, no fuzzy matching). If V8 does not already load those prices on the Research home, the
+first browser pass decides whether to request them only when the Holdings view is opened (an
+existing endpoint, on demand) or to show cost-only figures; either way no new endpoint.
+
+**Done when:** at 1280px, 768px and 375px in both themes, with fixture snapshots (empty, malformed,
+USD-only, USD + MYR with cash, one unmatched holding, one holding without a price): figures match
+the V6 Portfolio for the same snapshot, no cross-currency total appears, no holdings data appears
+in analytics or network payloads, and storage is never written. Lint, typecheck, harness, build and
+a focused browser suite pass.
+
 ### E3 — Today promotion review
 
 **Spec:** `NEXT_PRODUCT_ROADMAP.md` Task 0.
@@ -428,3 +470,4 @@ contract is recorded.
 | 2026-10-25 | E13 | — | Verified | Stock page chart top padding, keyboard-only date control, workspace line in the tool row. |
 | 2026-10-25 | E14 | — | Verified | R1 temporary chart measurement; drag/tap/keyboard, pointer isolation, reset and arithmetic regressions; local Standard checks pass. |
 | 2026-10-25 | E17 | — | Verified | Five V8 metric lessons, V8 Learn shell, existing course/theme compatibility; full checks, independent review and 20 browser scenarios pass. |
+| 2026-10-25 | E18 | — | Proposed | Read-only V8 holdings view scoped from G1; reuses existing holdings contracts, so this slice needs no design doc. |
