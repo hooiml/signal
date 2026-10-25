@@ -2,7 +2,8 @@
 
 import { useState, useSyncExternalStore, type ReactNode } from 'react';
 import { CommandPaletteV6, type AppCommandV6 } from '@/components/v6/CommandPaletteV6';
-import { setV8ThemeChoice, V8ThemeControl } from '@/components/v8/V8ThemeControl';
+import { setV8ThemeChoice } from '@/components/v8/V8ThemeControl';
+import { V8Settings } from '@/components/v8/V8Settings';
 import base from '@/components/v8/market-v8.module.css';
 import styles from './learn-v8.module.css';
 
@@ -30,7 +31,7 @@ export function LearnShellV8({ children, commands, footer }: {
         <header className={`${base.header} ${styles.header}`} aria-label="Signal application header">
             <a className={base.logo} href="/main-v8">∿ Signal</a>
             <nav aria-label="Primary"><a href="/main-v8">Market</a><a href="/research-v8">Research</a><a href="/learn" aria-current="page">Learn</a></nav>
-            <V8ThemeControl />
+            <V8Settings />
         </header>
         <div className={styles.utility}><span>Learn · Understand the evidence</span><button type="button" onClick={() => setPaletteOpen(true)} aria-label="Open command palette">Commands <kbd>Ctrl K</kbd></button></div>
         {children}

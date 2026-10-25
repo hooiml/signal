@@ -4,6 +4,16 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For G4 shared V8 Settings, run `npm run qa:v8-settings` against the owned production server
+(`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). Its fixture scenarios cover first-request
+preference hydration and explicit URL precedence, corrupt/blocked storage, explicit saving,
+theme, draft-preserving modal interaction, saved-only export, confirmed guest clear, isolation,
+and safe owner unlock links at 1280/768/375/320px in light and dark. Artifacts are saved under
+`.tmp/v8-settings/` and uploaded by Signal validation. The harness includes preference contract
+and guest-clear rollback/queued-write regressions. The affected Learn, metric-link, Research
+reading/unsaved and theme suites open Settings to change theme or manage guest data. Fixtures
+establish local UI/storage behavior only, not live providers or deployment.
+
 For E18 read-only V8 Holdings, run `node scripts/research-holdings-qa.mjs` against one owned
 production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). Local API/storage fixtures
 cover guest and owner research matches, USD/MYR costs and cash, missing quotes, empty/invalid/

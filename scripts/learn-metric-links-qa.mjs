@@ -137,11 +137,15 @@ function observe(page, scenario) {
 
 async function selectTheme(page, theme) {
     await page.getByTestId('learn-shell').filter({ visible: true }).waitFor();
-    const control = page.getByRole('radio', { name: theme === 'light' ? 'Light' : 'Dark' });
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
+    await settings.waitFor();
+    const control = settings.getByRole('radio', { name: theme === 'light' ? 'Light' : 'Dark' });
     // Force the explicit choice through the real control even when Auto currently resolves to it.
-    if (await control.isChecked()) await page.getByRole('radio', { name: theme === 'light' ? 'Dark' : 'Light' }).check();
+    if (await control.isChecked()) await settings.getByRole('radio', { name: theme === 'light' ? 'Dark' : 'Light' }).check();
     await control.check();
     await page.waitForFunction(expected => document.documentElement.dataset.v8Theme === expected, theme);
+    await settings.getByRole('button', { name: 'Close settings', exact: true }).click();
     // Learn streams its loading boundary; DOMContentLoaded can precede the final lesson.
     await page.reload({ waitUntil: 'networkidle', timeout: timeoutMs });
     await page.getByTestId('learn-shell').filter({ visible: true }).waitFor();
@@ -295,11 +299,13 @@ async function assertRepeatedLabels(page, scenario) {
 // and the streamed copy can sit in a hidden `S:` container beside the visible shell, so shell lookups stay visible-only.
 async function waitForHydration(locator) {
     await locator.waitFor();
-    await locator.evaluate(element => new Promise(resolve => {
-        const ready = () => Object.keys(element).some(key => key.startsWith('__reactProps$'));
-        const poll = () => ready() ? resolve() : setTimeout(poll, 25);
-        poll();
-    }));
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        // Streaming can replace the element; resolve the locator again on every poll.
+        if (await locator.evaluate(element => Object.keys(element).some(key => key.startsWith('__reactProps$')))) return;
+        await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    throw new Error(`Hydration did not complete within ${timeoutMs}ms: ${locator}`);
 }
 
 async function headingCountDetail(page, name) {
@@ -479,6 +485,7 @@ async function runAfter(browser, viewport, theme) {
             await waitForHydration(naaimSlider);
             await naaimSlider.focus();
             await page.keyboard.press('Home');
+            await page.getByText('At -200%, this example represents net short exposure in this simplified example.').waitFor();
             for (let index = 0; index < 40; index += 1) await page.keyboard.press('ArrowRight');
             await page.getByText('At 0%, this example represents cash or market-neutral exposure in this simplified example.').waitFor();
             check(scenario, 'NAAIM lesson explains the keyboard-selected neutral boundary', await naaimSlider.inputValue() === '0');

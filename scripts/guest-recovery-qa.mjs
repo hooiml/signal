@@ -32,7 +32,7 @@ export async function guestRecoveryQa(browser, base, snapshot) {
   await page.goto(url); await page.getByRole('button',{name:'Save stock',exact:true}).click(); await note().waitFor();
   await note().fill('Recover this unsaved guest note'); await settledBackup('Recover this unsaved guest note');
   assert.equal(await page.evaluate(k=>JSON.parse(localStorage.getItem(k)).records[0].notes,key),'');
-  await page.getByRole('button',{name:'Workspace',exact:true}).click();
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
   await page.getByText('Export includes saved notes only.',{exact:false}).waitFor();
   page.once('dialog',d=>{assert.match(d.message(),/Unsaved drafts are not included/);d.dismiss();});
   await page.getByRole('button',{name:'Export guest research',exact:true}).click();
@@ -41,7 +41,7 @@ export async function guestRecoveryQa(browser, base, snapshot) {
   await page.getByRole('button',{name:'Export guest research',exact:true}).click();
   const exported = JSON.parse(await readFile(await (await download).path(),'utf8')); assert.equal(exported.records[0].notes,'');
   await page.screenshot({path:`${out}/export-warning-${width}.png`});
-  await page.getByRole('button',{name:'Close research panel'}).click();
+  await page.getByRole('button',{name:'Close settings',exact:true}).click();
   page.once('dialog',d=>{assert.equal(d.type(),'beforeunload');d.accept();}); await page.reload();
   await page.getByRole('button',{name:'Restore AAPL draft',exact:true}).waitFor();
   assert.equal(await note().inputValue(),'','recovery must not auto-apply');
@@ -90,10 +90,10 @@ export async function guestRecoveryQa(browser, base, snapshot) {
   page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Discard AAPL draft',exact:true}).click();
   await page.waitForFunction(p=>!Object.keys(localStorage).some(k=>k.startsWith(p)),prefix);
   await note().fill('Clear backup');await settledBackup('Clear backup');
-  await page.getByRole('button',{name:'Workspace',exact:true}).click();
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
   page.once('dialog',d=>{assert.match(d.message(),/draft backups/);d.accept();});await page.getByRole('button',{name:'Clear guest research',exact:true}).click();
   await page.waitForFunction(k=>localStorage.getItem(k)===null,key);assert.equal((await backups()).length,0);
-  await page.getByRole('button',{name:'Close research panel'}).click();
+  await page.getByRole('button',{name:'Close settings',exact:true}).click();
   await page.getByRole('button',{name:'Save stock',exact:true}).click(); await note().fill('Backup before a delayed restore');
   await settledBackup('Backup before a delayed restore'); await page.close(); page=await context.newPage();monitor(page);await page.goto(url);
   await page.getByRole('button',{name:'Restore AAPL draft',exact:true}).waitFor();
@@ -102,8 +102,8 @@ export async function guestRecoveryQa(browser, base, snapshot) {
   await page.waitForFunction(async()=>((await navigator.locks.query()).pending??[]).length>0);
   await note().fill('New typing while restore waits');await page.evaluate(()=>window.qaRelease());await settledBackup('New typing while restore waits');
   assert.equal(await note().inputValue(),'New typing while restore waits','late recovery cannot erase typing');
-  await page.getByRole('button',{name:'Workspace',exact:true}).click();page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Clear guest research',exact:true}).click();
-  await page.waitForFunction(k=>localStorage.getItem(k)===null,key);await page.getByRole('button',{name:'Close research panel'}).click();
+  await page.getByRole('button',{name:'Settings',exact:true}).click();page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Clear guest research',exact:true}).click();
+  await page.waitForFunction(k=>localStorage.getItem(k)===null,key);await page.getByRole('button',{name:'Close settings',exact:true}).click();
   // The basic-view control must update the actual signal request in both markets.
   await page.getByRole('link',{name:'Market',exact:true}).click();
   const toggle=page.getByRole('checkbox',{name:'Include social in score',exact:true});await toggle.waitFor();

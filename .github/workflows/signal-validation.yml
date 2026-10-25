@@ -80,6 +80,7 @@ jobs:
         if: success() || failure()
         run: |
           set -euo pipefail
+          npm run qa:v8-settings
           node scripts/v81-ui-qa.mjs
           node scripts/market-clarity-qa.mjs
           node scripts/research-provenance-qa.mjs
@@ -107,6 +108,7 @@ jobs:
             .tmp/signal-learn-v0.2-qa/**/report.json
             .tmp/signal-learn-v0.2-qa/**/failure-*.png
             .tmp/learn-metric-links/after/**
+            .tmp/v8-settings/**
             .tmp/v81/browser/*.json
             .tmp/v81/browser/*.png
             .tmp/display-clarity/after/*.json

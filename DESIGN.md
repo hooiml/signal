@@ -6,7 +6,7 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
 ## Source of truth
 
 - Status: Active
-- Last refreshed: 2026-10-24
+- Last refreshed: 2026-10-25
 - Default surfaces: **Market** (`/main-v8`) and **Research** (`/research-v8`).
 - Evidence reviewed: `src/components/v8/` (components and CSS modules), `src/app/page.tsx`,
   `src/app/research/page.tsx`, `src/app/layout.tsx`, `docs/TESTING.md`, `docs/V8_UI_UX_ENHANCEMENT_PLAN.md`
@@ -44,9 +44,18 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
 | `/start` | V6 guided start. Not linked from the V8 header. |
 | `/learn` | Existing courses in the V8 shell; `?concept=rsi`, `put-call`, `naaim`, `pe` or `fcf-yield` opens its matching lab. |
 
-- **Primary navigation (V8 header):** Market · Research, plus the Light / Auto / Dark theme toggle.
+- **Primary navigation (V8 header):** Market · Research, plus Settings.
   Learn uses the same header with a current Learn link; its navigation wraps below the wordmark and
-  theme controls on phones. Existing courses and the command palette remain available.
+  Settings on phones. Existing courses and the command palette remain available.
+- **Settings (G4/E20):** one native modal in connected Market, Research and Learn, keeping the
+  underlying editors mounted. Appearance has the existing immediate Light / Auto / Dark radios.
+  Market defaults save explicitly for the next opening/reload; a valid URL market takes priority.
+  Guest data actions use saved-only export with draft warnings, and confirmed clear of guest
+  securities, notes and recovery backups only. Owner access opens the existing unlock page in a
+  new tab with the full return context. Workspace retains Advanced tools and owner lock.
+  Use the existing V8 tokens, a 560px maximum width, 44px targets, visible focus, native modal
+  inertness and bounded vertical scrolling at narrow widths. Storage errors remain visible.
+  The architecture and privacy boundaries are in [`V8_SETTINGS_DESIGN.md`](docs/V8_SETTINGS_DESIGN.md).
 - **Metric glossary:** RSI, P/E, FCF yield, put/call and NAAIM share short definitions in
   `src/lib/learn/metric-links.ts`. Dotted labels open the same small native popover on tap or
   keyboard focus. Existing Market metric buttons open the definition first; **View indicator**
@@ -71,7 +80,7 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
   (read-only device snapshot; cost/cash totals by currency, missing prices explicit). The Holdings
   table scrolls horizontally inside a named keyboard-focusable region. Import and advanced
   portfolio tools remain in the linked Portfolio workspace. The header shows
-  **Workspace** (export, Advanced tools, owner access).
+  **Workspace** (Advanced tools and owner workflow actions); guest export/clear and unlock live in Settings.
 - **Reading a stock:** the header adds a **Watchlist · N** switcher; **Change stock** and **Discover**
   sit above the quote band (price, daily change and the primary **Save stock** button, with the price
   context strip beside it), then tabs **Overview · Chart & technicals · Financials · Valuation ·

@@ -6,7 +6,7 @@ import { parseResearchSnapshotResponse } from '@/lib/research/snapshot-input';
 import { readData, readFailure, readOwnerAccessIssue, readPolicies } from './read-data';
 import { ownerAccessMessage, ownerUnlockHref, type OwnerAccessIssue } from '@/lib/owner-access-client';
 import { ResearchSavedState } from './ResearchSavedState';
-import { clearGuestWorkspace, exportGuestWorkspace, readGuestRecords, readGuestWorkspace, saveGuestSecurity } from '@/lib/research/guest-workspace';
+import { GUEST_WORKSPACE_CLEARED_EVENT, readGuestRecords, readGuestWorkspace, saveGuestSecurity } from '@/lib/research/guest-workspace';
 import { discardGuestDraftBackup, readGuestDraftRecovery, restoreGuestDraftBackup, writeGuestDraftBackup, type GuestDraftBackup } from '@/lib/research/guest-workspace';
 import { GuestResearchNote, type GuestNoteDraft, type GuestNoteSave } from './GuestResearchNote';
 import { buildResearchReadiness } from '@/lib/research/readiness';
@@ -29,7 +29,7 @@ import { ResearchInvestigationTabs, researchTabId } from './ResearchInvestigatio
 import type { DiscoverView } from './discover-view';
 import { date, parseWatchlist, price, researchHref, researchTabs, retrievedAt, type ResearchTab } from './research-v8-connected-data';
 import base from './market-v8.module.css';
-import { V8ThemeControl } from './V8ThemeControl';
+import { V8Settings } from './V8Settings';
 import styles from './research-v8.module.css';
 import connected from './research-v8-connected.module.css';
 
@@ -191,6 +191,14 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
     const refreshRecoveryOnStorage = useEffectEvent(() => {
         if (workspaceRef.current === 'guest') refreshRecovery();
     });
+    const guestWorkspaceCleared = useEffectEvent(() => {
+        if (workspaceRef.current !== 'guest') return;
+        savedRevision.current += 1;
+        setRecords([]); replaceDrafts({}); backupVersions.current = {};
+        setRecoverableDrafts([]); setRecoveryError(''); setGuestError('');
+        guestIdentityRef.current = null; setGuestIdentity(null);
+        setLoading(false);
+    });
     useEffect(() => {
         const restore = () => restoreUrlState();
         restore(); window.addEventListener('popstate', restore);
@@ -204,8 +212,10 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
             if (event.key === 'signal.guest-research.v1' || event.key === null) setReload(value => value + 1);
             else if (event.key.startsWith('signal.guest-research.v1.draft.')) refreshRecoveryOnStorage();
         };
+        const cleared = () => guestWorkspaceCleared();
+        window.addEventListener(GUEST_WORKSPACE_CLEARED_EVENT, cleared);
         window.addEventListener('storage', storageChanged);
-        return () => { window.removeEventListener('popstate', restore); window.removeEventListener('focus', revalidate); document.removeEventListener('visibilitychange', revalidate); window.removeEventListener('storage', storageChanged); };
+        return () => { window.removeEventListener('popstate', restore); window.removeEventListener('focus', revalidate); document.removeEventListener('visibilitychange', revalidate); window.removeEventListener('storage', storageChanged); window.removeEventListener(GUEST_WORKSPACE_CLEARED_EVENT, cleared); };
     }, []);
     function changeDepth() {
         const next = !advanced;
@@ -327,24 +337,6 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
         } catch { setError(true); }
     }
     const savedState = workspace === 'owner' ? <ResearchSavedState loading={loading} error={error} issue={accessIssue} hasRecords={records !== null} unlockHref={unlockHref} onRetry={retrySaved} /> : guestError ? <p role="alert">{guestError} {records && 'Showing the last loaded guest records. Saving is unavailable until storage recovers.'} <button className={base.textButton} onClick={retrySaved}>Retry device storage</button></p> : null;
-    async function guestAction(action: 'export' | 'clear') {
-        try {
-            if (action === 'clear') {
-                if (!window.confirm('Remove all guest securities, saved notes and draft backups from this browser? Export includes saved notes only; save any drafts you want to keep first. Your owner workspace will not change.')) return;
-                await clearGuestWorkspace(); savedRevision.current += 1; setRecords([]); replaceDrafts({}); backupVersions.current = {}; setRecoverableDrafts([]); setRecoveryError('');
-                guestIdentityRef.current = null; setGuestIdentity(null);
-            } else {
-                let hasBackups = true;
-                try { const recovery = readGuestDraftRecovery(); hasBackups = recovery.drafts.length > 0 || recovery.unreadableCount > 0; } catch { /* Saved-only export stays available even if a backup is corrupt. */ }
-                if ((unsavedRecords.length > 0 || recoverableDrafts.length > 0 || hasBackups)
-                    && !window.confirm('Unsaved drafts are not included in this export. Cancel to restore and save them first, or continue to export saved notes only.')) return;
-                const url = URL.createObjectURL(new Blob([exportGuestWorkspace()], { type: 'application/json' }));
-                const link = document.createElement('a'); link.href = url; link.download = 'signal-guest-research.json'; link.click();
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
-            }
-            setGuestError('');
-        } catch (failure) { setGuestError(failure instanceof Error ? failure.message : 'Device storage is unavailable.'); }
-    }
     // Picking a stock from the home's Discover tab mounts the reading view's own Discover; the deep link is spent, so it starts closed.
     const openFromDiscover = (symbol: string, nextMarket: ResearchMarket) => { setDiscoverLinkUsed(true); navigate(symbol, 'Overview', true, nextMarket); window.scrollTo({ top: 0 }); };
     const workspaceStatus = <div className={connected.dataStatus} aria-label="Research workspace">
@@ -355,7 +347,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
     const homeDiscover = <ResearchDiscoverV8 initialView={initialDiscover} defaultOpen embedded records={records} workspace={workspace} onSelect={openFromDiscover} />;
     return <div className={`${base.app} ${styles.app} ${connected.app}`}>
         <a className={base.skip} href="#v8-content">Skip to content</a>
-        <header className={base.header}><a className={base.logo} href="/main-v8">∿ Signal</a><nav aria-label="Primary"><a href={readingMarket ? `/main-v8?market=${readingMarket}` : '/main-v8'}>Market</a><a href="/research-v8" aria-current="page">Research</a></nav><V8ThemeControl /></header>
+        <header className={base.header}><a className={base.logo} href="/main-v8">∿ Signal</a><nav aria-label="Primary"><a href={readingMarket ? `/main-v8?market=${readingMarket}` : '/main-v8'}>Market</a><a href="/research-v8" aria-current="page">Research</a></nav><V8Settings hasUnsavedGuestNotes={workspace === 'guest' && unsavedRecords.length > 0} /></header>
         <main id="v8-content" tabIndex={-1} className={base.canvas}>
             <section className={connected.selectedHeader} aria-label="Selected research security">
                 <div data-testid="selected-security-identity" data-symbol={selected} data-market={readingMarket}>
@@ -392,8 +384,6 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
             {!!matches.length && <div className={connected.mobilePicker}><label>Selected watchlist stock<select value={`${readingMarket}:${selected}`} onChange={event => chooseSecurity(event.target.value)}>{selectedIndex < 0 && <option value={`${readingMarket}:${selected}`}>{selected} · outside filter</option>}{matches.map(item => <option key={`${item.market}:${item.symbol}`} value={`${item.market}:${item.symbol}`}>{item.symbol} · {item.market}{hasUnsavedDraft(item) ? ' · Unsaved' : ''} · {item.companyName}</option>)}</select></label><div><button disabled={selectedIndex <= 0} onClick={() => chooseSecurity(`${matches[selectedIndex - 1].market}:${matches[selectedIndex - 1].symbol}`)}>← Previous</button><span>{selectedIndex < 0 ? '—' : selectedIndex + 1} / {matches.length}</span><button disabled={selectedIndex >= matches.length - 1} onClick={() => chooseSecurity(`${matches[selectedIndex + 1].market}:${matches[selectedIndex + 1].symbol}`)}>Next →</button></div></div>}
                 </div>}
                 {panel === 'tools' && <div className={connected.tools}>
-                    {workspace === 'guest' && <p role="status">Export includes saved notes only. Unsaved drafts and recovery backups are excluded; restore and save them first to include them.</p>}
-                    {workspace === 'guest' && <section aria-label="Guest workspace tools"><h3>Saved on this device</h3><p>Your securities and notes are stored only in this browser on this website. Other browsers and Signal domains have separate guest workspaces. Clearing browser data removes them; export a copy to keep them. People sharing this browser profile can see these guest notes.</p><div className={connected.savedReadingActions}><button className={connected.actionButton} onClick={() => guestAction('export')}>Export guest research</button><button className={connected.actionButton} onClick={() => guestAction('clear')}>Clear guest research</button></div><p>Owner research is private. Opening it never imports or merges guest data.</p><a className={base.textButton} href={unlockHref}>Open owner workspace →</a></section>}
                     {workspace === 'guest' && <button className={connected.actionButton} aria-pressed={advanced} onClick={() => { changeDepth(); panelRef.current?.close(); }}>{advanced ? 'Back to basic view' : 'Advanced tools'}</button>}
                     {workspace === 'owner' && <>
                     <button className={connected.actionButton} onClick={useGuestWorkspace}>Lock owner workspace and use guest mode</button>

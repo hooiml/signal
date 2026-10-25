@@ -195,7 +195,8 @@ const main = async () => {
 
                 const beforeTheme = await page.locator('html').getAttribute('data-v8-theme');
                 const nextTheme = beforeTheme === 'dark' ? 'light' : 'dark';
-                await page.getByRole('radio', { name: nextTheme === 'dark' ? 'Dark' : 'Light', exact: true }).check();
+                await page.getByRole('button', { name: 'Settings', exact: true }).click(); const settings = page.getByRole('dialog', { name: 'Settings', exact: true }); await settings.waitFor();
+                await settings.getByRole('radio', { name: nextTheme === 'dark' ? 'Dark' : 'Light', exact: true }).check(); await settings.getByRole('button', { name: 'Close settings', exact: true }).click();
                 await page.waitForFunction(expected => document.documentElement.dataset.v8Theme === expected, nextTheme);
                 const afterTheme = await page.locator('html').getAttribute('data-v8-theme');
                 addCheck(scenario, 'theme toggle changes Learn theme', beforeTheme !== afterTheme, `${beforeTheme} -> ${afterTheme}`);

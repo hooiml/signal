@@ -3,6 +3,7 @@ import { createResearchRecord } from './records';
 import { parseResearchRecord } from './input';
 
 const storageKey = 'signal.guest-research.v1';
+export const GUEST_WORKSPACE_CLEARED_EVENT = 'signal:guest-workspace-cleared';
 const maxRecords = 100;
 const maxNoteLength = 5_000;
 const maxPayloadBytes = 1_048_576;
@@ -272,10 +273,24 @@ export const exportGuestWorkspace = (): string => {
 };
 
 export const clearGuestWorkspace = (): Promise<void> => withGuestWriteLock(() => {
+    const removed: [string, string][] = [];
     try {
-        storage().removeItem(storageKey);
-        removeDrafts();
+        const store = storage();
+        // Capture every byte before removing anything. Remove the identity last;
+        // pending writes still validate it inside this same exclusive lock.
+        const entries = [...draftKeys(), storageKey].map(key => [key, store.getItem(key)] as const);
+        for (const [key, value] of entries) {
+            if (value === null) continue;
+            store.removeItem(key);
+            removed.push([key, value]);
+        }
     } catch {
+        let restored = true;
+        for (const [key, value] of removed) {
+            try { storage().setItem(key, value); } catch { restored = false; }
+        }
+        if (!restored) throw new Error('Guest clear failed and browser storage prevented full recovery. Keep open notes available and copy or export remaining data before retrying.');
         throw new Error('Could not clear guest research from this browser. Check its storage settings and try again.');
     }
+    window.dispatchEvent(new Event(GUEST_WORKSPACE_CLEARED_EVENT));
 });

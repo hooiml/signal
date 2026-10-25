@@ -5,5 +5,5 @@ export const metadata: Metadata = { title: 'Market overview · Signal V8', robot
 
 export default async function MarketPageV8({ searchParams }: { searchParams: Promise<{ demo?: string; market?: string }> }) {
     const params = await searchParams;
-    return <MarketV8 demo={params.demo === '1'} initialMarket={params.market === 'MY' ? 'MY' : 'US'} />;
+    return <MarketV8 demo={params.demo === '1'} initialMarket={params.market === 'MY' || params.market === 'US' ? params.market : undefined} />;
 }

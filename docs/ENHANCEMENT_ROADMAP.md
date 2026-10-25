@@ -50,6 +50,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E17 | Learn from V8 metric labels (G2) | Verified | High | Existing lessons and progress; no provider or saved-research changes |
 | E18 | Read-only V8 holdings view (G1) | Verified | High | Reuses the browser-local holdings snapshot and existing contracts; no new storage, request or analytics |
 | E19 | Shared V8 metric glossary (G3) | Verified | High | Five existing lesson metrics; no provider, scoring or saved-research changes |
+| E20 | V8 settings in one place (G4) | Verified | High | Existing theme, config and guest storage contracts; explicit defaults/clear and safe owner handoff |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -447,6 +448,26 @@ Evidence is in `.tmp/learn-metric-links/after/`. The Learn QA navigation waits f
 lesson to settle before shell/focus assertions, following the earlier Linux CI loading-boundary
 failure. This is local fixture proof; deployment and live-provider behavior are not established.
 
+### E20 — V8 settings in one place (G4)
+
+**Scope:** one accessible Settings modal across connected Market, Research and Learn.
+Theme applies immediately; market/mode/social defaults save explicitly and hydrate before
+Market requests. A valid URL market takes priority. Guest export remains saved-only with draft
+warnings; confirmed clear updates same-tab/cross-tab Research and preserves other stores.
+Owner unlock uses the existing route in a new tab. Research stays mounted throughout.
+
+**Design:** [`V8_SETTINGS_DESIGN.md`](V8_SETTINGS_DESIGN.md) records the storage compatibility,
+failure, privacy and verification boundaries. No new dependencies, API or scoring changes.
+
+**Verification (2026-10-25):** lint, production build, post-build typecheck, full harness and
+independent review passed. Settings passed 22 fixture scenarios, including 1280/768/375/320px
+light/dark, focus wrapping, intact phone header labels, exact first requests, actual reload,
+corrupt/blocked storage, draft preservation, saved-only export and confirmed clear with rollback,
+cross-tab and owner/holdings/Learn isolation. All four Learn suites, eight metric-link cases,
+Research reading (26 captured states), unsaved/guest recovery at five widths, and 20 theme cases
+passed. The visual verdict is 94/100. Evidence is under `.tmp/v8-settings/` and the existing
+suite directories. This is local fixture proof; deployment and live providers are unverified.
+
 ### E3 — Today promotion review
 
 **Spec:** `NEXT_PRODUCT_ROADMAP.md` Task 0.
@@ -502,3 +523,4 @@ contract is recorded.
 | 2026-10-25 | E14 | — | Verified | R1 temporary chart measurement; drag/tap/keyboard, pointer isolation, reset and arithmetic regressions; local Standard checks pass. |
 | 2026-10-25 | E17 | — | Verified | Five V8 metric lessons, V8 Learn shell, existing course/theme compatibility; full checks, independent review and 20 browser scenarios pass. |
 | 2026-10-25 | E18 | — | Proposed | Read-only V8 holdings view scoped from G1; reuses existing holdings contracts, so this slice needs no design doc. |
+| 2026-10-25 | E20 | — | Verified | Shared settings, safe defaults and guest actions; High lane and independent review passed. |

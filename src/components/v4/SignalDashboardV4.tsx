@@ -25,7 +25,7 @@ const tierToStance: Record<SignalTier, string> = {
 };
 
 export const SignalDashboardV4 = () => {
-    const { config, isLoaded } = useSignalConfig();
+    const { config, isLoaded, storageError } = useSignalConfig();
     const [signalData, setSignalData] = useState<MarketSignal | null>(null);
     const [loading, setLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -96,6 +96,7 @@ export const SignalDashboardV4 = () => {
             <AppHeaderV4 snapshotDate={snapshotDate} onRefresh={() => fetchSignal({ background: true })} isRefreshing={isRefreshing} />
 
             <div className="mx-auto w-full max-w-[1280px] px-4 pb-10 md:px-6">
+                {storageError && <p role="alert" className="mb-4">{storageError}</p>}
                 {loading && !signalData ? (
                     <SignalSkeleton />
                 ) : signalData ? (
