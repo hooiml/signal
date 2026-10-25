@@ -5,6 +5,9 @@
 The working order for enhancements after the V8 UI/UX plan, so they can be delivered one at a time.
 Each item is small enough for one branch and one pull request.
 
+Unscheduled interaction ideas for Market and Research are collected in
+[`V8_INTERACTION_IDEAS.md`](V8_INTERACTION_IDEAS.md); one becomes an `E` item only when chosen.
+
 Full specifications for E3–E7 live in [`NEXT_PRODUCT_ROADMAP.md`](NEXT_PRODUCT_ROADMAP.md) (Tasks 0
 and 5–8); this file only fixes their order and adds the near-term items. Product rules from that
 roadmap ("Product Direction To Preserve") apply to every item here.
