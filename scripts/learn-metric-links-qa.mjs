@@ -198,6 +198,8 @@ async function assertMetricAnchors(page, scenario, route, routeConcepts, observa
         await page.keyboard.press('Tab');
         await trigger.focus();
         await panel.waitFor();
+        // The native popover becomes visible before its toggle event updates React's ARIA state.
+        await page.locator(`button[popovertarget="${await panel.getAttribute('id')}"][aria-expanded="true"]`).waitFor();
         check(scenario, `${concept.id} keyboard focus opens the definition`, await trigger.getAttribute('aria-expanded') === 'true');
         await page.keyboard.press('Tab');
         check(scenario, `${concept.id} Tab reaches Learn more`, await anchor.evaluate(element => document.activeElement === element));
@@ -455,10 +457,12 @@ async function runAfter(browser, viewport, theme) {
                 await undefinedRatio.waitFor({ timeout: 1500 }).catch(() => {});
             }
             check(scenario, 'put/call lesson marks a zero denominator undefined', (await page.locator('main').innerText()).includes('Undefined'));
-            await page.goto(`${baseUrl}/learn?concept=naaim`, { waitUntil: 'domcontentloaded' });
+            // Learn streams its client lesson after DOMContentLoaded; wait before sending keys.
+            await page.goto(`${baseUrl}/learn?concept=naaim`, { waitUntil: 'networkidle', timeout: timeoutMs });
             const naaimSlider = page.getByLabel('Hypothetical manager equity exposure');
             await naaimSlider.focus();
             await page.keyboard.press('Home');
+            await page.getByText('At -200%, this example represents net short exposure in this simplified example.').waitFor();
             for (let index = 0; index < 40; index += 1) await page.keyboard.press('ArrowRight');
             await page.getByText('At 0%, this example represents cash or market-neutral exposure in this simplified example.').waitFor();
             check(scenario, 'NAAIM lesson explains the keyboard-selected neutral boundary', await naaimSlider.inputValue() === '0');
