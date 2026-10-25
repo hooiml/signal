@@ -19,6 +19,12 @@ npm run harness
 
 Run `npm run build` for route, framework, dependency, or deployment changes.
 
+Legacy aliases are redirects, not rollback pages. For route changes, use
+`npm run qa:legacy-routes` against the owned built server; keep duplicate query values,
+fragments and the Today return flow. Advanced Research remains at `/research` and detailed
+Market tools at `/market/tools`. Consult [LEGACY_ROUTE_RETIREMENT.md](LEGACY_ROUTE_RETIREMENT.md)
+before retiring any shared owner. `NEXT_PUBLIC_SIGNAL_UI_VERSIONS` no longer enables a picker.
+
 ### Research read schema prerequisite
 
 Before deploying the Research read-path optimization, run `node scripts/check-research-schema.mjs`
@@ -68,7 +74,8 @@ git config core.hooksPath .githooks
 
 The dependency-free `commit-msg` hook rejects missing scopes and generic subjects before Git creates the commit. Do not bypass it with `--no-verify`.
 
-For Market V6 hierarchy, score-evidence, responsive layout, or control changes, run the reusable browser check instead of creating a task-specific Playwright script:
+For retained Market tools hierarchy, score evidence, responsive layout or controls at
+`/market/tools`, run the reusable browser check:
 
 ```powershell
 npm run qa:market

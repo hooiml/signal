@@ -245,3 +245,11 @@ Shared V8 building blocks, reused before adding new ones:
 - [ ] Point-in-time historical fundamentals are required before the Picker can claim an out-of-sample
       score-to-return probability.
 - [ ] Malaysia needs its own eligible universe and point-in-time fundamental source before Picker support.
+
+## Route continuity
+
+G6 retires version aliases and replaces UI version selection with Reading view and Advanced
+tools links. Keep the existing V8 typography, controls and footer styling. Canonical Research
+and `/market/tools` retain their existing presentation until their distinct workflows migrate.
+Today uses an inline return row with a 44px link target. See
+[`docs/LEGACY_ROUTE_RETIREMENT.md`](docs/LEGACY_ROUTE_RETIREMENT.md).

@@ -190,7 +190,7 @@ try {
             await initializeTheme(theme)(context);
             const page = await preparePage(context, state);
             try {
-                await page.goto(`${baseUrl}/main-v7`, { waitUntil: 'domcontentloaded' });
+                await page.goto(`${baseUrl}/market/tools`, { waitUntil: 'domcontentloaded' });
                 await page.locator('#market-posture-v7').waitFor({ state: 'visible' });
                 check(await page.getByTestId('market-v7').getAttribute('data-theme') === theme, `${name}: Market theme did not restore`);
                 check(await page.getByRole('link', { name: /Inspect evidence/ }).count() === 3, `${name}: first-reading inspection links are incomplete`);
@@ -259,7 +259,7 @@ try {
         await initializeTheme('light')(context);
         const page = await preparePage(context, state);
         try {
-            await page.goto(`${baseUrl}/main-v7`, { waitUntil: 'domcontentloaded' });
+            await page.goto(`${baseUrl}/market/tools`, { waitUntil: 'domcontentloaded' });
             await page.getByLabel('Loading market conditions').waitFor({ state: 'visible' });
             check(await page.getByTestId('market-v7').isVisible(), 'Market route identity disappeared while loading');
             await page.locator('#market-posture-v7').waitFor({ state: 'visible' });
@@ -314,7 +314,7 @@ try {
         await initializeTheme('dark')(context);
         const page = await preparePage(context, state);
         try {
-            await page.goto(`${baseUrl}/main-v7`, { waitUntil: 'domcontentloaded' });
+            await page.goto(`${baseUrl}/market/tools`, { waitUntil: 'domcontentloaded' });
             await page.locator('#market-posture-v7').waitFor({ state: 'visible' });
             state.staleResponses = true;
             await page.getByRole('button', { name: 'MY', exact: true }).click();
@@ -444,7 +444,7 @@ try {
         })(context);
         const page = await preparePage(context, state);
         try {
-            await page.goto(`${baseUrl}/main-v7`, { waitUntil: 'domcontentloaded' });
+            await page.goto(`${baseUrl}/market/tools`, { waitUntil: 'domcontentloaded' });
             const skeleton = page.getByLabel('Loading market conditions');
             await skeleton.waitFor({ state: 'visible' });
             const duration = await skeleton.locator('span').first().evaluate((node) => getComputedStyle(node).animationDuration);
@@ -454,16 +454,17 @@ try {
             await page.waitForFunction(() => document.activeElement?.id === 'market-trust-limitations');
             check((await page.evaluate(() => window.__phase1ScrollBehaviors)).every((behavior) => behavior === 'auto'), 'Reduced motion retained automatic smooth scrolling');
 
-            for (const [route, testId] of [['/', 'market-v7'], ['/main-v7', 'market-v7'], ['/research', 'research-v7'], ['/research-v7', 'research-v7']]) {
+            for (const [route, testId] of [['/market/tools', 'market-v7'], ['/research?workspace=research', 'research-v7'], ['/research-v7?workspace=research', 'research-v7']]) {
                 state.signalDelay = 0;
                 await page.goto(`${baseUrl}${route}`, { waitUntil: 'domcontentloaded' });
                 await page.getByTestId(testId).waitFor({ state: 'visible' });
             }
             await page.goto(`${baseUrl}/main-v6`, { waitUntil: 'domcontentloaded' });
-            await page.locator('#market-story-title').waitFor({ state: 'visible' });
+            await page.waitForURL('**/main-v8');
+            check(await page.getByTestId('market-v7').count() === 0, 'Retired Market alias still renders V7');
             await page.goto(`${baseUrl}/research-v6?workspace=research&ticker=MSFT`, { waitUntil: 'domcontentloaded' });
             await page.locator('#research-detail').waitFor({ state: 'visible' });
-            check(await page.getByTestId('research-v7').count() === 0, 'Research V6 rollback route was replaced by V7');
+            check(new URL(page.url()).pathname === '/research', 'Advanced Research alias did not reach its canonical owner');
             check(state.blocking.length === 0, state.blocking.join(' | '));
             scenario.status = 'passed';
         } catch (error) {

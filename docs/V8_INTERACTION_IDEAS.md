@@ -387,12 +387,16 @@ next to it. IDs start with G (global).
 - Design: [`V8_FIRST_VISIT_DESIGN.md`](V8_FIRST_VISIT_DESIGN.md); separate validated local
   progress, real reading/save evidence, already-saved acknowledgement and safe restart.
 
-#### G6 · Retire legacy routes · New
+#### G6 · Retire legacy routes · Verified (E22)
 
-- What: redirect `main-v2`…`main-v7`, `research-v2`…`research-v7` and `backup/*` to their V8
-  equivalents once V8 covers their jobs (G1 is the main gap), keeping deep-link parameters.
-- Why: fewer routes to keep working, fewer QA suites, a smaller build.
-- Check: list which V6/V7-only features each route still serves before redirecting it.
+- The actual V2/V4/V5/V6/V7 and backup aliases redirect to V8 for reading and canonical
+  `/research` for explicit advanced jobs. There were no V3 aliases. Query values and fragments
+  are retained; Today has a working V8 return action.
+- G1 remains cost-only. Portfolio import/reconciliation/attribution/what-if, Queue, alerts,
+  calendar, changes, currency, outcomes, replay and backup remain in canonical Research.
+- Market alerts and queued exposure reviews remain at `/market/tools`; V8 coverage of
+  sensitivity, calibration, context and exposure is not a claim of full Market parity.
+- Inventory, route contract and migration boundary: [LEGACY_ROUTE_RETIREMENT.md](LEGACY_ROUTE_RETIREMENT.md).
 
 #### G7 · Visual checks in CI · New
 

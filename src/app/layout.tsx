@@ -3,7 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProviderV6 } from "@/components/v6/ThemeProviderV6";
 import { PwaLifecycle } from "@/components/pwa/PwaLifecycle";
-import { VersionSwitcher } from "@/components/navigation/VersionSwitcher";
+import { WorkspaceNavigation } from "@/components/navigation/WorkspaceNavigation";
 import { v8ThemeBootScript } from "@/components/v8/v8-theme";
 
 const sourceSans = localFont({
@@ -55,7 +55,7 @@ export default function RootLayout({
         className={`${sourceSans.variable} ${robotoMono.variable} antialiased`}
       >
         <PwaLifecycle />
-        <VersionSwitcher />
+        <WorkspaceNavigation />
         <ThemeProviderV6>{children}</ThemeProviderV6>
       </body>
     </html>

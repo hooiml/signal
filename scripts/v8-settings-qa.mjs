@@ -421,20 +421,20 @@ async function runLegacyConfigSmoke(browser) {
         { name: 'corrupt stored defaults', value: '{broken', expected: settingsDefaults, error: /Saved defaults could not be read/ },
         { name: 'blocked explicit write', value: null, expected: settingsDefaults, blockWrite: true, error: /Could not save defaults/ },
     ]) {
-        const item = scenario(`Legacy V6 config smoke: ${testCase.name}`);
+        const item = scenario(`Retained Market tools config smoke: ${testCase.name}`);
         const { context, page, observations } = await newFixtureContext(browser, item, { initScript: ({ key, value, blockWrite }) => {
             if (value !== null) localStorage.setItem(key, value);
             if (blockWrite) { const setItem = Storage.prototype.setItem; Storage.prototype.setItem = function (name, next) { if (name === key) throw new DOMException('full', 'QuotaExceededError'); return setItem.call(this, name, next); }; }
         }, initScriptArgs: { key: configKey, value: testCase.value, blockWrite: testCase.blockWrite }, viewport: viewports[0] });
         try {
-            await page.goto(`${base}/main-v6`, { waitUntil: 'domcontentloaded' });
+            await page.goto(`${base}/market/tools`, { waitUntil: 'domcontentloaded' });
             await page.locator('[data-market-controls]').waitFor();
             const request = new URLSearchParams(observations.signalQueries.at(-1));
-            check(item, 'legacy V6 reads the validated defaults', request.get('market') === testCase.expected.market && request.get('mode') === testCase.expected.mode && request.get('enableSocial') === String(testCase.expected.enableSocial));
+            check(item, 'retained Market tools reads the validated defaults', request.get('market') === testCase.expected.market && request.get('mode') === testCase.expected.mode && request.get('enableSocial') === String(testCase.expected.enableSocial));
             if (testCase.error) {
                 if (testCase.blockWrite) await page.getByRole('button', { name: 'Contrarian', exact: true }).first().click();
                 await page.getByRole('alert').filter({ hasText: testCase.error }).waitFor();
-                check(item, 'legacy V6 leaves blocked explicit preference writes absent', !testCase.blockWrite || await page.evaluate(key => localStorage.getItem(key), configKey) === null);
+                check(item, 'retained Market tools leaves blocked explicit preference writes absent', !testCase.blockWrite || await page.evaluate(key => localStorage.getItem(key), configKey) === null);
             }
             item.status = 'passed';
         } catch (error) { item.issues.push({ type: 'blocking', message: error instanceof Error ? error.message : String(error) }); }

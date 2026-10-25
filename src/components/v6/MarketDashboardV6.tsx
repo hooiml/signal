@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useSignalConfig } from '@/hooks/use-signal-config';
+import { marketRouteConfig } from '@/lib/legacy-routes';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import { AppNavV6 } from './AppNavV6';
 import { MarketBriefingV6 } from './MarketBriefingV6';
@@ -38,7 +39,8 @@ const summarizeMarketUpdate = (previous: MarketSignal, next: MarketSignal) => {
 export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentation?: 'v6' | 'v7' }) => {
     const searchParams = useSearchParams();
     const returnsToToday = searchParams.get('returnTo') === 'today';
-    const { config, updateConfig, isLoaded, storageError } = useSignalConfig();
+    const { config: savedConfig, updateConfig, isLoaded, storageError } = useSignalConfig();
+    const config = useMemo(() => ({ ...savedConfig, ...marketRouteConfig(searchParams) }), [savedConfig, searchParams]);
     const [signal, setSignal] = useState<MarketSignal | null>(null);
     const [signalEnableSocial, setSignalEnableSocial] = useState(true);
     const [loading, setLoading] = useState(true);
@@ -105,8 +107,11 @@ export const MarketDashboardV6 = ({ presentation = 'v6' }: { readonly presentati
 
     const changeConfiguration = useCallback((change: Parameters<typeof updateConfig>[0], cause: string) => {
         pendingConfigCause.current = cause;
-        updateConfig(change);
-    }, [updateConfig]);
+        const url = new URL(window.location.href);
+        for (const [key, value] of Object.entries(change)) url.searchParams.set(key, String(value));
+        window.history.replaceState(null, '', url);
+        updateConfig({ ...config, ...change });
+    }, [updateConfig, config]);
 
     useEffect(() => {
         if (isLoaded) void fetchSignal();

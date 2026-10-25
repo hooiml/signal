@@ -46,7 +46,7 @@ export const researchWorkflowSourceLabels: Readonly<Record<ResearchWorkflowSourc
 };
 
 export type ResearchWorkflowSourceDestination =
-    | { readonly kind: 'market'; readonly pathname: '/' }
+    | { readonly kind: 'market'; readonly pathname: '/market/tools#market-watchlist-exposure-title' }
     | {
         readonly kind: 'research';
         readonly workspace: 'alerts' | 'calendar' | 'changes' | 'evidence' | 'filings' | 'policy' | 'portfolio';
@@ -60,7 +60,7 @@ const researchWorkflowSourceDestinations = {
     calendar: { kind: 'research', workspace: 'calendar' },
     alert: { kind: 'research', workspace: 'alerts' },
     'structured-trigger': { kind: 'research', workspace: 'alerts' },
-    'market-exposure': { kind: 'market', pathname: '/' },
+    'market-exposure': { kind: 'market', pathname: '/market/tools#market-watchlist-exposure-title' },
     'factor-exposure': { kind: 'research', workspace: 'portfolio' },
     'dividend-cashflow': { kind: 'research', workspace: 'calendar' },
     'portfolio-holdings': { kind: 'research', workspace: 'portfolio' },

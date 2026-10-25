@@ -379,7 +379,7 @@ try {
         const destination = new URL(await unlock.getAttribute('href'), base).searchParams.get('next');
         const actual = new URL(page.url());
         assert.equal(destination, actual.pathname + actual.search + actual.hash);
-        assert.equal(actual.pathname, '/research-v6'); assert.equal(actual.hash, '#saved-position');
+        assert.equal(actual.pathname, '/research'); assert.equal(actual.hash, '#saved-position');
         assert.match(destination, /market=MY/); assert.match(destination, /tab=chart/);
         await capture('legacy-locked-continuation', 'main');
         listState = 'unconfigured';

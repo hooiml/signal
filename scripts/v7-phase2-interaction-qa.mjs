@@ -177,7 +177,7 @@ const initializeTheme = (theme) => async (context) => {
 };
 
 const exerciseMarketExplorer = async (page, viewport, name, screenshots) => {
-    await page.goto(`${baseUrl}/main-v7`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${baseUrl}/market/tools`, { waitUntil: 'domcontentloaded' });
     const explorer = page.getByTestId('market-score-history-explorer');
     await explorer.waitFor({ state: 'visible' });
     await explorer.getByRole('button', { name: 'All', exact: true }).click();
@@ -404,12 +404,12 @@ try {
             await page.waitForURL((url) => url.searchParams.get('ticker') === 'NVDA');
             check((await page.evaluate(() => window.__phase2ScrollBehaviors)).every((behavior) => behavior === 'auto'), 'Reduced motion retained smooth programmatic scrolling');
             await page.goto(`${baseUrl}/main-v6`, { waitUntil: 'domcontentloaded' });
-            await page.locator('#market-story-title').waitFor({ state: 'visible' });
-            check(await page.getByTestId('market-score-history-explorer').count() === 0, 'Market V6 received the V7 score explorer');
+            await page.waitForURL('**/main-v8');
+            check(await page.getByTestId('market-v7').count() === 0, 'Retired Market alias still renders V7');
             await page.goto(`${baseUrl}/research-v6?workspace=research&ticker=MSFT&tab=chart`, { waitUntil: 'domcontentloaded' });
             await page.locator('[data-research-chart]').waitFor({ state: 'visible' });
-            check(await page.getByTestId('research-chart-readout').count() === 0, 'Research V6 received the V7 chart readout');
-            check(await page.getByTestId('research-mobile-ticker-selector').count() === 0, 'Research V6 received the V7 ticker selector');
+            check(new URL(page.url()).pathname === '/research', 'Advanced Research alias did not reach its canonical owner');
+            await page.getByTestId('research-chart-readout').waitFor({ state: 'visible' });
             check(state.blocking.length === 0, state.blocking.join(' | '));
             scenario.status = 'passed';
         } catch (error) {

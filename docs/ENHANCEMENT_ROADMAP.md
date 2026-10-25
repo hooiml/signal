@@ -52,6 +52,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E19 | Shared V8 metric glossary (G3) | Verified | High | Five existing lesson metrics; no provider, scoring or saved-research changes |
 | E20 | V8 settings in one place (G4) | Verified | High | Existing theme, config and guest storage contracts; explicit defaults/clear and safe owner handoff |
 | E21 | First visit to V8 (G5) | Verified | High | Local-only orientation, explicit save evidence, restart and storage safety |
+| E22 | Retire legacy route aliases (G6) | Verified | High | Preserve advanced Research/Market jobs, deep links, Today continuity and existing storage |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -490,6 +491,26 @@ unsaved Research/guest recovery, Learn/metric links (8 scenarios) and theme/save
 verdict is 94/100. Durable command and CI diagnostics are in `docs/TESTING.md`; evidence is
 under `.tmp/v8-first-visit/` and the existing suite directories. This establishes local
 fixture behavior, not live-provider availability, remote CI, merge or deployment.
+
+### E22 — Retire legacy route aliases (G6)
+
+**Scope:** the twelve shipped version/backup aliases now redirect to V8 reading or the
+canonical advanced Research owner. `/market/tools` preserves saved alerts, queued exposure
+reviews and full evidence tools. Reading view / Advanced tools replaces the version picker.
+Queries, repeated values, fragments, explicit market selection and the Today round trip survive.
+G1 remains cost-only; this is not full advanced-feature migration. The inventory and rollback
+contract are in [`LEGACY_ROUTE_RETIREMENT.md`](LEGACY_ROUTE_RETIREMENT.md).
+
+**Verification (2026-10-25):** lint, production build, post-build typecheck, full harness,
+diff checks and independent review passed. The route browser suite passed 93 checks at
+1280/768/375px, including raw 307 responses, no loops, keyboard/focus/geometry, copied and
+middle-clicked fragments after evidence navigation, actual Today continuation and portfolio
+import/Queue actions; zero console/page errors, failed requests or unintended API mutations.
+Settings (22 scenarios), first visit (20), provenance (54 states), Queue (3 viewports) and
+retained Market evidence/polish/controls passed. Visual review scored 94/100. Evidence is in
+`.tmp/legacy-routes/qa-1792929321105/`, `.tmp/legacy-routes/visual-verdict.json` and the affected
+suite directories. Older V7 interaction scripts were retargeted and syntax-checked, not run
+as full matrices. This proves local fixture behavior, not remote CI, deployment or providers.
 
 ### E3 — Today promotion review
 

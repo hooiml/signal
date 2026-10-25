@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { VersionSwitcher } from '@/components/navigation/VersionSwitcher';
+import { WorkspaceNavigation } from '@/components/navigation/WorkspaceNavigation';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { legacyMarketAnchors, marketRouteConfig } from '@/lib/legacy-routes';
+import { createTodayMarketContinuation } from '@/lib/research/since-last-visit';
+import { writeTodayContinuation } from '@/lib/research/since-last-visit-client';
 import { V8Settings } from './V8Settings';
 import { V8FirstVisit } from './V8FirstVisit';
 import { readSignalConfig, type SignalConfig } from '@/lib/signal-config';
@@ -39,7 +44,16 @@ const tierClasses: Record<MarketSignal['tier'], string> = {
 export function MarketV8Connected({ initialMarket }: { initialMarket?: Market }) {
     const [defaults, setDefaults] = useState<ReturnType<typeof readSignalConfig> | null>(null);
     useEffect(() => {
-        const timer = window.setTimeout(() => setDefaults(readSignalConfig()), 0);
+        const url = new URL(window.location.href);
+        if (legacyMarketAnchors.has(url.hash.slice(1))) {
+            url.pathname = '/market/tools';
+            window.location.replace(url);
+            return;
+        }
+        const timer = window.setTimeout(() => {
+            const saved = readSignalConfig();
+            setDefaults({ ...saved, config: { ...saved.config, ...marketRouteConfig(url.searchParams) } });
+        }, 0);
         return () => window.clearTimeout(timer);
     }, []);
     if (!defaults) return <div className={styles.app}><main className={styles.canvas}><p role="status">Loading Market preferences…</p></main></div>;
@@ -47,6 +61,10 @@ export function MarketV8Connected({ initialMarket }: { initialMarket?: Market })
 }
 
 function MarketView({ initialConfig, initialPreferenceError }: { initialConfig: SignalConfig; initialPreferenceError: string }) {
+    const returnsToToday = useSearchParams().get('returnTo') === 'today';
+    useEffect(() => {
+        if (returnsToToday) writeTodayContinuation(createTodayMarketContinuation(new Date().toISOString()));
+    }, [returnsToToday]);
     const [preferenceError, setPreferenceError] = useState(initialPreferenceError);
     const [advanced, setAdvanced] = useState(false);
     const [archiveRequested, setArchiveRequested] = useState(false);
@@ -259,6 +277,7 @@ function MarketView({ initialConfig, initialPreferenceError }: { initialConfig: 
         {preferenceError && <p role="status" className={styles.canvas}>{preferenceError}</p>}
         <div className={styles.canvas}>
             <V8FirstVisit surface="market" mode={mode} ready={!!data && Number.isFinite(data.composite_score) && hasScore && !loading && !response.error && !historical && response.key === key} />
+            {returnsToToday && <nav className={layout.todayReturn} aria-label="Today continuation" data-testid="today-return-context"><span>Opened from Today</span><Link className={styles.textButton} href="/research?workspace=today" prefetch={false}>Back to Today</Link></nav>}
             <div className={styles.toolbar}><div className={styles.marketControls}><label className={styles.visuallyHidden} htmlFor="market-select">Market</label><select id="market-select" value={market} onChange={event => { setMarket(event.target.value as Market); resetView(); }}><option value="US">US Market</option><option value="MY">Malaysia</option></select><fieldset className={styles.segment}><legend className={styles.visuallyHidden}>Interpretation mode</legend>{(['standard','contrarian'] as const).map(value => <button key={value} aria-pressed={mode===value} onClick={() => { setMode(value); resetView(); }}>{value==='standard'?'Momentum':'Contrarian'}</button>)}</fieldset><label className={styles.sourceToggle}><input type="checkbox" checked={social} onChange={event => { setSocial(event.target.checked); resetView(); }} />{market==='MY'?'Include news in score':'Include social in score'}</label><details className={`${styles.muted} ${layout.controlHelp}`}><summary>About these settings</summary><div><p data-testid="mode-explanation">{mode === 'standard' ? 'Momentum: high scores read as trend confirmation' : 'Contrarian: high scores read as crowding risk, low scores as opportunity'}</p><p data-testid="social-inclusion-status">{marketSourceToggleStatus(market, social, data, loading, response.key === key ? response.error : '')}</p></div></details></div><div className={styles.depthActions}><button className={styles.secondaryButton} aria-pressed={advanced} onClick={() => { if (advanced) { if (historical) returnCurrent(); if (tab === 'History' || tab === 'Scenarios' || tab === 'Evidence' || historical) setTab('What changed'); } setAdvanced(!advanced); }}>{advanced ? 'Back to basic view' : <>Advanced<span className={layout.longLabel}> tools</span></>}</button><button className={styles.secondaryButton} disabled={loading} onClick={() => { setRevision(value=>value+1); }}>{loading?'Loading…':<>Reload<span className={layout.longLabel}> data</span></>}</button></div></div>
             <main id="market-content" tabIndex={-1} className={`${styles.workspace} ${layout.layout}`}>
                 <div className={styles.mainColumn}>
@@ -304,7 +323,7 @@ function MarketView({ initialConfig, initialPreferenceError }: { initialConfig: 
                 </div>
 
             </main>
-            {/* The optional install offer docks here instead of floating over the page. */}<div id="signal-install-slot" /><footer className={styles.footer}><span>Market conditions · dated evidence</span><details><summary>Data scope & limitations</summary><p>Scores, raw inputs, context and calibration come from the existing service. Provider availability and old source dates are not repaired in the UI. Historical reconstructed records remain labelled; mini-charts use bounded archived snapshots. The existing service manages its own cache and snapshot storage. Scenarios are local assumptions. Research uses existing saved records.</p><a className={styles.textButton} href="/main-v8?demo=1">Open representative demo →</a></details><VersionSwitcher placement="footer" /></footer>
+            {/* The optional install offer docks here instead of floating over the page. */}<div id="signal-install-slot" /><footer className={styles.footer}><span>Market conditions · dated evidence</span><details><summary>Data scope & limitations</summary><p>Scores, raw inputs, context and calibration come from the existing service. Provider availability and old source dates are not repaired in the UI. Historical reconstructed records remain labelled; mini-charts use bounded archived snapshots. The existing service manages its own cache and snapshot storage. Scenarios are local assumptions. Research uses existing saved records.</p><a className={styles.textButton} href="/main-v8?demo=1">Open representative demo →</a></details><WorkspaceNavigation placement="footer" context={{ market, mode, enableSocial: String(social) }} /></footer>
         </div>
         <dialog className={styles.mobileInspector} ref={modal} onCancel={event=>{event.preventDefault();closeInspector();}} onKeyDown={event=>{
             if(event.key!=='Tab')return;

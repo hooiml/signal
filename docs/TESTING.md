@@ -4,6 +4,19 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For G6/E22 route retirement, run `npm run qa:legacy-routes` against the owned production
+server on port 3000 after build and post-build typecheck. It intercepts application APIs
+with fixtures and checks all twelve aliases plus root, raw HTTP 307s, duplicate/unknown
+parameters, fragments, back/history, explicit MY, the actual Today client-router round trip,
+and canonical portfolio import/Queue actions. The contract also runs in `npm run harness`.
+Navigation checks cover 1280/768/375px, keyboard/focus, current-view semantics, target geometry,
+and rendered/middle-click fragment destinations after an in-page evidence jump.
+Run affected Settings and provenance checks, and `qa:market` for retained Market tools.
+Historical V7 interaction suites now target `/market/tools` and advanced `/research`;
+their old-alias assertions expect redirects. `v8-version-navigation-qa.mjs` forwards to the
+new suite. See [LEGACY_ROUTE_RETIREMENT.md](LEGACY_ROUTE_RETIREMENT.md) for coverage and
+the explicit boundary between retiring aliases and migrating advanced jobs.
+
 For G5/E21 first visit, run `npm run qa:v8-first-visit` against the owned production
 server at `SIGNAL_QA_URL` (default `http://127.0.0.1:3000`). One Chromium process covers
 first entry, skip/reload/resume, guest/owner explicit Save, failure/retry, saved-stock
@@ -395,7 +408,14 @@ npm run qa:header
 
 The command checks `/start`, `/main-v7`, and `/research` at 1280px, 768px, and 375px. It waits for the header and navigation to be visible after `domcontentloaded`, so it does not wait for unrelated upstream API requests. It measures the shared inner width, bottom hairline, navigation clipping, document overflow, command and theme control target sizes, and toggle behavior, and writes a fresh report plus header captures under `.tmp/signal-header-qa/<timestamp>/`.
 
-The homepage now redirects to V8, whose distinct shell is covered by `node scripts/v8-version-navigation-qa.mjs`. V8 hides the UI version links unless the server was built with `NEXT_PUBLIC_SIGNAL_UI_VERSIONS=1`; build that way before running the version-navigation suite. This checks the HTTP redirect, retained V6/V7/V8 Market and Research routes, keyboard version switching, responsive overflow, and retired Gemini routes. Run `node scripts/v8-connected-qa.mjs` for connected Market, `node scripts/v8-research-connected-qa.mjs` for saved Research, and `node scripts/v8-exploration-qa.mjs` for labelled demos. All accept `SIGNAL_QA_URL`; connected suites require populated existing local read APIs. They intercept boundary cases without changing saved records and save evidence under `.tmp/`.
+The homepage and old aliases redirect through the shared G6 boundary. `npm run qa:legacy-routes`
+checks HTTP and browser redirects, retained canonical tools, query/fragment continuity and
+Reading view / Advanced tools navigation. The old `v8-version-navigation-qa.mjs` command
+forwards to it; no version-picker environment flag is needed. Run `node scripts/v8-connected-qa.mjs`
+for connected Market, `node scripts/v8-research-connected-qa.mjs` for saved Research, and
+`node scripts/v8-exploration-qa.mjs` for labelled demos. All accept `SIGNAL_QA_URL`; connected
+suites require populated existing local read APIs. They intercept boundary cases without
+changing saved records and save evidence under `.tmp/`.
 
 Set `SIGNAL_QA_URL` or pass `--base-url` when the local server uses another port.
 

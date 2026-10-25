@@ -161,3 +161,5 @@
     .contextCard .indexList li:nth-child(odd) { border-left: 0; padding-left: 0; }
 }
 @media (max-width: 600px) { .coverageRing { grid-template-columns: 96px minmax(0, 1fr); } .coverageRing svg { width: 96px; height: 96px; } }
+.todayReturn { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }
+.todayReturn a { display: inline-flex; align-items: center; min-height: 44px; }
