@@ -4,6 +4,13 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For G7 screenshot regression checks, run `npm run qa:visual` against the owned
+production server on port 3000. Twenty fixture images cover Market, Research,
+Holdings, Settings and glossary at desktop/phone in light/dark. The separate
+Signal validation visual job uses a pinned Linux container and never updates
+goldens. See [Visual comparisons](VISUAL_CHECKS.md) for platform-separated
+baselines, explicit review/update, diff artifacts and initial Linux enrollment.
+
 For G6/E22 route retirement, run `npm run qa:legacy-routes` against the owned production
 server on port 3000 after build and post-build typecheck. It intercepts application APIs
 with fixtures and checks all twelve aliases plus root, raw HTTP 307s, duplicate/unknown
