@@ -4,6 +4,18 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For R2 Then vs now, run `node scripts/research-due-review-qa.mjs` against one owned
+production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3213`). Owner/guest fixtures
+cover due/overdue/not-due and independent stale deadlines, missing history/price/currency,
+current reading gaps, exact US/MY review handoffs, draft preservation, visit dismissal,
+stock switching and keyboard use. Light/dark geometry and screenshots cover
+1280/768/375/320px, including long-thesis disclosure; artifacts live in `.tmp/research-due-review/`.
+`--scenario=guest-suites` reuses the guest workspace/recovery matrices in the same browser
+process when those paths need verification; ordinary CI already runs them through the unsaved suite.
+Fixtures verify read-only UI/storage/request behavior, not live-provider data or deployment.
+`scripts/harness/due-review-regression.ts` runs within the Research harness and protects
+UTC boundaries, immutable snapshot selection, legacy gaps and calculation purity.
+
 For G8 shared V8 primitives, run lint, build, post-build typecheck and the full harness.
 Against one owned production server on port 3000, run `market-mobile-sections-qa.mjs`,
 `research-holdings-qa.mjs`, `research-tabs-qa.mjs`, `research-unsaved-qa.mjs`,

@@ -1,0 +1,27 @@
+.card.card { min-height: 0; padding: 20px; border: 1px solid var(--line); border-radius: 10px; margin: 20px 0; overflow-wrap: anywhere; }
+.heading, .actions { display: flex; align-items: center; gap: 16px; }
+.heading { justify-content: space-between; flex-wrap: wrap; }
+.heading h2 { font-size: var(--text-xl); margin: 4px 0 0; }
+.actions { flex-wrap: wrap; }
+.actions button { min-height: 44px; padding: 8px; }
+.dates, .caption, .note, .card > small { color: var(--muted); font-size: var(--text-sm); }
+.dates { margin: 10px 0; }
+.comparison { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: var(--text-sm); }
+.caption { text-align: left; padding-bottom: 10px; }
+.comparison th, .comparison td { text-align: left; vertical-align: top; padding: 10px 8px; border-bottom: 1px solid var(--line); }
+.comparison th:first-child { padding-left: 0; }
+.comparison td { font-variant-numeric: tabular-nums; }
+.comparison thead th { font-weight: 600; }
+.thesis { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+.thesis > div { min-width: 0; }
+.thesis h3 { font-size: var(--text-sm); font-weight: 600; }
+.thesis p { margin: 5px 0 0; font-size: var(--text-sm); white-space: pre-wrap; }
+.thesis summary { margin-top: 5px; cursor: pointer; font-size: var(--text-sm); }
+.expand { color: var(--brand); }
+.note { margin: 12px 0 4px; }
+@media (max-width: 600px) {
+    .card.card { padding: 16px; }
+    .heading { gap: 10px; }
+    .comparison th, .comparison td { padding: 8px 5px; }
+    .thesis { grid-template-columns: 1fr; gap: 12px; }
+}

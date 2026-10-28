@@ -21,6 +21,7 @@ import { ResearchCurrentAssessment } from './ResearchCurrentAssessment';
 import { assessCurrentResearch } from '@/lib/research/current-assessment';
 import { ResearchConnectedPanel } from './ResearchV8ConnectedPanels';
 import { ResearchPriceContext } from './ResearchPriceContext';
+import { ResearchDueReview } from './ResearchDueReview';
 import { ResearchFilingsV8 } from './ResearchFilingsV8';
 import { ResearchPeersV8 } from './ResearchPeersV8';
 import { ResearchDiscoverV8 } from './ResearchDiscoverV8';
@@ -503,6 +504,7 @@ function ConnectedCase({ workspace, guestUnavailable, guestIdentity, guestDraft,
                 </div>
                 <ResearchPriceContext snapshot={snapshot} />
                 </div>
+                {record && <ResearchDueReview record={record} snapshot={snapshot} loading={loading} error={error} />}
                 {workspace === 'guest' && savedRecord && <GuestResearchNote key={guestIdentity} draftState={guestDraft} onDraftChange={onDraftChange} disabled={guestUnavailable} record={savedRecord} onSaved={onSaved} onRemoved={onGuestRemoved} />}
                 {saveError && <p role="alert">{saveError}{saveAccessIssue === 'locked' && <> <a className={base.textButton} href={unlockHref}>Unlock to save</a></>}</p>}
                 <ResearchCurrentAssessment snapshot={snapshot} previous={readings.previous} loading={loading} error={error} now={assessmentTime} compact />
