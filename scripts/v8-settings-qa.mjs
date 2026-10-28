@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -49,6 +50,7 @@ function snapshot(symbol, market) {
 
 async function installFixtures(context, observations, ownerUnlocked = false) {
     await context.route('**/api/**', async route => {
+        if (await fulfillEarningsCalendarRead(route)) return;
         const request = route.request();
         const url = new URL(request.url());
         observations.requests.push({ method: request.method(), path: `${url.pathname}${url.search}` });

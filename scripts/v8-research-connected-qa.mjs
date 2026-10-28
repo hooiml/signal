@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -29,7 +30,8 @@ page.on('pageerror', error => errors.push({ phase, error: error.message }));
 page.on('console', message => { if (message.type() === 'error' && !message.text().startsWith('Failed to load resource:')) errors.push({ phase, error: message.text() }); });
 page.on('requestfailed', request => { if (!request.failure()?.errorText.includes('ERR_ABORTED')) errors.push({ phase, error: request.failure()?.errorText, path: new URL(request.url()).pathname }); });
 page.on('response', response => { if (response.status() >= 400 && phase !== 'expected-failure') errors.push({ phase, status: response.status(), path: new URL(response.url()).pathname }); });
-await context.route('**/api/**', route => {
+await context.route('**/api/**', async route => {
+    if (await fulfillEarningsCalendarRead(route)) return;
     const request = route.request();
     const url = new URL(request.url());
     requests.push({ path: url.pathname, query: url.search, method: request.method() });

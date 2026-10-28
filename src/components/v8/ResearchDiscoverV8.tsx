@@ -11,6 +11,7 @@ import { ResearchPickerV8 } from './ResearchPickerV8';
 import { ResearchTrendingV8 } from './ResearchTrendingV8';
 import { discoverViews, type DiscoverView } from './discover-view';
 import styles from './research-discover-v8.module.css';
+import type { EarningsCalendarTarget } from '@/lib/research/earnings-ticket';
 
 const labels: Record<DiscoverView, string> = { trending: 'Trending', early: 'Early trends', picker: 'Stock Picker', calendar: 'Calendar', alerts: 'Alerts' };
 
@@ -37,12 +38,12 @@ function useDiscoveryScan(enabled: boolean): DiscoveryScan {
     return { data, error, retry: () => { setError(''); setAttempt(value => value + 1); } };
 }
 
-export function ResearchDiscoverV8({ initialView, defaultOpen, embedded = false, records, workspace, onSelect }: { initialView?: DiscoverView; defaultOpen: boolean; embedded?: boolean; records: readonly ResearchRecord[] | null; workspace: 'checking' | 'guest' | 'owner'; onSelect: (symbol: string, market: ResearchMarket) => void }) {
+export function ResearchDiscoverV8({ initialView, calendarTarget, defaultOpen, embedded = false, records, workspace, onSelect }: { initialView?: DiscoverView; calendarTarget?: EarningsCalendarTarget; defaultOpen: boolean; embedded?: boolean; records: readonly ResearchRecord[] | null; workspace: 'checking' | 'guest' | 'owner'; onSelect: (symbol: string, market: ResearchMarket) => void }) {
     const [expanded, setOpen] = useState(defaultOpen || !!initialView);
     // On the Research home, Discover is a tab beside the watchlist and is always open.
     const open = embedded || expanded;
     const [view, setView] = useState<DiscoverView>(initialView ?? 'trending');
-    const scan = useDiscoveryScan(open);
+    const scan = useDiscoveryScan(open && !(view === 'calendar' && calendarTarget));
     const ref = useRef<HTMLDetailsElement>(null);
     useEffect(() => { if (initialView) ref.current?.scrollIntoView({ block: 'start' }); }, [initialView]);
     function changeView(next: DiscoverView) {
@@ -54,7 +55,7 @@ export function ResearchDiscoverV8({ initialView, defaultOpen, embedded = false,
     function select(symbol: string, market: ResearchMarket) {
         // Reading a stock leaves Discover; a reload should not reopen and scroll to it.
         const url = new URL(window.location.href);
-        url.searchParams.delete('discover'); url.hash = '';
+        url.searchParams.delete('discover'); url.searchParams.delete('calendarDate'); url.hash = '';
         window.history.replaceState(null, '', url);
         setOpen(false);
         onSelect(symbol, market);
@@ -66,7 +67,7 @@ export function ResearchDiscoverV8({ initialView, defaultOpen, embedded = false,
             {view === 'trending' && <ResearchTrendingV8 scan={scan} onSelect={symbol => select(symbol, 'US')} />}
             {view === 'early' && <ResearchEarlyTrendsV8 scan={scan} onSelect={symbol => select(symbol, 'US')} />}
             {view === 'picker' && <ResearchPickerV8 scan={scan} savedSymbols={savedSymbols} onSelect={symbol => select(symbol, 'US')} />}
-            {view === 'calendar' && <ResearchCalendarV8 records={records} trending={scan.data} onSelect={select} />}
+            {view === 'calendar' && <ResearchCalendarV8 key={calendarTarget ? `${calendarTarget.market}:${calendarTarget.symbol}:${calendarTarget.date}` : 'watchlist'} target={calendarTarget} records={records} trending={scan.data} onSelect={select} />}
             {view === 'alerts' && <ResearchAlertsV8 records={records} workspace={workspace} onSelect={select} />}
         </div>
     </>;

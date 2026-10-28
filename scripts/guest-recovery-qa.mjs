@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { marketRequestFixture } from './harness/market-request-fixture.mjs';
@@ -10,6 +11,7 @@ export async function guestRecoveryQa(browser, base, snapshot) {
   const context = await browser.newContext({viewport:{width,height:width<=390?844:1000},serviceWorkers:'block'});
   const errors = [], writes = [], scoreRequests = []; let owner = false;
   await context.route('**/api/**', async route => {
+   if (await fulfillEarningsCalendarRead(route)) return;
    const request = route.request(), url = new URL(request.url());
    if (request.method() !== 'GET') writes.push(url.pathname);
    if (url.pathname === '/api/owner/session') return route.fulfill({json:{success:true,data:{configured:true,unlocked:owner}}});

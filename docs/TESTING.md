@@ -4,6 +4,17 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For R3 earnings tickets, run `node scripts/research-earnings-qa.mjs` against the owned
+production server at `SIGNAL_QA_URL`. The isolated browser fixtures cover the selected
+US symbol, unsaved and owner reading, exact read-only Calendar POST payloads, missing
+and failed data, identity mismatches, rapid switching, unconfirmed dates, unknown times,
+Malaysia's unavailable coverage, keyboard new-tab handoff and the selected Calendar day.
+Light/dark geometry and screenshots cover 1280/768/375/320px. Evidence lives under
+`.tmp/research-earnings/`. The harness executes the real Calendar route with isolated
+providers in `earnings-ticket-regression.mjs`, including bounded scans and UTC dates.
+Run lint, full harness, production build and post-build typecheck. These fixtures do not
+establish live Nasdaq availability, issuer confirmation, or deployment.
+
 For G8 shared V8 primitives, run lint, build, post-build typecheck and the full harness.
 Against one owned production server on port 3000, run `market-mobile-sections-qa.mjs`,
 `research-holdings-qa.mjs`, `research-tabs-qa.mjs`, `research-unsaved-qa.mjs`,

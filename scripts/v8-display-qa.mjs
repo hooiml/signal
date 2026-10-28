@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -44,6 +45,7 @@ try {
   const page=await context.newPage();const errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   await context.route('**/api/**', async route=>{
+   if (await fulfillEarningsCalendarRead(route)) return;
    const req=route.request(),url=new URL(req.url());
    assert.equal(req.method(),'GET','This read-only UI test must not mutate records.');
    if(url.pathname==='/api/owner/session')return route.fulfill({json:{success:true,data:{configured:true,unlocked:true}}});

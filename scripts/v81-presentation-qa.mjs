@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -110,6 +111,7 @@ page.on('pageerror', error => report.errors.push(error.message));
 page.on('console', message => { if (message.type() === 'error') report.errors.push(message.text()); });
 page.on('requestfailed', request => { if (!request.failure()?.errorText.includes('ERR_ABORTED')) report.failedRequests.push(request.url()); });
 await context.route('**/api/**', async route => {
+    if (await fulfillEarningsCalendarRead(route)) return;
     assert.equal(route.request().method(), 'GET', 'Presentation must not mutate records.');
     const url = new URL(route.request().url());
     if (url.pathname === '/api/owner/session') return route.fulfill({ json: { success: true, data: { configured: true, unlocked: true } } });

@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -82,7 +83,8 @@ page.setDefaultTimeout(20000);
 const checks = [], errors = [], ownerWrites = [];
 page.on('pageerror', error => errors.push(error.message));
 page.on('console', message => { if (message.type() === 'error' && !message.text().startsWith('Failed to load resource:')) errors.push(message.text()); });
-await context.route('**/api/**', route => {
+await context.route('**/api/**', async route => {
+    if (await fulfillEarningsCalendarRead(route)) return;
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;

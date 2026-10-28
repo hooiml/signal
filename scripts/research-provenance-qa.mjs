@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -66,6 +67,7 @@ try {
         page.on('console', message => { if (message.type() === 'error' && !/Failed to load resource:.*status of (401|503)/.test(message.text())) errors.push(message.text()); });
         page.on('requestfailed', request => { if (!/ERR_ABORTED/.test(request.failure()?.errorText ?? '')) errors.push(`${request.url()}: ${request.failure()?.errorText}`); });
         await context.route('**/api/**', async route => {
+            if (await fulfillEarningsCalendarRead(route)) return;
             const request = route.request(), url = new URL(request.url());
             requests.push({ method: request.method(), path: url.pathname });
             if (url.pathname === '/api/owner/session') return route.fulfill({ json: { success: true, data: { configured: true, unlocked: true } } }); // Owner workspace; listState/saveState model later access failures.

@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -97,6 +98,7 @@ try {
             if (url.origin === baseOrigin && response.status() >= 400) blocking.push(`HTTP ${response.status()} ${url.pathname}`);
         });
         await page.route('**/api/research/**', async (route) => {
+            if (await fulfillEarningsCalendarRead(route)) return;
             const request = route.request();
             const url = new URL(request.url());
             if (['PATCH', 'PUT', 'DELETE'].includes(request.method())

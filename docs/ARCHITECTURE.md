@@ -20,6 +20,20 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 
 ## Runtime Shape
 
+R3 places `ResearchEarningsTicket` in connected Research's quote band. Its public
+Calendar POST supplies only the selected symbol/market and null review fields, whether
+saved or unsaved. The existing 30-day UTC Calendar window and Nasdaq source are reused;
+MY earnings coverage remains unavailable. An earnings-only request skips macro reads,
+and the chronological Nasdaq scan ends once every requested symbol has a result, with
+an eight-second upstream deadline. Failed coverage stays distinct from no returned date.
+Optional `earningsTiming` preserves structured provider timing; old responses have no
+inferred timing. No issuer-confirmation field exists, so every ticket is unconfirmed
+and has no countdown. The Calendar link opens a new tab to preserve open note drafts,
+using validated ticker, market and `calendarDate` with `discover=calendar`. That Calendar
+view reads the single public identity without requiring a saved stock or trend scan.
+Dates remain UTC calendar dates; before-open/after-close are provider labels, not
+converted clock times. Neither ticket nor handoff saves or changes research.
+
 Connected V8 Market and Research mount a separate first-visit orientation. The guarded
 `src/lib/v8-first-visit.ts` store keeps only version, fixed stage and concurrency revision
 in `signal-v8-first-visit-v1`. Web Locks and compare-and-set prevent stale completion after

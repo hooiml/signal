@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -103,6 +104,7 @@ async function installFixtures(context, scenario) {
     }, { snapshot: scenario.snapshot, mode: scenario.mode ?? 'guest', storageFault: scenario.storageFault, appOrigin: origin, theme: scenario.theme,
         guestRecords: scenario.records ?? [record('AAPL', 'US', 'Fixture Apple'), record('MAYBANK', 'MY', 'Fixture Maybank')] });
     await context.route('**/api/**', async route => {
+        if (await fulfillEarningsCalendarRead(route)) return;
         const request = route.request();
         const url = new URL(request.url());
         scenario.requests.push({ method: request.method(), path: url.pathname, query: url.search });

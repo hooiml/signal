@@ -21,6 +21,8 @@ import { ResearchCurrentAssessment } from './ResearchCurrentAssessment';
 import { assessCurrentResearch } from '@/lib/research/current-assessment';
 import { ResearchConnectedPanel } from './ResearchV8ConnectedPanels';
 import { ResearchPriceContext } from './ResearchPriceContext';
+import { ResearchEarningsTicket } from './ResearchEarningsTicket';
+import { parseEarningsCalendarTarget, type EarningsCalendarTarget } from '@/lib/research/earnings-ticket';
 import { ResearchFilingsV8 } from './ResearchFilingsV8';
 import { ResearchPeersV8 } from './ResearchPeersV8';
 import { ResearchDiscoverV8 } from './ResearchDiscoverV8';
@@ -35,12 +37,13 @@ import { FirstVisitCallout, V8FirstVisit, useFirstVisit } from './V8FirstVisit';
 import styles from './research-v8.module.css';
 import connected from './research-v8-connected.module.css';
 
-export function ResearchV8Connected({ initialTicker = '', initialMarket, initialDiscover }: { initialTicker?: string; initialMarket?: ResearchMarket; initialDiscover?: DiscoverView }) {
+export function ResearchV8Connected({ initialTicker = '', initialMarket, initialDiscover, initialCalendarTarget }: { initialTicker?: string; initialMarket?: ResearchMarket; initialDiscover?: DiscoverView; initialCalendarTarget?: EarningsCalendarTarget }) {
     const [providerIdentity, setProviderIdentity] = useState<ProviderResearchIdentity | null>(null);
     const [records, setRecords] = useState<ResearchRecord[] | null>(null);
     const [selected, setSelected] = useState(initialTicker);
     const [selectedMarket, setSelectedMarket] = useState<ResearchMarket | undefined>(initialMarket);
     const [discoverLinkUsed, setDiscoverLinkUsed] = useState(false);
+    const [calendarTarget, setCalendarTarget] = useState(initialCalendarTarget);
     const [tab, setTab] = useState<ResearchTab>('Overview');
     const [advanced, setAdvanced] = useState(false);
     const [chartRange, setChartRange] = useState('3M');
@@ -162,6 +165,11 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
     }
     function navigate(symbol: string, nextTab = tab, push = true, nextMarket = selectedMarket, nextAdvanced = advanced) {
         const url = new URL(window.location.href);
+        if (symbol !== selected || nextMarket !== selectedMarket) {
+            url.searchParams.delete('calendarDate');
+            if (url.searchParams.get('discover') === 'calendar') { url.searchParams.delete('discover'); url.hash = ''; }
+            setCalendarTarget(undefined); setDiscoverLinkUsed(true);
+        }
         url.searchParams.set('ticker', symbol);
         if (nextMarket) url.searchParams.set('market', nextMarket); else url.searchParams.delete('market');
         url.searchParams.set('tab', nextTab === 'Chart & technicals' ? 'chart' : nextTab.toLowerCase());
@@ -186,6 +194,9 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
             setReturnPath(url.pathname + url.search + url.hash);
             setSelected(ticker);
             setSelectedMarket(restoredMarket);
+            const restoredTarget = params.get('discover') === 'calendar' ? parseEarningsCalendarTarget(ticker, restoredMarket, params.get('calendarDate') ?? undefined) : undefined;
+            setCalendarTarget(restoredTarget);
+            if (restoredTarget) setDiscoverLinkUsed(false);
             const restoredTab = params.get('tab')?.toLowerCase() === 'chart' ? 'Chart & technicals' : researchTabs.find(value => value.toLowerCase() === params.get('tab')?.toLowerCase()) ?? 'Overview';
             setTab(restoredTab);
             setAdvanced(params.get('advanced') === '1' || restoredTab === 'Thesis' || restoredTab === 'Review');
@@ -345,7 +356,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
                 <span>{workspace === 'checking' ? 'Welcome to Signal. Explore company data while your workspace loads.' : workspace === 'guest' ? 'Welcome to Signal · Guest workspace. Your watchlist and notes are saved on this device.' : 'Owner workspace · Your private saved research'}</span>
                 {!selected && <span>Search a company or ticker, or open one from your watchlist or Discover. Reading saves nothing.</span>}
             </div>;
-    const discover = <ResearchDiscoverV8 initialView={discoverLinkUsed ? undefined : initialDiscover} defaultOpen={false} records={records} workspace={workspace} onSelect={openFromDiscover} />;
+    const discover = <ResearchDiscoverV8 key={calendarTarget ? `${calendarTarget.market}:${calendarTarget.symbol}:${calendarTarget.date}` : 'discover'} calendarTarget={calendarTarget} initialView={calendarTarget ? 'calendar' : discoverLinkUsed ? undefined : initialDiscover} defaultOpen={false} records={records} workspace={workspace} onSelect={openFromDiscover} />;
     const homeDiscover = <ResearchDiscoverV8 initialView={initialDiscover} defaultOpen embedded records={records} workspace={workspace} onSelect={openFromDiscover} />;
     return <div className={`${base.app} ${styles.app} ${connected.app}`}>
         <a className={base.skip} href="#v8-content">Skip to content</a>
@@ -499,6 +510,7 @@ function ConnectedCase({ workspace, guestUnavailable, guestIdentity, guestDraft,
                     {snapshot && (snapshot.fundamentals.reportingPeriod || snapshot.fundamentals.source) && <div><small>Financial reporting period</small><b>{date(snapshot.fundamentals.reportingPeriod)}</b><span>{snapshot.fundamentals.source || 'Financial source unavailable'}</span></div>}
                     {record && <div className={connected.savedDecision} aria-label="Saved user-authored decision"><span className={base.eyebrow}>User-authored · saved</span><strong>{record.decisionJournal.decision}</strong><span>{lastPersonalReview ? `Last reviewed ${date(lastPersonalReview)}.` : 'No personal review recorded.'}</span><a className={base.textButton} href={researchHref(record.symbol, 'review', record.market)} target="_blank" rel="noopener noreferrer">Open saved review (new tab) ↗</a></div>}
                 </section>
+                <ResearchEarningsTicket symbol={symbol} market={market} />
                 {!savedRecord && <div className={connected.saveAction}><button className={base.primaryButton} disabled={saving || !snapshot || workspace === 'checking' || (workspace === 'guest' && guestUnavailable)} onClick={saveSecurity}>{saving ? 'Saving…' : 'Save stock'}</button><span>{workspace === 'guest' ? 'Save this stock to your watchlist to add your own note.' : 'Reading without a saved record'}</span></div>}
                 </div>
                 <ResearchPriceContext snapshot={snapshot} />

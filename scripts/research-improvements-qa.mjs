@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { mkdir,writeFile } from 'node:fs/promises';
@@ -12,7 +13,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function setup(width=1280){
  const context=await browser.newContext({viewport:{width,height:900},serviceWorkers:'block'}),page=await context.newPage();const errors=[],api=[],provider=[];let benchmarkFails=false,slowEssential=false;
  page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/status of (502|503)/.test(m.text()))errors.push(m.text());});
- await context.route('**/api/**',async route=>{const url=new URL(route.request().url());const entry={path:url.pathname+url.search,bytes:0};api.push(entry);assert.equal(route.request().method(),'GET','QA never writes');let json,status=200;
+ await context.route('**/api/**',async route=>{if(await fulfillEarningsCalendarRead(route))return;const url=new URL(route.request().url());const entry={path:url.pathname+url.search,bytes:0};api.push(entry);assert.equal(route.request().method(),'GET','QA never writes');let json,status=200;
  if(url.pathname==='/api/signals/v2'){await sleep(100);const f=marketRequestFixture();json=await (await f.route.GET(f.request(url.search.slice(1)))).json();}
  else if(url.pathname==='/api/signals/replay'){
   await sleep(150);const summaries=Array.from({length:12},(_,i)=>({date:`2026-09-${String(i+1).padStart(2,'0')}`,score:50+i,tier:'neutral',origin:'observed',coverageNote:null,hasFullEvidence:true,updatedAt:'2026-09-30T00:00:00Z'}));
