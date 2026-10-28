@@ -111,6 +111,14 @@ shift. All four Glossary comparisons stayed unchanged. The focused Research/Glos
 run passed 8/8 after review at zero tolerance on the isolated port 3113 server.
 Ticket success and boundary screenshots are in `.tmp/research-earnings/`.
 
+R3 Linux review (28 October 2026): reviewed run `40628422556`, artifact
+`12789874827`, head `19be074f16e1213e020e6506fa467feb5ca40d44`. Sixteen comparisons
+passed; only four Research images differed. All four expected/candidate/diff sets
+show the intended earnings line and vertical shift, with consistent typography and
+contained controls. The pinned container, Chromium, font hashes and empty browser
+error arrays match the rendering contract. Accepted only those four Research PNGs;
+the next normal CI run must prove zero-tolerance stability.
+
 Initial local review on 25 October 2026 covered all 20 PNGs. Unchanged comparisons
 passed at zero tolerance; a test-only 16px magenta border failed on 202,710 pixels,
 with expected/actual/diff artifacts, and restoration passed. A temporarily missing
