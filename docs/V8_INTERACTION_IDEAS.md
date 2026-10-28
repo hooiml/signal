@@ -126,6 +126,21 @@ thesis line. One button, **"Start review"**, opens the existing Review tab.
 - Guardrails: it reads saved records and never edits them; the thesis is shown, not judged.
 - Data: saved review dates and snapshots already stored. Lane: Standard.
 
+R2 implementation uses owner reviews only: guest bookmarks store notes, not review schedules
+or history. Scheduled dates include today in UTC; the independent age deadline becomes stale
+only after its date, matching Calendar. The card uses the latest immutable review (or the
+saved journal for a legacy personal review), its observed price/currency and authored thesis.
+Missing historical price/currency stays explicit. Historical high-distance and market score
+were never stored; the current stock response has no market score either. These gaps are
+labelled rather than reconstructed. Current price/high-distance comes from the existing
+stock response with its quote date. Long theses have a short preview and native full-text
+disclosure. No additional provider call or research write is made.
+Start review opens the existing editable `/research` workspace in a new tab with ticker and
+market intact, preserving open drafts. Later lasts for the mounted stock visit; switching
+away and back, reloading, or receiving a new saved revision restores the card. Tab changes
+and provider refresh do not reset dismissal. Verification: `research-due-review-qa.mjs`
+and the due-review contracts in the Research harness; see `TESTING.md`.
+
 ### R3 · Earnings ticket — the next event on the quote band
 
 Implemented in connected Research: next supplied US date in the existing 30-day

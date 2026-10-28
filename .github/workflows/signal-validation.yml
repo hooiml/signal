@@ -141,6 +141,7 @@ jobs:
           node scripts/research-provenance-qa.mjs
           node scripts/v8-display-qa.mjs
           node scripts/research-reading-qa.mjs
+          node scripts/research-due-review-qa.mjs
           node scripts/research-earnings-qa.mjs
           node scripts/research-holdings-qa.mjs
           node scripts/research-unsaved-qa.mjs
@@ -173,6 +174,7 @@ jobs:
             .tmp/display-clarity/after/*.png
             .tmp/research-reading/after/*.json
             .tmp/research-reading/after/*.png
+            .tmp/research-due-review/**
             .tmp/research-holdings/after/**
             .tmp/current-assessment/browser/*.json
             .tmp/current-assessment/browser/*.png
