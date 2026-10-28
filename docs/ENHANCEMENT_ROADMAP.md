@@ -572,8 +572,15 @@ new mixed-source case), first visit, Settings, V8.1 presentation and UI, Market 
 Research tabs, Research unsaved/guest recovery (five widths), legacy routes, Learn metric links and
 Market clarity. Twelve Windows G7 baselines (Market, Holdings, Settings × four projects) were
 reviewed and updated; all 20 comparisons then passed. `research-improvements-qa.mjs`, which is not
-in CI, timed out loading Market before reaching any changed control. Linux baselines still show the
-old screens and need re-enrollment from the next CI run's candidates (see `VISUAL_CHECKS.md`).
+in CI, timed out loading Market before reaching any changed control.
+
+**Linux baseline review (2026-10-28):** reviewed and updated only the 12 affected Linux
+images from PR #59 run `40200576760`, artifact `12601663793`. Expected/actual/diff and
+independent visual review matched the intended E25 changes and approved Windows layouts.
+All 20 rendering-environment reports matched the pinned contract with no browser/request
+errors; the other eight images were unchanged. The tested merge tree equals main `4304ce0`.
+Fresh normal CI comparison remains required; this is not merge or deployment evidence.
+See `VISUAL_CHECKS.md` for provenance and review details.
 
 ### E3 — Today promotion review
 

@@ -155,3 +155,25 @@ table scrolling and viewport crops are intentional. Only these reviewed PNGs wer
 to the Linux namespace. Workflow run `40193090823`, head `0764ebc`, then passed all 20
 normal comparisons in the same pinned container at zero tolerance. This establishes the
 Linux visual gate; these fixture images do not prove live-provider or deployment behavior.
+
+**E25 Linux candidate review (2026-10-28):** accepted only the 12 changed Market,
+Holdings and Settings images across desktop/phone and light/dark from workflow
+[40200576760](https://github.com/hooiml/signal/actions/runs/40200576760), artifact
+`12601663793`, PR #59 head `0b23e3e91e4b323159ded5572bca839d3225ea57`.
+The tested merge `8e307f1e9d7247d1060afebb2037f43b0da4a082` has the same tree as
+main `4304ce0aa5e875d0aeef111a305a49329dae7845`. All 20 environment reports match
+the pinned container, Chromium, font hashes, clock, locale, timezone and DPR;
+browser/request error arrays are empty. The 12 failures are screenshot mismatches
+only; each candidate equals its actual image and each expected image equals the
+previous Linux baseline. The eight Research/glossary candidates remain identical
+to their existing Linux baselines.
+
+Expected/actual/diff review and independent visual review accepted every changed
+candidate against E25's source diff and approved Windows layout: the Market depth
+label, consolidated Holdings caveats and compact cost table, and shorter Settings
+copy. Holdings' shorter page changes the bounded capture's scroll position; phone
+table scrolling and modal viewport crops remain intentional. No application code,
+fixtures, tolerances, browser versions or Windows baselines changed. Review artifacts
+and the verdict are in `.tmp/e25-linux/`.
+A fresh normal CI comparison is still required to establish stability of these
+updated Linux baselines. Merge and deployment are separate from this review.
