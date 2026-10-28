@@ -579,7 +579,9 @@ images from PR #59 run `40200576760`, artifact `12601663793`. Expected/actual/di
 independent visual review matched the intended E25 changes and approved Windows layouts.
 All 20 rendering-environment reports matched the pinned contract with no browser/request
 errors; the other eight images were unchanged. The tested merge tree equals main `4304ce0`.
-Fresh normal CI comparison remains required; this is not merge or deployment evidence.
+Normal pinned Linux run `40623907818` on head `92167f7` then passed all 20 zero-tolerance
+comparisons, build and post-build typecheck. [PR #60](https://github.com/hooiml/signal/pull/60)
+tracks full validation and delivery status; this is not merge or deployment evidence.
 See `VISUAL_CHECKS.md` for provenance and review details.
 
 ### E3 — Today promotion review

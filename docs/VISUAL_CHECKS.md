@@ -175,5 +175,8 @@ copy. Holdings' shorter page changes the bounded capture's scroll position; phon
 table scrolling and modal viewport crops remain intentional. No application code,
 fixtures, tolerances, browser versions or Windows baselines changed. Review artifacts
 and the verdict are in `.tmp/e25-linux/`.
-A fresh normal CI comparison is still required to establish stability of these
-updated Linux baselines. Merge and deployment are separate from this review.
+Normal CI run [40623907818](https://github.com/hooiml/signal/actions/runs/40623907818),
+head `92167f7`, passed all 20 comparisons at zero tolerance in the same pinned
+container, including build and post-build typecheck. This establishes the updated
+Linux baselines. The complete validation status is tracked in
+[PR #60](https://github.com/hooiml/signal/pull/60); merge and deployment remain separate.
