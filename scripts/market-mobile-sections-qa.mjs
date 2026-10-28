@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -112,6 +113,7 @@ async function open(browser, { market, width, theme = 'light', state = 'core' })
         if (request.failure()?.errorText !== 'net::ERR_ABORTED') result.errors.push(`${market}/${state}: ${request.url()} ${request.failure()?.errorText}`);
     });
     await page.route('**/api/**', async route => {
+        if (await fulfillEarningsCalendarRead(route)) return;
         const request = route.request(), url = new URL(request.url());
         result.requests.push({ market, state, path: url.pathname, method: request.method() });
         assert.equal(request.method(), 'GET', `Fixture UI must not mutate: ${request.method()} ${url.pathname}`);

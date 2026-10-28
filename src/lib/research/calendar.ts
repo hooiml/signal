@@ -86,6 +86,7 @@ const earningsEvent = (input: ResearchCalendarInput, catalyst: ResearchCalendarC
         freshness: 'scheduled',
         urgency: 'upcoming',
         targetHref: earningsHref(input.symbol),
+        earningsTiming: catalyst.timing,
     };
 };
 
@@ -113,7 +114,7 @@ export const buildResearchCalendar = ({ inputs, catalysts, macroEvents, now, ran
 }): ResearchCalendarResponse => {
     const start = utcDate(now);
     const end = addUtcDays(start, rangeDays);
-    const inputBySymbol = new Map(inputs.map((input) => [input.symbol, input]));
+    const usInputBySymbol = new Map(inputs.filter((input) => input.market === 'US').map((input) => [input.symbol, input]));
     const events: ResearchCalendarEvent[] = [];
     for (const input of inputs) {
         const review = scheduledReviewEvent(input, start, end);
@@ -122,7 +123,7 @@ export const buildResearchCalendar = ({ inputs, catalysts, macroEvents, now, ran
         if (stale) events.push(stale);
     }
     for (const catalyst of catalysts) {
-        const input = inputBySymbol.get(catalyst.symbol);
+        const input = usInputBySymbol.get(catalyst.symbol);
         if (!input) continue;
         const event = earningsEvent(input, catalyst, start, end);
         if (event) events.push(event);
@@ -145,12 +146,16 @@ export const getResearchCalendar = async (
     catalystFetcher: typeof fetchUpcomingCatalysts = fetchUpcomingCatalysts,
     macroFetcher: typeof fetchResearchMacroCalendar = fetchResearchMacroCalendar,
 ): Promise<ResearchCalendarResponse> => {
-    const usSymbols = inputs
+    const earningsOnly = query.type === 'earnings';
+    const selectedInputs = earningsOnly ? inputs.filter((input) =>
+        (query.market === 'ALL' || input.market === query.market)
+        && (query.ticker === 'ALL' || input.symbol === query.ticker)) : inputs;
+    const usSymbols = selectedInputs
         .filter((input) => input.market === 'US' && input.earningsWithinDays !== null)
         .map((input) => input.symbol);
     const [catalystResult, macroResult] = await Promise.allSettled([
         usSymbols.length > 0 ? catalystFetcher(usSymbols, query.rangeDays, now) : Promise.resolve(new Map()),
-        macroFetcher(inputs, query.rangeDays, now),
+        earningsOnly ? Promise.resolve({ events: [], warnings: [] }) : macroFetcher(inputs, query.rangeDays, now),
     ]);
     const catalystMap = catalystResult.status === 'fulfilled'
         ? catalystResult.value

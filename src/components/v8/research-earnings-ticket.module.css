@@ -1,0 +1,6 @@
+.ticket { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: 44px; padding: 8px 10px; margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); font-size: 13px; line-height: 1.5; text-decoration: none; overflow-wrap: anywhere; }
+.ticket small { color: var(--muted); font-size: 11px; }
+.ticket:hover { border-color: var(--muted); }
+.ticket:focus-visible, .status button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.status { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.status button { min-height: 44px; padding: 4px 8px; color: var(--text); text-decoration: underline; cursor: pointer; }

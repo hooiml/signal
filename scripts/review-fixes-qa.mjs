@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -57,6 +58,7 @@ try {
         };
         const mutations = [];
         await context.route('**/api/**', async (route) => {
+            if (await fulfillEarningsCalendarRead(route)) return;
             const request = route.request();
             const url = new URL(request.url());
             if (request.method() !== 'GET' && /^\/api\/research\/(watchlist|backup|notifications\/settings)/.test(url.pathname)) mutations.push(`${request.method()} ${url.pathname}`);

@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -52,6 +53,7 @@ const filings = {
 
 async function addFixtures(context, mode, state) {
     await context.route('**/api/**', async route => {
+        if (await fulfillEarningsCalendarRead(route)) return;
         const request = route.request();
         const url = new URL(request.url());
         state.requests.push({ method: request.method(), path: url.pathname, search: url.search });

@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -21,6 +22,7 @@ let holdWatchlist = false, releaseWatchlist;
 let signalWatchlistArrival;
 const watchlistArrived = new Promise(resolve => { signalWatchlistArrival = resolve; });
 await context.route('**/api/**', async intercepted => {
+    if (await fulfillEarningsCalendarRead(intercepted)) return;
     const request = intercepted.request();
     const url = new URL(request.url());
     if (request.method() !== 'GET') { unexpected.push(request.method()); return intercepted.abort(); }

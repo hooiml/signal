@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -16,7 +17,8 @@ let saved=false,failed=false,reads=0;
 const errors=[],requests=[];
 page.on('pageerror',e=>errors.push(e.message));
 page.on('console',m=>{if(m.type()==='error'&&!m.text().includes('503'))errors.push(m.text());});
-await context.route('**/api/research/**',route=>{
+await context.route('**/api/research/**',async route=>{
+    if (await fulfillEarningsCalendarRead(route)) return;
     const url=new URL(route.request().url());requests.push({method:route.request().method(),path:url.pathname});
     if(route.request().method()!=='GET') { console.log('Non-GET blocked',url.pathname); return route.fulfill({status:200,json:{success:true}}); }
     if(url.pathname.endsWith('/watchlist')) {

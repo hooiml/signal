@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -136,6 +137,7 @@ async function scenario(name, viewport, options, run) {
     let releaseWatchlist;
     const watchlistGate = options.holdWatchlist ? new Promise(resolve => { releaseWatchlist = resolve; }) : Promise.resolve();
     await context.route('**/api/**', async route => {
+        if (await fulfillEarningsCalendarRead(route)) return;
         const request = route.request(), url = new URL(request.url());
         result.requests.push({ method: request.method(), path: url.pathname });
         const json = payload => route.fulfill({ status: 200, json: payload });

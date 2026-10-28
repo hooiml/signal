@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -102,6 +103,7 @@ try {
         const providerReads = [];
         page.on('pageerror', error => errors.push(error.message));
         await context.route('**/api/**', async route => {
+            if (await fulfillEarningsCalendarRead(route)) return;
             const url = new URL(route.request().url());
             if (url.pathname === '/api/owner/session') return route.fulfill({ json: { success: true, data: { configured: true, unlocked: true } } });
             if (url.pathname === '/api/signals/v2') {

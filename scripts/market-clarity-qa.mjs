@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -119,6 +120,7 @@ async function open(width, options = {}) {
     const indexGate = options.indexGate, snapshotGate = options.snapshotGate;
     let scoreRequests = 0;
     await page.route('**/api/**', async route => {
+        if (await fulfillEarningsCalendarRead(route)) return;
         const url = new URL(route.request().url());
         assert.equal(route.request().method(), 'GET', 'This suite must never mutate data.');
         if (url.pathname === '/api/owner/session') return route.fulfill({ json: { success: true, data: { configured: false, unlocked: false } } });

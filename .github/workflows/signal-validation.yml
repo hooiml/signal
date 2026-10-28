@@ -141,6 +141,7 @@ jobs:
           node scripts/research-provenance-qa.mjs
           node scripts/v8-display-qa.mjs
           node scripts/research-reading-qa.mjs
+          node scripts/research-earnings-qa.mjs
           node scripts/research-holdings-qa.mjs
           node scripts/research-unsaved-qa.mjs
           node scripts/research-readiness-qa.mjs
@@ -158,6 +159,7 @@ jobs:
           name: signal-browser-diagnostics
           include-hidden-files: true
           path: |
+            .tmp/research-earnings/
             .tmp/signal-learn-v0.1-qa/**/report.json
             .tmp/signal-learn-v0.1-qa/**/failure-*.png
             .tmp/signal-learn-v0.2-qa/**/report.json
