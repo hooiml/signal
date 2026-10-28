@@ -196,7 +196,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
             setSelectedMarket(restoredMarket);
             const restoredTarget = params.get('discover') === 'calendar' ? parseEarningsCalendarTarget(ticker, restoredMarket, params.get('calendarDate') ?? undefined) : undefined;
             setCalendarTarget(restoredTarget);
-            if (restoredTarget) setDiscoverLinkUsed(false);
+            if (initialCalendarTarget || restoredTarget) setDiscoverLinkUsed(params.get('discover') !== 'calendar');
             const restoredTab = params.get('tab')?.toLowerCase() === 'chart' ? 'Chart & technicals' : researchTabs.find(value => value.toLowerCase() === params.get('tab')?.toLowerCase()) ?? 'Overview';
             setTab(restoredTab);
             setAdvanced(params.get('advanced') === '1' || restoredTab === 'Thesis' || restoredTab === 'Review');
