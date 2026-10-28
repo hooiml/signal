@@ -22,8 +22,10 @@ other tabs, providers and owner access. This suite does not verify deployment.
 `scripts/visual/fixtures.mjs` reuses the real Market request and Research read
 fixtures with isolated providers/SQL. Compact guest records, a synthetic local
 portfolio and the validated G5 skipped state are seeded only in fresh test contexts.
-All unknown APIs, all non-GET requests and all external requests are blocked and
-fail the test. No real account, provider or database is used.
+All unknown APIs, mutations and external requests are blocked and fail the test.
+The public earnings Calendar POST is allowed only with its exact single-symbol,
+null-review-fields payload and returns a fixed empty fixture. No real account,
+provider or database is used.
 
 Time is fixed at 2026-09-12T00:00:00Z, timezone Asia/Kuala_Lumpur, locale en-US,
 DPR 1, headless Chromium and reduced motion. Service workers are blocked. The
@@ -69,7 +71,9 @@ and [official Docker guidance](https://playwright.dev/docs/docker).
 
 ## Local use and deliberate failure proof
 
-Check port 3000 ownership, build the application, then run typecheck after build.
+Check the configured port's ownership, build the application, then run typecheck after build.
+`SIGNAL_QA_URL` may select another bare local HTTP origin for an isolated worktree;
+fixtures enforce that exact origin. CI continues to use port 3000.
 Use the documented placeholder DB URL. These guest browser scenarios intercept
 the owner-session read; they do not unlock the server or require an owner secret.
 The isolated Research read fixture supplies its existing fixture-only fallback.
@@ -100,6 +104,20 @@ The probe cannot run in snapshot-update mode. CI also rejects all update modes,
 including command-line overrides. Never combine a probe with baseline acceptance.
 
 ## Explicit baseline review/update
+
+R3 Windows review (28 October 2026): updated only the four Research screenshots
+for the new earnings availability line in the quote band and its resulting vertical
+shift. All four Glossary comparisons stayed unchanged. The focused Research/Glossary
+run passed 8/8 after review at zero tolerance on the isolated port 3113 server.
+Ticket success and boundary screenshots are in `.tmp/research-earnings/`.
+
+R3 Linux review (28 October 2026): reviewed run `40628422556`, artifact
+`12789874827`, head `19be074f16e1213e020e6506fa467feb5ca40d44`. Sixteen comparisons
+passed; only four Research images differed. All four expected/candidate/diff sets
+show the intended earnings line and vertical shift, with consistent typography and
+contained controls. The pinned container, Chromium, font hashes and empty browser
+error arrays match the rendering contract. Accepted only those four Research PNGs;
+the next normal CI run must prove zero-tolerance stability.
 
 Initial local review on 25 October 2026 covered all 20 PNGs. Unchanged comparisons
 passed at zero tolerance; a test-only 16px magenta border failed on 202,710 pixels,

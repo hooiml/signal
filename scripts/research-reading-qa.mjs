@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -40,6 +41,7 @@ try {
         });
         page.on('requestfailed',r=>{if(!/ERR_ABORTED/.test(r.failure()?.errorText||'')) errors.push(r.failure()?.errorText);});
         await context.route('**/api/**',async route=>{
+            if (await fulfillEarningsCalendarRead(route)) return;
             assert.equal(route.request().method(),'GET','No production or fixture mutation permitted.');
             const url=new URL(route.request().url());
             apiRequests.push(`${route.request().method()} ${url.pathname}${url.search}`);

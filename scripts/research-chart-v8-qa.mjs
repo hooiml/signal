@@ -1,4 +1,5 @@
 import { switchWatchlistStock } from './qa-watchlist-switch.mjs';
+import { fulfillEarningsCalendarRead, isEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -95,6 +96,7 @@ async function runMode(mode, viewport) {
     page.on('pageerror', error => errors.push(`pageerror: ${error.message}`));
     page.on('console', message => { if (message.type() === 'error' && !message.text().startsWith('Failed to load resource:')) errors.push(`console: ${message.text()}`); });
     await page.route('**/api/**', async route => {
+        if (await fulfillEarningsCalendarRead(route)) return;
         const request = route.request();
         const url = new URL(request.url());
         apiRequests.push({ path: url.pathname, search: url.search, method: request.method() });
@@ -361,6 +363,7 @@ async function runFinancialCapture(mode, symbol, market, viewport) {
     page.on('pageerror', error => errors.push(`pageerror: ${error.message}`));
     if (mode === 'fixture') {
         await page.route('**/api/**', async route => {
+            if (await fulfillEarningsCalendarRead(route)) return;
             const request = route.request();
             const url = new URL(request.url());
             if (request.method() !== 'GET') {
@@ -375,7 +378,7 @@ async function runFinancialCapture(mode, symbol, market, viewport) {
             return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
         });
     } else {
-        page.on('request', request => { if (request.method() !== 'GET') writes.push(`${request.method()} ${new URL(request.url()).pathname}`); });
+        page.on('request', request => { if (request.method() !== 'GET' && !isEarningsCalendarRead(request)) writes.push(`${request.method()} ${new URL(request.url()).pathname}`); });
     }
     try {
         const response = await page.goto(`${base}/research-v8?ticker=${encodeURIComponent(symbol)}&market=${market}`, { waitUntil: 'domcontentloaded' });
@@ -426,6 +429,7 @@ async function runResponsiveChartSmoke(viewport) {
     page.on('pageerror', error => errors.push(`pageerror: ${error.message}`));
     page.on('console', message => { if (message.type() === 'error' && !message.text().startsWith('Failed to load resource:')) errors.push(`console: ${message.text()}`); });
     await page.route('**/api/**', async route => {
+        if (await fulfillEarningsCalendarRead(route)) return;
         const request = route.request();
         const url = new URL(request.url());
         if (request.method() !== 'GET') {
@@ -556,7 +560,7 @@ async function runRealProviderSmoke(symbol, market, viewport) {
     const errors = [];
     const payloadDirectory = realOutput;
     await mkdir(payloadDirectory, { recursive: true });
-    page.on('request', request => { if (request.method() !== 'GET') writes.push(`${request.method()} ${new URL(request.url()).pathname}`); });
+    page.on('request', request => { if (request.method() !== 'GET' && !isEarningsCalendarRead(request)) writes.push(`${request.method()} ${new URL(request.url()).pathname}`); });
     page.on('pageerror', error => errors.push(`pageerror: ${error.message}`));
     page.on('response', response => { if (new URL(response.url()).pathname.startsWith('/api/') && response.status() >= 400) errors.push(`${response.status()} ${new URL(response.url()).pathname}`); });
     try {

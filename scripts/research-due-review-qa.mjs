@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import { researchReadFixture, researchSnapshotFixture } from './harness/research-read-fixture.mjs';
 import { guestWorkspaceQa } from './guest-workspace-qa.mjs';
 import { guestRecoveryQa } from './guest-recovery-qa.mjs';
@@ -55,6 +56,7 @@ async function run(browser, scenario, viewport = { width: 1280, height: 900 }, t
     await context.route('**/api/**', async route => {
         const request = route.request(); const url = new URL(request.url());
         result.requests.push(`${request.method()} ${url.pathname}${url.search}`);
+        if (await fulfillEarningsCalendarRead(route)) return;
         if (request.method() === 'POST' && url.pathname === '/api/research/quotes') return route.fulfill({ json: { success: true, data: { fetchedAt: new Date().toISOString(), items: request.postDataJSON().map(({ symbol, market }) => ({ success: true, data: { symbol, market, providerSymbol: symbol, fetchedAt: new Date().toISOString(), quote: { ...researchSnapshotFixture.data.quote, currency: market === 'MY' ? 'MYR' : 'USD' } } })) } } });
         if (request.method() === 'POST' && url.pathname === '/api/research/inbox') return route.fulfill({ json: { success: true, data: { generatedAt: new Date().toISOString(), monitoredCount: state.records.length, items: [], warnings: [] } } });
         if (request.method() !== 'GET') { state.mutations.push(`${request.method()} ${url.pathname}`); return route.abort(); }
@@ -79,7 +81,14 @@ async function run(browser, scenario, viewport = { width: 1280, height: 900 }, t
     try {
         await page.goto(`${base}/research-v8?ticker=${scenario.symbol ?? 'AAPL'}&market=${scenario.market ?? 'US'}&tab=overview&advanced=1`, { waitUntil: 'domcontentloaded' });
         await page.getByRole('tablist', { name: 'Research investigation' }).waitFor();
-        await page.getByTestId('research-price').waitFor();
+        // React can briefly retain a loading tree while replacing it with the settled
+        // reading. Require one quote in the selected security's current-quote region.
+        await page.waitForFunction(({ symbol, market }) => {
+            const identity = document.querySelector('[data-testid="selected-security-identity"]');
+            const prices = document.querySelectorAll('[aria-label="Current provider quote"] [data-testid="research-price"]');
+            return identity?.getAttribute('data-symbol') === symbol && identity?.getAttribute('data-market') === market
+                && prices.length === 1 && !!prices[0].textContent?.trim() && !prices[0].textContent.includes('Loading');
+        }, { symbol: scenario.symbol ?? 'AAPL', market: scenario.market ?? 'US' });
         const card = page.getByTestId('research-due-review');
         if (scenario.visible && !scenario.guest) await card.waitFor({ state: 'visible' });
         else { await page.waitForFunction(() => !document.querySelector('[data-testid="research-price"]')?.textContent?.includes('Loading')); check(await card.count() === 0, 'No due-review card when not due or guest'); check(state.mutations.length === 0, 'No mutation requests'); check(result.errors.length === 0, `No browser errors: ${result.errors.join(' | ')}`); return; }

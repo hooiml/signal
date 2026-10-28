@@ -20,4 +20,7 @@ export const renderer = process.platform === 'linux'
     ? 'linux-noble-9bd26ad900bb-pw1.60.0'
     : `win32-${os.release()}-pw${playwrightVersion}`;
 export const baseURL = process.env.SIGNAL_QA_URL ?? 'http://127.0.0.1:3000';
-assert.equal(new URL(baseURL).origin, 'http://127.0.0.1:3000', 'Visual fixtures require the owned local server on port 3000.');
+const target = new URL(baseURL);
+assert.ok(target.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(target.hostname)
+    && target.username === '' && target.password === '' && target.pathname === '/' && target.search === '' && target.hash === '',
+    'Visual fixtures require an owned local HTTP origin without credentials, path, query or fragment.');

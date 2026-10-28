@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -295,6 +296,7 @@ try {
         });
 
         await page.route('**/api/research/**', async (route) => {
+            if (await fulfillEarningsCalendarRead(route)) return;
             const request = route.request();
             const url = new URL(request.url());
             if (url.pathname === '/api/research/watchlist' && request.method() === 'GET') {

@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -12,6 +13,7 @@ try {
   const context=await browser.newContext({viewport:{width,height:width===1440?1000:844},serviceWorkers:'block'});
   const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await context.route('**/api/**',async route=>{
+   if (await fulfillEarningsCalendarRead(route)) return;
    const u=new URL(route.request().url());assert.equal(route.request().method(),'GET');
    if(u.pathname==='/api/signals/v2') {
     const fixture=marketRequestFixture({sourceConfiguration:{reddit:false,stockTwits:false},rawMarketData:{newsItems:[

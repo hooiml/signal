@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { buildResearchCalendarRequest } from '@/lib/research/calendar-request';
 import { parseResearchCalendarResponse } from '@/lib/research/calendar-response';
+import { earningsCalendarInput, earningsTimingLabel, nextEarningsEvent, type EarningsCalendarTarget } from '@/lib/research/earnings-ticket';
 import type { ResearchCalendarRange, ResearchCalendarResponse } from '@/lib/types/research-calendar';
 import type { DiscoveryResponse } from '@/lib/types/research-discovery';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
@@ -30,29 +31,35 @@ const dayLabel = (value: string) => new Intl.DateTimeFormat(undefined, { weekday
 const timingLabel = (timing: string | null | undefined) => timing === 'pre-market' ? 'before open' : timing === 'after-hours' ? 'after close' : 'time not supplied';
 
 // Watchlist earnings and review dates, earnings already known for the trending list, and macro releases, on a week grid that starts this week.
-export function ResearchCalendarV8({ records, trending, onSelect }: { records: readonly ResearchRecord[] | null; trending: DiscoveryResponse | null; onSelect: (symbol: string, market: ResearchMarket) => void }) {
+export function ResearchCalendarV8({ records, trending, target, onSelect }: { records: readonly ResearchRecord[] | null; trending: DiscoveryResponse | null; target?: EarningsCalendarTarget; onSelect: (symbol: string, market: ResearchMarket) => void }) {
     const [range, setRange] = useState<ResearchCalendarRange>(30);
     const [now] = useState(() => Date.now());
     const today = new Date(now).toISOString().slice(0, 10);
     const [page, setPage] = useState(0);
-    const [selectedDay, setSelectedDay] = useState(today);
+    const targetInRange = !!target && target.date >= today && target.date <= addDays(today, 30);
+    const [selectedDay, setSelectedDay] = useState(targetInRange ? target!.date : today);
+    const [attempt, setAttempt] = useState(0);
     const [result, setResult] = useState<{ key: string; data: ResearchCalendarResponse | null; error: string } | null>(null);
     // The calendar API takes unique symbols; the first saved market wins for a duplicated ticker.
     const body = useMemo(() => {
+        if (target) return JSON.stringify(earningsCalendarInput(target.symbol, target.market));
         const unique = [...new Map((records ?? []).map(record => [record.symbol, record])).values()].slice(0, 50);
         return JSON.stringify(buildResearchCalendarRequest(unique));
-    }, [records]);
-    const key = `${range}:${body}`;
-    const hasRecords = !!records?.length;
+    }, [records, target]);
+    const key = `${range}:${body}:${attempt}`;
+    const hasRecords = target ? target.market === 'US' : !!records?.length;
+    const query = target ? `range=30&type=earnings&market=${target.market}&ticker=${encodeURIComponent(target.symbol)}` : `range=${range}`;
     useEffect(() => {
         if (!hasRecords) return;
         const controller = new AbortController();
-        fetch(`/api/research/calendar?range=${range}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: controller.signal })
-            .then(async response => parseResearchCalendarResponse(await response.json()))
-            .then(data => setResult({ key, data, error: '' }))
-            .catch(cause => { if (!controller.signal.aborted) setResult({ key, data: null, error: cause instanceof Error ? cause.message : 'The calendar is unavailable.' }); });
-        return () => controller.abort();
-    }, [hasRecords, range, body, key]);
+        const timeout = setTimeout(() => { controller.abort(); setResult({ key, data: null, error: 'The calendar is unavailable.' }); }, 15_000);
+        fetch(`/api/research/calendar?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: controller.signal })
+            .then(async response => { if (!response.ok) throw new Error('The calendar is unavailable.'); return parseResearchCalendarResponse(await response.json()); })
+            .then(data => { if (target) nextEarningsEvent(data, target.symbol, target.market, today); if (!controller.signal.aborted) setResult({ key, data, error: '' }); })
+            .catch(cause => { if (!controller.signal.aborted) setResult({ key, data: null, error: cause instanceof Error ? cause.message : 'The calendar is unavailable.' }); })
+            .finally(() => clearTimeout(timeout));
+        return () => { clearTimeout(timeout); controller.abort(); };
+    }, [hasRecords, query, body, key, target, today]);
     const current = result?.key === key ? result : null;
     const end = addDays(today, range);
     const firstWeek = addDays(today, -weekday(today));
@@ -61,9 +68,9 @@ export function ResearchCalendarV8({ records, trending, onSelect }: { records: r
 
     // Watchlist events, trending earnings not already on the watchlist, and macro releases, in date order.
     const items: Item[] = [];
-    for (const event of current?.data?.events ?? []) items.push({ id: event.id, date: event.displayDate, kind: event.type, symbol: event.symbol, market: event.market, title: event.title, detail: event.detail, source: event.freshness === 'overdue' ? `${event.source} · due ${event.sourceDate}` : event.source, action: event.urgency === 'action' });
+    for (const event of current?.data?.events ?? []) items.push({ id: event.id, date: event.displayDate, kind: event.type, symbol: event.symbol, market: event.market, title: event.title, detail: target && event.type === 'earnings' ? `${earningsTimingLabel(event.earningsTiming)} · Date unconfirmed` : event.detail, source: event.freshness === 'overdue' ? `${event.source} · due ${event.sourceDate}` : event.source, action: event.urgency === 'action' });
     const saved = new Set(items.filter(item => item.kind === 'earnings').map(item => item.symbol));
-    for (const row of [...(trending?.candidates ?? []), ...(trending?.contenders ?? [])]) {
+    for (const row of target ? [] : [...(trending?.candidates ?? []), ...(trending?.contenders ?? [])]) {
         if (!row.catalyst || row.catalyst.date < today || row.catalyst.date > end || saved.has(row.symbol)) continue;
         items.push({ id: `trending:${row.symbol}`, date: row.catalyst.date, kind: 'trending', symbol: row.symbol, market: 'US', title: `${row.name} earnings`, detail: timingLabel(row.catalyst.timing), source: 'Trend scan' });
     }
@@ -79,17 +86,19 @@ export function ResearchCalendarV8({ records, trending, onSelect }: { records: r
     const shownKinds = kindOrder.filter(kind => items.some(item => item.kind === kind));
     const selectedItems = byDay.get(selectedDay) ?? [];
     const upcoming = items.filter(item => item.date >= today).length;
-    const status = !trending && !records ? 'Loading watchlist and trend scan…'
+    const status = !target && !trending && !records ? 'Loading watchlist and trend scan…'
         : hasRecords && !current ? 'Loading watchlist dates…'
             : current?.error ? current.error : null;
 
     return <div className={styles.calendar}>
         <div className={styles.resultHead}>
-            <p className={styles.meta}>{upcoming} {upcoming === 1 ? 'date' : 'dates'} in the next {range} days · earnings, reviews and macro releases. Dates are UTC.</p>
-            <div className={styles.segment} aria-label="Calendar range">{([30, 90] as const).map(value => <button key={value} aria-pressed={range === value} onClick={() => setRange(value)}>{value} days</button>)}</div>
+            <p className={styles.meta}>{target ? `${target.symbol} · ${target.market} earnings` : 'Earnings, reviews and macro releases'} · {upcoming} {upcoming === 1 ? 'date' : 'dates'} in the next {range} days. Dates are UTC.</p>
+            {!target && <div className={styles.segment} aria-label="Calendar range">{([30, 90] as const).map(value => <button key={value} aria-pressed={range === value} onClick={() => setRange(value)}>{value} days</button>)}</div>}
         </div>
-        {!hasRecords && records && <p className={styles.meta}>Add stocks to your watchlist to see their earnings and review dates here. Trending earnings are shown meanwhile.</p>}
-        {status && <p role={current?.error ? 'alert' : 'status'} className={styles.meta}>{status}</p>}
+        {target && !targetInRange && <p className={styles.meta}>The linked date is outside the current 30-day window. Showing current dates.</p>}
+        {target?.market === 'MY' && <p className={styles.meta}>Malaysia earnings coverage is unavailable.</p>}
+        {!target && !hasRecords && records && <p className={styles.meta}>Add stocks to your watchlist to see their earnings and review dates here. Trending earnings are shown meanwhile.</p>}
+        {status && <p role={current?.error ? 'alert' : 'status'} className={styles.meta}>{status}{current?.error && <> <button className={styles.link} onClick={() => setAttempt(value => value + 1)}>Retry calendar</button></>}</p>}
         {shownKinds.length > 0 && <ul className={styles.calendarLegend} aria-label="Calendar legend">{shownKinds.map(kind => <li key={kind} data-kind={kind}><i aria-hidden="true" />{kindLabel[kind]}</li>)}</ul>}
         <div className={styles.monthBar} role="group" aria-label="Calendar weeks">
             <button type="button" className={styles.todayButton} onClick={() => { setPage(0); setSelectedDay(today); }}>Today</button>
@@ -121,6 +130,6 @@ export function ResearchCalendarV8({ records, trending, onSelect }: { records: r
                 </li>)}</ul>}
         </section>
         {current?.data?.warnings.map(warning => <p key={warning} className={styles.meta}>{warning}</p>)}
-        {current?.data && <p className={styles.meta}>Watchlist dates retrieved {retrievedAt(current.data.generatedAt)}.</p>}
+        {current?.data && <p className={styles.meta}>{target ? 'Earnings' : 'Watchlist'} dates retrieved {retrievedAt(current.data.generatedAt)}.</p>}
     </div>;
 }

@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -39,6 +40,7 @@ try {
  const posts=[];const providerReads=[];let list=[];let release;let held;let watchlistFails=false;let saveFails=false;let listHold;let releaseList;let revisedIncome=false;let providerFails=false;let marketScoreCase='normal';let searchFails=false;let searchHold=false;let releaseSearch;const searches=[];
  let newsAvailable=false;
  await context.route('**/api/**',async route=>{
+  if (await fulfillEarningsCalendarRead(route)) return;
   const req=route.request(),u=new URL(req.url());
   if(u.pathname==='/api/owner/session')return route.fulfill({json:{success:true,data:{configured:true,unlocked:true}}});
   if(u.pathname==='/api/signals/v2'){const f=marketRequestFixture({rawMarketData:{newsItems:newsAvailable?[{title:'Market earnings improve',source:'Fixture',link:'https://example.test/current',pubDate:'2026-09-11T12:00:00.000Z'}]:[]},providerReadings:{putCallRatio:{ratio:0.8,reportDate:'2026-09-11',retrievedAt:'2026-09-12T00:00:00Z',source:'cboe-daily-market-statistics',sourceUrl:'https://example.test/cboe'},naaimExposure:{exposure:60,reportDate:'2026-09-09',retrievedAt:'2026-09-12T00:00:00Z',source:'naaim-exposure-index',sourceUrl:'https://example.test/naaim'}},previousSnapshot:{snapshot_date:'2026-09-11',composite_score:45,tier:'neutral',components:{vix:{display_name:'VIX Index',score:45,weight:1}},score_drivers:[],origin:'observed',coverage_note:null}});const response=await f.route.GET(f.request(u.search.slice(1)));const payload=await response.json();if(marketScoreCase==='unchanged')payload.data.metadata.score_delta.delta=0;if(marketScoreCase==='missing')delete payload.data.metadata.score_delta;return route.fulfill({json:payload});}

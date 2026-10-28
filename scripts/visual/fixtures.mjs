@@ -1,5 +1,7 @@
+import { fulfillEarningsCalendarRead } from '../qa-earnings-calendar-fixture.mjs';
 import { marketRequestFixture } from '../harness/market-request-fixture.mjs';
 import { researchReadFixture, researchSnapshotFixture } from '../harness/research-read-fixture.mjs';
+import { baseURL } from './environment.mjs';
 
 export const fixedTime = '2026-09-12T00:00:00.000Z';
 
@@ -30,7 +32,12 @@ export async function installFixtures(context, theme, observations) {
     await context.route('**/*', async route => {
         const request = route.request();
         const url = new URL(request.url());
-        if (url.origin !== 'http://127.0.0.1:3000' || request.method() !== 'GET') {
+        if (url.origin !== new URL(baseURL).origin) {
+            observations.errors.push(`Forbidden request: ${request.method()} ${url.origin}${url.pathname}`);
+            return route.abort();
+        }
+        if (await fulfillEarningsCalendarRead(route, fixedTime)) return;
+        if (request.method() !== 'GET') {
             observations.errors.push(`Forbidden request: ${request.method()} ${url.origin}${url.pathname}`);
             return route.abort();
         }

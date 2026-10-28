@@ -143,6 +143,11 @@ and the due-review contracts in the Research harness; see `TESTING.md`.
 
 ### R3 · Earnings ticket — the next event on the quote band
 
+Implemented in connected Research: next supplied US date in the existing 30-day
+Calendar window, linked to its selected day in a new tab. Nasdaq supplies no confirmed
+flag, so dates stay unconfirmed without a countdown. Malaysia coverage remains
+unavailable. See `docs/ARCHITECTURE.md` and `docs/TESTING.md` for boundaries and proof.
+
 If the Calendar knows the stock's next earnings date, show it beside the price as a small ticket:
 **"Earnings · Tue 28 Oct · after close · in 3 days"**. Tapping it opens the Calendar on that day.
 

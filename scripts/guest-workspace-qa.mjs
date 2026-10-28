@@ -1,3 +1,4 @@
+import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { switchWatchlistStock } from './qa-watchlist-switch.mjs';
@@ -11,6 +12,7 @@ export async function guestWorkspaceQa(browser, base, snapshot, ownerRecord) {
   const other = await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
   const errors = []; const privateRequests = []; const providerReads = [];
   async function fixtures(ctx) {
+   await ctx.route('**/api/research/calendar?**', async route => { if (!await fulfillEarningsCalendarRead(route)) await route.fallback(); });
    await ctx.route('**/api/research/symbol/**', route => { const u = new URL(route.request().url()); providerReads.push(u.search); return route.fulfill({json:snapshot(decodeURIComponent(u.pathname.split('/').at(-1)),u.searchParams.get('market'))}); });
    await ctx.route('**/api/research/watchlist**', route => {privateRequests.push({method:route.request().method(),data:route.request().postData()});return route.fulfill({json:{success:true,data:[ownerRecord]}});});
    if (!process.env.SIGNAL_QA_OWNER_SECRET) await ctx.route('**/api/owner/session', route=>route.fulfill({json:{success:true,data:{configured:false,unlocked:false}}}));
