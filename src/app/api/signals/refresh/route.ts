@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAnyBearerSecret } from '@/lib/route-auth';
 import { getSmartSignal } from '@/lib/signal';
+import type { SignalSnapshotPersistence } from '@/lib/types/signal-v2';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -45,6 +46,7 @@ export const GET = async (request: Request): Promise<NextResponse> => {
     const startedAt = Date.now();
     const results: Array<RefreshTarget & {
         success: boolean;
+        snapshotPersistence: SignalSnapshotPersistence;
         score?: number;
         tier?: string;
         confidence?: string;
@@ -61,26 +63,34 @@ export const GET = async (request: Request): Promise<NextResponse> => {
                 results.push({
                     ...target,
                     success: false,
+                    snapshotPersistence: { status: 'unavailable', snapshot_date: null },
                     durationMs: Date.now() - stepStartedAt,
-                    error: signal.meta.error || 'Unknown signal refresh failure',
+                    error: 'Signal refresh failed before a daily snapshot could be confirmed.',
                 });
                 continue;
             }
 
+            const snapshotPersistence = signal.v2.metadata.snapshot_persistence
+                ?? { status: 'unavailable' as const, snapshot_date: null };
+            const persisted = snapshotPersistence.status === 'persisted';
             results.push({
                 ...target,
-                success: true,
+                success: persisted,
+                snapshotPersistence,
                 score: signal.v2.composite_score,
                 tier: signal.v2.tier,
                 confidence: signal.v2.confidence.level,
                 durationMs: Date.now() - stepStartedAt,
+                ...(!persisted ? { error: 'The current reading is available, but its daily snapshot could not be confirmed.' } : {}),
             });
         } catch (error) {
+            console.error('Signal refresh failed:', target, error);
             results.push({
                 ...target,
                 success: false,
+                snapshotPersistence: { status: 'unavailable', snapshot_date: null },
                 durationMs: Date.now() - stepStartedAt,
-                error: error instanceof Error ? error.message : String(error),
+                error: 'Signal refresh failed before a daily snapshot could be confirmed.',
             });
         }
     }
@@ -97,6 +107,6 @@ export const GET = async (request: Request): Promise<NextResponse> => {
         durationMs: Date.now() - startedAt,
         results,
     }, {
-        status: failures.length === 0 ? 200 : 207,
+        status: failures.length === 0 ? 200 : 503,
     });
 };

@@ -150,6 +150,139 @@ const assertProviderIsolation = async () => {
         else process.env.CRON_SECRET = previousSecret;
     }
 };
+const assertRefreshPersistence = async () => {
+    const secrets = { CRON_SECRET: process.env.CRON_SECRET, ADMIN_SECRET: process.env.ADMIN_SECRET };
+    const saved = { status: 'persisted', snapshot_date: '2026-09-12' };
+    const unavailable = { status: 'unavailable', snapshot_date: null };
+    const writes = fixture => fixture.calls.filter(call => call.query.startsWith('INSERT INTO signal_snapshots'));
+    const refresh = async (fixture, query = '', secret = 'fixture-cron-secret') => {
+        const response = await fixture.refreshRoute().GET(new Request(`http://fixture.invalid/api/signals/refresh?${query}`, {
+            headers: secret ? { authorization: `Bearer ${secret}` } : {},
+        }));
+        return { status: response.status, body: await response.json() };
+    };
+    try {
+        delete process.env.CRON_SECRET;
+        delete process.env.ADMIN_SECRET;
+        const unconfigured = marketRequestFixture();
+        assert.equal((await refresh(unconfigured)).status, 500);
+        assert.deepEqual(unconfigured.events, []);
+        assert.deepEqual(unconfigured.calls, [], 'Unconfigured refresh cannot reach SQL or providers.');
+
+        process.env.CRON_SECRET = 'fixture-cron-secret';
+        process.env.ADMIN_SECRET = 'fixture-admin-secret';
+        for (const secret of ['', 'wrong-secret']) {
+            const unauthorized = marketRequestFixture();
+            assert.equal((await refresh(unauthorized, 'includeSourceOff=true', secret)).status, 401);
+            assert.deepEqual(unauthorized.events, []);
+            assert.deepEqual(unauthorized.calls, [], 'Auth protects source-off targets too.');
+        }
+
+        const defaultTargets = [['US', 'standard', true], ['US', 'contrarian', true], ['MY', 'standard', true], ['MY', 'contrarian', true]];
+        for (const [query, secret, targets] of [
+            ['', 'fixture-cron-secret', defaultTargets],
+            ['includeSourceOff=true', 'fixture-admin-secret', [...defaultTargets, ...defaultTargets.map(([market, mode]) => [market, mode, false])]],
+        ]) {
+            const fixture = marketRequestFixture();
+            const result = await refresh(fixture, query, secret);
+            assert.equal(result.status, 200);
+            assert.equal(result.body.success, true);
+            assert.equal(result.body.targetCount, targets.length);
+            assert.equal(result.body.succeeded, targets.length);
+            assert.equal(result.body.failed, 0);
+            assert.deepEqual(writes(fixture).map(write => write.values.slice(0, 3)), targets);
+            for (const target of result.body.results) {
+                assert.equal(target.success, true);
+                assert.deepEqual(target.snapshotPersistence, saved);
+            }
+        }
+
+        const failed = marketRequestFixture();
+        failed.setFailure('INSERT INTO signal_snapshots');
+        const allFailed = await refresh(failed);
+        assert.equal(allFailed.status, 503, 'The scheduler must see a non-success status when persistence fails.');
+        assert.deepEqual([allFailed.body.success, allFailed.body.succeeded, allFailed.body.failed], [false, 0, 4]);
+        assert.equal(writes(failed).length, 4, 'A failed target does not skip later targets.');
+        for (const target of allFailed.body.results) {
+            assert.equal(target.success, false);
+            assert.deepEqual(target.snapshotPersistence, unavailable);
+            assert.equal(typeof target.score, 'number', 'A usable reading does not prove persistence.');
+        }
+        assert.doesNotMatch(JSON.stringify(allFailed.body), /Fixture|database unavailable/);
+
+        const partial = marketRequestFixture();
+        partial.setSqlFailure((query, values) => query.startsWith('INSERT INTO signal_snapshots') && values[0] === 'MY' && values[1] === 'standard');
+        const partiallyFailed = await refresh(partial);
+        assert.equal(partiallyFailed.status, 503, 'Partial failure is not a successful cron run.');
+        assert.deepEqual([partiallyFailed.body.success, partiallyFailed.body.succeeded, partiallyFailed.body.failed], [false, 3, 1]);
+        assert.deepEqual(partiallyFailed.body.results.map(target => target.success), [true, true, false, true]);
+        assert.deepEqual(partiallyFailed.body.results.map(target => target.snapshotPersistence), [saved, saved, unavailable, saved]);
+        assert.doesNotMatch(JSON.stringify(partiallyFailed.body), /Fixture|private database/);
+        partial.setSqlFailure(null);
+        const retried = await refresh(partial);
+        assert.equal(retried.status, 200);
+        assert.deepEqual([retried.body.success, retried.body.succeeded, retried.body.failed], [true, 4, 0]);
+        assert.equal(writes(partial).length, 8);
+        for (const write of writes(partial)) assert.match(write.query, /ON CONFLICT \(market_type, mode, enable_social, snapshot_date\) DO UPDATE/);
+
+        const providers = marketRequestFixture();
+        providers.setFailure('providers');
+        const noReadings = await refresh(providers);
+        assert.equal(noReadings.status, 503);
+        assert.deepEqual([noReadings.body.succeeded, noReadings.body.failed], [0, 4]);
+        assert.equal(writes(providers).length, 0);
+        assert.doesNotMatch(JSON.stringify(noReadings.body), /Fixture providers unavailable/);
+
+        const calibration = marketRequestFixture();
+        calibration.setFailure('calibration');
+        const withoutCalibration = await refresh(calibration);
+        assert.equal(withoutCalibration.status, 200, 'Unavailable calibration cannot undo confirmed persistence.');
+        assert.equal(withoutCalibration.body.succeeded, 4);
+        for (const target of withoutCalibration.body.results) assert.deepEqual(target.snapshotPersistence, saved);
+
+        const context = marketRequestFixture({ previousSnapshot: {
+            snapshot_date: '2026-09-11', composite_score: 45, tier: 'neutral',
+            get components() { throw new Error('Fixture private history failure'); },
+        } });
+        const withoutContext = await refresh(context);
+        assert.equal(withoutContext.status, 200, 'A context-assembly error after INSERT does not erase its acknowledgement.');
+        assert.equal(withoutContext.body.succeeded, 4);
+        assert.equal(writes(context).length, 4);
+        for (const target of withoutContext.body.results) assert.deepEqual(target.snapshotPersistence, saved);
+        assert.doesNotMatch(JSON.stringify(withoutContext.body), /Fixture|private history/);
+
+        const noAcknowledgement = await refresh(marketRequestFixture({ snapshotWriteRows: [] }));
+        assert.equal(noAcknowledgement.status, 503, 'An INSERT without a returned row is not confirmed persistence.');
+        assert.equal(noAcknowledgement.body.failed, 4);
+
+        const nextDay = marketRequestFixture({ snapshotWriteRows: [{ snapshot_date: '2026-09-13' }] });
+        const datedReading = await request(nextDay);
+        assert.deepEqual(datedReading.body.data.metadata.snapshot_persistence, { status: 'persisted', snapshot_date: '2026-09-13' });
+        assert.equal(datedReading.body.data.metadata.score_delta.snapshot_date, '2026-09-13', 'The confirmed database day takes precedence over the clock before async reads.');
+
+        const publicRetry = marketRequestFixture();
+        publicRetry.setFailure('INSERT INTO signal_snapshots');
+        const reading = await request(publicRetry);
+        assert.equal(reading.status, 200, 'Public reading remains available while its history write fails.');
+        assert.equal(reading.body.success, true);
+        publicRetry.parseSignal(reading.body, 'US', 'standard');
+        assert.deepEqual(reading.body.data.metadata.snapshot_persistence, unavailable);
+        assert.doesNotMatch(JSON.stringify(reading.body), /Fixture database unavailable/);
+        publicRetry.setFailure('');
+        const recovered = await request(publicRetry);
+        assert.equal(recovered.cache, 'miss', 'An unconfirmed write must not prevent the next request from retrying persistence.');
+        assert.deepEqual(recovered.body.data.metadata.snapshot_persistence, saved);
+        const cached = await request(publicRetry);
+        assert.equal(cached.cache, 'hit');
+        assert.deepEqual(cached.body, recovered.body);
+        assert.equal(writes(publicRetry).length, 2);
+    } finally {
+        for (const [name, value] of Object.entries(secrets)) {
+            if (value === undefined) delete process.env[name];
+            else process.env[name] = value;
+        }
+    }
+};
 const originalError = console.error, originalWarn = console.warn;
 try {
     // Expected dependency failures below must retain the existing graceful error contracts.
@@ -174,6 +307,7 @@ try {
         assert.match(write.query, /origin = 'observed', coverage_note = NULL/);
         assert.equal(result.body.data.metadata.score_delta.previous_score, 45);
         assert.equal(result.body.data.metadata.score_history.length, 2);
+        if (!baseline) assert.deepEqual(result.body.data.metadata.snapshot_persistence, { status: 'persisted', snapshot_date: '2026-09-12' });
         assert.deepEqual(fixture.events, ['providers', 'institutional', 'calibration']);
         results.push({ scenario: query, ...result, calls: structuredClone(fixture.calls) });
         const hit = await request(fixture, query);
@@ -197,6 +331,7 @@ try {
             assert.equal((await request(fixture)).cache, 'miss', 'Engine errors must not be cached');
         } else if (['snapshot_date < CURRENT_DATE', 'LIMIT 89', 'INSERT INTO signal_snapshots'].includes(failure)) {
             assert.equal(result.body.data.metadata.score_history, undefined);
+            if (!baseline) assert.deepEqual(result.body.data.metadata.snapshot_persistence, { status: 'unavailable', snapshot_date: null });
             assert.ok(!fixture.events.includes('calibration'), 'Do not calibrate after failed persistence');
         } else if (failure === 'calibration') assert.equal(result.body.data.metadata.historical_validation, undefined);
         results.push({ scenario: failure, status: result.status, body: result.body });
@@ -243,6 +378,7 @@ try {
         assert.ok(full.marketAura, 'Legacy callers retain Aura');
         assert.ok(legacy.calls.some(c => c.query.includes('FROM market_signals')));
         await assertProviderIsolation();
+        await assertRefreshPersistence();
     }
     if (compareIndex >= 0) {
         const before = JSON.parse(await readFile(process.argv[compareIndex+1], 'utf8'));
@@ -263,4 +399,4 @@ if (outputIndex >= 0) {
     await mkdir((await import('node:path')).dirname(file), { recursive: true });
     await writeFile(file, JSON.stringify({ dataMode: 'isolated SQL/providers; no real latency claim', baseline, results }, null, 2));
 }
-console.log(`Market request regression passed: ${results.length} payload scenarios; cache hit/bypass/shared, validation, and failure checks passed; ${baseline ? 'baseline DDL intercepted' : 'zero DDL; real MY provider isolation, timeout, Aura, snapshot and debug checks passed'}.`);
+console.log(`Market request regression passed: ${results.length} payload scenarios; cache hit/bypass/shared, validation, and failure checks passed; ${baseline ? 'baseline DDL intercepted' : 'zero DDL; real MY provider isolation, timeout, Aura, snapshot, debug and authenticated refresh persistence/retry checks passed'}.`);

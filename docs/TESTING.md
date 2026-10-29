@@ -343,6 +343,11 @@ the measurement as an optimization gate.
 scoring, persistence and route with isolated raw providers, SQL, institutional and calibration
 fixtures. It checks all market/mode/social combinations, validation, dependency failures and
 cache hit/bypass/shared behavior. The full harness includes this regression.
+Scheduled-refresh cases execute the real protected route and require confirmed snapshot writes:
+total and partial write failures return unsuccessful target results and HTTP 503, and retries
+can recover. Public reads remain usable during storage failure without caching unconfirmed
+persistence. Optional history/calibration failures after a successful write must preserve its
+confirmation. Fixtures use synthetic providers and SQL, never production credentials or data.
 
 For a behavior-preserving optimization, capture the old instrumented implementation before
 editing with `--capture-baseline --output .tmp/market-optimization/before-matrix.json`, then run

@@ -75,11 +75,17 @@ queued writes. No private data or secrets enter settings. See [`V8_SETTINGS_DESI
 
 1. `src/components/v2/SignalDashboard.tsx` reads dashboard config from `useSignalConfig`.
 2. The dashboard calls `/api/signals/v2` with `market`, `mode`, and `enableSocial`.
-3. `src/app/api/signals/v2/route.ts` validates request parameters and calls `getSmartSignal` through a 45-second, instance-local exact-configuration cache. Concurrent identical requests share one in-flight load; explicit validated `refresh=true` requests bypass a completed entry, and engine errors are never cached.
+3. `src/app/api/signals/v2/route.ts` validates request parameters and calls `getSmartSignal` through a 45-second, instance-local exact-configuration cache. Concurrent identical requests share one in-flight load; explicit validated `refresh=true` requests bypass a completed entry. Engine errors and readings without confirmed snapshot persistence are never cached, so a later request can retry storage immediately.
 4. `src/lib/signal.ts` orchestrates market-data, social/news, institutional, and snapshot work.
 5. `src/lib/sentiment-calculator-v2.ts` normalizes active indicators into a `MarketSignal`.
 6. UI components render score, tier, confidence, source coverage, articles, and component details.
-7. Vercel cron calls `/api/signals/refresh` daily to pre-warm the current V2 signal snapshots used by the dashboard.
+7. Vercel cron calls `/api/signals/refresh` daily to pre-warm the current V2 signal snapshots used by the dashboard. A target succeeds only when its snapshot write is confirmed. The response retains every target's result and returns HTTP 503 if any target fails; HTTP 200 means all required snapshots were persisted.
+
+Current readings expose `metadata.snapshot_persistence` independently of provider availability:
+`persisted` includes the daily snapshot date, while `unavailable` carries a null date and makes
+no successful-save claim. A usable public reading still returns HTTP 200 when persistence
+cannot be confirmed. History, score changes and calibration remain independently qualified;
+failure to assemble optional history after a confirmed write does not undo that confirmation.
 
 ## Data Sources
 

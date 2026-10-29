@@ -7,6 +7,7 @@ import { researchSnapshotFixture } from './research-read-fixture.mjs';
 
 // Execute actual domain/orchestration code. Every external boundary is isolated.
 const baseline = process.argv.includes('--baseline');
+const snapshotDate = '2026-10-03';
 let fx = { currentPrice: 4.2, vol20d: .003, change: .01 };
 const cache = new Map();
 function load(file) {
@@ -17,7 +18,7 @@ function load(file) {
   'yahoo-finance':{fetchVIX:async()=>({price:20,change:0}),fetchIndicesWithChart:async()=>[],fetchQuotes:async()=>[],fetchHistoricalCurrencyVol:async()=>fx},
   'reddit':{fetchMultipleSubreddits:async()=>[]},'rss-feeds':{fetchMarketNews:async()=>[]},
   'stocktwits':{fetchTrendingTwits:async()=>[],calculateStockTwitsSentiment:()=>0},
-  'db':{sql:async()=>[]},'institutional-service':{getLatestInstitutionalData:async()=>[]},
+  'db':{sql:async strings=>strings.join('').trim().startsWith('INSERT INTO signal_snapshots')?[{snapshot_date:snapshotDate}]:[]},'institutional-service':{getLatestInstitutionalData:async()=>[]},
   'market-context':{fetchMarketContext:async market=>({market})},
   'market-indicators':{fetchBuffettIndicator:async()=>null,fetchCboePutCallRatio:async()=>null,fetchNaaimExposure:async()=>null},
   'market-calibration-service':{getMarketCalibration:async()=>undefined},
@@ -35,7 +36,9 @@ const my=await signal.getSmartSignal('MY','standard',false,undefined,{includeAur
 const indicator=my.v2.components.vix;
 if(baseline){assert.equal(indicator.value,20);console.log('Reproduced: MY scores the scaled FX input 12 but displays US VIX 20; small FCF yields are rounded away.');process.exit(0);}
 assert.equal(indicator.value,12);assert.match(indicator.display_name,/scaled/);assert.match(indicator.metadata.mode_note,/4000/);
+assert.deepEqual(my.v2.metadata.snapshot_persistence,{status:'persisted',snapshot_date:snapshotDate});
 fx={currentPrice:0,vol20d:0,change:0};const fallback=await signal.getSmartSignal('MY','standard',false,undefined,{includeAura:false});assert.equal(fallback.v2.components.vix.value,20);assert.match(fallback.v2.components.vix.display_name,/US VIX/);
+assert.deepEqual(fallback.v2.metadata.snapshot_persistence,{status:'persisted',snapshot_date:snapshotDate});
 fx={currentPrice:4,vol20d:.0001,change:0};assert.equal((await signal.fetchRawMarketData('MY',false,false)).fearGauge.value,10);
 fx={currentPrice:4,vol20d:.1,change:0};assert.equal((await signal.fetchRawMarketData('MY',false,false)).fearGauge.value,80);
 const {archivedSeries,indicatorStatus}=load('src/components/v8/MarketV8ConnectedData.ts');
