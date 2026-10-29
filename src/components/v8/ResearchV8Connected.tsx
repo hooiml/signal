@@ -15,7 +15,7 @@ import { researchWorkspaceGroups } from '@/lib/research/workspace-navigation';
 import { parseResearchRecord } from '@/lib/research/input';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
-import { researchIdentityName, type ProviderResearchIdentity } from '@/lib/research/reading-display';
+import { researchCoverageNote, researchIdentityName, type ProviderResearchIdentity } from '@/lib/research/reading-display';
 import { ResearchSecurityLookup } from './ResearchSecurityLookup';
 import { ResearchCurrentAssessment } from './ResearchCurrentAssessment';
 import { assessCurrentResearch } from '@/lib/research/current-assessment';
@@ -519,6 +519,7 @@ function ConnectedCase({ workspace, guestUnavailable, guestIdentity, guestDraft,
                 {record && <ResearchDueReview record={record} snapshot={snapshot} loading={loading} error={error} />}
                 {workspace === 'guest' && savedRecord && <GuestResearchNote key={guestIdentity} draftState={guestDraft} onDraftChange={onDraftChange} disabled={guestUnavailable} record={savedRecord} onSaved={onSaved} onRemoved={onGuestRemoved} />}
                 {saveError && <p role="alert">{saveError}{saveAccessIssue === 'locked' && <> <a className={base.textButton} href={unlockHref}>Unlock to save</a></>}</p>}
+                {researchCoverageNote(market) && <p className={connected.coverageNote} data-testid="research-market-coverage">{researchCoverageNote(market)}</p>}
                 <ResearchCurrentAssessment snapshot={snapshot} previous={readings.previous} loading={loading} error={error} now={assessmentTime} compact />
                 <section className={connected.dataStatus} aria-label="Provider data status"><div role="status">{loading ? snapshot ? `Refreshing provider data. Previous values retrieved ${retrievedAt(snapshot.fetchedAt)} remain visible.` : 'Loading provider data… You can browse while it loads.' : error ? `Provider refresh failed. ${snapshot ? `Previous values retrieved ${retrievedAt(snapshot.fetchedAt)} remain visible.` : 'No current assessment is available.'}` : `Provider sources: ${snapshot?.sources.join(', ') || 'Source not supplied'}`}</div><button className={base.textButton} disabled={loading} onClick={() => { setLoading(true); setError(false); setRefresh(value => value + 1); }}>{error ? 'Retry provider data' : 'Refresh provider data'}</button>{!!snapshot?.warnings.length && !compactFinancialAssessment && <V8Disclosure className={connected.warning} summary={<>Source notices and limitations <span>View {snapshot.warnings.length} source notice{snapshot.warnings.length === 1 ? '' : 's'}</span></>}><p>These notices describe missing data or limits on how the returned values can be used. Unavailable inputs are not estimated; refreshing does not necessarily resolve a reporting limitation.</p><ul>{snapshot.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></V8Disclosure>}</section>
 

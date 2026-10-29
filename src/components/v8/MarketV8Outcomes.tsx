@@ -2,6 +2,7 @@ import { selectSimilarScoreOutcomes, type SimilarScoreOutcome } from '@/lib/mark
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import styles from './market-v8-outcomes.module.css';
 import { MarketMobileSection } from './MarketMobileSection';
+import { V8EmptyState } from './V8Primitives';
 
 const percent = (value: number | null) => value === null ? 'Unavailable' : `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value).toFixed(1)}%`;
 const points = (value: number, digits: 0 | 1) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value).toFixed(digits)} pts`;
@@ -12,8 +13,8 @@ function Horizon({ outcome }: { outcome: SimilarScoreOutcome }) {
     const { cohort, baseline } = outcome;
     return <article data-testid={`similar-score-outcome-${outcome.days}`}>
         <header><h3>{outcome.days === 7 ? 'One week later' : 'One month later'}</h3><span className={styles.tag} data-state={outcome.state}>Evidence: {evidence[outcome.state]}</span></header>
-        {outcome.state === 'unavailable' || !cohort ? <p>Comparable calibration data is missing for this horizon.</p>
-            : outcome.state === 'insufficient' ? <p>Only {cohort.sample_count} comparable {cohort.sample_count === 1 ? 'period is' : 'periods are'} available; {outcome.minimumSampleSize} are needed before outcomes are summarised.</p>
+        {outcome.state === 'unavailable' || !cohort ? <V8EmptyState message="No usable comparable score periods with benchmark returns are available for this horizon." />
+            : outcome.state === 'insufficient' ? <V8EmptyState message={<>Only {cohort.sample_count} comparable {cohort.sample_count === 1 ? 'period is' : 'periods are'} available; {outcome.minimumSampleSize} are needed before outcomes are summarised.</>} />
                 : <>
                     <dl>
                         <div><dt>Median return</dt><dd data-direction={tone(cohort.median_forward_return_pct)}>{percent(cohort.median_forward_return_pct)}</dd>{baseline && <small>all scores {percent(baseline.median_forward_return_pct)} · {points((cohort.median_forward_return_pct ?? 0) - (baseline.median_forward_return_pct ?? 0), 1)}</small>}</div>
@@ -40,7 +41,7 @@ export function MarketV8Outcomes({ signal, onHistory }: { signal: MarketSignal; 
             <button className={styles.link} onClick={onHistory}>Full historical calibration →</button>
         </div>
         <p className={styles.meta}>{calibration.benchmark_name} returns after comparable past scores, compared with all eligible scores. Descriptive history, not a prediction.</p>
-        <div className={styles.horizons}>{outcomes.map(outcome => <Horizon key={outcome.days} outcome={outcome} />)}</div>
+        <div className={styles.horizons} data-empty={outcomes.every(outcome => outcome.state === 'insufficient' || outcome.state === 'unavailable')}>{outcomes.map(outcome => <Horizon key={outcome.days} outcome={outcome} />)}</div>
         </div>
     </MarketMobileSection>;
 }

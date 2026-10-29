@@ -5,6 +5,7 @@ import type { SecDiscoveryFiling } from '@/lib/research/sec-filings';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import { date, researchHref } from './research-v8-connected-data';
 import styles from './research-v8-modules.module.css';
+import { researchPanelCoverage } from '@/lib/research/reading-display';
 
 type Discovery = { status: 'loading' } | { status: 'ready'; issuer: string; filings: readonly SecDiscoveryFiling[] } | { status: 'degraded'; message: string; retryable: boolean };
 
@@ -25,7 +26,7 @@ export function ResearchFilingsV8({ symbol, market, record }: { symbol: string; 
     const [discovery, setDiscovery] = useState<Discovery>({ status: 'loading' });
     const [attempt, setAttempt] = useState(0);
     useEffect(() => {
-        if (market !== 'US') return;
+        if (!researchPanelCoverage(market).secFilings) return;
         const controller = new AbortController();
         fetch(`/api/research/filings/${encodeURIComponent(symbol)}`, { signal: controller.signal })
             .then(response => response.json())
@@ -36,7 +37,7 @@ export function ResearchFilingsV8({ symbol, market, record }: { symbol: string; 
     const citations = record?.documentEvidence.citations ?? [];
     return <section className={styles.module} aria-labelledby="filings-title" data-testid="research-filings">
         <div className={styles.heading}><div><span className={styles.eyebrow}>Primary documents</span><h2 id="filings-title">Filings and cited excerpts</h2></div>{market === 'US' && discovery.status === 'ready' && <span className={styles.tag}>{discovery.filings.length} recent filings</span>}</div>
-        {market !== 'US' ? <p className={styles.meta}>Official filing discovery covers SEC filers only. For Malaysian companies, read announcements on <a href="https://www.bursamalaysia.com/market_information/announcements/company_announcement" target="_blank" rel="noopener noreferrer">Bursa Malaysia ↗</a>.</p>
+        {!researchPanelCoverage(market).secFilings ? <p className={styles.meta}>Read company announcements on <a href="https://www.bursamalaysia.com/market_information/announcements/company_announcement" target="_blank" rel="noopener noreferrer">Bursa Malaysia ↗</a>.</p>
             : discovery.status === 'loading' ? <p role="status">Loading recent SEC filings…</p>
                 : discovery.status === 'degraded' ? <p role="alert">{discovery.message} {discovery.retryable && <button className={styles.secondary} onClick={() => { setDiscovery({ status: 'loading' }); setAttempt(value => value + 1); }}>Retry</button>}</p>
                     : discovery.filings.length === 0 ? <p className={styles.meta}>No recent annual, quarterly or current reports were found for {symbol}.</p>

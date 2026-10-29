@@ -4,6 +4,20 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For L2/T2/T3 data-gap clarity, run lint, the full harness, production build and
+post-build typecheck. Set `SIGNAL_QA_URL=http://127.0.0.1:3000` for all commands
+against one owned production server (the earnings script otherwise defaults to port 3113).
+Run `node scripts/v8-data-gaps-qa.mjs`,
+`node scripts/market-mobile-sections-qa.mjs`, `node scripts/v8-display-qa.mjs`,
+and `node scripts/research-earnings-qa.mjs`. Use the existing V8.1 presentation,
+unsaved Research and visual comparison suites for affected shared consumers.
+The focused gap fixtures check MY/US coverage, owner/guest reading, missing versus
+partial/zero/growth financials, historical capability/error states and keyboard access
+to retained details. Screenshots and geometry cover light/dark desktop and phone widths.
+Evidence lives in `.tmp/v8-data-gaps/`, `.tmp/market-mobile-sections/`, and
+`.tmp/display-clarity/`. Fixtures establish local UI behavior, not provider health or
+deployment. Review screenshots before changing any platform-specific visual baseline.
+
 For R2 Then vs now, run `node scripts/research-due-review-qa.mjs` against one owned
 production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3213`). Owner/guest fixtures
 cover due/overdue/not-due and independent stale deadlines, missing history/price/currency,

@@ -61,9 +61,7 @@ export function missingInputExplanation(key: string, sourceEnabled: boolean, ava
     if (key === 'news') return availability?.news
         ? `News input is enabled, but no usable news sentiment observation was produced. ${availability.news.count} news items were returned.${availability.news.status === 'no-fresh-evidence' ? ' None of the returned news or Reddit posts has a valid publication time within the 24-hour evidence window. Stale, future-dated and undated items do not count as current evidence.' : ''}`
         : 'News input is enabled, but the current response contains no usable news sentiment observation.';
-    if (key === 'naaim') return 'The public page exposes a roughly three-month delayed reading, and no parsable current exposure was returned for this snapshot. Archived readings cannot establish today’s exposure.';
-    if (key === 'bofa') return 'No manually supplied current SSI reading is available. The 50–60 normalization range is a placeholder, not evidence from a live source.';
-    return 'No current observation was supplied. An archived reading is not substituted for the missing value.';
+    return `No current ${getIndicatorDisplayName(key)} observation was supplied. A current source observation is needed; archived readings are not substituted.`;
 }
 
 export function newsEvidenceText(evidence: NonNullable<MarketSignal['metadata']['news_evidence']>): string {

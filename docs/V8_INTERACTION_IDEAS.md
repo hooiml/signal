@@ -236,7 +236,11 @@ Desktop content stays visible; keyboard controls and investigation links reveal 
 - Why: Market measures about 4,700px at 390px wide, roughly five and a half phone screens.
 - Check: every folded section's summary carries its key figure; nothing is hidden without one.
 
-#### L2 · Empty states as one line
+#### L2 · Empty states as one line · Implemented (E26, local verification)
+
+Connected Market exposure/outcomes and Research annual-summary/availability/history gaps
+use compact messages with headings, existing actions and expandable evidence preserved.
+See [E26](ENHANCEMENT_ROADMAP.md#e26--compact-missing-data-and-my-coverage-l2--t2--t3).
 
 - What: "No saved US stocks to map", "Insufficient evidence" and similar cards shrink to one sentence
   and the action that fills them, keeping their heading so the section stays findable.
@@ -274,13 +278,20 @@ restoring an edge fade. Keyboard selection, direct links and resizing keep the a
   from responses the page already received.
 - Why: when something is missing, users can see whether a source is down instead of guessing.
 
-#### T2 · Data-gap explainer
+#### T2 · Data-gap explainer · Implemented (E26, local verification)
+
+Names missing fields and calculation dependencies from current values/capabilities;
+unknown causes stay generic. Existing source notices and retry actions remain available.
 
 - What: "Insufficient evidence" names exactly what is missing ("SEC fundamentals not returned for
   this listing") and what would fill it.
 - Why: a generic gap message reads like a bug; a specific one reads like an honest limit.
 
-#### T3 · Malaysia coverage note
+#### T3 · Malaysia coverage note · Implemented (E26, local verification)
+
+One connected Research note names the existing US SEC filing and Nasdaq earnings
+boundaries. Current Malaysian financials and prices remain eligible for display;
+the Bursa action and response-specific historical capability details are retained.
 
 - What: on MY stocks, one line listing the panels that are US-only and why.
 - Why: missing SEC-based panels then read as expected, not broken. Related to E7.
@@ -457,8 +468,8 @@ with G (global); the current delivery status and remaining scope are recorded un
 | 10 | R4 Peers overlay, R5 Plan ruler | Niche | Medium | Standard | Currency and fixture coverage |
 
 The later items are not ranked against these yet. L1 and L3 are implemented (E16, E15). Quick
-wins remaining: L2 empty states and T2 data-gap explainer (small, no new data); W1 review queue fits
-next to R2. G2–G8 are implemented, including G8's shared kit (E24). G1's read-only,
+wins L2 empty states, T2 data-gap explainer and T3 Malaysia coverage are implemented as E26;
+W1 review queue remains separate from R2. G2–G8 are implemented, including G8's shared kit (E24). G1's read-only,
 cost-only Holdings slice is implemented; import, reconciliation, attribution and what-if
 editing still live in G6's canonical `/research` Portfolio workspace. Migrating those advanced
 jobs into V8 remains a separate design task. Retained Market engines live at `/market/tools`.

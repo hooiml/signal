@@ -30,7 +30,10 @@
 .drivers li b { color: var(--ink); font-weight: 600; }
 .drivers li[data-impact="negative"] { border-color: var(--down-line); }
 .drivers li[data-impact="positive"] { border-color: var(--up-line); }
-.empty { margin: 14px 0 0; padding: 14px; border: 1px dashed var(--line-strong); border-radius: 8px; color: var(--muted); font-size: var(--text-sm); }
+.empty { margin: 8px 0 0; color: var(--muted); font-size: var(--text-sm); }
+.horizons[data-empty="true"] { margin-top: 8px; }
+.horizons[data-empty="true"] article { padding-top: 8px; }
+.horizons[data-empty="true"] p { margin: 4px 0 0; }
 .exposures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 14px 0 0; padding: 0; list-style: none; }
 .exposures > li { min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; }
 .exposures small { display: block; color: var(--muted); font-size: var(--text-xs); }
@@ -49,5 +52,6 @@
     .card { padding: 16px; }
     .horizons, .exposures { grid-template-columns: minmax(0, 1fr); }
     .horizons article + article { padding-left: 0; margin-left: 0; border-left: 0; border-top: 1px solid var(--line); margin-top: 14px; }
+    .horizons[data-empty="true"] article + article { margin-top: 8px; }
     .connections li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
 }

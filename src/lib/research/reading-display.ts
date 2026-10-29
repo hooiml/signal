@@ -50,6 +50,18 @@ export function nearestPricePoint(points: readonly ClosePoint[], timestamp: numb
 
 export type AvailabilityNote = { heading: string; detail: string; reasons: string[] };
 
+/** Existing panel coverage, independent of whether a provider request succeeds. */
+export function researchPanelCoverage(market: ResearchMarket) {
+    return { secFilings: market === 'US', earningsDates: market === 'US', filingAlignedValuation: market === 'US' };
+}
+
+export function researchCoverageNote(market: ResearchMarket): string | null {
+    const coverage = researchPanelCoverage(market);
+    const secPanels = [!coverage.secFilings && 'filing discovery', !coverage.filingAlignedValuation && 'filing-aligned valuation'].filter(Boolean);
+    const limits = [secPanels.length && `${secPanels.join(' and ')} use US SEC reports`, !coverage.earningsDates && 'earnings dates use the US Nasdaq calendar'].filter(Boolean);
+    return limits.length ? `Malaysia coverage: ${limits.join('; ')}. Current financials and prices use the data returned for this stock.` : null;
+}
+
 /** New responses carry the exact calculation basis; older responses retain their original basis. */
 export function valuationShareCount(snapshot: ResearchSnapshot | null): number | null {
     if (!snapshot) return null;
@@ -66,8 +78,8 @@ export function researchAvailability(snapshot: ResearchSnapshot, section: 'Finan
         if (!missing.length) return null;
         return {
             heading: missing.length === entries.length ? 'Annual financial figures not supplied' : 'Some annual figures are unavailable',
-            detail: `Not supplied: ${missing.join(', ')}. Missing amounts are not zero.`,
-            reasons: ['The response does not establish whether another request will supply these figures. Check the provider notices or the issuer report; any returned figures remain below.'],
+            detail: `Not supplied: ${missing.join(', ')}; check the provider notices or issuer report.`,
+            reasons: ['Missing amounts are not zero. The response does not establish whether another request will supply these figures; any returned figures remain below.'],
         };
     }
     const v = snapshot.valuation;

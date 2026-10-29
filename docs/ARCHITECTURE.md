@@ -20,6 +20,22 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 
 ## Runtime Shape
 
+L2/T2/T3 keep connected V8 missing-data presentation local to existing responses.
+Market exposure uses an inline Research action; empty historical outcomes retain both
+horizon headings and the supplied sample threshold. Research omits the annual summary
+tiles only when all three amounts and reported revenue growth are absent; partial and
+zero values remain visible. Availability disclosures retain per-input reasons and source
+notices, and unknown causes stay unknown. Empty filing-aligned valuation keeps capability
+details and warnings in an expandable disclosure.
+
+`researchPanelCoverage` in `src/lib/research/reading-display.ts` records the existing
+US-only SEC filing discovery, SEC filing-aligned valuation and Nasdaq earnings capabilities.
+The same gates serve filing discovery and earnings; connected MY Research presents their
+limits once above the tabs. This does not classify current MY financials, chart history or
+prices as unsupported. The Filings tab retains the Bursa announcements action. Historical
+valuation still reads its response capability statuses before describing missing filing
+facts. There are no new reads, provider calls, storage formats or scoring changes.
+
 R3 places `ResearchEarningsTicket` in connected Research's quote band. Its public
 Calendar POST supplies only the selected symbol/market and null review fields, whether
 saved or unsaved. The existing 30-day UTC Calendar window and Nasdaq source are reused;

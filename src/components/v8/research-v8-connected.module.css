@@ -207,7 +207,8 @@
 @media (max-width: 600px) { .assessmentFacts { grid-template-columns: 1fr; gap: 0; } }
 
 /* Reading-specific disclosure and chart context; no changes to analytical meaning. */
-.availabilityNote { margin: 16px 0; padding: 14px 16px; border-left: 3px solid var(--line-strong); background: var(--surface-subtle); border-radius: 6px; }
+.availabilityNote { margin: 12px 0; color: var(--muted); }
+.coverageNote { margin: 12px 0; color: var(--muted); font-size: var(--text-sm); line-height: 1.5; }
 .availabilityNote h3 { margin: 0; font-size: var(--text-base); }
 .availabilityNote p { margin: 8px 0; }
 .availabilityNote summary { cursor: pointer; min-height: 44px; font-size: var(--text-sm); }

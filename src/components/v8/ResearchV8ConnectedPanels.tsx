@@ -109,6 +109,7 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
         {tab === 'Financials' && <>
             <span className={base.eyebrow}>Provider-reported data</span><h2>Business performance</h2><p>{fundamentals?.source || 'Source unavailable'} · {annualPeriod}. Revenue, profit, margins and free cash flow use this annual period. Balance and share dates are shown separately below.</p>
             <ResearchDataAvailability snapshot={snapshot} section="Financials" loading={loading} error={providerError} />
+            {!snapshot && <p role={loading ? 'status' : undefined}>{loading ? 'Loading annual financial figures…' : 'Annual financial figures are unavailable. Retry provider data above.'}</p>}
             <ResearchFinancialSummary fundamentals={fundamentals} />
             <ResearchQualityAndCushion fundamentals={fundamentals} />
             <details className={connected.evidence}><summary>More financial measures and reporting dates</summary><h3>Annual margins</h3><Metrics rows={[
