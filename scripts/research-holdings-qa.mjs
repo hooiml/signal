@@ -1,9 +1,11 @@
 import { fulfillEarningsCalendarRead } from './qa-earnings-calendar-fixture.mjs';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { chromium } from 'playwright';
+import ts from 'typescript';
 import { researchReadFixture } from './harness/research-read-fixture.mjs';
 
 const args = process.argv.slice(2);
@@ -61,6 +63,33 @@ const cashSnapshot = {
         { accountLabel: 'MYR cash', currency: 'MYR', balance: 80, importedAt: fixtureTime, provenanceLabel: 'Cash fixture' },
     ],
 };
+
+// Use the real import/merge contract: a holdings-only update retains older cash rows.
+function loadPortfolioModule(file) {
+    const absolute = path.resolve(file);
+    const compiled = { exports: {} };
+    const code = ts.transpileModule(readFileSync(absolute, 'utf8'), {
+        compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+        fileName: absolute,
+    }).outputText;
+    new Function('require', 'module', 'exports', code)(
+        id => loadPortfolioModule(path.resolve(path.dirname(absolute), `${id}.ts`)), compiled, compiled.exports,
+    );
+    return compiled.exports;
+}
+const { createPortfolioImportSnapshot, mergePortfolioHoldingsSnapshots } = loadPortfolioModule('src/lib/portfolio/holdings.ts');
+const retainedCashTime = '2026-10-01T02:30:00.000Z';
+const createRetainedCashSnapshot = (cashBalances, provenanceLabel) => mergePortfolioHoldingsSnapshots(
+    createPortfolioImportSnapshot({ holdings: [], cashBalances }, provenanceLabel, retainedCashTime),
+    createPortfolioImportSnapshot({ holdings: usdSnapshot.holdings, cashBalances: [] }, 'USD fixture', fixtureTime),
+    'add-only',
+);
+const retainedCash = { accountLabel: 'Retained cash account', currency: 'USD', balance: 2500 };
+const retainedCashSnapshot = createRetainedCashSnapshot([retainedCash], 'Retained cash import');
+const retainedSameLabelSnapshot = createRetainedCashSnapshot([{ ...retainedCash, balance: 0 }], 'USD fixture');
+const retainedCurrenciesSnapshot = createRetainedCashSnapshot([
+    retainedCash, { ...retainedCash, currency: 'MYR', balance: 80 },
+], 'Retained cash import');
 
 const report = { fixtureOnly: true, baseUrl, before, fixtureTime, scenarios: [], startedAt: new Date().toISOString() };
 const screenshot = async (page, result, label) => {
@@ -167,9 +196,43 @@ function assertCostOnly(result) {
 }
 function assertNoPrivateHoldingsLeak(result) {
     const outgoing = (result.outgoing ?? []).map(request => `${request.method} ${request.url} ${request.body}`).join('\n');
-    for (const privateValue of ['Brokerage USD', 'Malaysia cash account', 'Fixture import 25 Oct', 'USD only', 'Cash fixture']) {
+    const privateValues = new Set([
+        'Brokerage USD', 'Malaysia cash account', 'Fixture import 25 Oct', 'USD only', 'Cash fixture',
+        ...[...(result.snapshot?.holdings ?? []), ...(result.snapshot?.cashBalances ?? [])]
+            .flatMap(row => [row.accountLabel, row.provenanceLabel]),
+    ]);
+    for (const privateValue of privateValues) {
         assert.ok(!outgoing.includes(privateValue), `private holdings field leaked in outgoing URL or body: ${privateValue}`);
     }
+}
+
+async function verifyRetainedCash({ page, panel, result }) {
+    const snapshot = result.snapshot;
+    const verify = async currentPanel => {
+        await currentPanel.getByText(`Snapshot updated ${fixtureDisplayTime} · Saved on this device · Prices not loaded`, { exact: true }).waitFor({ timeout });
+        const cashList = currentPanel.getByRole('heading', { name: 'Cash by account', exact: true }).locator('..');
+        await cashList.waitFor({ timeout });
+        assert.equal(await cashList.getByRole('listitem').count(), snapshot.cashBalances.length);
+        assert.equal(await currentPanel.getByRole('heading', { name: /^(USD|MYR) totals$/ }).count(), snapshot.cashBalances.length);
+        for (const cash of snapshot.cashBalances) {
+            const row = cashList.getByRole('listitem').filter({ has: cashList.page().getByText(`${cash.accountLabel} · ${cash.currency}`, { exact: true }) });
+            await row.getByText(money(cash.balance, cash.currency), { exact: true }).waitFor({ timeout });
+            await row.getByText(`${cash.provenanceLabel} · ${new Date(cash.importedAt).toLocaleString()}`, { exact: true }).waitFor({ timeout });
+            const summary = currentPanel.getByRole('heading', { name: `${cash.currency} totals`, exact: true }).locator('..');
+            const cashTotal = summary.locator('p').filter({ has: summary.page().getByText('Cash', { exact: true }) });
+            await cashTotal.getByText(money(cash.balance, cash.currency), { exact: true }).waitFor({ timeout });
+        }
+        const usd = currentPanel.getByRole('heading', { name: 'USD totals', exact: true }).locator('..');
+        await usd.getByText(money(500, 'USD'), { exact: true }).waitFor({ timeout });
+    };
+    await verify(panel);
+    assert.equal(await page.evaluate(key => localStorage.getItem(key), holdingsKey), JSON.stringify(snapshot));
+    await screenshot(page, result, 'retained-cash');
+    await page.reload({ waitUntil: 'domcontentloaded', timeout });
+    const { panel: reloaded } = await openHoldings(page, result);
+    await verify(reloaded);
+    assert.equal(await page.evaluate(key => localStorage.getItem(key), holdingsKey), JSON.stringify(snapshot));
+    result.checks.push('older cash source, import time and account remain visible after holdings-only import and reload; exact per-currency amounts and stored bytes are unchanged');
 }
 
 async function runScenario(browser, definition) {
@@ -331,9 +394,24 @@ try {
             await table.getByRole('columnheader', { name: 'Source', exact: true }).waitFor({ timeout });
             await table.getByRole('row', { name: /MSFT/ }).getByText(/Second import/).waitFor({ timeout });
             await table.getByRole('row', { name: /AAPL/ }).getByText(/USD fixture/).waitFor({ timeout });
-            assert.equal(await panel.getByText('Cash by account').count(), 0, 'one cash account is carried by the currency total');
-            result.checks.push('mixed import sources stay attributed per row; a single cash account is not listed twice');
+            const cashList = panel.getByRole('heading', { name: 'Cash by account', exact: true }).locator('..');
+            await cashList.getByText(`USD fixture · ${fixtureDisplayTime}`, { exact: true }).waitFor({ timeout });
+            result.checks.push('mixed import sources stay attributed per row, including one cash account when the header has no shared source');
         } });
+        await runScenario(browser, { name: 'shared-source-single-cash-light-desktop', viewport: views[0], theme: 'light', mode: 'guest', snapshot: {
+            ...usdSnapshot,
+            cashBalances: [{ accountLabel: 'USD only', currency: 'USD', balance: 10, importedAt: fixtureTime, provenanceLabel: 'USD fixture' }],
+        }, async verify({ panel, result }) {
+            await panel.getByText(`Snapshot updated ${fixtureDisplayTime} · USD fixture · Saved on this device · Prices not loaded`, { exact: true }).waitFor({ timeout });
+            assert.equal(await panel.getByText('Cash by account').count(), 0, 'one cash account stays compact when the header states its exact source and import time');
+            result.checks.push('single-source holdings and cash retain the compact shared provenance line');
+        } });
+        for (const [viewport, theme] of [[views[0], 'light'], [views[2], 'dark']]) await runScenario(browser, {
+            name: `retained-cash-distinct-source-${theme}-${viewport.name}`, viewport, theme, mode: 'guest',
+            snapshot: retainedCashSnapshot, verify: verifyRetainedCash,
+        });
+        await runScenario(browser, { name: 'retained-cash-same-label-zero-light-tablet', viewport: views[1], theme: 'light', mode: 'guest', snapshot: retainedSameLabelSnapshot, verify: verifyRetainedCash });
+        await runScenario(browser, { name: 'retained-cash-two-currencies-dark-narrow', viewport: views[3], theme: 'dark', mode: 'guest', snapshot: retainedCurrenciesSnapshot, verify: verifyRetainedCash });
         let releaseLoading;
         const loadingGate = new Promise(resolve => { releaseLoading = resolve; });
         const loadingRun = runScenario(browser, { name: 'records-loading-light-desktop', viewport: views[0], theme: 'light', snapshot: usdSnapshot, mode: 'owner', watchlistGate: loadingGate, async verify({ panel, result }) {

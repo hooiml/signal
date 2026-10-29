@@ -89,6 +89,10 @@ unavailable storage, watchlist loading/failure and external snapshot refresh. Th
 writes its snapshot or requests a quote. Evidence is saved in `.tmp/research-holdings/`;
 `--before` captures the previous home. CI runs the same suite and uploads its diagnostics.
 This proves local UI behavior, not deployment.
+Retained-cash scenarios use the real import/merge helpers: a newer holdings-only import must
+keep a single older cash account's source and import date visible through reload. Cases also
+cover the same source label with an older import time, zero cash, and USD/MYR balances under
+one account, while a genuinely shared source remains compact.
 
 For G2 metric-to-Learn handoffs and G3 shared definitions, run `node scripts/learn-metric-links-qa.mjs` against one owned
 production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). The controlled API fixtures

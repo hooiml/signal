@@ -193,6 +193,9 @@ It uses the shared reconciliation and summary helpers with no current quotes: co
 stay separated by currency; current prices, market values and weights remain unavailable.
 Exact saved market/symbol matches open V8 Research. The import/update link opens the existing
 Portfolio workspace. Rendering and navigation never write or transmit holdings data.
+When holdings and cash have different source labels or import times, the cash rows retain
+their own attribution even for a single cash account. The overall snapshot update time does
+not replace the original import time of a retained cash balance.
 
 - Full Research initializes from persisted active records only. Demo watchlist values are
   never a fallback for loading, empty or failed saved-record reads. Deep-linked ticker
