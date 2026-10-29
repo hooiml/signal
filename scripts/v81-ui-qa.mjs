@@ -96,6 +96,7 @@ try {
             viewport: { width, height: 900 }, serviceWorkers: 'block', reducedMotion: 'reduce',
         });
         const page = await context.newPage();
+        await page.clock.setFixedTime(new Date('2026-10-29T00:00:00Z'));
         const errors = [];
         let unknownDate = false;
         let missingSnapshot = false;
@@ -134,8 +135,10 @@ try {
         await page.goto(base + '/main-v8');
         await page.getByTestId('connected-score').waitFor();
         const hero = page.getByRole('region', { name: 'Market assessment', exact: true });
-        await hero.getByRole('group', { name: 'Leading evidence' }).getByRole('button', { name: /Leading support: AAII Sentiment/ }).waitFor();
-        await hero.getByRole('group', { name: 'Leading evidence' }).getByRole('button', { name: /Leading conflict: VIX Index/ }).waitFor();
+        const brief = hero.getByTestId('market-brief');
+        await brief.getByRole('button', { name: 'Put/call ratio →', exact: true }).waitFor();
+        await brief.getByRole('button', { name: 'VIX Index →', exact: true }).waitFor();
+        assert.equal(await brief.locator('button[data-indicator="aaii"]').count(), 0, 'Stale AAII must not appear as fresh leading evidence.');
         assert.equal(await hero.getByTestId('connected-score').innerText(), '62');
         assert.match(await hero.innerText(), /65\.0% configured weight/);
         await hero.getByText('35.0% of configured weight uses neutral fallback for missing inputs.', { exact: true }).waitFor();
@@ -187,7 +190,8 @@ try {
             await page.reload(); await page.getByTestId('connected-score').waitFor();
             const putCallEvidence = indicatorEvidence.locator('button[data-indicator="put_call"]');
             const vixEvidence = indicatorEvidence.locator('button[data-indicator="vix"]');
-            await putCallEvidence.getByText('Freshness unknown', { exact: true }).waitFor();
+            await indicatorEvidence.getByText(/^Retrieved .*UTC · select an observation for details$/).waitFor();
+            await putCallEvidence.getByText('Stale · included by service', { exact: true }).waitFor();
             await vixEvidence.getByText('Context · not scored', { exact: true }).waitFor();
             assert.doesNotMatch(await vixEvidence.innerText(), /Momentum:|Contrarian:/);
             await putCallEvidence.click();

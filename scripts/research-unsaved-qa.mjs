@@ -216,10 +216,9 @@ try {
   assert.ok(colours.length>=3,'Multiple inputs and fallback must render');
   assert.equal(new Set(colours.map(c=>c.colour)).size,colours.length,'Each included indicator and fallback has a distinct colour');
   assert.ok(colours.every(c=>c.colour===c.legend),'Ring and legend identity colours match');
-  for(const marker of await page.getByRole('group',{name:'Leading evidence'}).locator('i[data-indicator]').all()) {
-   const indicator=await marker.getAttribute('data-indicator');
-   assert.equal(await marker.evaluate(node=>getComputedStyle(node).backgroundColor),colours.find(c=>c.key===indicator)?.colour);
-  }
+  const briefEvidenceKeys=await page.getByTestId('market-brief').locator('button[data-indicator]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-indicator')));
+  assert.ok(briefEvidenceKeys.length>0,'Latest Market Brief must retain at least one actionable evidence link');
+  assert.ok(briefEvidenceKeys.every(indicator=>colours.some(colour=>colour.key===indicator)),'Latest Market Brief evidence links must point to included coverage inputs');
   assert.match(await coverage.innerText(),/fresh|stale|unverified/,'Freshness stays explicit in text');
   await noOverflow();await page.screenshot({path:`${out}/market-colours-${theme}-${width}.png`});
   await coverage.screenshot({path:`${out}/market-ring-${theme}-${width}.png`});
@@ -227,7 +226,7 @@ try {
  await selectTheme('light');
  await page.getByText('How to read this assessment · methodology and limits',{exact:true}).click();
  await page.getByRole('region',{name:'Current market assessment',exact:true}).waitFor();
- marketScoreCase='unchanged';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/Score unchanged.*Individual inputs can still differ/}).waitFor();await page.getByTestId('market-hero-unchanged').filter({hasText:/^No change since /}).waitFor();assert.equal(await page.getByRole('region',{name:'Market assessment'}).getByRole('button',{name:/points vs/}).count(),0);
+ marketScoreCase='unchanged';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/Score unchanged.*Individual inputs can still differ/}).waitFor();await page.getByTestId('market-hero-unchanged').filter({hasText:/^Score unchanged since /}).waitFor();assert.equal(await page.getByRole('region',{name:'Market assessment'}).getByRole('button',{name:/points vs/}).count(),0);
  marketScoreCase='missing';await page.getByRole('button',{name:'Reload data',exact:true}).click();await page.getByTestId('market-comparison').filter({hasText:/No earlier comparable score supplied/}).waitFor();
  marketScoreCase='normal';await page.getByLabel('Market',{exact:true}).selectOption('MY');
  // Scope the repeated VIX label to its visible indicator-list control.
@@ -258,14 +257,27 @@ try {
   if(mode==='Contrarian'){await noOverflow();await page.screenshot({path:`${out}/market-contrarian-${width}.png`,fullPage:true});}
  }
  await page.getByRole('button', { name: 'Detailed view', exact: true }).click();
- const leadingEvidence=page.getByRole('group',{name:'Leading evidence',exact:true});
- await leadingEvidence.locator('summary',{hasText:'What support and conflict mean'}).click();
- await leadingEvidence.getByText(/A conflict means a different indicator category, not necessarily a negative reading/).waitFor();
- assert.ok(await leadingEvidence.getByText(/Indicator category:.*overall:/).count()>0);
- const evidenceBoxes=await leadingEvidence.locator('button').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};}));
- assert.ok(evidenceBoxes.length>0&&evidenceBoxes.every(r=>r.height>=44&&r.x>=-1&&r.x+r.width<=width+1),'Market evidence buttons must fit and be touch-sized');
+ const latestBrief=page.getByTestId('market-brief');
+ await latestBrief.getByRole('heading',{name:/^Latest Market Brief/}).waitFor();
+ await latestBrief.getByText('Leading support',{exact:true}).waitFor();
+ await latestBrief.getByText('Leading conflict',{exact:true}).waitFor();
+ await latestBrief.locator('summary').click();
+ await latestBrief.getByText(/Leading evidence is selected by weight among fresh inputs/).waitFor();
+ const evidenceBoxes=await latestBrief.locator('button[data-indicator]').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};}));
+ if(evidenceBoxes.length){
+  assert.ok(evidenceBoxes.every(r=>r.height>=44&&r.x>=-1&&r.x+r.width<=width+1),`Latest Market Brief evidence buttons must fit and be touch-sized at ${width}px: ${JSON.stringify(evidenceBoxes)}`);
+ }else{
+  assert.equal(await latestBrief.getAttribute('data-status'),'unavailable','A brief without evidence links must withhold the current assessment');
+  assert.equal(await latestBrief.getByText('Withheld until the evidence supports an assessment.',{exact:true}).count(),2,'Unavailable brief withholds both support and conflict links');
+ }
  await noOverflow();await page.screenshot({path:`${out}/market-summary-${width}.png`,fullPage:true});
- await leadingEvidence.getByRole('button').first().focus();await page.keyboard.press('Enter');
+ const vixBriefLink=latestBrief.locator('button[data-indicator="vix"]').first();
+ if(await vixBriefLink.count()){
+  await vixBriefLink.focus();await page.keyboard.press('Enter');
+ }else{
+  const vixIndicator=page.getByRole('region',{name:'Explore indicators',exact:true}).getByRole('button',{name:'US VIX (FX proxy unavailable)',exact:true});
+  await vixIndicator.focus();await page.keyboard.press('Enter');
+ }
 
  await page.getByRole('heading',{name:'US VIX (FX proxy unavailable)',exact:true}).waitFor();
  assert.ok((await page.getByText('Observation date unavailable',{exact:true}).count())>0);
