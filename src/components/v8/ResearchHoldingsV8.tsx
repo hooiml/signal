@@ -53,9 +53,9 @@ export function ResearchHoldingsV8({ records, onOpen }: {
     const first = snapshot?.holdings[0] ?? snapshot?.cashBalances[0];
     // A source imported at the snapshot's own time needs no second timestamp.
     const sharedSource = !first || perRowSource ? '' : first.importedAt === snapshot?.updatedAt ? first.provenanceLabel : sources[0];
-    // Currency totals already carry cash; list accounts only when they add information.
+    // Currency totals carry cash; retain its rows when the shared header cannot state their source.
     const showCashAccounts = snapshot !== null && snapshot.cashBalances.length > 0
-        && (new Set(snapshot.cashBalances.map(cash => cash.accountLabel)).size > 1 || !snapshot.holdings.length);
+        && (perRowSource || new Set(snapshot.cashBalances.map(cash => cash.accountLabel)).size > 1 || !snapshot.holdings.length);
 
     return <section className={styles.root} aria-labelledby="research-holdings-title">
         <header className={styles.header}>

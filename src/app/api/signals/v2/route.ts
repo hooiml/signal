@@ -11,7 +11,7 @@ const isMarketRegion = (value: string): value is MarketRegion => value === 'US' 
 const isMarketMode = (value: string): value is MarketMode => value === 'standard' || value === 'contrarian';
 const isBooleanParam = (value: string | null) => value === null || value === 'true' || value === 'false';
 const signalCache = createSignalCache<Awaited<ReturnType<typeof getSmartSignal>>>(
-    (signal) => signal.meta.status !== 'ERROR',
+    (signal) => signal.meta.status !== 'ERROR' && signal.v2?.metadata.snapshot_persistence?.status === 'persisted',
 );
 
 export async function GET(req: NextRequest) {

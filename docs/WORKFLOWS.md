@@ -188,6 +188,11 @@ stale observation as fresh. A manual refresh proves that run, not future cron ru
   - `MY + standard + social on`
   - `MY + contrarian + social on`
 - For a fuller manual warm, call `/api/signals/refresh?includeSourceOff=true` with the same cron/admin authorization header so source-off variants are also refreshed.
+- Refresh success requires a confirmed snapshot write for every target. Results include a
+  `snapshotPersistence` status and date; a usable score alone does not establish a saved snapshot.
+  The route continues through the remaining targets after a failure and returns HTTP 503 with
+  the partial results when any target fails. Retry the failed warm after resolving the reported
+  dependency issue; the existing daily upsert keeps repeated successful writes on the same key.
 - AAII is refreshed every Thursday at 15:00 UTC, after its normal weekly publication window. The signal warm then consumes the newest stored institutional value.
 - NAAIM is fetched without the framework data cache whenever a US signal is calculated, so the weekly table cannot remain pinned to an older cached page.
 
@@ -229,7 +234,10 @@ overhead, not pure SQL execution time. Snapshot stages are nested inside `snapsh
 nested inside `signal_cache` and `signal`; do not add them together. Calibration includes its
 one-hour cache lookup and any cache-miss work. Score-cache hits and shared waiters report only
 their own cache wait and handler time, without reusing the loader request's stage timings.
-Existing `X-Signal-Cache`, payloads, cache keys/TTL, awaited saving and error behavior are preserved.
+`X-Signal-Cache`, cache keys/TTL and awaited saving are preserved. A usable public reading
+remains available when storage fails, with additive `metadata.snapshot_persistence` describing
+whether its write was confirmed. Such unconfirmed readings are not cached. The protected warm
+uses the stricter all-target persistence contract described under Scheduled Refresh above.
 
 ## Production bundler
 

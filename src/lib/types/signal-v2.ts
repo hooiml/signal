@@ -53,6 +53,10 @@ export interface ConfidenceMetrics {
     cap_reason?: string;
 }
 
+export type SignalSnapshotPersistence =
+    | { status: 'persisted'; snapshot_date: string }
+    | { status: 'unavailable'; snapshot_date: null };
+
 /**
  * Full Market Signal (v2 Output)
  */
@@ -174,6 +178,8 @@ export interface MarketSignal {
             source_url: string;
         };
         market_context?: MarketContextData;
+        // Confirmation for this response's daily history write, independent of reading availability.
+        snapshot_persistence?: SignalSnapshotPersistence;
         score_delta?: {
             previous_score: number | null;
             delta: number | null;

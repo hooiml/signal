@@ -4,9 +4,9 @@ import path from 'node:path';
 import ts from 'typescript';
 
 // Real orchestration, scoring, persistence and route; isolated raw providers and SQL.
-export function marketRequestFixture({ allowSchema = false, signalSource, providerReadings = {}, previousSnapshot, providerOverrides, providerFetch, auraRows, rawMarketData = {}, sourceConfiguration = {} } = {}) {
+export function marketRequestFixture({ allowSchema = false, signalSource, providerReadings = {}, previousSnapshot, providerOverrides, providerFetch, auraRows, rawMarketData = {}, sourceConfiguration = {}, snapshotWriteRows } = {}) {
     const modules = new Map(), calls = [], events = [], providerTimeouts = [];
-    let failure = '', hold = null, sqlHold = null;
+    let failure = '', sqlFailure = null, hold = null, sqlHold = null;
     const fixedTime = '2026-09-12T00:00:00.000Z';
     class FixedDate extends Date {
         constructor(...args) { super(...(args.length ? args : [fixedTime])); }
@@ -55,13 +55,14 @@ export function marketRequestFixture({ allowSchema = false, signalSource, provid
         calls.push({ query, values });
         if (sqlHold && query.includes('FROM signal_snapshots')) await sqlHold;
         if (failure && query.includes(failure)) throw new Error('Fixture database unavailable');
+        if (sqlFailure?.(query, values)) throw new Error('Fixture private database failure');
         if (/^(CREATE|ALTER) /.test(query)) {
             if (!allowSchema) throw new Error('Unexpected DDL in Market request');
             return [];
         }
         if (query.includes('FROM market_signals')) return auraRows ?? [{ signal_date: '2026-09-12', summary: 'Fixture neutral market', key_drivers: [], outlook: 'Fixture outlook' }];
         if (query.includes('FROM signal_snapshots')) return [previousSnapshot ?? { snapshot_date: '2026-09-11', composite_score: 45, tier: 'neutral', components: { vix: { score: 45, weight: 1 } }, score_drivers: [], origin: 'observed', coverage_note: null }];
-        if (query.startsWith('INSERT INTO signal_snapshots')) return [];
+        if (query.startsWith('INSERT INTO signal_snapshots')) return snapshotWriteRows ?? [{ snapshot_date: fixedTime.slice(0, 10) }];
         throw new Error(`Unexpected SQL: ${query}`);
     };
     const safeModules = new Set(['signal', 'signal-cache', 'sentiment-calculator', 'sentiment-calculator-v2', 'market-score-thresholds', 'market-evidence-coverage', 'market-observation-date', 'social-sentiment', 'indicator-registry', 'signal-change', 'source-indicator', 'market-calibration', 'market-indicators', 'aura-cache', 'MarketV8ConnectedData', 'route-auth']);
@@ -120,7 +121,9 @@ export function marketRequestFixture({ allowSchema = false, signalSource, provid
         route: load('src/app/api/signals/v2/route.ts'), signal: load('src/lib/signal.ts'), calls, events, providerTimeouts,
         parseSignal: load('src/components/v8/MarketV8ConnectedData.ts').parseConnectedSignal,
         debugRoute: () => load('src/app/api/signals/debug/route.ts'),
+        refreshRoute: () => load('src/app/api/signals/refresh/route.ts'),
         setFailure(value) { failure = value; },
+        setSqlFailure(predicate) { sqlFailure = predicate; },
         setHold(value) { hold = value; },
         setSqlHold(value) { sqlHold = value; },
         request(query = '') { return new Request(`http://fixture.invalid/api/signals/v2?${query}`); },

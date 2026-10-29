@@ -6,7 +6,7 @@ import { calculateSentimentScore, getScoreDescription, SentimentOutput } from '@
 import { combineAvailableSentiment } from '@/lib/social-sentiment';
 import { sql } from '@/lib/db';
 import { calculateCompositeScoreV2 } from './sentiment-calculator-v2';
-import { IndicatorData, MarketSignal, SignalTier } from './types/signal-v2';
+import { IndicatorData, MarketSignal, SignalSnapshotPersistence, SignalTier } from './types/signal-v2';
 import { getLatestInstitutionalData } from './institutional-service';
 import { BuffettIndicatorData, fetchBuffettIndicator, fetchCboePutCallRatio, fetchNaaimExposure, normalizeNaaimExposure, normalizePutCallRatio, NaaimExposureData, PutCallRatioData } from './market-indicators';
 import { fetchMarketContext } from './market-context';
@@ -324,8 +324,8 @@ async function persistSignalSnapshot(
     options: { market: MarketType; mode: MarketMode; enableSocial: boolean },
     onTiming?: SignalTimingObserver,
 ) {
+    let persistence: SignalSnapshotPersistence = { status: 'unavailable', snapshot_date: null };
     try {
-        const today = new Date().toISOString().slice(0, 10);
         const [previousRows, historyBefore] = await Promise.all([
             measureSignalStage('snapshot_previous', () => sql`
             SELECT snapshot_date::text as snapshot_date, composite_score, tier, components, score_drivers, metadata_snapshot
@@ -376,7 +376,7 @@ async function persistSignalSnapshot(
             market_context: signal.metadata.market_context,
         };
 
-        await measureSignalStage('snapshot_write', () => sql`
+        const writtenRows = await measureSignalStage('snapshot_write', () => sql`
             INSERT INTO signal_snapshots (
                 market_type, mode, enable_social, snapshot_date, composite_score, tier,
                 confidence_level, agreement_pct, majority_signal, components, score_drivers,
@@ -414,7 +414,11 @@ async function persistSignalSnapshot(
                 origin = 'observed',
                 coverage_note = NULL,
                 updated_at = NOW()
+            RETURNING snapshot_date::text AS snapshot_date
         `, onTiming);
+        const today = writtenRows[0]?.snapshot_date;
+        if (typeof today !== 'string') throw new Error('Signal snapshot write acknowledgement unavailable');
+        persistence = { status: 'persisted', snapshot_date: today };
 
         const previous = previousRows[0];
         const delta = previous ? signal.composite_score - Number(previous.composite_score) : null;
@@ -453,7 +457,7 @@ async function persistSignalSnapshot(
             ...historyBefore.filter(row => row.snapshot_date !== today)
         ].slice(0, 90);
 
-        return {
+        const context = {
             scoreDelta: {
                 previous_score: previous ? Number(previous.composite_score) : null,
                 delta,
@@ -481,9 +485,10 @@ async function persistSignalSnapshot(
                     coverage_note: row.coverage_note ?? null,
                 }))
         };
+        return { persistence, context };
     } catch (error) {
-        console.error('Signal snapshot logging failed:', error);
-        return null;
+        console.error(persistence.status === 'persisted' ? 'Signal snapshot context failed:' : 'Signal snapshot logging failed:', error);
+        return { persistence, context: null };
     }
 }
 
@@ -1036,7 +1041,9 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             note: 'Historical score snapshots are needed before this dashboard can show signal changes and hit-rate evidence.'
         };
 
-        const snapshotState = await measureSignalStage('snapshot', () => persistSignalSnapshot(v2Signal, { market, mode, enableSocial }, onTiming), onTiming);
+        const snapshotResult = await measureSignalStage('snapshot', () => persistSignalSnapshot(v2Signal, { market, mode, enableSocial }, onTiming), onTiming);
+        v2Signal.metadata.snapshot_persistence = snapshotResult.persistence;
+        const snapshotState = snapshotResult.context;
         if (snapshotState) {
             v2Signal.metadata.score_delta = snapshotState.scoreDelta;
             v2Signal.metadata.score_history = snapshotState.history;
