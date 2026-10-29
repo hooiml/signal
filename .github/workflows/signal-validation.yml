@@ -142,6 +142,7 @@ jobs:
           node scripts/v8-display-qa.mjs
           node scripts/research-reading-qa.mjs
           node scripts/research-due-review-qa.mjs
+          node scripts/watchlist-review-qa.mjs
           node scripts/research-earnings-qa.mjs
           node scripts/research-holdings-qa.mjs
           node scripts/research-unsaved-qa.mjs
@@ -182,6 +183,8 @@ jobs:
             .tmp/market-clarity/*.png
             .tmp/research-provenance/browser/*.json
             .tmp/research-provenance/browser/*.png
+            .tmp/watchlist-review/**/*.json
+            .tmp/watchlist-review/**/*.png
             .tmp/research-readiness-qa/**/*.json
             .tmp/research-readiness-qa/**/*.png
             .tmp/research-structured-triggers-qa/*.json

@@ -20,6 +20,22 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 
 ## Runtime Shape
 
+The connected Research Watchlist derives its review view from loaded records through
+`src/lib/research/watchlist-review.ts`. It reuses R2's `dueReviewReasons`: scheduled
+reviews include today, while authored-review age deadlines become stale the next UTC
+day. The queue includes overdue records and explicit schedules through the current UTC
+Sunday, oldest date first; an independent stale deadline takes precedence over a later
+schedule. Unknown/invalid dates remain unscheduled. Sorting and filtering never write
+records, complete reviews, or fetch quotes. Midnight and tab visibility refresh the day.
+
+Search and market controls reuse the connected stock switcher's state; sort and queue
+choices live only in the mounted home. Default saved order is retained, with symbol and
+review-due alternatives and symbol/market tie breaking. Owner actions use the existing
+exact-market editable Research handoff in a new tab. Guests have no schedules or review
+actions. Price sorts remain explicitly unavailable: `ResearchRecord` has neither current
+quotes/daily percentage changes nor 52-week highs. Stock-detail snapshots have those
+fields, but the Watchlist does not load them; no quote fan-out or new data contract is added.
+
 L2/T2/T3 keep connected V8 missing-data presentation local to existing responses.
 Market exposure uses an inline Research action; empty historical outcomes retain both
 horizon headings and the supplied sample threshold. Research omits the annual summary

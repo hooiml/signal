@@ -57,6 +57,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E24 | Shared V8 component kit (G8) | Verified | High | Preserve markup, classes, selection semantics and freshness provenance; G7 regression guard |
 | E25 | Trim G-series V8 UI | In progress | Standard | Same data, storage and flows; Linux visual baselines need re-enrollment from CI |
 | E26 | Compact missing data and MY coverage (L2 + T2 + T3) | Verified | Standard | Local fixture proof; draft review, merge and deployment remain separate |
+| E27 | Watchlist review queue and supported sorting (L4 + W1) | Verified | Standard | Local fixture proof; price sorts remain deferred for missing Watchlist quote data |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -64,6 +65,45 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E7 | Malaysia primary-source parity | Blocked, provider-gated | Standard | Approved official or licensed announcement source |
 
 ## Items
+
+### E27 — Watchlist review queue and supported sorting (L4 + W1)
+
+**Scope:** One connected Watchlist workflow, preserving default saved order and adding
+symbol and review-due ordering. Owner Due this week includes overdue records and explicit
+schedules through the current Sunday UTC, oldest first. Scheduled dates include today;
+authored-review age deadlines enter only after passing, as in Calendar/R2. An independent
+stale deadline is not hidden by a future schedule. Unknown dates sort last; ties use symbol
+then market. Search and market state are shared with the existing stock switcher. Counts
+use only loaded matching records. Control use keeps Watchlist open through empty/locked
+refreshes; queue/sort choices remain temporary. Owner actions open the exact ticker/market
+in the existing editable review workflow in a new tab. Guests acquire no schedules/history.
+
+**Data boundary:** The populated home receives `ResearchRecord`, with no current quote,
+daily percentage change or 52-week high. Those fields exist only in stock-detail snapshots.
+Closest-to-high and biggest-daily-percentage-move sorts are visibly disabled with an explanation.
+This part of L4 remains deferred pending an approved Watchlist quote contract; no background
+fan-out, inferred historical prices, raw cross-currency comparison, schema, scoring or
+authorization change is included. Sorting/filtering never updates a record or completes a review.
+
+**Verification (29 October 2026):** Standard lane. Lint, full harness, production build and
+post-build typecheck pass. Pure regressions cover UTC week/year/leap-day boundaries, age rules,
+invalid dates, unknown-last ordering, deterministic ties and immutable records. The Watchlist
+browser suite passes 19 fixture scenarios: owner US/MY and guests, light/dark at
+1280/768/375/320px, filters/sorts, absent schedules, loading/failure/empty, retained refresh
+failures, refreshed queue membership, Sunday midnight, implicit-home empty/401 recovery,
+keyboard and actual US/MY editor handoffs preserving an open draft. Request checks reject
+mutations and quote reads from the Watchlist; only explicit editor navigation uses its existing
+read-only requests. Independent review found and verified the recovery-tab fix.
+
+Existing due-review (21 scenarios), display (20), presentation, unsaved/guest and Holdings
+(23) suites pass. All 20 Windows visual comparisons pass without changed goldens. Before/after
+screenshots, geometry, request evidence and the 94/100 visual verdict live in
+`.tmp/watchlist-review/`; related evidence is in `.tmp/research-due-review/`,
+`.tmp/display-clarity/`, `.tmp/v81-presentation/`, `.tmp/current-assessment/browser/`,
+`.tmp/guest-workspace/`, `.tmp/guest-recovery/`, `.tmp/research-holdings/` and `.tmp/visual-checks/`.
+The narrow 320px Watchlist-tab wrap also exists in the baseline. Tests used one owned
+production server at `http://127.0.0.1:3000`. These are local fixture results, not live-provider,
+merge or deployment proof. Remote PR checks remain a separate delivery receipt.
 
 ### E26 — Compact missing data and MY coverage (L2 + T2 + T3)
 
@@ -671,3 +711,4 @@ contract is recorded.
 | 2026-10-25 | E24 | — | Verified | Five shared primitives with Market/Research consumers, full local checks, affected browser matrices, independent review and 20 unchanged Windows visual comparisons. |
 | 2026-10-25 | E25 | — | In progress | Holdings, first-visit, Settings and toggle-naming trim; local checks and Windows baselines pass; Linux re-enrollment pending CI. |
 | 2026-10-29 | E26 | — | Verified | L2/T2/T3 local Standard checks, affected browser fixtures, independent review and unchanged Windows goldens; draft review and remote CI remain separate. |
+| 2026-10-29 | E27 | — | Verified | W1 plus supported L4 sorts; UTC/ordering regressions, 19 Watchlist scenarios, affected suites, independent review and unchanged Windows goldens pass. Price sorts remain data-contract gated; draft review and remote CI are separate. |

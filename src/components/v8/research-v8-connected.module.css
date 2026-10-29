@@ -379,13 +379,34 @@
 .homeList { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
 .homeList button { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "symbol arrow" "name arrow" "meta arrow"; gap: 2px 10px; width: 100%; min-height: 76px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); text-align: left; }
 .homeList button:hover { border-color: var(--brand); }
-.homeList b { grid-area: symbol; font-family: var(--font-mono); font-size: var(--text-md); }
-.homeList span:not([aria-hidden]) { grid-area: name; overflow: hidden; font-size: var(--text-sm); white-space: nowrap; text-overflow: ellipsis; }
-.homeList small { grid-area: meta; color: var(--muted); font-size: var(--text-xs); }
-.homeList span[aria-hidden] { grid-area: arrow; align-self: center; color: var(--link); }
+.homeList button b { grid-area: symbol; font-family: var(--font-mono); font-size: var(--text-md); }
+.homeList button span:not([aria-hidden]) { grid-area: name; overflow: hidden; font-size: var(--text-sm); white-space: nowrap; text-overflow: ellipsis; }
+.homeList button small { grid-area: meta; color: var(--muted); font-size: var(--text-xs); }
+.homeList button span[aria-hidden] { grid-area: arrow; align-self: center; color: var(--link); }
+.homeControls { display: grid; grid-template-columns: minmax(160px, 1fr) 90px minmax(200px, 1fr) auto; gap: 12px; align-items: end; }
+.homeControls label { display: grid; gap: 6px; min-width: 0; color: var(--muted); font-size: var(--text-sm); }
+.homeControls input, .homeControls select { width: 100%; min-width: 0; height: 42px; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; }
+.homeControls > button { min-height: 42px; }
+.homeNote { margin: 12px 0; color: var(--muted); font-size: var(--text-sm); }
+.homeViews { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; padding: 0; border: 0; }
+.homeLegend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.homeViews button { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; }
+.homeViews button[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); color: var(--brand); }
+.homeList li { min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.homeList li > button { border: 0; border-radius: 0; }
+.homeList li > button:hover { background: var(--surface-muted); }
+.homeReview { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--line); font-size: var(--text-xs); }
+.homeReview > div { display: grid; gap: 3px; flex: 1; }
+.homeReview b { font-family: inherit; font-size: var(--text-sm); }
+.homeReview small { color: var(--muted); }
+.homeReview time { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.homeReview a { display: inline-flex; align-items: center; min-height: 36px; color: var(--link); font-weight: 650; }
+.homeControls :focus-visible, .homeViews :focus-visible, .homeList :focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+@media (max-width: 900px) { .homeControls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 @media (max-width: 600px) {
     .homeTabs button { flex: 1; justify-content: center; padding: 0 10px; }
     .homeList { grid-template-columns: minmax(0, 1fr); }
+    .homeControls { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Quote band: the price and Save beside the price context, one card divided by a rule. */

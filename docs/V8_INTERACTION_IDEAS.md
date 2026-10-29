@@ -256,12 +256,18 @@ restoring an edge fade. Keyboard selection, direct links and resizing keep the a
 - Why: "Filings" is cut at the screen edge with no hint; the edge fade was removed in `b7cf762`, so
   the fix must not bring a fade back.
 
-#### L4 · Watchlist sorting and review of the populated list
+#### L4 · Watchlist sorting and review of the populated list · Bounded implementation (E27)
 
 - What: sort the Watchlist by review due, closest to the 52-week high, or biggest move; figures
   right-aligned in tabular digits. First review the populated Watchlist screen, which has not been
   checked with saved stocks.
 - Why: the Watchlist is the home for returning users and currently has one fixed order.
+
+E27 adds saved/symbol/review-due ordering and W1 inside the populated Watchlist. Price
+sorts remain visibly unavailable: saved records contain no current daily percentage
+change or 52-week high, and the list does not fetch stock-detail snapshots. No quote
+fan-out, historical-price inference or cross-currency raw-amount comparison is added.
+The price-sort portion remains deferred until an explicitly approved data contract exists.
 
 #### L5 · One "last updated" line per screen
 
@@ -298,10 +304,14 @@ the Bursa action and response-specific historical capability details are retaine
 
 ### Research workflow
 
-#### W1 · Review queue
+#### W1 · Review queue · Implemented in Watchlist (E27)
 
 - What: stocks with a review due this week as a short inbox, oldest first, one tap to start each.
 - Why: Calendar counts overdue reviews; this makes clearing them a single place. Pairs with R2.
+
+The owner Watchlist's Due this week view includes overdue records and explicit schedules
+through Sunday UTC, oldest first. It reuses Calendar/R2 stale deadlines and the existing
+editable Research handoff in a new tab. Guest bookmarks acquire no schedule or history.
 
 #### W2 · Side-by-side compare
 
@@ -469,7 +479,8 @@ with G (global); the current delivery status and remaining scope are recorded un
 
 The later items are not ranked against these yet. L1 and L3 are implemented (E16, E15). Quick
 wins L2 empty states, T2 data-gap explainer and T3 Malaysia coverage are implemented as E26;
-W1 review queue remains separate from R2. G2–G8 are implemented, including G8's shared kit (E24). G1's read-only,
+W1 now lives in the Watchlist alongside the supported L4 sorts (E27), reusing R2 due semantics.
+L4 price sorting remains data-contract gated. G2–G8 are implemented, including G8's shared kit (E24). G1's read-only,
 cost-only Holdings slice is implemented; import, reconciliation, attribution and what-if
 editing still live in G6's canonical `/research` Portfolio workspace. Migrating those advanced
 jobs into V8 remains a separate design task. Retained Market engines live at `/market/tools`.
