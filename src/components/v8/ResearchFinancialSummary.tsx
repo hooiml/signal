@@ -21,6 +21,10 @@ import connected from './research-v8-connected.module.css';
 export function ResearchFinancialSummary({ fundamentals }: { fundamentals: ResearchSnapshot['fundamentals'] | undefined }) {
     const period = fundamentals?.history.find(row => row.reportingPeriod === fundamentals.reportingPeriod);
     const rows: readonly [string, AnnualAmount][] = [['Annual revenue', 'annualRevenue'], ['Annual net income', 'annualNetIncome'], ['Free cash flow', 'freeCashFlow']];
+    // The availability note already names an entirely missing annual summary.
+    // Keep a supplied growth figure even when the underlying amount is absent.
+    if (!rows.some(([, key]) => fundamentals?.[key] != null && Number.isFinite(fundamentals[key]))
+        && !(fundamentals?.revenueGrowthPercent != null && Number.isFinite(fundamentals.revenueGrowthPercent))) return null;
     return <dl className={`${styles.valuationInputs} ${connected.financialSummary}`}>
         {rows.map(([label, key]) => {
             const value = fundamentals?.[key];

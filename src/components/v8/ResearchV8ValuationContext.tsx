@@ -14,8 +14,8 @@ import { date, number, price } from './research-v8-connected-data';
 import { MetricGlossary } from './MetricGlossary';
 import type { LearnMetric } from '@/lib/learn/metric-links';
 import base from './market-v8.module.css';
-import styles from './research-v8.module.css';
 import connected from './research-v8-connected.module.css';
+import { V8EmptyState } from './V8Primitives';
 
 type MetricKey = 'priceEarnings' | 'priceSales' | 'freeCashFlowYield';
 
@@ -178,7 +178,6 @@ export function HistoricalValuationV8({
         >
             <summary>Compare with filing-aligned historical valuation {market === 'MY' ? '(US SEC 10-K boundary)' : '(SEC 10-K)'}</summary>
             <div className={connected.historicalValuation}>
-                <p>Annual filing observations pair facts from one SEC 10-K accession with the first daily close strictly after its filed date. They are discrete historical observations, not continuous daily multiples or fair-value targets.</p>
                 {state === 'loading' && <p role="status">Loading filing-aligned historical valuation observations…</p>}
                 {state === 'error' && (
                     <div className={connected.warning} role="alert">
@@ -188,6 +187,9 @@ export function HistoricalValuationV8({
                 )}
                 {state === 'ready' && report && (
                     <>
+                        <details open={report.observations.length > 0}>
+                        <summary>Coverage and source details</summary>
+                        <p>Annual filing observations pair facts from one SEC 10-K accession with the first daily close strictly after its filed date. They are discrete historical observations, not continuous daily multiples or fair-value targets.</p>
                         <div className={connected.capabilityGrid}>
                             {([
                                 ['Historical prices', report.capabilities.historicalPrices],
@@ -208,10 +210,11 @@ export function HistoricalValuationV8({
                                 <p>{report.warnings.join(' ')}</p>
                             </div>
                         )}
+                        </details>
                         {report.observations.length === 0 ? (
-                            <p className={styles.gapNote} data-testid="v8-historical-valuation-empty">
-                                No safe filing-aligned valuation observations are available for {symbol}. Capability details above explain the market or provider boundary.
-                            </p>
+                            <V8EmptyState data-testid="v8-historical-valuation-empty" message={report.capabilities.periodCorrectFundamentals.status === 'unavailable'
+                                ? 'Filing-aligned valuation needs period-correct filing facts, which this response does not supply.'
+                                : `No safe filing-aligned valuation observations were returned for ${symbol}; inspect coverage and source details.`} />
                         ) : (
                             <>
                                 <div className={connected.historicalControls}>

@@ -6,13 +6,14 @@ import type { ResearchCalendarEvent } from '@/lib/types/research-calendar';
 import { parseResearchCalendarResponse } from '@/lib/research/calendar-response';
 import { earningsCalendarInput, earningsTimingLabel, nextEarningsEvent } from '@/lib/research/earnings-ticket';
 import styles from './research-earnings-ticket.module.css';
+import { researchPanelCoverage } from '@/lib/research/reading-display';
 
 export function ResearchEarningsTicket({ symbol, market }: { symbol: string; market: ResearchMarket }) {
     const [attempt, setAttempt] = useState(0);
     const key = `${market}:${symbol}:${attempt}`;
     const [result, setResult] = useState<{ key: string; event: ResearchCalendarEvent | null; failed: boolean } | null>(null);
     useEffect(() => {
-        if (market !== 'US') return;
+        if (!researchPanelCoverage(market).earningsDates) return;
         const controller = new AbortController();
         const timeout = setTimeout(() => { controller.abort(); setResult({ key, event: null, failed: true }); }, 15_000);
         fetch(`/api/research/calendar?range=30&type=earnings&market=${market}&ticker=${encodeURIComponent(symbol)}`, {
@@ -30,7 +31,7 @@ export function ResearchEarningsTicket({ symbol, market }: { symbol: string; mar
     }, [key, symbol, market]);
     const current = result?.key === key ? result : null;
     const event = current?.event;
-    if (market === 'MY') return <p className={styles.status} data-testid="earnings-ticket">Earnings · Malaysia coverage unavailable</p>;
+    if (!researchPanelCoverage(market).earningsDates) return null;
     if (!current) return <p className={styles.status} data-testid="earnings-ticket" role="status">Earnings · Checking dates…</p>;
     if (current.failed) return <p className={styles.status} data-testid="earnings-ticket">Earnings · Could not load dates. <button type="button" onClick={() => setAttempt(value => value + 1)}>Retry earnings</button></p>;
     if (!event) return <p className={styles.status} data-testid="earnings-ticket">Earnings · No date supplied in the next 30 days</p>;

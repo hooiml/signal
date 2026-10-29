@@ -56,6 +56,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E23 | Visual comparisons in CI (G7) | Verified | Standard | Reviewed platform-specific baselines and a passing pinned Linux comparison |
 | E24 | Shared V8 component kit (G8) | Verified | High | Preserve markup, classes, selection semantics and freshness provenance; G7 regression guard |
 | E25 | Trim G-series V8 UI | In progress | Standard | Same data, storage and flows; Linux visual baselines need re-enrollment from CI |
+| E26 | Compact missing data and MY coverage (L2 + T2 + T3) | Verified | Standard | Local fixture proof; draft review, merge and deployment remain separate |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -63,6 +64,31 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E7 | Malaysia primary-source parity | Blocked, provider-gated | Standard | Approved official or licensed announcement source |
 
 ## Items
+
+### E26 — Compact missing data and MY coverage (L2 + T2 + T3)
+
+**Scope:** Connected V8 Market exposure and insufficient/unavailable historical outcomes;
+Research annual summary, Financials/Valuation availability notices and empty filing-aligned
+valuation; one MY explanation for SEC filing discovery, filing-aligned valuation and Nasdaq
+earnings. Demo surfaces, Watchlist sorting, freshness, scoring and advanced Portfolio are excluded.
+
+**Acceptance:** Keep headings, useful existing actions, dates and provenance findable. Preserve
+loading/error/empty distinctions, partial/zero/growth figures and owner/guest behavior. Name
+missing dependencies only when existing values or capability statuses establish them. Keep
+unknown causes generic and avoid treating all Malaysian financial data as unsupported.
+
+**Verification (29 October 2026):** Standard lane. Lint, full harness, production build,
+post-build typecheck and independent review pass. Browser fixtures cover Market's full
+28-check matrix plus an 18-check final layout rerun, Research missing/partial/zero/growth
+figures, owner/guest coverage, empty/error states, keyboard, requests and light/dark
+1280/768/375/320px geometry. Existing display, presentation, earnings and unsaved/guest suites pass;
+all 20 Windows visual comparisons pass with no baseline changes. Reviewed screenshots
+and the 94/100 visual verdict are in `.tmp/v8-data-gaps/`; related reports are in
+`.tmp/market-mobile-sections/`, `.tmp/display-clarity/` and `.tmp/visual-checks/`.
+Tests used the owned production server at `http://127.0.0.1:3000` with local fixtures.
+Initial QA setup issues (the earnings script's default port and a missing disclosure
+click in the new test) were corrected; no product regression remained. This is local
+verification on `codex/v8-data-gap-clarity`, not merge, deployment or live-provider proof.
 
 ### E1 — Price chart visual QA
 
@@ -644,3 +670,4 @@ contract is recorded.
 | 2026-10-25 | E23 | — | Verified | Twenty reviewed Windows and Linux baselines, deliberate failure probes, independent review and a passing pinned Linux comparison in run 40193090823. |
 | 2026-10-25 | E24 | — | Verified | Five shared primitives with Market/Research consumers, full local checks, affected browser matrices, independent review and 20 unchanged Windows visual comparisons. |
 | 2026-10-25 | E25 | — | In progress | Holdings, first-visit, Settings and toggle-naming trim; local checks and Windows baselines pass; Linux re-enrollment pending CI. |
+| 2026-10-29 | E26 | — | Verified | L2/T2/T3 local Standard checks, affected browser fixtures, independent review and unchanged Windows goldens; draft review and remote CI remain separate. |
