@@ -4,6 +4,22 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For L4/W1 Watchlist sorting and review queue, run lint, full harness, production build
+and post-build typecheck. Run `node scripts/watchlist-review-qa.mjs` on the single owned
+production server at `SIGNAL_QA_URL=http://127.0.0.1:3000`; `--before` captures the former
+populated list. Owner US/MY and guest fixtures cover saved/symbol/review ordering,
+search/market combinations, overdue/today/upcoming/absent schedules, refresh, empty and
+failed/loading states, keyboard and exact new-tab review links. They reject writes and
+quote fan-out; unavailable price sorts are disabled rather than given synthetic values.
+Light/dark captures and control/row geometry cover 1280/768/375/320px. Evidence is in
+`.tmp/watchlist-review/`. Review the before/after screenshots; do not update visual goldens.
+`scripts/harness/watchlist-review-regression.ts` protects current UTC week boundaries,
+Calendar/R2 age semantics, invalid dates, deterministic ties and immutable calculations.
+Run the affected due-review, display, presentation, unsaved/guest and Holdings suites,
+plus `npm run qa:visual`. Use the same disposable owner secret for server and guest QA.
+Fixtures establish local workflow/request/storage behavior, not live provider or deployment
+proof. Price magnitude sorting cannot be exercised without a future Watchlist quote contract.
+
 For L2/T2/T3 data-gap clarity, run lint, the full harness, production build and
 post-build typecheck. Set `SIGNAL_QA_URL=http://127.0.0.1:3000` for all commands
 against one owned production server (the earnings script otherwise defaults to port 3113).
