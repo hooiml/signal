@@ -176,9 +176,11 @@ try {
                     assert.doesNotMatch(text, /Model: (buy|sell)/);
                     const agreement = await page.getByRole('region', { name: 'Market assessment', exact: true }).innerText();
                     assert.match(agreement, /2 of 3 match this reading/);
-                    const leading = page.getByRole('group', { name: 'Leading evidence' });
-                    await leading.getByRole('button', { name: /Leading support: AAII/ }).waitFor();
-                    await leading.getByRole('button', { name: /Leading conflict: VIX Index/ }).waitFor();
+                    const leading = page.getByTestId('market-brief');
+                    assert.equal(await leading.getAttribute('data-status'), 'limited');
+                    await leading.locator('button[data-indicator="put_call"]').waitFor();
+                    assert.equal(await leading.locator('button[data-indicator="vix"]').count(), 0, 'Unknown-dated VIX is not presented as fresh leading evidence.');
+                    assert.equal(await leading.locator('button[data-indicator="aaii"]').count(), 0, 'Stale AAII is not presented as fresh leading evidence.');
                     const coverage = await page.getByRole('region', { name: 'Observed evidence weight', exact: true }).innerText();
                     assert.match(coverage, /3 of 6 inputs included/);
                     assert.match(coverage, /65.0% configured weight/);

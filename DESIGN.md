@@ -6,7 +6,9 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
 ## Source of truth
 
 - Status: Active
-- Last refreshed: 2026-10-25
+- Last refreshed: 2026-10-29
+- Feature contract: [Latest Market Brief](docs/MARKET_BRIEF_DESIGN.md) (E28;
+  evidence-qualified interpretation inside the Market assessment).
 - Default surfaces: **Market** (`/main-v8`) and **Research** (`/research-v8`).
 - Evidence reviewed: `src/components/v8/` (components and CSS modules), `src/app/page.tsx`,
   `src/app/research/page.tsx`, `src/app/layout.tsx`, `docs/TESTING.md`, `docs/V8_UI_UX_ENHANCEMENT_PLAN.md`

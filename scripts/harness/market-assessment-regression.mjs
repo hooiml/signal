@@ -33,7 +33,14 @@ const { MarketCurrentAssessment, newsEvidenceText } = load('src/components/v8/Ma
 const { MarketV81Hero } = load('src/components/v8/MarketV81Hero.tsx');
 const { ConnectedPanels, emptyScenario } = load('src/components/v8/MarketV8ConnectedPanels.tsx');
 const { reconcileScoreChange } = load('src/lib/signal-change.ts');
+const { calculateCompositeScoreV2 } = load('src/lib/sentiment-calculator-v2.ts');
 const fixture = marketRequestFixture();
+const renderHero = (signal, snapshotDate, receivedAt) => renderToStaticMarkup(createElement(MarketV81Hero, {
+    signal, snapshotDate, receivedAt, tierClass: 'neutral',
+    onSelect: () => assert.fail('Rendering must not select an input'),
+    onDrivers: () => assert.fail('Rendering must not open drivers'),
+    onEvidence: () => assert.fail('Rendering must not open evidence'),
+}));
 const explanations = {
     standard: 'In Momentum mode, higher scores support positive momentum; lower scores indicate weaker momentum and a more cautious reading.',
     contrarian: 'In Contrarian mode, higher scores indicate crowding or greed risk; lower scores indicate fear and potential opportunity.',
@@ -248,11 +255,49 @@ for (const market of ['US', 'MY']) {
                 assert.ok(spectrum.includes(`Previous score ${scenario.pin.toFixed(0)} on 19 Oct 2026.`), context);
                 assert.ok(html.includes(`class="v81PreviousPin" style="left:${scenario.pin}%"`), context);
             }
-            if (scenario.unchanged) assert.match(html, /No change since 19 Oct 2026/, context);
+            if (scenario.unchanged) assert.match(html, /Score unchanged since 19 Oct 2026/, context);
             else if (scenario.absent || scenario.date === null || scenario.delta === null) assert.match(html, /Earlier comparable score unavailable/, context);
             else assert.ok(html.includes(`${scenario.delta > 0 ? '+' : ''}${scenario.delta.toFixed(2)} points vs 19 Oct 2026`), `${context}: retain the reported delta`);
             assert.equal(JSON.stringify(signal), original, `${context}: rendering must preserve the payload`);
         }
     }
 }
+
+// Accounting failures must not render percentages or a coverage ring from unreconciled weights.
+const invalidAccountingResponse = await fixture.route.GET(fixture.request('market=US&mode=standard&enableSocial=false'));
+const invalidAccountingPayload = await invalidAccountingResponse.json();
+const invalidAccountingSignal = fixture.parseSignal(invalidAccountingPayload, 'US', 'standard');
+invalidAccountingSignal.components.vix.weight -= .01;
+const invalidAccountingHtml = renderHero(invalidAccountingSignal, '2026-10-20');
+assert.match(invalidAccountingHtml, /Weight unverified/, 'Unreconciled accounting labels evidence weight as unverified');
+assert.match(invalidAccountingHtml, /Coverage weights could not be reconciled/, 'Unreconciled accounting explains the missing coverage graphic');
+assert.doesNotMatch(invalidAccountingHtml, /\d+\.\d% configured weight/, 'Unreconciled accounting does not render a synthetic percentage');
+assert.doesNotMatch(invalidAccountingHtml, /<svg[^>]*class="coverageRing"/, 'Unreconciled accounting suppresses the coverage ring');
+
+// Invalid written calendar dates must not be Date.parse-normalized into a different displayed day.
+const invalidSnapshotHtml = renderHero(fixture.parseSignal(invalidAccountingPayload, 'US', 'standard'), '2026-02-30');
+assert.match(invalidSnapshotHtml, /Snapshot date unavailable/, 'Impossible snapshot date is unavailable in the hero');
+assert.doesNotMatch(invalidSnapshotHtml, /2 Mar 2026|March 2, 2026/, 'Impossible snapshot date is not normalized for display');
+
+const observedInput = (name, score, extra = {}) => ({
+    name, display_name: name === 'vix' ? 'VIX Index' : name === 'news' ? 'News Sentiment' : 'AAII Sentiment',
+    enabled: true, value: name === 'vix' ? 20 : score, score, weight: 0, signal: 'neutral',
+    last_updated: '2026-10-20', metadata: { timestamp_basis: 'observed', ...extra },
+});
+const myProxySignal = calculateCompositeScoreV2([
+    observedInput('vix', 75, { unit: 'VIX points' }), observedInput('news', 70), observedInput('aaii', 65),
+], { market: 'MY', mode: 'standard' });
+myProxySignal.confidence.conflicting_indicators = ['vix'];
+const explicitVixProxyHtml = renderHero(myProxySignal, '2026-10-20');
+assert.match(explicitVixProxyHtml, /data-indicator="vix">VIX Index →<\/button> · [^<]* · observed [^<]* · US proxy/, 'MY VIX is labelled a US proxy only with explicit VIX-points units');
+const scaledVixSignal = structuredClone(myProxySignal);
+scaledVixSignal.components.vix.metadata.unit = 'model points';
+const scaledVixHtml = renderHero(scaledVixSignal, '2026-10-20');
+assert.doesNotMatch(scaledVixHtml, /data-indicator="vix">VIX Index →<\/button> · [^<]* · observed [^<]* · US proxy/, 'MY scaled model points are not labelled as a US VIX proxy');
+const { indicatorStatus } = load('src/components/v8/MarketV8ConnectedData.ts');
+const malformedDateSignal = structuredClone(myProxySignal);
+malformedDateSignal.components.vix.last_updated = '2026-03-01';
+assert.equal(indicatorStatus(malformedDateSignal, 'vix', '2026-02-30'), 'Freshness unknown', 'Evidence rows reject impossible reference dates');
+malformedDateSignal.components.vix.last_updated = '2026-02-30';
+assert.equal(indicatorStatus(malformedDateSignal, 'vix', '2026-03-02'), 'Freshness unknown', 'Evidence rows reject impossible observation dates');
 console.log('Market assessment regression passed: both markets/modes, score interpretation, payload-to-headline previous-score provenance, zero/boundary scores, unchanged and unavailable comparisons.');

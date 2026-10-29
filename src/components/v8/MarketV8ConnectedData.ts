@@ -1,5 +1,5 @@
 import type { MarketSignal } from '@/lib/types/signal-v2';
-import { hasRetrievalTimestamp } from '@/lib/market-evidence-coverage';
+import { hasRetrievalTimestamp, marketEvidenceDay } from '@/lib/market-evidence-coverage';
 import { INDICATOR_REGISTRY } from '@/lib/indicator-registry';
 import type { MarketReplaySnapshot, MarketReplaySummary } from '@/lib/types/market-replay';
 import type { Point } from './market-v8-fixtures';
@@ -440,8 +440,8 @@ export const indicatorReadingLabel = (tier: MarketSignal['tier']) => ({
 })[tier];
 
 const utcCalendarDay = (value: string): number | null => {
-    const day = value.slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+    const day = marketEvidenceDay(value);
+    if (!day) return null;
     const timestamp = Date.parse(`${day}T00:00:00Z`);
     return Number.isFinite(timestamp) ? timestamp : null;
 };

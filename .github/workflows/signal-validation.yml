@@ -140,6 +140,7 @@ jobs:
           node scripts/market-clarity-qa.mjs
           node scripts/research-provenance-qa.mjs
           node scripts/v8-display-qa.mjs
+          node scripts/market-brief-qa.mjs
           node scripts/research-reading-qa.mjs
           node scripts/research-due-review-qa.mjs
           node scripts/watchlist-review-qa.mjs
@@ -161,6 +162,8 @@ jobs:
           name: signal-browser-diagnostics
           include-hidden-files: true
           path: |
+            .tmp/market-brief/**/*.json
+            .tmp/market-brief/**/*.png
             .tmp/research-earnings/
             .tmp/signal-learn-v0.1-qa/**/report.json
             .tmp/signal-learn-v0.1-qa/**/failure-*.png

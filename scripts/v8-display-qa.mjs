@@ -64,7 +64,8 @@ try {
   await page.goto(`${base}/main-v8?market=US`);await page.getByTestId('connected-score').waitFor();
   await capture('market');
   if(!before){
-   assert.equal(await page.getByRole('heading',{level:1}).innerText(),'Neutral');
+   assert.equal(await page.getByRole('heading',{level:1}).innerText(),'Assessment Unavailable');
+   assert.equal(await page.getByTestId('market-brief').getAttribute('data-status'),'unavailable');
    const rows=page.getByRole('region',{name:'Explore indicators'});
    assert.ok(!(await rows.innerText()).includes('applied weight'),'Weights stay in inspection, not scan rows.');
    await page.getByRole('region',{name:'Market assessment',exact:true}).locator('details > summary').first().click();
