@@ -9,6 +9,14 @@
 .scoreLine > span { font-size: var(--text-sm); color: var(--muted); }
 .assessmentReading > p { margin-top: 8px; }
 .assessmentReading .agreement { font-size: var(--text-sm); margin-top: 14px; }
+.brief { margin-top: 16px; font-size: var(--text-sm); }
+.brief h2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 8px; font-size: var(--text-base); }
+.brief h2 span { color: var(--muted); font-size: var(--text-sm); font-weight: 400; }
+.briefRow { margin-top: 12px; }
+.briefRow > b { display: block; }
+.briefRow p { margin: 2px 0 0; }
+.brief ul { margin: 4px 0; padding-left: 18px; }
+.brief button { min-height: 44px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
 /* Coverage is a second column of the reading, divided by a rule rather than nested in its own card. */
 .coverage { border-left: 1px solid var(--line); padding: 2px 0 2px 24px; align-self: stretch; }
 .coverageHeading { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; font-size: var(--text-sm); }

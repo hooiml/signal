@@ -154,7 +154,7 @@ async function geometry(page, width, name) {
         const chart = document.querySelector('[aria-label="Market score and history"]');
         const evidence = document.querySelector('[aria-label="Explore indicators"]');
         const pairs = [...document.querySelectorAll('[class*="comparisonValues"]')].filter(el => el.getClientRects().length).map(el => ({ parent: rect(el), labels: [...el.querySelectorAll('small')].map(rect) }));
-        const controls = [...document.querySelectorAll('[aria-label="Leading evidence"] button, [aria-label="Chart range"] button')].filter(el => el.getClientRects().length).map(rect);
+        const controls = [...document.querySelectorAll('[data-testid="market-brief"] button, [aria-label="Chart range"] button')].filter(el => el.getClientRects().length).map(rect);
         return { overflow: document.documentElement.scrollWidth - innerWidth, chart: rect(chart), evidence: rect(evidence), chartFirst: !!(chart.compareDocumentPosition(evidence) & Node.DOCUMENT_POSITION_FOLLOWING), pairs, controls };
     });
     assert.ok(result.overflow <= 1, `${name} ${width}: page overflow ${result.overflow}`);
@@ -168,8 +168,8 @@ try {
     for (const width of [1280, 768, 375]) {
         const session = await open(width); const { page } = session;
         const hero = page.getByRole('region', { name: 'Market assessment', exact: true });
-        await hero.getByRole('button', { name: /Leading support: AAII/ }).waitFor();
-        await hero.getByRole('button', { name: /Leading conflict: VIX Index/ }).waitFor();
+        await hero.getByTestId('market-brief').getByRole('button', { name: 'AAII →', exact: true }).waitFor();
+        await hero.getByTestId('market-brief').getByRole('button', { name: 'VIX Index →', exact: true }).waitFor();
         await page.getByText('No weighted-contribution changes.', { exact: true }).waitFor();
         const accounting = page.getByRole('region', { name: 'Complete score change accounting' });
         await accounting.locator('summary', { hasText: 'Complete accounting' }).click();
@@ -200,7 +200,7 @@ try {
         const spectrum = missingHero.getByRole('img', { name: /^Score [0-9]+ on a 0 to 100 scale/ });
         assert.doesNotMatch(await spectrum.getAttribute('aria-label'), /Previous score/, 'An unavailable previous score must not be announced as a derived value.');
         assert.equal(await spectrum.locator('[class*="v81PreviousPin"]').count(), 0, 'An unavailable previous score must not acquire a ghost pin.');
-        await missingHero.getByRole('button', { name: '+5.25 points vs 19 Oct 2026 ↗', exact: true }).click();
+        await missingHero.getByRole('button', { name: 'Score +5.25 points vs 19 Oct 2026 ↗', exact: true }).click();
         const previousMetric = missingPrevious.page.getByText('Previous score', { exact: true }).locator('..');
         assert.equal(await previousMetric.locator('strong').innerText(), 'Unavailable', 'The headline and detail must agree that the previous score is unavailable.');
         assert.equal(await missingPrevious.page.getByRole('tab', { name: 'What changed', exact: true }).getAttribute('aria-selected'), 'true');
@@ -210,7 +210,7 @@ try {
 
         const indexGate = deferred(), snapshotGate = deferred();
         const history = await open(width, { indexGate, snapshotGate, archivePhase: 'partial' });
-        const trigger = history.page.getByRole('button', { name: /Leading conflict: VIX Index/ });
+        const trigger = history.page.getByTestId('market-brief').getByRole('button', { name: 'VIX Index →', exact: true });
         await trigger.click();
         const inspector = width > 900 ? history.page.getByRole('complementary', { name: 'Selected indicator' }) : history.page.getByRole('dialog', { name: 'Indicator detail' });
         await inspector.getByText('Loading archived readings…', { exact: true }).waitFor();
@@ -226,14 +226,14 @@ try {
         assert.equal(history.scoreRequests(), before, 'Local archive retry must not reload current market data.');
         assert.equal(await inspector.getByRole('button', { name: 'Reload history', exact: true }).evaluate(el => el === document.activeElement), true, 'Retry completion retains focus on the same history action.');
         await history.page.keyboard.press('Escape');
-        await history.page.waitForFunction(() => document.activeElement instanceof HTMLButtonElement && document.activeElement.textContent?.includes('Leading conflict:') && document.activeElement?.textContent?.includes('VIX Index'));
+        await history.page.waitForFunction(() => document.activeElement instanceof HTMLButtonElement && document.activeElement.matches('[data-testid="market-brief"] button[data-indicator="vix"]'));
         assert.equal(await trigger.evaluate(el => el === document.activeElement), true, 'Inspector close restores the leading-evidence trigger.');
         await geometry(history.page, width, 'history-retry-and-focus');
         await history.context.close();
     }
     for (const phase of ['empty', 'index-error', 'legacy']) {
         const session = await open(375, { archivePhase: phase });
-        await session.page.getByRole('button', { name: /Leading conflict: VIX Index/ }).click();
+        await session.page.getByTestId('market-brief').getByRole('button', { name: 'VIX Index →', exact: true }).click();
         const inspector = session.page.getByRole('dialog', { name: 'Indicator detail' });
         await inspector.getByText(phase === 'empty' ? 'No archived readings have been stored.' : phase === 'legacy' ? 'No comparable raw readings are available in the loaded snapshots.' : 'Archived readings could not be loaded.', { exact: true }).waitFor();
         if (phase === 'index-error') {

@@ -4,6 +4,15 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For the Latest Market Brief (E28), run lint, full harness, build and post-build
+typecheck. `market-brief-regression.mjs` in the harness uses the real scorer and
+reconciler for eligibility, provenance, mode-correct change direction and immutable
+selection. Run `node scripts/market-brief-qa.mjs` against one owned production server
+at `SIGNAL_QA_URL` (default `http://127.0.0.1:3000`), plus affected Market display,
+phone-section and presentation suites. Inspect light/dark 1280/768/375/320px evidence
+under `.tmp/market-brief/`; review intended Market visual changes before updating
+platform-specific baselines. Fixture proof does not establish live provider health.
+
 For L4/W1 Watchlist sorting and review queue, run lint, full harness, production build
 and post-build typecheck. Run `node scripts/watchlist-review-qa.mjs` on the single owned
 production server at `SIGNAL_QA_URL=http://127.0.0.1:3000`; `--before` captures the former

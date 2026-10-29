@@ -58,6 +58,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E25 | Trim G-series V8 UI | In progress | Standard | Same data, storage and flows; Linux visual baselines need re-enrollment from CI |
 | E26 | Compact missing data and MY coverage (L2 + T2 + T3) | Verified | Standard | Local fixture proof; draft review, merge and deployment remain separate |
 | E27 | Watchlist review queue and supported sorting (L4 + W1) | Verified | Standard | Local fixture proof; price sorts remain deferred for missing Watchlist quote data |
+| E28 | Latest Market Brief | Verified | High | Local fixture proof; shared date/coverage consumers, no scoring/provider/persistence changes |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
 | E4 | Forward-validation lab — discovery | Proposed | LIGHT (design doc) | Freeze model version and evaluation policy before any code |
 | E5 | Forward-validation lab — first slice | Proposed | Standard | E4 approved |
@@ -65,6 +66,21 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E7 | Malaysia primary-source parity | Blocked, provider-gated | Standard | Approved official or licensed announcement source |
 
 ## Items
+
+### E28 — Latest Market Brief
+
+**Scope:** the current Market assessment combines evidence eligibility, mode-specific
+change explanations, fresh leading support/conflict and linked reassessment conditions.
+The contract is in [`MARKET_BRIEF_DESIGN.md`](MARKET_BRIEF_DESIGN.md). Strict freshness
+and concentration checks can leave complete US/MY feeds limited. Weekly briefs,
+Research handoff and full freshness-clock/source-health UI remain separate.
+
+**Local verification (2026-10-29):** lint, full harness, production build, post-build
+typecheck and independent review passed. Browser proof covers 35 brief checks,
+28 phone-section checks, 20 display states and the presentation matrix. All 20 Windows
+visual comparisons passed after reviewing the eight Market/Settings images; no unrelated
+baselines changed. Evidence is in `.tmp/market-brief/` and `.tmp/visual-checks/`.
+Remote CI, Linux baseline review, merge and deployment remain separate delivery states.
 
 ### E27 — Watchlist review queue and supported sorting (L4 + W1)
 

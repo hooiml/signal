@@ -20,6 +20,16 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 
 ## Runtime Shape
 
+V8 Market derives its Latest Market Brief in `src/lib/market-brief.ts` from the
+current parsed signal, coverage diagnostics and service-scoped change reconciliation.
+The brief qualifies the existing score without changing scoring, requests or storage.
+It withholds conclusions for invalid accounting or no fresh dated evidence and limits
+partial, retrieval-dated or concentrated evidence. Current US social and MY news
+aggregates therefore normally limit live briefs. Snapshot date is the freshness
+reference when supplied; otherwise the existing client response-received time is
+explicitly labelled Retrieved, independently of snapshot persistence. Empty-component
+responses keep the existing no-observations surface. See `MARKET_BRIEF_DESIGN.md`.
+
 The connected Research Watchlist derives its review view from loaded records through
 `src/lib/research/watchlist-review.ts`. It reuses R2's `dueReviewReasons`: scheduled
 reviews include today, while authored-review age deadlines become stale the next UTC

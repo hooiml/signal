@@ -174,7 +174,7 @@ async function prepareMetricSource(page, route, concept) {
     await page.evaluate(() => document.fonts.ready);
     if (route.startsWith('/research') && concept.id !== 'rsi') await selectResearchTab(page, 'Valuation', 'valuation');
     if (route.startsWith('/main')) {
-        const indicator = page.locator(`button[data-indicator="${concept.id === 'put-call' ? 'put_call' : 'naaim'}"]`).first();
+        const indicator = page.locator(`button[data-indicator="${concept.id === 'put-call' ? 'put_call' : 'naaim'}"][data-glossary="${concept.id}"]`).first();
         const showAll = page.getByRole('button', { name: /Show all/i });
         if (!(await indicator.isVisible().catch(() => false)) && await showAll.isVisible().catch(() => false)) await showAll.click();
         await indicator.click();

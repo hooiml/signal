@@ -20,13 +20,24 @@ export interface MarketEvidenceCoverage {
     freshPct: number | null;
     stalePct: number | null;
     verifiedPartition: boolean;
+    configuredWeightsVerified: boolean;
 }
 
 const close = (a: number, b: number) => Math.abs(a - b) < 0.005;
+/** UTC calendar day, rejecting impossible dates instead of letting Date.parse normalize them. */
+export function marketEvidenceDay(value: string | null | undefined): string | null {
+    if (!value || !/^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value) || !Number.isFinite(Date.parse(value))) return null;
+    const day = value.slice(0, 10);
+    return new Date(`${day}T00:00:00Z`).toISOString().slice(0, 10) === day ? day : null;
+}
+
 function freshness(date: string, snapshot: string | null | undefined, basis: 'observed' | 'retrieved' | undefined, days: number | undefined): 'fresh' | 'stale' | 'unknown' {
     if (basis !== 'observed' || !snapshot || days === undefined) return 'unknown';
-    const observed = Date.parse(date.slice(0, 10) + 'T00:00:00Z');
-    const compared = Date.parse(snapshot.slice(0, 10) + 'T00:00:00Z');
+    const observedDay = marketEvidenceDay(date);
+    const referenceDay = marketEvidenceDay(snapshot);
+    if (!observedDay || !referenceDay) return 'unknown';
+    const observed = Date.parse(observedDay + 'T00:00:00Z');
+    const compared = Date.parse(referenceDay + 'T00:00:00Z');
     if (!Number.isFinite(observed) || !Number.isFinite(compared) || observed > compared) return 'unknown';
     return (compared - observed) / 86400000 > days ? 'stale' : 'fresh';
 }
@@ -67,5 +78,6 @@ export function marketEvidenceCoverage(signal: MarketSignal, snapshotDate: strin
         freshPct: verifiedPartition ? freshWeight * 100 : null,
         stalePct: verifiedPartition ? staleWeight * 100 : null,
         verifiedPartition,
+        configuredWeightsVerified: configuredValid,
     };
 }

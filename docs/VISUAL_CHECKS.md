@@ -105,6 +105,26 @@ including command-line overrides. Never combine a probe with baseline acceptance
 
 ## Explicit baseline review/update
 
+E28 Windows review (29 October 2026): reviewed and updated only the eight Market
+and Settings PNGs across desktop/phone light/dark. Market now includes the qualified
+Latest Market Brief; unavailable readings use the existing muted tier styling and
+invalid accounting withholds the coverage ring. Settings changes are confined to the
+dimmed Market background. The other twelve comparisons were unchanged. All twenty
+normal comparisons pass at zero tolerance on win32-10.0.19045 / Playwright 1.60.0.
+Review artifacts are in `.tmp/market-brief/` and `.tmp/visual-checks/`. Linux baseline
+review and CI are separate delivery checks; Windows images must not be copied there.
+
+E28 Linux review (29 October 2026): reviewed run `40860622370`, artifact
+`12891073552`, head `d37dd5989cbdbfb6ae34778393d5774392b82a91`. Only the eight
+Market and Settings comparisons differed; the other twelve passed unchanged.
+All twenty environment reports match the pinned container, Chromium, font hashes,
+clock, locale, timezone and DPR, with empty browser/request error arrays. Each
+changed candidate matches its actual image, and each expected image matches the
+previous Linux baseline. Independent expected/actual/diff/candidate review approved
+the qualified brief, score wording and resulting Market height; Settings changes
+are confined to its dimmed Market background. Copied only those eight approved
+Linux candidates. The next normal CI run must establish zero-tolerance stability.
+
 R3 Windows review (28 October 2026): updated only the four Research screenshots
 for the new earnings availability line in the quote band and its resulting vertical
 shift. All four Glossary comparisons stayed unchanged. The focused Research/Glossary
