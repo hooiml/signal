@@ -55,7 +55,7 @@ Status vocabulary matches `NEXT_PRODUCT_ROADMAP.md`: `Observing`, `Proposed`, `R
 | E22 | Retire legacy route aliases (G6) | Verified | High | Preserve advanced Research/Market jobs, deep links, Today continuity and existing storage |
 | E23 | Visual comparisons in CI (G7) | Verified | Standard | Reviewed platform-specific baselines and a passing pinned Linux comparison |
 | E24 | Shared V8 component kit (G8) | Verified | High | Preserve markup, classes, selection semantics and freshness provenance; G7 regression guard |
-| E25 | Trim G-series V8 UI | In progress | Standard | Same data, storage and flows; Linux visual baselines need re-enrollment from CI |
+| E25 | Trim G-series V8 UI | Verified | Standard | Merged; main validation and pinned Linux visual comparisons passed; production runtime not live-verified |
 | E26 | Compact missing data and MY coverage (L2 + T2 + T3) | Verified | Standard | Local fixture proof; draft review, merge and deployment remain separate |
 | E27 | Watchlist review queue and supported sorting (L4 + W1) | Verified | Standard | Local fixture proof; price sorts remain deferred for missing Watchlist quote data |
 | E3 | Today promotion review | Observing | LIGHT | Task 0 window: ~30 active-use days or two review cycles |
@@ -649,6 +649,14 @@ Normal pinned Linux run `40623907818` on head `92167f7` then passed all 20 zero-
 comparisons, build and post-build typecheck. [PR #60](https://github.com/hooiml/signal/pull/60)
 tracks full validation and delivery status; this is not merge or deployment evidence.
 See `VISUAL_CHECKS.md` for provenance and review details.
+
+**Status reconciliation (2026-11-02):** GitHub confirms PR #60 merged as
+`b4caf33416e2d92d3965d96747ee98760d19dfd7`, which is in this checkout's history.
+[Main run 40625576966](https://github.com/hooiml/signal/actions/runs/40625576966)
+completed both `validate` and `Visual comparisons` successfully. The summary's earlier
+Linux re-enrollment blocker is resolved; E25 is Verified. This check establishes merge
+and CI status, not production runtime verification. The original dated receipts above
+and update-history entries below remain historical evidence.
 
 ### E3 — Today promotion review
 
