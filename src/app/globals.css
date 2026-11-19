@@ -33,7 +33,7 @@ body {
     linear-gradient(90deg, rgba(148, 163, 184, 0.045) 1px, transparent 1px);
   background-size: auto, 44px 44px, 44px 44px;
   color: var(--foreground);
-  font-family: var(--font-source-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
   font-size: 16px;
   letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
@@ -100,7 +100,7 @@ html[data-cockpit-theme='light'] .cockpit-theme-scope .border-slate-700 {
 }
 
 .font-mono {
-  font-family: var(--font-roboto-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
 ::-webkit-scrollbar {

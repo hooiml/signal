@@ -49,7 +49,7 @@
     overflow-x: clip;
     background: var(--v7-canvas);
     color: var(--v7-text);
-    font-family: var(--font-source-sans), Arial, Helvetica, sans-serif;
+    font-family: var(--font-inter), Arial, Helvetica, sans-serif;
     font-size: 15px;
     line-height: 1.45;
 }

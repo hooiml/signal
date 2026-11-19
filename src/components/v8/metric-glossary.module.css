@@ -16,7 +16,7 @@
     font-family: var(--font-sans); font-size: 14px; line-height: 1.5; font-weight: 400;
     text-align: left; white-space: normal; text-transform: none; letter-spacing: normal;
 }
-.title.title { display: block; color: var(--ink); font-size: 16px; font-weight: 600; }
+.title.title { display: block; color: var(--ink); font-family: var(--font-display); font-size: 16px; font-weight: 600; }
 .definition.definition { display: block; margin-top: 6px; color: var(--muted); }
 .actions.actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
 .actions a, .actions button { display: inline-flex; align-items: center; min-height: 44px; font: inherit; }

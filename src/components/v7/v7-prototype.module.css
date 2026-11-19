@@ -82,7 +82,7 @@
 .metric > span { color: var(--muted); font-size: 12px; font-weight: 650; }
 .metric > strong {
     color: var(--text);
-    font-family: var(--font-roboto-mono), monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 27px;
     font-weight: 600;
     letter-spacing: -0.04em;
@@ -158,7 +158,7 @@
 .chartArea { fill: url('#v7-score-fill'); }
 .chartLine { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-width: 3; vector-effect: non-scaling-stroke; }
 .currentGuide { stroke: var(--accent); stroke-dasharray: 3 4; stroke-width: 1; vector-effect: non-scaling-stroke; }
-.chartStart, .chartMid, .chartEnd { position: absolute; bottom: 2px; color: var(--muted); font-family: var(--font-roboto-mono), monospace; font-size: 10px; }
+.chartStart, .chartMid, .chartEnd { position: absolute; bottom: 2px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; }
 .chartStart { left: 0; }
 .chartMid { left: 50%; transform: translateX(-50%); }
 .chartEnd { right: 0; }
@@ -174,7 +174,7 @@
     color: var(--accent);
     line-height: 1.1;
 }
-.currentAnnotation strong { font-family: var(--font-roboto-mono), monospace; font-size: 18px; }
+.currentAnnotation strong { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 18px; }
 .currentAnnotation small { color: var(--muted); font-size: 9px; }
 .chartSummary { margin: 2px 0 0; color: var(--text-secondary); font-size: 12px; }
 
@@ -268,7 +268,7 @@
 
 .watchlistRail { min-width: 0; border-right: 1px solid var(--border); padding-right: 20px; }
 .railHeading { display: flex; align-items: center; justify-content: space-between; }
-.railHeading > span { min-width: 30px; border-radius: 999px; background: var(--quiet); padding: 4px 9px; color: var(--muted); font-family: var(--font-roboto-mono), monospace; font-size: 11px; text-align: center; }
+.railHeading > span { min-width: 30px; border-radius: 999px; background: var(--quiet); padding: 4px 9px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; text-align: center; }
 .railSearch, .tickerSearch { display: grid; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 650; }
 .railSearch { margin-top: 14px; }
 .railSearch input, .tickerSearch input, .mobileSelectors select {
@@ -291,7 +291,7 @@
 .watchlistRows a:hover { background: var(--quiet); }
 .watchlistRows .watchlistSelected { border-left-color: var(--accent); background: var(--accent-quiet); }
 .watchlistRows a > span { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.watchlistRows strong { font-family: var(--font-roboto-mono), monospace; font-size: 13px; }
+.watchlistRows strong { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
 .watchlistRows b { color: var(--text-secondary); font-size: 11px; }
 .watchlistRows small { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -304,12 +304,12 @@
     padding-bottom: 20px;
     border-bottom: 1px solid var(--border);
 }
-.securityIdentity h2 { margin: 0; color: var(--text); font-family: var(--font-roboto-mono), monospace; font-size: 29px; line-height: 1.15; }
-.securityIdentity h2 span { color: var(--text-secondary); font-family: var(--font-source-sans), sans-serif; font-size: 18px; font-weight: 600; }
+.securityIdentity h2 { margin: 0; color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 29px; line-height: 1.15; }
+.securityIdentity h2 span { color: var(--text-secondary); font-family: var(--font-inter), sans-serif; font-size: 18px; font-weight: 600; }
 .securityIdentity > p:last-child { margin: 7px 0 0; color: var(--muted); font-size: 11px; }
 .securityPrice { display: grid; gap: 2px; }
 .securityPrice span, .decisionBlock span { color: var(--muted); font-size: 11px; font-weight: 650; }
-.securityPrice strong { color: var(--text); font-family: var(--font-roboto-mono), monospace; font-size: 25px; }
+.securityPrice strong { color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 25px; }
 .securityPrice small { color: var(--accent); font-size: 11px; }
 .decisionBlock { display: grid; gap: 4px; padding-left: 18px; border-left: 2px solid var(--accent); }
 .decisionBlock > span { color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }

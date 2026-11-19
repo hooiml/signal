@@ -2,8 +2,9 @@
 .app textarea { font: inherit; }
 .toolbar { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 16px; }
 .search { display: grid; gap: 6px; width: min(420px, 60%); color: var(--muted); font-size: var(--text-sm); }
-.searchField { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 0 12px; }
-.searchField > span { font-size: var(--text-xl); color: var(--link); }
+.searchField { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); padding: 0 14px; box-shadow: var(--control-shadow); transition: border-color .15s; }
+.searchField:focus-within { border-color: var(--brand); }
+.searchField > span { font-size: var(--text-xl); color: var(--subtle); }
 .search input { width: 100%; min-width: 0; min-height: 44px; border: 0; background: transparent; color: var(--ink); }
 .search input::placeholder { color: var(--muted); }
 .stateControl { display: grid; gap: 6px; color: var(--muted); font-size: var(--text-sm); }
@@ -236,9 +237,9 @@
 .checkRows small { text-align: right; }
 .checkRows button > span:last-child { color: var(--link); }
 .investigation { margin-top: 20px; }
-.app .tabs { position: sticky; top: 0; z-index: 2; background: var(--surface-subtle); gap: 25px; }
-.tabNavigation { display: flex; align-items: stretch; position: sticky; top: 0; z-index: 2; min-width: 0; border-bottom: 1px solid var(--line); background: var(--surface-subtle); }
-.app .tabNavigation .tabs { position: static; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; border-bottom: 0; }
+.app .tabs { position: sticky; top: 0; z-index: 2; background: var(--canvas); gap: 6px; padding-top: 4px; }
+.tabNavigation { display: flex; align-items: stretch; position: sticky; top: 0; z-index: 2; min-width: 0; border-bottom: 1px solid var(--line); background: var(--canvas); }
+.app .tabNavigation .tabs { position: static; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; border-bottom: 0; padding: 6px 0; }
 .app .tabScrollButton { display: none; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px; min-height: 44px; font-size: 24px; color: var(--ink); }
 .app .tabScrollButton:disabled { color: var(--subtle); cursor: default; }
 @media (max-width: 600px) {
