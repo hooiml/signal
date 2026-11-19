@@ -6,18 +6,18 @@ import { PwaLifecycle } from "@/components/pwa/PwaLifecycle";
 import { WorkspaceNavigation } from "@/components/navigation/WorkspaceNavigation";
 import { v8ThemeBootScript } from "@/components/v8/v8-theme";
 
-const sourceSans = localFont({
-  src: "./fonts/SourceSans3-Variable.woff2",
-  variable: "--font-source-sans",
+const inter = localFont({
+  src: "./fonts/Inter-Variable.woff2",
+  variable: "--font-inter",
   weight: "400 800",
   style: "normal",
   display: "swap",
 });
 
-const robotoMono = localFont({
-  src: "./fonts/RobotoMono-Variable.woff2",
-  variable: "--font-roboto-mono",
-  weight: "400 700",
+const plusJakartaSans = localFont({
+  src: "./fonts/PlusJakartaSans-Variable.woff2",
+  variable: "--font-plus-jakarta",
+  weight: "500 800",
   style: "normal",
   display: "swap",
 });
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f766e",
+  themeColor: "#111827",
 };
 
 export default function RootLayout({
@@ -52,7 +52,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: v8ThemeBootScript }} />
       </head>
       <body
-        className={`${sourceSans.variable} ${robotoMono.variable} antialiased`}
+        className={`${inter.variable} ${plusJakartaSans.variable} antialiased`}
       >
         <PwaLifecycle />
         <WorkspaceNavigation />

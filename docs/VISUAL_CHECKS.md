@@ -29,8 +29,8 @@ provider or database is used.
 
 Time is fixed at 2026-09-12T00:00:00Z, timezone Asia/Kuala_Lumpur, locale en-US,
 DPR 1, headless Chromium and reduced motion. Service workers are blocked. The
-suite waits for hydrated target controls, loaded bundled Source Sans 3 and Roboto
-Mono, settled frames and two identical PNG captures. Screenshot animations and
+suite waits for hydrated target controls, loaded bundled Inter and Plus
+Jakarta Sans, settled frames and two identical PNG captures. Screenshot animations and
 carets are disabled. Every test checks document overflow and browser/request errors.
 
 Diagnostics live in `.tmp/visual-checks/`, uploaded even on failure as the
@@ -218,3 +218,12 @@ head `92167f7`, passed all 20 comparisons at zero tolerance in the same pinned
 container, including build and post-build typecheck. This establishes the updated
 Linux baselines. The complete validation status is tracked in
 [PR #60](https://github.com/hooiml/signal/pull/60); merge and deployment remain separate.
+
+**V8 Precision Fintech Windows review (2026-11-20):** reviewed and accepted all 20 Windows
+screenshots (`win32-10.0.19045-pw1.60.0`) after switching V8 to the Precision Fintech neutral
+zinc/carbon palette, unified indigo accent, monochrome primary CTAs, and bundled `Inter` +
+`Plus Jakarta Sans` variable fonts (clean open tabular numerals with zero slashed `0`).
+Normal `npm run qa:visual` without update flags then passed 20/20 at zero pixel tolerance
+against the local production server (`http://127.0.0.1:3000`). Docker was not running locally,
+so Linux baselines (`linux-noble-9bd26ad900bb-pw1.60.0`) remain to be reviewed and accepted
+from the pinned Linux `Signal validation` visual artifact per the enrollment contract above.

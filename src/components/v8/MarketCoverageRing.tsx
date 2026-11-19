@@ -44,8 +44,9 @@ export function MarketCoverageRing({ signal, coverage, onSelect }: {
     });
     return <div className={layout.coverageRing}>
         <svg viewBox="0 0 120 120" role="img" aria-label={`Score weight: ${segments.map(segment => `${segment.label} ${segment.weight.toFixed(1)}%, ${stateLabel[segment.state]}`).join('; ')}.`}>
-            <circle cx="60" cy="60" r={RADIUS} fill="none" stroke="var(--surface-muted)" strokeWidth="14" />
-            {arcs.map(({ segment, start, dash }) => <circle key={segment.key} data-indicator={segment.key} data-state={segment.state} cx="60" cy="60" r={RADIUS} fill="none" strokeWidth="14"
+            <circle cx="60" cy="60" r={RADIUS} fill="none" stroke="var(--surface-muted)" strokeWidth="11" />
+            {arcs.map(({ segment, start, dash }) => <circle key={segment.key} data-indicator={segment.key} data-state={segment.state} cx="60" cy="60" r={RADIUS} fill="none" strokeWidth="11"
+                strokeLinecap={dash > 12 ? 'round' : 'butt'}
                 strokeDasharray={`${dash} ${CIRCUMFERENCE - dash}`} strokeDashoffset={-start} transform="rotate(-90 60 60)" />)}
             <text x="60" y="58" textAnchor="middle" className={layout.ringValue}>{Math.round(coverage.observedPct)}%</text>
             <text x="60" y="74" textAnchor="middle" className={layout.ringLabel}>scored</text>

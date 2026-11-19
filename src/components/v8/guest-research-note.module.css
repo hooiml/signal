@@ -1,14 +1,17 @@
-.panel { margin: 18px 0; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.panel { margin: 16px 0; padding: 20px 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--card-shadow); }
 .heading, .footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .heading { margin-bottom: 14px; }
-.heading h2 { margin: 0; font-size: var(--text-base); color: var(--ink); }
-.heading p { margin: 3px 0 0; font-size: var(--text-sm); color: var(--muted); }
+.heading h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-base); font-weight: 600; color: var(--ink); }
+.heading p { margin: 3px 0 0; font-size: var(--text-xs); color: var(--muted); }
 .label { display: block; margin-bottom: 6px; color: var(--ink); font-size: var(--text-sm); font-weight: 600; }
-.panel textarea { display: block; width: 100%; min-height: 120px; padding: 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-subtle); color: var(--ink); resize: vertical; }
-.footer { margin-top: 8px; color: var(--muted); font-size: var(--text-sm); flex-wrap: wrap; }
-.save, .remove { min-height: 44px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
-.save:disabled, .remove:disabled { cursor: not-allowed; opacity: .6; }
-.save { border-color: var(--brand); background: var(--brand-soft); font-weight: 650; }
+.panel textarea { display: block; width: 100%; min-height: 120px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-subtle); color: var(--ink); resize: vertical; transition: border-color .15s, background .15s; }
+.panel textarea:focus { background: var(--surface); border-color: var(--brand); }
+.footer { margin-top: 12px; color: var(--subtle); font-size: var(--text-xs); font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+.panel .save, .panel .remove { min-height: 44px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font-family: var(--font-sans); font-size: var(--text-sm); font-weight: 600; box-shadow: var(--control-shadow); cursor: pointer; transition: border-color .15s, background .15s; }
+.panel .remove:hover { border-color: var(--down-line); color: var(--down); background: var(--down-soft); }
+.panel .save:disabled, .panel .remove:disabled { cursor: not-allowed; opacity: .5; }
+.panel .save { border-color: var(--cta); background: var(--cta); color: var(--on-cta); }
+.panel .save:hover:not(:disabled) { background: var(--cta-hover); border-color: var(--cta-hover); }
 .error { margin: 10px 0 0; color: var(--caution); font-size: var(--text-sm); }
 .savedStatus { margin: 10px 0 0; color: var(--ink); font-size: var(--text-sm); }
 .error button { margin-left: 6px; color: inherit; text-decoration: underline; background: transparent; border: 0; font: inherit; cursor: pointer; }

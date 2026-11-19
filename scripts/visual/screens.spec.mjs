@@ -52,7 +52,7 @@ for (const screen of ['market', 'research', 'holdings', 'settings', 'glossary'])
             }
             await page.evaluate(async () => {
                 const style = getComputedStyle(document.body);
-                for (const variable of ['--font-source-sans', '--font-roboto-mono']) {
+                for (const variable of ['--font-inter', '--font-plus-jakarta']) {
                     const family = style.getPropertyValue(variable).split(',')[0].trim();
                     if (!family) throw new Error(`Missing bundled font: ${variable}`);
                     await document.fonts.load(`400 16px ${family}`);
@@ -62,8 +62,8 @@ for (const screen of ['market', 'research', 'holdings', 'settings', 'glossary'])
             });
             const geometry = await page.evaluate(() => ({ width: innerWidth, scrollWidth: Math.max(document.body.scrollWidth, document.documentElement.scrollWidth), fonts: [...document.fonts].filter(font => font.status === 'loaded').map(font => font.family) }));
             expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.width + 1);
-            expect(geometry.fonts.some(font => /sourceSans/i.test(font))).toBe(true);
-            expect(geometry.fonts.some(font => /robotoMono/i.test(font))).toBe(true);
+            expect(geometry.fonts.some(font => /inter/i.test(font))).toBe(true);
+            expect(geometry.fonts.some(font => /plusJakartaSans/i.test(font))).toBe(true);
             await expect(page.getByRole('region', { name: 'First visit to V8', exact: true })).toHaveCount(0);
             // A reversible, test-only controlled change proves that the comparison blocks regressions.
             if (process.env.SIGNAL_VISUAL_PROBE && screen === 'market') await page.addStyleTag({ content: 'body { border-top: 16px solid magenta !important; }' });
@@ -86,7 +86,7 @@ for (const screen of ['market', 'research', 'holdings', 'settings', 'glossary'])
             expect(observations.errors).toEqual([]);
         } finally {
             const fontHashes = {};
-            for (const name of ['SourceSans3-Variable.woff2', 'RobotoMono-Variable.woff2']) fontHashes[name] = createHash('sha256').update(await readFile(`src/app/fonts/${name}`)).digest('hex');
+            for (const name of ['Inter-Variable.woff2', 'PlusJakartaSans-Variable.woff2']) fontHashes[name] = createHash('sha256').update(await readFile(`src/app/fonts/${name}`)).digest('hex');
             const environmentPath = testInfo.outputPath('environment.json');
             await writeFile(environmentPath, JSON.stringify({ renderer, playwrightVersion, browser: browser.version(), os: os.release(), architecture: os.arch(), container: process.env.SIGNAL_VISUAL_CONTAINER ? containerImage : null, fixedTime, locale: 'en-US', timezone: 'Asia/Kuala_Lumpur', dpr: 1, viewport: page.viewportSize(), theme: colorScheme, fontHashes, ...observations }, null, 2));
             await testInfo.attach('environment', { path: environmentPath, contentType: 'application/json' });

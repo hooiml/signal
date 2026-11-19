@@ -1,57 +1,60 @@
 .layout { display: block; }
-.assessment { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; padding: 22px; margin-bottom: 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.assessment { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; padding: 24px; margin-bottom: 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--card-shadow); }
 .assessmentReading { min-width: 0; align-content: center; }
 .scoreLine { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 14px 0; }
-.scoreLine h1 { margin: 0; font-size: var(--text-xl); line-height: 1.4; letter-spacing: -.4px; text-transform: capitalize; }
-.scoreLine > strong { font-size: var(--text-2xl); line-height: 1.3; font-variant-numeric: tabular-nums; }
-.scoreLine > strong small { font-size: var(--text-base); color: var(--muted); }
-.scoreLine .changeLink { color: var(--link); font-size: var(--text-sm); min-height: 44px; text-align: left; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; }
+.scoreLine h1 { margin: 0; font-family: var(--font-sans); font-size: var(--text-base); line-height: 1.3; font-weight: 600; letter-spacing: -.01em; text-transform: capitalize; }
+.scoreLine > strong { font-family: var(--font-sans); font-size: var(--text-2xl); font-weight: 700; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.scoreLine > strong small { font-size: var(--text-base); color: var(--subtle); font-weight: 500; }
+.scoreLine .changeLink { color: var(--link); font-size: var(--text-xs); font-weight: 600; min-height: 44px; text-align: left; padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-subtle); transition: border-color .15s, background .15s; }
+.scoreLine .changeLink:hover { border-color: var(--brand); background: var(--brand-soft); }
 .scoreLine > span { font-size: var(--text-sm); color: var(--muted); }
 .assessmentReading > p { margin-top: 8px; }
-.assessmentReading .agreement { font-size: var(--text-sm); margin-top: 14px; }
-.brief { margin-top: 16px; font-size: var(--text-sm); }
-.brief h2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 8px; font-size: var(--text-base); }
-.brief h2 span { color: var(--muted); font-size: var(--text-sm); font-weight: 400; }
+.assessmentReading .agreement { font-size: var(--text-xs); color: var(--subtle); margin-top: 14px; }
+.brief { margin-top: 16px; padding: 14px 16px; border-radius: 10px; background: var(--surface-subtle); border: 1px solid var(--line); font-size: var(--text-sm); }
+.brief h2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 8px; font-family: var(--font-display); font-size: var(--text-base); font-weight: 600; }
+.brief h2 span { color: var(--muted); font-family: var(--font-sans); font-size: var(--text-sm); font-weight: 400; }
 .briefRow { margin-top: 12px; }
-.briefRow > b { display: block; }
+.briefRow > b { display: block; font-weight: 600; }
 .briefRow p { margin: 2px 0 0; }
 .brief ul { margin: 4px 0; padding-left: 18px; }
 .brief button { min-height: 44px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
 /* Coverage is a second column of the reading, divided by a rule rather than nested in its own card. */
 .coverage { border-left: 1px solid var(--line); padding: 2px 0 2px 24px; align-self: stretch; }
 .coverageHeading { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; font-size: var(--text-sm); }
-.coverage p { margin-top: 6px; font-size: var(--text-sm); }
-.coverage .caution, .caution { color: var(--caution); }
-.analysisGrid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-bottom: 22px; }
+.coverageHeading b:last-child { font-size: var(--text-xs); font-weight: 600; color: var(--muted); }
+.coverage p { margin-top: 8px; font-size: var(--text-sm); }
+.coverage .caution { color: var(--caution); padding: 8px 11px; border-radius: 8px; background: var(--caution-soft); border: 1px solid var(--caution-line); font-size: var(--text-xs); line-height: 1.5; }
+.caution { color: var(--caution); }
+.analysisGrid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-bottom: 20px; }
 .analysisGrid > * { min-width: 0; }
 .history { overflow: visible; grid-column: 1; grid-row: 1; }
 .evidenceSlot { grid-column: 2; grid-row: 1; }
 .history svg[role=slider] { height: 260px; }
 .historyDetails { border-top: 1px solid var(--line); margin-top: 16px; }
-.historyDetails > summary { min-height: 44px; padding: 12px 24px; color: var(--brand); cursor: pointer; font-size: var(--text-sm); }
-.evidence, .inspector { padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.historyDetails > summary { min-height: 44px; padding: 12px 24px; color: var(--brand); cursor: pointer; font-size: var(--text-sm); font-weight: 600; }
+.evidence, .inspector { padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--card-shadow); }
 .evidence h2 { font-size: var(--text-md); }
 .evidenceRows { display: grid; gap: 0; }
 /* Evidence rows are rows of one list: a rule between them, no card per row. */
-.evidenceRows .evidenceRow { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; gap: 12px; width: 100%; padding: 14px 0; text-align: left; border-bottom: 1px solid var(--line); }
+.evidenceRows .evidenceRow { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; gap: 12px; width: 100%; padding: 14px 0; text-align: left; border-bottom: 1px solid var(--line); transition: background .15s; }
 .evidenceRow:hover b { color: var(--link); }
 .evidenceRow > span { min-width: 0; display: grid; gap: 4px; }
 .evidenceRow b, .evidenceRow strong { font-size: var(--text-base); }
-.evidenceRow strong { font-variant-numeric: tabular-nums; }
-.evidenceRow small { font-size: var(--text-sm); color: var(--muted); }
+.evidenceRow strong { font-size: var(--text-sm); font-weight: 600; font-variant-numeric: tabular-nums; }
+.evidenceRow small { font-size: var(--text-xs); color: var(--muted); }
 .evidenceRow .caution { color: var(--caution); }
-.direction { justify-self: start; font-size: var(--text-sm); border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px; }
+.direction { justify-self: start; font-size: var(--text-xs); font-weight: 600; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
 .direction[data-direction$=positive] { color: var(--up); border-color: var(--up-line); background: var(--up-soft); }
 .direction[data-direction$=negative] { color: var(--down); border-color: var(--down-line); background: var(--down-soft); }
 .evidence .evidenceNote { margin-top: 12px; font-size: var(--text-sm); }
 .evidence .expandEvidence { display: none; }
-.researchLinks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 20px 0 0; padding: 12px 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.researchLinks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 20px 0 0; padding: 14px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--card-shadow); }
 .researchLinks > div { display: grid; gap: 2px; flex: 1 1 260px; }
 .researchLinks > div span { color: var(--muted); font-size: var(--text-sm); }
-.researchLinks a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; color: var(--link); font-size: var(--text-sm); font-weight: 600; text-decoration: none; }
-.researchLinks a:hover { border-color: var(--brand); }
-.readingDetails { margin: 20px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
-.readingDetails > summary { cursor: pointer; padding: 12px 18px; min-height: 44px; color: var(--brand); }
+.researchLinks a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-subtle); color: var(--link); font-size: var(--text-sm); font-weight: 600; text-decoration: none; transition: border-color .15s, background .15s; }
+.researchLinks a:hover { border-color: var(--brand); background: var(--brand-soft); }
+.readingDetails { margin: 20px 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--card-shadow); }
+.readingDetails > summary { cursor: pointer; padding: 12px 18px; min-height: 44px; color: var(--brand); font-weight: 600; }
 .readingDetails > div { padding: 0 18px 18px; }
 .archiveNote { margin-top: 12px; font-size: var(--text-sm); }
 .archiveNote summary { min-height: 44px; cursor: pointer; }
@@ -79,7 +82,7 @@
     .mobileInvestigation { padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
     .assessment { grid-template-columns: minmax(0, 1fr); padding: 16px; gap: 14px; }
     .scoreLine { gap: 8px; }
-    .scoreLine .changeLink { padding-left: 0; border: 0; flex-basis: 100%; }
+    .scoreLine .changeLink { padding: 6px 12px; border: 1px solid var(--line); flex-basis: 100%; }
     .evidence, .inspector { padding: 14px; }
     .history svg[role=slider] { height: 235px; }
     .evidenceRows .evidenceRow { padding: 12px 0; gap: 10px; }
@@ -92,14 +95,14 @@
 .alignment p { margin: 6px 0; color: var(--muted); }
 /* Wider-market context fills the space beneath the score chart; evidence spans both rows. */
 .analysisGrid > .evidenceSlot { grid-row: 1 / span 2; }
-.contextCard { grid-column: 1; grid-row: 2; padding: 18px 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.contextCard { grid-column: 1; grid-row: 2; padding: 20px 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--card-shadow); }
 .contextCard h3 { margin: 6px 0 10px; font-size: var(--text-md); }
 .contextCard p { margin: 10px 0 6px; font-size: var(--text-sm); color: var(--muted); }
 .indexList { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
 .indexList li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 14px; font-size: var(--text-sm); }
 .indexList li + li { border-left: 1px solid var(--line); }
 .indexList li:first-child { padding-left: 0; }
-.indexList b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.indexList b { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .indexList li[data-trend=positive] b { color: var(--up); }
 .indexList li[data-trend=negative] b { color: var(--down); }
 @media (max-width: 900px) {
@@ -108,9 +111,9 @@
 }
 
 /* Hero: the score leads, with its place on the 0-100 scale. */
-.scoreLine > strong { font-size: var(--text-display); line-height: 1; letter-spacing: -1.5px; }
+.scoreLine > strong { font-family: var(--font-sans); font-size: var(--text-display); font-weight: 700; line-height: 1; letter-spacing: -.04em; }
 .scoreLine > strong small { letter-spacing: 0; }
-.spectrum { display: grid; gap: 6px; max-width: 420px; margin: 4px 0 14px; }
+.spectrum { display: grid; gap: 6px; max-width: 440px; margin: 4px 0 14px; }
 /* Unavailable inputs: one compact row; each name opens its detail. */
 /* Unavailable inputs: one line of names, not a box of cards. */
 .missingRow { display: grid; gap: 4px; padding: 14px 0 0; }
@@ -144,15 +147,15 @@
 .coverageRing { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: center; margin: 10px 0 6px; }
 .coverageRing svg { width: 112px; height: 112px; }
 .coverageRing circle[data-indicator] { stroke: var(--line-strong); }
-.ringValue { fill: var(--ink); font-size: 22px; font-weight: 700; }
-.ringLabel { fill: var(--muted); font-size: 11px; }
+.ringValue { fill: var(--ink); font-family: var(--font-sans); font-size: 21px; font-weight: 700; }
+.ringLabel { fill: var(--subtle); font-size: 11px; }
 .ringLegend { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; min-width: 0; }
 .ringNote { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: var(--text-xs); }
-.ringLegend .ringItem { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; column-gap: 8px; align-items: center; width: 100%; min-height: 36px; padding: 2px 4px; border-radius: 6px; text-align: left; font-size: var(--text-sm); color: var(--ink); }
+.ringLegend .ringItem { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; column-gap: 8px; align-items: center; width: 100%; min-height: 36px; padding: 2px 6px; border-radius: 7px; text-align: left; font-size: var(--text-sm); color: var(--ink); transition: background .15s; }
 .ringLegend button.ringItem:hover { background: var(--surface-muted); }
 .ringItem small { grid-column: 2; font-size: var(--text-xs); color: var(--muted); }
-.ringItem b { grid-column: 3; grid-row: 1; font-variant-numeric: tabular-nums; }
-.ringItem i { width: 10px; height: 10px; border-radius: 2px; grid-row: 1; }
+.ringItem b { grid-column: 3; grid-row: 1; font-size: var(--text-xs); font-weight: 600; font-variant-numeric: tabular-nums; }
+.ringItem i { width: 9px; height: 9px; border-radius: 3px; grid-row: 1; }
 .ringItem i[data-indicator] { background: var(--line-strong); }
 .coverageRing circle[data-indicator=vix], .ringItem i[data-indicator=vix] { stroke: var(--indicator-vix); background: var(--indicator-vix); }
 .coverageRing circle[data-indicator=social], .ringItem i[data-indicator=social] { stroke: var(--indicator-social); background: var(--indicator-social); }
@@ -161,7 +164,7 @@
 .coverageRing circle[data-indicator=aaii], .ringItem i[data-indicator=aaii] { stroke: var(--indicator-aaii); background: var(--indicator-aaii); }
 .coverageRing circle[data-indicator=naaim], .ringItem i[data-indicator=naaim] { stroke: var(--indicator-naaim); background: var(--indicator-naaim); }
 .coverageRing circle[data-indicator=bofa], .ringItem i[data-indicator=bofa] { stroke: var(--indicator-bofa); background: var(--indicator-bofa); }
-.evidenceRow .impact { justify-self: start; font-weight: 650; font-variant-numeric: tabular-nums; }
+.evidenceRow .impact { justify-self: start; font-size: var(--text-xs); font-weight: 600; font-variant-numeric: tabular-nums; }
 .evidenceRow .impact[data-impact=up] { color: var(--up); }
 .evidenceRow .impact[data-impact=down] { color: var(--down); }
 @media (max-width: 600px) {

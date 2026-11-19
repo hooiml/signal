@@ -6,7 +6,7 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
 ## Source of truth
 
 - Status: Active
-- Last refreshed: 2026-10-29
+- Last refreshed: 2026-11-20
 - Feature contract: [Latest Market Brief](docs/MARKET_BRIEF_DESIGN.md) (E28;
   evidence-qualified interpretation inside the Market assessment).
 - Default surfaces: **Market** (`/main-v8`) and **Research** (`/research-v8`).
@@ -129,38 +129,44 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
 
 ### Colour
 
-V8 tokens are defined on `.app` and the token-only `.tokens` scope in
-`src/components/v8/market-v8.module.css`, one colour per job:
+V8 uses a **Precision Fintech** neutral palette (zinc/carbon neutrals, monochrome ink primary CTAs, and one unified indigo accent for active states, links, and focus so semantic market colors carry full visual clarity). Tokens are defined on `.app` and the token-only `.tokens` scope in `src/components/v8/market-v8.module.css`, one colour per job:
 
 | Job | Tokens |
 | --- | --- |
 | Neutrals | `--canvas`, `--surface`, `--surface-subtle`, `--surface-muted`, `--line`, `--line-strong`, `--ink`, `--muted`, `--subtle` |
-| Brand (buttons, active tabs, selection) | `--brand`, `--brand-hover`, `--brand-soft`, text on brand fills `--on-brand` |
-| Links | `--link`, `--link-hover` |
-| Focus ring | `--focus` |
+| Accent & active state (tabs, selection, focus, links) | `--brand`, `--brand-hover`, `--brand-soft`, text on brand fills `--on-brand`, `--link`, `--link-hover`, `--focus` |
+| Primary CTA (monochrome ink chrome) | `--cta`, `--cta-hover`, `--on-cta` |
 | Positive data only | `--up`, `--up-soft`, `--up-line`, `--up-mark` |
 | Negative data or explicit risk | `--down`, `--down-soft`, `--down-line`, `--down-mark` |
 | Stale or fallback evidence | `--caution`, `--caution-soft`, `--caution-line`, `--caution-mark` |
 | Neutral chart series | `--chart-line` |
-| Shadows and overlays | `--shadow` (mixed with `color-mix`) |
+| Elevation & overlays | `--shadow` (mixed with `color-mix`), `--card-shadow`, `--control-shadow` |
 | Market input identity | `--indicator-vix`, `-social`, `-put-call`, `-news`, `-aaii`, `-naaim`, `-bofa` |
 
 - Never add raw hex values to V8 CSS or inline SVG; add or reuse a token.
 - Indicator colours identify an input, not its direction or freshness. Names and freshness labels
   stay explicit, and neutral fallback stays grey.
-- **Dark theme:** the same tokens are redefined under `html[data-v8-theme=dark]`. The boot script in
-  `src/components/v8/v8-theme.ts` sets the attribute before first paint from the stored choice
-  (`signal-v8-theme-v1`: `light` or `dark`) or, by default, the system setting. The header toggle is
-  a radio group (Light / Auto / Dark) with icons; phones show the icons only.
+- **Dark theme:** the same tokens are redefined under `html[data-v8-theme=dark]` using deep carbon
+  neutrals (`#090b0e` canvas, `#11141a` surface), crisp light monochrome CTAs (`#f3f4f6`), and
+  periwinkle-indigo active accents (`#6b8afd`). The boot script in `src/components/v8/v8-theme.ts`
+  sets the attribute before first paint from the stored choice (`signal-v8-theme-v1`: `light` or
+  `dark`) or, by default, the system setting.
 
 ### Typography
 
-- Source Sans 3 (`--font-sans`) with tabular figures for all numbers; Roboto Mono (`--font-mono`) for
-  large figures and tickers. Both are bundled; no Google Fonts requests.
+- **Plus Jakarta Sans** (`--font-display`, weights 600–700) for page headings, stock names, and
+  section headings (`h1`, `h2`, `h3`, modal titles).
+- **Inter** (`--font-sans`, weights 400–700) with native `tabular-nums` and open unslashed zeros
+  (`font-feature-settings: "tnum" 1, "zero" 0`) for the existing Signal wordmark, Market score
+  (`700`), stock price (`600–700`), explanations (`400`), financial metrics (`500–600`), tickers,
+  and tables (`400–600`). Both families are bundled locally as variable `.woff2` files; no external
+  font requests.
+- System monospace (`--font-mono`) is reserved strictly for legacy code or ciphertext fields—never
+  used on prices, scores, percentages, or financial tables.
 - Size scale: `--text-xs` 12 · `--text-sm` 13 (default secondary text) · `--text-base` 14 · `--text-md` 16 ·
   `--text-lg` 20 · `--text-xl` 24 · `--text-2xl` 32 · `--text-display` 48. SVG user-unit chart labels are
   the only exception.
-- Small context labels above headings use `.eyebrow`: `--text-sm`, weight 600, `--muted`, sentence case
+- Small context labels above headings use `.eyebrow`: `--text-sm`, weight 600, `--subtle`, sentence case
   and normal letter spacing. No uppercase or tracked labels, and no brand colour on labels; table
   headers follow the same rule.
 - The optional "Install Signal" offer docks in the page flow above the V8 footer
@@ -169,17 +175,22 @@ V8 tokens are defined on `.app` and the token-only `.tokens` scope in
 ### Layout, shape and motion
 
 - **Page:** `.canvas` up to 1520px wide, 20px × 32px padding (16px sides on phones).
-- **Cards:** 12px corner radius for top-level cards, 8–10px for inner panels and rows, 6px for buttons
-  and inputs, pill shapes only for tags and chips. 1px `--line` borders and no shadow on resting cards;
-  shadows are only for what floats (menus, dialogs, tooltips). One level of card: blocks inside a card
-  or tab panel are separated by a rule or spacing, never nested in a card of their own.
+- **Header:** 60px compact bar on desktop (`backdrop-filter: blur(12px)` frosted surface) with pill-tinted
+  active navigation links and subtle secondary Settings trigger.
+- **Cards:** 14px corner radius for top-level cards, 8–10px for inner tinted inset panels and rows,
+  8px for buttons and inputs, pill shapes (`999px`) for tags, chips, and status badges. 1px `--line`
+  borders paired with `--card-shadow` (hairline ambient lift on Light; subtle 1px top-edge inner
+  highlight on Dark); deeper shadows are reserved for floating menus, dialogs, and popovers. One level
+  of primary card: supporting evidence or caution notices inside a card use soft `--surface-subtle` or
+  semantic soft tints rather than nested shadow cards.
 - **Tables and ranked lists:** sentence-case grey headers, plain rank numbers, figures right-aligned in
-  tabular figures. Colour marks only what needs attention (a fall, moderate or high risk); signs and
-  words carry the rest.
+  `--font-sans` (`Inter`) tabular figures with open unslashed zeros. Colour marks only what needs attention (a fall, moderate or high risk);
+  signs and words carry the rest.
 - **Charts:** round y-ticks with one step of room above and below the data, faint gridlines, four to
-  six evenly spaced dates; the range's finding sits beside the chart title.
-- **Spacing:** 12–20px inside cards, 20–22px between cards.
-- **Motion:** short colour and disclosure transitions only. Everything respects
+  six evenly spaced dates, subtle area wash under continuous score series, and rounded stroke caps on
+  coverage rings; the range's finding sits beside the chart title.
+- **Spacing:** 14–22px inside cards, 18–22px between cards.
+- **Motion:** short colour, border, and disclosure transitions only. Everything respects
   `prefers-reduced-motion` (already handled on `.app`).
 - **Imagery:** text-first; no decorative imagery attached to financial claims.
 
