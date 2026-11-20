@@ -38,6 +38,7 @@ export type PortfolioSummary = {
 
 export type PortfolioMarketMetric = {
     readonly symbol: string;
+    readonly market: ResearchMarket;
     readonly beta: number | null;
     readonly annualizedVolatilityPercent: number | null;
     readonly observations: number;
@@ -189,6 +190,7 @@ export const buildPortfolioMarketAnalytics = (
         const pairs = series && benchmarkReturns ? pairedValues(series, benchmarkReturns) : [];
         return {
             symbol: holding.symbol,
+            market: holding.market,
             beta: betaFromPairs(pairs),
             annualizedVolatilityPercent: series ? annualizedVolatility([...series.values()].slice(-60)) : null,
             observations: pairs.length,

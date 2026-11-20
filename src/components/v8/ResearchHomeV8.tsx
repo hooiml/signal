@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { useReviewDay } from '@/lib/research/use-review-day';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import { reviewWeekEnd, sortWatchlist, watchlistReview, type WatchlistSort } from '@/lib/research/watchlist-review';
 import { ResearchHoldingsV8 } from './ResearchHoldingsV8';
@@ -30,21 +31,7 @@ export function ResearchHomeV8({ records, status, preferDiscover, discover, isUn
     const [chosen, setChosen] = useState<HomeTab | null>(preferDiscover ? 'discover' : null);
     const [sort, setSort] = useState<WatchlistSort>('saved');
     const [view, setView] = useState<'all' | 'due'>('all');
-    const [today, setToday] = useState(() => new Date().toISOString().slice(0, 10));
-    // A Watchlist left open overnight must not retain yesterday's queue. Visibility
-    // also catches suspended tabs whose midnight timer could not run on time.
-    useEffect(() => {
-        let timer: ReturnType<typeof setTimeout>;
-        const update = () => {
-            const now = new Date();
-            setToday(now.toISOString().slice(0, 10));
-            clearTimeout(timer);
-            timer = setTimeout(update, Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1) - now.getTime() + 50);
-        };
-        update();
-        document.addEventListener('visibilitychange', update);
-        return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', update); };
-    }, []);
+    const today = useReviewDay();
     const matches = (records ?? []).filter(record => (market === 'All' || record.market === market) && `${record.symbol} ${record.companyName}`.toLowerCase().includes(query.trim().toLowerCase()));
     const due = owner ? matches.filter(record => watchlistReview(record, today).dueThisWeek) : [];
     const queue = owner && view === 'due';

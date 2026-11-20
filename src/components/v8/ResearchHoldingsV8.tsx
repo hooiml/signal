@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { buildPortfolioActualSummary, reconcilePortfolioHoldings } from '@/lib/portfolio/holdings';
 import {
     loadPortfolioHoldingsSnapshot,
@@ -8,6 +9,7 @@ import {
     type PortfolioHoldingsLoadResult,
 } from '@/lib/portfolio/holdings-client';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
+import { V9Navigation } from '@/components/v9/v9-navigation';
 import styles from './research-holdings-v8.module.css';
 import { V8EmptyState } from './V8Primitives';
 
@@ -19,13 +21,16 @@ const formatDate = (value: string) => {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 };
-const importLink = <a className={styles.action} href={importHref} target="_blank" rel="noreferrer">Import or update holdings</a>;
 const sourceOf = (row: { readonly provenanceLabel: string; readonly importedAt: string }) => `${row.provenanceLabel} · ${formatDate(row.importedAt)}`;
 
 export function ResearchHoldingsV8({ records, onOpen }: {
     readonly records: readonly ResearchRecord[] | null;
     readonly onOpen: (symbol: string, market: ResearchMarket) => void;
 }) {
+    const v9Href = useContext(V9Navigation);
+    const importLink = v9Href
+        ? <Link className={styles.action} href={v9Href('portfolio', { tab: 'manage' })}>Import or update holdings</Link>
+        : <a className={styles.action} href={importHref} target="_blank" rel="noreferrer">Import or update holdings</a>;
     const [state, setState] = useState<HoldingsState>({ status: 'loading' });
     useEffect(() => {
         const refresh = () => setState(loadPortfolioHoldingsSnapshot());

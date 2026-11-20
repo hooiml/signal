@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
+import Link from 'next/link';
 import type { SecDiscoveryFiling } from '@/lib/research/sec-filings';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import { date, researchHref } from './research-v8-connected-data';
 import styles from './research-v8-modules.module.css';
 import { researchPanelCoverage } from '@/lib/research/reading-display';
+import { V9Navigation } from '@/components/v9/v9-navigation';
 
 type Discovery = { status: 'loading' } | { status: 'ready'; issuer: string; filings: readonly SecDiscoveryFiling[] } | { status: 'degraded'; message: string; retryable: boolean };
 
@@ -23,6 +25,7 @@ function readDiscovery(payload: unknown): Discovery {
 
 // Recent official filings for the open security, plus excerpts the owner has already cited from them.
 export function ResearchFilingsV8({ symbol, market, record }: { symbol: string; market: ResearchMarket; record?: ResearchRecord }) {
+    const v9Href = useContext(V9Navigation);
     const [discovery, setDiscovery] = useState<Discovery>({ status: 'loading' });
     const [attempt, setAttempt] = useState(0);
     useEffect(() => {
@@ -35,6 +38,10 @@ export function ResearchFilingsV8({ symbol, market, record }: { symbol: string; 
         return () => controller.abort();
     }, [symbol, market, attempt]);
     const citations = record?.documentEvidence.citations ?? [];
+    const editLabel = citations.length ? 'Add or edit excerpts' : 'Capture an excerpt';
+    const editLink = v9Href
+        ? <Link href={v9Href('research', { ticker: symbol, market, tab: 'evidence' })}>{editLabel} →</Link>
+        : <a href={researchHref(symbol, 'evidence', market)} target="_blank" rel="noopener noreferrer">{editLabel} (new tab) ↗</a>;
     return <section className={styles.module} aria-labelledby="filings-title" data-testid="research-filings">
         <div className={styles.heading}><div><span className={styles.eyebrow}>Primary documents</span><h2 id="filings-title">Filings and cited excerpts</h2></div>{market === 'US' && discovery.status === 'ready' && <span className={styles.tag}>{discovery.filings.length} recent filings</span>}</div>
         {!researchPanelCoverage(market).secFilings ? <p className={styles.meta}>Read company announcements on <a href="https://www.bursamalaysia.com/market_information/announcements/company_announcement" target="_blank" rel="noopener noreferrer">Bursa Malaysia ↗</a>.</p>
@@ -50,13 +57,13 @@ export function ResearchFilingsV8({ symbol, market, record }: { symbol: string; 
                         </>}
         <h3>Your cited excerpts</h3>
         {!record ? <p className={styles.meta}>Excerpts you capture from filings are kept with saved owner research. {market === 'US' ? 'Unlock the owner workspace and save this security to cite filings.' : ''}</p>
-            : citations.length === 0 ? <p className={styles.meta}>No excerpts cited yet. <a href={researchHref(symbol, 'evidence', market)} target="_blank" rel="noopener noreferrer">Capture an excerpt (new tab) ↗</a></p>
+            : citations.length === 0 ? <p className={styles.meta}>No excerpts cited yet. {editLink}</p>
                 : <>
                     <ul className={styles.citations}>{citations.map(citation => <li key={citation.id}>
                         <blockquote>{citation.excerpt}</blockquote>
                         <small><a href={citation.sourceUrl} target="_blank" rel="noopener noreferrer">{citation.title} ↗</a> · {citation.location || 'location not recorded'} · published {date(citation.publicationDate)} · {citation.captureMethod === 'sec-official' ? 'SEC metadata' : 'manually captured'}</small>
                     </li>)}</ul>
-                    <a href={researchHref(symbol, 'evidence', market)} target="_blank" rel="noopener noreferrer">Add or edit excerpts (new tab) ↗</a>
+                    {editLink}
                 </>}
     </section>;
 }

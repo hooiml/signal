@@ -1,15 +1,49 @@
 'use client';
 
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { OwnerAccessNotice } from '@/components/OwnerAccessNotice';
+import { createWatchlistItemV6 } from '@/components/v6/research-records-v6';
+import { applyResearchSnapshotV6 } from '@/components/v6/research-snapshot-v6';
+import { getResearchActionV6, type ResearchThemeV6 } from '@/components/v6/research-v6';
+import { ResearchFilingsV8 } from '@/components/v8/ResearchFilingsV8';
+import { ResearchPeersV8 } from '@/components/v8/ResearchPeersV8';
+import { FirstVisitCallout, useFirstVisit } from '@/components/v8/V8FirstVisit';
+import { ownerUnlockHref } from '@/lib/owner-access-client';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { ResearchChartPoint, ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { parseResearchSnapshotResponse } from '@/lib/research/snapshot-input';
 import { saveGuestSecurity, updateGuestNote } from '@/lib/research/guest-workspace';
 import { readData, readPolicies } from '@/components/v8/read-data';
+import { useV9OwnerResearch } from './useV9OwnerResearch';
+import { V9Navigation } from './v9-navigation';
 import styles from './v9-workspace.module.css';
 
 type ChartRange = '1M' | '3M' | '1Y' | '5Y';
+const OverviewPanel = dynamic(() => import('@/components/v6/OverviewPanelV6').then(module => module.OverviewPanelV6));
+const EvidenceDocumentDiff = dynamic(() => import('@/components/v6/EvidenceDocumentDiffV6').then(module => module.EvidenceDocumentDiffV6));
+const StructuredTriggerEditor = dynamic(() => import('@/components/v6/StructuredTriggerEditorV6').then(module => module.StructuredTriggerEditorV6));
+
+const readingPanels = [ ['overview', 'Overview'], ['filings', 'Filings'], ['peers', 'Peers'] ] as const;
+const ownerPanels = [ ['review', 'Review'], ['evidence', 'Cited evidence'], ['monitoring', 'Monitoring rules'] ] as const;
+const panels = [...readingPanels, ...ownerPanels];
+
+function V9ReviewPanel({ record, snapshot, theme, writer }: {
+    record: ResearchRecord;
+    snapshot: ResearchSnapshot | null;
+    theme: ResearchThemeV6;
+    writer: ReturnType<typeof useV9OwnerResearch>;
+}) {
+    const [editing, setEditing] = useState(true);
+    const item = createWatchlistItemV6(record, 0);
+    const ticker = snapshot ? applyResearchSnapshotV6(item, snapshot) : item;
+    return <OverviewPanel ticker={ticker} action={getResearchActionV6(ticker)} theme={theme} record={record}
+        benchmark={snapshot?.benchmark ?? null} observedCurrency={snapshot?.quote.currency ?? null}
+        startReview={editing} stagedEvidence={null} workflowTemplateId={null} saving={writer.saving}
+        saveError={writer.error} saveAccessIssue={writer.accessIssue} onSave={writer.save} onReviewChange={setEditing} />;
+}
 
 const defaultTickers: readonly { symbol: string; market: ResearchMarket }[] = [
     { symbol: 'AAPL', market: 'US' },
@@ -158,39 +192,54 @@ export function V9ResearchView({
     symbol,
     market,
     records,
-    owner,
+    workspace,
+    theme,
     onSelectStock,
     onSavedGuest,
+    onSavedOwner,
 }: {
     readonly symbol: string;
     readonly market: ResearchMarket;
     readonly records: readonly ResearchRecord[] | null;
-    readonly owner: boolean;
+    readonly workspace: 'checking' | 'guest' | 'owner';
+    readonly theme: ResearchThemeV6;
     readonly onSelectStock: (symbol: string, market: ResearchMarket) => void;
     readonly onSavedGuest: () => void;
+    readonly onSavedOwner: (record: ResearchRecord) => void;
 }) {
+    const v9Href = useContext(V9Navigation)!;
+    const searchParams = useSearchParams();
+    const owner = workspace === 'owner';
+    const writer = useV9OwnerResearch(owner, onSavedOwner);
+    const tour = useFirstVisit();
+    const showTour = searchParams.get('tour') === '1';
+    const panel = panels.find(([id]) => id === searchParams.get('tab'))?.[0] ?? 'overview';
+    const panelHref = (tab: typeof panel) => v9Href('research', { ticker: symbol, market, ...(tab === 'overview' ? {} : { tab }), ...(showTour ? { tour: '1' } : {}) });
     const [input, setInput] = useState('');
     const [range, setRange] = useState<ChartRange>('3M');
     const [snapshot, setSnapshot] = useState<ResearchSnapshot | null>(null);
     const [extendedPoints, setExtendedPoints] = useState<readonly ResearchChartPoint[] | null>(null);
     const [loading, setLoading] = useState(true);
+    const [attempt, setAttempt] = useState(0);
     const [error, setError] = useState('');
     const [targetPrice, setTargetPrice] = useState<number | null>(null);
     const [noteDraft, setNoteDraft] = useState('');
     const [saveStatus, setSaveStatus] = useState('');
     const [saveError, setSaveError] = useState('');
     const [saving, setSaving] = useState(false);
+    const guestSavePending = useRef(false);
 
     const savedRecord = useMemo(
         () => (records ?? []).find(r => r.symbol.toUpperCase() === symbol.toUpperCase() && r.market === market) ?? null,
         [market, records, symbol],
     );
 
+    const savedNote = savedRecord?.notes ?? '';
     useEffect(() => {
-        setNoteDraft(savedRecord?.notes ?? '');
+        setNoteDraft(savedNote);
         setSaveStatus('');
         setSaveError('');
-    }, [savedRecord, symbol, market]);
+    }, [savedNote, symbol, market]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -201,6 +250,8 @@ export function V9ResearchView({
         readData(`/api/research/symbol/${encodeURIComponent(symbol)}?market=${market}`, controller.signal, readPolicies.provider)
             .then(payload => parseResearchSnapshotResponse(payload))
             .then(result => {
+                if (result.symbol !== symbol || result.market !== market) throw new Error('Security data did not match the request.');
+                if (controller.signal.aborted) return;
                 setSnapshot(result);
                 if (typeof result.quote.price === 'number') {
                     setTargetPrice(Number((result.quote.price * 0.9).toFixed(2)));
@@ -216,7 +267,7 @@ export function V9ResearchView({
                 if (!controller.signal.aborted) setLoading(false);
             });
         return () => controller.abort();
-    }, [symbol, market]);
+    }, [symbol, market, attempt]);
 
     useEffect(() => {
         if (range !== '5Y' || extendedPoints !== null || !snapshot) return;
@@ -247,6 +298,7 @@ export function V9ResearchView({
     }, [records]);
 
     const livePrice = snapshot?.quote.price ?? null;
+    const ready = !loading && !error && livePrice !== null && Number.isFinite(livePrice) && livePrice > 0;
     const low52 = snapshot?.technicals.low52Week ?? (livePrice ? Number((livePrice * 0.72).toFixed(2)) : null);
     const high52 = snapshot?.technicals.high52Week ?? (livePrice ? Number((livePrice * 1.28).toFixed(2)) : null);
     const gapPct = livePrice && targetPrice && targetPrice > 0 ? ((livePrice - targetPrice) / targetPrice) * 100 : null;
@@ -257,25 +309,43 @@ export function V9ResearchView({
     }, [annuals]);
 
     async function handleSaveNote() {
-        if (owner || saving) return;
+        if (workspace !== 'guest' || guestSavePending.current || !snapshot) return;
+        guestSavePending.current = true;
         setSaving(true);
         setSaveError('');
         setSaveStatus('');
+        const tourAtSave = showTour && ready && tour.progress?.state?.stage === 'save' ? tour.progress.state : null;
         try {
-            const existing = savedRecord ?? await saveGuestSecurity(symbol, market, snapshot?.quote.name || symbol);
+            const existing = savedRecord ?? await saveGuestSecurity(symbol, market, snapshot.quote.name || symbol);
             if (noteDraft !== existing.notes) {
                 await updateGuestNote(symbol, market, noteDraft, existing.notes);
             }
             onSavedGuest();
             setSaveStatus('Saved locally in this browser.');
+            if (tourAtSave) await tour.advance(tourAtSave, 'complete');
         } catch (cause) {
             setSaveError(cause instanceof Error ? cause.message : 'Could not save guest note.');
         } finally {
+            guestSavePending.current = false;
             setSaving(false);
         }
     }
 
-    const deepDiveHref = `/research-v8?ticker=${encodeURIComponent(symbol)}&market=${market}`;
+    async function saveOwnerStock() {
+        if (!owner || savedRecord || !records || !snapshot) return;
+        const tourAtSave = showTour && ready && tour.progress?.state?.stage === 'save' ? tour.progress.state : null;
+        const saved = await writer.create({ symbol, market, companyName: snapshot.quote.name || symbol, saveOnly: true });
+        if (saved && tourAtSave) await tour.advance(tourAtSave, 'complete');
+    }
+
+    function retryReading() {
+        setError('');
+        setLoading(true);
+        setAttempt(value => value + 1);
+    }
+
+    const ownerRecord = owner ? savedRecord : null;
+    const ownerPanel = ownerPanels.some(([id]) => id === panel);
 
     return (
         <>
@@ -316,21 +386,60 @@ export function V9ResearchView({
                 </div>
             </div>
 
-            {error && (
+            <nav className={styles.quickPills} aria-label="Company research">
+                {[...readingPanels, ...(ownerRecord ? ownerPanels : [])].map(([id, label]) => (
+                    <Link key={id} className={panel === id ? styles.primaryBtn : styles.quickPill} href={panelHref(id)} aria-current={panel === id ? 'page' : undefined}>{label}</Link>
+                ))}
+            </nav>
+
+            {showTour && <FirstVisitCallout tour={tour} surface="research" ready={ready} saved={!!savedRecord}
+                marketHref={v9Href('market', { market, tour: '1' })} researchHref={panelHref('overview')} />}
+
+            {error && (panel === 'overview' || panel === 'peers') && (
                 <div className={styles.card} role="alert">
                     <strong>Could not load {symbol} ({market})</strong>
                     <p style={{ margin: '6px 0 12px', color: 'var(--muted)' }}>{error}</p>
-                    <Link className={styles.ghostBtn} href={deepDiveHref}>Open in V8 Research →</Link>
+                    <button type="button" className={styles.ghostBtn} onClick={retryReading}>Retry research data</button>
                 </div>
             )}
 
-            {loading && !snapshot && (
+            {panel === 'filings' && <div className={styles.card}><ResearchFilingsV8 symbol={symbol} market={market} record={ownerRecord ?? undefined} /></div>}
+            {panel === 'peers' && !error && <div className={styles.card}><ResearchPeersV8 symbol={symbol} market={market} snapshot={snapshot} saved={records ?? []} onOpen={onSelectStock} /></div>}
+
+            {ownerPanel && (workspace === 'checking' || (owner && !records)) && <div className={styles.card} role="status">Loading saved research…</div>}
+            {ownerPanel && workspace === 'guest' && <div className={styles.card}>
+                <p>Unlock your owner workspace to manage saved research.</p>
+                <Link className={styles.ghostBtn} href={ownerUnlockHref(panelHref(panel))}>Unlock Signal</Link>
+            </div>}
+            {ownerPanel && owner && records && !ownerRecord && <div className={styles.card}>
+                <p>Save {symbol} ({market}) to your watchlist to use this tool.</p>
+                <Link className={styles.ghostBtn} href={panelHref('overview')}>Open {symbol} overview</Link>
+            </div>}
+            {ownerRecord && panel === 'review' && (
+                <div className={styles.card}>
+                    {loading ? <p role="status">Loading {symbol} research…</p> : <V9ReviewPanel record={ownerRecord} snapshot={snapshot} theme={theme} writer={writer} />}
+                </div>
+            )}
+            {ownerRecord && panel === 'evidence' && <div className={styles.card}>
+                <EvidenceDocumentDiff records={[ownerRecord]} initialSymbol={symbol} theme={theme}
+                    saving={writer.saving} saveError={writer.error} onSave={writer.save} onOpen={() => onSelectStock(symbol, market)} />
+                {writer.accessIssue && <OwnerAccessNotice issue={writer.accessIssue} resource="Cited evidence" preserveDraft />}
+            </div>}
+            {ownerRecord && panel === 'monitoring' && <div className={styles.card}>
+                <h2>Monitoring rules for {symbol} · {market}</h2>
+                <StructuredTriggerEditor value={ownerRecord.monitoringRules.structuredTriggers}
+                    saving={writer.saving} saveError={writer.error} theme={theme}
+                    onSave={structuredTriggers => writer.save({ ...ownerRecord, monitoringRules: { ...ownerRecord.monitoringRules, structuredTriggers } }, 'settings')} />
+                {writer.accessIssue && <OwnerAccessNotice issue={writer.accessIssue} resource="Monitoring rules" preserveDraft />}
+            </div>}
+
+            {panel === 'overview' && loading && !snapshot && (
                 <div className={styles.card} role="status">
                     Loading live quote and fundamentals for {symbol} ({market})…
                 </div>
             )}
 
-            {snapshot && (
+            {panel === 'overview' && snapshot && (
                 <div className={styles.researchLayout}>
                     <div className={styles.researchStack}>
                         <section className={styles.card} aria-label="Security price and key metrics">
@@ -357,6 +466,9 @@ export function V9ResearchView({
                                     <small style={{ display: 'block', marginTop: 4 }}>
                                         Observed {snapshot.quote.observedAt ? snapshot.quote.observedAt.slice(0, 10) : snapshot.fetchedAt.slice(0, 10)}
                                     </small>
+                                    {showTour && workspace === 'guest' && !savedRecord && ready && (
+                                        <button type="button" className={styles.ghostBtn} disabled={saving} onClick={handleSaveNote}>Save stock</button>
+                                    )}
                                 </div>
                             </div>
 
@@ -397,7 +509,6 @@ export function V9ResearchView({
                                     <h2>Annual Financials</h2>
                                     <p>Revenue vs Free Cash Flow ({snapshot.fundamentals.source ?? 'Provider statements'})</p>
                                 </div>
-                                <Link className={styles.textLink} href={deepDiveHref}>Full V8 filings & peers →</Link>
                             </div>
                             {annuals.length > 0 ? (
                                 <div className={styles.finBars}>
@@ -463,7 +574,7 @@ export function V9ResearchView({
                             <div className={styles.sectionHead}>
                                 <div>
                                     <h2>Your Thesis & Note</h2>
-                                    <p>{owner ? 'Owner workspace record' : 'Saved locally in this browser'}</p>
+                                    <p>{owner ? 'Owner workspace record' : workspace === 'guest' ? 'Saved locally in this browser' : 'Loading saved research…'}</p>
                                 </div>
                                 {savedRecord && <span className={styles.toneBadge} data-tone="up">Saved</span>}
                             </div>
@@ -472,12 +583,18 @@ export function V9ResearchView({
                                     <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>
                                         {savedRecord?.notes?.trim() || 'No thesis note written yet for this stock.'}
                                     </p>
-                                    <Link className={styles.primaryBtn} href={deepDiveHref}>Edit in Owner Research →</Link>
+                                    {savedRecord
+                                        ? <Link className={styles.primaryBtn} href={panelHref('review')}>Edit saved research</Link>
+                                        : <button type="button" className={styles.primaryBtn} disabled={!records || writer.saving || loading} onClick={saveOwnerStock}>{writer.saving ? 'Saving…' : 'Save stock'}</button>}
+                                    {!savedRecord && writer.error && <p role="alert">{writer.error}</p>}
+                                    {!savedRecord && writer.accessIssue && <OwnerAccessNotice issue={writer.accessIssue} resource="Saved research" />}
                                 </div>
-                            ) : (
+                            ) : workspace === 'guest' && (
                                 <div style={{ display: 'grid', gap: 10 }}>
                                     <textarea
                                         rows={5}
+                                        maxLength={5000}
+                                        aria-label="Research note"
                                         value={noteDraft}
                                         onChange={e => setNoteDraft(e.target.value)}
                                         placeholder={`Write your calm investment thesis for ${snapshot.symbol}…`}

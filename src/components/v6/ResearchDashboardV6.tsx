@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import { parseResearchRecord, ResearchInputError } from '@/lib/research/input';
+import { createOwnerResearchRecord, ResearchWriteAccessError, updateOwnerResearchRecord } from '@/lib/research/owner-record-client';
 import { parseResearchQuoteBatchResponse } from '@/lib/research/snapshot-input';
 import { personalReviewDate } from '@/lib/research/review-lifecycle';
 import { ownerAccessIssue, ownerAccessMessage, ownerUnlockHref, type OwnerAccessIssue } from '@/lib/owner-access-client';
@@ -180,10 +181,6 @@ const formatSnapshotLabel = (date: string | null) => date === null ? null : new 
     year: 'numeric',
     timeZone: 'UTC',
 }).format(new Date(date + 'T00:00:00Z'));
-
-class ResearchWriteAccessError extends ResearchInputError {
-    constructor(readonly issue: OwnerAccessIssue) { super(ownerAccessMessage(issue)); }
-}
 
 const filterResearchItems = (
     items: readonly ResearchWatchlistItem[],
@@ -706,16 +703,6 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         setWorkspace('research');
     };
 
-    const readRecordResponse = async (response: Response): Promise<ResearchRecord> => {
-        const payload: unknown = await response.json().catch(() => null);
-        const body = typeof payload === 'object' && payload !== null && !Array.isArray(payload) ? Object.fromEntries(Object.entries(payload)) : null;
-        const issue = ownerAccessIssue(response.status, body?.code);
-        if (issue) throw new ResearchWriteAccessError(issue);
-        if (!body) throw new ResearchInputError('Invalid research API response.');
-        if (!response.ok) throw new ResearchInputError(typeof body.error === 'string' ? body.error : 'Research request failed.');
-        return parseResearchRecord(body.data);
-    };
-
     const saveRecord = async (record: ResearchRecord, mode: ResearchUpdateMode = 'review'): Promise<boolean> => {
         if (recordsLoadState !== 'ready') {
             setSaveError('Saved research is still loading. Try again when the watchlist is ready.');
@@ -727,15 +714,10 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         try {
             let expectedRevision = record.revision;
             if (!records.some((item) => item.symbol === record.symbol)) {
-                const created = await readRecordResponse(await fetch('/api/research/watchlist', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ symbol: record.symbol, market: record.market, companyName: record.companyName }),
-                }));
+                const created = await createOwnerResearchRecord({ symbol: record.symbol, market: record.market, companyName: record.companyName });
                 expectedRevision = created.revision;
             }
-            const saved = await readRecordResponse(await fetch('/api/research/watchlist/' + encodeURIComponent(record.symbol), {
-                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...record, revision: expectedRevision, mode }),
-            }));
+            const saved = await updateOwnerResearchRecord(record, mode, expectedRevision);
             setRecords((current) => [...current.filter((item) => item.symbol !== saved.symbol), saved]);
             setItems((current) => current.map((item) => item.symbol === saved.symbol ? applyResearchRecordV6(item, saved) : item));
             if (mode === 'review') {
@@ -776,9 +758,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         setAdding(true);
         setSaveError(null);
         try {
-            const saved = await readRecordResponse(await fetch('/api/research/watchlist', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
-            }));
+            const saved = await createOwnerResearchRecord(input);
             setRecords((current) => [...current.filter((item) => item.symbol !== saved.symbol), saved]);
             setItems((current) => current.some((item) => item.symbol === saved.symbol)
                 ? current.map((item) => item.symbol === saved.symbol ? applyResearchRecordV6(item, saved) : item)

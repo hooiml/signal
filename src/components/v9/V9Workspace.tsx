@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
@@ -10,7 +11,8 @@ import { loadPortfolioHoldingsSnapshot, PORTFOLIO_HOLDINGS_CHANGE_EVENT } from '
 import { GUEST_WORKSPACE_CLEARED_EVENT, readGuestRecords } from '@/lib/research/guest-workspace';
 import { createTodayMarketContinuation } from '@/lib/research/since-last-visit';
 import { writeTodayContinuation } from '@/lib/research/since-last-visit-client';
-import { readSignalConfig } from '@/lib/signal-config';
+import { DEFAULT_SIGNAL_CONFIG, readSignalConfig, type SignalConfig } from '@/lib/signal-config';
+import { parseLearnMetric } from '@/lib/learn/metric-links';
 import { marketRouteConfig } from '@/lib/legacy-routes';
 import { parseConnectedSignal } from '@/components/v8/MarketV8ConnectedData';
 import { parseWatchlist } from '@/components/v8/research-v8-connected-data';
@@ -18,7 +20,8 @@ import { readData, readPolicies } from '@/components/v8/read-data';
 import { V8Settings } from '@/components/v8/V8Settings';
 import { V8CommandPalette } from '@/components/v8/V8CommandPalette';
 import { setV8ThemeChoice } from '@/components/v8/V8ThemeControl';
-import type { Market, Mode } from '@/components/v8/market-v8-fixtures';
+import type { Market } from '@/components/v8/market-v8-fixtures';
+import { V9Navigation, workspaceHref, type V9View, type V9Href } from './v9-navigation';
 import { V9HomeView, type SignalSlot } from './V9HomeView';
 import { V9MarketView } from './V9MarketView';
 import { V9ResearchView } from './V9ResearchView';
@@ -26,12 +29,13 @@ import { V9DiscoverView, V9PortfolioView } from './V9PortfolioDiscoverViews';
 import base from '@/components/v8/market-v8.module.css';
 import styles from './v9-workspace.module.css';
 
-export type V9View = 'home' | 'market' | 'portfolio' | 'discover' | 'research';
-
-const validViews = new Set<V9View>(['home', 'market', 'portfolio', 'discover', 'research']);
+const LearnDashboard = dynamic(() => import('@/components/learn/LearnDashboardV1').then(module => module.LearnDashboardV1));
+const validViews = new Set<V9View>(['home', 'market', 'portfolio', 'discover', 'research', 'learn']);
 const errorText = (cause: unknown) => (cause instanceof Error ? cause.message : 'Data could not be loaded.');
+const loadingSlot: SignalSlot = { signal: null, loading: true, error: '' };
+type RequestedSignal = SignalSlot & { requestKey: string };
 
-const navIcons: Record<V9View, ReactNode> = {
+const navIcons: Record<Exclude<V9View, 'learn'>, ReactNode> = {
     home: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V20h14V9.5" /></>,
     market: <path d="M3 12h4l3-7 4 14 3-7h4" />,
     portfolio: <><rect x="3" y="6" width="18" height="14" rx="2" /><path d="M8 6V4h8v2" /></>,
@@ -39,35 +43,32 @@ const navIcons: Record<V9View, ReactNode> = {
     research: <><path d="M4 19V5" /><path d="M4 19h16" /><path d="m8 15 3-4 3 2 5-6" /></>,
 };
 
-export function V9Workspace({
-    initialView = 'home',
-    initialMarket,
-    initialTicker,
-}: {
-    readonly initialView?: V9View;
-    readonly initialMarket?: Market;
-    readonly initialTicker?: string;
-}) {
+export function V9Workspace() {
     const searchParams = useSearchParams();
     const returnsToToday = searchParams.get('returnTo') === 'today';
 
-    const [view, setViewState] = useState<V9View>(() => {
-        if (initialTicker) return 'research';
-        return validViews.has(initialView) ? initialView : 'home';
-    });
+    const requestedView = searchParams.get('view') as V9View | null;
+    const requestedTicker = searchParams.get('ticker')?.trim().toUpperCase();
+    const view = requestedView && validViews.has(requestedView) ? requestedView : requestedTicker ? 'research' : 'home';
+    const [defaults, setDefaults] = useState<SignalConfig | null>(null);
+    const { market, mode, enableSocial: social } = { ...(defaults ?? DEFAULT_SIGNAL_CONFIG), ...marketRouteConfig(searchParams) };
     const [collapsed, setCollapsed] = useState(false);
-    const [market, setMarket] = useState<Market>(initialMarket ?? 'US');
-    const [mode, setMode] = useState<Mode>('standard');
-    const [social, setSocial] = useState(true);
     const [revision, setRevision] = useState(0);
-    const [ticker, setTicker] = useState(initialTicker?.toUpperCase() || 'AAPL');
-    const [tickerMarket, setTickerMarket] = useState<ResearchMarket>(initialMarket ?? 'US');
+    const [lastStock, setLastStock] = useState<{symbol: string; market: ResearchMarket} | null>(null);
+    const tickerMarket = market;
+    const ticker = requestedTicker || (lastStock?.market === market ? lastStock.symbol : market === 'MY' ? '1155' : 'AAPL');
     const [isDark, setIsDark] = useState(false);
 
-    const [usSlot, setUsSlot] = useState<SignalSlot>({ signal: null, loading: true, error: '' });
-    const [mySlot, setMySlot] = useState<SignalSlot>({ signal: null, loading: true, error: '' });
-    const [records, setRecords] = useState<ResearchRecord[] | null>(null);
-    const [workspace, setWorkspace] = useState<'checking' | 'guest' | 'owner'>('checking');
+    const requestKey = `${mode}:${social}:${revision}`;
+    const [usResult, setUsResult] = useState<RequestedSignal | null>(null);
+    const [myResult, setMyResult] = useState<RequestedSignal | null>(null);
+    const usSlot = usResult?.requestKey === requestKey ? usResult : loadingSlot;
+    const mySlot = myResult?.requestKey === requestKey ? myResult : loadingSlot;
+    const [{ records, workspace }, setWatchlist] = useState<{
+        records: ResearchRecord[] | null;
+        workspace: 'checking' | 'guest' | 'owner';
+    }>({ records: null, workspace: 'checking' });
+    const [workspaceError, setWorkspaceError] = useState('');
     const [holdingsTick, setHoldingsTick] = useState(0);
     const [guestTick, setGuestTick] = useState(0);
 
@@ -77,16 +78,9 @@ export function V9Workspace({
     }, [returnsToToday]);
 
     useEffect(() => {
-        const timer = window.setTimeout(() => {
-            const saved = readSignalConfig().config;
-            const routeCfg = marketRouteConfig(searchParams);
-            const merged = { ...saved, ...routeCfg };
-            if (!initialMarket) setMarket(merged.market);
-            setMode(merged.mode);
-            setSocial(merged.enableSocial);
-        }, 0);
+        const timer = window.setTimeout(() => setDefaults(readSignalConfig().config), 0);
         return () => window.clearTimeout(timer);
-    }, [initialMarket, searchParams]);
+    }, []);
 
     // Track resolved light/dark theme attribute on <html>
     useEffect(() => {
@@ -99,49 +93,59 @@ export function V9Workspace({
 
     // Fetch live US and MY signals in parallel
     useEffect(() => {
+        if (!defaults) return;
         const controller = new AbortController();
-        const loadMarket = (target: Market, setter: (slot: SignalSlot) => void) => {
-            setter({ signal: null, loading: true, error: '' });
+        const loadMarket = (target: Market, setter: (slot: RequestedSignal) => void) => {
+            setter({ ...loadingSlot, requestKey });
             const url = `/api/signals/v2?market=${target}&mode=${mode}&enableSocial=${social}`;
             readData(url, controller.signal, readPolicies.score)
                 .then(payload => parseConnectedSignal(payload, target, mode))
-                .then((signal: MarketSignal) => setter({ signal, loading: false, error: '' }))
+                .then((signal: MarketSignal) => {
+                    if (!controller.signal.aborted) setter({ requestKey, signal, loading: false, error: '', receivedAt: new Date().toISOString() });
+                })
                 .catch(cause => {
-                    if (!controller.signal.aborted) setter({ signal: null, loading: false, error: errorText(cause) });
+                    if (!controller.signal.aborted) setter({ requestKey, signal: null, loading: false, error: errorText(cause) });
                 });
         };
-        loadMarket('US', setUsSlot);
-        loadMarket('MY', setMySlot);
+        loadMarket('US', setUsResult);
+        loadMarket('MY', setMyResult);
         return () => controller.abort();
-    }, [mode, social, revision]);
+    }, [mode, social, requestKey, defaults]);
 
     // Load guest or owner watchlist records without unrequested writes
     useEffect(() => {
         const controller = new AbortController();
         const loadGuest = () => {
             try {
-                setRecords([...readGuestRecords()]);
+                setWatchlist({ workspace: 'guest', records: [...readGuestRecords()] });
             } catch {
-                setRecords([]);
+                setWatchlist({ workspace: 'guest', records: [] });
             }
-            setWorkspace('guest');
+            setWorkspaceError('');
         };
         fetch('/api/owner/session', { signal: controller.signal })
-            .then(res => (res.ok ? res.json() : null))
+            .then(res => {
+                if (!res.ok) throw new Error('Workspace status could not be loaded.');
+                return res.json();
+            })
             .then(async payload => {
                 if (controller.signal.aborted) return;
-                if (payload?.success && payload.data?.unlocked) {
+                if (!payload?.success || typeof payload.data?.unlocked !== 'boolean') throw new Error('Workspace status is unavailable.');
+                if (payload.data.unlocked) {
                     const list = parseWatchlist(await readData('/api/research/watchlist', controller.signal, readPolicies.watchlist));
                     if (!controller.signal.aborted) {
-                        setRecords([...list]);
-                        setWorkspace('owner');
+                        setWatchlist({ workspace: 'owner', records: list });
+                        setWorkspaceError('');
                     }
                     return;
                 }
                 loadGuest();
             })
-            .catch(() => {
-                if (!controller.signal.aborted) loadGuest();
+            .catch(cause => {
+                if (!controller.signal.aborted) {
+                    setWatchlist({ workspace: 'checking', records: null });
+                    setWorkspaceError(errorText(cause));
+                }
             });
         return () => controller.abort();
     }, [guestTick]);
@@ -161,47 +165,61 @@ export function V9Workspace({
 
     const portfolio = useMemo(() => {
         void holdingsTick;
-        if (typeof window === 'undefined') return { count: 0, summaries: [] };
+        if (!defaults) return { count: 0, summaries: [] };
         const loaded = loadPortfolioHoldingsSnapshot();
         if (loaded.status !== 'ready') return { count: 0, summaries: [] };
         const reconciled = reconcilePortfolioHoldings(loaded.snapshot, records ?? [], new Map());
         const summaries = buildPortfolioActualSummary(loaded.snapshot, reconciled);
         return { count: loaded.snapshot.holdings.length, summaries };
-    }, [holdingsTick, records]);
+    }, [holdingsTick, records, defaults]);
 
-    const syncUrl = useCallback((nextView: V9View, extra?: { market?: Market; ticker?: string }) => {
-        if (typeof window === 'undefined') return;
-        const url = new URL(window.location.href);
-        url.pathname = '/v9';
-        if (nextView === 'home') url.searchParams.delete('view');
-        else url.searchParams.set('view', nextView);
-        if (extra?.market) url.searchParams.set('market', extra.market);
-        if (extra?.ticker) url.searchParams.set('ticker', extra.ticker);
-        else if (nextView !== 'research') url.searchParams.delete('ticker');
-        window.history.replaceState(null, '', url);
-    }, []);
+    const href = useCallback<V9Href>((next, params) =>
+        workspaceHref(next, { market, mode, enableSocial: social }, {
+            ...(returnsToToday ? { returnTo: 'today' } : {}),
+            ...(searchParams.get('tour') === '1' && (next === 'market' || next === 'research') ? { tour: '1' } : {}),
+            ...params,
+        }), [market, mode, social, returnsToToday, searchParams]);
 
     const switchView = useCallback((next: V9View) => {
-        setViewState(next);
-        syncUrl(next);
-    }, [syncUrl]);
+        const target = next === 'research' ? href(next, { ticker, market: tickerMarket }) : href(next);
+        window.history.pushState(null, '', target);
+        window.scrollTo(0, 0);
+    }, [href, ticker, tickerMarket]);
 
-    const openMarket = useCallback((nextMarket: Market) => {
-        setMarket(nextMarket);
-        setViewState('market');
-        syncUrl('market', { market: nextMarket });
-    }, [syncUrl]);
+    const openMarket = useCallback((nextMarket: Market, tab?: 'evidence' | 'scenarios') => {
+        window.history.pushState(null, '', href('market', { market: nextMarket, ...(tab ? { tab } : {}) }));
+        window.scrollTo(0, 0);
+    }, [href]);
 
     const openStock = useCallback((sym: string, mkt: ResearchMarket) => {
         const clean = sym.trim().toUpperCase();
-        setTicker(clean);
-        setTickerMarket(mkt);
-        setViewState('research');
-        syncUrl('research', { market: mkt, ticker: clean });
-    }, [syncUrl]);
+        setLastStock({ symbol: clean, market: mkt });
+        window.history.pushState(null, '', href('research', { market: mkt, ticker: clean }));
+        window.scrollTo(0, 0);
+    }, [href]);
+
+    const updateMarketPreference = (key: 'market' | 'mode' | 'enableSocial', value: string) => {
+        const current = { market, mode, enableSocial: String(social) };
+        if (current[key] === value) return;
+        const url = new URL(window.location.href);
+        url.searchParams.set(key, value);
+        for (const param of ['tab', 'advanced', 'investigation']) url.searchParams.delete(param);
+        window.history.replaceState(null, '', url);
+    };
 
     const activeSlot = market === 'MY' ? mySlot : usSlot;
-    const navItems: readonly { id: V9View; label: string; shortLabel: string; badge?: string }[] = [
+    const mergeSavedOwner = useCallback((saved: ResearchRecord) => {
+        setWatchlist(current => {
+            if (current.workspace !== 'owner' || !current.records) return current;
+            const previous = current.records.find(item => item.market === saved.market && item.symbol === saved.symbol);
+            if (previous && previous.revision >= saved.revision) return current;
+            const records = previous
+                ? current.records.map(item => item === previous ? saved : item)
+                : [...current.records, saved].sort((left, right) => left.symbol.localeCompare(right.symbol));
+            return { ...current, records };
+        });
+    }, []);
+    const navItems: readonly { id: keyof typeof navIcons; label: string; shortLabel: string; badge?: string }[] = [
         { id: 'home', label: 'Home', shortLabel: 'Home' },
         { id: 'market', label: 'Market Pulse', shortLabel: 'Market', badge: activeSlot.signal ? activeSlot.signal.composite_score.toFixed(0) : undefined },
         { id: 'portfolio', label: 'Portfolio', shortLabel: 'Portfolio', badge: portfolio.count ? String(portfolio.count) : undefined },
@@ -219,6 +237,7 @@ export function V9Workspace({
         ]);
 
     return (
+        <V9Navigation.Provider value={href}>
         <div className={`${base.tokens} ${styles.shell}`} data-collapsed={collapsed} data-testid="v9-workspace">
             <aside className={styles.sidebar} aria-label="Workspace sidebar">
                 <div className={styles.brandRow}>
@@ -283,9 +302,7 @@ export function V9Workspace({
                 </div>
 
                 <div className={styles.sideFooter}>
-                    <Link className={styles.sideFootLink} href="/learn">Learn & Glossary</Link>
-                    <Link className={styles.sideFootLink} href="/main-v8">Classic V8 Market</Link>
-                    <Link className={styles.sideFootLink} href="/research-v8">Classic V8 Research</Link>
+                    <Link className={styles.sideFootLink} aria-current={view === 'learn' ? 'page' : undefined} href={href('learn')}>Learn & Glossary</Link>
                 </div>
             </aside>
 
@@ -318,6 +335,10 @@ export function V9Workspace({
                 </header>
 
                 <main className={styles.pageContent}>
+                    {workspaceError && <div className={styles.card} role="alert">
+                        {workspaceError}{' '}
+                        <button type="button" className={styles.textLink} onClick={() => { setWorkspaceError(''); setGuestTick(value => value + 1); }}>Retry workspace</button>
+                    </div>}
                     {returnsToToday && (
                         <div className={styles.todayBanner}>
                             <span>Opened from your Today briefing.</span>
@@ -325,10 +346,13 @@ export function V9Workspace({
                         </div>
                     )}
 
+                    {view === 'learn' && <LearnDashboard key={searchParams.get('concept')} embedded initialConcept={parseLearnMetric(searchParams.get('concept') ?? undefined)} />}
                     {view === 'home' && (
                         <V9HomeView
+                            selectedMarket={market}
                             us={usSlot}
                             my={mySlot}
+                            mode={mode}
                             records={records}
                             owner={workspace === 'owner'}
                             portfolioSummaries={portfolio.summaries}
@@ -347,9 +371,12 @@ export function V9Workspace({
                             signal={activeSlot.signal}
                             loading={activeSlot.loading}
                             error={activeSlot.error}
-                            onMarketChange={next => { setMarket(next); syncUrl('market', { market: next }); }}
-                            onModeChange={setMode}
-                            onSocialChange={setSocial}
+                            isDark={isDark}
+                            receivedAt={activeSlot.receivedAt}
+                            exposureWorkspace={{ status: workspaceError ? 'error' : records ? 'ready' : 'loading', records: records ?? [], workspace: workspace === 'owner' ? 'owner' : 'guest' }}
+                            onMarketChange={next => updateMarketPreference('market', next)}
+                            onModeChange={next => updateMarketPreference('mode', next)}
+                            onSocialChange={next => updateMarketPreference('enableSocial', String(next))}
                             onReload={() => setRevision(v => v + 1)}
                         />
                     )}
@@ -357,6 +384,9 @@ export function V9Workspace({
                     {view === 'portfolio' && (
                         <V9PortfolioView
                             records={records}
+                            workspace={workspace}
+                            theme={isDark ? 'dark' : 'light'}
+                            onSavedOwner={mergeSavedOwner}
                             summaries={portfolio.summaries}
                             onOpenStock={openStock}
                         />
@@ -372,10 +402,13 @@ export function V9Workspace({
 
                     {view === 'research' && (
                         <V9ResearchView
+                            key={`${tickerMarket}:${ticker}`}
                             symbol={ticker}
                             market={tickerMarket}
                             records={records}
-                            owner={workspace === 'owner'}
+                            workspace={workspace}
+                            theme={isDark ? 'dark' : 'light'}
+                            onSavedOwner={mergeSavedOwner}
                             onSelectStock={openStock}
                             onSavedGuest={() => setGuestTick(v => v + 1)}
                         />
@@ -398,5 +431,6 @@ export function V9Workspace({
                 ))}
             </nav>
         </div>
+        </V9Navigation.Provider>
     );
 }

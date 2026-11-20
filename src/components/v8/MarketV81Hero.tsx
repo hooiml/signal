@@ -5,7 +5,7 @@ import { marketAlignment, marketReadingLabel, marketTimestampLabel } from '@/lib
 import { buildMarketBrief } from '@/lib/market-brief';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import { hasRetrievalTimestamp, marketEvidenceCoverage, marketEvidenceDay } from '@/lib/market-evidence-coverage';
-import { getIndicatorDisplayName } from '@/lib/indicator-registry';
+import { getIndicatorBaseWeights, getIndicatorDisplayName } from '@/lib/indicator-registry';
 import { fullDate } from './MarketV8ConnectedData';
 import { MARKET_SCORE_TIER_THRESHOLDS } from '@/lib/market-score-thresholds';
 import styles from './market-v8.module.css';
@@ -19,9 +19,10 @@ import { MarketStressTest, computeVixStress } from './MarketStressTest';
 
 const pct = (value: number) => value.toFixed(1) + '%';
 
-export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onEvidence, onDrivers, onSelect }: {
+export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onEvidence, onDrivers, onSelect, sourceEnabled }: {
     signal: MarketSignal; snapshotDate: string | null | undefined; tierClass: string;
     receivedAt?: string;
+    sourceEnabled?: boolean;
     onEvidence: () => void; onDrivers: () => void;
     onSelect: (key: string, element: HTMLButtonElement) => void;
 }) {
@@ -42,6 +43,10 @@ export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onE
     const name = (key: string) => signal.components[key]?.display_name ?? getIndicatorDisplayName(key);
 
     const vixComponent = signal.components.vix;
+    const inV9 = sourceEnabled !== undefined;
+    const isUsVix = signal.metadata.market === 'US' && vixComponent?.enabled === true && Number.isFinite(vixComponent.value);
+    const highVolatility = isUsVix && (vixComponent?.value ?? 0) > 30;
+    const highVolatilityWeights = highVolatility ? getIndicatorBaseWeights('US', { highVolatilityOverride: true }) : null;
     const liveVix = typeof vixComponent?.value === 'number' && Number.isFinite(vixComponent.value) && vixComponent.value > 5 && vixComponent.value < 90
         ? vixComponent.value
         : 16.0;
@@ -84,9 +89,10 @@ export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onE
                             {stress.active && <span className={layout.simBadge}>Preview {stress.score}/100</span>}
                         </div>
                         <div className={layout.scoreMetaRow}>
-                            {unchanged ? <span data-testid="market-hero-unchanged">Score unchanged since {fullDate(brief.comparisonDate)}</span> : compared ? <button className={layout.changeLink} onClick={onDrivers}>Score {change!.delta! > 0 ? '+' : ''}{change!.delta!.toFixed(2)} points vs {fullDate(brief.comparisonDate)} ↗</button> : <span>Earlier comparable score unavailable</span>}
-                            <MarketSinceLastVisit signal={signal} snapshotDate={snapshotDay} />
+                            {unchanged ? <span data-testid="market-hero-unchanged">Score unchanged {inV9 ? 'vs prior snapshot' : 'since'} {fullDate(brief.comparisonDate)}</span> : compared ? <button type="button" className={layout.changeLink} onClick={onDrivers}>Score {change!.delta! > 0 ? '+' : ''}{change!.delta!.toFixed(2)} points vs {inV9 ? 'prior snapshot ' : ''}{fullDate(brief.comparisonDate)} ↗</button> : <span>Earlier comparable score unavailable</span>}
+                            <MarketSinceLastVisit signal={signal} snapshotDate={snapshotDay} sourceEnabled={sourceEnabled} />
                         </div>
+                        {inV9 && highVolatilityWeights && <p className={layout.caution}>VIX is above 30, so it carries {(highVolatilityWeights.vix * 100).toFixed(0)}% of the US score. Its usual weight is {(getIndicatorBaseWeights('US').vix * 100).toFixed(0)}%.</p>}
                         {brief.status === 'unavailable' && <p className={layout.caution}>Calculated score · insufficient evidence for a current conclusion.</p>}
                     </div>
                 </div>
@@ -104,7 +110,7 @@ export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onE
             </section>
         </div>
 
-        {brief.status !== 'unavailable' && (
+        {brief.status !== 'unavailable' && (!inV9 || isUsVix) && (
             <MarketStressTest
                 liveVix={liveVix}
                 simulatedVix={simulatedVix}

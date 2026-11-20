@@ -2026,10 +2026,10 @@ const runPortfolioAnalyticsTests = () => {
     const base = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
     const positionPlan = { plannedAllocationPercent: 20, averageCost: 100, plannedEntryPrice: null, invalidationPrice: 90 };
     const msft = { ...base, positionState: 'owned' as const, positionPlan };
-    const amd = { ...base, symbol: 'AMD', positionPlan: { ...positionPlan, plannedAllocationPercent: 10, invalidationPrice: null } };
+    const maybank = { ...createResearchRecord({ symbol: '1155', market: 'MY', companyName: 'Maybank' }), positionPlan: { ...positionPlan, plannedAllocationPercent: 10, invalidationPrice: null } };
     const summary = buildPortfolioSummary([
         { record: msft, sector: 'Technology', currency: 'USD', currentPrice: 110 },
-        { record: amd, sector: 'Technology', currency: 'USD', currentPrice: 120 },
+        { record: maybank, sector: 'Technology', currency: 'MYR', currentPrice: 120 },
     ]);
     assertEqual(summary.totalAllocationPercent, 30, 'portfolio summary totals planned allocation');
     assertEqual(summary.unallocatedPercent, 70, 'portfolio summary reports unallocated capacity');
@@ -2042,12 +2042,13 @@ const runPortfolioAnalyticsTests = () => {
     const benchmark = dates.map((date, index) => portfolioChartPoint(date, 100 + index));
     const charts = new Map([
         ['MSFT', dates.map((date, index) => portfolioChartPoint(date, 100 + index * 2))],
-        ['AMD', dates.map((date, index) => portfolioChartPoint(date, 80 + index * 1.5))],
+        ['1155', dates.map((date, index) => portfolioChartPoint(date, 80 + index * 1.5))],
     ]);
-    const analytics = buildPortfolioMarketAnalytics(summary.holdings, charts, new Map([['US', benchmark]]));
+    const analytics = buildPortfolioMarketAnalytics(summary.holdings, charts, new Map([['US', benchmark], ['MY', benchmark]]));
+    assertEqual(analytics.metrics.map(({ symbol, market }) => `${market}:${symbol}`).join(','), 'US:MSFT,MY:1155', 'portfolio risk rows retain the exact market for research navigation');
     assertEqual(analytics.metrics[0]?.observations, 30, 'portfolio beta uses overlapping return observations');
     assertEqual(analytics.metrics.every((metric) => metric.beta !== null), true, 'portfolio beta is available with sufficient history');
-    assertEqual(analytics.correlations[0]?.correlations.AMD !== null, true, 'portfolio correlation is calculated with sufficient overlap');
+    assertEqual(typeof analytics.correlations[0]?.correlations['1155'], 'number', 'portfolio correlation is calculated with sufficient overlap');
     const scenarios = buildPortfolioScenarios(summary, analytics, -12);
     assertEqual(scenarios.find((scenario) => scenario.label === 'User-defined shock')?.portfolioImpactPercent, -3.6, 'portfolio custom shock weights planned allocation');
     assertEqual(scenarios.find((scenario) => scenario.label === 'Saved invalidation levels')?.coveredAllocationPercent, 20, 'portfolio invalidation scenario reports covered allocation');
