@@ -245,3 +245,13 @@ Reviewed all 12 changed Windows Research, Holdings and glossary images across bo
 sizes and themes. The phone glossary keeps its selected tab and the link is visible
 and underlined. After accepting those images, all 20 Windows comparisons passed
 with the existing zero-pixel tolerance.
+
+**Research ports Linux review (20 November 2026).** On commit `6fa2e6f`,
+16 comparisons passed against the existing references. The four glossary captures
+had small vertical offsets in desktop text and rules and a one-pixel shift in two
+phone separators. All four retained the P/E definition, selected Valuation tab
+and underlined Learn more link. The independently reviewed local candidates from
+the pinned container matched the hosted candidates byte for byte. Each hosted
+expected PNG matched its previous baseline and all 20 environment reports had
+empty browser error arrays. Only the four glossary references were updated from
+artifact `14634084377`. [Hosted comparison](https://github.com/hooiml/signal/actions/runs/44749786035)
