@@ -8,6 +8,7 @@ import { legacyMarketAnchors, marketRouteConfig } from '@/lib/legacy-routes';
 import { createTodayMarketContinuation } from '@/lib/research/since-last-visit';
 import { writeTodayContinuation } from '@/lib/research/since-last-visit-client';
 import { V8Settings } from './V8Settings';
+import { V8CommandPalette } from './V8CommandPalette';
 import { V8FirstVisit } from './V8FirstVisit';
 import { readSignalConfig, type SignalConfig } from '@/lib/signal-config';
 import { readData as read, readPolicies } from './read-data';
@@ -280,7 +281,7 @@ function MarketView({ initialConfig, initialPreferenceError }: { initialConfig: 
 
     return <div className={styles.app} onKeyDown={event => { if (event.key === 'Escape' && selected) closeInspector(); }}>
         <a className={styles.skip} href="#market-content">Skip to market conditions</a>
-        <header className={styles.header}><a className={styles.logo} href="/main-v8">∿ Signal</a><nav aria-label="Primary"><a href="/main-v8" aria-current="page">Market</a><a href={`/research-v8?market=${market}`}>Research</a></nav><V8Settings onDefaultsSaved={() => setPreferenceError('')} /></header>
+        <header className={styles.header}><a className={styles.logo} href="/main-v8">∿ Signal</a><nav aria-label="Primary"><a href="/main-v8" aria-current="page">Market</a><a href={`/research-v8?market=${market}`}>Research</a></nav><V8CommandPalette market={market} /><V8Settings onDefaultsSaved={() => setPreferenceError('')} /></header>
         {preferenceError && <p role="status" className={styles.canvas}>{preferenceError}</p>}
         <div className={styles.canvas}>
             <V8FirstVisit surface="market" mode={mode} ready={!!data && Number.isFinite(data.composite_score) && hasScore && !loading && !response.error && !historical && response.key === key} />

@@ -114,10 +114,10 @@ const ringHtml = renderToStaticMarkup(createElement(MarketCoverageRing, {
     coverage: { observedPct: 90, fallbackPct: 10, freshKeys: ['vix'], staleKeys: ['social'] },
     onSelect: () => assert.fail('Rendering must not select an input'),
 }));
-assert.match(ringHtml, /<circle[^>]*data-indicator="vix" data-state="fresh"/);
-assert.match(ringHtml, /<circle[^>]*data-indicator="social" data-state="stale"/);
-assert.match(ringHtml, /<circle[^>]*data-indicator="news" data-state="unknown"/);
-assert.match(ringHtml, /<circle[^>]*data-indicator="fallback" data-state="fallback"/);
+assert.match(ringHtml, /<rect[^>]*data-indicator="vix" data-state="fresh"/);
+assert.match(ringHtml, /<rect[^>]*data-indicator="social" data-state="stale"/);
+assert.match(ringHtml, /<rect[^>]*data-indicator="news" data-state="unknown"/);
+assert.match(ringHtml, /<rect[^>]*data-indicator="fallback" data-state="fallback"/);
 assert.match(ringHtml, /<button type="button" class="ringItem"[^>]*><i data-indicator="vix"/);
 assert.match(ringHtml, /VIX Index<small>fresh<\/small>/);
 assert.match(ringHtml, /Social Sentiment<small>stale<\/small>/);
@@ -253,7 +253,7 @@ for (const market of ['US', 'MY']) {
             if (scenario.pin === null) assert.doesNotMatch(spectrum, /Previous score/, context);
             else {
                 assert.ok(spectrum.includes(`Previous score ${scenario.pin.toFixed(0)} on 19 Oct 2026.`), context);
-                assert.ok(html.includes(`class="v81PreviousPin" style="left:${scenario.pin}%"`), context);
+                assert.ok(html.includes(`class="v81PreviousPin" data-previous-score="${scenario.pin}"`), context);
             }
             if (scenario.unchanged) assert.match(html, /Score unchanged since 19 Oct 2026/, context);
             else if (scenario.absent || scenario.date === null || scenario.delta === null) assert.match(html, /Earlier comparable score unavailable/, context);
@@ -272,7 +272,7 @@ const invalidAccountingHtml = renderHero(invalidAccountingSignal, '2026-10-20');
 assert.match(invalidAccountingHtml, /Weight unverified/, 'Unreconciled accounting labels evidence weight as unverified');
 assert.match(invalidAccountingHtml, /Coverage weights could not be reconciled/, 'Unreconciled accounting explains the missing coverage graphic');
 assert.doesNotMatch(invalidAccountingHtml, /\d+\.\d% configured weight/, 'Unreconciled accounting does not render a synthetic percentage');
-assert.doesNotMatch(invalidAccountingHtml, /<svg[^>]*class="coverageRing"/, 'Unreconciled accounting suppresses the coverage ring');
+assert.doesNotMatch(invalidAccountingHtml, /<svg[^>]*class="(coverageRing|coverageBarSvg)"/, 'Unreconciled accounting suppresses the coverage graphic');
 
 // Invalid written calendar dates must not be Date.parse-normalized into a different displayed day.
 const invalidSnapshotHtml = renderHero(fixture.parseSignal(invalidAccountingPayload, 'US', 'standard'), '2026-02-30');

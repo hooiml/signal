@@ -9,6 +9,7 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
 - Last refreshed: 2026-11-20
 - Feature contract: [Latest Market Brief](docs/MARKET_BRIEF_DESIGN.md) (E28;
   evidence-qualified interpretation inside the Market assessment).
+- V9 design specifications: [`docs/design-concepts/README.md`](docs/design-concepts/README.md) (`v9.0` baseline and `v9.0.1` Calm Monochrome flagship spec; Phase 1 implemented on connected Market & header shell).
 - Default surfaces: **Market** (`/main-v8`) and **Research** (`/research-v8`).
 - Evidence reviewed: `src/components/v8/` (components and CSS modules), `src/app/page.tsx`,
   `src/app/research/page.tsx`, `src/app/layout.tsx`, `docs/TESTING.md`, `docs/V8_UI_UX_ENHANCEMENT_PLAN.md`
@@ -46,9 +47,15 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
 | `/start` | V6 guided start. Not linked from the V8 header. |
 | `/learn` | Existing courses in the V8 shell; `?concept=rsi`, `put-call`, `naaim`, `pe` or `fcf-yield` opens its matching lab. |
 
-- **Primary navigation (V8 header):** Market · Research, plus Settings.
+- **Primary navigation (V8/V9 header):** Market · Research, plus local Quick Jump (`⌘K`) and Settings.
   Learn uses the same header with a current Learn link; its navigation wraps below the wordmark and
   Settings on phones. Existing courses and the command palette remain available.
+- **V9 Phase 1 Market stage:** Calm Monochrome structural chrome (softened pearl dark ink `#e7ecf4`
+  and WCAG AA/AAA muted labels `#94a2b8` / `#475467`), subtle posture-tinted hero aurora, luminous
+  semi-circle score arc gauge (`MarketScoreArc`), horizontal segmented coverage bar
+  (`MarketCoverageRing`), 3-column Latest Market Brief digest grid, gradient hover-scrubbing score
+  chart (`MarketV8Chart`), and a local-only What-If VIX Stress Test (`MarketStressTest`) that
+  never alters live readings or triggers API requests.
 - **Settings (G4/E20):** one native modal in connected Market, Research and Learn, keeping the
   underlying editors mounted. Appearance has the existing immediate Light / Auto / Dark radios.
   Market defaults save explicitly for the next opening/reload; a valid URL market takes priority.
