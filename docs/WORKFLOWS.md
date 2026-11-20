@@ -9,6 +9,21 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+## Before Opening A Pull Request
+
+Run `npm run check:pr` for typecheck and lint, then run the test for the area you
+changed. For example, `npm run test:scoring` exercises scoring on Windows. For a
+visual change, use the [visual test setup](VISUAL_CHECKS.md) and run a focused
+comparison such as `npm run qa:visual -- --grep glossary --project=phone-light`.
+Windows and the pinned Linux container have separate screenshot baselines.
+Use the [verification lanes](TESTING.md) to choose any further local checks.
+
+The GitHub Actions **Signal validation** workflow has one `validate` job. It runs
+`npm run check:pr` for typecheck and lint on draft and ready PRs targeting `main`,
+pushes to `main`, and manual runs. It also runs the production build for ready PRs,
+pushes to `main`, and manual runs. Run the applicable harness, browser suites, and
+screenshot comparisons locally. Keep the resulting diagnostics in `.tmp/`.
+
 ## Before Finishing A Change
 
 ```powershell

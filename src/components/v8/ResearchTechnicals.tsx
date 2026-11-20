@@ -2,22 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { ResearchChartV6 } from '@/components/v6/ResearchChartV6';
-import { parseResearchChartResponse } from '@/lib/research/snapshot-input';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
-import { readData, readPolicies } from './read-data';
+import { readResearchChart } from './read-research-chart';
 import { MetricGlossary } from './MetricGlossary';
 import styles from './research-technicals.module.css';
 
 type Chart = ResearchSnapshot['chart'];
 type ChartRead = { chart: Chart | null; state: 'loading' | 'ready' | 'error' };
-
-async function readChart(symbol: string, market: ResearchSnapshot['market'], signal: AbortSignal) {
-    const payload = await readData(`/api/research/chart/${encodeURIComponent(symbol)}?market=${market}`, signal, readPolicies.provider);
-    const chart = parseResearchChartResponse(payload);
-    const data = (payload as { data: { symbol?: unknown; market?: unknown } }).data;
-    if (data.symbol !== symbol || data.market !== market) throw new Error('Chart security mismatch');
-    return chart;
-}
 
 /** Public provider reads only: chart access never depends on or updates a saved record. */
 export function ResearchTechnicals({ snapshot }: { snapshot: ResearchSnapshot }) {
@@ -41,7 +32,7 @@ export function ResearchTechnicals({ snapshot }: { snapshot: ResearchSnapshot })
 
     useEffect(() => {
         const controller = new AbortController();
-        readChart(snapshot.symbol, snapshot.market, controller.signal)
+        readResearchChart(snapshot.symbol, snapshot.market, controller.signal)
             .then(chart => { if (!controller.signal.aborted) setHistory({ chart, state: 'ready' }); })
             .catch(() => { if (!controller.signal.aborted) setHistory({ chart: null, state: 'error' }); });
         return () => controller.abort();
@@ -50,7 +41,7 @@ export function ResearchTechnicals({ snapshot }: { snapshot: ResearchSnapshot })
     useEffect(() => {
         if (!compare || snapshot.symbol === benchmarkSymbol) return;
         const controller = new AbortController();
-        readChart(benchmarkSymbol, snapshot.market, controller.signal)
+        readResearchChart(benchmarkSymbol, snapshot.market, controller.signal)
             .then(chart => { if (!controller.signal.aborted) setBenchmark({ chart, state: chart.points.length ? 'ready' : 'error' }); })
             .catch(() => { if (!controller.signal.aborted) setBenchmark({ chart: null, state: 'error' }); });
         return () => controller.abort();

@@ -2,12 +2,29 @@
 
 Run the smallest verification set that proves the change, then expand when shared behavior or API contracts changed.
 
+GitHub Actions runs typecheck and lint through `npm run check:pr` and adds a
+production build for ready PRs, pushes to `main`, and manual runs. Run the
+applicable harness, browser suites, and screenshot comparisons locally. See
+[Workflows](WORKFLOWS.md#before-opening-a-pull-request) for the GitHub job.
+
 ## Standard Verification
 
 For V9 workspace changes, run `node scripts/v9-workspace-qa.mjs` against the local
 production server at `SIGNAL_QA_URL` (default `http://127.0.0.1:3000`). It exercises
 workspace navigation with fixture data and captures Home and Market at 1280, 768
 and 375 pixels in both themes under `.tmp/v9-workspace/`.
+
+Run `node scripts/v9-research-ports-qa.mjs` against the same local server for the
+Research ports. Check the six-stock Home preview against a larger watchlist, owner
+review links, guest filters, company-name search and direct ticker entry. Selecting
+a result must retain its market and stay in V9. Check guest note recovery after
+switching stock and reloading, including a stock that has never been saved. Confirm
+that a guest can keep a draft after a second tab saves the stock, and that a later
+edit in that tab still requires another conflict check. Reading and recovering
+notes must cause no owner writes. Open Chart & technicals and
+Financials & valuation, exercise an optional benchmark, and check a missing quote
+observation against a known retrieval time in Sources & coverage. Use fixture data
+for both US and MY so these checks never need production records.
 
 For the intraday timeline, the full harness includes
 `node scripts/harness/signal-intraday-reader-regression.mjs`. Verify recording separately
@@ -62,7 +79,7 @@ current reading gaps, exact US/MY review handoffs, draft preservation, visit dis
 stock switching and keyboard use. Light/dark geometry and screenshots cover
 1280/768/375/320px, including long-thesis disclosure; artifacts live in `.tmp/research-due-review/`.
 `--scenario=guest-suites` reuses the guest workspace/recovery matrices in the same browser
-process when those paths need verification; ordinary CI already runs them through the unsaved suite.
+process when those paths need verification. The local unsaved suite also runs those matrices.
 Fixtures verify read-only UI/storage/request behavior, not live-provider data or deployment.
 `scripts/harness/due-review-regression.ts` runs within the Research harness and protects
 UTC boundaries, immutable snapshot selection, legacy gaps and calculation purity.
@@ -87,16 +104,16 @@ pressed controls, empty/loading/error states, retained dates, panel associations
 geometry and request safety. Authenticated fixtures require matching disposable server
 `OWNER_ACCESS_SECRET` and test `SIGNAL_QA_OWNER_SECRET` values of at least 32 visible ASCII
 characters, with the documented placeholder DB URL. No real owner records or provider
-credentials are needed. Inspect fresh screenshots against G7's Windows baselines locally;
-Linux baselines are separately verified by pinned CI. Do not update either set for a
-behavior-preserving extraction. The API and ownership contract is in `DESIGN.md`.
+credentials are needed. Inspect fresh screenshots against G7's Windows baselines locally.
+Use the pinned container for any local Linux comparison. Do not update either
+set of baselines for a behavior-preserving extraction. The API and ownership
+contract is in `DESIGN.md`.
 
 For G7 screenshot regression checks, run `npm run qa:visual` against the owned
 production server on port 3000. Twenty fixture images cover Market, Research,
-Holdings, Settings and glossary at desktop/phone in light/dark. The separate
-Signal validation visual job uses a pinned Linux container and never updates
-goldens. See [Visual comparisons](VISUAL_CHECKS.md) for platform-separated
-baselines, explicit review/update, diff artifacts and initial Linux enrollment.
+Holdings, Settings and glossary at desktop/phone in light/dark. See
+[Visual comparisons](VISUAL_CHECKS.md) for the Windows and pinned Linux baselines,
+local diff artifacts, and explicit baseline review and update.
 
 For G6/E22 route retirement, run `npm run qa:legacy-routes` against the owned production
 server on port 3000 after build and post-build typecheck. It intercepts application APIs
@@ -117,8 +134,8 @@ first entry, skip/reload/resume, guest/owner explicit Save, failure/retry, saved
 acknowledgement, unavailable/mismatched reading, corrupt/blocked storage, Settings restart
 with dirty notes, cross-tab state and delayed-Save restart. Light/dark keyboard and geometry
 checks cover 1280/768/375/320px. Use `-- --scenario=<name>` for focused reruns. Evidence is
-in `.tmp/v8-first-visit/`; CI runs the same command and uploads diagnostics. The harness
-includes `v8-first-visit-regression.mjs` for schema privacy, guarded writes, subscriptions,
+in `.tmp/v8-first-visit/`. The harness includes `v8-first-visit-regression.mjs`
+for schema privacy, guarded writes, subscriptions,
 skip/restart/clear races and numeric bounds. Fixtures prove local UI/storage/request
 boundaries, not live-provider availability or deployment.
 
@@ -127,8 +144,8 @@ For G4 shared V8 Settings, run `npm run qa:v8-settings` against the owned produc
 preference hydration and explicit URL precedence, corrupt/blocked storage, explicit saving,
 theme, draft-preserving modal interaction, saved-only export, confirmed guest clear, isolation,
 and safe owner unlock links at 1280/768/375/320px in light and dark. Artifacts are saved under
-`.tmp/v8-settings/` and uploaded by Signal validation. The harness includes preference contract
-and guest-clear rollback/queued-write regressions. The affected Learn, metric-link, Research
+`.tmp/v8-settings/`. The harness includes preference contract and guest-clear
+rollback/queued-write regressions. The affected Learn, metric-link, Research
 reading/unsaved and theme suites open Settings to change theme or manage guest data. Fixtures
 establish local UI/storage behavior only, not live providers or deployment.
 
@@ -138,7 +155,7 @@ cover guest and owner research matches, USD/MYR costs and cash, missing quotes, 
 unavailable storage, watchlist loading/failure and external snapshot refresh. The light/dark
 1280/768/375/320px matrix checks keyboard tabs, overflow and stock handoffs. Holdings never
 writes its snapshot or requests a quote. Evidence is saved in `.tmp/research-holdings/`;
-`--before` captures the previous home. CI runs the same suite and uploads its diagnostics.
+`--before` captures the previous home.
 This proves local UI behavior, not deployment.
 Retained-cash scenarios use the real import/merge helpers: a newer holdings-only import must
 keep a single older cash account's source and import date visible through reload. Cases also
@@ -152,14 +169,14 @@ reload/history, existing course progress, and the V8 theme at 1280/768/375/320px
 captures the earlier screens; `--scenario=boundary` runs the focused desktop/light flow.
 Screenshots and console/request evidence live in `.tmp/learn-metric-links/`. This verifies local
 UI behavior, not provider health or deployment. Saved research and scoring remain untouched.
-`npm run qa:learn-metric-links` runs the same suite in CI; diagnostics are uploaded. The existing
+`npm run qa:learn-metric-links` is the package command for this local suite. The existing
 four Learn QA suites use the V8 theme radios and continue to cover each course's progress.
 G3 adds tap/focus, Tab/Escape/Close/outside dismissal, single-popover behavior, viewport bounds,
 repeated definitions in peers/chart/history and Market/demo labels, and unchanged research storage.
 Market metric buttons show the definition before the explicit View indicator action. Native
 select options and accounting summaries keep their original control semantics; glossary controls
 sit beside the selected metric or inside the opened disclosure. The five supported metrics and
-exact vocabulary boundary are documented in DESIGN.md. The same CI command covers both G2/G3.
+exact vocabulary boundary are documented in DESIGN.md.
 
 For L1 Market phone disclosures, run `node scripts/market-mobile-sections-qa.mjs` against one
 owned production server (`SIGNAL_QA_URL`, default `http://127.0.0.1:3000`). The US/MY light/dark
@@ -250,9 +267,9 @@ against an owned local production server (`SIGNAL_QA_URL`, default port 3101). T
 API matrix covers 1280px, 768px and 375px, US/Malaysia unsaved readings, explicit save/error/retry,
 rapid selection, partial/missing/old/unsupported data, changed/unchanged refresh evidence,
 visible limitations, Market summary keyboard inspection, control geometry and overflow.
-Evidence is saved under `.tmp/current-assessment/browser/`. This is not live-provider or
-database verification. The `Signal validation` workflow runs this browser matrix with the
-other V8.1 checks; it uses a placeholder DB URL and no secrets.
+Evidence is saved under `.tmp/current-assessment/browser/`. The local fixture matrix uses
+a placeholder DB URL and requires no secrets. Live providers and the database are verified
+separately.
 Live US fundamentals still require the operator's valid `SEC_USER_AGENT` configuration.
 
 The same matrix checks delayed/failed saved-list reads for ticker-only legacy links, exact
@@ -274,9 +291,9 @@ but unknown or mismatched cost currencies never produce performance. Mixed-case 
 normalize to uppercase; explicit provider minor units such as GBp retain their scale.
 The existing Research provenance browser matrix also verifies unknown-currency performance,
 mixed-case compatibility, and repeated invalid Saves after clearing a known currency at
-1280/768/375px. The `Signal validation` workflow runs both currency/Market headline regressions and
-both affected browser matrices. Market and Research read fixtures
-assert independent reads start together and snapshot writes still wait for their inputs.
+1280/768/375px. Run the currency and Market headline regressions and the affected browser
+matrices locally. Market and Research read fixtures assert independent reads
+start together and snapshot writes still wait for their inputs.
 For live-watchlist changes, verify slow loading, failed-read retry, an empty saved list,
 archived exclusions and a deep-linked selected ticker without any demo securities appearing.
 
@@ -334,13 +351,12 @@ Then open `http://localhost:3000` and check:
 - social toggle still affects the signal request
 - desktop and mobile layouts do not overlap text or controls
 
-Browser QA scripts run on slower CI runners than local machines. Routes stream
-through `src/app/loading.tsx`, so after `domcontentloaded` the server markup can
+Routes stream through `src/app/loading.tsx`, so after `domcontentloaded` the server markup can
 be visible before React hydrates it, and a hidden streamed copy can briefly sit
 beside it. Before typing, filling, pressing shortcuts or counting elements, wait
 for the target to hydrate (see `waitForHydration` in
 `scripts/learn-metric-links-qa.mjs`) and scope test-id lookups to visible
-elements. To approximate CI locally, wrap a script with Chromium CPU throttling
+elements. To reproduce slower hydration locally, use Chromium CPU throttling
 (`Emulation.setCPUThrottlingRate` at 4x).
 
 ### Reproducible Performance Baseline
@@ -465,9 +481,8 @@ The check covers `1280px`, `768px`, and `375px`; shared navigation; P/E calculat
 Use `--viewport 768` (or `1280` / `375`) for a focused failed-scenario rerun; omitting it
 retains the complete matrix. Failure summaries include the failed checks, last completed check
 and blocking error. A bounded viewport screenshot is attempted before browser cleanup even
-when `SIGNAL_QA_SCREENSHOTS=0` disables success captures. The Learn CI artifact allowlist
-includes only the v0.1/v0.2 JSON reports and failure screenshots, including their hidden `.tmp`
-ancestor; it does not upload other temporary state.
+when `SIGNAL_QA_SCREENSHOTS=0` disables success captures. Find the JSON reports and
+screenshots under `.tmp/signal-learn-v0.1-qa/` and `.tmp/signal-learn-v0.2-qa/`.
 
 ### Signal Learn v0.2 QA
 
@@ -1070,9 +1085,8 @@ focusing, saving, reloading and showing a conflict. The editor switches columns 
 its own available width; viewport width alone is insufficient inside Inbox. The final
 Alerts page overflow check does not establish editor containment.
 
-The `Signal validation` workflow runs these checks plus readiness/provenance and real Market provider
-regressions. Artifact upload includes the hidden `.tmp` directories through explicit
-JSON/PNG allowlists; unrelated local files must not be uploaded.
+Run these checks locally with the affected readiness, provenance, and Market
+provider regressions. The browser suites write JSON reports and PNG captures under `.tmp/`.
 
 `npm run qa:v81-evidence` runs the deterministic Market data contract suite without providers or database. It asserts the exclusive configured-weight partition (fresh/stale/fallback), unknown dates, non-scored context-only inputs, weight mismatches, missing aggregates, and high-volatility weight overrides. This suite also runs within `npm run harness`. Score-tier reference lines come from `src/lib/market-score-thresholds.ts`; these are **score tiers**, not the independent breadth/VIX-informed market-regime classifier. Historical coverage percentages must come from historical snapshots, never today's configuration.
 

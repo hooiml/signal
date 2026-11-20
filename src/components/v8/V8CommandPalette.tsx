@@ -15,7 +15,7 @@ type CommandItem = {
 const STATIC_ITEMS = (market: 'US' | 'MY', v9: V9Href | null): readonly CommandItem[] => [
     { id: 'mkt-us', title: 'US Market Pulse', subtitle: 'Composite score, evidence coverage & brief', tag: 'Market', href: v9?.('market', { market: 'US' }) ?? '/main-v8?market=US' },
     { id: 'mkt-my', title: 'Malaysia · Bursa Market Pulse', subtitle: 'FBM KLCI conditions, coverage & brief', tag: 'Market', href: v9?.('market', { market: 'MY' }) ?? '/main-v8?market=MY' },
-    { id: 'res-home', title: 'Stock Research Home', subtitle: 'Watchlist and security lookup', tag: 'Research', href: v9?.('research') ?? `/research-v8?market=${market}` },
+    { id: 'res-home', title: 'Stock Research Home', subtitle: 'Watchlist and security lookup', tag: 'Research', href: v9?.('research', { tab: 'watchlist' }) ?? `/research-v8?market=${market}` },
     { id: 'disc-trend', title: 'Discover · Trending Top 20', subtitle: 'US large-cap sustained momentum scan', tag: 'Discover', href: v9?.('discover', { market: 'US', discover: 'trending' }) ?? '/research-v8?market=US&discover=trending#discover' },
     { id: 'disc-pick', title: 'Discover · Stock Picker', subtitle: 'Rule-based fundamental shortlist', tag: 'Discover', href: v9?.('discover', { market: 'US', discover: 'picker' }) ?? '/research-v8?market=US&discover=picker#discover' },
     { id: 'disc-cal', title: 'Earnings Calendar', subtitle: 'Upcoming earnings announcements', tag: 'Calendar', href: v9?.('discover', { discover: 'calendar' }) ?? `/research-v8?market=${market}&discover=calendar#discover` },

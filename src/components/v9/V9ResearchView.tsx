@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useId, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -15,9 +15,15 @@ import { ownerUnlockHref } from '@/lib/owner-access-client';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { ResearchChartPoint, ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { parseResearchSnapshotResponse } from '@/lib/research/snapshot-input';
-import { saveGuestSecurity, updateGuestNote } from '@/lib/research/guest-workspace';
+import { formatResearchTimestamp } from '@/lib/research/metric-provenance';
+import { GuestWorkspaceConflictError } from '@/lib/research/guest-workspace';
 import { readData, readPolicies } from '@/components/v8/read-data';
+import { readResearchChart } from '@/components/v8/read-research-chart';
 import { useV9OwnerResearch } from './useV9OwnerResearch';
+import type { V9GuestDrafts } from './useV9GuestDrafts';
+import { V9GuestResearchRecovery } from './V9GuestResearchRecovery';
+import { useV9ResearchBenchmark } from './useV9ResearchBenchmark';
+import type { V9ResearchDetail } from './V9ResearchDetails';
 import { V9Navigation } from './v9-navigation';
 import styles from './v9-workspace.module.css';
 
@@ -25,10 +31,14 @@ type ChartRange = '1M' | '3M' | '1Y' | '5Y';
 const OverviewPanel = dynamic(() => import('@/components/v6/OverviewPanelV6').then(module => module.OverviewPanelV6));
 const EvidenceDocumentDiff = dynamic(() => import('@/components/v6/EvidenceDocumentDiffV6').then(module => module.EvidenceDocumentDiffV6));
 const StructuredTriggerEditor = dynamic(() => import('@/components/v6/StructuredTriggerEditorV6').then(module => module.StructuredTriggerEditorV6));
+const ResearchDetails = dynamic(() => import('./V9ResearchDetails').then(module => module.V9ResearchDetails), {
+    loading: () => <p role="status">Loading research tools…</p>,
+});
 
-const readingPanels = [ ['overview', 'Overview'], ['filings', 'Filings'], ['peers', 'Peers'] ] as const;
+const readingPanels = [ ['overview', 'Overview'], ['technicals', 'Technicals'], ['financials', 'Financials & valuation'], ['filings', 'Filings'], ['peers', 'Peers'] ] as const;
 const ownerPanels = [ ['review', 'Review'], ['evidence', 'Cited evidence'], ['monitoring', 'Monitoring rules'] ] as const;
-const panels = [...readingPanels, ...ownerPanels];
+const panels = [...readingPanels.map(([id]) => id), 'valuation', 'sources', ...ownerPanels.map(([id]) => id)] as const;
+const detailPanels = ['technicals', 'financials', 'valuation', 'sources'] as const satisfies readonly V9ResearchDetail[];
 
 function V9ReviewPanel({ record, snapshot, theme, writer }: {
     record: ResearchRecord;
@@ -37,12 +47,17 @@ function V9ReviewPanel({ record, snapshot, theme, writer }: {
     writer: ReturnType<typeof useV9OwnerResearch>;
 }) {
     const [editing, setEditing] = useState(true);
+    const benchmark = useV9ResearchBenchmark(snapshot, true);
+    const comparison = benchmark.snapshot?.benchmark;
     const item = createWatchlistItemV6(record, 0);
     const ticker = snapshot ? applyResearchSnapshotV6(item, snapshot) : item;
     return <OverviewPanel ticker={ticker} action={getResearchActionV6(ticker)} theme={theme} record={record}
-        benchmark={snapshot?.benchmark ?? null} observedCurrency={snapshot?.quote.currency ?? null}
+        benchmark={benchmark.loading ? null : comparison ?? null} observedCurrency={snapshot?.quote.currency ?? null}
         startReview={editing} stagedEvidence={null} workflowTemplateId={null} saving={writer.saving}
-        saveError={writer.error} saveAccessIssue={writer.accessIssue} onSave={writer.save} onReviewChange={setEditing} />;
+        saveError={writer.error} saveAccessIssue={writer.accessIssue} onReviewChange={setEditing}
+        onSave={draft => writer.save(comparison?.baselineReturnPercent == null ? draft : {
+            ...draft, decisionJournal: { ...draft.decisionJournal, benchmarkLabel: comparison.baselineName, benchmarkReturnPercent: comparison.baselineReturnPercent },
+        })} />;
 }
 
 const defaultTickers: readonly { symbol: string; market: ResearchMarket }[] = [
@@ -53,8 +68,6 @@ const defaultTickers: readonly { symbol: string; market: ResearchMarket }[] = [
     { symbol: '1295', market: 'MY' },
     { symbol: '5347', market: 'MY' },
 ];
-
-const inferMarket = (raw: string): ResearchMarket => (/^\d{4}(\.KL)?$/i.test(raw.trim()) || raw.trim().toUpperCase().endsWith('.KL') ? 'MY' : 'US');
 
 const fmtCompact = (value: number | null, currency?: string | null): string => {
     if (value === null || !Number.isFinite(value)) return 'Unavailable';
@@ -193,6 +206,7 @@ export function V9ResearchView({
     market,
     records,
     workspace,
+    guestDrafts,
     theme,
     onSelectStock,
     onSavedGuest,
@@ -202,6 +216,7 @@ export function V9ResearchView({
     readonly market: ResearchMarket;
     readonly records: readonly ResearchRecord[] | null;
     readonly workspace: 'checking' | 'guest' | 'owner';
+    readonly guestDrafts: V9GuestDrafts;
     readonly theme: ResearchThemeV6;
     readonly onSelectStock: (symbol: string, market: ResearchMarket) => void;
     readonly onSavedGuest: () => void;
@@ -213,48 +228,47 @@ export function V9ResearchView({
     const writer = useV9OwnerResearch(owner, onSavedOwner);
     const tour = useFirstVisit();
     const showTour = searchParams.get('tour') === '1';
-    const panel = panels.find(([id]) => id === searchParams.get('tab'))?.[0] ?? 'overview';
+    const panel = panels.find(id => id === searchParams.get('tab')) ?? 'overview';
+    const detail = detailPanels.find(value => value === panel);
+    const activeReadingPanel = panel === 'valuation' ? 'financials' : panel;
     const panelHref = (tab: typeof panel) => v9Href('research', { ticker: symbol, market, ...(tab === 'overview' ? {} : { tab }), ...(showTour ? { tour: '1' } : {}) });
-    const [input, setInput] = useState('');
     const [range, setRange] = useState<ChartRange>('3M');
     const [snapshot, setSnapshot] = useState<ResearchSnapshot | null>(null);
     const [extendedPoints, setExtendedPoints] = useState<readonly ResearchChartPoint[] | null>(null);
+    const [historyError, setHistoryError] = useState(false);
+    const [historyAttempt, setHistoryAttempt] = useState(0);
     const [loading, setLoading] = useState(true);
     const [attempt, setAttempt] = useState(0);
     const [error, setError] = useState('');
     const [targetPrice, setTargetPrice] = useState<number | null>(null);
-    const [noteDraft, setNoteDraft] = useState('');
     const [saveStatus, setSaveStatus] = useState('');
     const [saveError, setSaveError] = useState('');
-    const [saving, setSaving] = useState(false);
-    const guestSavePending = useRef(false);
+    const [conflictingNote, setConflictingNote] = useState<string | null>(null);
 
+    const noteRecords = workspace === 'guest' ? guestDrafts.records ?? records : records;
     const savedRecord = useMemo(
-        () => (records ?? []).find(r => r.symbol.toUpperCase() === symbol.toUpperCase() && r.market === market) ?? null,
-        [market, records, symbol],
+        () => (noteRecords ?? []).find(r => r.symbol.toUpperCase() === symbol.toUpperCase() && r.market === market) ?? null,
+        [market, noteRecords, symbol],
     );
-
-    const savedNote = savedRecord?.notes ?? '';
-    useEffect(() => {
-        setNoteDraft(savedNote);
-        setSaveStatus('');
-        setSaveError('');
-    }, [savedNote, symbol, market]);
+    const savedNote = savedRecord?.notes ?? null;
+    const draftKey = `${market}:${symbol}`;
+    const activeDraft = guestDrafts.drafts[draftKey];
+    const noteDraft = activeDraft?.text ?? savedNote ?? '';
+    const dirtyNote = !!activeDraft && activeDraft.text !== activeDraft.expectedNote;
+    const showNoteConflict = dirtyNote && conflictingNote !== null;
+    const saving = !!guestDrafts.saving[draftKey];
 
     useEffect(() => {
         const controller = new AbortController();
-        setLoading(true);
-        setError('');
-        setExtendedPoints(null);
-        setTargetPrice(null);
-        readData(`/api/research/symbol/${encodeURIComponent(symbol)}?market=${market}`, controller.signal, readPolicies.provider)
+        readData(`/api/research/symbol/${encodeURIComponent(symbol)}?market=${market}&benchmark=defer`, controller.signal, readPolicies.provider)
             .then(payload => parseResearchSnapshotResponse(payload))
             .then(result => {
                 if (result.symbol !== symbol || result.market !== market) throw new Error('Security data did not match the request.');
                 if (controller.signal.aborted) return;
                 setSnapshot(result);
-                if (typeof result.quote.price === 'number') {
-                    setTargetPrice(Number((result.quote.price * 0.9).toFixed(2)));
+                const { low52Week, high52Week } = result.technicals;
+                if (result.quote.price !== null && low52Week !== null && high52Week !== null && high52Week > low52Week) {
+                    setTargetPrice(Math.max(low52Week, Math.min(high52Week, Number((result.quote.price * 0.9).toFixed(2)))));
                 }
             })
             .catch(cause => {
@@ -270,23 +284,18 @@ export function V9ResearchView({
     }, [symbol, market, attempt]);
 
     useEffect(() => {
-        if (range !== '5Y' || extendedPoints !== null || !snapshot) return;
+        if (panel !== 'overview' || range !== '5Y' || extendedPoints !== null || !snapshot || loading) return;
         const controller = new AbortController();
-        fetch(`/api/research/chart/${encodeURIComponent(symbol)}?market=${market}`, { signal: controller.signal })
-            .then(r => (r.ok ? r.json() : null))
-            .then(payload => {
-                if (payload?.success && Array.isArray(payload.data?.chart)) {
-                    setExtendedPoints(payload.data.chart as ResearchChartPoint[]);
-                }
-            })
-            .catch(() => { /* Keep default snapshot chart points when 5Y fetch fails. */ });
+        readResearchChart(symbol, market, controller.signal)
+            .then(chart => { if (!controller.signal.aborted) setExtendedPoints(chart.points); })
+            .catch(() => { if (!controller.signal.aborted) setHistoryError(true); });
         return () => controller.abort();
-    }, [extendedPoints, market, range, snapshot, symbol]);
+    }, [extendedPoints, historyAttempt, loading, market, panel, range, snapshot, symbol]);
 
     const pills = useMemo(() => {
         const seen = new Set<string>();
         const list: { symbol: string; market: ResearchMarket }[] = [];
-        for (const r of records ?? []) {
+        for (const r of (records ?? []).slice(0, 8)) {
             const key = `${r.market}:${r.symbol.toUpperCase()}`;
             if (!seen.has(key)) { seen.add(key); list.push({ symbol: r.symbol.toUpperCase(), market: r.market }); }
         }
@@ -299,8 +308,8 @@ export function V9ResearchView({
 
     const livePrice = snapshot?.quote.price ?? null;
     const ready = !loading && !error && livePrice !== null && Number.isFinite(livePrice) && livePrice > 0;
-    const low52 = snapshot?.technicals.low52Week ?? (livePrice ? Number((livePrice * 0.72).toFixed(2)) : null);
-    const high52 = snapshot?.technicals.high52Week ?? (livePrice ? Number((livePrice * 1.28).toFixed(2)) : null);
+    const low52 = snapshot?.technicals.low52Week ?? null;
+    const high52 = snapshot?.technicals.high52Week ?? null;
     const gapPct = livePrice && targetPrice && targetPrice > 0 ? ((livePrice - targetPrice) / targetPrice) * 100 : null;
     const annuals = useMemo(() => (snapshot?.fundamentals.history ?? []).slice(-5), [snapshot]);
     const maxAnnualVal = useMemo(() => {
@@ -309,26 +318,43 @@ export function V9ResearchView({
     }, [annuals]);
 
     async function handleSaveNote() {
-        if (workspace !== 'guest' || guestSavePending.current || !snapshot) return;
-        guestSavePending.current = true;
-        setSaving(true);
+        if (workspace !== 'guest' || saving || !snapshot) return;
         setSaveError('');
         setSaveStatus('');
+        setConflictingNote(null);
         const tourAtSave = showTour && ready && tour.progress?.state?.stage === 'save' ? tour.progress.state : null;
         try {
-            const existing = savedRecord ?? await saveGuestSecurity(symbol, market, snapshot.quote.name || symbol);
-            if (noteDraft !== existing.notes) {
-                await updateGuestNote(symbol, market, noteDraft, existing.notes);
-            }
+            const saved = await guestDrafts.save(symbol, market, snapshot.quote.name || symbol, savedNote);
+            if (!saved) return;
             onSavedGuest();
             setSaveStatus('Saved locally in this browser.');
             if (tourAtSave) await tour.advance(tourAtSave, 'complete');
         } catch (cause) {
-            setSaveError(cause instanceof Error ? cause.message : 'Could not save guest note.');
-        } finally {
-            guestSavePending.current = false;
-            setSaving(false);
+            if (cause instanceof GuestWorkspaceConflictError) setConflictingNote(cause.currentRecord.notes);
+            else setSaveError(cause instanceof Error ? cause.message : 'Could not save guest note.');
         }
+    }
+
+    async function keepNoteDraft() {
+        if (conflictingNote === null) return;
+        setSaveError('');
+        try {
+            await guestDrafts.keepDraft(symbol, market, conflictingNote);
+            setConflictingNote(null);
+        } catch (cause) {
+            if (cause instanceof GuestWorkspaceConflictError) setConflictingNote(cause.currentRecord.notes);
+            else setSaveError(cause instanceof Error ? cause.message : 'Could not keep your draft.');
+        }
+    }
+
+    async function discardNote() {
+        if (!window.confirm('Discard these unsaved changes? Your saved note will stay as it is.')) return;
+        try {
+            await guestDrafts.discardActive(symbol, market);
+            setSaveError('');
+            setSaveStatus('');
+            setConflictingNote(null);
+        } catch (cause) { setSaveError(cause instanceof Error ? cause.message : 'Could not discard this draft.'); }
     }
 
     async function saveOwnerStock() {
@@ -341,6 +367,9 @@ export function V9ResearchView({
     function retryReading() {
         setError('');
         setLoading(true);
+        setExtendedPoints(null);
+        setTargetPrice(null);
+        setHistoryError(false);
         setAttempt(value => value + 1);
     }
 
@@ -350,27 +379,7 @@ export function V9ResearchView({
     return (
         <>
             <div className={styles.researchBar}>
-                <form
-                    className={styles.tickerInputForm}
-                    onSubmit={event => {
-                        event.preventDefault();
-                        const cleaned = input.trim().toUpperCase().replace(/\.KL$/i, '');
-                        if (!cleaned) return;
-                        onSelectStock(cleaned, inferMarket(input));
-                        setInput('');
-                    }}
-                >
-                    <input
-                        type="text"
-                        className={styles.tickerInput}
-                        value={input}
-                        onChange={e => setInput(e.target.value)}
-                        placeholder="Open ticker (e.g. AAPL, MSFT, 1155, 5347)…"
-                        aria-label="Open stock ticker"
-                    />
-                    <button type="submit" className={styles.primaryBtn}>Open</button>
-                </form>
-
+                <Link className={styles.textLink} href={v9Href('research', { market, tab: 'watchlist' })}>Full watchlist</Link>
                 <div className={styles.quickPills} role="group" aria-label="Quick tickers">
                     {pills.map(item => (
                         <button
@@ -388,12 +397,13 @@ export function V9ResearchView({
 
             <nav className={styles.quickPills} aria-label="Company research">
                 {[...readingPanels, ...(ownerRecord ? ownerPanels : [])].map(([id, label]) => (
-                    <Link key={id} className={panel === id ? styles.primaryBtn : styles.quickPill} href={panelHref(id)} aria-current={panel === id ? 'page' : undefined}>{label}</Link>
+                    <Link key={id} className={activeReadingPanel === id ? styles.primaryBtn : styles.quickPill} href={panelHref(id)} aria-current={activeReadingPanel === id ? 'page' : undefined}>{label}</Link>
                 ))}
             </nav>
 
             {showTour && <FirstVisitCallout tour={tour} surface="research" ready={ready} saved={!!savedRecord}
                 marketHref={v9Href('market', { market, tour: '1' })} researchHref={panelHref('overview')} />}
+            {workspace === 'guest' && <V9GuestResearchRecovery drafts={guestDrafts} onOpen={onSelectStock} />}
 
             {error && (panel === 'overview' || panel === 'peers') && (
                 <div className={styles.card} role="alert">
@@ -405,6 +415,8 @@ export function V9ResearchView({
 
             {panel === 'filings' && <div className={styles.card}><ResearchFilingsV8 symbol={symbol} market={market} record={ownerRecord ?? undefined} /></div>}
             {panel === 'peers' && !error && <div className={styles.card}><ResearchPeersV8 symbol={symbol} market={market} snapshot={snapshot} saved={records ?? []} onOpen={onSelectStock} /></div>}
+            {detail && <ResearchDetails key={detail} detail={detail} symbol={symbol} market={market} snapshot={snapshot} ownerRecord={ownerRecord}
+                loading={loading} error={error} href={panelHref} onRetry={retryReading} />}
 
             {ownerPanel && (workspace === 'checking' || (owner && !records)) && <div className={styles.card} role="status">Loading saved research…</div>}
             {ownerPanel && workspace === 'guest' && <div className={styles.card}>
@@ -460,12 +472,14 @@ export function V9ResearchView({
                                             data-tone={snapshot.quote.dailyChangePercent >= 0 ? 'up' : 'down'}
                                         >
                                             {snapshot.quote.dailyChangePercent >= 0 ? '+' : ''}
-                                            {snapshot.quote.dailyChangePercent.toFixed(2)}% today
+                                            {snapshot.quote.dailyChangePercent.toFixed(2)}% latest session
                                         </span>
                                     )}
                                     <small style={{ display: 'block', marginTop: 4 }}>
-                                        Observed {snapshot.quote.observedAt ? snapshot.quote.observedAt.slice(0, 10) : snapshot.fetchedAt.slice(0, 10)}
+                                        Quote observed · {formatResearchTimestamp(snapshot.quote.observedAt)}
                                     </small>
+                                    <small style={{ display: 'block' }}>Provider response retrieved · {formatResearchTimestamp(snapshot.fetchedAt)}</small>
+                                    <Link className={styles.textLink} href={panelHref('sources')}>Sources &amp; coverage →</Link>
                                     {showTour && workspace === 'guest' && !savedRecord && ready && (
                                         <button type="button" className={styles.ghostBtn} disabled={saving} onClick={handleSaveNote}>Save stock</button>
                                     )}
@@ -476,8 +490,12 @@ export function V9ResearchView({
                                 points={range === '5Y' && extendedPoints ? extendedPoints : snapshot.chart.points}
                                 currency={snapshot.quote.currency}
                                 range={range}
-                                onRangeChange={setRange}
+                                onRangeChange={next => { if (next !== range) setHistoryError(false); setRange(next); }}
                             />
+                            {range === '5Y' && extendedPoints === null && (historyError
+                                ? <div role="alert"><p>Five-year history is unavailable.{snapshot.chart.points.length > 0 ? ' Showing the daily closes supplied with the snapshot.' : ''}</p>
+                                    <button type="button" className={styles.ghostBtn} onClick={() => { setHistoryError(false); setHistoryAttempt(value => value + 1); }}>Retry chart history</button></div>
+                                : <p role="status">Loading five-year history…</p>)}
 
                             <div className={styles.metricGrid}>
                                 <div className={styles.metricTile}>
@@ -509,6 +527,7 @@ export function V9ResearchView({
                                     <h2>Annual Financials</h2>
                                     <p>Revenue vs Free Cash Flow ({snapshot.fundamentals.source ?? 'Provider statements'})</p>
                                 </div>
+                                <Link className={styles.textLink} href={panelHref('financials')}>Financials &amp; valuation →</Link>
                             </div>
                             {annuals.length > 0 ? (
                                 <div className={styles.finBars}>
@@ -596,7 +615,13 @@ export function V9ResearchView({
                                         maxLength={5000}
                                         aria-label="Research note"
                                         value={noteDraft}
-                                        onChange={e => setNoteDraft(e.target.value)}
+                                        onChange={event => {
+                                            const text = event.target.value;
+                                            guestDrafts.edit(symbol, market, text, savedNote);
+                                            setSaveError('');
+                                            setSaveStatus('');
+                                            if (!activeDraft || text === activeDraft.expectedNote) setConflictingNote(null);
+                                        }}
                                         placeholder={`Write your calm investment thesis for ${snapshot.symbol}…`}
                                         style={{
                                             width: '100%',
@@ -609,11 +634,24 @@ export function V9ResearchView({
                                             resize: 'vertical',
                                         }}
                                     />
+                                    {showNoteConflict && (
+                                        <div style={{ display: 'grid', gap: 6, fontSize: 13 }}>
+                                            <span role="alert">The saved note changed in another tab. Keep your draft to edit or save it, or reload the saved note.</span>
+                                            <strong>Saved note</strong>
+                                            <p style={{ margin: 0, maxHeight: 160, overflowY: 'auto', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', color: 'var(--muted)' }}>
+                                                {conflictingNote || 'No note saved.'}
+                                            </p>
+                                        </div>
+                                    )}
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                                        <span style={{ fontSize: 12, color: saveError ? 'var(--down)' : 'var(--muted)' }}>
-                                            {saveError || saveStatus || `${noteDraft.length}/5000`}
+                                        <span role={saveError ? 'alert' : 'status'} style={{ fontSize: 12, color: saveError ? 'var(--down)' : 'var(--muted)' }}>
+                                            {saveError || (dirtyNote ? `Unsaved changes · ${noteDraft.length}/5000` : saveStatus || `${noteDraft.length}/5000`)}
                                         </span>
-                                        <button type="button" className={styles.primaryBtn} disabled={saving} onClick={handleSaveNote}>
+                                        {showNoteConflict && <button type="button" className={styles.ghostBtn} disabled={saving} onClick={keepNoteDraft}>Keep my draft</button>}
+                                        {dirtyNote && <button type="button" className={styles.ghostBtn} disabled={saving} onClick={discardNote}>
+                                            {showNoteConflict ? 'Reload saved note' : 'Discard changes'}
+                                        </button>}
+                                        <button type="button" className={styles.primaryBtn} disabled={saving || showNoteConflict || (!!savedRecord && !dirtyNote)} onClick={handleSaveNote}>
                                             {saving ? 'Saving…' : savedRecord ? 'Update note' : 'Save to watchlist'}
                                         </button>
                                     </div>

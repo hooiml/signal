@@ -170,7 +170,7 @@ try {
             }
             return route.fulfill({ json: { success: true, data: {} } });
         });
-        const page = await context.newPage(); page.setDefaultTimeout(15000); await page.clock.install({ time: new Date('2026-11-01T23:59:50.000Z') }); await page.clock.pauseAt(new Date('2026-11-01T23:59:50.000Z'));
+        const page = await context.newPage(); page.setDefaultTimeout(15000); await page.clock.install({ time: new Date('2026-11-01T23:58:00.000Z') });
         try {
             await page.goto(`${origin.origin}/research-v8`, { waitUntil: 'domcontentloaded' });
             await page.getByRole('tab', { name: /^Watchlist/ }).click();
@@ -182,6 +182,7 @@ try {
             await panel.getByText('Your watchlist is empty.').waitFor();
             await panel.getByRole('button', { name: 'Reload watchlist' }).click();
             await panel.getByTestId('watchlist-row').getByText('Due today').waitFor();
+            await page.clock.pauseAt(new Date('2026-11-01T23:59:50.000Z'));
             await page.clock.fastForward(11000);
             await panel.getByTestId('watchlist-row').getByText('Overdue').waitFor();
             assert.match(await panel.innerText(), /2026-11-08 \(Sunday, UTC\)/);

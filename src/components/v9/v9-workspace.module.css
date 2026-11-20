@@ -514,6 +514,9 @@ a.ghostBtn { color: var(--link); }
 .watchMeta { display: grid; min-width: 0; }
 .watchMeta b { font-size: 13.5px; font-weight: 650; color: var(--ink); display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; overflow-wrap: anywhere; }
 .watchMeta small { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.watchlistLink, .watchlistView .ghostBtn { min-height: 44px; }
+.watchlistView .ghostBtn:disabled { opacity: .55; cursor: default; }
+.watchlistStatus { margin: 0 0 12px; color: var(--muted); }
 
 .sleeveBar {
     margin-top: 16px;
@@ -571,20 +574,36 @@ a.ghostBtn { color: var(--link); }
 
 /* Stock Research View */
 .researchBar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.tickerInputForm { display: flex; gap: 8px; flex: 1 1 260px; max-width: 420px; }
-.tickerInput {
-    flex: 1;
-    min-width: 0;
-    min-height: 40px;
-    padding: 0 12px;
-    border-radius: 10px;
-    border: 1px solid var(--line);
+.securityLookup section, .securityLookup form { margin: 0; }
+.securityLookup form { justify-content: flex-start; gap: 10px; flex-wrap: wrap; align-items: end; }
+.securityLookup label:first-child { flex: 1 1 220px; max-width: 440px; min-width: 0; }
+.securityLookup form > button {
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 9px;
+    color: var(--link);
+    font-weight: 650;
+}
+.securityLookup button[type="submit"] { background: var(--brand); color: var(--on-brand); }
+.securityLookup button[type="submit"]:hover { background: var(--brand-hover); }
+.securityLookup label select {
+    border: 1px solid var(--line-strong);
+    border-radius: 9px;
+    padding-inline: 10px;
     background: var(--surface);
     color: var(--ink);
-    font-size: 13.5px;
+}
+@media (max-width: 600px) {
+    .securityLookup form { display: grid; grid-template-columns: minmax(0,1fr) auto; }
+    .securityLookup label:first-child { width: 100%; }
+    .securityLookup label:nth-child(2) { grid-column: 1; grid-row: 2; }
+    .securityLookup button[type="submit"] { grid-column: 2; grid-row: 2; }
+    .securityLookup button[type="button"] { grid-column: 1 / -1; justify-self: start; }
 }
 .quickPills { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .quickPill {
+    display: inline-flex;
+    align-items: center;
     min-height: 36px;
     padding: 0 11px;
     border-radius: 9px;

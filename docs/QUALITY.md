@@ -128,9 +128,8 @@ late responses, chart pointer/touch/keyboard selection, range changes, missing/f
 single-point history and valuation dependencies at 1440/768/390/320px. `--before`
 captures comparable baseline states. Evidence is in `.tmp/research-reading/`.
 Run the existing display, V8.1 presentation and unsaved Research matrices too.
-The `Signal validation` workflow now runs the display and reading suites and uploads their
-artifacts. These are fixture tests, not provider-availability or user-comprehension
-measurements. Hardware touch assistive-technology testing remains a release check.
+Run the display and reading suites locally and inspect their fixture reports under
+`.tmp/`. Hardware touch assistive-technology testing remains a release check.
 
 The original reading slice did not change access or provider contracts. The follow-up
 below completes those specific access and provenance gaps; instrument assessment
