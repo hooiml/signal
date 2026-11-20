@@ -38,21 +38,24 @@ function useDiscoveryScan(enabled: boolean): DiscoveryScan {
     return { data, error, retry: () => { setError(''); setAttempt(value => value + 1); } };
 }
 
-export function ResearchDiscoverV8({ initialView, calendarTarget, defaultOpen, embedded = false, records, workspace, onSelect }: { initialView?: DiscoverView; calendarTarget?: EarningsCalendarTarget; defaultOpen: boolean; embedded?: boolean; records: readonly ResearchRecord[] | null; workspace: 'checking' | 'guest' | 'owner'; onSelect: (symbol: string, market: ResearchMarket) => void }) {
+export function ResearchDiscoverV8({ initialView, activeView, onViewChange, calendarTarget, defaultOpen, embedded = false, records, workspace, onSelect }: { initialView?: DiscoverView; activeView?: DiscoverView; onViewChange?: (view: DiscoverView) => void; calendarTarget?: EarningsCalendarTarget; defaultOpen: boolean; embedded?: boolean; records: readonly ResearchRecord[] | null; workspace: 'checking' | 'guest' | 'owner'; onSelect: (symbol: string, market: ResearchMarket) => void }) {
     const [expanded, setOpen] = useState(defaultOpen || !!initialView);
     // On the Research home, Discover is a tab beside the watchlist and is always open.
     const open = embedded || expanded;
-    const [view, setView] = useState<DiscoverView>(initialView ?? 'trending');
+    const [localView, setView] = useState<DiscoverView>(initialView ?? 'trending');
+    const view = activeView ?? localView;
     const scan = useDiscoveryScan(open && !(view === 'calendar' && calendarTarget));
     const ref = useRef<HTMLDetailsElement>(null);
     useEffect(() => { if (initialView) ref.current?.scrollIntoView({ block: 'start' }); }, [initialView]);
     function changeView(next: DiscoverView) {
+        if (onViewChange) { onViewChange(next); return; }
         setView(next);
         const url = new URL(window.location.href);
         url.searchParams.set('discover', next);
         window.history.replaceState(null, '', url);
     }
     function select(symbol: string, market: ResearchMarket) {
+        if (onViewChange) { onSelect(symbol, market); return; }
         // Reading a stock leaves Discover; a reload should not reopen and scroll to it.
         const url = new URL(window.location.href);
         url.searchParams.delete('discover'); url.searchParams.delete('calendarDate'); url.hash = '';

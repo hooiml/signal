@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { parseResearchAlertsResponse } from '@/components/v6/ResearchAlertsV6';
 import { buildResearchAlertRequest } from '@/lib/research/alert-request';
+import { V9Navigation } from '@/components/v9/v9-navigation';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { ResearchAlert, ResearchAlertsResponse } from '@/lib/types/research-alert';
 import { researchHref, retrievedAt } from './research-v8-connected-data';
@@ -14,6 +16,7 @@ const maximumMonitored = 50;
 
 // Current market conditions and explicit review triggers across saved securities. Review prompts, not trade signals.
 export function ResearchAlertsV8({ records, workspace, onSelect }: { records: readonly ResearchRecord[] | null; workspace: 'checking' | 'guest' | 'owner'; onSelect: (symbol: string, market: ResearchMarket) => void }) {
+    const v9Href = useContext(V9Navigation);
     const body = useMemo(() => {
         const monitored = [...new Map((records ?? []).map(record => [record.symbol, record])).values()].slice(0, maximumMonitored);
         return JSON.stringify(buildResearchAlertRequest(monitored.map(record => ({ symbol: record.symbol, market: record.market, targetBuyZone: record.targetBuyZone, lastReviewedAt: null })), monitored));
@@ -51,7 +54,9 @@ export function ResearchAlertsV8({ records, workspace, onSelect }: { records: re
                             {workspace === 'owner' && <details className={styles.small}><summary>Your review triggers · {triggers.filter(trigger => trigger.status === 'matched').length} matched of {triggers.length}</summary>
                                 {triggers.length === 0 ? <p className={styles.meta}>No numeric review triggers set. Add up to 10 per security in its monitoring rules.</p>
                                     : <ul>{triggers.map(trigger => <li key={`${trigger.symbol}-${trigger.rule.id}`}><b>{trigger.symbol}</b> · {trigger.title} · <i>{trigger.status === 'matched' ? 'matched' : trigger.status === 'not-matched' ? 'active' : trigger.status}</i></li>)}</ul>}
-                                {records[0] && <a href={researchHref(records[0].symbol, 'alerts', records[0].market)} target="_blank" rel="noopener noreferrer">Manage triggers in the Research workspace (new tab) ↗</a>}
+                                {records[0] && (v9Href
+                                    ? <Link href={v9Href('research', { ticker: records[0].symbol, market: records[0].market, tab: 'monitoring' })}>Manage triggers →</Link>
+                                    : <a href={researchHref(records[0].symbol, 'alerts', records[0].market)} target="_blank" rel="noopener noreferrer">Manage triggers in the Research workspace (new tab) ↗</a>)}
                             </details>}
                             {current.data.warnings.map(warning => <p key={warning} className={styles.meta}>{warning}</p>)}
                         </>}

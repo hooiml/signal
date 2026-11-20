@@ -5,7 +5,8 @@ Signal is a Next.js App Router application for market signal dashboards. The app
 ## User-Facing Routes
 
 - `/start`: guided daily journey from the latest US market score through current Discovery candidates and same-day market context into Research.
-- `/`: redirects to `/main-v8` with its query intact, including Today's return context.
+- `/` redirects to `/v9` with its query intact, including Today's return context.
+- `/v9` opens the Graphite & sky workspace. The `view` parameter selects Home, Market, Research, Portfolio, Discover or Learn. Workspace links retain the market, interpretation mode and social setting. Market investigations and stock research tabs can be opened directly and restored on reload. The explicit return to an originating Today briefing uses its dedicated research workspace.
 - `/main-v8` and `/research-v8`: connected V8 Market and Research; `?demo=1` opens their explicitly illustrative prototypes. Reading view / Advanced tools navigation preserves URL context. Market's retained tools live at `/market/tools`.
 - `/research`: ordinary entry (including ticker, market and unknown safe parameters) redirects to `/research-v8`. Explicit task links retain the V7 advanced workspace, implemented by `ResearchDashboardV7` over the shared Research controller and existing workspace owners. The exact task-key and fragment contract is in [LEGACY_ROUTE_RETIREMENT.md](LEGACY_ROUTE_RETIREMENT.md).
 - `/research-v8?market=US&ticker=AAPL&tab=chart`: public Chart & technicals tab for guests and owners, independent of saved records. It lazy-loads the existing `ResearchChartV6` renderer and validated five-year `/api/research/chart/[symbol]` data; optional benchmark reads use VOO/US or KLCI/MY. The resolved V8 theme applies to canvas and controls. Guest storage and owner records remain separate; reading charts never saves either. The existing Overview price-history chart remains available.

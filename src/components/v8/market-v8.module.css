@@ -1,6 +1,6 @@
 /* V8/V9 design tokens (Calm Monochrome + WCAG AA/AAA Contrast): neutral structural chrome;
    semantic green/rose/amber reserved strictly for market signals and evidence state. */
-.app, .tokens, :global(html):has(.app, .tokens) {
+.app:not(:where(.embedded)), .tokens, :global(html):has(.app, .tokens) {
     /* Neutrals (crisp alabaster & obsidian-slate) */
     --canvas: #f2f4f8; --surface: #ffffff; --surface-subtle: #f7f8fb; --surface-muted: #eceff4;
     --line: rgba(15, 23, 42, 0.09); --line-strong: rgba(15, 23, 42, 0.17);
@@ -123,6 +123,9 @@
 .chartDates { margin: 10px 0 0 32px; display: flex; justify-content: space-between; color: var(--subtle); font-size: var(--text-xs); }
 .chartHint { display: block; color: var(--muted); font-size: var(--text-sm); margin: 10px 0 0 32px; }
 .app .chartLegend { font-size: var(--text-sm); margin: 0 0 10px; }
+.compactChartLegend { display: flex; flex-wrap: wrap; gap: 4px 12px; list-style: none; padding: 0; margin: 0 0 10px; color: var(--muted); font-size: var(--text-xs); }
+.compactChartLegend li { display: inline-flex; align-items: center; gap: 4px; }
+.neutralLegendSwatch { width: 10px; height: 8px; border: 1px solid var(--line-strong); border-radius: 2px; background: var(--surface-muted); }
 .chartFoot { display: flex; justify-content: space-between; gap: 12px; padding: 8px 24px 16px; align-items: center; }
 .chartFoot > span { font-size: var(--text-sm); color: var(--muted); }
 .app .textButton { display: inline-flex; gap: 12px; align-items: center; color: var(--link); font-size: var(--text-sm); font-weight: 600; padding: 8px 0; text-align: left; }
@@ -565,7 +568,7 @@
 
 /* Dark theme (V9.0.1 Calm Monochrome): obsidian surfaces, softened pearl ink (14.8:1 AAA, zero
    OLED glare), neutral monochrome chrome; emerald, rose and amber reserved for market signals. */
-:global(html[data-v8-theme=dark]) .app, :global(html[data-v8-theme=dark]) .tokens, :global(html[data-v8-theme=dark]):has(.app, .tokens) {
+:global(html[data-v8-theme=dark]) .app:not(:where(.embedded)), :global(html[data-v8-theme=dark]) .tokens, :global(html[data-v8-theme=dark]):has(.app, .tokens) {
     --canvas: #080b12; --surface: #111622; --surface-subtle: #151b2a; --surface-muted: #1c2436;
     --line: rgba(255, 255, 255, 0.08); --line-strong: rgba(255, 255, 255, 0.17);
     --ink: #e7ecf4; --muted: #94a2b8; --subtle: #7c8ba3;
@@ -587,6 +590,8 @@
     --indicator-news: #67e8f9; --indicator-aaii: #4ade80; --indicator-naaim: #f472b6; --indicator-bofa: #fcd34d;
     color-scheme: dark;
 }
+.app.embedded { min-width: 0; min-height: 0; background: transparent; color-scheme: inherit; }
+.embedded .panel[role=tabpanel], .embedded .rail { scroll-margin-block-start: 80px; }
 /* Theme control in the V8 header. */
 .themeControl { margin-left: auto; display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-muted); }
 .themeControl label { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border-radius: 6px; color: var(--muted); font-size: var(--text-xs); font-weight: 600; cursor: pointer; transition: color .15s, background .15s; }

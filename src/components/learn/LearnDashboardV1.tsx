@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
+import { V9Navigation } from '@/components/v9/v9-navigation';
 import Link from 'next/link';
 import { LearnShellV8 } from './LearnShellV8';
 import { LearnMarketMetricLesson } from './LearnMarketMetricLesson';
@@ -27,7 +28,9 @@ type LearnRelease = 'v0.1' | 'v0.2' | 'v0.3' | 'v0.4' | 'market';
 
 const progressKey = 'signal-learn-v0.1-progress';
 
-export const LearnDashboardV1 = ({ initialConcept }: { initialConcept?: LearnMetric }) => {
+export const LearnDashboardV1 = ({ initialConcept, embedded = false }: { initialConcept?: LearnMetric; embedded?: boolean }) => {
+    const v9 = useContext(V9Navigation);
+    const Content = embedded ? 'section' : 'main';
     const [release, setRelease] = useState<LearnRelease>(initialConcept === 'pe' ? 'v0.1' : initialConcept === 'fcf-yield' ? 'v0.3' : initialConcept === 'put-call' || initialConcept === 'naaim' ? 'market' : 'v0.4');
     const [workspace, setWorkspace] = useState<LearnWorkspace>('learn');
     const [moduleId, setModuleId] = useState<LearnModuleIdV01>(initialConcept === 'pe' ? 'pe' : 'evidence');
@@ -86,12 +89,11 @@ export const LearnDashboardV1 = ({ initialConcept }: { initialConcept?: LearnMet
         { id: 'learn-replay', label: 'Open valuation Historical Replay', group: 'Learn', keywords: ['history hindsight'], run: () => { setRelease('v0.1'); setWorkspace('replay'); } },
     ] as const;
 
-    return (
-        <LearnShellV8 commands={commands} footer="Signal Learn · Evidence over shortcuts · Educational analysis, not investment advice">
-            <main id="learn-content" tabIndex={-1} className="min-h-[calc(100dvh-132px)] bg-[var(--v7-surface)] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+    const content = (
+            <Content id="learn-content" tabIndex={-1} className="min-h-[calc(100dvh-132px)] bg-[var(--v7-surface)] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
                 <div className="mx-auto w-full max-w-[1180px]">
                     <nav className={styles.metrics} aria-label="Metric lessons">
-                        {metricLessons.map(lesson => <Link key={lesson.id} href={metricLessonHref(lesson.id)} prefetch={false} aria-current={initialConcept === lesson.id ? 'page' : undefined}>{lesson.label}</Link>)}
+                        {metricLessons.map(lesson => <Link key={lesson.id} href={v9?.('learn', { concept: lesson.id }) ?? metricLessonHref(lesson.id)} prefetch={false} aria-current={initialConcept === lesson.id ? 'page' : undefined}>{lesson.label}</Link>)}
                     </nav>
                     <nav aria-label="Learn release" className="research-scrollbar mb-5 flex w-full gap-1 overflow-x-auto rounded-[8px] border border-[var(--v7-border)] bg-[var(--v7-surface-quiet)] p-1 sm:w-fit">
                         <button type="button" aria-pressed={release === 'v0.4'} onClick={() => setRelease('v0.4')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.4' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Trading process v0.4</button>
@@ -152,7 +154,9 @@ export const LearnDashboardV1 = ({ initialConcept }: { initialConcept?: LearnMet
                     </section>
                     </div>}
                 </div>
-            </main>
-        </LearnShellV8>
+            </Content>
+    );
+    return embedded ? <div className={styles.shell}>{content}</div> : (
+        <LearnShellV8 commands={commands} footer="Signal Learn · Evidence over shortcuts · Educational analysis, not investment advice">{content}</LearnShellV8>
     );
 };

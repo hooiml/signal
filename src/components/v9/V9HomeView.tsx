@@ -5,14 +5,17 @@ import type { MarketSignal } from '@/lib/types/signal-v2';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { PortfolioActualCurrencySummary } from '@/lib/portfolio/holdings';
 import { buildMarketBrief } from '@/lib/market-brief';
-import { marketReadingLabel } from '@/lib/market-display';
+import { marketReadingLabel, marketTimestampLabel } from '@/lib/market-display';
+import { marketEvidenceDay } from '@/lib/market-evidence-coverage';
 import { watchlistReview } from '@/lib/research/watchlist-review';
+import { useReviewDay } from '@/lib/research/use-review-day';
 import styles from './v9-workspace.module.css';
 
 export type SignalSlot = {
     readonly signal: MarketSignal | null;
     readonly loading: boolean;
     readonly error: string;
+    readonly receivedAt?: string;
 };
 
 type Tone = 'up' | 'neutral' | 'down';
@@ -24,31 +27,26 @@ const toneFor = (signal: MarketSignal | null, available: boolean): Tone => {
     return 'neutral';
 };
 
-const headlineFor = (us: MarketSignal | null, my: MarketSignal | null, usOk: boolean, myOk: boolean): string => {
-    if (!us && !my) return 'Checking live US and Malaysia market conditions.';
-    if (!usOk && !myOk) return 'Market evidence is currently limited — review coverage before acting.';
-    const scores = [usOk && us ? us.composite_score : null, myOk && my ? my.composite_score : null].filter((v): v is number => v !== null);
-    const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 50;
-    if (avg >= 65) return 'Your markets are calm and constructive.';
-    if (avg < 40) return 'Risk signals are elevated — stay selective and patient.';
-    return 'Your markets are balanced with mixed signals.';
+const readingFor = (slot: SignalSlot, brief: ReturnType<typeof buildMarketBrief> | null): string => {
+    if (slot.loading) return 'Loading';
+    if (slot.error || !slot.signal || !brief || brief.status === 'unavailable') return 'Assessment unavailable';
+    return `${marketReadingLabel(slot.signal.tier)}${brief.status === 'limited' ? ' (limited evidence)' : ''}`;
 };
 
-function ScoreRing({ score, tone }: { readonly score: number | null; readonly tone: Tone }) {
+function ScoreRing({ score }: { readonly score: number | null }) {
     const r = 26;
     const c = 2 * Math.PI * r;
     const pct = score === null ? 0 : Math.min(100, Math.max(0, score)) / 100;
-    const stroke = tone === 'up' ? 'var(--up-mark)' : tone === 'down' ? 'var(--down-mark)' : 'var(--caution-mark)';
     return (
-        <div className={styles.pulseRing} aria-hidden="true">
-            <svg viewBox="0 0 64 64">
+        <div className={styles.pulseRing} role="img" aria-label={score === null ? 'Score unavailable' : `Score ${score.toFixed(0)} out of 100`}>
+            <svg viewBox="0 0 64 64" aria-hidden="true">
                 <circle cx="32" cy="32" r={r} fill="none" stroke="var(--surface-muted)" strokeWidth="5.5" />
                 <circle
                     cx="32"
                     cy="32"
                     r={r}
                     fill="none"
-                    stroke={stroke}
+                    stroke="var(--score-mark)"
                     strokeWidth="5.5"
                     strokeLinecap="round"
                     strokeDasharray={c.toFixed(1)}
@@ -66,6 +64,8 @@ const fmtMoney = (value: number, currency: string) =>
 export function V9HomeView({
     us,
     my,
+    mode,
+    selectedMarket,
     records,
     owner,
     portfolioSummaries,
@@ -76,24 +76,23 @@ export function V9HomeView({
 }: {
     readonly us: SignalSlot;
     readonly my: SignalSlot;
+    readonly mode: MarketSignal['mode'];
+    readonly selectedMarket: 'US' | 'MY';
     readonly records: readonly ResearchRecord[] | null;
     readonly owner: boolean;
     readonly portfolioSummaries: readonly PortfolioActualCurrencySummary[];
-    readonly onOpenMarket: (market: 'US' | 'MY') => void;
+    readonly onOpenMarket: (market: 'US' | 'MY', tab?: 'scenarios' | 'evidence') => void;
     readonly onOpenPortfolio: () => void;
     readonly onOpenDiscover: () => void;
     readonly onOpenStock: (symbol: string, market: ResearchMarket) => void;
 }) {
-    const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
-    const usDay = us.signal?.metadata.score_delta?.snapshot_date ?? todayIso;
-    const myDay = my.signal?.metadata.score_delta?.snapshot_date ?? todayIso;
-    const usBrief = useMemo(() => (us.signal ? buildMarketBrief(us.signal, usDay) : null), [us.signal, usDay]);
-    const myBrief = useMemo(() => (my.signal ? buildMarketBrief(my.signal, myDay) : null), [my.signal, myDay]);
-    const usAvail = Boolean(usBrief && usBrief.status !== 'unavailable');
-    const myAvail = Boolean(myBrief && myBrief.status !== 'unavailable');
-    const usTone = toneFor(us.signal, usAvail);
-    const myTone = toneFor(my.signal, myAvail);
-    const leadTone: Tone = usTone === 'down' || myTone === 'down' ? 'down' : usTone === 'up' || myTone === 'up' ? 'up' : 'neutral';
+    const todayIso = useReviewDay();
+    const usSignal = us.signal?.mode === mode ? us.signal : null;
+    const mySignal = my.signal?.mode === mode ? my.signal : null;
+    const usReference = usSignal?.metadata.score_delta?.snapshot_date ?? us.receivedAt;
+    const myReference = mySignal?.metadata.score_delta?.snapshot_date ?? my.receivedAt;
+    const usBrief = useMemo(() => (usSignal ? buildMarketBrief(usSignal, usReference) : null), [usSignal, usReference]);
+    const myBrief = useMemo(() => (mySignal ? buildMarketBrief(mySignal, myReference) : null), [mySignal, myReference]);
 
     const focusItems = useMemo(() => {
         const list: { id: string; tag: string; tone: Tone; title: string; body: string; cta: string; run: () => void }[] = [];
@@ -108,7 +107,7 @@ export function V9HomeView({
                     tag: review.status === 'overdue' ? 'Review overdue' : 'Due this week',
                     tone: review.status === 'overdue' ? 'down' : 'neutral',
                     title: `Re-check ${record.companyName || record.symbol} thesis`,
-                    body: record.notes.trim() ? record.notes.trim().slice(0, 110) : `Scheduled review for ${record.symbol} (${record.market}).`,
+                    body: record.notes.trim() || `Scheduled review for ${record.symbol} (${record.market}).`,
                     cta: 'Open research →',
                     run: () => onOpenStock(record.symbol, record.market),
                 });
@@ -122,7 +121,7 @@ export function V9HomeView({
                 title: usBrief.status === 'unavailable' ? 'US assessment unavailable' : 'US assessment has evidence limits',
                 body: usBrief.reasons[0].text,
                 cta: 'Inspect Market →',
-                run: () => onOpenMarket('US'),
+                run: () => onOpenMarket('US', 'evidence'),
             });
         }
         if (myBrief && myBrief.status !== 'available' && myBrief.reasons[0]) {
@@ -133,14 +132,14 @@ export function V9HomeView({
                 title: myBrief.status === 'unavailable' ? 'Malaysia assessment unavailable' : 'Malaysia assessment has evidence limits',
                 body: myBrief.reasons[0].text,
                 cta: 'Inspect Bursa →',
-                run: () => onOpenMarket('MY'),
+                run: () => onOpenMarket('MY', 'evidence'),
             });
         }
         if (records && records.length === 0) {
             list.push({
                 id: 'start-watchlist',
                 tag: 'Get started',
-                tone: 'up',
+                tone: 'neutral',
                 title: 'Build your calm watchlist',
                 body: 'Search any US or Bursa Malaysia stock or browse Discover to save your first thesis note locally.',
                 cta: 'Open Discover →',
@@ -164,11 +163,11 @@ export function V9HomeView({
             list.push({
                 id: 'stress-check',
                 tag: 'Risk check',
-                tone: 'up',
+                tone: 'neutral',
                 title: 'Run a volatility stress test',
                 body: 'Preview how a VIX spike shifts the composite market score without changing your saved settings.',
                 cta: 'Open Market Pulse →',
-                run: () => onOpenMarket('US'),
+                run: () => onOpenMarket('US', 'scenarios'),
             });
         }
         return list.slice(0, 3);
@@ -179,14 +178,15 @@ export function V9HomeView({
         title: string;
         subtitle: string;
         slot: SignalSlot;
-        avail: boolean;
-        tone: Tone;
+        brief: ReturnType<typeof buildMarketBrief> | null;
     }[] = [
-        { market: 'US', title: 'United States', subtitle: 'S&P 500 · Volatility & Positioning', slot: us, avail: usAvail, tone: usTone },
-        { market: 'MY', title: 'Malaysia · Bursa', subtitle: 'FBM KLCI · Regional Proxy & News', slot: my, avail: myAvail, tone: myTone },
+        { market: 'US', title: 'United States', subtitle: 'S&P 500 · Volatility & Positioning', slot: { ...us, signal: usSignal, loading: us.loading || usSignal !== us.signal }, brief: usBrief },
+        { market: 'MY', title: 'Malaysia · Bursa', subtitle: 'FBM KLCI · Regional Proxy & News', slot: { ...my, signal: mySignal, loading: my.loading || mySignal !== my.signal }, brief: myBrief },
     ];
 
-    const primaryBrief = usBrief ?? myBrief;
+    const briefCard = pulseCards.find(({ market }) => market === selectedMarket);
+    const primaryBrief = briefCard?.brief;
+    const briefTitle = `Daily Brief · ${selectedMarket === 'US' ? 'US' : 'Malaysia'}`;
     const totalCostSummary = portfolioSummaries.map(s => `${s.currency} ${fmtMoney(s.costBasis + s.cashBalance, s.currency)}`).join(' · ');
 
     return (
@@ -194,13 +194,16 @@ export function V9HomeView({
             <div className={styles.heroBrief}>
                 <div>
                     <div className={styles.kicker}>
-                        <span className={styles.kickerDot} data-tone={leadTone} aria-hidden="true" />
-                        <span>Morning Briefing · {todayIso} · Momentum</span>
+                        <span>Market Briefing · {marketTimestampLabel(todayIso)} · {mode === 'contrarian' ? 'Contrarian' : 'Momentum'}</span>
                     </div>
-                    <h1 className={styles.heroTitle}>{headlineFor(us.signal, my.signal, usAvail, myAvail)}</h1>
+                    <h1 className={`${styles.heroTitle} ${styles.homeTitle}`}>
+                        {pulseCards.map(({ market, slot, brief }) => (
+                            <span key={market}>{market === 'US' ? 'US' : 'Malaysia'}: {readingFor(slot, brief).toLowerCase()}</span>
+                        ))}
+                    </h1>
                 </div>
                 <div className={styles.heroActions}>
-                    <button type="button" className={styles.primaryBtn} onClick={() => onOpenMarket('US')}>Open Market Pulse →</button>
+                    <button type="button" className={styles.primaryBtn} onClick={() => onOpenMarket(selectedMarket)}>Open Market Pulse →</button>
                     <button type="button" className={styles.ghostBtn} onClick={onOpenPortfolio}>
                         Portfolio{portfolioSummaries.length ? ` (${portfolioSummaries.length} ccy)` : ''}
                     </button>
@@ -208,30 +211,22 @@ export function V9HomeView({
             </div>
 
             <section className={styles.pulseGrid} aria-label="Market pulse summary">
-                {pulseCards.map(({ market, title, subtitle, slot, avail, tone }) => {
+                {pulseCards.map(({ market, title, subtitle, slot, brief }) => {
                     const delta = slot.signal?.metadata.score_delta?.delta;
-                    const reading = slot.loading
-                        ? 'Loading…'
-                        : slot.error
-                            ? 'Unavailable'
-                            : !avail
-                                ? 'Limited / Unavailable'
-                                : slot.signal
-                                    ? marketReadingLabel(slot.signal.tier)
-                                    : 'Unavailable';
+                    const snapshotDay = marketEvidenceDay(slot.signal?.metadata.score_delta?.snapshot_date);
+                    const tone = toneFor(slot.signal, Boolean(brief && brief.status !== 'unavailable'));
                     return (
                         <button
                             key={market}
                             type="button"
                             className={styles.pulseCard}
-                            data-tone={tone}
                             onClick={() => onOpenMarket(market)}
                         >
                             <div className={styles.pulseInfo}>
                                 <div className={styles.pulseHead}>
                                     <span className={styles.mktTag}>{market}</span>
                                     <strong>{title}</strong>
-                                    <span className={styles.toneBadge} data-tone={tone}>{reading}</span>
+                                    <span className={styles.toneBadge} data-tone={tone}>{readingFor(slot, brief)}</span>
                                 </div>
                                 <p className={styles.pulseSub}>{subtitle}</p>
                                 <div className={styles.pulseMeta}>
@@ -239,29 +234,32 @@ export function V9HomeView({
                                         <span>{slot.error}</span>
                                     ) : slot.signal ? (
                                         <>
-                                            <span>
+                                            <span data-direction={typeof delta === 'number' && delta !== 0 ? (delta > 0 ? 'up' : 'down') : undefined}>
                                                 {typeof delta === 'number'
                                                     ? `${delta > 0 ? '+' : ''}${delta.toFixed(1)} pts vs prior`
                                                     : 'Prior comparison unavailable'}
                                             </span>
-                                            <span>· Snapshot {slot.signal.metadata.score_delta?.snapshot_date || todayIso}</span>
+                                            <span>{snapshotDay ? `Snapshot ${marketTimestampLabel(snapshotDay)}` : 'Snapshot date unavailable'}</span>
                                         </>
                                     ) : (
                                         <span>Fetching live signal inputs…</span>
                                     )}
                                 </div>
                             </div>
-                            <ScoreRing score={slot.signal ? slot.signal.composite_score : null} tone={tone} />
+                            <ScoreRing score={slot.signal?.composite_score ?? null} />
                         </button>
                     );
                 })}
             </section>
 
-            {primaryBrief && (
+            {primaryBrief ? (
                 <details className={styles.dailyStrip}>
                     <summary>
-                        <span><strong>Daily Brief</strong> · {primaryBrief.conclusion}</span>
-                        <span className={styles.textLink}>Expand brief ▾</span>
+                        <span><strong>{briefTitle}</strong> <span className={styles.dailyConclusion}>{primaryBrief.conclusion}</span></span>
+                        <span className={`${styles.textLink} ${styles.briefToggle}`} aria-hidden="true">
+                            <span className={styles.briefExpand}>Expand brief ▾</span>
+                            <span className={styles.briefCollapse}>Collapse brief ▴</span>
+                        </span>
                     </summary>
                     <div className={styles.dailyStripBody}>
                         <div>
@@ -286,6 +284,15 @@ export function V9HomeView({
                         </div>
                     </div>
                 </details>
+            ) : (
+                <div className={styles.dailyStrip} role="status">
+                    <p className={styles.dailyStatus}>
+                        <strong>{briefTitle}</strong>
+                        <span className={styles.dailyConclusion}>
+                            {briefCard?.slot.loading ? 'Loading the current brief…' : briefCard?.slot.error ? 'The current brief could not be loaded.' : 'The current brief is unavailable.'}
+                        </span>
+                    </p>
+                </div>
             )}
 
             <div className={styles.homeColumns}>
@@ -331,7 +338,7 @@ export function V9HomeView({
                                 symbol: r.symbol,
                                 market: r.market,
                                 name: r.companyName || r.symbol,
-                                meta: r.notes.trim() ? r.notes.trim().slice(0, 64) : 'Saved on device · open to read live quote',
+                                meta: r.notes.trim() || 'Open to read the latest quote',
                             }))
                             : [
                                 { symbol: 'AAPL', market: 'US' as const, name: 'Apple Inc.', meta: 'US · Consumer Tech · quick preview' },
@@ -370,7 +377,7 @@ export function V9HomeView({
                                         key={summary.currency}
                                         style={{
                                             flex: Math.max(1, summary.costBasis + summary.cashBalance),
-                                            background: idx === 0 ? 'var(--up-mark)' : 'var(--caution-mark)',
+                                            background: idx === 0 ? 'var(--brand)' : 'var(--score-mark)',
                                         }}
                                     />
                                 ))}

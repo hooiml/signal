@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { V9Navigation, type V9Href } from '@/components/v9/v9-navigation';
 import styles from './v8-command-palette.module.css';
 
 type CommandItem = {
@@ -11,18 +12,19 @@ type CommandItem = {
     href: string;
 };
 
-const STATIC_ITEMS = (market: 'US' | 'MY'): readonly CommandItem[] => [
-    { id: 'mkt-us', title: 'US Market Pulse', subtitle: 'Composite score, evidence coverage & brief', tag: 'Market', href: '/main-v8?market=US' },
-    { id: 'mkt-my', title: 'Malaysia · Bursa Market Pulse', subtitle: 'FBM KLCI conditions, coverage & brief', tag: 'Market', href: '/main-v8?market=MY' },
-    { id: 'res-home', title: 'Stock Research Home', subtitle: 'Watchlist, holdings & security lookup', tag: 'Research', href: `/research-v8?market=${market}` },
-    { id: 'disc-trend', title: 'Discover · Trending Top 20', subtitle: 'US large-cap sustained momentum scan', tag: 'Discover', href: '/research-v8?market=US&discover=trending#discover' },
-    { id: 'disc-pick', title: 'Discover · Stock Picker', subtitle: 'Rule-based fundamental shortlist', tag: 'Discover', href: '/research-v8?market=US&discover=picker#discover' },
-    { id: 'disc-cal', title: 'Earnings Calendar', subtitle: 'Upcoming earnings announcements', tag: 'Calendar', href: `/research-v8?market=${market}&discover=calendar#discover` },
-    { id: 'learn', title: 'Learn · Metrics & Methodology', subtitle: 'Plain-English lessons for V8 indicators', tag: 'Learn', href: '/learn' },
+const STATIC_ITEMS = (market: 'US' | 'MY', v9: V9Href | null): readonly CommandItem[] => [
+    { id: 'mkt-us', title: 'US Market Pulse', subtitle: 'Composite score, evidence coverage & brief', tag: 'Market', href: v9?.('market', { market: 'US' }) ?? '/main-v8?market=US' },
+    { id: 'mkt-my', title: 'Malaysia · Bursa Market Pulse', subtitle: 'FBM KLCI conditions, coverage & brief', tag: 'Market', href: v9?.('market', { market: 'MY' }) ?? '/main-v8?market=MY' },
+    { id: 'res-home', title: 'Stock Research Home', subtitle: 'Watchlist and security lookup', tag: 'Research', href: v9?.('research') ?? `/research-v8?market=${market}` },
+    { id: 'disc-trend', title: 'Discover · Trending Top 20', subtitle: 'US large-cap sustained momentum scan', tag: 'Discover', href: v9?.('discover', { market: 'US', discover: 'trending' }) ?? '/research-v8?market=US&discover=trending#discover' },
+    { id: 'disc-pick', title: 'Discover · Stock Picker', subtitle: 'Rule-based fundamental shortlist', tag: 'Discover', href: v9?.('discover', { market: 'US', discover: 'picker' }) ?? '/research-v8?market=US&discover=picker#discover' },
+    { id: 'disc-cal', title: 'Earnings Calendar', subtitle: 'Upcoming earnings announcements', tag: 'Calendar', href: v9?.('discover', { discover: 'calendar' }) ?? `/research-v8?market=${market}&discover=calendar#discover` },
+    { id: 'learn', title: 'Learn · Metrics & Methodology', subtitle: 'Plain-English lessons for market indicators', tag: 'Learn', href: v9?.('learn') ?? '/learn' },
 ];
 
 /** Local-only keyboard command palette (Ctrl/Cmd+K) for fast navigation without network calls. */
 export function V8CommandPalette({ market = 'US' }: { market?: 'US' | 'MY' }) {
+    const v9 = useContext(V9Navigation);
     const dialogRef = useRef<HTMLDialogElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
@@ -58,7 +60,7 @@ export function V8CommandPalette({ market = 'US' }: { market?: 'US' | 'MY' }) {
     const items = useMemo(() => {
         const trimmed = query.trim();
         const lower = trimmed.toLowerCase();
-        const base = STATIC_ITEMS(market).filter(item =>
+        const base = STATIC_ITEMS(market, v9).filter(item =>
             !lower || item.title.toLowerCase().includes(lower) || item.subtitle.toLowerCase().includes(lower) || item.tag.toLowerCase().includes(lower)
         );
         if (/^[A-Za-z0-9.-]{1,10}$/.test(trimmed)) {
@@ -70,12 +72,12 @@ export function V8CommandPalette({ market = 'US' }: { market?: 'US' | 'MY' }) {
                 title: `Open ${sym} in Research (${targetMarket})`,
                 subtitle: 'Jump straight to security quote, financials & notes',
                 tag: 'Ticker',
-                href: `/research-v8?ticker=${encodeURIComponent(sym)}&market=${targetMarket}`,
+                href: v9?.('research', { ticker: sym, market: targetMarket }) ?? `/research-v8?ticker=${encodeURIComponent(sym)}&market=${targetMarket}`,
             };
             return [direct, ...base];
         }
         return base;
-    }, [market, query]);
+    }, [market, query, v9]);
 
     const boundedIndex = items.length ? Math.min(activeIndex, items.length - 1) : 0;
 

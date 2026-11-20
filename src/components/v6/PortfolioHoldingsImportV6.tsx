@@ -50,7 +50,7 @@ export const PortfolioHoldingsImportV6 = ({ records, items, theme, onOpen }: {
     readonly records: readonly ResearchRecord[];
     readonly items: readonly ResearchWatchlistItem[];
     readonly theme: ResearchThemeV6;
-    readonly onOpen: (symbol: string) => void;
+    readonly onOpen: (symbol: string, market: ResearchRecord['market']) => void;
 }) => {
     const [restore, setRestore] = useState<RestoreState>({ status: 'loading', snapshot: null });
     const [draft, setDraft] = useState<DraftState>({ status: 'idle' });
@@ -277,7 +277,7 @@ export const PortfolioHoldingsImportV6 = ({ records, items, theme, onOpen }: {
                                             <td className="py-2">
                                                 {row.researchRecord ? (
                                                     <div className="flex min-w-max flex-col items-start gap-1">
-                                                        <button type="button" className={'min-h-10 font-semibold underline ' + styles.positive} onClick={() => onOpen(row.holding.symbol)}>Exact match</button>
+                                                        <button type="button" className={'min-h-10 font-semibold underline ' + styles.positive} onClick={() => onOpen(row.holding.symbol, row.holding.market)}>Exact match</button>
                                                         <button
                                                             type="button"
                                                             aria-label={`Queue ${row.holding.symbol} holding review`}

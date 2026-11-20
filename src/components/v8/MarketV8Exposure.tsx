@@ -20,6 +20,11 @@ const maximumClassified = 20;
 // Drivers that share a rule read as one line instead of repeating the same sentence.
 const groupByRule = (connections: readonly { driverName: string; rule: string }[]) => [...connections.reduce((groups, connection) => groups.set(connection.rule, [...(groups.get(connection.rule) ?? []), connection.driverName]), new Map<string, string[]>())].map(([rule, drivers]) => ({ rule, drivers }));
 type Classification = { sector: string; industry: string; unavailable?: boolean };
+export type MarketExposureWorkspace = {
+    status: 'loading' | 'ready' | 'error';
+    records: readonly ResearchRecord[];
+    workspace: 'guest' | 'owner';
+};
 
 // Saved securities from whichever workspace this browser uses; guest records never touch owner routes.
 async function readSavedRecords(signal: AbortSignal): Promise<{ records: ResearchRecord[]; workspace: 'guest' | 'owner' }> {
@@ -45,17 +50,20 @@ async function classify(symbol: string, market: ResearchMarket, signal: AbortSig
     return { sector: normalizeExposureSector(typeof match?.sector === 'string' ? match.sector : null, match ? instrumentType : null), industry: typeof match?.industry === 'string' ? match.industry : 'Unknown' };
 }
 
-export function MarketV8Exposure({ signal }: { signal: MarketSignal }) {
+export function MarketV8Exposure({ signal, researchHref, savedWorkspace }: { signal: MarketSignal; researchHref?: (symbol?: string) => string; savedWorkspace?: MarketExposureWorkspace }) {
     const market = signal.metadata.market;
-    const [state, setState] = useState<{ status: 'loading' | 'ready' | 'error'; records: ResearchRecord[]; workspace: 'guest' | 'owner' }>({ status: 'loading', records: [], workspace: 'guest' });
+    const [localWorkspace, setLocalWorkspace] = useState<MarketExposureWorkspace>({ status: 'loading', records: [], workspace: 'guest' });
+    const state = savedWorkspace ?? localWorkspace;
+    const hasSavedWorkspace = savedWorkspace !== undefined;
     const [classes, setClasses] = useState<Record<string, Classification>>({});
     useEffect(() => {
+        if (hasSavedWorkspace) return;
         const controller = new AbortController();
         readSavedRecords(controller.signal)
-            .then(result => setState({ status: 'ready', ...result }))
-            .catch(() => { if (!controller.signal.aborted) setState(current => ({ ...current, status: 'error' })); });
+            .then(result => { if (!controller.signal.aborted) setLocalWorkspace({ status: 'ready', ...result }); })
+            .catch(() => { if (!controller.signal.aborted) setLocalWorkspace(current => ({ ...current, status: 'error' })); });
         return () => controller.abort();
-    }, []);
+    }, [hasSavedWorkspace]);
     const sameMarket = useMemo(() => state.records.filter(record => record.market === market).slice(0, maximumClassified), [state.records, market]);
     const pending = sameMarket.filter(record => !classes[`${record.market}:${record.symbol}`]).map(record => `${record.market}:${record.symbol}`).join('|');
     useEffect(() => {
@@ -92,10 +100,10 @@ export function MarketV8Exposure({ signal }: { signal: MarketSignal }) {
         {!empty && drivers.length > 0 && <ul className={styles.drivers} aria-label="Active score drivers">{drivers.map(driver => <li key={driver.key} data-impact={driver.impact}><b><MetricGlossary metric={metricForIndicator(driver.key)}>{driver.name}</MetricGlossary></b> · {driver.impact}</li>)}</ul>}
         {state.status === 'loading' ? <p role="status">Loading saved securities…</p>
             : state.status === 'error' ? <p role="alert">Saved research could not be read. The market reading above is unaffected.</p>
-                : exposures.length === 0 ? <V8EmptyState className={styles.empty} message={<>No saved {market} stocks to map.</>} action={<a href={`/research-v8?market=${market}`}>Save a security in Research</a>} />
+                : exposures.length === 0 ? <V8EmptyState className={styles.empty} message={<>No saved {market} stocks to map.</>} action={<a href={researchHref?.() ?? `/research-v8?market=${market}`}>Save a security in Research</a>} />
                     : <ul className={styles.exposures}>{exposures.map(item => <li key={item.symbol}>
                         <div className={styles.exposureHead}>
-                            <a href={`/research-v8?ticker=${encodeURIComponent(item.symbol)}&market=${market}`}><b>{item.symbol}</b></a>
+                            <a href={researchHref?.(item.symbol) ?? `/research-v8?ticker=${encodeURIComponent(item.symbol)}&market=${market}`}><b>{item.symbol}</b></a>
                             <small>{classes[`${market}:${item.symbol}`]?.unavailable ? 'Classification unavailable' : classifying && item.sector === 'Unknown' ? 'Classifying…' : `${item.sector} · ${item.industry}`}{item.owned ? ' · Owned' : ''}</small>
                             <span className={styles.level} data-level={item.highestLevel}>{classes[`${market}:${item.symbol}`]?.unavailable ? 'Unavailable' : levelLabel[item.highestLevel]}</span>
                         </div>

@@ -30,8 +30,23 @@ assert.match(component, /const query = `market=\$\{market\}&mode=\$\{mode\}&enab
     'The selected toggle value is sent as enableSocial for the score and replay requests.');
 assert.match(component, /checked=\{social\} onChange=\{event => \{ setSocial\(event\.target\.checked\); resetView\(\); \}\}/,
     'The visible checkbox updates the state used by the score and replay requests.');
-assert.match(component, /marketSourceToggleStatus\(market, social, data, loading, response\.key === key \? response\.error : ''\)/,
-    'The status distinguishes the selected setting, current signal evidence and request state.');
+assert.match(component, /marketSourceToggleStatus\(market, social, data, loading, loadError\)/,
+    'The standalone status distinguishes the selected setting, current signal evidence and request state.');
+assert.match(component, /const loadError = embedded \? embedded\.error : response\.key === key \? response\.error : ''/,
+    'The standalone status uses errors from the active request configuration only.');
+
+const v9Market = readFileSync('src/components/v9/V9MarketView.tsx', 'utf8');
+const v9Workspace = readFileSync('src/components/v9/V9Workspace.tsx', 'utf8');
+assert.match(v9Market, /checked=\{social\} onChange=\{event => onSocialChange\(event\.target\.checked\)\}/,
+    'The V9 source checkbox forwards the actual checked value.');
+assert.match(v9Market, /config=\{\{ market, mode, enableSocial: social \}\}/,
+    'Embedded Market replay uses the same source configuration as the V9 toolbar.');
+assert.match(v9Market, /marketSourceToggleStatus\(market, social, signal, loading, error\)/,
+    'V9 status distinguishes the selected setting, current signal evidence and request state.');
+assert.match(v9Workspace, /onSocialChange=\{next => updateMarketPreference\('enableSocial', String\(next\)\)\}/,
+    'The V9 source toggle updates the route-backed signal setting.');
+assert.match(v9Workspace, /const url = `\/api\/signals\/v2\?market=\${target}&mode=\${mode}&enableSocial=\${social}`/,
+    'V9 score requests carry the effective source setting.');
 
 const publishedAt = '2026-09-11T23:00:00.000Z';
 const fixtureProviders = {

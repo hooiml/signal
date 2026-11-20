@@ -27,7 +27,7 @@ export function Sparkline({ points, weekly = false }: { points: Point[]; weekly?
     const locations = geometry(points, 160, 44, Math.min(...values), Math.max(...values), 3);
     return <svg className={styles.sparkline} viewBox="0 0 160 44" aria-hidden="true"><path d={locations.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(' ')} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />{weekly && locations.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="2" fill="currentColor" />)}</svg>;
 }
-export function MarketChart({ points, selectedDate, onSelect, raw = false, name = 'Market condition score', sourced = false, replayAvailable = true }: { points: Point[]; selectedDate?: string; onSelect?: (point: Point) => void; raw?: boolean; name?: string; sourced?: boolean; replayAvailable?: boolean }) {
+export function MarketChart({ points, selectedDate, onSelect, raw = false, name = 'Market condition score', sourced = false, replayAvailable = true, compactLegend = false }: { points: Point[]; selectedDate?: string; onSelect?: (point: Point) => void; raw?: boolean; name?: string; sourced?: boolean; replayAvailable?: boolean; compactLegend?: boolean }) {
     const id = useId().replace(/:/g, '');
     const [cursor, setCursor] = useState(() => {
         const initial = points.findIndex(p => p.date === selectedDate);
@@ -63,7 +63,11 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
 
     return <div className={styles.chart}>
         <div className={styles.chartTopline}><span>{sourced ? raw ? 'Raw readings from archived snapshots' : `0–100 composite · axis ${minimum}–${maximum}` : raw ? 'Raw observations · illustrative' : '0–100 composite · illustrative history'}</span><output aria-live="polite">{fullDate(points[at].date)} <b>{points[at].value.toFixed(raw ? 2 : 0)}{raw ? '' : ' /100'}</b>{sourced && !raw && <span>Origin: {origin}</span>}</output></div>
-        {sourced && !raw && <p className={styles.chartLegend}>━━ Observed · ┄┄ Reconstructed · breaks separate origins · shaded band = neutral score tier {MARKET_SCORE_TIER_THRESHOLDS.neutralLower}–{MARKET_SCORE_TIER_THRESHOLDS.neutralUpper - 1}</p>}
+        {sourced && !raw && (compactLegend ? <ul className={styles.compactChartLegend} aria-label="Chart legend">
+            <li><span aria-hidden="true">━</span> Observed</li>
+            <li><span aria-hidden="true">┄</span> Reconstructed</li>
+            <li><span aria-hidden="true" className={styles.neutralLegendSwatch} /> Neutral {MARKET_SCORE_TIER_THRESHOLDS.neutralLower}–{MARKET_SCORE_TIER_THRESHOLDS.neutralUpper - 1}</li>
+        </ul> : <p className={styles.chartLegend}>━━ Observed · ┄┄ Reconstructed · breaks separate origins · shaded band = neutral score tier {MARKET_SCORE_TIER_THRESHOLDS.neutralLower}–{MARKET_SCORE_TIER_THRESHOLDS.neutralUpper - 1}</p>)}
         <div className={styles.chartPlot}>
             <div className={styles.axis}>{[maximum, (maximum + minimum) / 2, minimum].map(value => <span key={value}>{value.toFixed(0)}</span>)}</div>
             <svg viewBox="-8 -8 816 242" preserveAspectRatio="none" role={onSelect ? 'slider' : 'img'} tabIndex={onSelect ? 0 : undefined} aria-label={name} aria-valuemin={onSelect ? 0 : undefined} aria-valuemax={onSelect ? points.length - 1 : undefined} aria-valuenow={onSelect ? at : undefined} aria-valuetext={onSelect ? `${fullDate(points[at].date)}, score ${points[at].value}. Arrow keys preview, Enter selects a preview.` : undefined}

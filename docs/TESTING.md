@@ -4,6 +4,11 @@ Run the smallest verification set that proves the change, then expand when share
 
 ## Standard Verification
 
+For V9 workspace changes, run `node scripts/v9-workspace-qa.mjs` against the local
+production server at `SIGNAL_QA_URL` (default `http://127.0.0.1:3000`). It exercises
+workspace navigation with fixture data and captures Home and Market at 1280, 768
+and 375 pixels in both themes under `.tmp/v9-workspace/`.
+
 For the Latest Market Brief (E28), run lint, full harness, build and post-build
 typecheck. `market-brief-regression.mjs` in the harness uses the real scorer and
 reconciler for eligibility, provenance, mode-correct change direction and immutable

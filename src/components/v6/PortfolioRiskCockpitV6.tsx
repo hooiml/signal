@@ -86,7 +86,7 @@ export const PortfolioRiskCockpitV6 = ({ records, items, theme, saving, saveErro
     readonly saving: boolean;
     readonly saveError: string | null;
     readonly onSave: (record: ResearchRecord, mode?: ResearchUpdateMode) => Promise<boolean>;
-    readonly onOpen: (symbol: string) => void;
+    readonly onOpen: (symbol: string, market: ResearchMarket) => void;
 }) => {
     const [customShock, setCustomShock] = useState(-10);
     const [savedScenarios, setSavedScenarios] = useState<readonly SavedPortfolioScenario[]>([]);
@@ -381,10 +381,10 @@ export const PortfolioRiskCockpitV6 = ({ records, items, theme, saving, saveErro
                                         <thead><tr className={styles.textMuted}><th className="pb-2">Position</th><th className="pb-2 text-right">Allocation</th><th className="pb-2 text-right">Beta</th><th className="pb-2 text-right">Annualized volatility</th><th className="pb-2 text-right">Overlapping days</th></tr></thead>
                                         <tbody>
                                             {currentAnalytics.metrics.map((metric) => {
-                                                const holding = summary.holdings.find((candidate) => candidate.symbol === metric.symbol);
+                                                const holding = summary.holdings.find((candidate) => candidate.symbol === metric.symbol && candidate.market === metric.market);
                                                 return (
-                                                    <tr key={metric.symbol} className={'border-t ' + styles.divider}>
-                                                        <th className="py-2"><button type="button" onClick={() => onOpen(metric.symbol)} className={'min-h-10 font-mono font-bold ' + styles.textPrimary}>{metric.symbol}</button></th>
+                                                    <tr key={`${metric.market}:${metric.symbol}`} className={'border-t ' + styles.divider}>
+                                                        <th className="py-2"><button type="button" onClick={() => onOpen(metric.symbol, metric.market)} className={'min-h-10 font-mono font-bold ' + styles.textPrimary}>{metric.symbol}</button></th>
                                                         <td className={'py-2 text-right font-mono ' + styles.textSecondary}>{holding?.allocationPercent.toFixed(1)}%</td>
                                                         <td className={'py-2 text-right font-mono ' + styles.textSecondary}>{metric.beta?.toFixed(2) ?? 'Unavailable'}</td>
                                                         <td className={'py-2 text-right font-mono ' + styles.textSecondary}>{metric.annualizedVolatilityPercent === null ? 'Unavailable' : `${metric.annualizedVolatilityPercent.toFixed(1)}%`}</td>

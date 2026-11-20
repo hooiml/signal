@@ -28,6 +28,7 @@ export type IndicatorHistoryState = {
 
 type ConnectedPanelsProps = {
     readonly advanced?: boolean;
+    readonly explainSnapshotComparison?: boolean;
     readonly signal: MarketSignal;
     readonly tab: string;
     readonly onSelect: (key: string, element: HTMLButtonElement) => void;
@@ -272,7 +273,7 @@ export function ConnectedIndicator({ signal, indicatorKey, onClose, history, his
     </>;
 }
 
-function ChangePanel({ signal, onSelect }: { signal: MarketSignal; onSelect: ConnectedPanelsProps['onSelect'] }) {
+function ChangePanel({ signal, onSelect, explainSnapshotComparison }: { signal: MarketSignal; onSelect: ConnectedPanelsProps['onSelect']; explainSnapshotComparison?: boolean }) {
     const scoreDelta = signal.metadata.score_delta;
     const changes = signal.metadata.driver_changes ?? [];
     const hasDriverChanges = signal.metadata.driver_changes_available === true && changes.length > 0;
@@ -280,6 +281,7 @@ function ChangePanel({ signal, onSelect }: { signal: MarketSignal; onSelect: Con
 
     return <>
         <SectionHeading eyebrow="What changed" title="Reported score changes" tag={formatMarketDates(scoreDelta?.label ?? 'Latest comparison')} />
+        {explainSnapshotComparison && <p className={styles.panelIntro}>The service compares this reading with the prior snapshot for the same configuration. “Since last visit” compares with the last different snapshot viewed in this browser.</p>}
         {scoreDelta && finiteNumber(scoreDelta.delta) && Math.abs(scoreDelta.delta) < 0.005 ? <p className={styles.unchangedScore} data-testid="what-changed-unchanged"><strong>{signal.composite_score.toFixed(0)}</strong><span>Score unchanged since {scoreDelta.previous_date ? formatDate(scoreDelta.previous_date) : 'the previous snapshot'} · snapshot {formatDate(scoreDelta.snapshot_date)}. Individual inputs can still move in offsetting directions; open Complete accounting below.</span></p> : scoreDelta && finiteNumber(scoreDelta.delta) ? <div className={styles.studyMetrics}><div><span>Current score</span><strong>{signal.composite_score.toFixed(0)}</strong><small>Snapshot {formatDate(scoreDelta.snapshot_date)}</small></div><div><span>Previous score</span><strong>{finiteNumber(scoreDelta.previous_score) ? scoreDelta.previous_score.toFixed(0) : 'Unavailable'}</strong><small>{scoreDelta.previous_date ? formatDate(scoreDelta.previous_date) : 'No prior date'}</small></div><div><span>Score delta</span><strong>{signed(scoreDelta.delta, 0)}</strong><small>Reported comparison</small></div></div> : <Unavailable title="Score change unavailable" detail="No comparable previous score is available." />}
 
         <section className={styles.calibration} aria-label="Driver changes">
@@ -470,14 +472,14 @@ function ScenarioPanel({ signal, scenario, setScenario }: Pick<ConnectedPanelsPr
     </>;
 }
 
-export function ConnectedPanels({ signal, tab, onSelect, scenario, setScenario, advanced = false }: ConnectedPanelsProps) {
+export function ConnectedPanels({ signal, tab, onSelect, scenario, setScenario, advanced = false, explainSnapshotComparison }: ConnectedPanelsProps) {
     const normalizedTab = tab.trim().toLowerCase();
     const panel = useMemo(() => {
-        if (normalizedTab === 'what changed') return <ChangePanel signal={signal} onSelect={onSelect} />;
+        if (normalizedTab === 'what changed') return <ChangePanel signal={signal} onSelect={onSelect} explainSnapshotComparison={explainSnapshotComparison} />;
         if (normalizedTab === 'evidence') return <EvidencePanel advanced={advanced} signal={signal} onSelect={onSelect} />;
         if (normalizedTab === 'context') return <ContextPanel signal={signal} />;
         if (normalizedTab === 'scenarios') return <ScenarioPanel signal={signal} scenario={scenario} setScenario={setScenario} />;
         return <Unavailable title="Panel unavailable" detail={`No connected V8 panel is defined for “${tab}”.`} />;
-    }, [normalizedTab, onSelect, signal, tab, scenario, setScenario, advanced]);
+    }, [normalizedTab, onSelect, signal, tab, scenario, setScenario, advanced, explainSnapshotComparison]);
     return <div data-testid={`market-v8-connected-${normalizedTab.replace(/\s+/g, '-')}`}>{panel}</div>;
 }

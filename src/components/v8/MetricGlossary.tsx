@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useContext, useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { V9Navigation } from '@/components/v9/v9-navigation';
 import { metricLessonHref, metricLessons, type LearnMetric } from '@/lib/learn/metric-links';
 import styles from './metric-glossary.module.css';
 
@@ -18,6 +19,7 @@ export function MetricGlossary({ metric, children, buttonProps, onInspect }: Pro
 }
 
 function GlossaryPopover({ metric, children, buttonProps, onInspect }: Props & { metric: LearnMetric }) {
+    const v9 = useContext(V9Navigation);
     const entry = metricLessons.find(lesson => lesson.id === metric)!;
     const id = useId();
     const trigger = useRef<HTMLButtonElement>(null);
@@ -106,7 +108,7 @@ function GlossaryPopover({ metric, children, buttonProps, onInspect }: Props & {
             <span className={styles.definition}>{entry.definition}</span>
             {onInspect && <button className={styles.inspect} type="button" onClick={() => { close(); if (trigger.current) onInspect(trigger.current); }}>View indicator</button>}
             <span className={styles.actions}>
-                <a href={metricLessonHref(metric)} target="_blank" rel="noopener noreferrer" aria-label={`Learn more about ${entry.label} (opens in a new tab)`}>Learn more <span aria-hidden="true">↗</span></a>
+                <a href={v9?.('learn', { concept: metric }) ?? metricLessonHref(metric)} target="_blank" rel="noopener noreferrer" aria-label={`Learn more about ${entry.label} (opens in a new tab)`}>Learn more <span aria-hidden="true">↗</span></a>
                 <button type="button" onClick={close} aria-label={`Close ${entry.label} definition`}>Close</button>
             </span>
         </span>

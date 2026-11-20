@@ -22,13 +22,13 @@ export function useFirstVisit() {
 }
 
 type Tour = ReturnType<typeof useFirstVisit>;
-type Props = { surface: 'market' | 'research'; ready?: boolean; saved?: boolean; mode?: 'standard' | 'contrarian' };
+type Props = { surface: 'market' | 'research'; ready?: boolean; saved?: boolean; mode?: 'standard' | 'contrarian'; marketHref?: string; researchHref?: string };
 
 export function V8FirstVisit(props: Props) {
     return <FirstVisitCallout {...props} tour={useFirstVisit()} />;
 }
 
-export function FirstVisitCallout({ tour, surface, ready = false, saved = false, mode = 'standard' }: Props & { tour: Tour }) {
+export function FirstVisitCallout({ tour, surface, ready = false, saved = false, mode = 'standard', marketHref, researchHref }: Props & { tour: Tour }) {
     const [hiddenRevision, setHiddenRevision] = useState<number | 'invalid' | null>(null);
     const state = tour.progress?.state;
     const stage = state?.stage;
@@ -45,8 +45,8 @@ export function FirstVisitCallout({ tour, surface, ready = false, saved = false,
     const action = !state ? null : state.stage === 'market'
         ? surface === 'market'
             ? <button className={styles.primary} type="button" disabled={!ready} onClick={() => void advance(state, 'stock')}>I understand</button>
-            : <a href="/main-v8" target="_blank" rel="noopener noreferrer">Open Market (new tab)</a>
-        : surface === 'market' ? <a href="/research-v8">Open Research</a>
+            : <a href={marketHref ?? '/main-v8'} target="_blank" rel="noopener noreferrer">Open Market (new tab)</a>
+        : surface === 'market' ? <a href={researchHref ?? '/research-v8'}>Open Research</a>
         : state.stage === 'save' && saved ? <button className={styles.primary} type="button" onClick={() => void advance(state, 'complete')}>Finish with this saved stock</button>
         : null;
     const text = !state ? '' : state.stage === 'market'
@@ -54,7 +54,7 @@ export function FirstVisitCallout({ tour, surface, ready = false, saved = false,
         : state.stage === 'stock'
             ? surface === 'market' ? 'Search or pick from your watchlist. Opening a stock saves nothing.' : 'This step finishes once the stock’s price loads. Opening it saves nothing.'
             : surface === 'research' && saved ? 'This stock is already in your watchlist; no new save is needed.' : 'Use Save stock beside the price to keep it. Reading alone saves nothing.';
-    return <section className={styles.callout} aria-label="First visit to V8" data-testid="v8-first-visit">
+    return <section className={styles.callout} aria-label={marketHref || researchHref ? 'First visit' : 'First visit to V8'} data-testid="v8-first-visit">
         <div className={styles.text}>
             <div className={styles.title}><h2>{!state ? 'First visit' : state.stage === 'market' ? 'Understand the Market score' : state.stage === 'stock' ? 'Open a stock' : 'Save a stock'}</h2>{state && <span className={styles.step}>Tour {step} of 3</span>}</div>
             {text && <p>{text}</p>}

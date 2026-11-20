@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useContext, useEffect, useId, useRef, useState } from 'react';
+import { V9Navigation } from '@/components/v9/v9-navigation';
 import { DEFAULT_SIGNAL_CONFIG, readSignalConfig, writeSignalConfig, type SignalConfig } from '@/lib/signal-config';
 import { clearGuestWorkspace, exportGuestWorkspace, readGuestDraftRecovery } from '@/lib/research/guest-workspace';
 import { ownerUnlockHref } from '@/lib/owner-access-client';
@@ -11,6 +12,7 @@ import styles from './v8-settings.module.css';
 /** Shared modal stays beside the page, so opening it never unmounts an editor. */
 export function V8Settings({ hasUnsavedGuestNotes = false, onDefaultsSaved }: { hasUnsavedGuestNotes?: boolean; onDefaultsSaved?: () => void }) {
     const dialog = useRef<HTMLDialogElement>(null);
+    const v9 = useContext(V9Navigation);
     const trigger = useRef<HTMLButtonElement>(null);
     const title = useId();
     const [open, setOpen] = useState(false);
@@ -113,7 +115,7 @@ export function V8Settings({ hasUnsavedGuestNotes = false, onDefaultsSaved }: { 
                 <h3>First visit</h3><p>Three steps: the Market score, reading a stock and saving it.</p>
                 <div><button type="button" disabled={tourBusy} onClick={() => void restartTour()}>{tourBusy ? 'Restarting…' : 'Restart tour'}</button></div>
                 {tourError && <p role="alert">{tourError}</p>}
-                {tourStatus && <><p role="status">{tourStatus}</p><a href="/main-v8" target="_blank" rel="noopener noreferrer">Open Market (new tab)</a></>}
+                {tourStatus && <><p role="status">{tourStatus}</p><a href={v9?.('market', { tour: '1' }) ?? '/main-v8'} target="_blank" rel="noopener noreferrer">Open Market (new tab)</a></>}
             </section>
             <section className={styles.section} aria-label="Guest data">
                 <h3>Guest data on this device</h3><p>Saved only in this browser. Anyone using this browser profile can read it.</p>
