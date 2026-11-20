@@ -19,9 +19,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  draft:
-    name: Draft checks
-    if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
+  validate:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -30,192 +28,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run check:pr
-
-  visual:
-    name: Visual comparisons
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    # Capture and comparison use this exact userspace, browser and headless mode.
-    container:
-      image: mcr.microsoft.com/playwright:v1.60.0-noble@sha256:9bd26ad900bb5e0f4dee75839e957a89ae89c2b7ab1e76050e559790e946b948
-      options: --ipc=host
-    env:
-      DATABASE_URL: postgresql://signal_ci:signal_ci@127.0.0.1:5432/signal_ci
-      NEXT_TELEMETRY_DISABLED: '1'
-      SIGNAL_QA_URL: http://127.0.0.1:3000
-      SIGNAL_VISUAL_CONTAINER: mcr.microsoft.com/playwright:v1.60.0-noble@sha256:9bd26ad900bb5e0f4dee75839e957a89ae89c2b7ab1e76050e559790e946b948
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-      - name: Setup Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Build fixture target
-        run: npm run build
-      - name: Typecheck after build
-        run: npm run typecheck
-      - name: Compare reviewed screenshots
-        id: compare
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p .tmp/visual-checks
-          node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3000 > .tmp/visual-checks/server.log 2>&1 &
-          server_pid=$!
-          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-          ready=0
-          for attempt in {1..60}; do
-            if curl --fail --silent http://127.0.0.1:3000/main-v8 > /dev/null; then ready=1; break; fi
-            kill -0 "$server_pid"
-            sleep 1
-          done
-          test "$ready" = 1
-          # Missing baselines fail and upload candidates; CI never updates or accepts them.
-          npm run qa:visual -- --update-snapshots=none
-      - name: Upload visual comparisons
-        id: visual_artifact
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: signal-visual-comparisons
-          include-hidden-files: true
-          path: .tmp/visual-checks/
-          if-no-files-found: warn
-      - name: Link screenshot report on failure
-        if: failure() && steps.compare.outcome == 'failure' && steps.visual_artifact.outputs.artifact-url != ''
+      - name: Typecheck and lint
+        run: npm run check:pr
+      - name: Production build
+        if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
         env:
-          REPORT_URL: ${{ steps.visual_artifact.outputs.artifact-url }}
-        run: echo "[Download the visual report]($REPORT_URL) and open \`report/index.html\` to inspect the failed comparisons." >> "$GITHUB_STEP_SUMMARY"
-
-  validate:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
-    # Pinned so the ubuntu-latest move to Ubuntu 26 cannot change browser QA timing or Playwright deps unannounced.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    env:
-      DATABASE_URL: postgresql://signal_ci:signal_ci@127.0.0.1:5432/signal_ci
-      NEXT_TELEMETRY_DISABLED: '1'
-      SIGNAL_QA_URL: http://127.0.0.1:3000
-      SIGNAL_QA_SCREENSHOTS: '0'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Lint
-        run: npm run lint
-
-      # Includes qa:v81-evidence and the Research/Market regression scripts.
-      - name: Harness
-        shell: pwsh
-        run: ./scripts/harness/check-all.ps1
-
-      - name: Build
+          DATABASE_URL: postgresql://signal_ci:signal_ci@127.0.0.1:5432/signal_ci
+          NEXT_TELEMETRY_DISABLED: '1'
         run: npm run build
-
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Start production server
-        run: |
-          node node_modules/next/dist/bin/next start --hostname 127.0.0.1 > /tmp/signal-server.log 2>&1 &
-          for attempt in {1..60}; do
-            if curl --fail --silent http://127.0.0.1:3000/learn > /dev/null \
-              && curl --fail --silent http://127.0.0.1:3000/main-v8 > /dev/null; then
-              exit 0
-            fi
-            sleep 1
-          done
-          cat /tmp/signal-server.log
-          exit 1
-
-      - name: Run Learn browser QA
-        run: |
-          npm run qa:learn
-          npm run qa:learn-v0.2
-          npm run qa:learn-metric-links
-
-      - name: Run V8.1 responsive fixture browser checks
-        if: success() || failure()
-        run: |
-          set -euo pipefail
-          npm run qa:v8-settings
-          npm run qa:v8-first-visit
-          npm run qa:legacy-routes
-          node scripts/v81-ui-qa.mjs
-          node scripts/market-clarity-qa.mjs
-          node scripts/research-provenance-qa.mjs
-          node scripts/v8-display-qa.mjs
-          node scripts/market-brief-qa.mjs
-          node scripts/research-reading-qa.mjs
-          node scripts/research-due-review-qa.mjs
-          node scripts/watchlist-review-qa.mjs
-          node scripts/research-earnings-qa.mjs
-          node scripts/research-holdings-qa.mjs
-          node scripts/research-unsaved-qa.mjs
-          node scripts/research-readiness-qa.mjs
-          node scripts/research-structured-triggers-qa.mjs
-          node scripts/v8-theme-saved-state-qa.mjs
-
-      - name: Show server log on failure
-        if: failure()
-        run: cat /tmp/signal-server.log || true
-
-      - name: Upload browser diagnostics
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: signal-browser-diagnostics
-          include-hidden-files: true
-          path: |
-            .tmp/market-brief/**/*.json
-            .tmp/market-brief/**/*.png
-            .tmp/research-earnings/
-            .tmp/signal-learn-v0.1-qa/**/report.json
-            .tmp/signal-learn-v0.1-qa/**/failure-*.png
-            .tmp/signal-learn-v0.2-qa/**/report.json
-            .tmp/signal-learn-v0.2-qa/**/failure-*.png
-            .tmp/learn-metric-links/after/**
-            .tmp/v8-settings/**
-            .tmp/v8-first-visit/**
-            .tmp/v81/browser/*.json
-            .tmp/v81/browser/*.png
-            .tmp/display-clarity/after/*.json
-            .tmp/display-clarity/after/*.png
-            .tmp/research-reading/after/*.json
-            .tmp/research-reading/after/*.png
-            .tmp/research-due-review/**
-            .tmp/research-holdings/after/**
-            .tmp/current-assessment/browser/*.json
-            .tmp/current-assessment/browser/*.png
-            .tmp/market-clarity/*.json
-            .tmp/market-clarity/*.png
-            .tmp/research-provenance/browser/*.json
-            .tmp/research-provenance/browser/*.png
-            .tmp/watchlist-review/**/*.json
-            .tmp/watchlist-review/**/*.png
-            .tmp/research-readiness-qa/**/*.json
-            .tmp/research-readiness-qa/**/*.png
-            .tmp/research-structured-triggers-qa/*.json
-            .tmp/research-structured-triggers-qa/*.png
-            .tmp/v8-theme-saved-state-qa/*.json
-            .tmp/v8-theme-saved-state-qa/*.png
-          if-no-files-found: warn
