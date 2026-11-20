@@ -5,5 +5,5 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
     for (const [key, value] of Object.entries(await searchParams)) {
         for (const item of Array.isArray(value) ? value : value === undefined ? [] : [value]) query.append(key, item);
     }
-    redirect(`/main-v8${query.size ? `?${query}` : ''}`);
+    redirect(`/v9${query.size ? `?${query}` : ''}`);
 }

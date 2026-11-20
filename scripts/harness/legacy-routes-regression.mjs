@@ -30,7 +30,10 @@ const destination = (pathname, search = '') => legacyRouteDestination(pathname, 
 assert.deepEqual(legacyMarketPaths, marketAliases, 'market retirement list contains only shipped aliases (never V3)');
 assert.deepEqual(legacyResearchPaths, researchAliases, 'research retirement list contains only shipped aliases (never V3)');
 
-for (const pathname of ['/', ...marketAliases]) {
+assert.equal(destination('/'), '/v9', 'root route opens the V9 flagship workspace');
+assert.equal(destination('/', 'market=MY&market=US&unknown=safe'), '/v9', 'root route does not reinterpret duplicate or unknown query keys');
+
+for (const pathname of marketAliases) {
     assert.equal(destination(pathname), '/main-v8', `${pathname} retires to the V8 Market pathname`);
     assert.equal(destination(pathname, 'market=MY&market=US&unknown=safe'), '/main-v8', `${pathname} does not reinterpret duplicate or unknown query keys`);
 }

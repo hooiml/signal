@@ -155,7 +155,10 @@ const waitForRoute = (page, pathname, entries = {}, hash = undefined) => page.wa
 await mkdir(out, { recursive: true });
 try {
     // The raw table deliberately exercises every alias before a browser sees the route.
-    for (const pathname of ['/', ...marketAliases]) {
+    await rawRedirect('/', '/v9');
+    await rawRedirect('/?market=MY&market=US&ticker=AAPL&ticker=MSFT&unknown=safe', '/v9?market=MY&market=US&ticker=AAPL&ticker=MSFT&unknown=safe');
+    await rawRedirect('/?workspace=today&contextPanel=briefing&unknown=safe', '/v9?workspace=today&contextPanel=briefing&unknown=safe');
+    for (const pathname of marketAliases) {
         await rawRedirect(pathname, '/main-v8');
         await rawRedirect(`${pathname}?market=MY&market=US&ticker=AAPL&ticker=MSFT&unknown=safe`, '/main-v8?market=MY&market=US&ticker=AAPL&ticker=MSFT&unknown=safe');
         await rawRedirect(`${pathname}?workspace=today&contextPanel=briefing&unknown=safe`, '/main-v8?workspace=today&contextPanel=briefing&unknown=safe');
@@ -257,11 +260,12 @@ try {
                 check(`${width}px Back to Today returns to canonical Research workspace`, true);
 
                 // This is the actual Today continuation control. Its client router push targets root,
-                // then the proxy changes only that pathname to V8 Market.
+                // then the proxy changes only that pathname to V9 Workspace.
                 const todayContinue = page.getByTestId('today-continue');
                 await todayContinue.waitFor({ state: 'visible', timeout });
-                await Promise.all([waitForRoute(page, '/main-v8', { returnTo: 'today' }), todayContinue.click()]);
-                check(`${width}px Today continuation client-router chain reaches root then V8 Market`, true);
+                await Promise.all([waitForRoute(page, '/v9', { returnTo: 'today' }), todayContinue.click()]);
+                await page.getByRole('link', { name: 'Back to Today', exact: true }).waitFor({ state: 'visible', timeout });
+                check(`${width}px Today continuation client-router chain reaches root then V9 Workspace`, true);
 
                 // Retirement must not strand advanced work: it remains available on canonical Research.
                 if (width === 1280) {

@@ -11,7 +11,8 @@ export function hasResearchTask(params: URLSearchParams): boolean {
 
 /** Choose a local pathname only. The caller retains the original query and hash. */
 export function legacyRouteDestination(pathname: string, params: URLSearchParams): string | null {
-    if (pathname === '/' || legacyMarketPaths.some(path => path === pathname)) return '/main-v8';
+    if (pathname === '/') return '/v9';
+    if (legacyMarketPaths.some(path => path === pathname)) return '/main-v8';
     if (pathname === '/research' || legacyResearchPaths.some(path => path === pathname)) {
         const destination = hasResearchTask(params) ? '/research' : '/research-v8';
         return destination === pathname ? null : destination;
