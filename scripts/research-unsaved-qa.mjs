@@ -212,7 +212,7 @@ try {
  for(const theme of ['light','dark']) {
   await selectTheme(theme);
   const coverage=page.getByRole('img',{name:/^Score weight:/}).locator('..');
-  const colours=await coverage.evaluate(node=>Array.from(node.querySelectorAll('circle[data-indicator]')).map(circle=>({key:circle.dataset.indicator,colour:getComputedStyle(circle).stroke,legend:getComputedStyle(node.querySelector(`i[data-indicator="${circle.dataset.indicator}"]`)).backgroundColor})));
+  const colours=await coverage.evaluate(node=>Array.from(node.querySelectorAll('rect[data-indicator]')).map(segment=>({key:segment.dataset.indicator,colour:getComputedStyle(segment).fill,legend:getComputedStyle(node.querySelector(`i[data-indicator="${segment.dataset.indicator}"]`)).backgroundColor})));
   assert.ok(colours.length>=3,'Multiple inputs and fallback must render');
   assert.equal(new Set(colours.map(c=>c.colour)).size,colours.length,'Each included indicator and fallback has a distinct colour');
   assert.ok(colours.every(c=>c.colour===c.legend),'Ring and legend identity colours match');
