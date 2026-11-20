@@ -236,3 +236,12 @@ all five screens. The Windows and Linux phone views differ slightly in tab-strip
 scroll position and text wrapping. Each Linux candidate matched its actual image,
 and each expected image matched the previous Linux baseline. All 20 reports
 matched the pinned renderer and fixture settings and recorded zero browser errors.
+
+**Research ports Windows review (20 November 2026).** The shared Market defaults and
+Research component styles previously had equal specificity. A change in stylesheet
+order could resize the guest-note heading, remove paragraph spacing and change
+Holdings tab weights. Research now owns those styles and the glossary link underline.
+Reviewed all 12 changed Windows Research, Holdings and glossary images across both
+sizes and themes. The phone glossary keeps its selected tab and the link is visible
+and underlined. After accepting those images, all 20 Windows comparisons passed
+with the existing zero-pixel tolerance.

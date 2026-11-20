@@ -20,7 +20,7 @@
 .definition.definition { display: block; margin-top: 6px; color: var(--muted); }
 .actions.actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
 .actions a, .actions button { display: inline-flex; align-items: center; min-height: 44px; font: inherit; }
-.actions a { color: var(--link); text-decoration: underline; text-underline-offset: 3px; }
+.popover .actions a { color: var(--link); text-decoration: underline; text-underline-offset: 3px; }
 .actions button { border: 0; padding: 0 6px; background: transparent; color: var(--ink); cursor: pointer; }
 .inspect.inspect { display: inline-flex; min-height: 44px; align-items: center; padding: 0; border: 0; background: transparent; color: var(--link); font: inherit; text-decoration: underline; cursor: pointer; }
 .inspect.inspect:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }

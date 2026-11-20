@@ -1,8 +1,8 @@
 .panel { margin: 16px 0; padding: 20px 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--card-shadow); }
 .heading, .footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .heading { margin-bottom: 14px; }
-.heading h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-base); font-weight: 600; color: var(--ink); }
-.heading p { margin: 3px 0 0; font-size: var(--text-xs); color: var(--muted); }
+.heading.heading h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-base); font-weight: 600; color: var(--ink); }
+.heading.heading p { margin: 3px 0 0; font-size: var(--text-xs); color: var(--muted); }
 .label { display: block; margin-bottom: 6px; color: var(--ink); font-size: var(--text-sm); font-weight: 600; }
 .panel textarea { display: block; width: 100%; min-height: 120px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-subtle); color: var(--ink); resize: vertical; transition: border-color .15s, background .15s; }
 .panel textarea:focus { background: var(--surface); border-color: var(--brand); }
