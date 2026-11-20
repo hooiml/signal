@@ -36,10 +36,11 @@ const readingFor = (slot: SignalSlot, brief: ReturnType<typeof buildMarketBrief>
     return `${marketReadingLabel(slot.signal.tier)}${brief.status === 'limited' ? ' (limited evidence)' : ''}`;
 };
 
-function ScoreRing({ score }: { readonly score: number | null }) {
+function ScoreRing({ score, tone }: { readonly score: number | null; readonly tone: Tone }) {
     const r = 26;
     const c = 2 * Math.PI * r;
     const pct = score === null ? 0 : Math.min(100, Math.max(0, score)) / 100;
+    const stroke = tone === 'up' ? 'var(--up-mark)' : tone === 'down' ? 'var(--down-mark)' : 'var(--caution-mark)';
     return (
         <div className={styles.pulseRing} role="img" aria-label={score === null ? 'Score unavailable' : `Score ${score.toFixed(0)} out of 100`}>
             <svg viewBox="0 0 64 64" aria-hidden="true">
@@ -49,7 +50,7 @@ function ScoreRing({ score }: { readonly score: number | null }) {
                     cy="32"
                     r={r}
                     fill="none"
-                    stroke="var(--score-mark)"
+                    stroke={stroke}
                     strokeWidth="5.5"
                     strokeLinecap="round"
                     strokeDasharray={c.toFixed(1)}
@@ -226,7 +227,7 @@ export function V9HomeView({
                     const snapshotDay = marketEvidenceDay(slot.signal?.metadata.score_delta?.snapshot_date);
                     const tone = toneFor(slot.signal, Boolean(brief && brief.status !== 'unavailable'));
                     return (
-                        <article key={market} className={styles.pulseCard}>
+                        <article key={market} className={styles.pulseCard} data-tone={tone}>
                             <button type="button" className={styles.pulseBody} onClick={() => onOpenMarket(market)}>
                             <div className={styles.pulseInfo}>
                                 <div className={styles.pulseHead}>
@@ -252,7 +253,7 @@ export function V9HomeView({
                                     )}
                                 </div>
                             </div>
-                            <ScoreRing score={slot.signal?.composite_score ?? null} />
+                            <ScoreRing score={slot.signal?.composite_score ?? null} tone={tone} />
                             </button>
                             <V9MarketTodaySummary market={market} href={todayHref(market)} state={market === 'US' ? usToday : myToday} />
                         </article>
@@ -365,7 +366,7 @@ export function V9HomeView({
                                 onClick={() => onOpenStock(item.symbol, item.market)}
                             >
                                 <div className={styles.watchLeft}>
-                                    <span className={styles.tickerAvatar} aria-hidden="true">{item.symbol.slice(0, 2)}</span>
+                                    <span className={styles.tickerAvatar} data-market={item.market} aria-hidden="true">{item.symbol.slice(0, 2)}</span>
                                     <div className={styles.watchMeta}>
                                         <b>{item.name} <span className={styles.mktTag}>{item.market}</span></b>
                                         <small>{item.symbol} · {item.meta}</small>

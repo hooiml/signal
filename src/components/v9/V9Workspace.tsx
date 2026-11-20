@@ -325,7 +325,7 @@ export function V9Workspace() {
                             onClick={() => openStock(item.symbol, item.market)}
                         >
                             <span className={styles.sideWatchLeft}>
-                                <span className={styles.tickerAvatar} aria-hidden="true">{item.symbol.slice(0, 2)}</span>
+                                <span className={styles.tickerAvatar} data-market={item.market} aria-hidden="true">{item.symbol.slice(0, 2)}</span>
                                 <span className={styles.sideWatchMeta}>
                                     <b>{item.symbol}</b>
                                     <small>{item.name}</small>
