@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+    types: [opened, synchronize, reopened, converted_to_draft, ready_for_review]
   workflow_dispatch:
 
 permissions:
@@ -18,8 +19,23 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  draft:
+    name: Draft checks
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check:pr
+
   visual:
     name: Visual comparisons
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     # Capture and comparison use this exact userspace, browser and headless mode.
@@ -46,6 +62,7 @@ jobs:
       - name: Typecheck after build
         run: npm run typecheck
       - name: Compare reviewed screenshots
+        id: compare
         shell: bash
         run: |
           set -euo pipefail
@@ -63,6 +80,7 @@ jobs:
           # Missing baselines fail and upload candidates; CI never updates or accepts them.
           npm run qa:visual -- --update-snapshots=none
       - name: Upload visual comparisons
+        id: visual_artifact
         if: always()
         uses: actions/upload-artifact@v5
         with:
@@ -70,8 +88,14 @@ jobs:
           include-hidden-files: true
           path: .tmp/visual-checks/
           if-no-files-found: warn
+      - name: Link screenshot report on failure
+        if: failure() && steps.compare.outcome == 'failure' && steps.visual_artifact.outputs.artifact-url != ''
+        env:
+          REPORT_URL: ${{ steps.visual_artifact.outputs.artifact-url }}
+        run: echo "[Download the visual report]($REPORT_URL) and open \`report/index.html\` to inspect the failed comparisons." >> "$GITHUB_STEP_SUMMARY"
 
   validate:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
     # Pinned so the ubuntu-latest move to Ubuntu 26 cannot change browser QA timing or Playwright deps unannounced.
     runs-on: ubuntu-24.04
     timeout-minutes: 30

@@ -43,6 +43,7 @@
     "qa:legacy-routes": "node scripts/legacy-routes-qa.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "check:pr": "npm run typecheck && npm run lint",
     "test:social-sentiment": "powershell -ExecutionPolicy Bypass -File scripts/harness/check-social-sentiment.ps1",
     "test:scoring": "powershell -ExecutionPolicy Bypass -File scripts/harness/check-scoring.ps1",
     "test:research": "powershell -ExecutionPolicy Bypass -File scripts/harness/check-research.ps1",
