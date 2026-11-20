@@ -25,7 +25,7 @@ export function Sparkline({ points, weekly = false }: { points: Point[]; weekly?
     if (points.length < 2) return <span className={styles.noHistory}>History unavailable</span>;
     const values = points.map(p => p.value);
     const locations = geometry(points, 160, 44, Math.min(...values), Math.max(...values), 3);
-    return <svg className={styles.sparkline} viewBox="0 0 160 44" aria-hidden="true"><path d={locations.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(' ')} fill="none" stroke="currentColor" strokeWidth="2" />{weekly && locations.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="2" fill="currentColor" />)}</svg>;
+    return <svg className={styles.sparkline} viewBox="0 0 160 44" aria-hidden="true"><path d={locations.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(' ')} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />{weekly && locations.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="2" fill="currentColor" />)}</svg>;
 }
 export function MarketChart({ points, selectedDate, onSelect, raw = false, name = 'Market condition score', sourced = false, replayAvailable = true }: { points: Point[]; selectedDate?: string; onSelect?: (point: Point) => void; raw?: boolean; name?: string; sourced?: boolean; replayAvailable?: boolean }) {
     const id = useId().replace(/:/g, '');
@@ -33,17 +33,34 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
         const initial = points.findIndex(p => p.date === selectedDate);
         return initial >= 0 ? initial : points.length - 1;
     });
+    const [hoverIndex, setHoverIndex] = useState<number | null>(null);
     if (!points.length) return <div className={styles.chartEmpty}>No historical observations are supplied.</div>;
     const axis = raw ? { minimum: Math.floor(Math.min(...points.map(p => p.value)) * 0.75), maximum: Math.ceil(Math.max(...points.map(p => p.value)) * 1.15) } : scoreAxis(points.map(p => p.value));
     const { minimum, maximum } = axis;
     const yFor = (value: number) => (1 - (value - minimum) / (maximum - minimum || 1)) * 226;
     const locations = geometry(points, 800, 226, minimum, maximum);
     const selectedIndex = points.findIndex(point => point.date === selectedDate);
-    const at = selectedIndex >= 0 ? selectedIndex : Math.max(0, Math.min(cursor, points.length - 1));
+    const committed = selectedIndex >= 0 ? selectedIndex : Math.max(0, Math.min(cursor, points.length - 1));
+    const at = hoverIndex !== null ? Math.max(0, Math.min(hoverIndex, points.length - 1)) : committed;
     const position = locations[at];
     const path = locations.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(' ');
     const origin = points[at].origin ?? 'unavailable';
     const provenancePaths = points.map((point, i) => ({ point, location: locations[i], previous: points[i - 1], previousLocation: locations[i - 1] }));
+    const latestValue = points[at].value;
+    const accentStroke = raw
+        ? 'var(--chart-line)'
+        : latestValue >= MARKET_SCORE_TIER_THRESHOLDS.neutralUpper
+            ? 'var(--up-mark)'
+            : latestValue < MARKET_SCORE_TIER_THRESHOLDS.neutralLower
+                ? 'var(--down-mark)'
+                : 'var(--caution-mark)';
+
+    function nearestIndex(clientX: number, svg: SVGSVGElement) {
+        const box = svg.getBoundingClientRect();
+        const x = (clientX - box.left) / (box.width || 1) * 816 - 8;
+        return locations.reduce((best, p, i) => Math.abs(p.x - x) < Math.abs(locations[best].x - x) ? i : best, 0);
+    }
+
     return <div className={styles.chart}>
         <div className={styles.chartTopline}><span>{sourced ? raw ? 'Raw readings from archived snapshots' : `0–100 composite · axis ${minimum}–${maximum}` : raw ? 'Raw observations · illustrative' : '0–100 composite · illustrative history'}</span><output aria-live="polite">{fullDate(points[at].date)} <b>{points[at].value.toFixed(raw ? 2 : 0)}{raw ? '' : ' /100'}</b>{sourced && !raw && <span>Origin: {origin}</span>}</output></div>
         {sourced && !raw && <p className={styles.chartLegend}>━━ Observed · ┄┄ Reconstructed · breaks separate origins · shaded band = neutral score tier {MARKET_SCORE_TIER_THRESHOLDS.neutralLower}–{MARKET_SCORE_TIER_THRESHOLDS.neutralUpper - 1}</p>}
@@ -54,30 +71,52 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                     if (!onSelect) return;
                     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
                         event.preventDefault();
-                        const next = event.key === 'Home' ? 0 : event.key === 'End' ? points.length - 1 : Math.max(0, Math.min(points.length - 1, at + (event.key === 'ArrowRight' ? 1 : -1)));
+                        setHoverIndex(null);
+                        const next = event.key === 'Home' ? 0 : event.key === 'End' ? points.length - 1 : Math.max(0, Math.min(points.length - 1, committed + (event.key === 'ArrowRight' ? 1 : -1)));
                         setCursor(next); if (sourced) onSelect(points[next]);
                     } else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(points[at]); }
                 }}
+                onPointerMove={event => {
+                    if (event.pointerType === 'mouse' && onSelect) setHoverIndex(nearestIndex(event.clientX, event.currentTarget));
+                }}
+                onPointerLeave={() => setHoverIndex(null)}
                 onClick={event => {
                     if (!onSelect) return;
-                    const box = event.currentTarget.getBoundingClientRect();
-                    const x = (event.clientX - box.left) / box.width * 816 - 8;
-                    const nearest = locations.reduce((best, p, i) => Math.abs(p.x - x) < Math.abs(locations[best].x - x) ? i : best, 0);
+                    const nearest = nearestIndex(event.clientX, event.currentTarget);
+                    setHoverIndex(null);
                     setCursor(nearest); onSelect(points[nearest]);
                 }}>
-                <defs><linearGradient id={id} x1="0" x2="0" y1="0" y2="1"><stop stopColor="currentColor" stopOpacity=".2" /><stop offset="1" stopColor="currentColor" stopOpacity=".01" /></linearGradient></defs>
-                {!raw && <rect x="0" y={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} width="800" height={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralLower) - yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} fill="var(--line-strong)" fillOpacity=".25" />}
-                {[0, 56.5, 113, 169.5, 226].map(y => <line key={y} x1="0" x2="800" y1={y} y2={y} stroke="currentColor" strokeOpacity=".12" strokeDasharray="3 5" />)}
-                {!raw && [MARKET_SCORE_TIER_THRESHOLDS.neutralLower, MARKET_SCORE_TIER_THRESHOLDS.neutralUpper].map(threshold => <line key={threshold} x1="0" x2="800" y1={yFor(threshold)} y2={yFor(threshold)} stroke="var(--subtle)" strokeOpacity=".6" strokeDasharray="2 7" />)}
-                {sourced && !raw ? provenancePaths.map(({ point, location, previous, previousLocation }, i) => <g key={point.date} data-origin={point.origin ?? 'unavailable'}>
-                    {previous && previous.origin === point.origin && <path d={`M${previousLocation.x},${previousLocation.y} L${location.x},${location.y}`} fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={point.origin === 'reconstructed' ? '6 5' : undefined} vectorEffect="non-scaling-stroke" />}
-                    {(!previous || previous.origin !== point.origin || points[i + 1]?.origin !== point.origin) && <circle cx={location.x} cy={location.y} r="3" fill="currentColor" />}
-                </g>) : <><path d={`${path} L800,226 L0,226 Z`} fill={`url(#${id})`} /><path d={path} fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /></>}
-                <line x1={position.x} x2={position.x} y1="0" y2="226" stroke="currentColor" strokeDasharray="4 5" opacity=".5" />
-                <circle cx={position.x} cy={position.y} r="5" fill="var(--surface)" stroke="currentColor" strokeWidth="3" />
+                <defs>
+                    <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
+                        <stop stopColor={accentStroke} stopOpacity=".24" />
+                        <stop offset="1" stopColor={accentStroke} stopOpacity=".01" />
+                    </linearGradient>
+                </defs>
+                {!raw && <rect x="0" y={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} width="800" height={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralLower) - yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} fill="var(--line-strong)" fillOpacity=".18" />}
+                {[0, 56.5, 113, 169.5, 226].map(y => <line key={y} x1="0" x2="800" y1={y} y2={y} stroke="currentColor" strokeOpacity=".10" strokeDasharray="3 5" />)}
+                {!raw && [MARKET_SCORE_TIER_THRESHOLDS.neutralLower, MARKET_SCORE_TIER_THRESHOLDS.neutralUpper].map(threshold => <line key={threshold} x1="0" x2="800" y1={yFor(threshold)} y2={yFor(threshold)} stroke="var(--subtle)" strokeOpacity=".55" strokeDasharray="3 6" />)}
+                {sourced && !raw ? <>
+                    {provenancePaths.map(({ point, location, previous, previousLocation }) => (
+                        previous && previous.origin === point.origin ? (
+                            <path
+                                key={`fill-${point.date}`}
+                                d={`M${previousLocation.x},${previousLocation.y} L${location.x},${location.y} L${location.x},226 L${previousLocation.x},226 Z`}
+                                fill={`url(#${id})`}
+                                opacity={point.origin === 'reconstructed' ? 0.45 : 1}
+                            />
+                        ) : null
+                    ))}
+                    {provenancePaths.map(({ point, location, previous, previousLocation }, i) => <g key={point.date} data-origin={point.origin ?? 'unavailable'}>
+                        {previous && previous.origin === point.origin && <path d={`M${previousLocation.x},${previousLocation.y} L${location.x},${location.y}`} fill="none" stroke={accentStroke} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={point.origin === 'reconstructed' ? '6 5' : undefined} vectorEffect="non-scaling-stroke" />}
+                        {(!previous || previous.origin !== point.origin || points[i + 1]?.origin !== point.origin) && <circle cx={location.x} cy={location.y} r="3" fill={accentStroke} />}
+                    </g>)}
+                </> : <><path d={`${path} L800,226 L0,226 Z`} fill={`url(#${id})`} /><path d={path} fill="none" stroke={accentStroke} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /></>}
+                <line x1={position.x} x2={position.x} y1="0" y2="226" stroke={accentStroke} strokeDasharray="4 4" opacity=".45" />
+                <circle cx={position.x} cy={position.y} r="9" fill={accentStroke} opacity=".2" />
+                <circle cx={position.x} cy={position.y} r="4.8" fill="var(--surface)" stroke={accentStroke} strokeWidth="2.8" />
             </svg>
         </div>
         <div className={styles.chartDates}><span>{fullDate(points[0].date)}</span><span>{fullDate(points[Math.floor(points.length / 2)].date)}</span><span>{fullDate(points.at(-1)!.date)}</span></div>
-        {onSelect && <span className={styles.chartHint}>{sourced ? replayAvailable ? 'Click, tap or use arrow keys to preview. Use Open historical snapshot to enter replay.' : 'Click, tap or use arrow keys to inspect a stored score.' : 'Select a date to investigate · keyboard: ← → then Enter'}</span>}
+        {onSelect && <span className={styles.chartHint}>{sourced ? replayAvailable ? 'Hover, click or use arrow keys to preview. Use Open historical snapshot to enter replay.' : 'Hover, click or use arrow keys to inspect a stored score.' : 'Select a date to investigate · keyboard: ← → then Enter'}</span>}
     </div>;
 }

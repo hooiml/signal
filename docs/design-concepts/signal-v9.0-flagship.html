@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Signal Flagship — Modern Ambitious UI Concept</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+    .display { letter-spacing: -0.032em; }
+    .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "zero" 0; }
+    .smooth { transition: all 220ms cubic-bezier(0.22, 1, 0.36, 1); }
+    .card-lift { transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 200ms ease, border-color 200ms ease; }
+    .card-lift:hover { transform: translateY(-2px); }
+    .glass-bar { backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideRight { from { transform: translateX(32px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes popIn { from { transform: scale(0.97) translateY(-6px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+    .anim-fade { animation: fadeIn 180ms ease; }
+    .anim-drawer { animation: slideRight 240ms cubic-bezier(0.22, 1, 0.36, 1); }
+    .anim-modal { animation: popIn 180ms cubic-bezier(0.22, 1, 0.36, 1); }
+    input[type="range"] { -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; }
+    input[type="range"]::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 999px;
+      background: #ffffff; border: 2.5px solid #2563eb; margin-top: -6px;
+      box-shadow: 0 2px 8px rgba(37,99,235,0.35);
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.35); border-radius: 999px; }
+  </style>
+</head>
+<body class="antialiased">
+  <div id="root"></div>
+
+  <script>
+    const THEMES = {
+      light: {
+        bg: '#f3f5fa',
+        sidebar: '#ffffff',
+        header: 'rgba(255,255,255,0.82)',
+        surface: '#ffffff',
+        surfaceSub: '#f8fafd',
+        surfaceMuted: '#eef2f8',
+        border: 'rgba(15,23,42,0.08)',
+        borderStrong: 'rgba(15,23,42,0.14)',
+        ink: '#0b1220',
+        inkSoft: '#334155',
+        muted: '#64748b',
+        sub: '#94a3b8',
+        brand: '#2563eb',
+        brandDeep: '#1d4ed8',
+        brandSoft: '#eff4ff',
+        brandBorder: '#c7d9fe',
+        up: '#059669',
+        upBright: '#10b981',
+        upSoft: '#ecfdf5',
+        upBorder: '#a7f3d0',
+        down: '#e11d48',
+        downBright: '#f43f5e',
+        downSoft: '#fff1f2',
+        downBorder: '#fecdd3',
+        warn: '#d97706',
+        warnBright: '#f59e0b',
+        warnSoft: '#fffbeb',
+        warnBorder: '#fde68a',
+        purple: '#7c3aed',
+        purpleSoft: '#f5f3ff',
+        cardShadow: '0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -10px rgba(15,23,42,0.07)',
+        heroShadow: '0 2px 6px rgba(15,23,42,0.04), 0 18px 40px -16px rgba(15,23,42,0.10)',
+        tipBg: '#0b1220',
+        tipInk: '#ffffff',
+        track: '#e2e8f0',
+        gaugeBg: '#e8edf5',
+        gridLine: 'rgba(15,23,42,0.06)',
+        auroraUp: 'radial-gradient(ellipse 68% 72% at 14% 0%, rgba(16,185,129,0.16), transparent 62%), radial-gradient(ellipse 52% 60% at 88% 10%, rgba(37,99,235,0.11), transparent 60%), #ffffff',
+        auroraNeutral: 'radial-gradient(ellipse 68% 72% at 14% 0%, rgba(245,158,11,0.16), transparent 62%), radial-gradient(ellipse 52% 60% at 88% 10%, rgba(37,99,235,0.09), transparent 60%), #ffffff',
+        auroraDown: 'radial-gradient(ellipse 68% 72% at 14% 0%, rgba(244,63,94,0.16), transparent 62%), radial-gradient(ellipse 52% 60% at 88% 10%, rgba(245,158,11,0.09), transparent 60%), #ffffff',
+        pillBg: '#0f172a',
+        pillInk: '#ffffff'
+      },
+      dark: {
+        bg: '#070a12',
+        sidebar: '#0c101b',
+        header: 'rgba(12,16,27,0.78)',
+        surface: '#111624',
+        surfaceSub: '#0e1320',
+        surfaceMuted: '#1a2235',
+        border: 'rgba(255,255,255,0.08)',
+        borderStrong: 'rgba(255,255,255,0.16)',
+        ink: '#f8fafc',
+        inkSoft: '#cbd5e1',
+        muted: '#94a3b8',
+        sub: '#64748b',
+        brand: '#60a5fa',
+        brandDeep: '#3b82f6',
+        brandSoft: 'rgba(59,130,246,0.15)',
+        brandBorder: 'rgba(96,165,250,0.32)',
+        up: '#34d399',
+        upBright: '#10b981',
+        upSoft: 'rgba(16,185,129,0.14)',
+        upBorder: 'rgba(52,211,153,0.3)',
+        down: '#fb7185',
+        downBright: '#f43f5e',
+        downSoft: 'rgba(244,63,94,0.14)',
+        downBorder: 'rgba(251,113,133,0.3)',
+        warn: '#fbbf24',
+        warnBright: '#f59e0b',
+        warnSoft: 'rgba(245,158,11,0.14)',
+        warnBorder: 'rgba(251,191,36,0.3)',
+        purple: '#a78bfa',
+        purpleSoft: 'rgba(167,139,250,0.14)',
+        cardShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 32px -12px rgba(0,0,0,0.6)',
+        heroShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 24px 48px -16px rgba(0,0,0,0.75)',
+        tipBg: '#f8fafc',
+        tipInk: '#0b1220',
+        track: '#1e293b',
+        gaugeBg: '#1b2438',
+        gridLine: 'rgba(255,255,255,0.06)',
+        auroraUp: 'radial-gradient(ellipse 68% 76% at 14% 0%, rgba(16,185,129,0.22), transparent 62%), radial-gradient(ellipse 52% 65% at 88% 10%, rgba(59,130,246,0.18), transparent 60%), #111624',
+        auroraNeutral: 'radial-gradient(ellipse 68% 76% at 14% 0%, rgba(245,158,11,0.22), transparent 62%), radial-gradient(ellipse 52% 65% at 88% 10%, rgba(59,130,246,0.14), transparent 60%), #111624',
+        auroraDown: 'radial-gradient(ellipse 68% 76% at 14% 0%, rgba(244,63,94,0.24), transparent 62%), radial-gradient(ellipse 52% 65% at 88% 10%, rgba(245,158,11,0.12), transparent 60%), #111624',
+        pillBg: '#f8fafc',
+        pillInk: '#0b1220'
+      }
+    };
+
+    function flagBadge(code) {
+      if (code === 'MY') {
+        return `<span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wide" style="background:rgba(29,78,216,0.12);color:#2563eb;">MY</span>`;
+      }
+      return `<span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wide" style="background:rgba(15,23,42,0.08);color:inherit;">US</span>`;
+    }
+
+    const STOCKS = {
+      AAPL: {
+        sym: 'AAPL', mkt: 'US', flag: 'US', name: 'Apple Inc.', sector: 'Consumer Tech', exchange: 'NASDAQ',
+        logoBg: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', logoText: '#ffffff', monogram: 'AP',
+        currency: '$', price: 224.85, chgAbs: +3.15, chgPct: +1.42, mktCap: '$3.42T',
+        pe: 31.4, fcfYield: 3.20, opMargin: 31.2, divYield: 0.44, y1Ret: +19.4,
+        low52: 164.08, high52: 237.23, rangePct: 83,
+        tags: ['quality', 'fcf'],
+        health: [
+          { label: 'Valuation', status: 'Fair', tone: 'warn', desc: '31.4× P/E sits slightly above its 5Y average (28.1×), near mega-cap peer median.' },
+          { label: 'Cash Engine', status: 'Strong', tone: 'up', desc: '$116.5B annual free cash flow funds buybacks and R&D without stretching debt.' },
+          { label: 'Balance Sheet', status: 'Fortress', tone: 'up', desc: 'Net cash positive with $65B liquid reserves and 28× interest coverage.' }
+        ],
+        spark: [208, 211, 210, 214, 216, 215, 219, 221, 220, 223, 224.85],
+        series: {
+          '1M': [214.2, 216.0, 215.1, 217.8, 219.4, 218.9, 221.2, 220.4, 222.8, 224.85],
+          '3M': [198.4, 204.2, 208.1, 206.5, 211.0, 214.8, 213.2, 218.5, 221.7, 224.85],
+          '1Y': [174.5, 181.2, 172.0, 186.4, 195.8, 208.3, 216.2, 212.9, 220.4, 224.85],
+          '5Y': [118.0, 134.5, 149.2, 165.0, 146.8, 178.4, 192.1, 204.5, 217.0, 224.85]
+        },
+        review: 'Review overdue · 3d', reviewTone: 'down',
+        conviction: 'Core Holding',
+        note: 'Services gross margin expansion offsets slower hardware cycles. Revisit entry sizing if P/E compresses below 26× after next 10-K.'
+      },
+      MSFT: {
+        sym: 'MSFT', mkt: 'US', flag: 'US', name: 'Microsoft Corp.', sector: 'Cloud & AI', exchange: 'NASDAQ',
+        logoBg: 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)', logoText: '#ffffff', monogram: 'MS',
+        currency: '$', price: 428.40, chgAbs: +2.72, chgPct: +0.64, mktCap: '$3.18T',
+        pe: 34.1, fcfYield: 2.45, opMargin: 44.6, divYield: 0.72, y1Ret: +16.2,
+        low52: 366.50, high52: 448.10, rangePct: 76,
+        tags: ['quality'],
+        health: [
+          { label: 'Valuation', status: 'Premium', tone: 'warn', desc: '34.1× P/E prices in durable double-digit Azure cloud compounding.' },
+          { label: 'Cash Engine', status: 'Strong', tone: 'up', desc: '44.6% operating margin leads mega-cap software peers despite AI capex.' },
+          { label: 'Balance Sheet', status: 'AAA Rated', tone: 'up', desc: 'One of only two AAA-rated corporate balance sheets in the US market.' }
+        ],
+        spark: [410, 412, 415, 413, 418, 420, 419, 423, 426, 425, 428.4],
+        series: {
+          '1M': [416.2, 418.4, 417.0, 420.1, 421.8, 423.0, 422.4, 425.1, 426.8, 428.4],
+          '3M': [398.0, 405.2, 409.5, 407.1, 414.3, 417.8, 420.4, 423.1, 425.9, 428.4],
+          '1Y': [369.0, 382.4, 395.1, 402.0, 416.2, 428.0, 418.5, 422.0, 425.4, 428.4],
+          '5Y': [214.0, 252.0, 298.5, 245.0, 310.0, 348.0, 386.0, 408.0, 421.0, 428.4]
+        },
+        review: 'Due in 4 days', reviewTone: 'warn',
+        conviction: 'Core Holding',
+        note: 'Track Azure revenue growth vs capital expenditure intensity in upcoming quarterly filing.'
+      },
+      NVDA: {
+        sym: 'NVDA', mkt: 'US', flag: 'US', name: 'NVIDIA Corp.', sector: 'Semiconductors', exchange: 'NASDAQ',
+        logoBg: 'linear-gradient(135deg, #059669 0%, #10b981 100%)', logoText: '#ffffff', monogram: 'NV',
+        currency: '$', price: 138.60, chgAbs: +4.12, chgPct: +3.06, mktCap: '$3.40T',
+        pe: 42.5, fcfYield: 1.95, opMargin: 61.8, divYield: 0.03, y1Ret: +74.8,
+        low52: 86.40, high52: 149.77, rangePct: 82,
+        tags: ['quality'],
+        health: [
+          { label: 'Valuation', status: 'Elevated', tone: 'warn', desc: '42.5× trailing P/E demands continued hyperscaler GPU demand.' },
+          { label: 'Cash Engine', status: 'Exceptional', tone: 'up', desc: '61.8% operating margin with rapid conversion to free cash flow.' },
+          { label: 'Volatility', status: 'Higher', tone: 'down', desc: '30-day realized swing is 2.1× the S&P 500 average — size calmly.' }
+        ],
+        spark: [118, 122, 120, 125, 129, 127, 132, 130, 135, 134, 138.6],
+        series: {
+          '1M': [124.0, 126.5, 125.1, 128.4, 130.8, 129.2, 133.5, 134.8, 136.1, 138.6],
+          '3M': [108.0, 115.2, 119.4, 117.0, 124.2, 127.8, 125.4, 131.6, 134.9, 138.6],
+          '1Y': [79.0, 88.5, 96.2, 109.4, 118.0, 126.5, 116.4, 128.2, 133.8, 138.6],
+          '5Y': [14.5, 22.0, 28.4, 16.2, 44.5, 68.0, 95.0, 114.0, 129.0, 138.6]
+        },
+        review: 'On track', reviewTone: 'up',
+        conviction: 'Watchlist · Size Capped',
+        note: 'High cyclicality risk if hyperscaler capex pauses; keep position capped below 5% weight.'
+      },
+      '5347': {
+        sym: '5347', mkt: 'MY', flag: 'MY', name: 'Tenaga Nasional', sector: 'Utilities · Grid', exchange: 'BURSA',
+        logoBg: 'linear-gradient(135deg, #1d4ed8 0%, #4f46e5 100%)', logoText: '#ffffff', monogram: 'TN',
+        currency: 'RM ', price: 14.08, chgAbs: -0.04, chgPct: -0.28, mktCap: 'RM 81.8B',
+        pe: 22.8, fcfYield: 4.10, opMargin: 16.4, divYield: 3.45, y1Ret: +24.6,
+        low52: 11.20, high52: 15.10, rangePct: 74,
+        tags: ['my-div', 'fcf'],
+        health: [
+          { label: 'Valuation', status: 'Fair', tone: 'up', desc: '22.8× P/E supported by regulated grid capex and Johor data-centre load.' },
+          { label: 'Dividend Yield', status: '3.45%', tone: 'up', desc: 'Consistent semi-annual payouts backed by regulated transmission cash flow.' },
+          { label: 'Leverage', status: 'Watch', tone: 'warn', desc: 'Capital-intensive grid transition keeps net debt moderate; watch BNM rates.' }
+        ],
+        spark: [13.4, 13.5, 13.7, 13.8, 14.0, 14.2, 14.1, 14.18, 14.12, 14.12, 14.08],
+        series: {
+          '1M': [13.72, 13.80, 13.88, 14.02, 14.16, 14.22, 14.14, 14.10, 14.12, 14.08],
+          '3M': [13.10, 13.34, 13.52, 13.68, 13.84, 14.05, 14.20, 14.15, 14.10, 14.08],
+          '1Y': [11.30, 11.75, 12.10, 12.55, 13.02, 13.48, 13.90, 14.25, 14.14, 14.08],
+          '5Y': [9.80, 9.40, 8.95, 9.60, 10.20, 11.10, 12.40, 13.60, 14.02, 14.08]
+        },
+        review: 'Reviewed 2w ago', reviewTone: 'neutral',
+        conviction: 'MY Core Compounder',
+        note: 'Johor data-centre power agreements lift base demand. Verify next Bursa quarterly filing for RP4 tariff details.'
+      },
+      '1155': {
+        sym: '1155', mkt: 'MY', flag: 'MY', name: 'Maybank', sector: 'Banking & Finance', exchange: 'BURSA',
+        logoBg: 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)', logoText: '#ffffff', monogram: 'MB',
+        currency: 'RM ', price: 10.42, chgAbs: +0.06, chgPct: +0.58, mktCap: 'RM 125.7B',
+        pe: 12.6, fcfYield: 5.80, opMargin: 38.2, divYield: 5.76, y1Ret: +14.8,
+        low52: 9.15, high52: 10.68, rangePct: 83,
+        tags: ['my-div', 'value', 'fcf'],
+        health: [
+          { label: 'Valuation', status: 'Attractive', tone: 'up', desc: '12.6× P/E sits below regional ASEAN bank average with steady 11% ROE.' },
+          { label: 'Dividend Yield', status: '5.76%', tone: 'up', desc: 'High cash payout ratio with multi-year track record of reliable distributions.' },
+          { label: 'Credit Quality', status: 'Healthy', tone: 'up', desc: 'Gross impaired loan ratio remains benign under stable BNM OPR backdrop.' }
+        ],
+        spark: [9.85, 9.92, 9.98, 10.04, 10.10, 10.14, 10.20, 10.28, 10.34, 10.36, 10.42],
+        series: {
+          '1M': [10.08, 10.12, 10.16, 10.20, 10.24, 10.26, 10.30, 10.34, 10.36, 10.42],
+          '3M': [9.72, 9.80, 9.88, 9.96, 10.04, 10.12, 10.20, 10.28, 10.36, 10.42],
+          '1Y': [9.18, 9.32, 9.48, 9.65, 9.78, 9.95, 10.10, 10.22, 10.34, 10.42],
+          '5Y': [8.10, 8.25, 8.60, 8.85, 9.02, 9.24, 9.58, 9.92, 10.20, 10.42]
+        },
+        review: 'On track', reviewTone: 'up',
+        conviction: 'MY Income Anchor',
+        note: 'Anchor dividend payer for Malaysia sleeve. Reinvest dividends when price-to-book dips below 1.25×.'
+      },
+      '1295': {
+        sym: '1295', mkt: 'MY', flag: 'MY', name: 'Public Bank', sector: 'Banking & Finance', exchange: 'BURSA',
+        logoBg: 'linear-gradient(135deg, #be123c 0%, #e11d48 100%)', logoText: '#ffffff', monogram: 'PB',
+        currency: 'RM ', price: 4.56, chgAbs: +0.03, chgPct: +0.66, mktCap: 'RM 88.5B',
+        pe: 12.9, fcfYield: 5.20, opMargin: 41.5, divYield: 4.38, y1Ret: +9.2,
+        low52: 4.02, high52: 4.78, rangePct: 71,
+        tags: ['my-div', 'value', 'fcf'],
+        health: [
+          { label: 'Valuation', status: 'Attractive', tone: 'up', desc: '12.9× P/E with lowest cost-to-income ratio among Malaysian lenders.' },
+          { label: 'Dividend Yield', status: '4.38%', tone: 'up', desc: 'Steady payout supported by conservative retail mortgage book.' },
+          { label: 'Asset Quality', status: 'Top Tier', tone: 'up', desc: 'Industry-leading loan-loss coverage and low non-performing loans.' }
+        ],
+        spark: [4.28, 4.30, 4.34, 4.36, 4.40, 4.42, 4.45, 4.48, 4.50, 4.53, 4.56],
+        series: {
+          '1M': [4.38, 4.40, 4.42, 4.44, 4.45, 4.48, 4.50, 4.52, 4.53, 4.56],
+          '3M': [4.18, 4.24, 4.28, 4.32, 4.36, 4.40, 4.44, 4.48, 4.52, 4.56],
+          '1Y': [4.05, 4.10, 4.16, 4.20, 4.26, 4.32, 4.38, 4.44, 4.50, 4.56],
+          '5Y': [3.90, 4.02, 4.15, 4.10, 4.18, 4.24, 4.32, 4.40, 4.48, 4.56]
+        },
+        review: 'On track', reviewTone: 'up',
+        conviction: 'Watchlist · Defensive',
+        note: 'Conservative retail lender; strong downside buffer if local credit cycle slows.'
+      }
+    };
+
+    const MARKET_SERIES = {
+      '1M': [
+        { date: '18 Aug', val: 54, origin: 'observed' },
+        { date: '22 Aug', val: 56, origin: 'observed' },
+        { date: '26 Aug', val: 55, origin: 'observed' },
+        { date: '30 Aug', val: 58, origin: 'observed' },
+        { date: '03 Sept', val: 60, origin: 'observed' },
+        { date: '06 Sept', val: 61, origin: 'observed' },
+        { date: '09 Sept', val: 63, origin: 'observed' },
+        { date: '11 Sept', val: 64, origin: 'observed' },
+        { date: '12 Sept', val: 66, origin: 'observed' }
+      ],
+      '3M': [
+        { date: '16 Jun', val: 43, origin: 'reconstructed' },
+        { date: '26 Jun', val: 46, origin: 'reconstructed' },
+        { date: '08 Jul', val: 49, origin: 'reconstructed' },
+        { date: '18 Jul', val: 48, origin: 'observed' },
+        { date: '29 Jul', val: 53, origin: 'observed' },
+        { date: '10 Aug', val: 55, origin: 'observed' },
+        { date: '21 Aug', val: 54, origin: 'observed' },
+        { date: '01 Sept', val: 59, origin: 'observed' },
+        { date: '11 Sept', val: 62, origin: 'observed' },
+        { date: '12 Sept', val: 66, origin: 'observed' }
+      ],
+      '1Y': [
+        { date: 'Oct', val: 51, origin: 'reconstructed' },
+        { date: 'Nov', val: 58, origin: 'reconstructed' },
+        { date: 'Dec', val: 64, origin: 'reconstructed' },
+        { date: 'Jan', val: 61, origin: 'reconstructed' },
+        { date: 'Feb', val: 55, origin: 'reconstructed' },
+        { date: 'Apr', val: 38, origin: 'reconstructed' },
+        { date: 'Jun', val: 46, origin: 'reconstructed' },
+        { date: 'Jul', val: 53, origin: 'observed' },
+        { date: 'Aug', val: 57, origin: 'observed' },
+        { date: 'Sept', val: 66, origin: 'observed' }
+      ]
+    };
+
+    const FINANCIAL_YEARS = [
+      { yr: 'FY21', rev: 365.8, ni: 94.7, fcf: 93.0, margin: 25.9, yoy: '+33.3%', filing: '10-K · Oct 2021' },
+      { yr: 'FY22', rev: 394.3, ni: 99.8, fcf: 111.4, margin: 25.3, yoy: '+7.8%', filing: '10-K · Oct 2022' },
+      { yr: 'FY23', rev: 383.3, ni: 97.0, fcf: 99.6, margin: 25.3, yoy: '−2.8%', filing: '10-K · Nov 2023' },
+      { yr: 'FY24', rev: 391.0, ni: 93.7, fcf: 108.8, margin: 24.0, yoy: '+2.0%', filing: '10-K · Nov 2024' },
+      { yr: 'FY25', rev: 412.6, ni: 104.2, fcf: 116.5, margin: 25.3, yoy: '+5.5%', filing: '10-K · Nov 2025' }
+    ];
+
+    const PEER_ARENA = [
+      { metric: 'P/E (TTM)', unit: '×', min: 22.1, median: 29.8, max: 42.5, values: { AAPL: 31.4, MSFT: 34.1, NVDA: 42.5, GOOGL: 22.1 }, note: '54th percentile · Fair vs mega-cap peers' },
+      { metric: 'Free Cash Flow Yield', unit: '%', min: 1.8, median: 2.9, max: 4.3, values: { AAPL: 3.2, MSFT: 2.45, NVDA: 1.95, GOOGL: 4.1 }, note: '64th percentile · Stronger cash yield than MSFT/NVDA' },
+      { metric: 'Operating Margin', unit: '%', min: 24.0, median: 34.5, max: 61.8, values: { AAPL: 31.2, MSFT: 44.6, NVDA: 61.8, GOOGL: 32.1 }, note: 'Steady hardware + services blended margin' }
+    ];
+
+    let state = {
+      theme: 'light',
+      page: 'home', // 'home' | 'market' | 'discover' | 'research'
+      marketRegion: 'US', // 'US' | 'MY'
+      sidebarCollapsed: false,
+      mktRange: '3M',
+      hoverMktIdx: null,
+      simVix: 15.4,
+      expandedPillar: null,
+      discoverFilter: 'all',
+      comparePair: ['AAPL', 'MSFT'],
+      showCompareModal: false,
+      activeStock: 'AAPL',
+      stockRange: '3M',
+      hoverStockIdx: null,
+      researchTab: 'financials', // 'financials' | 'peers' | 'health'
+      finChartMode: 'bars', // 'bars' | 'margin'
+      selectedFy: 'FY25',
+      highlightPeer: 'MSFT',
+      peekStock: null,
+      cmdOpen: false,
+      cmdQuery: '',
+      savedNotes: {}
+    };
+
+    const T = () => THEMES[state.theme];
+
+    function setTheme(th) { state.theme = th; render(); }
+    function setPage(p) { state.page = p; state.peekStock = null; render(); }
+    function setRegion(r) { state.marketRegion = r; render(); }
+    function toggleSidebar() { state.sidebarCollapsed = !state.sidebarCollapsed; render(); }
+    function setMktRange(r) { state.mktRange = r; state.hoverMktIdx = null; render(); }
+    function setSimVix(v) { state.simVix = parseFloat(v); render(); }
+    function togglePillar(id) { state.expandedPillar = state.expandedPillar === id ? null : id; render(); }
+    function setDiscoverFilter(f) { state.discoverFilter = f; render(); }
+    function toggleCompareSym(sym) {
+      if (state.comparePair.includes(sym)) {
+        state.comparePair = state.comparePair.filter(s => s !== sym);
+      } else {
+        if (state.comparePair.length >= 2) state.comparePair = [state.comparePair[1], sym];
+        else state.comparePair = [...state.comparePair, sym];
+      }
+      render();
+    }
+    function openCompare() { if (state.comparePair.length === 2) { state.showCompareModal = true; render(); } }
+    function closeCompare() { state.showCompareModal = false; render(); }
+    function openResearch(sym) { state.activeStock = sym; state.page = 'research'; state.peekStock = null; state.cmdOpen = false; state.hoverStockIdx = null; render(); }
+    function openPeek(sym) { state.peekStock = sym; render(); }
+    function closePeek() { state.peekStock = null; render(); }
+    function openCmd() { state.cmdOpen = true; state.cmdQuery = ''; render(); setTimeout(() => document.getElementById('cmd-input')?.focus(), 20); }
+    function closeCmd() { state.cmdOpen = false; render(); }
+    function setStockRange(r) { state.stockRange = r; state.hoverStockIdx = null; render(); }
+    function setResearchTab(t) { state.researchTab = t; render(); }
+    function setFinMode(m) { state.finChartMode = m; render(); }
+    function setSelectedFy(yr) { state.selectedFy = yr; render(); }
+    function setHighlightPeer(p) { state.highlightPeer = p; render(); }
+    function saveNote(sym, val) { state.savedNotes[sym] = val; }
+
+    window.addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); state.cmdOpen ? closeCmd() : openCmd(); }
+      if (e.key === 'Escape') {
+        if (state.cmdOpen) closeCmd();
+        else if (state.showCompareModal) closeCompare();
+        else if (state.peekStock) closePeek();
+      }
+    });
+
+    function computeScore() {
+      const base = state.marketRegion === 'MY' ? 58 : 66;
+      const delta = Math.round((15.4 - state.simVix) * 1.55);
+      return Math.max(18, Math.min(92, base + delta));
+    }
+
+    function postureMeta(score) {
+      const t = T();
+      if (score >= 65) return {
+        label: 'Constructive',
+        tone: 'up', color: t.up, bright: t.upBright, soft: t.upSoft, border: t.upBorder, aurora: t.auroraUp,
+        plain: 'Calm volatility and steady institutional positioning favor measured, staggered entries over defensive hedging.'
+      };
+      if (score < 40) return {
+        label: 'Defensive',
+        tone: 'down', color: t.down, bright: t.downBright, soft: t.downSoft, border: t.downBorder, aurora: t.auroraDown,
+        plain: 'Elevated market stress and wider swings favor holding cash buffers and demanding wider margins of safety.'
+      };
+      return {
+        label: 'Balanced',
+        tone: 'warn', color: t.warn, bright: t.warnBright, soft: t.warnSoft, border: t.warnBorder, aurora: t.auroraNeutral,
+        plain: 'Mixed crosscurrents across volatility and positioning call for patience and selective quality focus.'
+      };
+    }
+
+    function fmtPrice(s) {
+      return `${s.currency}${s.price.toFixed(2)}`;
+    }
+
+    function fmtPct(v) {
+      return `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(2)}%`;
+    }
+
+    function sparkSvg(vals, isUp, w = 88, h = 30, uid = 'sp') {
+      const t = T();
+      const min = Math.min(...vals), max = Math.max(...vals);
+      const span = max - min || 1;
+      const pts = vals.map((v, i) => [
+        2 + (i / (vals.length - 1)) * (w - 4),
+        h - 4 - ((v - min) / span) * (h - 8)
+      ]);
+      const stroke = isUp ? t.upBright : t.downBright;
+      const dLine = smoothPath(pts);
+      const dArea = `${dLine} L ${pts[pts.length - 1][0].toFixed(1)},${h} L ${pts[0][0].toFixed(1)},${h} Z`;
+      return `
+        <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="overflow-visible">
+          <defs>
+            <linearGradient id="${uid}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${stroke}" stop-opacity="0.28"/>
+              <stop offset="100%" stop-color="${stroke}" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d="${dArea}" fill="url(#${uid})" />
+          <path d="${dLine}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          <circle cx="${pts[pts.length - 1][0].toFixed(1)}" cy="${pts[pts.length - 1][1].toFixed(1)}" r="2.6" fill="${stroke}" />
+        </svg>`;
+    }
+
+    function smoothPath(pts) {
+      if (pts.length < 2) return '';
+      let d = `M ${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = pts[Math.max(0, i - 1)];
+        const p1 = pts[i];
+        const p2 = pts[i + 1];
+        const p3 = pts[Math.min(pts.length - 1, i + 2)];
+        const cp1x = p1[0] + (p2[0] - p0[0]) / 6;
+        const cp1y = p1[1] + (p2[1] - p0[1]) / 6;
+        const cp2x = p2[0] - (p3[0] - p1[0]) / 6;
+        const cp2y = p2[1] - (p3[1] - p1[1]) / 6;
+        d += ` C ${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+      }
+      return d;
+    }
+
+    function arcGaugeSvg(score, posture, size = 216) {
+      const t = T();
+      const cx = 110, cy = 104, r = 82;
+      const startDeg = 180, endDeg = 0;
+      const toRad = d => (d * Math.PI) / 180;
+      const pt = deg => [cx + r * Math.cos(toRad(deg)), cy - r * Math.sin(toRad(deg))];
+      const [sx, sy] = pt(180);
+      const [ex, ey] = pt(0);
+      const angle = 180 - (score / 100) * 180;
+      const [kx, ky] = pt(angle);
+      const arcLen = Math.PI * r;
+      const dashOffset = arcLen * (1 - score / 100);
+      const gradId = `gauge-grad-${state.theme}`;
+      return `
+        <svg width="${size}" height="${Math.round(size * 0.62)}" viewBox="0 0 220 132" class="overflow-visible">
+          <defs>
+            <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="${t.downBright}" />
+              <stop offset="48%" stop-color="${t.warnBright}" />
+              <stop offset="100%" stop-color="${t.upBright}" />
+            </linearGradient>
+            <filter id="orb-glow" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <!-- Track -->
+          <path d="M ${sx} ${sy} A ${r} ${r} 0 0 1 ${ex} ${ey}" fill="none" stroke="${t.gaugeBg}" stroke-width="14" stroke-linecap="round" />
+          <!-- Threshold ticks at 40 and 65 -->
+          ${[40, 65].map(mark => {
+            const a = 180 - (mark / 100) * 180;
+            const x1 = cx + (r - 11) * Math.cos(toRad(a)), y1 = cy - (r - 11) * Math.sin(toRad(a));
+            const x2 = cx + (r + 11) * Math.cos(toRad(a)), y2 = cy - (r + 11) * Math.sin(toRad(a));
+            return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${t.surface}" stroke-width="2.5" opacity="0.9" />`;
+          }).join('')}
+          <!-- Luminous active arc -->
+          <path d="M ${sx} ${sy} A ${r} ${r} 0 0 1 ${ex} ${ey}" fill="none" stroke="url(#${gradId})" stroke-width="14" stroke-linecap="round"
+            stroke-dasharray="${arcLen.toFixed(1)}" stroke-dashoffset="${dashOffset.toFixed(1)}" style="transition: stroke-dashoffset 280ms cubic-bezier(0.22,1,0.36,1);" />
+          <!-- Glowing orb -->
+          <circle cx="${kx.toFixed(1)}" cy="${ky.toFixed(1)}" r="9" fill="${posture.bright}" opacity="0.28" filter="url(#orb-glow)" />
+          <circle cx="${kx.toFixed(1)}" cy="${ky.toFixed(1)}" r="6.5" fill="#ffffff" stroke="${posture.bright}" stroke-width="3.2" />
+          <!-- Center Score -->
+          <text x="${cx}" y="${cy - 12}" text-anchor="middle" fill="${t.ink}" font-size="42" font-weight="700" class="tnum display">${score}</text>
+          <text x="${cx}" y="${cy + 9}" text-anchor="middle" fill="${t.muted}" font-size="12" font-weight="500" class="tnum">out of 100</text>
+          <!-- End labels -->
+          <text x="22" y="125" text-anchor="middle" fill="${t.sub}" font-size="11" font-weight="600" class="tnum">0</text>
+          <text x="198" y="125" text-anchor="middle" fill="${t.sub}" font-size="11" font-weight="600" class="tnum">100</text>
+        </svg>`;
+    }
+
+    function miniRingSvg(score, color, size = 44) {
+      const t = T();
+      const r = 17, c = 2 * Math.PI * r;
+      const offset = c * (1 - score / 100);
+      return `
+        <svg width="${size}" height="${size}" viewBox="0 0 44 44">
+          <circle cx="22" cy="22" r="${r}" fill="none" stroke="${t.gaugeBg}" stroke-width="4.5" />
+          <circle cx="22" cy="22" r="${r}" fill="none" stroke="${color}" stroke-width="4.5" stroke-linecap="round"
+            stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" transform="rotate(-90 22 22)" />
+          <text x="22" y="26" text-anchor="middle" fill="${t.ink}" font-size="12.5" font-weight="700" class="tnum">${score}</text>
+        </svg>`;
+    }
+
+    function marketAreaChartSvg() {
+      const t = T();
+      const basePts = MARKET_SERIES[state.mktRange];
+      const liveScore = computeScore();
+      const ptsData = basePts.map((p, idx) => idx === basePts.length - 1 ? { ...p, val: liveScore } : p);
+      const W = 540, H = 200, padL = 32, padR = 14, padT = 18, padB = 28;
+      const plotW = W - padL - padR, plotH = H - padT - padB;
+      const yFor = v => padT + ((100 - v) / 100) * plotH;
+      const xFor = i => padL + (i / (ptsData.length - 1)) * plotW;
+      const coords = ptsData.map((p, i) => [xFor(i), yFor(p.val)]);
+      const posture = postureMeta(liveScore);
+      const dLine = smoothPath(coords);
+      const dArea = `${dLine} L ${coords[coords.length - 1][0].toFixed(1)},${(padT + plotH).toFixed(1)} L ${coords[0][0].toFixed(1)},${(padT + plotH).toFixed(1)} Z`;
+      const activeIdx = state.hoverMktIdx !== null ? state.hoverMktIdx : ptsData.length - 1;
+      const activePt = ptsData[activeIdx];
+      const [ax, ay] = coords[activeIdx];
+      const tipX = Math.min(W - 126, Math.max(padL, ax - 54));
+
+      return `
+        <div class="relative w-full">
+          <svg viewBox="0 0 ${W} ${H}" class="w-full h-[200px] overflow-visible select-none"
+            onmouseleave="state.hoverMktIdx=null; render();">
+            <defs>
+              <linearGradient id="mkt-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="${posture.bright}" stop-opacity="0.28"/>
+                <stop offset="100%" stop-color="${posture.bright}" stop-opacity="0.01"/>
+              </linearGradient>
+            </defs>
+            <!-- Soft Regime Threshold Lines -->
+            ${[65, 40].map(th => {
+              const y = yFor(th);
+              const label = th === 65 ? 'Constructive 65' : 'Defensive 40';
+              const col = th === 65 ? t.up : t.down;
+              return `
+                <line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="${col}" stroke-opacity="0.25" stroke-dasharray="4 4" stroke-width="1" />
+                <text x="${padL + 6}" y="${y - 5}" text-anchor="start" fill="${col}" font-size="10.5" font-weight="600" opacity="0.82">${label}</text>`;
+            }).join('')}
+            <!-- Y axis ticks -->
+            ${[20, 50, 80].map(v => `<text x="${padL - 8}" y="${yFor(v) + 3}" text-anchor="end" fill="${t.sub}" font-size="10.5" class="tnum">${v}</text>`).join('')}
+            <!-- Area + Smooth Curve -->
+            <path d="${dArea}" fill="url(#mkt-fill)" />
+            <path d="${dLine}" fill="none" stroke="${posture.bright}" stroke-width="2.75" stroke-linecap="round" />
+            <!-- Hover Crosshair -->
+            <line x1="${ax}" y1="${padT}" x2="${ax}" y2="${padT + plotH}" stroke="${t.borderStrong}" stroke-dasharray="3 3" stroke-width="1.2" />
+            <circle cx="${ax}" cy="${ay}" r="8" fill="${posture.bright}" opacity="0.22" />
+            <circle cx="${ax}" cy="${ay}" r="4.5" fill="#ffffff" stroke="${posture.bright}" stroke-width="2.6" />
+            <!-- Floating Glass Tooltip -->
+            <g transform="translate(${tipX.toFixed(1)}, ${Math.max(4, ay - 46).toFixed(1)})">
+              <rect width="118" height="34" rx="9" fill="${t.tipBg}" />
+              <text x="10" y="15" fill="${t.tipInk}" font-size="10.5" font-weight="600" opacity="0.72">${activePt.date} · ${activePt.origin === 'observed' ? 'Live' : 'Backfill'}</text>
+              <text x="10" y="28" fill="${t.tipInk}" font-size="12" font-weight="700" class="tnum">Score ${activePt.val}/100</text>
+            </g>
+            <!-- X axis dates -->
+            ${ptsData.map((p, i) => (i === 0 || i === Math.floor(ptsData.length / 2) || i === ptsData.length - 1)
+              ? `<text x="${xFor(i)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === ptsData.length - 1 ? 'end' : 'middle'}" fill="${t.sub}" font-size="11">${p.date}</text>`
+              : '').join('')}
+            <!-- Invisible hover scrub columns -->
+            ${ptsData.map((p, i) => {
+              const step = plotW / (ptsData.length - 1);
+              return `<rect x="${(xFor(i) - step / 2).toFixed(1)}" y="${padT}" width="${step.toFixed(1)}" height="${plotH}" fill="transparent" class="cursor-crosshair"
+                onmouseenter="state.hoverMktIdx=${i}; render();" />`;
+            }).join('')}
+          </svg>
+        </div>`;
+    }
+
+    function stockAreaChartSvg(stock) {
+      const t = T();
+      const vals = stock.series[state.stockRange] || stock.series['3M'];
+      const W = 620, H = 210, padL = 8, padR = 10, padT = 20, padB = 24;
+      const plotW = W - padL - padR, plotH = H - padT - padB;
+      const min = Math.min(...vals) * 0.985, max = Math.max(...vals) * 1.015;
+      const span = max - min || 1;
+      const xFor = i => padL + (i / (vals.length - 1)) * plotW;
+      const yFor = v => padT + (1 - (v - min) / span) * plotH;
+      const coords = vals.map((v, i) => [xFor(i), yFor(v)]);
+      const isUp = vals[vals.length - 1] >= vals[0];
+      const stroke = isUp ? t.upBright : t.downBright;
+      const dLine = smoothPath(coords);
+      const dArea = `${dLine} L ${coords[coords.length - 1][0].toFixed(1)},${(padT + plotH).toFixed(1)} L ${coords[0][0].toFixed(1)},${(padT + plotH).toFixed(1)} Z`;
+      const idx = state.hoverStockIdx !== null ? state.hoverStockIdx : vals.length - 1;
+      const [ax, ay] = coords[idx];
+      const activeVal = vals[idx];
+      const pctFromStart = ((activeVal - vals[0]) / vals[0]) * 100;
+      const tipX = Math.min(W - 134, Math.max(padL, ax - 60));
+
+      return `
+        <svg viewBox="0 0 ${W} ${H}" class="w-full h-[210px] overflow-visible select-none"
+          onmouseleave="state.hoverStockIdx=null; render();">
+          <defs>
+            <linearGradient id="stk-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${stroke}" stop-opacity="0.28" />
+              <stop offset="100%" stop-color="${stroke}" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <!-- Baseline dotted -->
+          <line x1="${padL}" y1="${coords[0][1]}" x2="${W - padR}" y2="${coords[0][1]}" stroke="${t.borderStrong}" stroke-dasharray="4 4" stroke-width="1" />
+          <path d="${dArea}" fill="url(#stk-fill)" />
+          <path d="${dLine}" fill="none" stroke="${stroke}" stroke-width="2.75" stroke-linecap="round" />
+          <line x1="${ax}" y1="${padT}" x2="${ax}" y2="${padT + plotH}" stroke="${t.borderStrong}" stroke-dasharray="3 3" stroke-width="1.2" />
+          <circle cx="${ax}" cy="${ay}" r="8" fill="${stroke}" opacity="0.22" />
+          <circle cx="${ax}" cy="${ay}" r="4.5" fill="#ffffff" stroke="${stroke}" stroke-width="2.6" />
+          <g transform="translate(${tipX.toFixed(1)}, ${Math.max(4, ay - 46).toFixed(1)})">
+            <rect width="126" height="34" rx="9" fill="${t.tipBg}" />
+            <text x="10" y="15" fill="${t.tipInk}" font-size="11.5" font-weight="700" class="tnum">${stock.currency}${activeVal.toFixed(2)}</text>
+            <text x="10" y="28" fill="${pctFromStart >= 0 ? '#34d399' : '#fb7185'}" font-size="10.5" font-weight="600" class="tnum">${fmtPct(pctFromStart)} over ${state.stockRange}</text>
+          </g>
+          ${vals.map((_, i) => {
+            const step = plotW / (vals.length - 1);
+            return `<rect x="${(xFor(i) - step / 2).toFixed(1)}" y="${padT}" width="${step.toFixed(1)}" height="${plotH}" fill="transparent" class="cursor-crosshair"
+              onmouseenter="state.hoverStockIdx=${i}; render();" />`;
+          }).join('')}
+        </svg>`;
+    }
+
+    function stockAvatar(s, size = 40) {
+      const fs = size >= 44 ? 15 : size >= 36 ? 13 : 11;
+      const rad = size >= 44 ? 14 : 11;
+      return `<div style="width:${size}px;height:${size}px;border-radius:${rad}px;background:${s.logoBg};color:${s.logoText};font-size:${fs}px;"
+        class="shrink-0 flex items-center justify-center font-bold tracking-tight shadow-sm">${s.monogram}</div>`;
+    }
+
+    function pctBadge(pct) {
+      const t = T();
+      const up = pct >= 0;
+      return `<span style="background:${up ? t.upSoft : t.downSoft};color:${up ? t.up : t.down};border:1px solid ${up ? t.upBorder : t.downBorder};"
+        class="tnum inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold">${up ? '▲' : '▼'} ${fmtPct(pct)}</span>`;
+    }
+
+    function toneChip(label, tone) {
+      const t = T();
+      const map = {
+        up: [t.upSoft, t.up, t.upBorder],
+        down: [t.downSoft, t.down, t.downBorder],
+        warn: [t.warnSoft, t.warn, t.warnBorder],
+        brand: [t.brandSoft, t.brand, t.brandBorder],
+        neutral: [t.surfaceMuted, t.muted, t.border]
+      };
+      const [bg, fg, bd] = map[tone] || map.neutral;
+      return `<span style="background:${bg};color:${fg};border:1px solid ${bd};" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold">${label}</span>`;
+    }
+
+    function renderSidebar() {
+      const t = T();
+      const navItems = [
+        { id: 'home', label: 'Home', badge: '2', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5.5v-6.5h-5V21H4a1 1 0 01-1-1v-9.5z"/>' },
+        { id: 'market', label: 'Market Pulse', badge: `${computeScore()}`, icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M3 17l5.5-5.5 4 4L21 7m0 0h-5m5 0v5"/>' },
+        { id: 'discover', label: 'Discover', badge: 'New', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2L12 3z"/>' },
+        { id: 'research', label: 'Stock Research', badge: state.activeStock, icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16M7 16V9m5 7V5m5 11v-4"/>' }
+      ];
+      const w = state.sidebarCollapsed ? 'w-[74px]' : 'w-[244px]';
+      return `
+        <aside style="background:${t.sidebar};border-right:1px solid ${t.border};" class="${w} shrink-0 flex flex-col justify-between smooth min-h-screen sticky top-0 h-screen z-20">
+          <div class="p-3.5 space-y-5">
+            <!-- Brand Header -->
+            <div class="flex items-center justify-between px-1.5 pt-1">
+              <button onclick="setPage('home')" class="flex items-center gap-2.5 cursor-pointer bg-transparent border-0 p-0 text-left">
+                <div style="background:${t.pillBg};color:${t.pillInk};" class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 17l5-5 4 4 7-9"/></svg>
+                </div>
+                ${state.sidebarCollapsed ? '' : `<div>
+                  <div style="color:${t.ink};" class="font-bold text-[15px] leading-tight display">Signal</div>
+                  <div style="color:${t.muted};" class="text-[11px] font-medium">Calm Investing Workspace</div>
+                </div>`}
+              </button>
+              <button onclick="toggleSidebar()" title="Toggle sidebar" style="color:${t.muted};background:${t.surfaceSub};border:1px solid ${t.border};"
+                class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:opacity-80">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  ${state.sidebarCollapsed ? '<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>' : '<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>'}
+                </svg>
+              </button>
+            </div>
+
+            <!-- Main Nav -->
+            <nav class="space-y-1">
+              ${navItems.map(item => {
+                const active = state.page === item.id;
+                return `
+                  <button onclick="setPage('${item.id}')"
+                    style="background:${active ? t.brandSoft : 'transparent'};color:${active ? t.brand : t.inkSoft};border:1px solid ${active ? t.brandBorder : 'transparent'};"
+                    class="w-full flex items-center ${state.sidebarCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl text-[13.5px] font-semibold cursor-pointer smooth">
+                    <span class="flex items-center gap-2.5">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${item.icon}</svg>
+                      ${state.sidebarCollapsed ? '' : `<span>${item.label}</span>`}
+                    </span>
+                    ${state.sidebarCollapsed ? '' : `<span style="background:${active ? t.brand : t.surfaceMuted};color:${active ? '#ffffff' : t.muted};" class="tnum px-2 py-0.5 rounded-full text-[11px] font-semibold">${item.badge}</span>`}
+                  </button>`;
+              }).join('')}
+            </nav>
+
+            <!-- Quick Watchlist in Sidebar -->
+            ${state.sidebarCollapsed ? '' : `
+            <div class="pt-3" style="border-top:1px solid ${t.border};">
+              <div class="flex items-center justify-between px-2 mb-2">
+                <span style="color:${t.sub};" class="text-[11px] font-bold uppercase tracking-wider">Watchlist</span>
+                <button onclick="setPage('discover')" style="color:${t.brand};" class="text-[11px] font-semibold bg-transparent border-0 cursor-pointer">+ Add</button>
+              </div>
+              <div class="space-y-1">
+                ${['AAPL', 'MSFT', '5347', '1155'].map(sym => {
+                  const s = STOCKS[sym];
+                  const active = state.page === 'research' && state.activeStock === sym;
+                  return `
+                    <button onclick="openResearch('${sym}')"
+                      style="background:${active ? t.surfaceMuted : 'transparent'};"
+                      class="w-full flex items-center justify-between px-2 py-2 rounded-xl cursor-pointer border-0 text-left hover:opacity-85 smooth">
+                      <div class="flex items-center gap-2.5 min-w-0">
+                        ${stockAvatar(s, 28)}
+                        <div class="min-w-0">
+                          <div style="color:${t.ink};" class="text-xs font-bold truncate">${s.sym}</div>
+                          <div style="color:${t.muted};" class="text-[11px] truncate">${s.name}</div>
+                        </div>
+                      </div>
+                      <div class="text-right shrink-0">
+                        <div style="color:${t.ink};" class="text-xs font-semibold tnum">${fmtPrice(s)}</div>
+                        <div style="color:${s.chgPct >= 0 ? t.up : t.down};" class="text-[11px] font-semibold tnum">${fmtPct(s.chgPct)}</div>
+                      </div>
+                    </button>`;
+                }).join('')}
+              </div>
+            </div>`}
+          </div>
+
+          <!-- Bottom Status Pill -->
+          <div class="p-3.5">
+            ${state.sidebarCollapsed ? `
+              <button onclick="setTheme(state.theme==='light'?'dark':'light')" style="background:${t.surfaceSub};border:1px solid ${t.border};color:${t.ink};"
+                class="w-full py-2.5 rounded-xl cursor-pointer text-sm">${state.theme === 'light' ? '☾' : '☀'}</button>
+            ` : `
+              <div style="background:${t.surfaceSub};border:1px solid ${t.border};" class="rounded-2xl p-3 space-y-2">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="flex items-center gap-1.5 font-semibold" style="color:${t.ink};">
+                    <span class="w-2 h-2 rounded-full" style="background:${t.upBright};box-shadow:0 0 8px ${t.upBright};"></span>
+                    Data Freshness
+                  </span>
+                  <span style="color:${t.up};" class="font-semibold">Live · 78%</span>
+                </div>
+                <div style="color:${t.muted};" class="text-[11px] leading-relaxed">US & Bursa sources synced today. Evidence-only mode — zero hype.</div>
+              </div>`}
+          </div>
+        </aside>`;
+    }
+
+    function renderTopBar() {
+      const t = T();
+      return `
+        <header style="background:${t.header};border-bottom:1px solid ${t.border};" class="sticky top-0 z-20 glass-bar px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+          <!-- Left: Region Switcher -->
+          <div class="flex items-center gap-3">
+            <div style="background:${t.surfaceMuted};border:1px solid ${t.border};" class="inline-flex p-1 rounded-xl">
+              ${[
+                { id: 'US', label: 'United States', score: 66 },
+                { id: 'MY', label: 'Malaysia · Bursa', score: 58 }
+              ].map(r => {
+                const act = state.marketRegion === r.id;
+                return `<button onclick="setRegion('${r.id}')"
+                  style="background:${act ? t.surface : 'transparent'};color:${act ? t.ink : t.muted};box-shadow:${act ? '0 1px 4px rgba(0,0,0,0.08)' : 'none'};"
+                  class="px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border-0 smooth flex items-center gap-1.5">
+                  ${flagBadge(r.id)}
+                  <span>${r.label}</span>
+                  <span class="tnum text-[11px] opacity-75">${r.score}</span>
+                </button>`;
+              }).join('')}
+            </div>
+          </div>
+
+          <!-- Center: Pill Search / Command Trigger -->
+          <button onclick="openCmd()" style="background:${t.surface};border:1px solid ${t.borderStrong};color:${t.muted};box-shadow:${t.cardShadow};"
+            class="flex-1 max-w-[420px] flex items-center justify-between px-4 py-2 rounded-full text-xs cursor-pointer smooth hover:opacity-95">
+            <span class="flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+              <span>Search AAPL, Maybank, P/E glossary, or stress test...</span>
+            </span>
+            <kbd style="background:${t.surfaceMuted};color:${t.inkSoft};border:1px solid ${t.border};" class="px-1.5 py-0.5 rounded-md text-[11px] font-semibold">⌘K</kbd>
+          </button>
+
+          <!-- Right: Compare Pill + Theme Toggle -->
+          <div class="flex items-center gap-2">
+            ${state.comparePair.length === 2 ? `
+              <button onclick="openCompare()" style="background:${t.brandSoft};color:${t.brand};border:1px solid ${t.brandBorder};"
+                class="px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer smooth flex items-center gap-1.5">
+                <span>⚡ Compare ${state.comparePair[0]} vs ${state.comparePair[1]}</span>
+              </button>` : ''}
+            <div style="background:${t.surfaceMuted};border:1px solid ${t.border};" class="inline-flex p-1 rounded-xl">
+              <button onclick="setTheme('light')"
+                style="background:${state.theme === 'light' ? t.surface : 'transparent'};color:${state.theme === 'light' ? t.ink : t.muted};"
+                class="px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer border-0 smooth">☀ Light</button>
+              <button onclick="setTheme('dark')"
+                style="background:${state.theme === 'dark' ? t.surface : 'transparent'};color:${state.theme === 'dark' ? t.ink : t.muted};"
+                class="px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer border-0 smooth">☾ Dark</button>
+            </div>
+          </div>
+        </header>`;
+    }
+
+    function renderHomePage() {
+      const t = T();
+      const usPosture = postureMeta(66);
+      const myPosture = postureMeta(58);
+      const watchList = ['AAPL', 'MSFT', '5347', '1155'];
+
+      return `
+        <div class="space-y-6">
+          <!-- Friendly Executive Greeting -->
+          <div class="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <div class="inline-flex items-center gap-2 mb-1.5">
+                <span class="w-2 h-2 rounded-full" style="background:${t.upBright};"></span>
+                <span style="color:${t.muted};" class="text-xs font-semibold">Morning Briefing · Friday, 20 Nov</span>
+              </div>
+              <h1 style="color:${t.ink};" class="text-[28px] font-bold display leading-tight m-0">Your markets are calm and constructive.</h1>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="setPage('market')" style="background:${t.pillBg};color:${t.pillInk};" class="px-4 py-2.5 rounded-xl text-xs font-semibold cursor-pointer border-0 shadow-sm hover:opacity-90 smooth">Open Market Pulse →</button>
+              <button onclick="setPage('discover')" style="background:${t.surface};color:${t.ink};border:1px solid ${t.borderStrong};" class="px-4 py-2.5 rounded-xl text-xs font-semibold cursor-pointer hover:opacity-90 smooth">Discover Stocks</button>
+            </div>
+          </div>
+
+          <!-- Dual Market Spotlight Cards (US + Malaysia) -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            ${[
+              { region: 'US', title: 'United States', sub: 'S&P 500 · Volatility & Positioning', score: 66, delta: '+5 pts vs 14d ago', p: usPosture, spark: [48,52,54,53,58,61,66], driver: 'VIX at 15.4 (Calm) · NAAIM 78% · Breadth improving' },
+              { region: 'MY', title: 'Malaysia · Bursa', sub: 'FBM KLCI · Rates & Foreign Flows', score: 58, delta: '+3 pts vs 14d ago', p: myPosture, spark: [50,51,53,54,55,56,58], driver: 'BNM OPR steady 3.00% · MYR firmer · Bank yields strong' }
+            ].map(m => `
+              <div onclick="setRegion('${m.region}'); setPage('market');"
+                style="background:${m.p.aurora};border:1px solid ${t.border};box-shadow:${t.heroShadow};"
+                class="rounded-3xl p-6 cursor-pointer card-lift flex flex-col justify-between gap-4">
+                <div class="flex items-start justify-between gap-4">
+                  <div class="space-y-1.5">
+                    <div class="flex items-center gap-2">
+                      ${flagBadge(m.region)}
+                      <span style="color:${t.ink};" class="text-base font-bold display">${m.title}</span>
+                      ${toneChip(m.p.label, m.p.tone)}
+                    </div>
+                    <div style="color:${t.muted};" class="text-xs">${m.sub}</div>
+                  </div>
+                  ${miniRingSvg(m.score, m.p.bright, 52)}
+                </div>
+                <div class="flex items-end justify-between gap-4 pt-1">
+                  <div class="space-y-1">
+                    <div style="color:${m.p.color};" class="text-xs font-semibold tnum">▲ ${m.delta}</div>
+                    <div style="color:${t.inkSoft};" class="text-xs leading-relaxed">${m.driver}</div>
+                  </div>
+                  <div class="shrink-0">${sparkSvg(m.spark, true, 108, 36, 'home-' + m.region)}</div>
+                </div>
+              </div>`).join('')}
+          </div>
+
+          <!-- Split Bento: Focus Queue + Watchlist Pulse -->
+          <div class="grid grid-cols-1 xl:grid-cols-12 gap-5">
+            <!-- Left 5 cols: Today's Focus Queue -->
+            <div style="background:${t.surface};border:1px solid ${t.border};box-shadow:${t.cardShadow};" class="xl:col-span-5 rounded-3xl p-6 flex flex-col justify-between gap-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h2 style="color:${t.ink};" class="text-base font-bold display m-0">Today's Focus</h2>
+                  <p style="color:${t.muted};" class="text-xs m-0 mt-0.5">3 calm actions prioritized from your watchlist</p>
+                </div>
+                ${toneChip('3 items', 'brand')}
+              </div>
+
+              <div class="space-y-3">
+                ${[
+                  { sym: 'AAPL', badge: 'Review overdue', tone: 'down', title: 'Re-check Apple thesis after 10-K', sub: 'Your note targets P/E < 26×. Currently 31.4× (+1.42% today).', cta: 'Open note' },
+                  { sym: '1155', badge: 'Dividend watch', tone: 'up', title: 'Maybank yield holding at 5.76%', sub: 'Sitting at 83% of its 52-week range ahead of BNM rate decision.', cta: 'Inspect' },
+                  { sym: 'MSFT', badge: 'Compare', tone: 'brand', title: 'Apple vs Microsoft cash engine check', sub: 'Side-by-side valuation & operating margin comparison ready.', cta: 'Compare now', isCompare: true }
+                ].map(item => `
+                  <div style="background:${t.surfaceSub};border:1px solid ${t.border};" class="rounded-2xl p-4 space-y-2.5 hover:opacity-95 smooth">
+                    <div class="flex items-center justify-between gap-2">
+                      ${toneChip(item.badge, item.tone)}
+                      <button onclick="${item.isCompare ? 'openCompare()' : `openResearch('${item.sym}')`}"
+                        style="color:${t.brand};" class="text-xs font-semibold bg-transparent border-0 cursor-pointer">${item.cta} →</button>
+                    </div>
+                    <div style="color:${t.ink};" class="text-[13.5px] font-bold">${item.title}</div>
+                    <div style="color:${t.muted};" class="text-xs leading-relaxed">${item.sub}</div>
+                  </div>`).join('')}
+              </div>
+
+              <!-- Upcoming Catalysts Mini Strip -->
+              <div style="border-top:1px solid ${t.border};" class="pt-4">
+                <div style="color:${t.sub};" class="text-[11px] font-bold uppercase tracking-wider mb-2.5">Upcoming Catalysts</div>
+                <div class="grid grid-cols-3 gap-2">
+                  ${[
+                    { d: '24 NOV', code: 'US', name: 'US PCE Inflation' },
+                    { d: '04 DEC', code: 'MY', name: 'BNM OPR Rate' },
+                    { d: '18 DEC', code: 'US', name: 'FOMC Decision' }
+                  ].map(ev => `
+                    <div style="background:${t.surfaceSub};border:1px solid ${t.border};" class="rounded-xl p-2.5">
+                      <div class="flex items-center justify-between text-[10.5px] font-bold" style="color:${t.brand};">
+                        <span class="tnum">${ev.d}</span>${flagBadge(ev.code)}
+                      </div>
+                      <div style="color:${t.ink};" class="text-xs font-semibold mt-1 truncate">${ev.name}</div>
+                    </div>`).join('')}
+                </div>
+              </div>
+            </div>
+
+            <!-- Right 7 cols: Watchlist Pulse -->
+            <div style="background:${t.surface};border:1px solid ${t.border};box-shadow:${t.cardShadow};" class="xl:col-span-7 rounded-3xl p-6 space-y-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h2 style="color:${t.ink};" class="text-base font-bold display m-0">Watchlist Pulse</h2>
+                  <p style="color:${t.muted};" class="text-xs m-0 mt-0.5">Click any row for a Quick Peek drawer, or jump straight to research</p>
+                </div>
+                <button onclick="setPage('discover')" style="color:${t.brand};background:${t.brandSoft};border:1px solid ${t.brandBorder};" class="px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer">Browse all 6 →</button>
+              </div>
+
+              <div class="space-y-2.5">
+                ${watchList.map(sym => {
+                  const s = STOCKS[sym];
+                  return `
+                    <div onclick="openPeek('${sym}')"
+                      style="background:${t.surfaceSub};border:1px solid ${t.border};"
+                      class="rounded-2xl p-3.5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 cursor-pointer card-lift">
+                      <div class="flex items-center gap-3 min-w-[180px]">
+                        ${stockAvatar(s, 42)}
+                        <div>
+                          <div class="flex items-center gap-1.5">
+                            <span style="color:${t.ink};" class="text-sm font-bold">${s.name}</span>
+                            <span style="color:${t.sub};" class="text-xs font-semibold">${s.flag} ${s.sym}</span>
+                          </div>
+                          <div class="flex items-center gap-2 mt-0.5">
+                            <span style="color:${t.muted};" class="text-xs">${s.sector}</span>
+                            <span style="color:${t.sub};">·</span>
+                            <span style="color:${t.muted};" class="text-xs tnum">P/E ${s.pe}×</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 52-Week Range Bar -->
+                      <div class="hidden md:block w-[110px]">
+                        <div class="flex justify-between text-[10px] tnum mb-1" style="color:${t.sub};">
+                          <span>52W</span><span>${s.rangePct}%</span>
+                        </div>
+                        <div style="background:${t.track};" class="h-1.5 rounded-full relative">
+                          <div style="width:${s.rangePct}%;background:${t.brand};" class="h-1.5 rounded-full"></div>
+                          <div style="left:calc(${s.rangePct}% - 4px);background:#ffffff;border:2px solid ${t.brand};" class="w-2.5 h-2.5 rounded-full absolute -top-0.5"></div>
+                        </div>
+                      </div>
+
+                      <!-- Sparkline -->
+                      <div class="shrink-0">${sparkSvg(s.spark, s.chgPct >= 0, 82, 28, 'wl-' + sym)}</div>
+
+                      <!-- Price + Delta -->
+                      <div class="text-right min-w-[96px]">
+                        <div style="color:${t.ink};" class="text-sm font-bold tnum">${fmtPrice(s)}</div>
+                        <div class="mt-0.5">${pctBadge(s.chgPct)}</div>
+                      </div>
+                    </div>`;
+                }).join('')}
+              </div>
+
+              <!-- Balanced Exposure Breakdown Footer -->
+              <div style="border-top:1px solid ${t.border};" class="pt-4 space-y-2.5">
+                <div class="flex items-center justify-between text-xs">
+                  <span style="color:${t.sub};" class="text-[11px] font-bold uppercase tracking-wider">Watchlist Regime Exposure</span>
+                  <span style="color:${t.muted};" class="tnum">50% US (Constructive) · 50% MY (Balanced)</span>
+                </div>
+                <div class="h-2.5 rounded-full overflow-hidden flex gap-1" style="background:${t.track};">
+                  <div style="width:50%;background:linear-gradient(90deg, ${t.upBright}, ${t.brand});" class="rounded-l-full"></div>
+                  <div style="width:50%;background:linear-gradient(90deg, ${t.warnBright}, #f97316);" class="rounded-r-full"></div>
+                </div>
+                <div class="flex flex-wrap items-center justify-between gap-2 text-[11px]" style="color:${t.muted};">
+                  <span>Avg P/E <strong style="color:${t.ink};" class="tnum">25.2×</strong> · Avg FCF Yield <strong style="color:${t.up};" class="tnum">3.89%</strong></span>
+                  <span>2 names near 52W highs</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderMarketPage() {
+      const t = T();
+      const score = computeScore();
+      const posture = postureMeta(score);
+      const isSim = Math.abs(state.simVix - 15.4) > 0.2;
+
+      const pillars = [
+        {
+          id: 'vix', name: 'Volatility · VIX', val: state.simVix.toFixed(1),
+          status: state.simVix < 18 ? 'Calm' : state.simVix > 25 ? 'Stressed' : 'Watchful',
+          tone: state.simVix < 18 ? 'up' : state.simVix > 25 ? 'down' : 'warn',
+          contrib: state.simVix < 18 ? '+9 pts' : state.simVix > 25 ? '−14 pts' : '−2 pts',
+          pos: Math.min(95, Math.max(8, ((state.simVix - 10) / 30) * 100)),
+          plain: state.simVix < 18 ? 'Lower than 78% of days over the past year.' : 'Elevated fear gauge widens daily price swings.',
+          source: 'CBOE VIX Index · Live observed daily close',
+          spark: [18.2, 17.5, 16.9, 17.2, 16.4, 15.8, state.simVix]
+        },
+        {
+          id: 'naaim', name: 'Fund Exposure · NAAIM', val: '78.4%',
+          status: 'Constructive', tone: 'up', contrib: '+6 pts', pos: 74,
+          plain: 'Active US equity managers remain steadily invested without crowded leverage.',
+          source: 'NAAIM Weekly Survey · Updated Thursdays',
+          spark: [58, 62, 65, 69, 71, 75, 78.4]
+        },
+        {
+          id: 'pc', name: 'Options Skew · Put/Call', val: '0.84',
+          status: 'Balanced', tone: 'brand', contrib: '+3 pts', pos: 46,
+          plain: 'Healthy hedging demand — neither complacent euphoria nor panic.',
+          source: 'CBOE Total Equity Put/Call Ratio · 5-day average',
+          spark: [0.96, 0.92, 0.90, 0.88, 0.87, 0.85, 0.84]
+        },
+        {
+          id: 'breadth', name: 'Market Breadth · >50DMA', val: '64%',
+          status: 'Broadening', tone: 'up', contrib: '+4 pts', pos: 64,
+          plain: 'Participation is spreading beyond mega-cap tech into industrials & financials.',
+          source: 'S&P 500 % above 50-day moving average',
+          spark: [44, 48, 51, 55, 58, 61, 64]
+        }
+      ];
+
+      return `
+        <div class="space-y-6">
+          <!-- HERO STAGE: Luminous Arc Gauge + Interactive Area Chart -->
+          <div style="background:${posture.aurora};border:1px solid ${t.border};box-shadow:${t.heroShadow};" class="rounded-[28px] p-6 md:p-7 space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              <!-- Left 5 cols: Gauge & Plain-English Takeaway -->
+              <div class="lg:col-span-5 flex flex-col items-center lg:items-start text-center lg:text-left gap-3">
+                <div class="flex flex-wrap items-center gap-2">
+                  ${flagBadge(state.marketRegion)}
+                  <span style="color:${t.muted};" class="text-xs font-bold uppercase tracking-wider">${state.marketRegion === 'US' ? 'US Market Posture' : 'Malaysia Market Posture'}</span>
+                  ${toneChip(`● ${posture.label}`, posture.tone)}
+                  ${isSim ? toneChip('What-If Preview', 'brand') : ''}
+                </div>
+
+                <div class="py-1">${arcGaugeSvg(score, posture, 232)}</div>
+
+                <p style="color:${t.inkSoft};" class="text-[13.5px] leading-relaxed m-0 max-w-[380px]">${posture.plain}</p>
+              </div>
+
+              <!-- Right 7 cols: Cinema-Grade Area Chart -->
+              <div class="lg:col-span-7 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div style="color:${t.ink};" class="text-sm font-bold display">Score Trajectory</div>
+                    <div style="color:${t.muted};" class="text-xs">Hover anywhere on the curve to scrub historical readings</div>
+                  </div>
+                  <div style="background:${t.surfaceMuted};border:1px solid ${t.border};" class="inline-flex p-1 rounded-xl">
+                    ${['1M', '3M', '1Y'].map(r => `
+                      <button onclick="setMktRange('${r}')"
+                        style="background:${state.mktRange === r ? t.surface : 'transparent'};color:${state.mktRange === r ? t.ink : t.muted};"
+                        class="px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border-0 smooth">${r}</button>`).join('')}
+                  </div>
+                </div>
+                <div style="background:${t.surface};border:1px solid ${t.border};" class="rounded-2xl p-4">
+                  ${marketAreaChartSvg()}
+                </div>
+              </div>
+            </div>
+
+            <!-- Embedded Tactile What-If Stress Test Bar -->
+            <div style="background:${t.surface};border:1px solid ${t.border};" class="rounded-2xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <div style="background:${t.brandSoft};color:${t.brand};" class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-base">🎛️</div>
+                <div>
+                  <div style="color:${t.ink};" class="text-xs font-bold">Interactive Stress Test — "What if volatility spikes?"</div>
+                  <div style="color:${t.muted};" class="text-xs">Try a preset or drag VIX to see how Signal’s posture reacts in real time</div>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-1.5">
+                  ${[
+                    { label: 'Calm (15.4)', v: 15.4 },
+                    { label: 'Pullback (23)', v: 23 },
+                    { label: 'Panic (34)', v: 34 }
+                  ].map(p => {
+                    const active = Math.abs(state.simVix - p.v) < 0.8;
+                    return `<button onclick="setSimVix(${p.v})"
+                      style="background:${active ? t.pillBg : t.surfaceMuted};color:${active ? t.pillInk : t.inkSoft};"
+                      class="px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border-0 smooth">${p.label}</button>`;
+                  }).join('')}
+                </div>
+                <div class="flex items-center gap-2.5 min-w-[180px]">
+                  <input type="range" min="11" max="36" step="0.5" value="${state.simVix}"
+                    oninput="setSimVix(this.value)"
+                    style="background:linear-gradient(90deg, ${t.upBright} 0%, ${t.warnBright} 50%, ${t.downBright} 100%);height:6px;border-radius:999px;" class="w-28" />
+                  <span style="color:${t.ink};" class="text-xs font-bold tnum w-16">VIX ${state.simVix.toFixed(1)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4-PILLAR VISUAL EVIDENCE BENTO -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 style="color:${t.ink};" class="text-lg font-bold display m-0">What’s Driving the Score</h2>
+                <p style="color:${t.muted};" class="text-xs m-0 mt-0.5">Four transparent pillars — click any card to inspect source methodology</p>
+              </div>
+              <!-- Segmented Coverage Bar (replaces old-school donut ring) -->
+              <div style="background:${t.surface};border:1px solid ${t.border};" class="hidden md:flex items-center gap-3 px-4 py-2 rounded-2xl">
+                <span style="color:${t.muted};" class="text-xs font-semibold">Coverage</span>
+                <div class="w-28 h-2 rounded-full overflow-hidden flex" style="background:${t.track};">
+                  <div style="width:78%;background:${t.brand};"></div>
+                  <div style="width:22%;background:${t.warnBright};opacity:0.65;"></div>
+                </div>
+                <span style="color:${t.ink};" class="text-xs font-bold tnum">78% Live</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              ${pillars.map(p => {
+                const open = state.expandedPillar === p.id;
+                return `
+                  <div onclick="togglePillar('${p.id}')"
+                    style="background:${t.surface};border:1px solid ${open ? t.brandBorder : t.border};box-shadow:${t.cardShadow};"
+                    class="rounded-3xl p-5 cursor-pointer card-lift flex flex-col justify-between gap-3">
+                    <div class="flex items-start justify-between gap-2">
+                      <span style="color:${t.muted};" class="text-xs font-semibold">${p.name}</span>
+                      ${toneChip(p.status, p.tone)}
+                    </div>
+
+                    <div class="flex items-end justify-between gap-2">
+                      <div>
+                        <div style="color:${t.ink};" class="text-2xl font-bold tnum display">${p.val}</div>
+                        <div style="color:${p.tone === 'down' ? t.down : t.up};" class="text-xs font-semibold tnum mt-0.5">${p.contrib} impact</div>
+                      </div>
+                      ${sparkSvg(p.spark, p.tone !== 'down', 74, 28, 'pil-' + p.id)}
+                    </div>
+
+                    <!-- Spectrum Range Bar -->
+                    <div>
+                      <div style="background:${t.track};" class="h-1.5 rounded-full relative">
+                        <div style="width:${p.pos}%;background:${p.tone === 'down' ? t.downBright : p.tone === 'warn' ? t.warnBright : t.upBright};" class="h-1.5 rounded-full"></div>
+                      </div>
+                      <p style="color:${t.muted};" class="text-xs leading-relaxed mt-2.5 mb-0">${p.plain}</p>
+                    </div>
+
+                    ${open ? `<div style="background:${t.surfaceSub};border:1px solid ${t.border};color:${t.inkSoft};" class="rounded-xl p-2.5 text-[11px] leading-relaxed">
+                      <strong>Source:</strong> ${p.source}
+                    </div>` : ''}
+                  </div>`;
+              }).join('')}
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderDiscoverPage() {
+      const t = T();
+      const filters = [
+        { id: 'all', label: 'All Stocks (6)' },
+        { id: 'quality', label: '✨ Quality Compounders' },
+        { id: 'fcf', label: '💰 High Free Cash Flow' },
+        { id: 'my-div', label: 'MY · Malaysia Dividends' },
+        { id: 'value', label: '🏷️ Below Peer Median' }
+      ];
+      const list = Object.values(STOCKS).filter(s => state.discoverFilter === 'all' || s.tags.includes(state.discoverFilter));
+
+      return `
+        <div class="space-y-6">
+          <div class="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 style="color:${t.ink};" class="text-[26px] font-bold display m-0">Discover & Compare</h1>
+              <p style="color:${t.muted};" class="text-xs m-0 mt-1">Filter calm, evidence-backed ideas across US & Bursa Malaysia. Pick any 2 stocks to compare head-to-head.</p>
+            </div>
+            ${state.comparePair.length === 2 ? `
+              <button onclick="openCompare()" style="background:${t.brand};color:#ffffff;" class="px-4 py-2.5 rounded-xl text-xs font-semibold cursor-pointer border-0 shadow-md hover:opacity-95 smooth">
+                ⚡ Compare ${state.comparePair[0]} vs ${state.comparePair[1]} →
+              </button>` : `<span style="color:${t.muted};" class="text-xs">Select 2 stocks to compare (${state.comparePair.length}/2)</span>`}
+          </div>
+
+          <!-- Filter Pills -->
+          <div class="flex flex-wrap items-center gap-2">
+            ${filters.map(f => {
+              const act = state.discoverFilter === f.id;
+              return `<button onclick="setDiscoverFilter('${f.id}')"
+                style="background:${act ? t.pillBg : t.surface};color:${act ? t.pillInk : t.inkSoft};border:1px solid ${act ? t.pillBg : t.border};"
+                class="px-3.5 py-2 rounded-full text-xs font-semibold cursor-pointer smooth">${f.label}</button>`;
+            }).join('')}
+          </div>
+
+          <!-- Visual Stock Cards Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            ${list.map(s => {
+              const inCompare = state.comparePair.includes(s.sym);
+              return `
+                <div style="background:${t.surface};border:1px solid ${inCompare ? t.brand : t.border};box-shadow:${t.cardShadow};"
+                  class="rounded-3xl p-5 card-lift flex flex-col justify-between gap-4">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-center gap-3 cursor-pointer" onclick="openResearch('${s.sym}')">
+                      ${stockAvatar(s, 44)}
+                      <div>
+                        <div class="flex items-center gap-1.5">
+                          <span style="color:${t.ink};" class="text-sm font-bold">${s.name}</span>
+                        </div>
+                        <div style="color:${t.muted};" class="text-xs">${s.flag} ${s.sym} · ${s.sector}</div>
+                      </div>
+                    </div>
+                    <button onclick="toggleCompareSym('${s.sym}')"
+                      style="background:${inCompare ? t.brandSoft : t.surfaceSub};color:${inCompare ? t.brand : t.muted};border:1px solid ${inCompare ? t.brandBorder : t.border};"
+                      class="px-2.5 py-1 rounded-full text-[11px] font-semibold cursor-pointer smooth">${inCompare ? '✓ Comparing' : '+ Compare'}</button>
+                  </div>
+
+                  <!-- Price + Sparkline -->
+                  <div class="flex items-end justify-between gap-3 cursor-pointer" onclick="openResearch('${s.sym}')">
+                    <div>
+                      <div style="color:${t.ink};" class="text-2xl font-bold tnum display">${fmtPrice(s)}</div>
+                      <div class="mt-1">${pctBadge(s.chgPct)}</div>
+                    </div>
+                    ${sparkSvg(s.spark, s.chgPct >= 0, 108, 36, 'disc-' + s.sym)}
+                  </div>
+
+                  <!-- 3 Micro-Health Chips -->
+                  <div class="grid grid-cols-3 gap-2 pt-2" style="border-top:1px solid ${t.border};">
+                    ${s.health.map(h => `
+                      <div style="background:${t.surfaceSub};" class="rounded-xl p-2">
+                        <div style="color:${t.sub};" class="text-[10px] font-semibold">${h.label}</div>
+                        <div style="color:${h.tone === 'up' ? t.up : h.tone === 'down' ? t.down : t.warn};" class="text-xs font-bold mt-0.5">${h.status}</div>
+                      </div>`).join('')}
+                  </div>
+
+                  <!-- Footer Metrics -->
+                  <div class="flex items-center justify-between text-xs pt-1">
+                    <div style="color:${t.muted};" class="tnum">P/E <strong style="color:${t.ink};">${s.pe}×</strong> · FCF <strong style="color:${t.ink};">${s.fcfYield.toFixed(1)}%</strong></div>
+                    <button onclick="openResearch('${s.sym}')" style="color:${t.brand};" class="font-semibold bg-transparent border-0 cursor-pointer">Deep Dive →</button>
+                  </div>
+                </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    }
+
+    function renderResearchPage() {
+      const t = T();
+      const s = STOCKS[state.activeStock];
+      const fy = FINANCIAL_YEARS.find(f => f.yr === state.selectedFy) || FINANCIAL_YEARS[4];
+      const noteText = state.savedNotes[s.sym] !== undefined ? state.savedNotes[s.sym] : s.note;
+
+      return `
+        <div class="space-y-6">
+          <!-- Stock Switcher Strip -->
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+              ${Object.keys(STOCKS).map(sym => {
+                const item = STOCKS[sym];
+                const act = sym === state.activeStock;
+                return `<button onclick="openResearch('${sym}')"
+                  style="background:${act ? t.pillBg : t.surface};color:${act ? t.pillInk : t.inkSoft};border:1px solid ${act ? t.pillBg : t.border};"
+                  class="px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer smooth flex items-center gap-1.5">
+                  <span>${item.flag}</span><span>${item.sym}</span>
+                </button>`;
+              }).join('')}
+            </div>
+            <button onclick="state.comparePair=['${s.sym}','${s.sym === 'AAPL' ? 'MSFT' : 'AAPL'}']; openCompare();"
+              style="background:${t.brandSoft};color:${t.brand};border:1px solid ${t.brandBorder};"
+              class="px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer">⚡ Compare with peer</button>
+          </div>
+
+          <!-- Main Two-Column Research Workspace (8/4) -->
+          <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+            <!-- Left 8 cols -->
+            <div class="xl:col-span-8 space-y-6">
+              <!-- Stock Hero Card -->
+              <div style="background:${t.surface};border:1px solid ${t.border};box-shadow:${t.heroShadow};" class="rounded-[28px] p-6 space-y-5">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                  <div class="flex items-center gap-3.5">
+                    ${stockAvatar(s, 52)}
+                    <div>
+                      <div class="flex items-center gap-2">
+                        <h1 style="color:${t.ink};" class="text-2xl font-bold display m-0">${s.name}</h1>
+                        <span style="background:${t.surfaceMuted};color:${t.muted};" class="px-2 py-0.5 rounded-md text-xs font-bold">${s.exchange} · ${s.sym}</span>
+                      </div>
+                      <div style="color:${t.muted};" class="text-xs mt-1">${s.flag} ${s.sector} · Market Cap <strong style="color:${t.ink};" class="tnum">${s.mktCap}</strong></div>
+                    </div>
+                  </div>
+
+                  <div class="text-right">
+                    <div style="color:${t.ink};" class="text-3xl font-bold tnum display">${fmtPrice(s)}</div>
+                    <div class="mt-1 flex items-center justify-end gap-2">
+                      ${pctBadge(s.chgPct)}
+                      <span style="color:${t.muted};" class="text-xs tnum">${s.chgAbs >= 0 ? '+' : '−'}${s.currency}${Math.abs(s.chgAbs).toFixed(2)} today</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Interactive Price Chart -->
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <div style="background:${t.surfaceMuted};border:1px solid ${t.border};" class="inline-flex p-1 rounded-xl">
+                      ${['1M', '3M', '1Y', '5Y'].map(r => `
+                        <button onclick="setStockRange('${r}')"
+                          style="background:${state.stockRange === r ? t.surface : 'transparent'};color:${state.stockRange === r ? t.ink : t.muted};"
+                          class="px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border-0 smooth">${r}</button>`).join('')}
+                    </div>
+                    <span style="color:${t.sub};" class="text-xs">Scrub chart to inspect return</span>
+                  </div>
+                  ${stockAreaChartSvg(s)}
+                </div>
+
+                <!-- 4 Key Metric Tiles -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                  ${[
+                    { k: 'P/E Ratio', v: `${s.pe}×`, sub: 'Trailing 12M' },
+                    { k: 'FCF Yield', v: `${s.fcfYield.toFixed(2)}%`, sub: 'Annual cash flow' },
+                    { k: 'Operating Margin', v: `${s.opMargin.toFixed(1)}%`, sub: 'Latest fiscal year' },
+                    { k: 'Dividend Yield', v: `${s.divYield.toFixed(2)}%`, sub: `52W Pos: ${s.rangePct}%` }
+                  ].map(m => `
+                    <div style="background:${t.surfaceSub};border:1px solid ${t.border};" class="rounded-2xl p-3.5">
+                      <div style="color:${t.muted};" class="text-[11px] font-semibold">${m.k}</div>
+                      <div style="color:${t.ink};" class="text-lg font-bold tnum mt-0.5">${m.v}</div>
+                      <div style="color:${t.sub};" class="text-[11px] mt-0.5">${m.sub}</div>
+                    </div>`).join('')}
+                </div>
+              </div>
+
+              <!-- 3-Pillar Plain-English Health Snapshot -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                ${s.health.map(h => `
+                  <div style="background:${t.surface};border:1px solid ${t.border};box-shadow:${t.cardShadow};" class="rounded-3xl p-5 space-y-2">
+                    <div class="flex items-center justify-between">
+                      <span style="color:${t.muted};" class="text-xs font-semibold">${h.label}</span>
+                      ${toneChip(h.status, h.tone)}
+                    </div>
+                    <p style="color:${t.inkSoft};" class="text-xs leading-relaxed m-0">${h.desc}</p>
+                  </div>`).join('')}
+              </div>
+
+              <!-- Deep Dive Tabs: 5Y Financials | Peer Arena -->
+              <div style="background:${t.surface};border:1px solid ${t.border};box-shadow:${t.cardShadow};" class="rounded-[28px] p-6 space-y-5">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div style="background:${t.surfaceMuted};border:1px solid ${t.border};" class="inline-flex p-1 rounded-xl">
+                    ${[
+                      { id: 'financials', label: '📊 5-Year Financials' },
+                      { id: 'peers', label: '🎯 Peer Arena' }
+                    ].map(tab => `
+                      <button onclick="setResearchTab('${tab.id}')"
+                        style="background:${state.researchTab === tab.id ? t.surface : 'transparent'};color:${state.researchTab === tab.id ? t.ink : t.muted};"
+                        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border-0 smooth">${tab.label}</button>`).join('')}
+                  </div>
+                  ${state.researchTab === 'financials' ? `
+                    <div class="flex items-center gap-2 text-xs">
+                      <span class="flex items-center gap-1.5" style="color:${t.muted};"><span class="w-2.5 h-2.5 rounded-sm" style="background:${t.brand};"></span>Revenue</span>
+                      <span class="flex items-center gap-1.5" style="color:${t.muted};"><span class="w-2.5 h-2.5 rounded-sm" style="background:${t.upBright};"></span>FCF</span>
+                      <span class="flex items-center gap-1.5" style="color:${t.muted};"><span class="w-2.5 h-2.5 rounded-sm" style="background:${t.purple};"></span>Net Income</span>
+                    </div>` : ''}
+                </div>
+
+                ${state.researchTab === 'financials' ? `
+                  <div class="space-y-4">
+                    <!-- Interactive Rounded Bar Explorer -->
+                    <div class="grid grid-cols-5 gap-3 items-end h-[196px] pt-4 px-2">
+                      ${FINANCIAL_YEARS.map(f => {
+                        const sel = f.yr === state.selectedFy;
+                        const revH = Math.round((f.rev / 440) * 140);
+                        const fcfH = Math.round((f.fcf / 440) * 140);
+                        const niH = Math.round((f.ni / 440) * 140);
+                        return `
+                          <button onclick="setSelectedFy('${f.yr}')"
+                            style="background:${sel ? t.brandSoft : 'transparent'};border:1px solid ${sel ? t.brandBorder : 'transparent'};"
+                            class="rounded-2xl p-2.5 flex flex-col items-center justify-end gap-2 cursor-pointer smooth h-full">
+                            <div class="flex items-end gap-1.5 h-[142px]">
+                              <div style="height:${revH}px;background:${t.brand};opacity:${sel ? 1 : 0.72};" class="w-4 sm:w-5 rounded-t-lg smooth"></div>
+                              <div style="height:${fcfH}px;background:${t.upBright};opacity:${sel ? 1 : 0.72};" class="w-4 sm:w-5 rounded-t-lg smooth"></div>
+                              <div style="height:${niH}px;background:${t.purple};opacity:${sel ? 1 : 0.72};" class="w-4 sm:w-5 rounded-t-lg smooth"></div>
+                            </div>
+                            <span style="color:${sel ? t.brand : t.muted};" class="text-xs font-bold tnum">${f.yr}</span>
+                          </button>`;
+                      }).join('')}
+                    </div>
+
+                    <!-- Selected Fiscal Year Detail Banner -->
+                    <div style="background:${t.surfaceSub};border:1px solid ${t.border};" class="rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <div class="flex items-center gap-2">
+                          <span style="color:${t.ink};" class="text-sm font-bold">${fy.yr} Audited Results</span>
+                          ${toneChip(`${fy.yoy} YoY Rev`, fy.yoy.startsWith('+') ? 'up' : 'down')}
+                        </div>
+                        <div style="color:${t.muted};" class="text-xs mt-0.5">Source: ${fy.filing}</div>
+                      </div>
+                      <div class="flex flex-wrap items-center gap-5 tnum">
+                        <div><div style="color:${t.sub};" class="text-[11px]">Revenue</div><div style="color:${t.ink};" class="text-sm font-bold">$${fy.rev}B</div></div>
+                        <div><div style="color:${t.sub};" class="text-[11px]">Free Cash Flow</div><div style="color:${t.up};" class="text-sm font-bold">$${fy.fcf}B</div></div>
+                        <div><div style="color:${t.sub};" class="text-[11px]">Net Income</div><div style="color:${t.purple};" class="text-sm font-bold">$${fy.ni}B</div></div>
+                        <div><div style="color:${t.sub};" class="text-[11px]">Net Margin</div><div style="color:${t.ink};" class="text-sm font-bold">${fy.margin}%</div></div>
+                      </div>
+                    </div>
+                  </div>
+                ` : `
+                  <div class="space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <span style="color:${t.muted};" class="text-xs">Highlight a peer on the tracks:</span>
+                      <div class="flex items-center gap-1.5">
+                        ${['MSFT', 'NVDA', 'GOOGL'].map(p => `
+                          <button onclick="setHighlightPeer('${p}')"
+                            style="background:${state.highlightPeer === p ? t.purpleSoft : t.surfaceSub};color:${state.highlightPeer === p ? t.purple : t.muted};border:1px solid ${state.highlightPeer === p ? t.purple : t.border};"
+                            class="px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer">${p}</button>`).join('')}
+                      </div>
+                    </div>
+                    ${PEER_ARENA.map(row => {
+                      const pct = v => Math.max(4, Math.min(96, ((v - row.min) / (row.max - row.min)) * 100));
+                      const subjVal = row.values.AAPL;
+                      const peerVal = row.values[state.highlightPeer];
+                      return `
+                        <div style="background:${t.surfaceSub};border:1px solid ${t.border};" class="rounded-2xl p-4 space-y-2.5">
+                          <div class="flex items-center justify-between text-xs">
+                            <span style="color:${t.ink};" class="font-bold">${row.metric}</span>
+                            <span style="color:${t.muted};" class="tnum">AAPL <strong style="color:${t.brand};">${subjVal}${row.unit}</strong> vs ${state.highlightPeer} <strong style="color:${t.purple};">${peerVal}${row.unit}</strong></span>
+                          </div>
+                          <div class="relative h-7 flex items-center">
+                            <div style="background:${t.track};" class="w-full h-2 rounded-full"></div>
+                            <!-- Median Marker -->
+                            <div style="left:${pct(row.median)}%;background:${t.muted};" class="w-0.5 h-4 absolute top-1.5"></div>
+                            <!-- Highlighted Peer Dot -->
+                            <div style="left:calc(${pct(peerVal)}% - 6px);background:${t.purple};" title="${state.highlightPeer}" class="w-3 h-3 rounded-full absolute shadow-sm"></div>
+                            <!-- Subject Glowing Dot -->
+                            <div style="left:calc(${pct(subjVal)}% - 8px);background:#ffffff;border:3.5px solid ${t.brand};box-shadow:0 0 10px rgba(37,99,235,0.45);" class="w-4 h-4 rounded-full absolute"></div>
+                          </div>
+                          <div class="flex items-center justify-between text-[11px] tnum" style="color:${t.sub};">
+                            <span>Min ${row.min}${row.unit}</span>
+                            <span>${row.note}</span>
+                            <span>Max ${row.max}${row.unit}</span>
+                          </div>
+                        </div>`;
+                    }).join('')}
+                  </div>`}
+              </div>
+            </div>
+
+            <!-- Right 4 cols: Sticky Personal Thesis & Conviction Rail -->
+            <div class="xl:col-span-4 space-y-4 xl:sticky xl:top-[76px]">
+              <div style="background:${t.surface};border:1px solid ${t.border};box-shadow:${t.cardShadow};" class="rounded-[28px] p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                  <h2 style="color:${t.ink};" class="text-base font-bold display m-0">Your Thesis & Note</h2>
+                  ${toneChip(s.conviction, 'brand')}
+                </div>
+
+                <div style="background:${t.surfaceSub};border:1px solid ${t.border};" class="rounded-2xl p-3 flex items-center justify-between text-xs">
+                  <span style="color:${t.muted};">Review Cadence</span>
+                  ${toneChip(s.review, s.reviewTone)}
+                </div>
+
+                <textarea rows="5" oninput="saveNote('${s.sym}', this.value)"
+                  style="background:${t.surfaceSub};border:1px solid ${t.borderStrong};color:${t.ink};"
+                  class="w-full rounded-2xl p-3.5 text-xs leading-relaxed outline-none resize-none">${noteText}</textarea>
+
+                <div class="flex items-center justify-between gap-2">
+                  <span style="color:${t.sub};" class="text-[11px]">Saved locally · Private</span>
+                  <button onclick="openPeek('${s.sym}')" style="background:${t.pillBg};color:${t.pillInk};"
+                    class="px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer border-0">Mark Reviewed ✓</button>
+                </div>
+              </div>
+
+              <!-- Quick Regime Fit Card -->
+              <div style="background:${t.surface};border:1px solid ${t.border};box-shadow:${t.cardShadow};" class="rounded-[28px] p-5 space-y-2.5">
+                <div class="flex items-center gap-2">
+                  <span class="text-base">🧭</span>
+                  <span style="color:${t.ink};" class="text-xs font-bold">Market Regime Fit</span>
+                </div>
+                <p style="color:${t.muted};" class="text-xs leading-relaxed m-0">
+                  With ${s.mkt === 'US' ? 'US' : 'Malaysia'} posture currently <strong style="color:${t.ink};">${postureMeta(computeScore()).label} (${computeScore()}/100)</strong>, staggered accumulation beats lump-sum chasing near 52-week highs (${s.rangePct}% of range).
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderPeekDrawer() {
+      if (!state.peekStock) return '';
+      const t = T();
+      const s = STOCKS[state.peekStock];
+      return `
+        <div class="fixed inset-0 z-40 flex justify-end anim-fade" style="background:rgba(7,10,18,0.45);" onclick="closePeek()">
+          <div onclick="event.stopPropagation()" style="background:${t.surface};border-left:1px solid ${t.border};box-shadow:-16px 0 48px rgba(0,0,0,0.22);"
+            class="w-full max-w-[400px] h-full p-6 flex flex-col justify-between overflow-y-auto anim-drawer">
+            <div class="space-y-5">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  ${stockAvatar(s, 46)}
+                  <div>
+                    <div style="color:${t.ink};" class="text-base font-bold display">${s.name}</div>
+                    <div style="color:${t.muted};" class="text-xs">${s.flag} ${s.sym} · ${s.exchange}</div>
+                  </div>
+                </div>
+                <button onclick="closePeek()" style="background:${t.surfaceMuted};color:${t.ink};" class="w-8 h-8 rounded-full border-0 cursor-pointer font-bold">✕</button>
+              </div>
+
+              <div style="background:${t.surfaceSub};border:1px solid ${t.border};" class="rounded-2xl p-4 flex items-end justify-between">
+                <div>
+                  <div style="color:${t.ink};" class="text-2xl font-bold tnum display">${fmtPrice(s)}</div>
+                  <div class="mt-1">${pctBadge(s.chgPct)}</div>
+                </div>
+                ${sparkSvg(s.spark, s.chgPct >= 0, 118, 40, 'peek-' + s.sym)}
+              </div>
+
+              <div class="grid grid-cols-2 gap-2.5">
+                ${[
+                  ['P/E Ratio', `${s.pe}×`],
+                  ['FCF Yield', `${s.fcfYield.toFixed(2)}%`],
+                  ['Op Margin', `${s.opMargin.toFixed(1)}%`],
+                  ['Div Yield', `${s.divYield.toFixed(2)}%`]
+                ].map(([k, v]) => `
+                  <div style="background:${t.surfaceSub};border:1px solid ${t.border};" class="rounded-xl p-3">
+                    <div style="color:${t.muted};" class="text-[11px]">${k}</div>
+                    <div style="color:${t.ink};" class="text-sm font-bold tnum mt-0.5">${v}</div>
+                  </div>`).join('')}
+              </div>
+
+              <div class="space-y-2">
+                <div style="color:${t.sub};" class="text-[11px] font-bold uppercase tracking-wider">Quick Health Read</div>
+                ${s.health.map(h => `
+                  <div style="background:${t.surfaceSub};border:1px solid ${t.border};" class="rounded-xl p-3 space-y-1">
+                    <div class="flex items-center justify-between">
+                      <span style="color:${t.ink};" class="text-xs font-bold">${h.label}</span>
+                      ${toneChip(h.status, h.tone)}
+                    </div>
+                    <div style="color:${t.muted};" class="text-xs leading-relaxed">${h.desc}</div>
+                  </div>`).join('')}
+              </div>
+
+              <div style="background:${t.brandSoft};border:1px solid ${t.brandBorder};" class="rounded-2xl p-3.5 space-y-1">
+                <div style="color:${t.brand};" class="text-[11px] font-bold uppercase tracking-wider">Your Saved Note</div>
+                <div style="color:${t.inkSoft};" class="text-xs leading-relaxed">${state.savedNotes[s.sym] || s.note}</div>
+              </div>
+            </div>
+
+            <div class="pt-4 flex items-center gap-2">
+              <button onclick="openResearch('${s.sym}')" style="background:${t.pillBg};color:${t.pillInk};"
+                class="flex-1 py-2.5 rounded-xl text-xs font-semibold cursor-pointer border-0">Open Full Research →</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderCompareModal() {
+      if (!state.showCompareModal || state.comparePair.length < 2) return '';
+      const t = T();
+      const a = STOCKS[state.comparePair[0]];
+      const b = STOCKS[state.comparePair[1]];
+      const rows = [
+        { label: 'P/E Ratio (Lower = Cheaper)', av: a.pe, bv: b.pe, fmt: v => `${v}×`, max: Math.max(a.pe, b.pe, 45), lowerBetter: true },
+        { label: 'Free Cash Flow Yield', av: a.fcfYield, bv: b.fcfYield, fmt: v => `${v.toFixed(2)}%`, max: 7 },
+        { label: 'Operating Margin', av: a.opMargin, bv: b.opMargin, fmt: v => `${v.toFixed(1)}%`, max: 65 },
+        { label: 'Dividend Yield', av: a.divYield, bv: b.divYield, fmt: v => `${v.toFixed(2)}%`, max: 7 },
+        { label: '1-Year Return', av: a.y1Ret, bv: b.y1Ret, fmt: v => `+${v.toFixed(1)}%`, max: 80 }
+      ];
+      return `
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 anim-fade" style="background:rgba(7,10,18,0.55);" onclick="closeCompare()">
+          <div onclick="event.stopPropagation()" style="background:${t.surface};border:1px solid ${t.borderStrong};box-shadow:0 24px 64px rgba(0,0,0,0.35);"
+            class="w-full max-w-[680px] rounded-[28px] p-6 space-y-5 anim-modal">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 style="color:${t.ink};" class="text-lg font-bold display m-0">Head-to-Head Comparison</h2>
+                <p style="color:${t.muted};" class="text-xs m-0 mt-0.5">Visual financial & valuation battle</p>
+              </div>
+              <button onclick="closeCompare()" style="background:${t.surfaceMuted};color:${t.ink};" class="w-8 h-8 rounded-full border-0 cursor-pointer font-bold">✕</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              ${[a, b].map((s, idx) => `
+                <div style="background:${t.surfaceSub};border:1px solid ${idx === 0 ? t.brandBorder : t.upBorder};" class="rounded-2xl p-3.5 flex items-center justify-between">
+                  <div class="flex items-center gap-2.5">
+                    ${stockAvatar(s, 38)}
+                    <div>
+                      <div style="color:${t.ink};" class="text-sm font-bold">${s.sym}</div>
+                      <div style="color:${t.muted};" class="text-xs">${s.name}</div>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <div style="color:${t.ink};" class="text-sm font-bold tnum">${fmtPrice(s)}</div>
+                    <div style="color:${s.chgPct >= 0 ? t.up : t.down};" class="text-xs font-semibold tnum">${fmtPct(s.chgPct)}</div>
+                  </div>
+                </div>`).join('')}
+            </div>
+
+            <div class="space-y-3.5">
+              ${rows.map(r => {
+                const aw = Math.min(100, Math.max(8, (r.av / r.max) * 100));
+                const bw = Math.min(100, Math.max(8, (r.bv / r.max) * 100));
+                return `
+                  <div class="space-y-1.5">
+                    <div class="flex items-center justify-between text-xs">
+                      <span style="color:${t.brand};" class="font-bold tnum">${r.fmt(r.av)}</span>
+                      <span style="color:${t.muted};" class="font-semibold">${r.label}</span>
+                      <span style="color:${t.up};" class="font-bold tnum">${r.fmt(r.bv)}</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                      <div style="background:${t.track};" class="h-2 rounded-full flex justify-end overflow-hidden">
+                        <div style="width:${aw}%;background:${t.brand};" class="h-2 rounded-full"></div>
+                      </div>
+                      <div style="background:${t.track};" class="h-2 rounded-full overflow-hidden">
+                        <div style="width:${bw}%;background:${t.upBright};" class="h-2 rounded-full"></div>
+                      </div>
+                    </div>
+                  </div>`;
+              }).join('')}
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderCmdModal() {
+      if (!state.cmdOpen) return '';
+      const t = T();
+      const q = state.cmdQuery.trim().toLowerCase();
+      const items = [
+        ...Object.values(STOCKS).map(s => ({
+          kind: 'Stock', title: `${s.sym} · ${s.name}`, sub: `${s.flag} ${fmtPrice(s)} (${fmtPct(s.chgPct)}) · P/E ${s.pe}×`,
+          run: () => openResearch(s.sym)
+        })),
+        { kind: 'Action', title: 'Stress-test Market Panic (VIX → 34)', sub: 'Jump to Market Pulse simulator at defensive stress', run: () => { state.page = 'market'; state.simVix = 34; closeCmd(); } },
+        { kind: 'Action', title: 'Compare AAPL vs MSFT side-by-side', sub: 'Open visual head-to-head comparison modal', run: () => { state.comparePair = ['AAPL', 'MSFT']; state.showCompareModal = true; closeCmd(); } },
+        { kind: 'Glossary', title: 'What is Free Cash Flow Yield?', sub: 'Annual free cash flow divided by market cap — higher means more real cash per dollar invested.', run: () => closeCmd() }
+      ].filter(i => !q || i.title.toLowerCase().includes(q) || i.sub.toLowerCase().includes(q));
+
+      window.__cmdItems = items;
+      return `
+        <div class="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 anim-fade" style="background:rgba(7,10,18,0.52);" onclick="closeCmd()">
+          <div onclick="event.stopPropagation()" style="background:${t.surface};border:1px solid ${t.borderStrong};box-shadow:0 28px 72px rgba(0,0,0,0.4);"
+            class="w-full max-w-[540px] rounded-3xl overflow-hidden anim-modal">
+            <div class="px-4 py-3.5 flex items-center gap-3" style="border-bottom:1px solid ${t.border};">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${t.muted}" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+              <input id="cmd-input" value="${state.cmdQuery}" oninput="state.cmdQuery=this.value; render(); document.getElementById('cmd-input')?.focus();"
+                placeholder="Jump to a stock, stress-test market, or search glossary..."
+                style="color:${t.ink};" class="flex-1 bg-transparent border-0 outline-none text-sm" />
+              <kbd style="background:${t.surfaceMuted};color:${t.muted};" class="px-2 py-0.5 rounded-md text-[11px] font-semibold">ESC</kbd>
+            </div>
+            <div class="max-h-[340px] overflow-y-auto p-2 space-y-1">
+              ${items.map((item, i) => `
+                <button onclick="window.__cmdItems[${i}].run()"
+                  style="background:transparent;"
+                  class="w-full text-left px-3 py-2.5 rounded-2xl border-0 cursor-pointer flex items-center justify-between gap-3 hover:bg-blue-500/10 smooth">
+                  <div>
+                    <div style="color:${t.ink};" class="text-xs font-bold">${item.title}</div>
+                    <div style="color:${t.muted};" class="text-[11px] mt-0.5">${item.sub}</div>
+                  </div>
+                  ${toneChip(item.kind, item.kind === 'Stock' ? 'brand' : item.kind === 'Action' ? 'up' : 'neutral')}
+                </button>`).join('')}
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function render() {
+      const t = T();
+      document.body.style.background = t.bg;
+      document.body.style.color = t.ink;
+
+      const content = state.page === 'home' ? renderHomePage()
+        : state.page === 'market' ? renderMarketPage()
+        : state.page === 'discover' ? renderDiscoverPage()
+        : renderResearchPage();
+
+      document.getElementById('root').innerHTML = `
+        <div class="flex min-h-screen w-full" style="background:${t.bg};">
+          ${renderSidebar()}
+          <div class="flex-1 min-w-0 flex flex-col">
+            ${renderTopBar()}
+            <main class="flex-1 max-w-[1260px] w-full mx-auto px-5 md:px-8 py-6 md:py-7">
+              ${content}
+            </main>
+          </div>
+        </div>
+        ${renderPeekDrawer()}
+        ${renderCompareModal()}
+        ${renderCmdModal()}
+      `;
+    }
+
+    render();
+  </script>
+</body>
+</html>

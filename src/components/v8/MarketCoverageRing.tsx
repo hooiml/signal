@@ -7,10 +7,8 @@ import layout from './market-v8-connected.module.css';
 
 type Segment = { key: string; label: string; weight: number; state: 'fresh' | 'stale' | 'unknown' | 'fallback' };
 const stateLabel = { fresh: 'fresh', stale: 'stale', unknown: 'freshness unverified', fallback: 'neutral fallback' } as const;
-const RADIUS = 46;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-/** Score weight by input: each slice identifies an indicator; freshness remains a text label. */
+/** Score weight by input: clean horizontal segmented bar + hairline legend rows. */
 export function MarketCoverageRing({ signal, coverage, onSelect }: {
     signal: MarketSignal; coverage: MarketEvidenceCoverage;
     onSelect: (key: string, element: HTMLButtonElement) => void;
@@ -35,21 +33,31 @@ export function MarketCoverageRing({ signal, coverage, onSelect }: {
         ? `MY news: ${newsEvidence?.eligible_count === undefined ? 'eligible article count unavailable' : `${newsEvidence.eligible_count} eligible dated article${newsEvidence.eligible_count === 1 ? '' : 's'}`} · ${newsEvidence?.within_24h_count === undefined ? '24-hour count unavailable' : `${newsEvidence.within_24h_count} dated within 24h`} of ${newsEvidence?.evaluated_at ? marketTimestampLabel(newsEvidence.evaluated_at) : 'an unavailable evidence-check time'} · ${newsObservation}.`
         : null;
     const total = segments.reduce((sum, segment) => sum + segment.weight, 0) || 1;
-    const gap = segments.length > 1 ? 2 : 0;
-    // Each arc starts where the previous one ended.
-    const arcs = segments.map((segment, index) => {
-        const start = segments.slice(0, index).reduce((sum, previous) => sum + previous.weight, 0) / total * CIRCUMFERENCE;
-        const length = segment.weight / total * CIRCUMFERENCE;
-        return { segment, start, dash: Math.max(0, length - gap) };
+    const bars = segments.map((segment, index) => {
+        const x = (segments.slice(0, index).reduce((sum, prev) => sum + prev.weight, 0) / total) * 300;
+        const width = (segment.weight / total) * 300;
+        return { segment, x, width: Math.max(0, width - (segments.length > 1 ? 2 : 0)) };
     });
+
     return <div className={layout.coverageRing}>
-        <svg viewBox="0 0 120 120" role="img" aria-label={`Score weight: ${segments.map(segment => `${segment.label} ${segment.weight.toFixed(1)}%, ${stateLabel[segment.state]}`).join('; ')}.`}>
-            <circle cx="60" cy="60" r={RADIUS} fill="none" stroke="var(--surface-muted)" strokeWidth="11" />
-            {arcs.map(({ segment, start, dash }) => <circle key={segment.key} data-indicator={segment.key} data-state={segment.state} cx="60" cy="60" r={RADIUS} fill="none" strokeWidth="11"
-                strokeLinecap={dash > 12 ? 'round' : 'butt'}
-                strokeDasharray={`${dash} ${CIRCUMFERENCE - dash}`} strokeDashoffset={-start} transform="rotate(-90 60 60)" />)}
-            <text x="60" y="58" textAnchor="middle" className={layout.ringValue}>{Math.round(coverage.observedPct)}%</text>
-            <text x="60" y="74" textAnchor="middle" className={layout.ringLabel}>scored</text>
+        <div className={layout.coverageBarHead}>
+            <strong className={layout.coveragePct}>{Math.round(coverage.observedPct)}% <span>scored</span></strong>
+            <span className={layout.coverageSummary}>{coverage.fallbackPct > 0 ? `${Math.round(coverage.fallbackPct)}% fallback` : 'All inputs live'}</span>
+        </div>
+        <svg className={layout.coverageBarSvg} viewBox="0 0 300 12" preserveAspectRatio="none" role="img" aria-label={`Score weight: ${segments.map(segment => `${segment.label} ${segment.weight.toFixed(1)}%, ${stateLabel[segment.state]}`).join('; ')}.`}>
+            <rect x="0" y="1" width="300" height="10" rx="5" fill="var(--surface-muted)" />
+            {bars.map(({ segment, x, width }) => (
+                <rect
+                    key={segment.key}
+                    data-indicator={segment.key}
+                    data-state={segment.state}
+                    x={x.toFixed(1)}
+                    y="1"
+                    width={width.toFixed(1)}
+                    height="10"
+                    rx="4"
+                />
+            ))}
         </svg>
         <ul className={layout.ringLegend}>
             {segments.map(segment => <li key={segment.key}>

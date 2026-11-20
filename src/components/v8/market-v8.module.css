@@ -1,26 +1,30 @@
-/* V8 design tokens (Precision Fintech): one colour per job. Market and Research V8 surfaces read
-   only these. They are also set on <html> while a V8 page is mounted so the page scrollbar and
-   app-level overlays (such as the install prompt) can use them. */
+/* V8/V9 design tokens (Calm Monochrome + WCAG AA/AAA Contrast): neutral structural chrome;
+   semantic green/rose/amber reserved strictly for market signals and evidence state. */
 .app, .tokens, :global(html):has(.app, .tokens) {
-    /* Neutrals (zinc scale) */
-    --canvas: #f4f5f7; --surface: #ffffff; --surface-subtle: #f8f9fb; --surface-muted: #eceef2;
-    --line: #e3e6ec; --line-strong: #cfd4de;
-    --ink: #0d1117; --muted: #57606a; --subtle: #6e7781;
-    /* Unified active accent & links; monochrome primary CTA keeps data colours quiet */
-    --brand: #2f5be8; --brand-hover: #2349c7; --brand-soft: #eef2ff; --focus: var(--brand);
-    --link: #2f5be8; --link-hover: #1e40af;
-    --cta: #111827; --cta-hover: #1f2937; --on-cta: #ffffff;
+    /* Neutrals (crisp alabaster & obsidian-slate) */
+    --canvas: #f2f4f8; --surface: #ffffff; --surface-subtle: #f7f8fb; --surface-muted: #eceff4;
+    --line: rgba(15, 23, 42, 0.09); --line-strong: rgba(15, 23, 42, 0.17);
+    --ink: #090d16; --muted: #475467; --subtle: #546175;
+    /* Calm monochrome structural accent; high-contrast links keep focus & affordance clear */
+    --brand: #0f172a; --brand-hover: #1e293b; --brand-soft: #eef1f6; --focus: #334155;
+    --link: #1e293b; --link-hover: #090d16;
+    --cta: #0f172a; --cta-hover: #1e293b; --on-cta: #ffffff;
     /* Data semantics: positive, negative/risk, stale or fallback evidence */
-    --up: #047857; --up-mark: #10b981; --up-line: #a7f3d0; --up-soft: #ecfdf5;
-    --down: #be123c; --down-mark: #f43f5e; --down-line: #fecdd3; --down-soft: #fff1f2;
-    --caution: #a15207; --caution-mark: #f59e0b; --caution-line: #fde68a; --caution-soft: #fffbeb;
-    --chart-line: #1f2937;
+    --up: #047857; --up-mark: #059669; --up-line: #8ee5c2; --up-soft: #e7faf2;
+    --down: #be123c; --down-mark: #e11d48; --down-line: #fbb4c1; --down-soft: #ffeef1;
+    --caution: #b45309; --caution-mark: #d97706; --caution-line: #f6d27a; --caution-soft: #fef6e0;
+    --chart-line: #334155;
+    /* Subtle ambient posture aurora washes */
+    --aurora-up: radial-gradient(ellipse 66% 74% at 14% 0%, rgba(16, 185, 129, 0.13), transparent 62%), radial-gradient(ellipse 52% 60% at 88% 10%, rgba(15, 23, 42, 0.04), transparent 60%), var(--surface);
+    --aurora-neutral: radial-gradient(ellipse 66% 74% at 14% 0%, rgba(217, 119, 6, 0.12), transparent 62%), radial-gradient(ellipse 52% 60% at 88% 10%, rgba(15, 23, 42, 0.04), transparent 60%), var(--surface);
+    --aurora-down: radial-gradient(ellipse 66% 74% at 14% 0%, rgba(225, 29, 72, 0.13), transparent 62%), radial-gradient(ellipse 52% 60% at 88% 10%, rgba(217, 119, 6, 0.06), transparent 60%), var(--surface);
     /* Indicator identity, independent of direction and freshness. */
-    --indicator-vix: #2f5be8; --indicator-social: #7c3aed; --indicator-put-call: #c2410c;
-    --indicator-news: #0e7490; --indicator-aaii: #047857; --indicator-naaim: #be185d; --indicator-bofa: #a16207;
+    --indicator-vix: #334155; --indicator-social: #7c3aed; --indicator-put-call: #c2410c;
+    --indicator-news: #0e7490; --indicator-aaii: #047857; --indicator-naaim: #be185d; --indicator-bofa: #b45309;
     /* Text on brand fills, base colour for shadows/overlays, and subtle resting elevation. */
-    --on-brand: #ffffff; --shadow: #090b0e;
-    --card-shadow: 0 1px 2px color-mix(in srgb, var(--shadow) 5%, transparent), 0 0 0 1px color-mix(in srgb, var(--shadow) 3%, transparent);
+    --on-brand: #ffffff; --shadow: #090d16;
+    --card-shadow: 0 1px 2px color-mix(in srgb, var(--shadow) 5%, transparent), 0 8px 24px -12px color-mix(in srgb, var(--shadow) 8%, transparent);
+    --hero-shadow: 0 2px 6px color-mix(in srgb, var(--shadow) 5%, transparent), 0 16px 36px -16px color-mix(in srgb, var(--shadow) 11%, transparent);
     --control-shadow: 0 1px 2px color-mix(in srgb, var(--shadow) 6%, transparent);
     --header-bg: color-mix(in srgb, var(--surface) 90%, transparent);
     /* Typography: Plus Jakarta Sans (Display headings) + Inter (UI, scores, prices, metrics, tables) */
@@ -51,7 +55,8 @@
 .app h3 { font-size: var(--text-md); line-height: 1.4; font-weight: 600; letter-spacing: -.015em; }
 .app p { color: var(--muted); }
 .app small { font-size: var(--text-sm); font-weight: 400; }
-.header { height: 60px; padding: 0 max(32px, calc((100vw - 1456px) / 2)); display: flex; gap: 40px; align-items: center; border-bottom: 1px solid var(--line); background: var(--header-bg); backdrop-filter: blur(12px); }
+.header { height: 60px; padding: 0 max(32px, calc((100vw - 1456px) / 2)); display: flex; gap: 16px 28px; align-items: center; border-bottom: 1px solid var(--line); background: var(--header-bg); backdrop-filter: blur(14px); }
+.header > dialog + button[aria-haspopup="dialog"] { margin-left: 0; }
 .logo { display: flex; align-items: center; gap: 9px; font-family: var(--font-sans); font-size: 21px; font-weight: 700; letter-spacing: -.03em; }
 .logo svg { width: 26px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.8; stroke-linecap: round; }
 .logo > span { font-size: var(--text-xs); letter-spacing: .01em; background: var(--surface-muted); color: var(--muted); border: 1px solid var(--line); padding: 2px 6px; border-radius: 6px; font-weight: 600; }
@@ -558,24 +563,28 @@
 /* The score pins glide when the reading changes (motion is removed under prefers-reduced-motion). */
 .v81ScorePin, .v81PreviousPin { transition: left .6s ease; }
 
-/* Dark theme (Precision Fintech): carbon neutral surfaces; crisp off-white monochrome CTAs;
-   periwinkle-indigo active accent; green, rose and amber stay for data direction and evidence state. */
+/* Dark theme (V9.0.1 Calm Monochrome): obsidian surfaces, softened pearl ink (14.8:1 AAA, zero
+   OLED glare), neutral monochrome chrome; emerald, rose and amber reserved for market signals. */
 :global(html[data-v8-theme=dark]) .app, :global(html[data-v8-theme=dark]) .tokens, :global(html[data-v8-theme=dark]):has(.app, .tokens) {
-    --canvas: #090b0e; --surface: #11141a; --surface-subtle: #0d1015; --surface-muted: #1a1f28;
-    --line: #232936; --line-strong: #333c4d;
-    --ink: #f3f4f6; --muted: #98a2b3; --subtle: #7c8698;
-    --brand: #6b8afd; --brand-hover: #8ba4fe; --brand-soft: #161f3a; --on-brand: #090b0e; --focus: var(--brand);
-    --link: #7c99fe; --link-hover: #a5b9ff;
-    --cta: #f3f4f6; --cta-hover: #ffffff; --on-cta: #090b0e;
-    --up: #34d399; --up-mark: #10b981; --up-line: #1a523f; --up-soft: #0e281f;
-    --down: #fb7185; --down-mark: #f43f5e; --down-line: #632333; --down-soft: #2c131a;
-    --caution: #fbbf24; --caution-mark: #f59e0b; --caution-line: #614615; --caution-soft: #29200f;
-    --chart-line: #d1d5db; --shadow: #000000;
-    --card-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 6%, transparent), 0 4px 16px color-mix(in srgb, var(--shadow) 36%, transparent);
+    --canvas: #080b12; --surface: #111622; --surface-subtle: #151b2a; --surface-muted: #1c2436;
+    --line: rgba(255, 255, 255, 0.08); --line-strong: rgba(255, 255, 255, 0.17);
+    --ink: #e7ecf4; --muted: #94a2b8; --subtle: #7c8ba3;
+    --brand: #edf1f7; --brand-hover: #ffffff; --brand-soft: rgba(255, 255, 255, 0.08); --on-brand: #080b12; --focus: #cbd5e1;
+    --link: #cbd5e1; --link-hover: #ffffff;
+    --cta: #e2e8f2; --cta-hover: #f8fafc; --on-cta: #0b101b;
+    --up: #4ade80; --up-mark: #22c55e; --up-line: rgba(74, 222, 128, 0.30); --up-soft: rgba(16, 185, 129, 0.15);
+    --down: #fda4af; --down-mark: #fb7185; --down-line: rgba(253, 164, 175, 0.30); --down-soft: rgba(244, 63, 94, 0.15);
+    --caution: #fcd34d; --caution-mark: #fbbf24; --caution-line: rgba(252, 211, 77, 0.30); --caution-soft: rgba(245, 158, 11, 0.15);
+    --chart-line: #cbd5e1; --shadow: #000000;
+    --aurora-up: radial-gradient(ellipse 68% 76% at 14% 0%, rgba(34, 197, 94, 0.17), transparent 62%), radial-gradient(ellipse 50% 60% at 88% 10%, rgba(255, 255, 255, 0.04), transparent 60%), var(--surface);
+    --aurora-neutral: radial-gradient(ellipse 68% 76% at 14% 0%, rgba(251, 191, 36, 0.17), transparent 62%), radial-gradient(ellipse 50% 60% at 88% 10%, rgba(255, 255, 255, 0.03), transparent 60%), var(--surface);
+    --aurora-down: radial-gradient(ellipse 68% 76% at 14% 0%, rgba(251, 113, 133, 0.19), transparent 62%), radial-gradient(ellipse 50% 60% at 88% 10%, rgba(251, 191, 36, 0.07), transparent 60%), var(--surface);
+    --card-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 6%, transparent), 0 10px 28px -12px color-mix(in srgb, var(--shadow) 65%, transparent);
+    --hero-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 8%, transparent), 0 22px 44px -16px color-mix(in srgb, var(--shadow) 78%, transparent);
     --control-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 5%, transparent), 0 1px 2px color-mix(in srgb, var(--shadow) 28%, transparent);
     --header-bg: color-mix(in srgb, var(--surface) 88%, transparent);
-    --indicator-vix: #6b8afd; --indicator-social: #a78bfa; --indicator-put-call: #fb923c;
-    --indicator-news: #22d3ee; --indicator-aaii: #34d399; --indicator-naaim: #f472b6; --indicator-bofa: #facc15;
+    --indicator-vix: #cbd5e1; --indicator-social: #c4b5fd; --indicator-put-call: #fb923c;
+    --indicator-news: #67e8f9; --indicator-aaii: #4ade80; --indicator-naaim: #f472b6; --indicator-bofa: #fcd34d;
     color-scheme: dark;
 }
 /* Theme control in the V8 header. */
@@ -588,9 +597,9 @@
 .themeControl label:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; z-index: 1; }
 @media (max-width: 600px) { .themeControl { margin-left: 0; } .themeControl label { padding: 0 9px; } .themeControl span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
 
-/* Connected V8 headers keep their Settings target and navigation intact on phones. */
+/* Connected V8 headers keep their Quick Jump, Settings target and navigation intact on phones. */
 @media (max-width: 600px) {
-    .header:has(> button[aria-haspopup="dialog"]) { height: auto; min-height: 60px; padding: 10px 16px 8px; gap: 6px 16px; flex-wrap: wrap; }
+    .header:has(> button[aria-haspopup="dialog"]) { height: auto; min-height: 60px; padding: 10px 14px 8px; gap: 6px 8px; flex-wrap: wrap; }
     .header:has(> button[aria-haspopup="dialog"]) > .logo { white-space: nowrap; flex-shrink: 0; }
     .header:has(> button[aria-haspopup="dialog"]) > nav { order: 3; width: 100%; height: 44px; gap: 8px; }
     .header:has(> button[aria-haspopup="dialog"]) > nav a { white-space: nowrap; }

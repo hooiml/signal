@@ -34,6 +34,7 @@ import type { DiscoverView } from './discover-view';
 import { date, parseWatchlist, price, researchHref, researchTabs, retrievedAt, type ResearchTab } from './research-v8-connected-data';
 import base from './market-v8.module.css';
 import { V8Settings } from './V8Settings';
+import { V8CommandPalette } from './V8CommandPalette';
 import { FirstVisitCallout, V8FirstVisit, useFirstVisit } from './V8FirstVisit';
 import styles from './research-v8.module.css';
 import connected from './research-v8-connected.module.css';
@@ -361,7 +362,7 @@ export function ResearchV8Connected({ initialTicker = '', initialMarket, initial
     const homeDiscover = <ResearchDiscoverV8 initialView={initialDiscover} defaultOpen embedded records={records} workspace={workspace} onSelect={openFromDiscover} />;
     return <div className={`${base.app} ${styles.app} ${connected.app}`}>
         <a className={base.skip} href="#v8-content">Skip to content</a>
-        <header className={base.header}><a className={base.logo} href="/main-v8">∿ Signal</a><nav aria-label="Primary"><a href={readingMarket ? `/main-v8?market=${readingMarket}` : '/main-v8'}>Market</a><a href="/research-v8" aria-current="page">Research</a></nav><V8Settings hasUnsavedGuestNotes={workspace === 'guest' && unsavedRecords.length > 0} /></header>
+        <header className={base.header}><a className={base.logo} href="/main-v8">∿ Signal</a><nav aria-label="Primary"><a href={readingMarket ? `/main-v8?market=${readingMarket}` : '/main-v8'}>Market</a><a href="/research-v8" aria-current="page">Research</a></nav><V8CommandPalette market={readingMarket ?? 'US'} /><V8Settings hasUnsavedGuestNotes={workspace === 'guest' && unsavedRecords.length > 0} /></header>
         <main id="v8-content" tabIndex={-1} className={base.canvas}>
             <section className={connected.selectedHeader} aria-label="Selected research security">
                 <div data-testid="selected-security-identity" data-symbol={selected} data-market={readingMarket}>
