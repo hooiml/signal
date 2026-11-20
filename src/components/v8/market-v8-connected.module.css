@@ -167,7 +167,7 @@
 }
 @media (max-width: 900px) {
     .analysisGrid { grid-template-columns: minmax(0, 1fr); }
-    .evidenceSlot { grid-column: 1; grid-row: 2; }
+    .analysisGrid > .evidenceSlot { grid-column: 1; grid-row: 2; }
     .history { grid-column: 1; grid-row: 1; }
     .contextCard { grid-row: 3; }
     .desktopInspector { display: none; }
