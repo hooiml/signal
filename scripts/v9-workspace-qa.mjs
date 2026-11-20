@@ -301,8 +301,8 @@ try {
             assert.equal(new URL(page.url()).pathname, '/v9');
             assert.equal(new URL(page.url()).searchParams.get('tab'), name.toLowerCase());
         }
-        await page.getByLabel('Open stock ticker').fill('MSFT');
-        await page.getByRole('button', { name: 'Open', exact: true }).last().click();
+        await page.getByRole('searchbox', { name: 'Company or ticker' }).fill('MSFT');
+        await page.getByRole('button', { name: 'Read ticker directly' }).click();
         assert.equal(new URL(page.url()).pathname, '/v9');
         assert.equal(new URL(page.url()).searchParams.get('ticker'), 'MSFT');
     });

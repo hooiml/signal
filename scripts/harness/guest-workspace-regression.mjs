@@ -104,6 +104,9 @@ const {
     restoreGuestDraftBackup,
     writeGuestDraftBackup,
     discardGuestDraftBackup,
+    readGuestDraftIdentity,
+    ensureGuestDraftIdentity,
+    saveGuestDraftNote,
 } = load('src/lib/research/guest-workspace.ts');
 const storageKey = 'signal.guest-research.v1';
 
@@ -303,4 +306,59 @@ Object.defineProperty(globalThis, 'navigator', { configurable: true, value: {} }
 await assert.rejects(saveGuestSecurity('NOLOCK', 'US', 'No Lock'), /cannot safely save.*locks are unavailable/i);
 assert.equal(values.get(storageKey), beforeUnavailableLock, 'missing Web Locks never falls back to an unlocked mutation');
 assert.deepEqual(readGuestRecords(), [], 'reads remain available when Web Locks are unavailable');
-console.log('guest workspace regression passed: schema bounds, storage errors, Web Locks serialization, conflicts, markets, removal and clear');
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { locks: lockManager } });
+
+const scope = await ensureGuestDraftIdentity();
+const newDraft = { ...draftA, symbol: 'NEW', expectedUnsaved: true, text: '  Unsaved new stock note.  ' };
+await writeGuestDraftBackup(scope, newDraft, true);
+assert.equal(values.has(storageKey), false, 'First draft storage creates no saved workspace or research record.');
+assert.deepEqual(readGuestDraftBackups(), [], 'Legacy editors continue to show only backups for saved records.');
+assert.deepEqual(readGuestDraftRecovery({ includeUnsaved: true }).drafts, [newDraft]);
+assert.equal(exportGuestWorkspace().includes(newDraft.text.trim()), false, 'Unsaved new-stock text is excluded from saved-only export.');
+const restoredNewDraft = await restoreGuestDraftBackup(scope, newDraft, crypto.randomUUID(), true);
+assert.equal(values.has(storageKey), false, 'Restoring a new-stock note does not bookmark it.');
+
+blockWrite = true;
+await assert.rejects(saveGuestDraftNote(scope, 'NEW', 'US', 'New Stock', newDraft.text, null), /storage may be blocked or full/);
+blockWrite = false;
+assert.equal(values.has(storageKey), false, 'A failed atomic save leaves both the bookmark and note unsaved.');
+assert.deepEqual(readGuestDraftRecovery({ includeUnsaved: true }).drafts, [restoredNewDraft]);
+const newSaved = await saveGuestDraftNote(scope, 'NEW', 'US', 'New Stock', restoredNewDraft.text, null);
+assert.equal(newSaved.record.notes, 'Unsaved new stock note.');
+assert.equal(readGuestDraftIdentity(), scope, 'First explicit save adopts the draft workspace identity.');
+assert.deepEqual(readGuestDraftRecovery({ includeUnsaved: true }).drafts, []);
+await writeGuestDraftBackup(scope, restoredNewDraft, true);
+await saveGuestDraftNote(scope, 'NEW', 'US', 'New Stock', 'A later note', newSaved.record.notes);
+assert.deepEqual(readGuestDraftRecovery({ includeUnsaved: true }).drafts, [], 'A delayed equivalent backup must not reappear after a subsequent save.');
+
+const otherMarket = { ...newDraft, id: crypto.randomUUID(), market: 'MY', text: 'Independent Bursa draft' };
+await writeGuestDraftBackup(scope, otherMarket, true);
+await saveGuestSecurity('NEW', 'MY', 'Other tab bookmarked');
+assert.deepEqual(readGuestDraftRecovery({ includeUnsaved: true }).drafts, [otherMarket]);
+await assert.rejects(saveGuestDraftNote(scope, 'NEW', 'MY', 'New Stock MY', otherMarket.text, null), error => error.name === 'GuestWorkspaceConflictError',
+    'An unsaved baseline must not overwrite a concurrently created record, even when its note is blank.');
+await discardGuestDraftBackup(scope, otherMarket.id, otherMarket, true);
+assert.deepEqual(readGuestDraftRecovery({ includeUnsaved: true }).drafts, []);
+assert.equal(readGuestRecords().find(record => record.market === 'MY').notes, '');
+
+await clearGuestWorkspace();
+assert.equal(readGuestDraftIdentity(), null);
+const firstDraftLock = await lockManager.hold(storageKey);
+const clearBeforeFirstDraft = clearGuestWorkspace();
+const queuedIdentity = ensureGuestDraftIdentity();
+const rejectClearedIdentity = assert.rejects(queuedIdentity, /workspace changed/i);
+firstDraftLock.release();
+await Promise.all([firstDraftLock.completed, clearBeforeFirstDraft, rejectClearedIdentity]);
+assert.equal(readGuestDraftIdentity(), null, 'Clear blocks first-draft setup queued before it completed, even in an empty workspace.');
+
+const replacementLock = await lockManager.hold(storageKey);
+const queuedFirstIdentity = ensureGuestDraftIdentity();
+const rejectReplacedIdentity = assert.rejects(queuedFirstIdentity, /workspace changed/i);
+const replacementId = crypto.randomUUID();
+values.set(storageKey, JSON.stringify({ version: 1, guestId: replacementId, records: [] }));
+replacementLock.release();
+await Promise.all([replacementLock.completed, rejectReplacedIdentity]);
+assert.equal(readGuestDraftIdentity(), replacementId, 'A queued first draft cannot bind to a substituted workspace.');
+await clearGuestWorkspace();
+assert.deepEqual(readGuestDraftRecovery({ includeUnsaved: true }).drafts, []);
+console.log('guest workspace regression passed: draft-only identity, atomic guest-note Save, clear and replacement races, schema bounds, storage errors, Web Locks serialization, conflicts and market isolation');

@@ -9,6 +9,18 @@ production server at `SIGNAL_QA_URL` (default `http://127.0.0.1:3000`). It exerc
 workspace navigation with fixture data and captures Home and Market at 1280, 768
 and 375 pixels in both themes under `.tmp/v9-workspace/`.
 
+Run `node scripts/v9-research-ports-qa.mjs` against the same local server for the
+Research ports. Check the six-stock Home preview against a larger watchlist, owner
+review links, guest filters, company-name search and direct ticker entry. Selecting
+a result must retain its market and stay in V9. Check guest note recovery after
+switching stock and reloading, including a stock that has never been saved. Confirm
+that a guest can keep a draft after a second tab saves the stock, and that a later
+edit in that tab still requires another conflict check. Reading and recovering
+notes must cause no owner writes. Open Chart & technicals and
+Financials & valuation, exercise an optional benchmark, and check a missing quote
+observation against a known retrieval time in Sources & coverage. Use fixture data
+for both US and MY so these checks never need production records.
+
 For the intraday timeline, the full harness includes
 `node scripts/harness/signal-intraday-reader-regression.mjs`. Verify recording separately
 with `node scripts/harness/market-intraday-storage.mjs` against disposable local PostgreSQL.

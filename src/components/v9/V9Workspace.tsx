@@ -26,8 +26,11 @@ import { V9Navigation, workspaceHref, type V9View, type V9Href } from './v9-navi
 import { V9HomeView, type SignalSlot } from './V9HomeView';
 import { V9MarketView } from './V9MarketView';
 import { V9ResearchView } from './V9ResearchView';
+import { V9WatchlistView } from './V9WatchlistView';
+import { ResearchSecurityLookup } from '@/components/v8/ResearchSecurityLookup';
 import { V9DiscoverView, V9PortfolioView } from './V9PortfolioDiscoverViews';
 import { useV9MarketToday } from './useV9MarketToday';
+import { useV9GuestDrafts } from './useV9GuestDrafts';
 import base from '@/components/v8/market-v8.module.css';
 import styles from './v9-workspace.module.css';
 
@@ -52,6 +55,7 @@ export function V9Workspace() {
     const requestedView = searchParams.get('view') as V9View | null;
     const requestedTicker = searchParams.get('ticker')?.trim().toUpperCase();
     const view = requestedView && validViews.has(requestedView) ? requestedView : requestedTicker ? 'research' : 'home';
+    const showingWatchlist = view === 'research' && searchParams.get('tab') === 'watchlist';
     const [defaults, setDefaults] = useState<SignalConfig | null>(null);
     const { market, mode, enableSocial: social } = { ...(defaults ?? DEFAULT_SIGNAL_CONFIG), ...marketRouteConfig(searchParams) };
     const [collapsed, setCollapsed] = useState(false);
@@ -66,11 +70,14 @@ export function V9Workspace() {
     const [myResult, setMyResult] = useState<RequestedSignal | null>(null);
     const usSlot = usResult?.requestKey === requestKey ? usResult : loadingSlot;
     const mySlot = myResult?.requestKey === requestKey ? myResult : loadingSlot;
-    const [{ records, workspace }, setWatchlist] = useState<{
+    const [{ records: loadedRecords, workspace }, setWatchlist] = useState<{
         records: ResearchRecord[] | null;
         workspace: 'checking' | 'guest' | 'owner';
     }>({ records: null, workspace: 'checking' });
+    const guestDrafts = useV9GuestDrafts(workspace === 'guest');
     const [workspaceError, setWorkspaceError] = useState('');
+    const records = workspace === 'guest' && !workspaceError ? guestDrafts.records ?? loadedRecords : loadedRecords;
+    const [refreshingWatchlist, setRefreshingWatchlist] = useState(false);
     const [holdingsTick, setHoldingsTick] = useState(0);
     const [guestTick, setGuestTick] = useState(0);
 
@@ -120,10 +127,11 @@ export function V9Workspace() {
         const loadGuest = () => {
             try {
                 setWatchlist({ workspace: 'guest', records: [...readGuestRecords()] });
-            } catch {
-                setWatchlist({ workspace: 'guest', records: [] });
+                setWorkspaceError('');
+            } catch (cause) {
+                setWatchlist({ workspace: 'guest', records: null });
+                setWorkspaceError(errorText(cause));
             }
-            setWorkspaceError('');
         };
         fetch('/api/owner/session', { signal: controller.signal })
             .then(res => {
@@ -148,7 +156,8 @@ export function V9Workspace() {
                     setWatchlist({ workspace: 'checking', records: null });
                     setWorkspaceError(errorText(cause));
                 }
-            });
+            })
+            .finally(() => { if (!controller.signal.aborted) setRefreshingWatchlist(false); });
         return () => controller.abort();
     }, [guestTick]);
 
@@ -200,12 +209,23 @@ export function V9Workspace() {
         window.scrollTo(0, 0);
     }, [href]);
 
+    function openListing(symbol: string, listingMarket: ResearchMarket) {
+        if (listingMarket === 'MY') {
+            const localSymbol = symbol.replace(/\.KL$/, '');
+            // Existing bookmarks and drafts can use either the Bursa code or its Yahoo suffix.
+            const saved = records?.find(item => item.market === 'MY' && item.symbol === symbol)
+                ?? records?.find(item => item.market === 'MY' && item.symbol.replace(/\.KL$/, '') === localSymbol);
+            const draftSymbol = [symbol, localSymbol, `${localSymbol}.KL`].find(item => guestDrafts.drafts[`MY:${item}`]);
+            openStock(saved?.symbol ?? draftSymbol ?? localSymbol, listingMarket);
+        } else openStock(symbol, listingMarket);
+    }
+
     const updateMarketPreference = (key: 'market' | 'mode' | 'enableSocial', value: string) => {
         const current = { market, mode, enableSocial: String(social) };
         if (current[key] === value) return;
         const url = new URL(window.location.href);
         url.searchParams.set(key, value);
-        if (url.searchParams.get('tab') !== 'today') {
+        if (url.searchParams.get('tab') !== 'today' && !showingWatchlist) {
             url.searchParams.delete('tab');
             url.searchParams.delete('investigation');
         }
@@ -239,7 +259,7 @@ export function V9Workspace() {
         { id: 'market', label: 'Market Pulse', shortLabel: 'Market', badge: activeSlot.signal ? activeSlot.signal.composite_score.toFixed(0) : undefined },
         { id: 'portfolio', label: 'Portfolio', shortLabel: 'Portfolio', badge: portfolio.count ? String(portfolio.count) : undefined },
         { id: 'discover', label: 'Discover', shortLabel: 'Discover' },
-        { id: 'research', label: 'Stock Research', shortLabel: 'Research', badge: ticker },
+        { id: 'research', label: 'Stock Research', shortLabel: 'Research', badge: showingWatchlist ? undefined : ticker },
     ];
 
     const sideWatch = (records && records.length > 0
@@ -295,7 +315,7 @@ export function V9Workspace() {
                 <div className={styles.sideSection}>
                     <div className={styles.sideSectionHead}>
                         <span>{records?.length ? `Watchlist (${records.length})` : 'Quick Stocks'}</span>
-                        <button type="button" onClick={() => switchView('research')} style={{ fontSize: 11, color: 'var(--muted)' }}>Open</button>
+                        <Link className={styles.textLink} href={href('research', { tab: 'watchlist' })}>View all</Link>
                     </div>
                     {sideWatch.map(item => (
                         <button
@@ -345,12 +365,12 @@ export function V9Workspace() {
                             </svg>
                             <span>{isDark ? 'Light' : 'Dark'}</span>
                         </button>
-                        <V8Settings />
+                        <V8Settings hasUnsavedGuestNotes={guestDrafts.hasUnsaved} />
                     </div>
                 </header>
 
                 <main className={styles.pageContent}>
-                    {workspaceError && <div className={styles.card} role="alert">
+                    {workspaceError && !showingWatchlist && <div className={styles.card} role="alert">
                         {workspaceError}{' '}
                         <button type="button" className={styles.textLink} onClick={() => { setWorkspaceError(''); setGuestTick(value => value + 1); }}>Retry workspace</button>
                     </div>}
@@ -419,13 +439,28 @@ export function V9Workspace() {
                         />
                     )}
 
-                    {view === 'research' && (
+                    {view === 'research' && <div className={styles.securityLookup}>
+                        <ResearchSecurityLookup key={market} initialMarket={market} onSelect={openListing} inferBursaTicker />
+                    </div>}
+                    {showingWatchlist && <V9WatchlistView records={records} owner={workspace === 'owner'}
+                        isUnsaved={item => {
+                            const draft = guestDrafts.drafts[`${item.market}:${item.symbol}`];
+                            return !!draft && draft.text !== draft.expectedNote;
+                        }}
+                        loading={refreshingWatchlist || (workspace === 'checking' && !workspaceError)} error={workspaceError}
+                        onReload={() => {
+                            setRefreshingWatchlist(true);
+                            setWorkspaceError('');
+                            setGuestTick(v => v + 1);
+                        }} onOpenStock={openStock} />}
+                    {view === 'research' && !showingWatchlist && (
                         <V9ResearchView
                             key={`${tickerMarket}:${ticker}`}
                             symbol={ticker}
                             market={tickerMarket}
                             records={records}
                             workspace={workspace}
+                            guestDrafts={guestDrafts}
                             theme={isDark ? 'dark' : 'light'}
                             onSavedOwner={mergeSavedOwner}
                             onSelectStock={openStock}

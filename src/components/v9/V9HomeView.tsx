@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
+import Link from 'next/link';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { PortfolioActualCurrencySummary } from '@/lib/portfolio/holdings';
@@ -10,6 +11,7 @@ import { marketEvidenceDay } from '@/lib/market-evidence-coverage';
 import { watchlistReview } from '@/lib/research/watchlist-review';
 import { V9MarketTodaySummary } from './V9MarketToday';
 import type { V9MarketTodayState } from './useV9MarketToday';
+import { V9Navigation } from './v9-navigation';
 import styles from './v9-workspace.module.css';
 
 export type SignalSlot = {
@@ -93,6 +95,7 @@ export function V9HomeView({
     readonly onOpenDiscover: () => void;
     readonly onOpenStock: (symbol: string, market: ResearchMarket) => void;
 }) {
+    const href = useContext(V9Navigation)!;
     const todayIso = usToday.day;
     const usSignal = us.signal?.mode === mode ? us.signal : null;
     const mySignal = my.signal?.mode === mode ? my.signal : null;
@@ -335,7 +338,10 @@ export function V9HomeView({
                                         : 'No saved stocks yet — jump into a popular US or MY company'}
                             </p>
                         </div>
-                        <button type="button" className={styles.textLink} onClick={onOpenDiscover}>Discover →</button>
+                        <div className={styles.heroActions}>
+                            <Link className={`${styles.textLink} ${styles.watchlistLink}`} href={href('research', { tab: 'watchlist' })} prefetch={false}>View all →</Link>
+                            <button type="button" className={styles.textLink} onClick={onOpenDiscover}>Discover →</button>
+                        </div>
                     </div>
                     <div className={styles.watchList}>
                         {(records && records.length > 0

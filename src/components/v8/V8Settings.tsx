@@ -67,7 +67,7 @@ export function V8Settings({ hasUnsavedGuestNotes = false, onDefaultsSaved }: { 
                 setGuestStatus('Guest research and draft backups cleared from this browser.');
             } else {
                 let hasBackups = true;
-                try { const recovery = readGuestDraftRecovery(); hasBackups = recovery.drafts.length > 0 || recovery.unreadableCount > 0; }
+                try { const recovery = readGuestDraftRecovery({ includeUnsaved: true }); hasBackups = recovery.drafts.length > 0 || recovery.unreadableCount > 0; }
                 catch { /* Warn conservatively if recovery cannot be read. Saved-only export validates independently. */ }
                 if ((hasUnsavedGuestNotes || hasBackups) && !window.confirm('Unsaved drafts are not included in this export. Cancel to restore and save them first, or continue to export saved notes only.')) return;
                 const url = URL.createObjectURL(new Blob([exportGuestWorkspace()], { type: 'application/json' }));

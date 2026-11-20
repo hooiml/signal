@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { nearestPricePoint, priceRangeChange, priceSpanChange, valuationShareCount } from '@/lib/research/reading-display';
 import { formatResearchPrice, researchPriceCurrency } from '@/lib/research/price-format';
 import { financialPeriodLabel, formatResearchTimestamp, netCashCurrency, researchMetricPeriodLabel } from '@/lib/research/metric-provenance';
@@ -74,7 +75,22 @@ function SourceLink({ url, label }: { url: string | null; label: string }) {
     return href ? <a className={base.textButton} href={href} target="_blank" rel="noopener noreferrer">{label} ↗</a> : <span>{label} · no usable source link</span>;
 }
 
-export function ResearchConnectedPanel({ tab, record, market, snapshot, loading, providerError = false, advanced, onBenchmarkRequest, benchmarkError, benchmarkLoading, ...chart }: { onBenchmarkRequest: () => void; benchmarkError: boolean; benchmarkLoading: boolean; advanced: boolean; tab: ResearchTab; record?: ResearchRecord; market: ResearchMarket; snapshot: ResearchSnapshot | null; loading: boolean; providerError?: boolean } & ChartStateProps) {
+type ConnectedPanelProps = {
+    onBenchmarkRequest: () => void;
+    benchmarkError: boolean;
+    benchmarkLoading: boolean;
+    advanced: boolean;
+    tab: ResearchTab;
+    record?: ResearchRecord;
+    editHref?: string;
+    market: ResearchMarket;
+    snapshot: ResearchSnapshot | null;
+    loading: boolean;
+    providerError?: boolean;
+} & (ChartStateProps | { tab: Exclude<ResearchTab, 'Overview'> });
+
+export function ResearchConnectedPanel(props: ConnectedPanelProps) {
+    const { tab, record, editHref, market, snapshot, loading, providerError = false, advanced, onBenchmarkRequest, benchmarkError, benchmarkLoading } = props;
     const fundamentals = snapshot?.fundamentals;
     const currency = fundamentals?.history.find(period => period.reportingPeriod === fundamentals.reportingPeriod)?.currency;
     const valuation = snapshot?.valuation;
@@ -96,8 +112,9 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
         {tab === 'Chart & technicals' && (snapshot
             ? <ResearchTechnicals key={`${snapshot.market}:${snapshot.symbol}:${snapshot.fetchedAt}`} snapshot={snapshot} />
             : <p role="status">{loading ? 'Loading security data for the chart…' : 'Security data is unavailable. Retry provider data above to load the chart.'}</p>)}
-        {tab === 'Overview' && <>
-            <PriceHistory key={`${snapshot?.market}:${snapshot?.symbol}:${snapshot?.fetchedAt}:${chart.chartRange}`} snapshot={snapshot} loading={loading} record={record} {...chart} />
+        {tab === 'Overview' && 'chartRange' in props && <>
+            <PriceHistory key={`${snapshot?.market}:${snapshot?.symbol}:${snapshot?.fetchedAt}:${props.chartRange}`} snapshot={snapshot} loading={loading} record={record}
+                chartRange={props.chartRange} setChartRange={props.setChartRange} chartDate={props.chartDate} setChartDate={props.setChartDate} />
             {record && (advanced || record.whyInterested || record.notes || record.acceptedEvidence.length > 0 || record.documentEvidence.citations.length > 0) && <details className={connected.evidence}><summary>Your saved notes and evidence · optional</summary>
             <span className={base.eyebrow}>User-authored · saved {date(record.updatedAt)}</span>{record.whyInterested && <p className={connected.authored}>{record.whyInterested}</p>}{record.notes && <p className={connected.authored}>{record.notes}</p>}
             <h2>The evidence file</h2><p>Accepted research preserves its original sources and mode. A saved interpretation is not an independently verified fact.</p>
@@ -176,7 +193,9 @@ export function ResearchConnectedPanel({ tab, record, market, snapshot, loading,
             ]} /><p className={connected.authored}>{record.decisionJournal.outcomeNote || 'No outcome note recorded.'}</p>
             <h3>Saved review history</h3>{record.reviewHistory.length ? [...record.reviewHistory].sort((a, b) => b.reviewedAt.localeCompare(a.reviewedAt)).map(review => <details key={review.id} className={connected.evidence}><summary>{date(review.reviewedAt)} · {review.decisionJournal.decision}</summary><p className={connected.authored}>{review.whyInterested || 'No thesis recorded.'}</p><p className={styles.noteText}>{review.notes || 'No note recorded.'}</p><small>Confidence: {review.decisionJournal.confidence} · prior outcome: {review.decisionJournal.priorOutcome}</small></details>) : <p>No earlier review snapshots are saved.</p>}
         </>}
-        {advanced && record && tab !== 'Review' && <a className={`${base.textButton} ${connected.editLink}`} href={researchHref(record.symbol, tab === 'Valuation' ? 'valuation' : 'review', record.market)} target="_blank" rel="noopener noreferrer">{tab === 'Valuation' ? 'Open full valuation workspace' : 'Edit saved research'} (new tab) ↗</a>}
+        {advanced && record && tab !== 'Review' && (editHref
+            ? <Link className={`${base.textButton} ${connected.editLink}`} href={editHref}>Edit saved research →</Link>
+            : <a className={`${base.textButton} ${connected.editLink}`} href={researchHref(record.symbol, tab === 'Valuation' ? 'valuation' : 'review', record.market)} target="_blank" rel="noopener noreferrer">{tab === 'Valuation' ? 'Open full valuation workspace' : 'Edit saved research'} (new tab) ↗</a>)}
     </div>;
 }
 
