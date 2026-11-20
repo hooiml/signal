@@ -227,3 +227,12 @@ Normal `npm run qa:visual` without update flags then passed 20/20 at zero pixel 
 against the local production server (`http://127.0.0.1:3000`). Docker was not running locally,
 so Linux baselines (`linux-noble-9bd26ad900bb-pw1.60.0`) remain to be reviewed and accepted
 from the pinned Linux `Signal validation` visual artifact per the enrollment contract above.
+
+**V9 Linux review (20 November 2026).** Reviewed all 20 Linux candidates from
+[run 44717532423](https://github.com/hooiml/signal/actions/runs/44717532423),
+artifact `14619474344`, at main commit `beaf5a2`. The captures show the new
+Market score arc and brief layout, plus the updated typography and palette across
+all five screens. The Windows and Linux phone views differ slightly in tab-strip
+scroll position and text wrapping. Each Linux candidate matched its actual image,
+and each expected image matched the previous Linux baseline. All 20 reports
+matched the pinned renderer and fixture settings and recorded zero browser errors.
