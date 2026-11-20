@@ -5,11 +5,14 @@ import { EmbeddedMarketView } from '@/components/v8/MarketV8Connected';
 import { marketSourceToggleStatus } from '@/components/v8/MarketV8ConnectedData';
 import type { MarketExposureWorkspace } from '@/components/v8/MarketV8Exposure';
 import type { Market, Mode } from '@/components/v8/market-v8-fixtures';
+import { V9MarketTodayPanel } from './V9MarketToday';
+import type { V9MarketTodayState } from './useV9MarketToday';
 import base from '@/components/v8/market-v8.module.css';
 import styles from './v9-workspace.module.css';
 
 export function V9MarketView({
     market,
+    today,
     mode,
     social,
     signal,
@@ -24,6 +27,7 @@ export function V9MarketView({
     onReload,
 }: {
     readonly market: Market;
+    readonly today: V9MarketTodayState;
     readonly mode: Mode;
     readonly social: boolean;
     readonly signal: MarketSignal | null;
@@ -45,6 +49,7 @@ export function V9MarketView({
         receivedAt={receivedAt}
         isDark={isDark}
         exposureWorkspace={exposureWorkspace}
+        todayPanel={<V9MarketTodayPanel market={market} state={today} />}
         onReload={onReload}
         renderToolbar={(advanced, toggleAdvanced) => (
             <div className={styles.marketToolbar}>

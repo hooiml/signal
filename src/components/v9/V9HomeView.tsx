@@ -8,7 +8,8 @@ import { buildMarketBrief } from '@/lib/market-brief';
 import { marketReadingLabel, marketTimestampLabel } from '@/lib/market-display';
 import { marketEvidenceDay } from '@/lib/market-evidence-coverage';
 import { watchlistReview } from '@/lib/research/watchlist-review';
-import { useReviewDay } from '@/lib/research/use-review-day';
+import { V9MarketTodaySummary } from './V9MarketToday';
+import type { V9MarketTodayState } from './useV9MarketToday';
 import styles from './v9-workspace.module.css';
 
 export type SignalSlot = {
@@ -64,6 +65,9 @@ const fmtMoney = (value: number, currency: string) =>
 export function V9HomeView({
     us,
     my,
+    usToday,
+    myToday,
+    todayHref,
     mode,
     selectedMarket,
     records,
@@ -76,6 +80,9 @@ export function V9HomeView({
 }: {
     readonly us: SignalSlot;
     readonly my: SignalSlot;
+    readonly usToday: V9MarketTodayState;
+    readonly myToday: V9MarketTodayState;
+    readonly todayHref: (market: 'US' | 'MY') => string;
     readonly mode: MarketSignal['mode'];
     readonly selectedMarket: 'US' | 'MY';
     readonly records: readonly ResearchRecord[] | null;
@@ -86,7 +93,7 @@ export function V9HomeView({
     readonly onOpenDiscover: () => void;
     readonly onOpenStock: (symbol: string, market: ResearchMarket) => void;
 }) {
-    const todayIso = useReviewDay();
+    const todayIso = usToday.day;
     const usSignal = us.signal?.mode === mode ? us.signal : null;
     const mySignal = my.signal?.mode === mode ? my.signal : null;
     const usReference = usSignal?.metadata.score_delta?.snapshot_date ?? us.receivedAt;
@@ -194,7 +201,7 @@ export function V9HomeView({
             <div className={styles.heroBrief}>
                 <div>
                     <div className={styles.kicker}>
-                        <span>Market Briefing · {marketTimestampLabel(todayIso)} · {mode === 'contrarian' ? 'Contrarian' : 'Momentum'}</span>
+                        <span>Market Briefing · {marketTimestampLabel(todayIso)} UTC · {mode === 'contrarian' ? 'Contrarian' : 'Momentum'}</span>
                     </div>
                     <h1 className={`${styles.heroTitle} ${styles.homeTitle}`}>
                         {pulseCards.map(({ market, slot, brief }) => (
@@ -216,12 +223,8 @@ export function V9HomeView({
                     const snapshotDay = marketEvidenceDay(slot.signal?.metadata.score_delta?.snapshot_date);
                     const tone = toneFor(slot.signal, Boolean(brief && brief.status !== 'unavailable'));
                     return (
-                        <button
-                            key={market}
-                            type="button"
-                            className={styles.pulseCard}
-                            onClick={() => onOpenMarket(market)}
-                        >
+                        <article key={market} className={styles.pulseCard}>
+                            <button type="button" className={styles.pulseBody} onClick={() => onOpenMarket(market)}>
                             <div className={styles.pulseInfo}>
                                 <div className={styles.pulseHead}>
                                     <span className={styles.mktTag}>{market}</span>
@@ -247,7 +250,9 @@ export function V9HomeView({
                                 </div>
                             </div>
                             <ScoreRing score={slot.signal?.composite_score ?? null} />
-                        </button>
+                            </button>
+                            <V9MarketTodaySummary market={market} href={todayHref(market)} state={market === 'US' ? usToday : myToday} />
+                        </article>
                     );
                 })}
             </section>

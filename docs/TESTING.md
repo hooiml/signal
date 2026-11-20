@@ -9,6 +9,13 @@ production server at `SIGNAL_QA_URL` (default `http://127.0.0.1:3000`). It exerc
 workspace navigation with fixture data and captures Home and Market at 1280, 768
 and 375 pixels in both themes under `.tmp/v9-workspace/`.
 
+For the intraday timeline, the full harness includes
+`node scripts/harness/signal-intraday-reader-regression.mjs`. Verify recording separately
+with `node scripts/harness/market-intraday-storage.mjs` against disposable local PostgreSQL.
+If its binaries are outside PATH, set `SIGNAL_TEST_PG_BIN` to the PostgreSQL bin directory.
+The browser suite covers the Home summary and Market Pulse → Today. Use the actual storage
+test for write ordering and deduplication. Browser response fixtures only exercise presentation.
+
 For the Latest Market Brief (E28), run lint, full harness, build and post-build
 typecheck. `market-brief-regression.mjs` in the harness uses the real scorer and
 reconciler for eligibility, provenance, mode-correct change direction and immutable

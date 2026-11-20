@@ -41,12 +41,12 @@ import { V9Navigation, workspaceHref } from '@/components/v9/v9-navigation';
 
 type ResponseState = { key: string; signal: MarketSignal | null; loading: boolean; error: string; received: string };
 type ArchiveState = { key: string; summaries: readonly MarketReplaySummary[]; samples: readonly MarketReplaySummary[]; snapshots: Record<string, MarketReplaySnapshot>; loading: boolean; error: string; states?: Record<string, 'pending' | 'loaded' | 'failed' | 'unavailable'> };
-type MarketTab = InvestigationTab | 'Alerts';
-const marketTabs: readonly MarketTab[] = [...tabs, 'Alerts'];
+type MarketTab = InvestigationTab | 'Alerts' | 'Today';
+const marketTabs: readonly MarketTab[] = ['Today', ...tabs, 'Alerts'];
 const tabQueries: Record<MarketTab, string> = {
-    'What changed': 'changes', Evidence: 'evidence', Context: 'context', History: 'history', Scenarios: 'scenarios', Alerts: 'alerts',
+    Today: 'today', 'What changed': 'changes', Evidence: 'evidence', Context: 'context', History: 'history', Scenarios: 'scenarios', Alerts: 'alerts',
 };
-const isDetailedTab = (name: MarketTab) => name !== 'What changed' && name !== 'Context';
+const isDetailedTab = (name: MarketTab) => name !== 'Today' && name !== 'What changed' && name !== 'Context';
 function focusInvestigation() {
     const panel = document.getElementById('investigation-panel');
     panel?.scrollIntoView({ block: 'start' });
@@ -60,6 +60,7 @@ type EmbeddedMarket = {
     receivedAt?: string;
     isDark?: boolean;
     exposureWorkspace?: MarketExposureWorkspace;
+    todayPanel: ReactNode;
     onReload: () => void;
     renderToolbar: (advanced: boolean, toggleAdvanced: () => void) => ReactNode;
 };
@@ -110,14 +111,12 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
     const indicatorsRef = useRef<HTMLDivElement>(null);
     const tabToFocus = useRef(requestedTab);
     // Basic view: the indicator list beside the chart already shows the inputs, so the Evidence tab is advanced-only.
-    const visibleTabs = (embedded ? marketTabs : tabs).filter(name => advanced || !isDetailedTab(name));
     const [market, setMarketState] = useState<Market>(initialConfig.market);
     const [mode, setMode] = useState<Mode>(initialConfig.mode);
     const [social, setSocial] = useState(initialConfig.enableSocial);
     const [revision, setRevision] = useState(0);
     const [archiveRevision, setArchiveRevision] = useState(0);
     const [tabState, setTabState] = useState<MarketTab>('What changed');
-    const tab = embedded ? requestedTab ?? 'What changed' : tabState;
     const [standaloneInvestigationOpen, setStandaloneInvestigationOpen] = useState(false);
     const requestedInvestigation = params.get('investigation');
     const investigationOpen = embedded
@@ -147,6 +146,8 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
     const loadError = embedded ? embedded.error : response.key === key ? response.error : '';
     const receivedAt = embedded ? embedded.receivedAt : response.received;
     const hasScore = !!data && Object.keys(data.components).length > 0;
+    const visibleTabs = (embedded ? hasScore ? marketTabs : ['Today'] as const : tabs).filter(name => advanced || !isDetailedTab(name));
+    const tab = embedded ? hasScore ? requestedTab ?? 'What changed' : 'Today' : tabState;
     const isEmbedded = !!embedded;
     const reload = embedded?.onReload ?? (() => setRevision(value => value + 1));
     const MarketContent = embedded ? 'div' : 'main';
@@ -187,7 +188,7 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
     }, [isEmbedded, key, query, market, mode, social, revision]);
 
     useEffect(() => {
-        if (!tabToFocus.current || tabToFocus.current !== requestedTab || !investigationOpen || !hasScore || loading) return;
+        if (!tabToFocus.current || tabToFocus.current !== requestedTab || !investigationOpen || (!hasScore && requestedTab !== 'Today') || loading) return;
         tabToFocus.current = undefined;
         focusInvestigation();
     }, [hasScore, investigationOpen, loading, requestedTab]);
@@ -451,17 +452,21 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                             <MarketV8Exposure key={market} signal={data} researchHref={embedded ? researchHref : undefined} savedWorkspace={embedded?.exposureWorkspace} />
                             <nav className={layout.researchLinks} aria-label="Find stocks in Research"><div><b>From market to stocks</b><span>US large caps with sustained momentum, a rule-based shortlist, and upcoming earnings.{market === 'MY' ? ' The trend scan covers US stocks only.' : ''}</span></div><a href={discoverHref('trending', 'US')}>Trending · Top 20 →</a><a href={discoverHref('picker', 'US')}>Stock Picker →</a><a href={discoverHref('calendar', market)}>Earnings calendar →</a></nav>
                             <details className={layout.readingDetails}><summary>How to read this assessment · methodology and limits</summary><div><MarketCurrentAssessment signal={data} date={date} onSelect={openIndicator} showLeadingEvidence={false} /><MarketCoverageNotices signal={data} inputKeys={inputKeys} date={date} sourceEnabled={social} onReview={reviewEvidence} /></div></details>
-                            <MarketMobileSection name="investigation" title={embedded ? 'Market investigation' : 'What changed'} summary={embedded && tab !== 'What changed' ? tab : changeSummary} className={`${styles.investigation} ${layout.mobileInvestigation}`} id="investigation" open={investigationOpen} onOpenChange={setInvestigationOpen}>
-                                <div className={styles.tabs} role="tablist" aria-label="Market investigation">{visibleTabs.map((name,index)=><button key={name} id={`tab-${index}`} role="tab" aria-selected={tab===name} aria-controls="investigation-panel" tabIndex={tab===name?0:-1} onClick={()=>setTab(name)} onKeyDown={event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?visibleTabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+visibleTabs.length)%visibleTabs.length;document.getElementById(`tab-${next}`)?.focus();}}>{name}</button>)}</div>
-                                <V8Card as="div" id="investigation-panel" role="tabpanel" tabIndex={-1} aria-labelledby={`tab-${visibleTabs.indexOf(tab)}`} key={`${key}-${tab}`}>
-                                    {tab === 'History' ? <ConnectedHistory signal={data} state={historyState} setState={setHistoryState} />
-                                        : tab === 'Alerts' ? <MarketAlertsV6 signal={data} enableSocial={social} theme={embedded?.isDark ? 'dark' : 'light'} />
-                                            : <ConnectedPanels advanced={advanced} signal={data} tab={tab} onSelect={openIndicator} scenario={scenario} setScenario={setScenario} explainSnapshotComparison={isEmbedded} />}
-                                </V8Card>
-                            </MarketMobileSection>
                         </>}
                     </>}
                     {data && !hasScore && <section className={styles.empty}><h2>No usable observations returned.</h2><p>The service supplied no current components. A neutral placeholder is not shown as market evidence.</p>{history.length>0&&<><h3>Stored history only</h3><MarketChart points={history} sourced name="Stored score history"/><details><summary>Stored score records</summary><table className={styles.zoneTable}><thead><tr><th>Date</th><th>Score</th></tr></thead><tbody>{history.map(point=><tr key={point.date}><td>{fullDate(point.date)}</td><td>{point.value}</td></tr>)}</tbody></table></details></>}</section>}
+                    {!historical && (hasScore || embedded) && (
+                        <MarketMobileSection name="investigation" title={embedded ? 'Market investigation' : 'What changed'} summary={embedded && tab !== 'What changed' ? tab : changeSummary} className={`${styles.investigation} ${layout.mobileInvestigation}`} id="investigation" open={investigationOpen} onOpenChange={setInvestigationOpen}>
+                            <div className={styles.tabs} role="tablist" aria-label="Market investigation">{visibleTabs.map((name,index)=><button key={name} id={`tab-${index}`} role="tab" aria-selected={tab===name} aria-controls="investigation-panel" tabIndex={tab===name?0:-1} onClick={()=>setTab(name)} onKeyDown={event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?visibleTabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+visibleTabs.length)%visibleTabs.length;document.getElementById(`tab-${next}`)?.focus();}}>{name}</button>)}</div>
+                            <V8Card as="div" id="investigation-panel" role="tabpanel" tabIndex={-1} aria-labelledby={`tab-${visibleTabs.indexOf(tab)}`} key={`${key}-${tab}`}>
+                                {tab === 'Today' ? embedded?.todayPanel : data && (
+                                    tab === 'History' ? <ConnectedHistory signal={data} state={historyState} setState={setHistoryState} />
+                                        : tab === 'Alerts' ? <MarketAlertsV6 signal={data} enableSocial={social} theme={embedded?.isDark ? 'dark' : 'light'} />
+                                            : <ConnectedPanels advanced={advanced} signal={data} tab={tab} onSelect={openIndicator} scenario={scenario} setScenario={setScenario} explainSnapshotComparison={isEmbedded} />
+                                )}
+                            </V8Card>
+                        </MarketMobileSection>
+                    )}
                 </div>
 
             </MarketContent>

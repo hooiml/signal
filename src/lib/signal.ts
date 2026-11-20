@@ -333,7 +333,7 @@ async function persistSignalSnapshot(
             WHERE market_type = ${options.market}
               AND mode = ${options.mode}
               AND enable_social = ${options.enableSocial}
-              AND snapshot_date < CURRENT_DATE
+              AND snapshot_date < (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date
             ORDER BY snapshot_date DESC
             LIMIT 1
         `, onTiming) as Promise<SnapshotSummaryRow[]>,
@@ -385,7 +385,7 @@ async function persistSignalSnapshot(
                 ${options.market},
                 ${options.mode},
                 ${options.enableSocial},
-                CURRENT_DATE,
+                (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date,
                 ${signal.composite_score},
                 ${signal.tier},
                 ${signal.confidence.level},

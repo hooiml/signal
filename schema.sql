@@ -194,6 +194,102 @@ CREATE TABLE IF NOT EXISTS signal_snapshots (
 CREATE INDEX IF NOT EXISTS idx_signal_snapshots_lookup
     ON signal_snapshots(market_type, mode, enable_social, snapshot_date DESC);
 
+-- BEGIN MARKET INTRADAY PROVISIONING
+DO $market_intraday_migration$
+BEGIN
+    CREATE TABLE IF NOT EXISTS signal_intraday_observations (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        market_type VARCHAR(10) NOT NULL CHECK (market_type IN ('US', 'MY')),
+        mode VARCHAR(20) NOT NULL CHECK (mode IN ('standard', 'contrarian')),
+        enable_social BOOLEAN NOT NULL,
+        snapshot_date DATE NOT NULL,
+        recorded_at TIMESTAMPTZ NOT NULL,
+        composite_score INTEGER NOT NULL CHECK (composite_score BETWEEN 0 AND 100),
+        tier VARCHAR(20) NOT NULL,
+        components JSONB NOT NULL CHECK (jsonb_typeof(components) = 'object' AND components <> '{}'::jsonb),
+        metadata_snapshot JSONB NOT NULL CHECK (jsonb_typeof(metadata_snapshot) = 'object'),
+        CONSTRAINT signal_intraday_utc_day CHECK (snapshot_date = (recorded_at AT TIME ZONE 'UTC')::date)
+    );
+    CREATE INDEX IF NOT EXISTS idx_signal_intraday_lookup
+        ON signal_intraday_observations(market_type, mode, enable_social, snapshot_date, id DESC);
+
+    CREATE OR REPLACE FUNCTION capture_signal_intraday_observation()
+    RETURNS trigger
+    LANGUAGE plpgsql VOLATILE
+    SET search_path = pg_catalog
+    AS $capture$
+    DECLARE
+        captured_at timestamptz := clock_timestamp();
+        captured_components jsonb;
+        captured_model jsonb;
+        previous record;
+        comparison_fields text[] := ARRAY['last_updated', 'timestamp_basis', 'retrieved_at', 'display_name', 'signal'];
+        changed boolean;
+    BEGIN
+        -- The originating write holds the daily row lock. A fresh read in this volatile
+        -- trigger sees the previous capture once the preceding writer has committed.
+        IF NEW.origin <> 'observed' OR NEW.snapshot_date <> (captured_at AT TIME ZONE 'UTC')::date
+            OR jsonb_typeof(NEW.components) <> 'object' OR NEW.components = '{}'::jsonb THEN
+            RETURN NEW;
+        END IF;
+
+        SELECT jsonb_object_agg(key, jsonb_build_object(
+            'raw_value', value -> 'raw_value',
+            'score', value -> 'score',
+            'weight', value -> 'weight',
+            'last_updated', value -> 'last_updated',
+            'timestamp_basis', value -> 'timestamp_basis',
+            'retrieved_at', value -> 'retrieved_at',
+            'unit', value -> 'unit',
+            'display_name', value -> 'display_name',
+            'signal', value -> 'signal'
+        )) INTO captured_components
+        FROM jsonb_each(NEW.components);
+        captured_model := jsonb_strip_nulls(jsonb_build_object(
+            'scoring_model_version', NEW.metadata_snapshot -> 'scoring_model_version',
+            'my_news_eligibility_version', NEW.metadata_snapshot -> 'my_news_eligibility_version'
+        ));
+
+        EXECUTE format(
+            'SELECT id, composite_score, tier, components, metadata_snapshot
+               FROM %I.signal_intraday_observations
+              WHERE market_type = $1 AND mode = $2 AND enable_social = $3 AND snapshot_date = $4
+              ORDER BY id DESC LIMIT 1', TG_TABLE_SCHEMA
+        ) INTO previous USING NEW.market_type, NEW.mode, NEW.enable_social, NEW.snapshot_date;
+
+        changed := previous.id IS NULL OR
+            (NEW.composite_score, NEW.tier, captured_model) IS DISTINCT FROM
+            (previous.composite_score, previous.tier, previous.metadata_snapshot);
+        IF NOT changed THEN
+            -- Retrieval or provenance-only edits do not create additional captures.
+            SELECT current_readings.value IS DISTINCT FROM previous_readings.value INTO changed
+            FROM (SELECT jsonb_object_agg(key, value - comparison_fields) AS value
+                    FROM jsonb_each(captured_components)) current_readings
+            CROSS JOIN (SELECT jsonb_object_agg(key, value - comparison_fields) AS value
+                          FROM jsonb_each(previous.components)) previous_readings;
+        END IF;
+
+        IF changed THEN
+            EXECUTE format(
+                'INSERT INTO %I.signal_intraday_observations
+                    (market_type, mode, enable_social, snapshot_date, recorded_at,
+                     composite_score, tier, components, metadata_snapshot)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)', TG_TABLE_SCHEMA
+            ) USING NEW.market_type, NEW.mode, NEW.enable_social, NEW.snapshot_date,
+                captured_at, NEW.composite_score, NEW.tier, captured_components, captured_model;
+        END IF;
+        RETURN NEW;
+    END;
+    $capture$;
+
+    DROP TRIGGER IF EXISTS capture_signal_intraday ON signal_snapshots;
+    CREATE TRIGGER capture_signal_intraday
+        AFTER INSERT OR UPDATE ON signal_snapshots
+        FOR EACH ROW EXECUTE FUNCTION capture_signal_intraday_observation();
+END;
+$market_intraday_migration$;
+-- END MARKET INTRADAY PROVISIONING
+
 -- ============================================
 -- TABLE: data_fetch_log
 -- Purpose: Track data fetch history and errors

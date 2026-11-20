@@ -13,6 +13,21 @@ const base = process.env.SIGNAL_QA_URL || 'http://127.0.0.1:3000';
 assert.ok(['127.0.0.1', 'localhost'].includes(new URL(base).hostname));
 const output = '.tmp/v9-workspace';
 await mkdir(output, { recursive: true });
+function intradayFixture(url) {
+    const day = new Date().toISOString().slice(0, 10);
+    const market = url.searchParams.get('market');
+    const mode = url.searchParams.get('mode');
+    const enableSocial = url.searchParams.get('enableSocial') === 'true';
+    const baseline = { id: '100', capturedAt: day + 'T01:00:00.000Z', score: 43, previousScore: null, delta: null,
+        tier: 'neutral', status: 'baseline', reason: { code: 'baseline', text: 'First recorded reading.' }, accounting: null };
+    const change = { id: '101', capturedAt: day + 'T07:15:00.000Z', score: 30, previousScore: 43, delta: -13,
+        tier: 'sell', status: 'changed', reason: { code: 'vix-threshold-entered', text: 'VIX rose from 29.8 to 30.4. Its weight changed from 35% to 85%.' },
+        accounting: { componentDelta: 11.6, neutralDelta: -25, roundingResidual: 0.4,
+            drivers: [{ key: 'vix', name: 'VIX', delta: 11.6, beforeValue: 29.8, afterValue: 30.4,
+                beforeWeight: 0.35, afterWeight: 0.85, scoreEffect: -1.4, weightEffect: 13 }] } };
+    const entries = market === 'MY' ? [] : url.searchParams.has('before') ? [baseline] : [change];
+    return { success: true, data: { market, mode, enableSocial, day, entries, hasEarlierCaptures: market === 'US' && !url.searchParams.has('before') } };
+}
 const modules = new Map();
 function load(file) {
     const absolute = path.resolve(file);
@@ -56,6 +71,7 @@ async function setup(width, theme, owner = false) {
         if (url.origin !== new URL(base).origin) return route.abort();
         if (!url.pathname.startsWith('/api/')) return route.continue();
         report.requests.push(`${req.method()} ${url.pathname}`);
+        if (url.pathname === '/api/signals/intraday' && req.method() === 'GET') return route.fulfill({ json: intradayFixture(url) });
         if (url.pathname === '/api/signals/v2' && req.method() === 'GET') {
             const key = `${url.searchParams.get('market') || 'US'}:${url.searchParams.get('mode') || 'standard'}:${url.searchParams.get('enableSocial') || 'true'}`;
             report.requests.push({ signal: key });
@@ -115,7 +131,26 @@ try {
             });
             report.checks.push({ name: `palette ${width} ${theme}`, palette });
             assert.equal(palette['--brand'].toLowerCase(), theme === 'dark' ? '#60a5fa' : '#1755a6');
+            const pulse = page.getByRole('region', { name: 'Market pulse summary' });
+            const usSummary = pulse.locator('div').filter({ has: page.getByRole('link', { name: 'What changed today? United States' }) }).last();
+            await usSummary.getByText('43 → 30/100').waitFor();
+            assert.match(await usSummary.innerText(), /3:15 pm MYT/i);
+            await pulse.getByText('No captures for this UTC day yet.').waitFor();
             await page.screenshot({ path: `${output}/home-${width}-${theme}.png` });
+            const link = page.getByRole('link', { name: 'What changed today? United States' });
+            await link.focus(); await page.keyboard.press('Enter');
+            const timeline = page.getByRole('region', { name: 'Intraday market timeline' });
+            await timeline.getByText(/VIX rose from 29.8 to 30.4/).waitFor();
+            await timeline.evaluate(node => window.scrollBy(0, node.getBoundingClientRect().top - 80));
+            assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), 'timeline document overflow');
+            await page.screenshot({ path: `${output}/today-${width}-${theme}.png` });
+            const older = timeline.getByRole('button', { name: 'Load older captures' });
+            await older.scrollIntoViewIfNeeded();
+            if (width <= 768) {
+                await older.evaluate(node => window.scrollBy(0, node.getBoundingClientRect().bottom - (window.innerHeight - 110)));
+                const box = await older.boundingBox(), nav = await page.getByRole('navigation', { name: 'Mobile navigation' }).boundingBox();
+                assert.ok(box && nav && box.y + box.height <= nav.y, 'Load older captures obscured by mobile navigation');
+            }
         });
         await scenario(`market ${width} ${theme}`, async () => {
             await page.goto(`${base}/v9?market=US&view=market`, { waitUntil: 'domcontentloaded' });
@@ -130,6 +165,43 @@ try {
         await context.close();
     }
     const { context, page } = await setup(1280, 'dark');
+    await scenario('Home opens the intraday timeline for the selected market and configuration', async () => {
+        await page.goto(`${base}/v9?market=US&mode=contrarian&enableSocial=false`, { waitUntil: 'domcontentloaded' });
+        const pulse = page.getByRole('region', { name: 'Market pulse summary' });
+        const todayLink = market => pulse.locator(`a[href*="tab=today"][href*="market=${market}"]`);
+        await todayLink('US').waitFor();
+        await todayLink('MY').waitFor();
+        for (const market of ['US', 'MY']) {
+            const destination = new URL(await todayLink(market).getAttribute('href'), base);
+            assert.equal(destination.pathname, '/v9');
+            assert.equal(destination.searchParams.get('view'), 'market');
+            assert.equal(destination.searchParams.get('mode'), 'contrarian');
+            assert.equal(destination.searchParams.get('enableSocial'), 'false');
+        }
+        await todayLink('US').click();
+        const timeline = page.getByRole('tabpanel', { name: 'Today', exact: true });
+        await timeline.getByText(/VIX rose from 29.8 to 30.4/).waitFor();
+        await timeline.getByRole('button', { name: /earlier|older/i }).click();
+        await timeline.getByText('First recorded reading.', { exact: true }).waitFor();
+        await page.reload();
+        await timeline.getByText(/VIX rose from 29.8 to 30.4/).waitFor();
+        await page.goBack();
+        await todayLink('MY').click();
+        await page.waitForURL(url => url.searchParams.get('market') === 'MY' && url.searchParams.get('tab') === 'today');
+        await timeline.waitFor();
+        assert.equal(await timeline.getByText(/VIX rose/).count(), 0);
+    });
+    await scenario('Today configuration switch preserves selection', async () => {
+        await page.goto(`${base}/v9?market=US&mode=standard&enableSocial=false&view=market&tab=today`, { waitUntil: 'domcontentloaded' });
+        const timeline = page.getByRole('tabpanel', { name: 'Today' });
+        await timeline.getByText(/VIX rose/).waitFor();
+        await page.getByRole('button', { name: 'Contrarian', exact: true }).click();
+        await page.waitForURL(url => url.searchParams.get('mode') === 'contrarian');
+        await timeline.getByText(/VIX rose/).waitFor();
+        await page.getByRole('button', { name: 'Malaysia · Bursa', exact: true }).click();
+        await page.waitForURL(url => url.searchParams.get('market') === 'MY');
+        await timeline.getByText(/No captures for this market/).waitFor();
+    });
     await scenario('market actions remain in V9', async () => {
         await page.goto(`${base}/v9?market=US&view=market`, { waitUntil: 'domcontentloaded' });
         await page.getByRole('heading', { name: /market condition score/i }).waitFor();
@@ -262,6 +334,71 @@ try {
         assert.match(await link.getAttribute('href'), /^\/main-v8\?/);
     });
     await context.close();
+    const states = await setup(1280, 'light');
+    let stateMode = 'baseline'; let attempts = 0; let releaseLoading;
+    const loadingGate = new Promise(resolve => { releaseLoading = resolve; });
+    await states.context.route('**/api/signals/intraday?*', async route => {
+        const url = new URL(route.request().url());
+        if (stateMode === 'loading') await loadingGate;
+        if (stateMode === 'retry' && attempts++ === 0) return route.fulfill({ json: { success: false, error: 'Fixture failure' } });
+        if (stateMode === 'older-retry' && url.searchParams.has('before') && attempts++ === 0) return route.fulfill({ json: { success: false, error: 'Fixture older failure' } });
+        const data = intradayFixture(url);
+        if (stateMode === 'baseline') {
+            data.data.entries = [{ id: '100', capturedAt: `${data.data.day}T01:00:00.000Z`, score: 43, previousScore: null, delta: null, tier: 'neutral', status: 'baseline', reason: { code: 'baseline', text: 'First recorded reading.' }, accounting: null }];
+            data.data.hasEarlierCaptures = false;
+        }
+        if (stateMode === 'equal') {
+            data.data.entries[0].score = data.data.entries[0].previousScore;
+            data.data.entries[0].delta = 0;
+            data.data.entries[0].reason.text = 'Inputs changed while the score stayed equal.';
+        }
+        return route.fulfill({ json: data });
+    });
+    try {
+        await scenario('Home baseline and equal-score changed input', async () => {
+            await states.page.goto(`${base}/v9?market=MY`, { waitUntil: 'domcontentloaded' });
+            const pulse = states.page.getByRole('region', { name: 'Market pulse summary' });
+            await pulse.getByText('First capture').first().waitFor();
+            await states.page.waitForFunction(() => [...document.querySelectorAll('time')].filter(el => el.textContent?.includes('9:00 am')).length >= 2);
+            assert.equal(await pulse.getByText('First capture').count(), 2);
+            assert.equal(await pulse.getByText('43/100').count(), 2);
+            stateMode = 'equal';
+            await states.page.goto(`${base}/v9?market=US&view=market&tab=today`, { waitUntil: 'domcontentloaded' });
+            const panel = states.page.getByRole('region', { name: 'Intraday market timeline' });
+            await panel.getByText('Inputs changed while the score stayed equal.').waitFor();
+            await panel.getByText('Input or score changed').waitFor();
+            await panel.getByText('43 → 43/100').waitFor();
+        });
+        await scenario('Today loading and retry after failed capture read', async () => {
+            stateMode = 'loading';
+            await states.page.goto(`${base}/v9?market=US&view=market&tab=today`, { waitUntil: 'domcontentloaded' });
+            const panel = states.page.getByRole('region', { name: 'Intraday market timeline' });
+            await panel.getByText('Loading today’s captures…').waitFor();
+            stateMode = 'retry'; attempts = 0; releaseLoading();
+            await panel.getByRole('alert').waitFor();
+            await panel.getByRole('button', { name: 'Retry today’s captures' }).click();
+            await panel.getByText(/VIX rose/).waitFor();
+        });
+        await scenario('Older capture failure can be retried', async () => {
+            stateMode = 'older-retry'; attempts = 0;
+            await states.page.goto(`${base}/v9?market=US&view=market&tab=today`, { waitUntil: 'domcontentloaded' });
+            const panel = states.page.getByRole('region', { name: 'Intraday market timeline' });
+            await panel.getByRole('button', { name: 'Load older captures' }).click();
+            await panel.getByText('Older captures could not be loaded.').waitFor();
+            await panel.getByRole('button', { name: 'Retry older captures' }).click();
+            await panel.getByText('First recorded reading.').waitFor();
+        });
+    } finally { releaseLoading(); await states.context.close(); }
+    const failedLive = await setup(1280, 'dark');
+    await failedLive.context.route('**/api/signals/v2?*', route => route.fulfill({ json: { success: false, error: 'Fixture live failure' } }));
+    await scenario('Today captures remain usable when live score fails', async () => {
+        await failedLive.page.goto(`${base}/v9?market=US&view=market&tab=today`, { waitUntil: 'domcontentloaded' });
+        const panel = failedLive.page.getByRole('region', { name: 'Intraday market timeline' });
+        await panel.getByText(/VIX rose/).waitFor();
+        await panel.getByRole('button', { name: 'Load older captures' }).click();
+        await panel.getByText('First recorded reading.').waitFor();
+    });
+    await failedLive.context.close();
     const deferred = await setup(1280, 'dark');
     let releaseSignals;
     const signalGate = new Promise(resolve => { releaseSignals = resolve; });

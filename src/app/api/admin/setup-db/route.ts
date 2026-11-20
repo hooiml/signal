@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { requireBearerSecret } from '@/lib/route-auth';
 import { sql } from '@/lib/db';
+import { readMarketIntradayProvisioning } from '@/lib/market-intraday-schema.mjs';
 
 export async function GET(request: Request) {
     const authError = requireBearerSecret(
@@ -60,6 +61,7 @@ export async function GET(request: Request) {
         `;
         await sql`ALTER TABLE signal_snapshots ADD COLUMN IF NOT EXISTS origin VARCHAR(20) NOT NULL DEFAULT 'observed'`;
         await sql`ALTER TABLE signal_snapshots ADD COLUMN IF NOT EXISTS coverage_note TEXT`;
+        await sql.query(await readMarketIntradayProvisioning());
 
         await sql`
             CREATE TABLE IF NOT EXISTS research_records (
@@ -129,7 +131,7 @@ export async function GET(request: Request) {
 
         return NextResponse.json({
             success: true,
-            message: 'Database setup complete: institutional, signal snapshot, research, and discovery history tables are ready.',
+            message: 'Database setup complete: institutional, daily and intraday signal snapshot, research, and discovery history tables are ready.',
         });
     } catch (error) {
         console.error('Migration error:', error);
