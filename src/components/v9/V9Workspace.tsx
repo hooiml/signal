@@ -11,6 +11,7 @@ import { loadPortfolioHoldingsSnapshot, PORTFOLIO_HOLDINGS_CHANGE_EVENT } from '
 import { GUEST_WORKSPACE_CLEARED_EVENT, readGuestRecords } from '@/lib/research/guest-workspace';
 import { createTodayMarketContinuation } from '@/lib/research/since-last-visit';
 import { writeTodayContinuation } from '@/lib/research/since-last-visit-client';
+import { useReviewDay } from '@/lib/research/use-review-day';
 import { DEFAULT_SIGNAL_CONFIG, readSignalConfig, type SignalConfig } from '@/lib/signal-config';
 import { parseLearnMetric } from '@/lib/learn/metric-links';
 import { marketRouteConfig } from '@/lib/legacy-routes';
@@ -26,6 +27,7 @@ import { V9HomeView, type SignalSlot } from './V9HomeView';
 import { V9MarketView } from './V9MarketView';
 import { V9ResearchView } from './V9ResearchView';
 import { V9DiscoverView, V9PortfolioView } from './V9PortfolioDiscoverViews';
+import { useV9MarketToday } from './useV9MarketToday';
 import base from '@/components/v8/market-v8.module.css';
 import styles from './v9-workspace.module.css';
 
@@ -203,11 +205,24 @@ export function V9Workspace() {
         if (current[key] === value) return;
         const url = new URL(window.location.href);
         url.searchParams.set(key, value);
-        for (const param of ['tab', 'advanced', 'investigation']) url.searchParams.delete(param);
+        if (url.searchParams.get('tab') !== 'today') {
+            url.searchParams.delete('tab');
+            url.searchParams.delete('investigation');
+        }
+        url.searchParams.delete('advanced');
         window.history.replaceState(null, '', url);
     };
 
     const activeSlot = market === 'MY' ? mySlot : usSlot;
+    const utcDay = useReviewDay();
+    const todayVisible = view === 'market' && (searchParams.get('tab') === 'today'
+        || (!activeSlot.loading && (!activeSlot.signal || Object.keys(activeSlot.signal.components).length === 0)));
+    const usToday = useV9MarketToday({ market: 'US', mode, enableSocial: social }, utcDay,
+        view === 'home' ? 'summary' : todayVisible && market === 'US' ? 'timeline' : null,
+        usSlot.loading ? null : `${requestKey}:${usSlot.receivedAt ?? 'error'}`);
+    const myToday = useV9MarketToday({ market: 'MY', mode, enableSocial: social }, utcDay,
+        view === 'home' ? 'summary' : todayVisible && market === 'MY' ? 'timeline' : null,
+        mySlot.loading ? null : `${requestKey}:${mySlot.receivedAt ?? 'error'}`);
     const mergeSavedOwner = useCallback((saved: ResearchRecord) => {
         setWatchlist(current => {
             if (current.workspace !== 'owner' || !current.records) return current;
@@ -352,6 +367,9 @@ export function V9Workspace() {
                             selectedMarket={market}
                             us={usSlot}
                             my={mySlot}
+                            usToday={usToday}
+                            myToday={myToday}
+                            todayHref={target => href('market', { market: target, tab: 'today' })}
                             mode={mode}
                             records={records}
                             owner={workspace === 'owner'}
@@ -366,6 +384,7 @@ export function V9Workspace() {
                     {view === 'market' && (
                         <V9MarketView
                             market={market}
+                            today={market === 'MY' ? myToday : usToday}
                             mode={mode}
                             social={social}
                             signal={activeSlot.signal}

@@ -106,6 +106,12 @@ These cards must remain visibly labeled as context-only and include their report
 
 The US Research Index Test is also non-scored context. It compares a research ticker's one-year return with VOO using adjusted closes when available; it informs the manual `betterThanCashOrIndex` review question but does not alter signal scores or automatic research decisions.
 
+## Intraday changes
+
+Market Pulse → Today starts with the first observed score recorded for a market, interpretation mode and source setting on a UTC day. Later entries capture changes in the score or the inputs behind it, including changes that leave the rounded score unchanged. Capture time is when Signal recorded the calculation. Each provider input can have a different observation time.
+
+The timeline compares consecutive captures within the same configuration. A VIX threshold explanation requires readings on opposite sides of 30 and evidence of the corresponding weight change. Missing observations, historical daily backfills and gaps between captures cannot establish the intraday path. The existing daily chart still shows one snapshot per date and configuration.
+
 ## Historical calibration
 
 Persisted daily score snapshots are compared with subsequent VOO returns for US mode and FBM KLCI closes for Malaysia mode at approximately 7 and 30 calendar days. Results remain separated by market, Momentum or Contrarian mode, social-source setting, and the documented score zones. Directional alignment follows the tier saved for that mode; mixed snapshots have no directional hit-rate claim.

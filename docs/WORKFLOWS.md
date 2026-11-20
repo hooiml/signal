@@ -227,6 +227,17 @@ stop and document the missing prerequisite; do not call the broad setup endpoint
 Requests no longer create or upgrade `signal_snapshots`. Application rollback does not require
 removing schema or saved snapshots.
 
+### Enable intraday recording
+
+For an existing database with the daily snapshot schema, set `DATABASE_URL` to the intended
+database and run `node scripts/setup-market-intraday.mjs` before deploying the Today view.
+Then run `node scripts/check-market-schema.mjs` to check readiness. Fresh installations
+use the definitions in `schema.sql`.
+
+Recording starts on the next qualifying observed snapshot write after setup. Reapplying the
+setup preserves existing observations. Reading the timeline never refreshes a provider or
+inserts a capture. Rolling back the UI can leave the additive storage in place.
+
 The V2 score response emits `Server-Timing` for providers, stored Aura analysis, institutional
 data, snapshot previous/history reads and write, the whole snapshot operation, calibration,
 cache lookup/wait/load, and handler work before serialization. Timings include network/client

@@ -319,7 +319,8 @@ try {
         assert.equal(refresh.cache, 'bypass');
         assert.equal(fixture.calls.length, baseline ? 16 : 6);
     }
-    for (const failure of ['providers', 'FROM market_signals', 'snapshot_date < CURRENT_DATE', 'LIMIT 89', 'INSERT INTO signal_snapshots', 'calibration']) {
+    const previousSnapshotQuery = "snapshot_date < (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date";
+    for (const failure of ['providers', 'FROM market_signals', previousSnapshotQuery, 'LIMIT 89', 'INSERT INTO signal_snapshots', 'calibration']) {
         const fixture = marketRequestFixture(fixtureOptions);
         fixture.setFailure(failure);
         const result = await request(fixture);
@@ -329,7 +330,7 @@ try {
             assert.equal(fixture.calls.length, 0);
             fixture.setFailure('');
             assert.equal((await request(fixture)).cache, 'miss', 'Engine errors must not be cached');
-        } else if (['snapshot_date < CURRENT_DATE', 'LIMIT 89', 'INSERT INTO signal_snapshots'].includes(failure)) {
+        } else if ([previousSnapshotQuery, 'LIMIT 89', 'INSERT INTO signal_snapshots'].includes(failure)) {
             assert.equal(result.body.data.metadata.score_history, undefined);
             if (!baseline) assert.deepEqual(result.body.data.metadata.snapshot_persistence, { status: 'unavailable', snapshot_date: null });
             assert.ok(!fixture.events.includes('calibration'), 'Do not calibrate after failed persistence');

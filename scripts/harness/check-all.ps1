@@ -33,6 +33,8 @@ node (Join-Path $PSScriptRoot "research-provenance-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "Research provenance regression failed with exit code $LASTEXITCODE" }
 node (Join-Path $PSScriptRoot "market-request-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "Market request regression failed with exit code $LASTEXITCODE" }
+node (Join-Path $PSScriptRoot "signal-intraday-reader-regression.mjs")
+if ($LASTEXITCODE -ne 0) { throw "Intraday timeline regression failed with exit code $LASTEXITCODE" }
 node (Join-Path $PSScriptRoot "market-assessment-regression.mjs")
 if ($LASTEXITCODE -ne 0) { throw "Market assessment regression failed with exit code $LASTEXITCODE" }
 node (Join-Path $PSScriptRoot "market-social-toggle-regression.mjs")

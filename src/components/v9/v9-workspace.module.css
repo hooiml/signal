@@ -407,20 +407,27 @@ a.ghostBtn { color: var(--link); }
 
 .pulseGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .pulseCard {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    min-width: 0;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    box-shadow: var(--card-shadow);
+    transition: border-color .15s;
+}
+.pulseCard:hover { border-color: var(--line-strong); }
+.pulseBody {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
     width: 100%;
     padding: 20px 22px;
-    border-radius: 16px;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    box-shadow: var(--card-shadow);
     text-align: left;
-    transition: border-color .15s, transform .15s;
 }
-.pulseCard:hover { border-color: var(--line-strong); transform: translateY(-1px); }
+.pulseBody:hover .pulseHead strong { color: var(--link); }
+.pulseBody:focus-visible { outline-offset: -3px; }
 .pulseInfo { display: grid; gap: 6px; min-width: 0; }
 .pulseHead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pulseHead strong { font-family: var(--font-display); font-size: 16px; font-weight: 700; }
@@ -431,6 +438,13 @@ a.ghostBtn { color: var(--link); }
 .pulseRing { flex-shrink: 0; width: 64px; height: 64px; position: relative; display: grid; place-items: center; }
 .pulseRing svg { width: 64px; height: 64px; transform: rotate(-90deg); }
 .pulseRingVal { position: absolute; font-size: 17px; font-weight: 700; letter-spacing: -.03em; color: var(--ink); }
+.pulseToday { padding: 0 22px 12px; border-top: 1px solid var(--line); }
+.pulseToday .textLink { min-height: 44px; }
+.todayPreview, .todayTransition { display: flex; align-items: baseline; flex-wrap: wrap; gap: 3px 10px; }
+.todayPreview { color: var(--muted); font-size: 12px; }
+.todayTransition > strong { color: var(--ink); }
+.todayDelta[data-direction=up] { color: var(--up); }
+.todayDelta[data-direction=down] { color: var(--down); }
 
 .dailyStrip {
     border-radius: 12px;
@@ -542,6 +556,18 @@ a.ghostBtn { color: var(--link); }
 }
 .segBtn[aria-pressed=true] { background: var(--brand-soft); color: var(--brand); box-shadow: var(--control-shadow); }
 .marketGrid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.todayPanel { min-width: 0; }
+.todayList { display: grid; gap: 0; padding: 0; margin: 12px 0 0; list-style: none; }
+.todayList > li { display: grid; gap: 6px; padding: 12px 0; border-top: 1px solid var(--line); }
+.todayCaptureHead { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); }
+.todayCaptureHead time, .todayPanel p, .todayAccounting { font-size: var(--text-sm); }
+.todayAccounting > summary { align-content: center; min-height: 44px; width: fit-content; color: var(--link); font-weight: 600; }
+.todayAccounting dl { margin: 0 0 8px; }
+.todayAccounting dl > div { display: grid; gap: 2px; margin-bottom: 8px; }
+.todayAccounting dt { font-weight: 600; }
+.todayAccounting dd { display: flex; flex-wrap: wrap; gap: 2px 12px; color: var(--muted); margin: 0; }
+.todayPanel .textLink { min-height: 44px; color: var(--link); }
+.todayLoad { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
 
 /* Stock Research View */
 .researchBar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -665,7 +691,8 @@ a.ghostBtn { color: var(--link); }
     .searchTrigger { width: 40px; justify-content: center; padding: 0; }
     .themeToggle span { display: none; }
     .card { padding: 16px; }
-    .pulseCard { padding: 16px; }
+    .pulseBody { padding: 16px; }
+    .pulseToday { padding-inline: 16px; }
     .dailyStrip summary { align-items: flex-start; flex-direction: column; gap: 4px; }
     .dailyConclusion { display: block; }
     .focusRow { flex-wrap: wrap; gap: 4px; }
