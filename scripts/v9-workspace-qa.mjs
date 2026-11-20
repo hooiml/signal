@@ -130,7 +130,7 @@ try {
                 return Object.fromEntries(['--canvas', '--surface', '--brand', '--ink', '--muted'].map(key => [key, css.getPropertyValue(key).trim()]));
             });
             report.checks.push({ name: `palette ${width} ${theme}`, palette });
-            assert.equal(palette['--brand'].toLowerCase(), theme === 'dark' ? '#60a5fa' : '#1755a6');
+            assert.equal(palette['--brand'].toLowerCase(), theme === 'dark' ? '#dfc08a' : '#8a5c22');
             const pulse = page.getByRole('region', { name: 'Market pulse summary' });
             const usSummary = pulse.locator('div').filter({ has: page.getByRole('link', { name: 'What changed today? United States' }) }).last();
             await usSummary.getByText('43 → 30/100').waitFor();
