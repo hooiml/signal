@@ -11,6 +11,10 @@
         {
             "path": "/api/research/notifications/deliver",
             "schedule": "0 0 * * *"
+        },
+        {
+            "path": "/api/research/discovery",
+            "schedule": "0 13 * * *"
         }
     ],
     "framework": "nextjs"
