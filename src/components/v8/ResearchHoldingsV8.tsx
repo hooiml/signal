@@ -62,13 +62,15 @@ export function ResearchHoldingsV8({ records, onOpen }: {
     const showCashAccounts = snapshot !== null && snapshot.cashBalances.length > 0
         && (perRowSource || new Set(snapshot.cashBalances.map(cash => cash.accountLabel)).size > 1 || !snapshot.holdings.length);
 
+    const hasEntries = snapshot !== null && (snapshot.holdings.length > 0 || snapshot.cashBalances.length > 0);
+
     return <section className={styles.root} aria-labelledby="research-holdings-title">
         <header className={styles.header}>
             <div>
                 <h2 id="research-holdings-title">Holdings</h2>
                 {snapshot ? <p>Snapshot updated {formatDate(snapshot.updatedAt)}{sharedSource ? ` · ${sharedSource}` : ''} · Saved on this device · Prices not loaded</p> : null}
             </div>
-            {importLink}
+            {hasEntries ? importLink : null}
         </header>
         {state.status === 'loading' ? <p role="status" className={styles.state}>Loading saved holdings…</p> : null}
         {state.status === 'empty' ? <V8EmptyState className={styles.state} message="No holdings have been imported in this browser." action={importLink} /> : null}

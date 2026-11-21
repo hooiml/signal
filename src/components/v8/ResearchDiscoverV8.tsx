@@ -44,7 +44,7 @@ export function ResearchDiscoverV8({ initialView, activeView, onViewChange, cale
     const open = embedded || expanded;
     const [localView, setView] = useState<DiscoverView>(initialView ?? 'trending');
     const view = activeView ?? localView;
-    const scan = useDiscoveryScan(open && !(view === 'calendar' && calendarTarget));
+    const scan = useDiscoveryScan(open && view !== 'alerts' && !(view === 'calendar' && calendarTarget));
     const ref = useRef<HTMLDetailsElement>(null);
     useEffect(() => { if (initialView) ref.current?.scrollIntoView({ block: 'start' }); }, [initialView]);
     function changeView(next: DiscoverView) {

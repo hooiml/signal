@@ -332,11 +332,33 @@ try {
             assert.deepEqual(legacy, [], `${view} global navigation contains legacy destinations`);
         }
         await page.goto(`${base}/v9?market=US&view=portfolio`, { waitUntil: 'domcontentloaded' });
+        await page.getByRole('heading', { name: 'Holdings', exact: true }).waitFor();
+        await page.getByText('No holdings have been imported in this browser.').waitFor();
+        assert.equal(await page.getByRole('link', { name: 'Import or update holdings' }).count(), 1, 'empty portfolio view renders a single import CTA');
+        await page.screenshot({ path: `${output}/portfolio-1280-dark.png` });
         await page.getByRole('link', { name: 'Manage portfolio' }).click();
         await page.waitForURL(url => url.searchParams.get('tab') === 'manage');
         assert.equal(new URL(page.url()).pathname, '/v9');
         await page.getByRole('link', { name: 'Holdings', exact: true }).click();
         await page.waitForURL(url => !url.searchParams.has('tab'));
+        const discoveryRequestsBeforeAlerts = report.requests.filter(r => r === 'GET /api/research/discovery').length;
+        await page.goto(`${base}/v9?market=US&view=discover&discover=alerts`, { waitUntil: 'networkidle' });
+        await page.getByRole('tab', { name: 'Alerts', exact: true }).waitFor();
+        assert.equal(report.requests.filter(r => r === 'GET /api/research/discovery').length, discoveryRequestsBeforeAlerts, 'Discover Alerts skips US trend discovery scan');
+        await page.goto(`${base}/v9?market=US&view=discover&discover=calendar`, { waitUntil: 'domcontentloaded' });
+        await page.getByRole('region', { name: 'Empty calendar' }).waitFor();
+        await page.screenshot({ path: `${output}/discover-calendar-1280-dark.png` });
+        await page.getByRole('button', { name: 'Show full calendar grid' }).click();
+        await page.getByTestId('research-calendar-grid').waitFor();
+        await page.goto(`${base}/v9?market=US&view=learn`, { waitUntil: 'domcontentloaded' });
+        const trackSelect = page.getByLabel('Learn track').filter({ visible: true });
+        await trackSelect.waitFor();
+        await page.getByRole('heading', { level: 1 }).filter({ visible: true }).waitFor();
+        await page.evaluate(() => new Promise(requestAnimationFrame));
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), 'learn view horizontal overflow');
+        await page.screenshot({ path: `${output}/learn-1280-dark.png` });
+        await trackSelect.selectOption('v0.1');
+        await page.getByTestId('learn-v0-1').waitFor();
     });
     await scenario('shared command palette retains V8 fallback', async () => {
         await page.goto(`${base}/main-v8?market=US`, { waitUntil: 'domcontentloaded' });

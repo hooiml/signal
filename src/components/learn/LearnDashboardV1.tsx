@@ -90,17 +90,43 @@ export const LearnDashboardV1 = ({ initialConcept, embedded = false }: { initial
     ] as const;
 
     const content = (
-            <Content id="learn-content" tabIndex={-1} className="min-h-[calc(100dvh-132px)] bg-[var(--v7-surface)] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
-                <div className="mx-auto w-full max-w-[1180px]">
-                    <nav className={styles.metrics} aria-label="Metric lessons">
-                        {metricLessons.map(lesson => <Link key={lesson.id} href={v9?.('learn', { concept: lesson.id }) ?? metricLessonHref(lesson.id)} prefetch={false} aria-current={initialConcept === lesson.id ? 'page' : undefined}>{lesson.label}</Link>)}
-                    </nav>
-                    <nav aria-label="Learn release" className="research-scrollbar mb-5 flex w-full gap-1 overflow-x-auto rounded-[8px] border border-[var(--v7-border)] bg-[var(--v7-surface-quiet)] p-1 sm:w-fit">
-                        <button type="button" aria-pressed={release === 'v0.4'} onClick={() => setRelease('v0.4')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.4' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Trading process v0.4</button>
-                        <button type="button" aria-pressed={release === 'v0.3'} onClick={() => setRelease('v0.3')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.3' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Investment analysis v0.3</button>
-                        <button type="button" aria-pressed={release === 'v0.2'} onClick={() => setRelease('v0.2')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.2' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Business foundations v0.2</button>
-                        <button type="button" aria-pressed={release === 'v0.1'} onClick={() => setRelease('v0.1')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.1' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Valuation foundations v0.1</button>
-                    </nav>
+            <Content id="learn-content" tabIndex={-1} className={embedded ? 'min-w-0 overflow-x-hidden bg-[var(--v7-surface)] px-4 py-5 sm:px-6' : 'min-h-[calc(100dvh-132px)] bg-[var(--v7-surface)] px-4 py-5 sm:px-6 sm:py-6 lg:px-8'}>
+                <div className="mx-auto w-full max-w-[1180px] min-w-0">
+                    {embedded ? (
+                        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-[var(--v7-border)] bg-[var(--v7-surface-quiet)] px-3.5 py-2.5">
+                            <label className="flex items-center gap-2.5 text-sm font-semibold text-[var(--v7-text)]">
+                                <span>Track</span>
+                                <select
+                                    aria-label="Learn track"
+                                    value={release}
+                                    onChange={event => setRelease(event.target.value as LearnRelease)}
+                                    className="min-h-10 rounded-[7px] border border-[var(--v7-border)] bg-[var(--v7-surface)] px-3 text-sm font-medium text-[var(--v7-text)]"
+                                >
+                                    <option value="v0.4">Trading process</option>
+                                    <option value="v0.3">Investment analysis</option>
+                                    <option value="v0.2">Business foundations</option>
+                                    <option value="v0.1">Valuation foundations</option>
+                                    {release === 'market' && <option value="market">Market positioning metrics</option>}
+                                </select>
+                            </label>
+                            <details open={!!initialConcept} className="text-sm">
+                                <summary className="cursor-pointer font-semibold text-[var(--v7-accent)]">Metric quick-links</summary>
+                                <nav className={`${styles.metrics} mt-2 mb-0`} aria-label="Metric lessons">
+                                    {metricLessons.map(lesson => <Link key={lesson.id} href={v9?.('learn', { concept: lesson.id }) ?? metricLessonHref(lesson.id)} prefetch={false} aria-current={initialConcept === lesson.id ? 'page' : undefined}>{lesson.label}</Link>)}
+                                </nav>
+                            </details>
+                        </div>
+                    ) : <>
+                        <nav className={styles.metrics} aria-label="Metric lessons">
+                            {metricLessons.map(lesson => <Link key={lesson.id} href={v9?.('learn', { concept: lesson.id }) ?? metricLessonHref(lesson.id)} prefetch={false} aria-current={initialConcept === lesson.id ? 'page' : undefined}>{lesson.label}</Link>)}
+                        </nav>
+                        <nav aria-label="Learn release" className="research-scrollbar mb-5 flex w-full gap-1 overflow-x-auto rounded-[8px] border border-[var(--v7-border)] bg-[var(--v7-surface-quiet)] p-1 sm:w-fit">
+                            <button type="button" aria-pressed={release === 'v0.4'} onClick={() => setRelease('v0.4')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.4' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Trading process v0.4</button>
+                            <button type="button" aria-pressed={release === 'v0.3'} onClick={() => setRelease('v0.3')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.3' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Investment analysis v0.3</button>
+                            <button type="button" aria-pressed={release === 'v0.2'} onClick={() => setRelease('v0.2')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.2' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Business foundations v0.2</button>
+                            <button type="button" aria-pressed={release === 'v0.1'} onClick={() => setRelease('v0.1')} className={`min-h-10 shrink-0 rounded-[6px] px-4 text-sm font-semibold ${release === 'v0.1' ? 'bg-[var(--v7-surface)] text-[var(--v7-text)] shadow-sm' : 'text-[var(--v7-text-secondary)]'}`}>Valuation foundations v0.1</button>
+                        </nav>
+                    </>}
                     {release === 'market' ? <><h1 className="mb-4 text-2xl font-bold">Read market positioning in context.</h1><LearnMarketMetricLesson concept={initialConcept === 'naaim' ? 'naaim' : 'put-call'} /></> : release === 'v0.4' ? <LearnTradingWorkspaceV4 initialModule={initialConcept === 'rsi' ? 'momentum' : undefined} /> : release === 'v0.3' ? <LearnInvestmentWorkspaceV3 initialMetric={initialConcept === 'fcf-yield' ? 'fcf-yield' : undefined} /> : release === 'v0.2' ? <LearnBusinessWorkspaceV2 /> : <div data-testid="learn-v0-1">
                     <section className="grid gap-5 border-b border-[var(--v7-border)] pb-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
                         <div>
@@ -156,7 +182,7 @@ export const LearnDashboardV1 = ({ initialConcept, embedded = false }: { initial
                 </div>
             </Content>
     );
-    return embedded ? <div className={styles.shell}>{content}</div> : (
+    return embedded ? <div className={`${styles.shell} min-w-0 w-full overflow-x-hidden`}>{content}</div> : (
         <LearnShellV8 commands={commands} footer="Signal Learn · Evidence over shortcuts · Educational analysis, not investment advice">{content}</LearnShellV8>
     );
 };

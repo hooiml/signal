@@ -38,6 +38,7 @@ export function ResearchCalendarV8({ records, trending, target, onSelect }: { re
     const [page, setPage] = useState(0);
     const targetInRange = !!target && target.date >= today && target.date <= addDays(today, 30);
     const [selectedDay, setSelectedDay] = useState(targetInRange ? target!.date : today);
+    const [showEmptyGrid, setShowEmptyGrid] = useState(false);
     const [attempt, setAttempt] = useState(0);
     const [result, setResult] = useState<{ key: string; data: ResearchCalendarResponse | null; error: string } | null>(null);
     // The calendar API takes unique symbols; the first saved market wins for a duplicated ticker.
@@ -100,6 +101,12 @@ export function ResearchCalendarV8({ records, trending, target, onSelect }: { re
         {!target && !hasRecords && records && <p className={styles.meta}>Add stocks to your watchlist to see their earnings and review dates here. Trending earnings are shown meanwhile.</p>}
         {status && <p role={current?.error ? 'alert' : 'status'} className={styles.meta}>{status}{current?.error && <> <button className={styles.link} onClick={() => setAttempt(value => value + 1)}>Retry calendar</button></>}</p>}
         {shownKinds.length > 0 && <ul className={styles.calendarLegend} aria-label="Calendar legend">{shownKinds.map(kind => <li key={kind} data-kind={kind}><i aria-hidden="true" />{kindLabel[kind]}</li>)}</ul>}
+        {!target && !status && items.length === 0 && !showEmptyGrid ? (
+            <section className={styles.agenda} aria-label="Empty calendar">
+                <p className={styles.meta}>No earnings, reviews, or macro releases are scheduled in the next {range} days.</p>
+                <button type="button" className={styles.link} onClick={() => setShowEmptyGrid(true)}>Show full calendar grid</button>
+            </section>
+        ) : <>
         <div className={styles.monthBar} role="group" aria-label="Calendar weeks">
             <button type="button" className={styles.todayButton} onClick={() => { setPage(0); setSelectedDay(today); }}>Today</button>
             {pageCount > 1 && <button type="button" aria-label="Earlier weeks" disabled={activePage === 0} onClick={() => setPage(activePage - 1)}>‹</button>}
@@ -129,6 +136,7 @@ export function ResearchCalendarV8({ records, trending, target, onSelect }: { re
                     <span><b>{item.title}</b><small>{item.detail}{item.source ? ` · ${item.source}` : ''}{item.href && <> · <a href={item.href} target="_blank" rel="noopener noreferrer">Source ↗</a></>}</small></span>
                 </li>)}</ul>}
         </section>
+        </>}
         {current?.data?.warnings.map(warning => <p key={warning} className={styles.meta}>{warning}</p>)}
         {current?.data && <p className={styles.meta}>{target ? 'Earnings' : 'Watchlist'} dates retrieved {retrievedAt(current.data.generatedAt)}.</p>}
     </div>;
