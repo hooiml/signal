@@ -24,15 +24,15 @@ The visible score-zone bar must stay mode-aware:
 
 These are current model breakpoints only. They are not validated return thresholds and should not be treated as empirical forward-return claims until backtesting exists.
 
-## Current Base Weights (Model v2.1.0)
+## Current Base Weights (Model v2.2.0)
 
 US (baseline when `VIX <= 25`):
 
-- VIX: 35%
-- Put/call ratio: 15%
-- AAII: 20%
-- NAAIM manager exposure: 15%
+- VIX: 40%
+- Put/call ratio: 20%
+- AAII: 25%
 - Social sentiment: 15% (omitted and redistributed proportionally when `enableSocial=false`)
+- NAAIM manager exposure: 0% (retired from active scoring due to fragile source scraping; retained only as optional positioning context)
 - BofA SSI: 0% (retired from active scoring until a live feed exists)
 
 Malaysia:
@@ -47,11 +47,11 @@ Missing provider data on enabled inputs contributes a 50-point neutral fallback 
 
 ## Smooth Volatility Stress Ramp (US)
 
-For US signals, when VIX rises above `25`, VIX weight ramps smoothly from its baseline (`35%` with social enabled, or `41.2%` with social disabled) up to `60%` at `VIX >= 40`:
+For US signals, when VIX rises above `25`, VIX weight ramps smoothly from its baseline (`40%` with social enabled, or `47.1%` with social disabled) up to `60%` at `VIX >= 40`:
 
 - `stress = clamp((VIX - 25) / 15, 0, 1)`
 - `vixWeight = baseVixWeight + (0.60 - baseVixWeight) * stress`
-- Daily options positioning (`put_call`) stays active throughout volatility stress; slower weekly surveys (`aaii`, `naaim`) taper gently by `1 - 0.35 * stress` rather than dropping to `0%`.
+- Daily options positioning (`put_call`) stays active throughout volatility stress; slower weekly surveys (`aaii`) taper gently by `1 - 0.35 * stress` rather than dropping to `0%`.
 
 This avoids a discontinuous score cliff at `VIX = 30` and prevents US readings from collapsing into a single-indicator VIX thermometer when social is turned off.
 
@@ -85,7 +85,7 @@ NAAIM manager exposure is a weekly positioning input. It measures reported equit
 - Low exposure maps to fear/risk-off positioning.
 - High exposure maps to greed/crowding or strong momentum participation.
 
-It is scored for US signals, but should be interpreted as weekly positioning rather than an intraday trigger.
+It is retired from active US composite scoring due to fragile source scraping and retained only as optional weekly positioning context (not an intraday trigger).
 
 ## Buffett Indicator Backdrop
 
@@ -114,11 +114,11 @@ The timeline compares consecutive captures within the same configuration. A VIX 
 
 ## Historical calibration
 
-Persisted daily score snapshots are compared with subsequent VOO returns for US mode and FBM KLCI closes for Malaysia mode at approximately 7 and 30 calendar days. Results remain separated by market, Momentum or Contrarian mode, social-source setting, and the documented score zones. Directional alignment follows the tier saved for that mode; mixed snapshots have no directional hit-rate claim. Stored daily snapshots enter forward-return validation cohorts only when `scoring_model_version` matches the active model (`2.1.0`, alongside `my_news_eligibility_version: 1` for news-enabled MY snapshots); earlier-model observed snapshots remain untouched on the historical timeline as timeline-only records rather than being overwritten or mixed into v2.1.0 zone statistics.
+Persisted daily score snapshots are compared with subsequent VOO returns for US mode and FBM KLCI closes for Malaysia mode at approximately 7 and 30 calendar days. Results remain separated by market, Momentum or Contrarian mode, social-source setting, and the documented score zones. Directional alignment follows the tier saved for that mode; mixed snapshots have no directional hit-rate claim. Stored daily snapshots enter forward-return validation cohorts only when `scoring_model_version` matches the active model (`2.2.0`, alongside `my_news_eligibility_version: 1` for news-enabled MY snapshots); earlier-model observed snapshots remain untouched on the historical timeline as timeline-only records rather than being overwritten or mixed into v2.2.0 zone statistics.
 
 For US dates before complete snapshot logging began, the calibration reconstructs current-model scores from stored VIX and social-sentiment readings. These partial reconstructions preserve the current model's neutral contribution for unavailable put/call and weekly institutional inputs. They are identified separately from observed snapshots, never replace an observed score on an overlapping date, and must retain their coverage note in the UI. Malaysia calibration currently uses observed snapshots only because the legacy rows do not contain the native historical inputs needed for a defensible reconstruction.
 
-The visible US score history may also contain dates labelled Backfilled. Backfilling uses the latest source reading available on or before the target date, carries market-close readings across non-trading days, and never overwrites an observed snapshot. Retained historical social readings are used when present; otherwise social-enabled history uses raw sentiment `0` (normalized score `50`). Social-disabled history omits that driver and redistributes its configured weight proportionally across active inputs (matching model v2.1.0). Coverage notes must identify historical, carried, or unavailable sources. Backfilled remains distinct from observed in machine-readable provenance and calibration.
+The visible US score history may also contain dates labelled Backfilled. Backfilling uses the latest source reading available on or before the target date, carries market-close readings across non-trading days, and never overwrites an observed snapshot. Retained historical social readings are used when present; otherwise social-enabled history uses raw sentiment `0` (normalized score `50`). Social-disabled history omits that driver and redistributes its configured weight proportionally across active inputs (matching model v2.2.0). Coverage notes must identify historical, carried, or unavailable sources. Backfilled remains distinct from observed in machine-readable provenance and calibration.
 
 Calibration uses the newest 1,000 snapshots within the benchmark's ten-year window and an explicitly revalidated one-hour cache. This keeps the interactive signal response bounded while allowing completed forward-return observations to advance.
 

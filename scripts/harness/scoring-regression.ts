@@ -6,6 +6,7 @@ import { getHomeSessionContext } from '../../src/lib/home-schedule';
 import { buildBreadthContext, buildFinancialConditionsContext, buildYieldCurveContext, parseFredSeriesObservation, parseMalaysiaBenchmarkPage } from '../../src/lib/market-context';
 import { getSourceIndicatorCount, shouldEnableSourceIndicator } from '../../src/lib/source-indicator';
 import { calculateMarketCalibration, getCalibrationZone, selectHistoricalValidationCases, selectSimilarScoreOutcomes } from '../../src/lib/market-calibration';
+import { marketEvidenceCoverage } from '../../src/lib/market-evidence-coverage';
 import { reconstructUsMarketScores } from '../../src/lib/market-score-reconstruction';
 import { isAuraCacheFresh } from '../../src/lib/aura-cache';
 import { getRedditOAuthConfiguration } from '../../src/lib/reddit';
@@ -47,21 +48,21 @@ function runCoreScoringTests() {
         indicator({ name: 'put_call', display_name: 'Put/call ratio', value: 0.74, score: 73 }),
     ], { market: 'US', mode: 'standard' });
 
-    assertEqual(standardUs.composite_score, 55, 'US score shrinks toward neutral when configured sources are missing');
-    assertNear(standardUs.metadata.weight_distribution.vix, 0.35, 0.001, 'US VIX keeps its configured weight');
+    assertEqual(standardUs.composite_score, 56, 'US score shrinks toward neutral when configured sources are missing');
+    assertNear(standardUs.metadata.weight_distribution.vix, 0.40, 0.001, 'US VIX keeps its configured weight');
     assertNear(standardUs.metadata.weight_distribution.social, 0.15, 0.001, 'US social keeps its configured weight');
-    assertNear(standardUs.metadata.weight_distribution.put_call, 0.15, 0.001, 'US put/call keeps its configured weight');
-    assertNear(standardUs.metadata.coverage_adjustment?.active_weight ?? 0, 0.65, 0.001, 'US active weight coverage');
-    assertNear(standardUs.metadata.coverage_adjustment?.neutral_points ?? 0, 17.5, 0.001, 'US missing weight contributes neutral reserve');
+    assertNear(standardUs.metadata.weight_distribution.put_call, 0.20, 0.001, 'US put/call keeps its configured weight');
+    assertNear(standardUs.metadata.coverage_adjustment?.active_weight ?? 0, 0.75, 0.001, 'US active weight coverage');
+    assertNear(standardUs.metadata.coverage_adjustment?.neutral_points ?? 0, 12.5, 0.001, 'US missing weight contributes neutral reserve');
     assertEqual(standardUs.confidence.level, 'moderate', 'three-source mixed agreement stays moderate');
 
     const vixOnly = calculateCompositeScoreV2([
         indicator({ name: 'vix', value: 22, score: 40 }),
     ], { market: 'US', mode: 'standard' });
 
-    assertEqual(vixOnly.composite_score, 47, 'VIX-only score shrinks toward neutral');
-    assertNear(vixOnly.metadata.weight_distribution.vix, 0.35, 0.001, 'VIX-only keeps configured weight');
-    assertNear(vixOnly.metadata.coverage_adjustment?.missing_weight ?? 0, 0.65, 0.001, 'VIX-only missing coverage');
+    assertEqual(vixOnly.composite_score, 46, 'VIX-only score shrinks toward neutral');
+    assertNear(vixOnly.metadata.weight_distribution.vix, 0.40, 0.001, 'VIX-only keeps configured weight');
+    assertNear(vixOnly.metadata.coverage_adjustment?.missing_weight ?? 0, 0.60, 0.001, 'VIX-only missing coverage');
     assertEqual(vixOnly.confidence.level, 'low', 'single-source confidence');
 
     // Smooth VIX ramp (25 -> 40) avoids a discontinuous cliff at 30 and keeps positioning/surveys active.
@@ -73,9 +74,10 @@ function runCoreScoringTests() {
         indicator({ name: 'naaim', value: 65, score: 50 }),
     ], { market: 'US', mode: 'standard' });
 
-    assertNear(highVol.metadata.weight_distribution.vix, 0.35 + 0.25 * (10 / 15), 0.002, 'high-volatility smooth VIX weight at VIX 35');
-    assertTrue((highVol.metadata.weight_distribution.put_call ?? 0) > 0.10, 'daily put/call remains active during volatility stress');
-    assertTrue((highVol.metadata.weight_distribution.aaii ?? 0) > 0.08, 'weekly AAII tapers gently instead of dropping to zero');
+    assertNear(highVol.metadata.weight_distribution.vix, 0.40 + 0.20 * (10 / 15), 0.002, 'high-volatility smooth VIX weight at VIX 35');
+    assertTrue((highVol.metadata.weight_distribution.put_call ?? 0) > 0.15, 'daily put/call remains active during volatility stress');
+    assertTrue((highVol.metadata.weight_distribution.aaii ?? 0) > 0.12, 'weekly AAII tapers gently instead of dropping to zero');
+    assertEqual(highVol.components.naaim, undefined, 'NAAIM remains excluded from scored US components');
 
     const below30 = calculateCompositeScoreV2([
         indicator({ name: 'vix', value: 29.9, score: 27 }),
@@ -236,8 +238,20 @@ function runNaaimTests() {
         indicator({ name: 'naaim', value: 96.67, score: 100 }),
     ], { market: 'US', mode: 'standard' });
 
-    assertEqual(withNaaim.composite_score, 62, 'NAAIM participates without amplifying missing sources');
-    assertNear(withNaaim.metadata.weight_distribution.naaim, 0.15, 0.001, 'NAAIM keeps configured weight');
+    assertEqual(withNaaim.components.naaim, undefined, 'NAAIM is excluded from scored US components');
+    assertEqual(withNaaim.metadata.weight_distribution.naaim, undefined, 'NAAIM carries no scored weight');
+
+    const fullWithoutNaaim = calculateCompositeScoreV2([
+        indicator({ name: 'vix', value: 18, score: 50, metadata: { timestamp_basis: 'observed' } }),
+        indicator({ name: 'social', value: 0.2, score: 60, metadata: { timestamp_basis: 'observed' } }),
+        indicator({ name: 'put_call', value: 0.74, score: 73, metadata: { timestamp_basis: 'observed' } }),
+        indicator({ name: 'aaii', value: 35, score: 50, metadata: { timestamp_basis: 'observed' } }),
+    ], { market: 'US', mode: 'standard' });
+
+    assertNear(fullWithoutNaaim.metadata.coverage_adjustment?.missing_weight ?? 1, 0, 0.001, 'omitting NAAIM yields zero missing weight when scored US inputs are present');
+    assertNear(fullWithoutNaaim.metadata.coverage_adjustment?.active_weight ?? 0, 1, 0.001, 'scored US inputs provide full coverage without NAAIM');
+    const coverageWithoutNaaim = marketEvidenceCoverage(fullWithoutNaaim, '2026-05-13');
+    assertEqual(coverageWithoutNaaim.unavailableKeys.length, 0, 'omitting NAAIM creates no unavailableKeys entry');
 }
 
 function runCoverageAdjustmentTests() {
@@ -248,10 +262,10 @@ function runCoverageAdjustmentTests() {
         indicator({ name: 'naaim', value: 95.6, score: 100 }),
     ], { market: 'US', mode: 'standard' });
 
-    assertEqual(reducedCoverage.composite_score, 67, '85% source coverage shrinks active score toward neutral');
+    assertEqual(reducedCoverage.composite_score, 61, '85% source coverage shrinks active score toward neutral');
     assertNear(reducedCoverage.metadata.coverage_adjustment?.active_weight ?? 0, 0.85, 0.001, 'active coverage is preserved');
     assertNear(reducedCoverage.metadata.coverage_adjustment?.missing_weight ?? 0, 0.15, 0.001, 'missing coverage is explicit');
-    assertNear(reducedCoverage.metadata.coverage_adjustment?.active_points ?? 0, 60.0, 0.001, 'active driver points use base weights');
+    assertNear(reducedCoverage.metadata.coverage_adjustment?.active_points ?? 0, 53.9, 0.001, 'active driver points use base weights');
     assertNear(reducedCoverage.metadata.coverage_adjustment?.neutral_points ?? 0, 7.5, 0.001, 'missing coverage adds neutral points');
 }
 

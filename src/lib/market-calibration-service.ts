@@ -92,7 +92,7 @@ const getCachedMarketCalibration = unstable_cache(async (
             ? 'Weekly long-range points use historical VIX with unavailable inputs held neutral and are timeline-only. Later reconstructed scores use stored VIX and social sentiment. Observed snapshots take precedence on overlapping dates.'
             : null,
     });
-}, ['market-calibration-v8'], { revalidate: 3600 });
+}, ['market-calibration-v9'], { revalidate: 3600 });
 
 export const getMarketCalibration = (input: {
     readonly market: 'US' | 'MY';

@@ -59,7 +59,7 @@ export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onE
         liveScore: signal.composite_score,
         liveVix,
         simulatedVix,
-        vixWeight: vixComponent?.weight ?? 0.35,
+        vixWeight: vixComponent?.weight ?? (signal.metadata.market === 'MY' ? 0.30 : 0.40),
         mode: signal.mode === 'contrarian' ? 'contrarian' : 'standard',
         signal,
     });

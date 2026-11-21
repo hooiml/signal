@@ -26,6 +26,7 @@ try {
         src/lib/market-calibration.ts `
         src/lib/sentiment-calculator-v2.ts `
         src/lib/indicator-registry.ts `
+        src/lib/market-evidence-coverage.ts `
         src/lib/home-schedule.ts `
         src/lib/signal-change.ts `
         src/lib/source-indicator.ts `

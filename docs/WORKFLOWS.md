@@ -172,7 +172,7 @@ node --env-file=.env.local scripts/backfill-signal-history.mjs --apply
 node --env-file=.env.local scripts/backfill-signal-history.mjs --long-range --apply
 ```
 
-Both backfill profiles use active model `v2.1.0` math and never overwrite existing `origin = 'observed'` snapshots. The long-range profile uses weekly VIX closes, holds unavailable inputs neutral, writes `long_range_reconstruction_version: 1`, and sets `validation_eligible: false`. It must extend the timeline only. The rollback target is restricted to reconstructed US rows whose `metadata_snapshot->>'long_range_reconstruction_version'` equals `1`; never delete by date range alone.
+Both backfill profiles use active model `v2.2.0` math and never overwrite existing `origin = 'observed'` snapshots. The long-range profile uses weekly VIX closes, holds unavailable inputs neutral, writes `long_range_reconstruction_version: 1`, and sets `validation_eligible: false`. It must extend the timeline only. The rollback target is restricted to reconstructed US rows whose `metadata_snapshot->>'long_range_reconstruction_version'` equals `1`; never delete by date range alone.
 
 ## Scheduled Refresh
 
