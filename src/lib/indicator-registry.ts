@@ -1,3 +1,7 @@
+import { getUsV220Weights, US_V220_BASE_WEIGHTS } from './market-score-v220';
+
+export { getVixStressFactor, US_VIX_MAX_WEIGHT, US_VIX_STRESS_FULL, US_VIX_STRESS_START } from './market-score-v220';
+
 type Market = 'US' | 'MY';
 
 type IndicatorCategory = 'volatility' | 'sentiment' | 'survey' | 'institutional' | 'positioning' | 'trend';
@@ -12,10 +16,6 @@ interface IndicatorDefinition {
     baseWeights: Partial<Record<Market, number>>;
 }
 
-export const US_VIX_STRESS_START = 25;
-export const US_VIX_STRESS_FULL = 40;
-export const US_VIX_MAX_WEIGHT = 0.60;
-
 export const INDICATOR_REGISTRY: Record<string, IndicatorDefinition> = {
     vix: {
         key: 'vix',
@@ -23,7 +23,7 @@ export const INDICATOR_REGISTRY: Record<string, IndicatorDefinition> = {
         category: 'volatility',
         frequency: 'live',
         staleAfterDays: 1,
-        baseWeights: { US: 0.40, MY: 0.30 },
+        baseWeights: { US: US_V220_BASE_WEIGHTS.vix, MY: 0.30 },
     },
     social: {
         key: 'social',
@@ -31,7 +31,7 @@ export const INDICATOR_REGISTRY: Record<string, IndicatorDefinition> = {
         category: 'sentiment',
         frequency: 'daily',
         staleAfterDays: 1,
-        baseWeights: { US: 0.15 },
+        baseWeights: { US: US_V220_BASE_WEIGHTS.social },
     },
     put_call: {
         key: 'put_call',
@@ -39,7 +39,7 @@ export const INDICATOR_REGISTRY: Record<string, IndicatorDefinition> = {
         category: 'positioning',
         frequency: 'daily',
         staleAfterDays: 2,
-        baseWeights: { US: 0.20 },
+        baseWeights: { US: US_V220_BASE_WEIGHTS.put_call },
     },
     klci_trend: {
         key: 'klci_trend',
@@ -71,7 +71,7 @@ export const INDICATOR_REGISTRY: Record<string, IndicatorDefinition> = {
         category: 'survey',
         frequency: 'weekly',
         staleAfterDays: 14,
-        baseWeights: { US: 0.25 },
+        baseWeights: { US: US_V220_BASE_WEIGHTS.aaii },
     },
     naaim: {
         key: 'naaim',
@@ -91,13 +91,6 @@ export const INDICATOR_REGISTRY: Record<string, IndicatorDefinition> = {
     },
 };
 
-export function getVixStressFactor(vixValue: number | null | undefined): number {
-    if (typeof vixValue !== 'number' || !Number.isFinite(vixValue) || vixValue <= US_VIX_STRESS_START) {
-        return 0;
-    }
-    return Math.min(1, (vixValue - US_VIX_STRESS_START) / (US_VIX_STRESS_FULL - US_VIX_STRESS_START));
-}
-
 export function getIndicatorDisplayName(key: string) {
     return INDICATOR_REGISTRY[key]?.displayName ?? key.toUpperCase();
 }
@@ -111,43 +104,21 @@ export function getIndicatorBaseWeights(
             .map(definition => [definition.key, definition.baseWeights[market] ?? 0])
     );
 
-    // Explicit user opt-out removes social/news from the configured denominator and
-    // redistributes its weight proportionally rather than treating it as missing evidence.
-    if (options.enableSocial === false) {
-        const sourceKey = market === 'MY' ? 'news' : 'social';
-        weights[sourceKey] = 0;
-        const remainingTotal = Object.values(weights).reduce((sum, w) => sum + w, 0);
-        if (remainingTotal > 0) {
-            for (const key of Object.keys(weights)) {
-                weights[key] = weights[key] / remainingTotal;
-            }
-        }
-    }
-
     if (market === 'US') {
         const effectiveVix = typeof options.vixValue === 'number' && Number.isFinite(options.vixValue)
             ? options.vixValue
             : options.highVolatilityOverride ? 35 : null;
-        const stress = getVixStressFactor(effectiveVix);
-        if (stress > 0) {
-            const baseVix = weights.vix ?? 0.40;
-            const targetVix = baseVix + (US_VIX_MAX_WEIGHT - baseVix) * stress;
-            const nonVixTarget = Math.max(0, 1 - targetVix);
-            // Taper slow weekly surveys gently during volatility stress while preserving daily put/call.
-            const weeklyScale = 1 - 0.35 * stress;
-            const adjustedNonVix: Record<string, number> = {};
-            let nonVixSum = 0;
-            for (const [key, w] of Object.entries(weights)) {
-                if (key === 'vix' || w <= 0) continue;
-                const factor = INDICATOR_REGISTRY[key]?.frequency === 'weekly' ? weeklyScale : 1;
-                adjustedNonVix[key] = w * factor;
-                nonVixSum += adjustedNonVix[key];
-            }
-            weights.vix = targetVix;
-            if (nonVixSum > 0) {
-                for (const [key, w] of Object.entries(adjustedNonVix)) {
-                    weights[key] = (w / nonVixSum) * nonVixTarget;
-                }
+        return { ...weights, ...getUsV220Weights(effectiveVix, options.enableSocial !== false) };
+    }
+
+    // Explicit user opt-out removes news from the configured denominator and
+    // redistributes its weight proportionally rather than treating it as missing evidence.
+    if (options.enableSocial === false) {
+        weights.news = 0;
+        const remainingTotal = Object.values(weights).reduce((sum, w) => sum + w, 0);
+        if (remainingTotal > 0) {
+            for (const key of Object.keys(weights)) {
+                weights[key] = weights[key] / remainingTotal;
             }
         }
     }

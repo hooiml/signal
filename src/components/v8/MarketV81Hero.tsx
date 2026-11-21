@@ -19,11 +19,13 @@ import { MarketStressTest, computeVixStress } from './MarketStressTest';
 
 const pct = (value: number) => value.toFixed(1) + '%';
 
-export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onEvidence, onDrivers, onSelect, sourceEnabled, advanced = false }: {
+export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onEvidence, onDrivers, onSelect, sourceEnabled, advanced = false, comparisonNotice, recordedModelVersion }: {
     signal: MarketSignal; snapshotDate: string | null | undefined; tierClass: string;
     receivedAt?: string;
     sourceEnabled?: boolean;
     advanced?: boolean;
+    comparisonNotice?: string | null;
+    recordedModelVersion?: string | null;
     onEvidence: () => void; onDrivers: () => void;
     onSelect: (key: string, element: HTMLButtonElement) => void;
 }) {
@@ -95,8 +97,8 @@ export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onE
                             {stress.active && <span className={layout.simBadge}>Preview {stress.score}/100</span>}
                         </div>
                         <div className={layout.scoreMetaRow}>
-                            {unchanged ? <span data-testid="market-hero-unchanged">Score unchanged {inV9 ? 'vs prior snapshot' : 'since'} {fullDate(brief.comparisonDate)}</span> : compared ? <button type="button" className={layout.changeLink} onClick={onDrivers}>Score {change!.delta! > 0 ? '+' : ''}{change!.delta!.toFixed(2)} points vs {inV9 ? 'prior snapshot ' : ''}{fullDate(brief.comparisonDate)} ↗</button> : <span>Earlier comparable score unavailable</span>}
-                            <MarketSinceLastVisit signal={signal} snapshotDate={snapshotDay} sourceEnabled={sourceEnabled} />
+                            {unchanged ? <span data-testid="market-hero-unchanged">Score unchanged {inV9 ? 'vs prior snapshot' : 'since'} {fullDate(brief.comparisonDate)}</span> : compared ? <button type="button" className={layout.changeLink} onClick={onDrivers}>Score {change!.delta! > 0 ? '+' : ''}{change!.delta!.toFixed(2)} points vs {inV9 ? 'prior snapshot ' : ''}{fullDate(brief.comparisonDate)} ↗</button> : <span>{comparisonNotice ?? 'Earlier comparable score unavailable'}</span>}
+                            {recordedModelVersion !== null && <MarketSinceLastVisit signal={signal} snapshotDate={snapshotDay} sourceEnabled={sourceEnabled} modelVersion={recordedModelVersion} />}
                         </div>
                         {inV9 && elevatedWeights && <p className={layout.caution}>VIX is above 25, so its weight ramps smoothly to {(elevatedWeights.vix * 100).toFixed(0)}% of the US score (from its {(baselineUsVixWeight * 100).toFixed(0)}% baseline).</p>}
                         {brief.status === 'unavailable' && <p className={layout.caution}>Calculated score · insufficient evidence for a current conclusion.</p>}

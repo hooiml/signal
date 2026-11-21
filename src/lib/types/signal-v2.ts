@@ -57,6 +57,11 @@ export type SignalSnapshotPersistence =
     | { status: 'persisted'; snapshot_date: string }
     | { status: 'unavailable'; snapshot_date: null };
 
+export type RecalculatedUsScoreV220 = {
+    score: number;
+    missing_inputs: Array<'vix' | 'put_call' | 'aaii'>;
+};
+
 /**
  * Full Market Signal (v2 Output)
  */
@@ -194,6 +199,8 @@ export interface MarketSignal {
             tier: SignalTier;
             origin?: 'observed' | 'reconstructed';
             coverage_note?: string | null;
+            model_version?: string | null;
+            recalculated_v220?: RecalculatedUsScoreV220;
         }>;
         driver_changes?: Array<{
             key: string;

@@ -10,10 +10,12 @@ import layout from './market-v8-connected.module.css';
 const signedPoints = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value).toFixed(1)}`;
 
 /** A tag on the score line comparing today's reading with the last different snapshot seen in this browser; hidden when nothing moved. */
-export function MarketSinceLastVisit({ signal, snapshotDate, sourceEnabled }: { signal: MarketSignal; snapshotDate: string | null | undefined; sourceEnabled?: boolean }) {
+export function MarketSinceLastVisit({ signal, snapshotDate, sourceEnabled, modelVersion }: {
+    signal: MarketSignal; snapshotDate: string | null | undefined; sourceEnabled?: boolean; modelVersion?: string;
+}) {
     const [visit, setVisit] = useState<{ baseline: MarketVisit; current: MarketVisit; key: string } | null>(null);
     const inV9 = sourceEnabled !== undefined;
-    const key = `${signal.metadata.market}:${signal.mode}${inV9 ? sourceEnabled ? ':source-on' : ':source-off' : ''}`;
+    const key = `${signal.metadata.market}:${signal.mode}${inV9 ? sourceEnabled ? ':source-on' : ':source-off' : ''}${modelVersion ? `:${modelVersion}` : ''}`;
     useEffect(() => {
         if (!snapshotDate) return;
         const current = visitFromSignal(signal, snapshotDate);

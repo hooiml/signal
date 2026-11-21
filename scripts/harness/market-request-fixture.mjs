@@ -4,7 +4,7 @@ import path from 'node:path';
 import ts from 'typescript';
 
 // Real orchestration, scoring, persistence and route; isolated raw providers and SQL.
-export function marketRequestFixture({ allowSchema = false, signalSource, providerReadings = {}, previousSnapshot, providerOverrides, providerFetch, auraRows, rawMarketData = {}, sourceConfiguration = {}, snapshotWriteRows } = {}) {
+export function marketRequestFixture({ allowSchema = false, signalSource, providerReadings = {}, previousSnapshot, historySnapshots, providerOverrides, providerFetch, auraRows, rawMarketData = {}, sourceConfiguration = {}, snapshotWriteRows } = {}) {
     const modules = new Map(), calls = [], events = [], providerTimeouts = [];
     let failure = '', sqlFailure = null, hold = null, sqlHold = null;
     const fixedTime = '2026-09-12T00:00:00.000Z';
@@ -61,11 +61,14 @@ export function marketRequestFixture({ allowSchema = false, signalSource, provid
             return [];
         }
         if (query.includes('FROM market_signals')) return auraRows ?? [{ signal_date: '2026-09-12', summary: 'Fixture neutral market', key_drivers: [], outlook: 'Fixture outlook' }];
+        if (historySnapshots && query.includes('AS model_version')) {
+            return values.at(-1) === null ? historySnapshots : historySnapshots.slice(0, values.at(-1));
+        }
         if (query.includes('FROM signal_snapshots')) return [previousSnapshot ?? { snapshot_date: '2026-09-11', composite_score: 45, tier: 'neutral', components: { vix: { score: 45, weight: 1 } }, score_drivers: [], origin: 'observed', coverage_note: null }];
         if (query.startsWith('INSERT INTO signal_snapshots')) return snapshotWriteRows ?? [{ snapshot_date: fixedTime.slice(0, 10) }];
         throw new Error(`Unexpected SQL: ${query}`);
     };
-    const safeModules = new Set(['signal', 'signal-cache', 'sentiment-calculator', 'sentiment-calculator-v2', 'market-score-thresholds', 'market-evidence-coverage', 'market-observation-date', 'social-sentiment', 'indicator-registry', 'signal-change', 'source-indicator', 'market-calibration', 'market-indicators', 'aura-cache', 'MarketV8ConnectedData', 'route-auth']);
+    const safeModules = new Set(['signal', 'signal-cache', 'sentiment-calculator', 'sentiment-calculator-v2', 'market-score-thresholds', 'market-score-history', 'market-score-v220', 'market-evidence-coverage', 'market-observation-date', 'social-sentiment', 'indicator-registry', 'signal-change', 'source-indicator', 'market-calibration', 'market-indicators', 'aura-cache', 'MarketV8ConnectedData', 'route-auth']);
     function load(file) {
         const absolute = path.resolve(file);
         if (modules.has(absolute)) return modules.get(absolute).exports;

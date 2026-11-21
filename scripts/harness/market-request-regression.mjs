@@ -18,6 +18,47 @@ const assertTimings = result => {
     assert.match(result.timing, /(?:^|, )signal;dur=\d+\.\d(?:,|$)/);
     for (const entry of result.timing.split(', ')) assert.match(entry, /^[a-z_]+;dur=\d+\.\d$/);
 };
+const assertUsScoreHistory = async () => {
+    const snapshots = Array.from({ length: 101 }, (_, index) => ({
+        snapshot_date: new Date(Date.UTC(2026, 8, 11 - index)).toISOString().slice(0, 10),
+        composite_score: 73,
+        tier: 'buy',
+        origin: index === 0 ? 'observed' : 'reconstructed',
+        coverage_note: index === 0 ? null : 'Weekly reconstruction',
+        model_version: index === 0 ? '2.1.0' : '2.2.0',
+        components: index === 1 ? {} : {
+            vix: { raw_value: 20, score: 99, weight: 0.85 },
+            naaim: { raw_value: 90, score: 100, weight: 0.15 },
+        },
+    }));
+
+    for (const [market, mode, social] of [
+        ['US', 'standard', false], ['US', 'standard', true], ['US', 'contrarian', false], ['MY', 'standard', false],
+    ]) {
+        const fixture = marketRequestFixture({ historySnapshots: snapshots, providerOverrides: {} });
+        const response = await request(fixture, `market=${market}&mode=${mode}&enableSocial=${social}`);
+        assert.equal(response.status, 200);
+        const history = response.body.data.metadata.score_history;
+        const eligible = market === 'US' && mode === 'standard' && !social;
+        const archiveRead = fixture.calls.find(call => call.query.includes('AS model_version'));
+        assert.deepEqual(archiveRead.values, [eligible, eligible, market, mode, social, eligible ? null : 89]);
+        assert.equal(history.length, eligible ? 102 : 90);
+        assert.equal(history.at(-2).score, 73, 'History preserves the original observed composite.');
+        assert.equal(history.at(-3).origin, 'reconstructed', 'History preserves reconstructed provenance.');
+        assert.equal(history.at(-3).coverage_note, 'Weekly reconstruction');
+        assert.equal(history.at(-3).recalculated_v220, undefined, 'No usable raw inputs leaves a gap.');
+        if (eligible) {
+            assert.equal(history.at(0).date, snapshots.at(-1).snapshot_date, 'Read dates beyond the recent history cap.');
+            assert.equal(history.at(-2).model_version, '2.1.0', 'Leave the stored model attribution intact.');
+            assert.deepEqual(history.at(-2).recalculated_v220, { score: 58, missing_inputs: ['put_call', 'aaii'] });
+            assert.equal(history.at(-1).model_version, '2.2.0');
+            assert.equal(history.at(-1).recalculated_v220.score, history.at(-1).score, 'The current history point uses the just-archived v2.2.0 raw inputs.');
+        } else {
+            assert.ok(history.every(row => !('model_version' in row) && !('recalculated_v220' in row)));
+        }
+        assert.equal(fixture.calls.filter(call => call.query.startsWith('INSERT')).length, 1, 'Recalculation adds no storage write.');
+    }
+};
 const assertProviderIsolation = async () => {
     const unavailableVix = () => { throw new Error('Fixture VIX unavailable'); };
     const fx = { currentPrice: 4.2, vol20d: .003, change: .01, observedAt: new Date('2026-09-11T08:00:00.000Z') };
@@ -320,7 +361,8 @@ try {
         assert.equal(fixture.calls.length, baseline ? 16 : 6);
     }
     const previousSnapshotQuery = "snapshot_date < (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date";
-    for (const failure of ['providers', 'FROM market_signals', previousSnapshotQuery, 'LIMIT 89', 'INSERT INTO signal_snapshots', 'calibration']) {
+    const historySnapshotQuery = signalSource ? 'LIMIT 89' : 'LIMIT ?';
+    for (const failure of ['providers', 'FROM market_signals', previousSnapshotQuery, historySnapshotQuery, 'INSERT INTO signal_snapshots', 'calibration']) {
         const fixture = marketRequestFixture(fixtureOptions);
         fixture.setFailure(failure);
         const result = await request(fixture);
@@ -330,7 +372,7 @@ try {
             assert.equal(fixture.calls.length, 0);
             fixture.setFailure('');
             assert.equal((await request(fixture)).cache, 'miss', 'Engine errors must not be cached');
-        } else if ([previousSnapshotQuery, 'LIMIT 89', 'INSERT INTO signal_snapshots'].includes(failure)) {
+        } else if ([previousSnapshotQuery, historySnapshotQuery, 'INSERT INTO signal_snapshots'].includes(failure)) {
             assert.equal(result.body.data.metadata.score_history, undefined);
             if (!baseline) assert.deepEqual(result.body.data.metadata.snapshot_persistence, { status: 'unavailable', snapshot_date: null });
             assert.ok(!fixture.events.includes('calibration'), 'Do not calibrate after failed persistence');
@@ -379,6 +421,7 @@ try {
         assert.ok(full.marketAura, 'Legacy callers retain Aura');
         assert.ok(legacy.calls.some(c => c.query.includes('FROM market_signals')));
         await assertProviderIsolation();
+        await assertUsScoreHistory();
         await assertRefreshPersistence();
     }
     if (compareIndex >= 0) {
