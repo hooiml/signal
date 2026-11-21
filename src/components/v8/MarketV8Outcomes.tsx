@@ -26,14 +26,26 @@ function Horizon({ outcome }: { outcome: SimilarScoreOutcome }) {
 }
 
 // What the benchmark did after past readings close to today's score, against every eligible reading.
-export function MarketV8Outcomes({ signal, onHistory }: { signal: MarketSignal; onHistory: () => void }) {
+export function MarketV8Outcomes({ signal, onHistory, compactWhenEmpty = false }: { signal: MarketSignal; onHistory: () => void; compactWhenEmpty?: boolean }) {
     const calibration = signal.metadata.historical_validation;
     if (!calibration) return null;
     const outcomes = selectSimilarScoreOutcomes(signal.composite_score, calibration);
+    const allEmpty = outcomes.every(outcome => outcome.state === 'insufficient' || outcome.state === 'unavailable');
     const week = outcomes[0];
     const summary = !week.cohort || week.state === 'unavailable' ? 'One-week outcomes unavailable'
         : week.state === 'insufficient' ? `One-week evidence insufficient · ${week.cohort.sample_count}/${week.minimumSampleSize} periods needed`
             : `One-week median ${percent(week.cohort.median_forward_return_pct)} · ${week.cohort.sample_count} periods · ${evidence[week.state].toLowerCase()} evidence`;
+    if (compactWhenEmpty && allEmpty) {
+        return <section className={styles.card} data-testid="similar-score-outcomes" aria-label="Historical outcomes">
+            <div className={styles.heading}>
+                <div>
+                    <span className={styles.eyebrow}>Historical outcomes</span>
+                    <p className={styles.meta}>{summary}. Outcomes appear once at least {week.minimumSampleSize ?? 5} comparable {calibration.benchmark_name} periods are recorded.</p>
+                </div>
+                <button className={styles.link} onClick={onHistory}>Full historical calibration →</button>
+            </div>
+        </section>;
+    }
     return <MarketMobileSection name="outcomes" title="Historical outcomes" summary={`${summary} · not a prediction`} className={styles.card}>
         <div data-testid="similar-score-outcomes">
         <div className={styles.heading}>
@@ -41,7 +53,7 @@ export function MarketV8Outcomes({ signal, onHistory }: { signal: MarketSignal; 
             <button className={styles.link} onClick={onHistory}>Full historical calibration →</button>
         </div>
         <p className={styles.meta}>{calibration.benchmark_name} returns after comparable past scores, compared with all eligible scores. Descriptive history, not a prediction.</p>
-        <div className={styles.horizons} data-empty={outcomes.every(outcome => outcome.state === 'insufficient' || outcome.state === 'unavailable')}>{outcomes.map(outcome => <Horizon key={outcome.days} outcome={outcome} />)}</div>
+        <div className={styles.horizons} data-empty={allEmpty}>{outcomes.map(outcome => <Horizon key={outcome.days} outcome={outcome} />)}</div>
         </div>
     </MarketMobileSection>;
 }

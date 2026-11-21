@@ -156,7 +156,7 @@ export function V9DiscoverView({
         <div style={{ display: 'grid', gap: 18 }}>
             <div className={styles.heroBrief}>
                 <div>
-                    <div className={styles.kicker}><span>US Trend Discovery · Stock Picker · Earnings Calendar</span></div>
+                    <div className={styles.kicker}><span>US Universe · Trend Discovery · Stock Picker · Earnings Calendar</span></div>
                     <h1 className={styles.heroTitle}>Discover Ideas</h1>
                 </div>
             </div>

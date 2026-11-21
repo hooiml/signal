@@ -19,10 +19,11 @@ import { MarketStressTest, computeVixStress } from './MarketStressTest';
 
 const pct = (value: number) => value.toFixed(1) + '%';
 
-export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onEvidence, onDrivers, onSelect, sourceEnabled }: {
+export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onEvidence, onDrivers, onSelect, sourceEnabled, advanced = false }: {
     signal: MarketSignal; snapshotDate: string | null | undefined; tierClass: string;
     receivedAt?: string;
     sourceEnabled?: boolean;
+    advanced?: boolean;
     onEvidence: () => void; onDrivers: () => void;
     onSelect: (key: string, element: HTMLButtonElement) => void;
 }) {
@@ -44,9 +45,13 @@ export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onE
 
     const vixComponent = signal.components.vix;
     const inV9 = sourceEnabled !== undefined;
+    const effectiveSourceEnabled = signal.metadata.source_included ?? (sourceEnabled ?? true);
     const isUsVix = signal.metadata.market === 'US' && vixComponent?.enabled === true && Number.isFinite(vixComponent.value);
-    const highVolatility = isUsVix && (vixComponent?.value ?? 0) > 30;
-    const highVolatilityWeights = highVolatility ? getIndicatorBaseWeights('US', { highVolatilityOverride: true }) : null;
+    const elevatedVolatility = isUsVix && (vixComponent?.value ?? 0) > 25;
+    const elevatedWeights = elevatedVolatility
+        ? getIndicatorBaseWeights('US', { vixValue: vixComponent?.value, enableSocial: effectiveSourceEnabled })
+        : null;
+    const baselineUsVixWeight = getIndicatorBaseWeights('US', { enableSocial: effectiveSourceEnabled }).vix;
     const liveVix = typeof vixComponent?.value === 'number' && Number.isFinite(vixComponent.value) && vixComponent.value > 5 && vixComponent.value < 90
         ? vixComponent.value
         : 16.0;
@@ -56,6 +61,7 @@ export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onE
         simulatedVix,
         vixWeight: vixComponent?.weight ?? 0.35,
         mode: signal.mode === 'contrarian' ? 'contrarian' : 'standard',
+        signal,
     });
 
     const displayedScore = stress.active ? stress.score : signal.composite_score;
@@ -92,7 +98,7 @@ export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onE
                             {unchanged ? <span data-testid="market-hero-unchanged">Score unchanged {inV9 ? 'vs prior snapshot' : 'since'} {fullDate(brief.comparisonDate)}</span> : compared ? <button type="button" className={layout.changeLink} onClick={onDrivers}>Score {change!.delta! > 0 ? '+' : ''}{change!.delta!.toFixed(2)} points vs {inV9 ? 'prior snapshot ' : ''}{fullDate(brief.comparisonDate)} ↗</button> : <span>Earlier comparable score unavailable</span>}
                             <MarketSinceLastVisit signal={signal} snapshotDate={snapshotDay} sourceEnabled={sourceEnabled} />
                         </div>
-                        {inV9 && highVolatilityWeights && <p className={layout.caution}>VIX is above 30, so it carries {(highVolatilityWeights.vix * 100).toFixed(0)}% of the US score. Its usual weight is {(getIndicatorBaseWeights('US').vix * 100).toFixed(0)}%.</p>}
+                        {inV9 && elevatedWeights && <p className={layout.caution}>VIX is above 25, so its weight ramps smoothly to {(elevatedWeights.vix * 100).toFixed(0)}% of the US score (from its {(baselineUsVixWeight * 100).toFixed(0)}% baseline).</p>}
                         {brief.status === 'unavailable' && <p className={layout.caution}>Calculated score · insufficient evidence for a current conclusion.</p>}
                     </div>
                 </div>
@@ -102,7 +108,7 @@ export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onE
                 <div className={layout.coverageHeading}><b>Evidence coverage · {coverage.scoredCount} of {coverage.configuredCount} inputs included</b><b>{!coverageVerified || coverage.observedPct === null ? 'Weight unverified' : `${pct(coverage.observedPct)} configured weight`}</b></div>
                 {coverageVerified && coverage.observedPct !== null && coverage.fallbackPct !== null ? <>
                     <MarketCoverageRing signal={signal} coverage={coverage} onSelect={onSelect} />
-                    <p>{pct(coverage.fallbackPct)} of configured weight uses neutral fallback for missing inputs.</p>
+                    {(!inV9 || coverage.fallbackPct > 0) && <p>{pct(coverage.fallbackPct)} of configured weight uses neutral fallback for missing inputs.</p>}
                 </> : <p>Coverage weights could not be reconciled. Verify the source response.</p>}
                 {coverage.unknownDateKeys.map(key => <p className={layout.caution} key={key}><b><MetricGlossary metric={metricForIndicator(key)}>{name(key)}</MetricGlossary>:</b> {hasRetrievalTimestamp(signal.components[key]) ? 'Observation date unknown.' : 'Observation freshness unknown.'}</p>)}
                 {coverage.staleKeys.map(key => <p className={layout.caution} key={key}><b><MetricGlossary metric={metricForIndicator(key)}>{name(key)}</MetricGlossary>:</b> Stale · {fullDate(signal.components[key]?.last_updated)} · included.</p>)}
@@ -110,7 +116,7 @@ export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onE
             </section>
         </div>
 
-        {brief.status !== 'unavailable' && (!inV9 || isUsVix) && (
+        {brief.status !== 'unavailable' && (!inV9 || (advanced && isUsVix)) && (
             <MarketStressTest
                 liveVix={liveVix}
                 simulatedVix={simulatedVix}
@@ -124,6 +130,7 @@ export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onE
                 <h2>Latest Market Brief <span>{brief.status === 'available' ? 'Assessment available' : brief.status === 'limited' ? 'Limited assessment' : 'Assessment unavailable'}</span></h2>
                 <p>{brief.conclusion}</p>
             </div>
+            {(!inV9 || advanced) ? <>
             <div className={layout.briefGrid}>
                 <div className={layout.briefRow}>
                     <b>What changed</b>
@@ -148,6 +155,13 @@ export function MarketV81Hero({ signal, snapshotDate, receivedAt, tierClass, onE
                     <button type="button" className={styles.textButton} onClick={onEvidence}>Review source coverage →</button>
                 </details>
             </div>
+            </> : (
+                <div className={layout.briefFoot}>
+                    <span>{brief.change.text}</span>
+                    {signal.metadata.change_reconciliation && <button type="button" className={styles.textButton} onClick={onDrivers}>Change details →</button>}
+                    {brief.reasons.length > 0 && <details className={layout.alignment}><summary>Evidence notes · {brief.reasons.length}</summary><ul>{brief.reasons.map((reason, index) => <li key={index}>{reason.text}</li>)}</ul></details>}
+                </div>
+            )}
         </section>
 
         <div className={layout.briefFoot}>

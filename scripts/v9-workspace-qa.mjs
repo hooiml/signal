@@ -44,7 +44,15 @@ function load(file) {
 }
 const { reconcileScoreChange } = load('src/lib/signal-change.ts');
 const { createResearchRecord } = load('src/lib/research/records.ts');
-const fixture = marketRequestFixture({ providerOverrides: { fetchVIX: () => ({ price: 30.4, change: 0, observedAt: new Date('2026-09-11T20:00:00Z') }) } });
+const fixture = marketRequestFixture({ providerOverrides: {
+    fetchVIX: () => ({ price: 30.4, change: 0, observedAt: new Date('2026-09-11T20:00:00Z') }),
+    fetchMarketNews: market => [{
+        title: market === 'MY' ? 'Bursa banks steady on OPR hold' : 'Tech leads US pullback as VIX climbs',
+        source: market === 'MY' ? 'Google News (MY)' : 'CNBC Finance',
+        link: 'https://example.test/headline',
+        pubDate: '2026-09-11T22:00:00Z',
+    }],
+} });
 const seeds = {};
 for (const market of ['US', 'MY']) for (const mode of ['standard', 'contrarian']) for (const social of ['true', 'false']) {
     seeds[`${market}:${mode}:${social}`] = await (await fixture.route.GET(fixture.request(`market=${market}&mode=${mode}&enableSocial=${social}`))).json();
@@ -205,9 +213,9 @@ try {
     await scenario('market actions remain in V9', async () => {
         await page.goto(`${base}/v9?market=US&view=market`, { waitUntil: 'domcontentloaded' });
         await page.getByRole('heading', { name: /market condition score/i }).waitFor();
-        await page.getByText(/VIX is above 30/).first().waitFor();
+        await page.getByText(/VIX is above 25/).first().waitFor();
         const body = await page.locator('main:visible').innerText();
-        assert.match(body, /35%/); assert.match(body, /85%/);
+        assert.match(body, /44%|48%/); assert.match(body, /35%|41%/);
         for (const name of [/change details/i, /review source coverage/i, /explore market context/i]) {
             const control = page.getByRole('button', { name }).or(page.getByRole('link', { name })).first();
             if (await control.isVisible()) {
@@ -262,16 +270,19 @@ try {
     });
     await scenario('Home market CTA respects selected market', async () => {
         await page.goto(`${base}/v9?market=MY`, { waitUntil: 'domcontentloaded' });
-        await page.getByText('Daily Brief · Malaysia', { exact: false }).waitFor();
+        await page.getByRole('heading', { level: 1, name: /Malaysia · Bursa/i }).waitFor();
         await page.getByRole('button', { name: /Open Market Pulse/ }).first().click();
         await page.waitForURL(url => url.searchParams.get('view') === 'market');
         assert.equal(new URL(page.url()).searchParams.get('market'), 'MY');
     });
-    await scenario('Home evidence action opens the evidence tab', async () => {
+    await scenario('Home focus toggle and catalyst action navigate cleanly', async () => {
         await page.goto(`${base}/v9?market=US`, { waitUntil: 'domcontentloaded' });
-        await page.getByRole('button', { name: /US assessment has evidence limits/i }).click();
-        await page.waitForURL(url => url.searchParams.get('view') === 'market' && url.searchParams.get('tab') === 'evidence');
-        assert.equal(await page.getByRole('tab', { name: 'Evidence', exact: true }).getAttribute('aria-selected'), 'true');
+        await page.getByRole('group', { name: 'Home market focus' }).waitFor();
+        await page.getByRole('button', { name: 'Malaysia', exact: true }).click();
+        await page.getByRole('heading', { level: 1, name: /Malaysia · Bursa/i }).waitFor();
+        await page.getByRole('button', { name: 'US', exact: true }).click();
+        await page.getByRole('button', { name: /United States:.*Open Market/i }).click();
+        await page.waitForURL(url => url.searchParams.get('view') === 'market' && url.searchParams.get('market') === 'US');
     });
     await scenario('quick jump to Discover and ticker stays in V9', async () => {
         await page.goto(`${base}/v9?market=US`, { waitUntil: 'domcontentloaded' });
