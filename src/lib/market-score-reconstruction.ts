@@ -63,7 +63,7 @@ export const reconstructUsMarketScores = (input: {
             }));
         }
 
-        const signal = calculateCompositeScoreV2(indicators, { market: 'US', mode: input.mode });
+        const signal = calculateCompositeScoreV2(indicators, { market: 'US', mode: input.mode, enableSocial: input.enableSocial });
         return {
             date: row.date,
             score: signal.composite_score,

@@ -200,12 +200,12 @@ const renderMissing = indicatorKey => renderToStaticMarkup(createElement(Connect
     historyState: { loading: false, error: '', loaded: 0, pending: 0, failed: 0, unavailable: 0, total: 0 },
     onRetryHistory: () => {}, sourceEnabled: true,
 }));
-assert.match(renderMissing('social'), /20\.0% · held as neutral reserve/);
+assert.match(renderMissing('social'), /15\.0% · held as neutral reserve/);
 assert.match(renderMissing('social'), /Reddit: OAuth is not configured; StockTwits: disabled by configuration/);
-assert.match(renderMissing('naaim'), /10\.0% · held as neutral reserve/);
+assert.match(renderMissing('naaim'), /15\.0% · held as neutral reserve/);
 assert.match(renderMissing('naaim'), /No current .* observation was supplied/);
 assert.doesNotMatch(renderMissing('naaim'), /delayed|parsable|failed/);
-assert.match(renderMissing('bofa'), /5\.0% · held as neutral reserve/);
+assert.match(renderMissing('bofa'), /No configured scoring weight/);
 assert.match(renderMissing('bofa'), /No current .* observation was supplied/);
 
 console.log('Market data clarity regression passed: missing-input reasons and configured weights, source states, and news publication evidence are accurate.');

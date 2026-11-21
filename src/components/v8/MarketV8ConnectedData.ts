@@ -371,6 +371,7 @@ function validSignalQuality(value: unknown): boolean {
 function validMetadata(value: Record<string, unknown>, market: string): boolean {
     if (value.market !== market
         || !['US', 'MY'].includes(String(value.market))
+        || (value.source_included !== undefined && typeof value.source_included !== 'boolean')
         || !object(value.data_freshness)
         || !Object.values(value.data_freshness).every((item) => date(item))) return false;
     if (value.weight_distribution !== undefined

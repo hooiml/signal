@@ -43,8 +43,15 @@ function freshness(date: string, snapshot: string | null | undefined, basis: 'ob
 }
 
 export function marketEvidenceCoverage(signal: MarketSignal, snapshotDate: string | null | undefined): MarketEvidenceCoverage {
-    const highVolatility = signal.metadata.market === 'US' && signal.components.vix?.enabled === true && signal.components.vix.value > 30;
-    const weights = getIndicatorBaseWeights(signal.metadata.market, { highVolatilityOverride: highVolatility });
+    const vixVal = signal.components.vix?.enabled === true && Number.isFinite(signal.components.vix.value)
+        ? signal.components.vix.value
+        : undefined;
+    const enableSocial = signal.metadata.source_included ?? true;
+    const weights = getIndicatorBaseWeights(signal.metadata.market, {
+        vixValue: vixVal,
+        highVolatilityOverride: signal.metadata.market === 'US' && (vixVal ?? 0) > 25,
+        enableSocial,
+    });
     const keys = Object.keys(weights).filter(key => weights[key] > 0);
     const total = keys.reduce((sum, key) => sum + weights[key], 0);
     const scored = keys.filter(key => signal.components[key]?.enabled === true);

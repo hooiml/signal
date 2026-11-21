@@ -26,10 +26,10 @@ const assertProviderIsolation = async () => {
         .filter(value => typeof value === 'string').map(value => { try { return JSON.parse(value); } catch { return null; } })
         .find(value => value?.vix?.raw_value !== undefined).vix;
 
-    // These outputs were captured from the real healthy orchestration before isolation changed.
+    // Model v2.1.0 outputs under opt-out weight redistribution (enableSocial=false).
     for (const [market, value, score, composite, components] of [
-        ['US', 20, 60, 56, { vixScore: 66.08, socialScore: 50, vixWeight: .6, socialWeight: .4 }],
-        ['MY', 12, 61, 60, { vixScore: 88.08, socialScore: 50, vixWeight: .3, socialWeight: .7 }],
+        ['US', 20, 60, 57, { vixScore: 66.08, socialScore: 50, vixWeight: .6, socialWeight: .4 }],
+        ['MY', 12, 61, 63, { vixScore: 88.08, socialScore: 50, vixWeight: .3, socialWeight: .7 }],
     ]) {
         const healthy = marketRequestFixture({ providerOverrides: {} });
         const raw = await healthy.signal.fetchRawMarketData(market, false, false);

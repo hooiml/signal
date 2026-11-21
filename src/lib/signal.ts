@@ -8,7 +8,7 @@ import { sql } from '@/lib/db';
 import { calculateCompositeScoreV2 } from './sentiment-calculator-v2';
 import { IndicatorData, MarketSignal, SignalSnapshotPersistence, SignalTier } from './types/signal-v2';
 import { getLatestInstitutionalData } from './institutional-service';
-import { BuffettIndicatorData, fetchBuffettIndicator, fetchCboePutCallRatio, fetchNaaimExposure, normalizeNaaimExposure, normalizePutCallRatio, NaaimExposureData, PutCallRatioData } from './market-indicators';
+import { BuffettIndicatorData, fetchBuffettIndicator, fetchCboePutCallRatio, fetchNaaimExposure, normalizeKlciTrend, normalizeMyBreadth, normalizeNaaimExposure, normalizePutCallRatio, NaaimExposureData, PutCallRatioData } from './market-indicators';
 import { fetchMarketContext } from './market-context';
 import { getIndicatorDisplayName } from './indicator-registry';
 import { calculateDriverChanges, parseStoredComponentContributions, parseStoredComponentReadings, parseStoredDriverContributions, reconcileScoreChange } from './signal-change';
@@ -790,20 +790,76 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
             }
             : null;
 
+        const klciIndex = market === 'MY'
+            ? marketData.marketIndices.find(idx => idx.symbol === '^KLSE') ?? marketData.marketIndices[0] ?? null
+            : null;
+        const klciTrendNorm = klciIndex ? normalizeKlciTrend(klciIndex) : null;
+        const klciObservedAt = klciIndex?.observedAt?.toISOString() ?? null;
+        const klciTrendIndicator: IndicatorData | null = market === 'MY' && klciIndex && klciTrendNorm
+            ? {
+                name: 'klci_trend',
+                display_name: getIndicatorDisplayName('klci_trend'),
+                value: klciTrendNorm.rawValue,
+                score: klciTrendNorm.score,
+                weight: 0,
+                signal: getSignalFromScore(klciTrendNorm.score),
+                enabled: true,
+                last_updated: klciObservedAt ?? retrievedAt,
+                metadata: {
+                    timestamp_basis: klciObservedAt ? 'observed' : 'retrieved',
+                    retrieved_at: retrievedAt,
+                    unit: '% of 52w range',
+                    source_url: 'https://finance.yahoo.com/quote/%5EKLSE/',
+                    cadence: 'Daily / tactical',
+                    horizon: '1-4 weeks',
+                    mode_note: 'FBM KLCI position within its 52-week range (80%) blended with daily momentum (20%).',
+                },
+            }
+            : null;
+
+        const myTrackedStocks = market === 'MY' ? [...marketData.popularStocks, ...marketData.activeStocks] : [];
+        const myBreadthNorm = market === 'MY' ? normalizeMyBreadth(myTrackedStocks) : null;
+        const myBreadthObservedAt = myTrackedStocks
+            .map(stock => stock.observedAt?.getTime() ?? Number.NaN)
+            .filter(Number.isFinite)
+            .reduce<number | null>((latest, ts) => (latest === null || ts > latest ? ts : latest), null);
+        const myBreadthIndicator: IndicatorData | null = market === 'MY' && myBreadthNorm
+            ? {
+                name: 'my_breadth',
+                display_name: getIndicatorDisplayName('my_breadth'),
+                value: myBreadthNorm.rawValue,
+                score: myBreadthNorm.score,
+                weight: 0,
+                signal: getSignalFromScore(myBreadthNorm.score),
+                enabled: true,
+                last_updated: myBreadthObservedAt ? new Date(myBreadthObservedAt).toISOString() : retrievedAt,
+                metadata: {
+                    timestamp_basis: myBreadthObservedAt ? 'observed' : 'retrieved',
+                    retrieved_at: retrievedAt,
+                    unit: '% advancing',
+                    cadence: 'Daily / tactical',
+                    horizon: '1-5 trading days',
+                    mode_note: `Share of ${myBreadthNorm.count} tracked Bursa blue-chip and active stocks advancing today (flat counted at 50%).`,
+                },
+            }
+            : null;
+
         const signalInputs = [
             vixIndicator,
             socialIndicator,
             ...(putCallIndicator ? [putCallIndicator] : []),
             ...(naaimIndicator ? [naaimIndicator] : []),
+            ...(klciTrendIndicator ? [klciTrendIndicator] : []),
+            ...(myBreadthIndicator ? [myBreadthIndicator] : []),
             ...instIndicators
         ];
-        const v2Signal = calculateCompositeScoreV2(signalInputs, { market, mode });
+        const v2Signal = calculateCompositeScoreV2(signalInputs, { market, mode, enableSocial });
         v2Signal.metadata.counterfactuals = {
             source_toggle: buildSourceToggleCounterfactual(
                 signalInputs,
                 sourceName,
                 socialIndicator.display_name,
-                { market, mode },
+                { market, mode, enableSocial },
                 enableSocial,
                 marketData,
                 market === 'MY' ? { ...sourceCounts, news: eligibleNewsCount, reddit: eligibleRedditCount } : sourceCounts,
@@ -838,17 +894,18 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
         }
         v2Signal.metadata.market_context = marketData.marketContext;
 
-        // Populate article data from news and reddit
+        // Populate contextual news headlines regardless of whether social/news is scored;
+        // social Reddit chatter remains gated by enableSocial.
         const oneMonthAgo = Date.now() - (30 * 24 * 60 * 60 * 1000); // 30 days in milliseconds
 
-        const articlesData = enableSocial ? [
+        const articlesData = [
             ...marketData.newsItems
                 .filter(n => {
                     if (!n.pubDate) return true; // Include if no date
                     const newsDate = new Date(n.pubDate).getTime();
                     return newsDate >= oneMonthAgo;
                 })
-                .slice(0, 5)
+                .slice(0, 6)
                 .map(n => ({
                     title: n.title,
                     source: n.source || 'News',
@@ -856,7 +913,7 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                     pubDate: n.pubDate,
                     sentiment: undefined as 'bullish' | 'bearish' | 'neutral' | undefined
                 })),
-            ...marketData.redditPosts
+            ...(enableSocial ? marketData.redditPosts
                 .filter(p => (p.created_utc * 1000) >= oneMonthAgo) // Only posts from last 30 days
                 .slice(0, 5)
                 .map(p => ({
@@ -865,8 +922,8 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
                     url: `https://reddit.com${p.permalink}`,
                     pubDate: new Date(p.created_utc * 1000).toISOString(),
                     sentiment: undefined as 'bullish' | 'bearish' | 'neutral' | undefined
-                }))
-        ] : [];
+                })) : [])
+        ];
 
         v2Signal.metadata.articles = articlesData;
         v2Signal.metadata.source_availability = {
@@ -1138,7 +1195,7 @@ function buildSourceToggleCounterfactual(
     indicators: IndicatorData[],
     sourceName: 'social' | 'news',
     sourceLabel: string,
-    config: { market: MarketType; mode: MarketMode },
+    config: { market: MarketType; mode: MarketMode; enableSocial: boolean },
     active: boolean,
     marketData: AggregateMarketData,
     eligibleSourceCounts = {
@@ -1169,11 +1226,11 @@ function buildSourceToggleCounterfactual(
 
     const withSource = calculateCompositeScoreV2(
         indicators.map(indicator => indicator.name === sourceName ? { ...indicator, enabled: true } : indicator),
-        config
+        { market: config.market, mode: config.mode, enableSocial: true }
     );
     const withoutSource = calculateCompositeScoreV2(
         indicators.map(indicator => indicator.name === sourceName ? { ...indicator, enabled: false } : indicator),
-        config
+        { market: config.market, mode: config.mode, enableSocial: false }
     );
     const deltaWithoutSource = withoutSource.composite_score - withSource.composite_score;
 

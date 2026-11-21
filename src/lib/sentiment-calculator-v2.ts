@@ -10,26 +10,30 @@ export function calculateCompositeScoreV2(
     config: {
         market: 'US' | 'MY';
         mode: 'standard' | 'contrarian';
+        enableSocial?: boolean;
     }
 ): MarketSignal {
-    const { market, mode } = config;
+    const { market, mode, enableSocial = true } = config;
 
     // 1. Filter enabled indicators
     const enabledIndicators = indicators.filter(i => i.enabled);
 
-    // 2. Dynamic Regime Adjustment (High Volatility Override)
-    // If VIX > 30 (Panic), valid signals are drowned out by noise.
-    // We boost VIX weight to 85% to ensure safety.
+    // 2. Smooth Volatility Stress Ramp (US VIX 25 -> 40) + Opt-Out Redistribution
+    // Instead of a hard cliff at VIX > 30 that zeroes out positioning/surveys,
+    // smoothly scale VIX weight up to 60% while keeping daily positioning active.
     const vixIndicator = enabledIndicators.find(i => i.name === 'vix');
     const marketWeights = getIndicatorBaseWeights(market, {
-        highVolatilityOverride: market === 'US' && Boolean(vixIndicator && vixIndicator.value > 30)
+        vixValue: vixIndicator?.value,
+        highVolatilityOverride: market === 'US' && Boolean(vixIndicator && vixIndicator.value > 25),
+        enableSocial,
     });
 
     // 3. Preserve configured weights. Missing coverage contributes a neutral
     // baseline instead of amplifying whichever indicators happen to be active.
-    const configuredWeight = Object.values(marketWeights)
+    const rawConfiguredWeight = Object.values(marketWeights)
         .filter(weight => weight > 0)
         .reduce((total, weight) => total + weight, 0) || 1;
+    const configuredWeight = Math.abs(rawConfiguredWeight - 1) < 1e-9 ? 1 : rawConfiguredWeight;
     const activeIndicators = enabledIndicators
         .filter(ind => isScoredIndicator(ind.name, marketWeights))
         .map(ind => {
@@ -94,6 +98,7 @@ export function calculateCompositeScoreV2(
         confidence,
         metadata: {
             market,
+            source_included: enableSocial,
             data_freshness: scoredIndicators.reduce((acc, curr) => ({ ...acc, [curr.name]: curr.last_updated }), {}),
             weight_distribution: scoredIndicators.reduce((acc, curr) => ({ ...acc, [curr.name]: curr.weight }), {}),
             coverage_adjustment: {

@@ -83,14 +83,14 @@ function vixCrossing(row: ComponentChangeRow | undefined, current: Capture, prev
         || row.previous_raw_value === null || row.current_raw_value === null
         || row.previous_raw_value <= 0 || row.current_raw_value <= 0
         || row.previous_weight === null || row.current_weight === null) return null;
-    const wasHigh = row.previous_raw_value > 30;
-    const isHigh = row.current_raw_value > 30;
+    const wasHigh = row.previous_raw_value > 25;
+    const isHigh = row.current_raw_value > 25;
     if (wasHigh === isHigh) return null;
-    const expectedWeight = (highVolatilityOverride: boolean) => {
-        const weights = getIndicatorBaseWeights('US', { highVolatilityOverride });
+    const expectedWeight = (vixValue: number) => {
+        const weights = getIndicatorBaseWeights('US', { vixValue, enableSocial: config.enableSocial });
         return weights.vix / Object.values(weights).reduce((sum, weight) => sum + weight, 0);
     };
-    if (!close(row.previous_weight, expectedWeight(wasHigh)) || !close(row.current_weight, expectedWeight(isHigh))) return null;
+    if (!close(row.previous_weight, expectedWeight(row.previous_raw_value)) || !close(row.current_weight, expectedWeight(row.current_raw_value))) return null;
     const values = `${row.previous_raw_value} to ${row.current_raw_value}`;
     if (row.observation_change !== 'newer' || !verifiedObservation(row.previous_observed_at, previous)
         || !verifiedObservation(row.current_observed_at, current)) {
@@ -98,8 +98,8 @@ function vixCrossing(row: ComponentChangeRow | undefined, current: Capture, prev
         return { code: 'coverage-or-weights', text: `The saved VIX input changed from ${values} and its applied weight changed from ${weights}. The source times cannot establish a market crossing.` };
     }
     return isHigh
-        ? { code: 'vix-threshold-entered', text: `The recorded VIX rose from ${values}, above 30. The model applied its higher VIX weight.` }
-        : { code: 'vix-threshold-exited', text: `The recorded VIX fell from ${values}, back to 30 or below. The model returned to its usual VIX weight.` };
+        ? { code: 'vix-threshold-entered', text: `The recorded VIX rose from ${values}, above 25. The model smoothly ramped its VIX weight.` }
+        : { code: 'vix-threshold-exited', text: `The recorded VIX fell from ${values}, back to 25 or below. The model returned to its baseline VIX weight.` };
 }
 
 function compareCaptures(current: Capture, previous: Capture | undefined, config: SignalConfig): EntryChange {

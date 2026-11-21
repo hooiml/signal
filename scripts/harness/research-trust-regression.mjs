@@ -20,7 +20,7 @@ function load(file) {
   'stocktwits':{fetchTrendingTwits:async()=>[],calculateStockTwitsSentiment:()=>0},
   'db':{sql:async strings=>strings.join('').trim().startsWith('INSERT INTO signal_snapshots')?[{snapshot_date:snapshotDate}]:[]},'institutional-service':{getLatestInstitutionalData:async()=>[]},
   'market-context':{fetchMarketContext:async market=>({market})},
-  'market-indicators':{fetchBuffettIndicator:async()=>null,fetchCboePutCallRatio:async()=>null,fetchNaaimExposure:async()=>null},
+  'market-indicators':{fetchBuffettIndicator:async()=>null,fetchCboePutCallRatio:async()=>null,fetchNaaimExposure:async()=>null,normalizeKlciTrend:()=>null,normalizeMyBreadth:()=>null},
   'market-calibration-service':{getMarketCalibration:async()=>undefined},
  };
  const req=id=>{const resolved=id.startsWith('@/')?path.resolve('src',id.slice(2)):path.resolve(path.dirname(absolute),id);const name=path.basename(resolved);if(stubs[name])return stubs[name];if(!id.startsWith('.')&&!id.startsWith('@/'))throw Error(`Unexpected import ${id}`);return load(path.relative(process.cwd(),resolved)+'.ts');};
