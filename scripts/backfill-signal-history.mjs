@@ -1,11 +1,11 @@
 import { neon } from '@neondatabase/serverless';
+import { pathToFileURL } from 'node:url';
 
-const apply = process.argv.includes('--apply');
-const longRange = process.argv.includes('--long-range');
-const startDate = process.argv.find((value) => value.startsWith('--start='))?.split('=')[1] ?? (longRange ? '2020-01-01' : '2026-04-25');
-const endDate = process.argv.find((value) => value.startsWith('--end='))?.split('=')[1] ?? (longRange ? '2026-02-13' : new Date(Date.now() - 86_400_000).toISOString().slice(0, 10));
-if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
-const sql = neon(process.env.DATABASE_URL);
+export const SCORING_MODEL_VERSION = '2.1.0';
+const US_VIX_STRESS_START = 25;
+const US_VIX_STRESS_FULL = 40;
+const US_VIX_MAX_WEIGHT = 0.60;
+const WEEKLY_KEYS = new Set(['aaii', 'naaim']);
 
 const dateRange = (start, end) => {
     const values = [];
@@ -29,10 +29,50 @@ const tierFor = (score, mode) => score >= 85 ? (mode === 'contrarian' ? 'strong-
             : score >= 20 ? (mode === 'contrarian' ? 'buy' : 'sell')
                 : mode === 'contrarian' ? 'strong-buy' : 'strong-sell';
 const actionFor = (tier) => tier.includes('buy') ? 'BUY' : tier.includes('sell') ? 'SELL' : 'NEUTRAL';
-const weightsFor = (vix) => vix > 30 ? { vix: 0.85, social: 0.15 } : { vix: 0.35, social: 0.20, put_call: 0.10, aaii: 0.20, naaim: 0.10, bofa: 0.05 };
 
-const calculate = ({ date, mode, enableSocial, inputs }) => {
-    const weights = weightsFor(inputs.vix.value);
+/** Compute US model v2.1.0 weights with proportional social opt-out and smooth VIX 25->40 ramp. */
+export const weightsFor = (vix, enableSocial = true) => {
+    const weights = { vix: 0.35, social: 0.15, put_call: 0.15, aaii: 0.20, naaim: 0.15 };
+    if (enableSocial === false) {
+        weights.social = 0;
+        const remainingTotal = Object.values(weights).reduce((sum, w) => sum + w, 0);
+        if (remainingTotal > 0) {
+            for (const key of Object.keys(weights)) weights[key] = weights[key] / remainingTotal;
+        }
+    }
+    const stress = typeof vix === 'number' && Number.isFinite(vix) && vix > US_VIX_STRESS_START
+        ? Math.min(1, (vix - US_VIX_STRESS_START) / (US_VIX_STRESS_FULL - US_VIX_STRESS_START))
+        : 0;
+    if (stress > 0) {
+        const baseVix = weights.vix;
+        const targetVix = baseVix + (US_VIX_MAX_WEIGHT - baseVix) * stress;
+        const nonVixTarget = Math.max(0, 1 - targetVix);
+        const weeklyScale = 1 - 0.35 * stress;
+        const adjusted = {};
+        let nonVixSum = 0;
+        for (const [key, w] of Object.entries(weights)) {
+            if (key === 'vix' || w <= 0) continue;
+            adjusted[key] = w * (WEEKLY_KEYS.has(key) ? weeklyScale : 1);
+            nonVixSum += adjusted[key];
+        }
+        weights.vix = targetVix;
+        if (nonVixSum > 0) {
+            for (const [key, w] of Object.entries(adjusted)) {
+                weights[key] = (w / nonVixSum) * nonVixTarget;
+            }
+        }
+    }
+    const rawTotal = Object.values(weights).filter((w) => w > 0).reduce((sum, w) => sum + w, 0) || 1;
+    const configuredWeight = Math.abs(rawTotal - 1) < 1e-9 ? 1 : rawTotal;
+    if (configuredWeight !== 1) {
+        for (const key of Object.keys(weights)) weights[key] = weights[key] / configuredWeight;
+    }
+    return weights;
+};
+
+/** Reconstruct a single US snapshot using model v2.1.0 scoring and alignment rules. */
+export const calculate = ({ date, mode, enableSocial, inputs }) => {
+    const weights = weightsFor(inputs.vix.value, enableSocial);
     const definitions = [
         ['vix', 'VIX Index', inputs.vix.value, vixScore(inputs.vix.value), inputs.vix.date],
         ...(enableSocial ? [['social', 'Social Sentiment', inputs.social?.value ?? 0, inputs.social ? (Math.max(-1, Math.min(1, inputs.social.value)) + 1) * 50 : 50, inputs.social?.date ?? date]] : []),
@@ -45,15 +85,29 @@ const calculate = ({ date, mode, enableSocial, inputs }) => {
     }]));
     const active = Object.values(components);
     const activeWeight = active.reduce((sum, item) => sum + item.weight, 0);
-    const score = Math.round(active.reduce((sum, item) => sum + item.score * item.weight, 0) + (1 - activeWeight) * 50);
+    const missingWeight = Math.max(0, 1 - activeWeight);
+    const score = Math.max(0, Math.min(100, Math.round(active.reduce((sum, item) => sum + item.score * item.weight, 0) + missingWeight * 50)));
     const tier = tierFor(score, mode);
     const majority = actionFor(tier);
-    const agreement = active.length ? Math.round(active.filter((item) => actionFor(item.signal) === majority).length / active.length * 100) : 0;
-    const confidence = active.length < 3 || agreement < 50 ? 'low' : agreement >= 80 ? 'high' : 'moderate';
+    let agreement = 100;
+    let confidence = 'low';
+    if (active.length >= 2) {
+        agreement = Math.round(active.filter((item) => actionFor(item.signal) === majority).length / active.length * 100);
+        confidence = agreement >= 80 ? 'high' : agreement < 50 ? 'low' : 'moderate';
+        if (active.length < 3 && confidence === 'high') confidence = 'moderate';
+    }
     const drivers = Object.entries(components).map(([key, item]) => ({ key, name: item.display_name, contribution: item.score * item.weight, score: item.score, weight: item.weight, raw_value: item.raw_value, last_updated: item.last_updated, impact: actionFor(item.signal) === majority ? 'positive' : 'negative', detail: 'Reconstructed historical input' })).sort((left, right) => Math.abs(right.contribution) - Math.abs(left.contribution));
-    const coverage = ['VIX historical close', enableSocial ? (inputs.social ? `social historical reading from ${inputs.social.date}` : 'social neutral fallback (raw 0)') : 'social disabled', inputs.putCall ? `put/call carried from ${inputs.putCall.date}` : 'put/call neutral reserve', inputs.aaii ? `AAII carried from ${inputs.aaii.date}` : 'AAII neutral reserve', inputs.naaim ? `NAAIM ${inputs.naaim.date}` : 'NAAIM neutral reserve', 'BofA neutral reserve'].join('; ');
+    const coverage = ['VIX historical close', enableSocial ? (inputs.social ? `social historical reading from ${inputs.social.date}` : 'social neutral fallback (raw 0)') : 'social disabled (weight redistributed)', inputs.putCall ? `put/call carried from ${inputs.putCall.date}` : 'put/call neutral reserve', inputs.aaii ? `AAII carried from ${inputs.aaii.date}` : 'AAII neutral reserve', inputs.naaim ? `NAAIM ${inputs.naaim.date}` : 'NAAIM neutral reserve'].join('; ');
     return { score, tier, majority, agreement, confidence, components, drivers, coverage };
 };
+
+async function main() {
+const apply = process.argv.includes('--apply');
+const longRange = process.argv.includes('--long-range');
+const startDate = process.argv.find((value) => value.startsWith('--start='))?.split('=')[1] ?? (longRange ? '2020-01-01' : '2026-04-25');
+const endDate = process.argv.find((value) => value.startsWith('--end='))?.split('=')[1] ?? (longRange ? '2026-02-13' : new Date(Date.now() - 86_400_000).toISOString().slice(0, 10));
+if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
+const sql = neon(process.env.DATABASE_URL);
 
 const yahoo = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=${longRange ? '10y' : '1y'}`, { headers: { 'user-agent': 'SignalDashboard/1.0' } }).then(async (response) => {
     if (!response.ok) throw new Error(`Yahoo VIX history failed: ${response.status}`);
@@ -132,7 +186,7 @@ if (apply) {
     await sql`ALTER TABLE signal_snapshots ADD COLUMN IF NOT EXISTS coverage_note TEXT`;
     for (const row of candidates) {
         await sql`INSERT INTO signal_snapshots (market_type, mode, enable_social, snapshot_date, composite_score, tier, confidence_level, agreement_pct, majority_signal, components, score_drivers, index_trend, signal_quality, interpretation_context, metadata_snapshot, origin, coverage_note)
-            VALUES ('US', ${row.mode}, ${row.enableSocial}, ${row.date}, ${row.score}, ${row.tier}, ${row.confidence}, ${row.agreement}, ${row.majority}, ${JSON.stringify(row.components)}, ${JSON.stringify(row.drivers)}, '[]'::jsonb, ${JSON.stringify({ freshness: 'reconstructed', source_coverage: 'partial', warnings: [row.coverage] })}, ${JSON.stringify({ limitation: longRange ? 'Weekly long-range context reconstructed from historical VIX with unavailable inputs held neutral; excluded from forward validation.' : 'Reconstructed with the current model; not an observed point-in-time snapshot.' })}, ${JSON.stringify(longRange ? { reconstruction_version: 1, long_range_reconstruction_version: 1, scoring_model_version: '2.0.0', validation_eligible: false, cadence: 'weekly' } : { reconstruction_version: 1, scoring_model_version: '2.0.0', validation_eligible: true })}, 'reconstructed', ${longRange ? `Limited weekly reconstruction; ${row.coverage}` : row.coverage})
+            VALUES ('US', ${row.mode}, ${row.enableSocial}, ${row.date}, ${row.score}, ${row.tier}, ${row.confidence}, ${row.agreement}, ${row.majority}, ${JSON.stringify(row.components)}, ${JSON.stringify(row.drivers)}, '[]'::jsonb, ${JSON.stringify({ freshness: 'reconstructed', source_coverage: 'partial', warnings: [row.coverage] })}, ${JSON.stringify({ limitation: longRange ? 'Weekly long-range context reconstructed from historical VIX with unavailable inputs held neutral; excluded from forward validation.' : 'Reconstructed with the current model; not an observed point-in-time snapshot.' })}, ${JSON.stringify(longRange ? { reconstruction_version: 1, long_range_reconstruction_version: 1, scoring_model_version: SCORING_MODEL_VERSION, validation_eligible: false, cadence: 'weekly' } : { reconstruction_version: 1, scoring_model_version: SCORING_MODEL_VERSION, validation_eligible: true })}, 'reconstructed', ${longRange ? `Limited weekly reconstruction; ${row.coverage}` : row.coverage})
             ON CONFLICT (market_type, mode, enable_social, snapshot_date) DO UPDATE SET
                 composite_score = EXCLUDED.composite_score,
                 tier = EXCLUDED.tier,
@@ -149,4 +203,10 @@ if (apply) {
             WHERE signal_snapshots.origin = 'reconstructed'`;
     }
     console.log(`Inserted or refreshed ${candidates.length} backfilled snapshots.`);
+}
+}
+
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
+    await main();
 }
