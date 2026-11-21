@@ -301,6 +301,14 @@ export function formatRawValue(indicator: IndicatorData, market: 'US' | 'MY') {
         return `${indicator.value.toFixed(1)}% exposure`;
     }
 
+    if (indicator.name === 'klci_trend') {
+        return `${indicator.value.toFixed(1)}% 52w range`;
+    }
+
+    if (indicator.name === 'my_breadth') {
+        return `${indicator.value.toFixed(1)}% advancing`;
+    }
+
     if (indicator.name === 'vix' && indicator.metadata?.unit) return `${indicator.value.toFixed(2)} ${indicator.metadata.unit}`;
 
     if (indicator.name === 'vix' && market === 'MY') {

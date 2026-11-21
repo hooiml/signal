@@ -102,6 +102,8 @@ function normalizationNote(key: string): string {
     if (key === 'put_call') return 'The production put/call normalizer clamps the ratio to 0.55–1.25, then inverts that range to 0–100.';
     if (key === 'naaim') return 'The production NAAIM normalizer clamps exposure to 40–90%, then maps that range linearly to 0–100.';
     if (key === 'aaii') return 'The production AAII normalizer clamps bullishness to 20–50%, then maps that range linearly to 0–100.';
+    if (key === 'klci_trend') return 'The KLCI trend normalizer blends FBM KLCI position in its 52-week range (80%) with daily momentum (20%) on a 0–100 scale.';
+    if (key === 'my_breadth') return 'Bursa breadth measures the share of tracked Malaysian blue-chip and active stocks advancing today (flat counted at 50%), scaled 0–100.';
     if (key === 'bofa') return 'The production BofA normalizer clamps the supplied SSI value to 50–60, then maps that range linearly to 0–100.';
     return 'The service supplies the normalized 0–100 score. No indicator-specific normalization formula is exposed for this registry key.';
 }
@@ -123,15 +125,20 @@ function horizon(indicator: IndicatorData | undefined): string {
 }
 
 function usesHighVolatilityWeights(signal: MarketSignal): boolean {
-    return signal.metadata.market === 'US' && finiteNumber(signal.components.vix?.value) && signal.components.vix.value > 30;
+    return signal.metadata.market === 'US' && finiteNumber(signal.components.vix?.value) && signal.components.vix.value > 25;
 }
 
 function modelWeights(signal: MarketSignal): Record<string, number> {
-    return getIndicatorBaseWeights(signal.metadata.market, { highVolatilityOverride: usesHighVolatilityWeights(signal) });
+    const vixValue = finiteNumber(signal.components.vix?.value) ? signal.components.vix.value : undefined;
+    return getIndicatorBaseWeights(signal.metadata.market, {
+        vixValue,
+        highVolatilityOverride: usesHighVolatilityWeights(signal),
+        enableSocial: signal.metadata.source_included ?? true,
+    });
 }
 
 function configuredWeightLabel(signal: MarketSignal): string {
-    return usesHighVolatilityWeights(signal) ? 'High-volatility model weight' : 'Normal registry weight';
+    return usesHighVolatilityWeights(signal) ? 'Elevated-volatility model weight' : 'Normal registry weight';
 }
 
 function freshnessStatus(signal: MarketSignal, indicator: IndicatorData | undefined, key: string): string {

@@ -385,6 +385,7 @@ export function V9Workspace() {
                     {view === 'home' && (
                         <V9HomeView
                             selectedMarket={market}
+                            explicitMarket={marketRouteConfig(searchParams).market ?? null}
                             us={usSlot}
                             my={mySlot}
                             usToday={usToday}

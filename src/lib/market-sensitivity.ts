@@ -81,7 +81,7 @@ export const simulateMarketScore = (
         baseTier: signal.tier,
         simulatedTier,
         neutralPoints,
-        weightRegime: signal.metadata.market === 'US' && (signal.components.vix?.value ?? 0) > 30
+        weightRegime: signal.metadata.market === 'US' && (signal.components.vix?.value ?? 0) > 25
             ? 'high-volatility-override'
             : 'base',
         conflicts: drivers.filter((driver) => tierDirection(driver.simulatedTier) !== tierDirection(simulatedTier)).map((driver) => driver.name),

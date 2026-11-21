@@ -168,6 +168,53 @@ export function normalizeNaaimExposure(exposure: number): number {
     return Math.round(((clamped - lowerBound) / (upperBound - lowerBound)) * 100);
 }
 
+export function normalizeKlciTrend(input: {
+    price: number;
+    fiftyTwoWeekLow: number;
+    fiftyTwoWeekHigh: number;
+    changePercent: number;
+}): { score: number; rawValue: number } | null {
+    if (!Number.isFinite(input.price) || input.price <= 0 || !Number.isFinite(input.changePercent)) {
+        return null;
+    }
+    const dailyScore = Math.max(0, Math.min(100, 50 + input.changePercent * 12));
+    const hasRange = Number.isFinite(input.fiftyTwoWeekHigh)
+        && Number.isFinite(input.fiftyTwoWeekLow)
+        && input.fiftyTwoWeekHigh > input.fiftyTwoWeekLow;
+    if (!hasRange) {
+        return { score: Math.round(dailyScore), rawValue: Number(dailyScore.toFixed(1)) };
+    }
+    const rangePos = Math.max(0, Math.min(100, ((input.price - input.fiftyTwoWeekLow) / (input.fiftyTwoWeekHigh - input.fiftyTwoWeekLow)) * 100));
+    const blended = rangePos * 0.8 + dailyScore * 0.2;
+    return {
+        score: Math.max(0, Math.min(100, Math.round(blended))),
+        rawValue: Number(rangePos.toFixed(1)),
+    };
+}
+
+export function normalizeMyBreadth(
+    stocks: ReadonlyArray<{ symbol: string; changePercent: number }>,
+): { score: number; rawValue: number; count: number } | null {
+    const unique = new Map<string, number>();
+    for (const stock of stocks) {
+        if (typeof stock.symbol === 'string' && Number.isFinite(stock.changePercent)) {
+            unique.set(stock.symbol, stock.changePercent);
+        }
+    }
+    if (unique.size < 3) return null;
+    let advancingUnits = 0;
+    for (const change of unique.values()) {
+        if (change > 0) advancingUnits += 1;
+        else if (change === 0) advancingUnits += 0.5;
+    }
+    const pct = (advancingUnits / unique.size) * 100;
+    return {
+        score: Math.max(0, Math.min(100, Math.round(pct))),
+        rawValue: Number(pct.toFixed(1)),
+        count: unique.size,
+    };
+}
+
 function parseUSDate(value: string, retrievedAt: string) {
     const [month, day, year] = value.split('/');
     return parseMarketReportDate(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`, retrievedAt);

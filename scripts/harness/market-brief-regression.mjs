@@ -44,8 +44,8 @@ const input = (name, score, options = {}) => ({
 
 function inputs(market, scores = {}, options = {}) {
     const names = market === 'US'
-        ? ['vix', 'social', 'put_call', 'aaii', 'naaim', 'bofa']
-        : ['vix', 'news', 'aaii'];
+        ? ['vix', 'social', 'put_call', 'aaii', 'naaim']
+        : ['klci_trend', 'vix', 'my_breadth', 'news'];
     return names.map((name) => input(name, scores[name] ?? 70, options[name]));
 }
 
@@ -128,14 +128,14 @@ for (const mode of ['standard', 'contrarian']) {
     assert.deepEqual(buildMarketBrief(reordered, referenceDate), brief, `US ${mode} complete: selection does not depend on component insertion order`);
 }
 
-// The documented concentration policy deliberately keeps both of these complete readings limited.
-for (const scenario of [
-    { label: 'MY news-heavy', value: signal('MY', 'standard', { vix: 75, news: 70, aaii: 65 }) },
-    { label: 'US high-volatility override', value: signal('US', 'standard', { vix: 75, social: 70 }, { vix: { value: 35 } }) },
-]) {
-    const brief = buildMarketBrief(scenario.value, referenceDate);
-    assertBrief(brief, 'limited', scenario.label);
-    assert.ok(brief.reasons.some((reason) => reason.code === 'concentration'), `${scenario.label}: concentration reason code`);
+// High-volatility US ramp still triggers the >50% concentration check once VIX pushes above ~34,
+// while Malaysia's balanced native model (35/30/20/15) is now available when all inputs are fresh.
+{
+    const balancedMy = buildMarketBrief(signal('MY', 'standard', { klci_trend: 75, vix: 70, my_breadth: 68, news: 65 }), referenceDate);
+    assertBrief(balancedMy, 'available', 'MY balanced native model');
+    const stressedUs = buildMarketBrief(signal('US', 'standard', { vix: 20, social: 40, put_call: 30, aaii: 45, naaim: 50 }, { vix: { value: 36 } }), referenceDate);
+    assertBrief(stressedUs, 'limited', 'US elevated-volatility ramp');
+    assert.ok(stressedUs.reasons.some((reason) => reason.code === 'concentration'), 'US elevated-volatility ramp: concentration reason code');
 }
 
 const impossibleReference = buildMarketBrief(signal(), '2026-02-30');
@@ -204,7 +204,7 @@ const changeCases = [
     },
     {
         label: 'offsetting effects',
-        current: signal('US', 'standard', { vix: 80, social: 45 }),
+        current: signal('US', 'standard', { vix: 75, social: 45 }),
         previous: signal('US', 'standard', { vix: 60, social: 80 }, { vix: { last_updated: '2026-10-19' }, social: { last_updated: '2026-10-19' } }),
         expected: 'offset',
         status: 'available',
@@ -309,7 +309,7 @@ for (const scenario of [
     const current = signal(scenario.market, 'standard');
     const previous = signal(scenario.market, 'standard');
     const brief = buildMarketBrief(withComparison(current, previous, scenario.options), referenceDate);
-    assertBrief(brief, scenario.market === 'MY' ? 'limited' : 'available', scenario.label);
+    assertBrief(brief, 'available', scenario.label);
     assertChange(brief, scenario.changeCode, scenario.label);
     assertText(brief, 'comparison|configur|cannot', scenario.label);
 }

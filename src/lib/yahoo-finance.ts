@@ -133,6 +133,7 @@ export const fetchQuotes = async (symbols: string[]): Promise<MarketData[]> => {
                 fiftyTwoWeekLow: meta.fiftyTwoWeekLow || price,
                 fiftyTwoWeekChangePercent: 0,
                 timestamp: new Date(),
+                observedAt: providerTime(meta.regularMarketTime),
                 sparkline: sparkline.length > 0 ? sparkline : undefined
             };
         } catch (error) {
@@ -180,6 +181,7 @@ export const fetchIndicesWithChart = async (symbols: string[]): Promise<MarketDa
                 fiftyTwoWeekLow: meta.fiftyTwoWeekLow || price,
                 fiftyTwoWeekChangePercent: 0,
                 timestamp: new Date(),
+                observedAt: providerTime(meta.regularMarketTime),
                 sparkline: points
             };
         } catch (e) {

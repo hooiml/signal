@@ -1,6 +1,6 @@
 import type { MarketSignal, SignalTier } from './types/signal-v2';
 
-export const MARKET_SCORE_MODEL_VERSION = '2.0.0';
+export const MARKET_SCORE_MODEL_VERSION = '2.1.0';
 
 export type CalibrationSnapshot = {
     readonly date: string;

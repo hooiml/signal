@@ -35,7 +35,7 @@ const mk = (name, weight, last_updated = '2026-10-16T00:00:00Z') => ({
 });
 const components = {
     vix: mk('vix', .35),
-    put_call: mk('put_call', .10),
+    put_call: mk('put_call', .15),
     aaii: mk('aaii', .20, '2026-07-08T00:00:00Z'),
 };
 const sample = {
@@ -43,17 +43,17 @@ const sample = {
     metadata: {
         market: 'US',
         coverage_adjustment: {
-            active_weight: .65, missing_weight: .35, neutral_baseline: 50,
-            active_points: 30, neutral_points: 17.5,
+            active_weight: .70, missing_weight: .30, neutral_baseline: 50,
+            active_points: 35, neutral_points: 15,
         },
     },
 };
 const p = marketEvidenceCoverage(sample, date);
-assert.deepEqual([p.configuredCount, p.scoredCount, p.unavailableKeys.length], [6, 3, 3]);
+assert.deepEqual([p.configuredCount, p.scoredCount, p.unavailableKeys.length], [5, 3, 2]);
 assert.equal(p.verifiedPartition, true);
-assert.ok(Math.abs(p.freshPct - 45) < 1e-9);
+assert.ok(Math.abs(p.freshPct - 50) < 1e-9);
 assert.ok(Math.abs(p.stalePct - 20) < 1e-9);
-assert.ok(Math.abs(p.fallbackPct - 35) < 1e-9);
+assert.ok(Math.abs(p.fallbackPct - 30) < 1e-9);
 assert.ok(Math.abs(p.freshPct + p.stalePct + p.fallbackPct - 100) < 1e-9);
 assert.deepEqual(p.staleKeys, ['aaii']);
 assert.deepEqual(p.freshKeys, ['vix', 'put_call']);
@@ -65,20 +65,20 @@ assert.equal(unknown.verifiedPartition, false);
 assert.equal(unknown.freshPct, null);
 assert.deepEqual(unknown.unknownDateKeys, ['put_call']);
 assert.deepEqual(unknown.freshKeys, ['vix']);
-assert.equal(unknown.observedPct, 65);
-assert.equal(unknown.fallbackPct, 35);
+assert.equal(unknown.observedPct, 70);
+assert.equal(unknown.fallbackPct, 30);
 
 // A fresh Malaysian volatility proxy keeps its own label when unrelated news has no observation date.
 const myMixedFreshness = {
     components: {
-        vix: mk('vix', .25),
-        news: { ...mk('news', .65), last_updated: '2026-10-16T12:00:00Z', metadata: { timestamp_basis: 'retrieved' } },
+        vix: mk('vix', .30),
+        news: { ...mk('news', .15), last_updated: '2026-10-16T12:00:00Z', metadata: { timestamp_basis: 'retrieved' } },
     },
     metadata: {
         market: 'MY',
         coverage_adjustment: {
-            active_weight: .9, missing_weight: .1, neutral_baseline: 50,
-            active_points: 45, neutral_points: 5,
+            active_weight: .45, missing_weight: .55, neutral_baseline: 50,
+            active_points: 22.5, neutral_points: 27.5,
         },
     },
 };
@@ -87,8 +87,8 @@ assert.equal(myCoverage.verifiedPartition, false);
 assert.equal(myCoverage.freshPct, null);
 assert.deepEqual(myCoverage.freshKeys, ['vix']);
 assert.deepEqual(myCoverage.unknownDateKeys, ['news']);
-assert.equal(myCoverage.observedPct, 90);
-assert.equal(myCoverage.fallbackPct, 10);
+assert.ok(Math.abs(myCoverage.observedPct - 45) < 1e-9);
+assert.ok(Math.abs(myCoverage.fallbackPct - 55) < 1e-9);
 
 for (const [name, market] of [['social', 'US'], ['news', 'MY']]) {
     const legacy = structuredClone(sample);
@@ -121,25 +121,32 @@ const future = structuredClone(sample);
 future.components.vix.last_updated = '2026-10-17T00:00:00Z';
 assert.equal(marketEvidenceCoverage(future, date).verifiedPartition, false);
 
+const stressedVixWeight = 0.35 + 0.25 * (10 / 15);
 const stressed = structuredClone(sample);
-stressed.components = { vix: { ...mk('vix', .85), value: 35 } };
-stressed.metadata.coverage_adjustment = { active_weight: .85, missing_weight: .15, neutral_baseline: 50, active_points: 50, neutral_points: 7.5 };
+stressed.components = { vix: { ...mk('vix', stressedVixWeight), value: 35 } };
+stressed.metadata.coverage_adjustment = {
+    active_weight: stressedVixWeight,
+    missing_weight: 1 - stressedVixWeight,
+    neutral_baseline: 50,
+    active_points: 50 * stressedVixWeight,
+    neutral_points: 50 * (1 - stressedVixWeight),
+};
 const panic = marketEvidenceCoverage(stressed, date);
-assert.deepEqual([panic.configuredCount, panic.scoredCount], [2, 1]);
+assert.deepEqual([panic.configuredCount, panic.scoredCount], [5, 1]);
 assert.equal(panic.verifiedPartition, true);
-assert.equal(panic.freshPct, 85);
-assert.equal(panic.fallbackPct, 15);
+assert.ok(Math.abs(panic.freshPct - stressedVixWeight * 100) < 1e-6);
+assert.ok(Math.abs(panic.fallbackPct - (1 - stressedVixWeight) * 100) < 1e-6);
 
 const contextOnly = structuredClone(sample);
 contextOnly.components.example_context = mk('example_context', .4);
 assert.deepEqual([
     marketEvidenceCoverage(contextOnly, date).configuredCount,
     marketEvidenceCoverage(contextOnly, date).observedPct,
-], [6, 65]);
+], [5, 70]);
 
 const response = calculateCompositeScoreV2(Object.values(components), { market: 'US', mode: 'standard' });
-assert.ok(Math.abs(response.metadata.coverage_adjustment.active_weight - .65) < 1e-9);
-assert.ok(Math.abs(response.metadata.coverage_adjustment.missing_weight - .35) < 1e-9);
+assert.ok(Math.abs(response.metadata.coverage_adjustment.active_weight - .70) < 1e-9);
+assert.ok(Math.abs(response.metadata.coverage_adjustment.missing_weight - .30) < 1e-9);
 assert.equal(response.tier, 'neutral');
 
 console.log('PASS V8.1 coverage: disjoint fresh/stale/fallback weights, unknown dates, mismatches, high-volatility overrides and model thresholds.');

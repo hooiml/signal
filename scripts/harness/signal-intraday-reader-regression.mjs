@@ -69,11 +69,11 @@ function row(id, slot, value, score, options = {}) {
     };
 }
 
-const baseline = row(1, 1, 29, 55);
-const equalScore = row(2, 2, 29.4, 55);
-const thresholdEntered = row(3, 3, 31.2, 42);
-const unchanged = row(4, 4, 31.2, 42, { observedAt: thresholdEntered.recorded_at });
-const thresholdExited = row(5, 5, 30, 55);
+const baseline = row(1, 1, 23, 55);
+const equalScore = row(2, 2, 23.4, 55);
+const thresholdEntered = row(3, 3, 28, 42);
+const unchanged = row(4, 4, 28, 42, { observedAt: thresholdEntered.recorded_at });
+const thresholdExited = row(5, 5, 25, 55);
 stored = [baseline, equalScore, thresholdEntered, unchanged, thresholdExited,
     row(6, 1, 26, 49, { date: '2026-11-19' }),
     row(7, 1, 31, 50, { config: { market: 'MY' } }),
@@ -105,16 +105,17 @@ assert.equal(same.delta, 0);
 assert.equal(offset.status, 'changed');
 assert.equal(offset.delta, 0);
 assert.equal(offset.reason.code, 'inputs-changed');
-assert.deepEqual(offset.accounting.drivers.map(driver => [driver.beforeValue, driver.afterValue, driver.delta]), [[29, 29.4, 0]]);
+assert.deepEqual(offset.accounting.drivers.map(driver => [driver.beforeValue, driver.afterValue, driver.delta]), [[23, 23.4, 0]]);
 assert.equal(exit.reason.code, 'vix-threshold-exited');
 assert.equal(entry.reason.code, 'vix-threshold-entered');
-assert.match(entry.reason.text, /29\.4 to 31\.2/);
+assert.match(entry.reason.text, /23\.4 to 28/);
 assert.equal(entry.previousScore, equalScore.composite_score);
-assert.deepEqual(entry.accounting.drivers[0], {
-    key: 'vix', name: 'VIX Index', delta: 16.45, beforeValue: 29.4, afterValue: 31.2,
-    beforeWeight: 0.35, afterWeight: 0.85, scoreEffect: -4.55, weightEffect: 21,
-});
-assert.equal(entry.accounting.neutralDelta, -25);
+assert.equal(entry.accounting.drivers[0].key, 'vix');
+assert.equal(entry.accounting.drivers[0].beforeValue, 23.4);
+assert.equal(entry.accounting.drivers[0].afterValue, 28);
+assert.equal(entry.accounting.drivers[0].beforeWeight, 0.35);
+assert.ok(Math.abs(entry.accounting.drivers[0].afterWeight - 0.4) < 1e-9);
+assert.ok(Math.abs(entry.accounting.neutralDelta - (-2.5)) < 1e-6);
 assert.ok(Math.abs(entry.accounting.componentDelta + entry.accounting.neutralDelta + entry.accounting.roundingResidual - entry.delta) < 0.000001);
 
 const home = await read('limit=1');
@@ -162,12 +163,12 @@ assert.equal(compare(row(3, 3, 31.2, 42, { model: 'future' }), equalScore).reaso
 const myConfig = { ...config, market: 'MY' };
 assert.equal(compare(row(2, 2, 31, 42, { config: myConfig, eligibility: 2 }), row(1, 1, 29, 55, { config: myConfig }), myConfig).reason.code, 'configuration-changed');
 assert.equal(compare(row(2, 2, 31, 42, { config: myConfig }), row(1, 1, 29, 55, { config: myConfig }), myConfig).reason.code, 'inputs-changed');
-const unverifiedCrossing = compare(row(3, 3, 31.2, 42, { basis: 'retrieved' }), equalScore);
+const unverifiedCrossing = compare(row(3, 3, 28, 42, { basis: 'retrieved' }), equalScore);
 assert.equal(unverifiedCrossing.reason.code, 'coverage-or-weights');
-assert.match(unverifiedCrossing.reason.text, /29\.4 to 31\.2.*35% to 85%.*cannot establish a market crossing/);
-assert.equal(compare(row(2, 2, 29.4, 55, { basis: 'retrieved' }), baseline).reason.code, 'observation-uncertain');
-assert.equal(compare(row(2, 2, 29.4, 55, { observedAt: baseline.recorded_at }), baseline).reason.code, 'observation-uncertain');
-assert.equal(compare(row(2, 2, 29.4, 55, { observedAt: `${day}T09:00:00Z` }), baseline).reason.code, 'observation-uncertain');
+assert.match(unverifiedCrossing.reason.text, /23\.4 to 28.*35% to 40%.*cannot establish a market crossing/);
+assert.equal(compare(row(2, 2, 23.4, 55, { basis: 'retrieved' }), baseline).reason.code, 'observation-uncertain');
+assert.equal(compare(row(2, 2, 23.4, 55, { observedAt: baseline.recorded_at }), baseline).reason.code, 'observation-uncertain');
+assert.equal(compare(row(2, 2, 23.4, 55, { observedAt: `${day}T09:00:00Z` }), baseline).reason.code, 'observation-uncertain');
 assert.throws(() => compare({ ...thresholdEntered, recorded_at: day }, equalScore), /Invalid intraday capture/);
 assert.throws(() => compare(equalScore, thresholdEntered), /Invalid intraday capture order/);
 

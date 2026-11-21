@@ -380,7 +380,7 @@ export function V9ResearchView({
         <>
             <div className={styles.researchBar}>
                 <Link className={styles.textLink} href={v9Href('research', { market, tab: 'watchlist' })}>Full watchlist</Link>
-                <div className={styles.quickPills} role="group" aria-label="Quick tickers">
+                <div className={styles.mobileQuickPills} role="group" aria-label="Quick tickers">
                     {pills.map(item => (
                         <button
                             key={`${item.market}:${item.symbol}`}

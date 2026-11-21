@@ -376,7 +376,12 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
     const chartPoints = range === 'All' ? history : history.filter(point => !cutoff || Date.parse(point.date) >= cutoff.getTime());
     const preview = chartPoints.find(point => point.date === (historical ? replayPoint?.date ?? historical.date : currentPoint?.date)) ?? (embedded ? chartPoints.at(-1) : undefined);
     const previewArchive = archiveData?.summaries.find(row => row.date === preview?.date);
-    const configured = data ? getIndicatorBaseWeights(market, { highVolatilityOverride: market === 'US' && (!embedded || data.components.vix?.enabled === true) && (data.components.vix?.value ?? 0) > 30 }) : {};
+    const vixValue = data?.components.vix?.enabled === true && Number.isFinite(data.components.vix.value) ? data.components.vix.value : undefined;
+    const configured = data ? getIndicatorBaseWeights(market, {
+        vixValue,
+        highVolatilityOverride: market === 'US' && (vixValue ?? 0) > 25,
+        enableSocial: data.metadata.source_included ?? social,
+    }) : {};
     const inputKeys = [...new Set([...Object.keys(configured).filter(input => configured[input] > 0), ...Object.keys(data?.components ?? {})])];
     const snapshotDate = data?.metadata.score_delta?.snapshot_date;
     const snapshotDay = marketEvidenceDay(snapshotDate);
@@ -426,7 +431,7 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                     {loading && !data && <div className={styles.loadingSkeleton} role="status" aria-label="Loading current scores, evidence coverage and score history"><div><span>Composite reading</span><span className={styles.skeletonLine} /></div><div><span>Evidence coverage</span><span className={styles.skeletonLine} /></div><div><span>Score history</span><span className={styles.skeletonLine} /></div></div>}{loading && data && <p role="status">Reloading this configuration; the previous response remains visible with its original date.</p>}
                     {data && hasScore && <>
                         {historical && <div className={styles.historyBanner}><span>{fullDate(historical.date)} · {archived?.summary.origin ?? data.metadata.score_history?.find(point=>point.date===historical.date)?.origin ?? 'Origin unavailable'}</span><button onClick={returnCurrent}>Return to current ↗</button></div>}
-                        {!historical && <MarketV81Hero signal={data} snapshotDate={snapshotDate} receivedAt={receivedAt} tierClass={tierClasses[data.tier]} onEvidence={reviewEvidence} onDrivers={()=>openTab('What changed')} onSelect={openIndicator} sourceEnabled={embedded ? social : undefined} />}
+                        {!historical && <MarketV81Hero signal={data} snapshotDate={snapshotDate} receivedAt={receivedAt} tierClass={tierClasses[data.tier]} onEvidence={reviewEvidence} onDrivers={()=>openTab('What changed')} onSelect={openIndicator} sourceEnabled={embedded ? social : undefined} advanced={advanced} />}
                         <div className={layout.analysisGrid}>
                             <section className={`${styles.scorePanel} ${layout.history}`} aria-label="Market score and history">
                                 {historical ? <div className={styles.scoreStrip}><div className={styles.score}><strong data-testid="connected-score">{score}</strong><span>/100</span></div><span className={`${styles.zone} ${tierClasses[(historical ? archived?.summary.tier : data.tier) ?? 'neutral']}`}>{archived?.summary.tier ? marketReadingLabel(archived.summary.tier) : 'Stored reading'}</span><div className={`${styles.scoreMeta} ${styles.scoreDelta}`}><b>{!historical && data.metadata.score_delta?.delta != null ? signed(data.metadata.score_delta.delta) : '—'} <small>points</small></b><span>{!historical ? `vs ${fullDate(data.metadata.score_delta?.previous_date)}`:'Current comparison withheld'}</span></div><div className={styles.scoreMeta}><b>{historical?archived?`${archived.agreementPercent.toFixed(0)}%`:'—':`${data.confidence.agreement_pct.toFixed(0)}%`} <small>agreement</small></b><span>Not forecast accuracy</span></div><button className={styles.coverageButton} disabled={!!historical} onClick={()=>openTab('Evidence')}><b>{historical?archived?.components.length ?? '—':`${Object.keys(data.components).length}/${inputKeys.length}`} <small>scored inputs</small></b><span>{!historical?`${Math.round((data.metadata.coverage_adjustment?.active_weight ?? Object.values(data.components).reduce((sum,item)=>sum+item.weight,0))*100)}% included weight ↗`:'Archived evidence only'}</span></button></div> : null}
@@ -448,9 +453,53 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                             {!historical && <MarketContextSummary signal={data} onExplore={()=>openTab('Context')} />}
                         </div>
                         {!historical && <>
-                            <MarketV8Outcomes signal={data} onHistory={() => { setAdvanced(true); openTab('History'); }} />
-                            <MarketV8Exposure key={market} signal={data} researchHref={embedded ? researchHref : undefined} savedWorkspace={embedded?.exposureWorkspace} />
-                            <nav className={layout.researchLinks} aria-label="Find stocks in Research"><div><b>From market to stocks</b><span>US large caps with sustained momentum, a rule-based shortlist, and upcoming earnings.{market === 'MY' ? ' The trend scan covers US stocks only.' : ''}</span></div><a href={discoverHref('trending', 'US')}>Trending · Top 20 →</a><a href={discoverHref('picker', 'US')}>Stock Picker →</a><a href={discoverHref('calendar', market)}>Earnings calendar →</a></nav>
+                            {isEmbedded && (data.metadata.articles?.length ?? 0) > 0 && (
+                                <section className={styles.panel} aria-label="Market headlines">
+                                    <div className={styles.sectionHeading}>
+                                        <div>
+                                            <span className={styles.eyebrow}>Market headlines · Context (not scored)</span>
+                                            <h2>What is moving {market === 'MY' ? 'Malaysia · Bursa' : 'US markets'}</h2>
+                                        </div>
+                                    </div>
+                                    <div className={styles.contextList}>
+                                        {(data.metadata.articles ?? []).slice(0, 5).map((article, idx) => {
+                                            let safeHref: string | null = null;
+                                            if (article.url) {
+                                                try {
+                                                    const parsed = new URL(article.url);
+                                                    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') safeHref = parsed.toString();
+                                                } catch { safeHref = null; }
+                                            }
+                                            return (
+                                                <div key={`${article.title}-${idx}`} className={styles.evidenceButton}>
+                                                    <span>
+                                                        <b>{article.title}</b>
+                                                        <small>{article.source}{article.pubDate ? ` · ${fullDate(article.pubDate)}` : ''}</small>
+                                                    </span>
+                                                    {safeHref ? <a className={styles.textButton} href={safeHref} target="_blank" rel="noreferrer">Read →</a> : <span className={styles.muted}>Context</span>}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            )}
+                            <MarketV8Outcomes signal={data} onHistory={() => { setAdvanced(true); openTab('History'); }} compactWhenEmpty={isEmbedded && !advanced} />
+                            {isEmbedded && !advanced && embedded?.exposureWorkspace?.status === 'ready' && embedded.exposureWorkspace.records.filter(r => r.market === market).length === 0 ? (
+                                <nav className={layout.researchLinks} aria-label="Watchlist exposure">
+                                    <div>
+                                        <b>Market → your saved stocks</b>
+                                        <span>No saved {market} stocks to map yet. Save a ticker in Research to see driver connections here.</span>
+                                    </div>
+                                    <a href={researchHref()}>Open Research →</a>
+                                </nav>
+                            ) : (
+                                <MarketV8Exposure key={market} signal={data} researchHref={embedded ? researchHref : undefined} savedWorkspace={embedded?.exposureWorkspace} />
+                            )}
+                            {(!isEmbedded || market === 'US') ? (
+                                <nav className={layout.researchLinks} aria-label="Find stocks in Research"><div><b>From market to stocks</b><span>US large caps with sustained momentum, a rule-based shortlist, and upcoming earnings.{market === 'MY' ? ' The trend scan covers US stocks only.' : ''}</span></div><a href={discoverHref('trending', 'US')}>Trending · Top 20 →</a><a href={discoverHref('picker', 'US')}>Stock Picker →</a><a href={discoverHref('calendar', market)}>Earnings calendar →</a></nav>
+                            ) : (
+                                <nav className={layout.researchLinks} aria-label="Find stocks in Research"><div><b>From market to stocks</b><span>Inspect Bursa Malaysia stocks in Research or check upcoming market events.</span></div><a href={researchHref('1155')}>Inspect Bursa stocks →</a><a href={discoverHref('calendar', 'MY')}>Calendar →</a></nav>
+                            )}
                             <details className={layout.readingDetails}><summary>How to read this assessment · methodology and limits</summary><div><MarketCurrentAssessment signal={data} date={date} onSelect={openIndicator} showLeadingEvidence={false} /><MarketCoverageNotices signal={data} inputKeys={inputKeys} date={date} sourceEnabled={social} onReview={reviewEvidence} /></div></details>
                         </>}
                     </>}

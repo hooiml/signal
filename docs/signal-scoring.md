@@ -24,36 +24,36 @@ The visible score-zone bar must stay mode-aware:
 
 These are current model breakpoints only. They are not validated return thresholds and should not be treated as empirical forward-return claims until backtesting exists.
 
-## Current Base Weights
+## Current Base Weights (Model v2.1.0)
 
-US:
+US (baseline when `VIX <= 25`):
 
 - VIX: 35%
-- Social sentiment: 20%
-- Put/call ratio: 10%
+- Put/call ratio: 15%
 - AAII: 20%
-- NAAIM manager exposure: 10%
-- BofA SSI placeholder/manual input: 5%
+- NAAIM manager exposure: 15%
+- Social sentiment: 15% (omitted and redistributed proportionally when `enableSocial=false`)
+- BofA SSI: 0% (retired from active scoring until a live feed exists)
 
 Malaysia:
 
-- USD/MYR volatility proxy: 25%
-- Social sentiment: 15%
-- News sentiment: 50%
-- AAII: 10%
+- KLCI 52w Trend (`^KLSE` 52-week range position + daily momentum): 35%
+- USD/MYR volatility proxy: 30%
+- Bursa Stock Breadth (share of tracked MY blue-chip and active stocks advancing): 20%
+- News sentiment (24h eligible news/Reddit blend): 15% (omitted and redistributed proportionally when `enableSocial=false`)
+- AAII: 0% (US retail survey removed from MY scoring)
 
-Weights are proportionally redistributed across enabled sources. If a source is missing or disabled, its base weight is redistributed to active sources.
+Missing provider data on enabled inputs contributes a 50-point neutral fallback so outages do not amplify surviving indicators. Explicit user opt-out (`enableSocial=false`) removes `social`/`news` from the configured denominator and redistributes its weight proportionally across active inputs instead of treating opt-out as missing evidence.
 
-## High-Volatility Override
+## Smooth Volatility Stress Ramp (US)
 
-For US signals, when VIX is above `30`, the engine treats volatility stress as the dominant regime:
+For US signals, when VIX rises above `25`, VIX weight ramps smoothly from its baseline (`35%` with social enabled, or `41.2%` with social disabled) up to `60%` at `VIX >= 40`:
 
-- VIX: 85%
-- Social sentiment: 15%
-- AAII: 0%
-- BofA SSI: 0%
+- `stress = clamp((VIX - 25) / 15, 0, 1)`
+- `vixWeight = baseVixWeight + (0.60 - baseVixWeight) * stress`
+- Daily options positioning (`put_call`) stays active throughout volatility stress; slower weekly surveys (`aaii`, `naaim`) taper gently by `1 - 0.35 * stress` rather than dropping to `0%`.
 
-The intent is to avoid slow sentiment surveys overwhelming acute volatility stress.
+This avoids a discontinuous score cliff at `VIX = 30` and prevents US readings from collapsing into a single-indicator VIX thermometer when social is turned off.
 
 ## AAII Interpretation
 
@@ -149,7 +149,7 @@ Current stale warning behavior treats a component as stale when `last_updated` i
 
 ## Article Feed Role
 
-The article/feed section is context. It may show sources that also contribute to social/news sentiment, but the cards themselves are not separately weighted as individual score components.
+The article/feed section is reading context (`Context · not scored`). Fresh RSS headlines are returned for both US and Malaysia regardless of whether `enableSocial` includes social/news sentiment in the composite score; Reddit chatter remains gated behind `enableSocial=true`. Article cards themselves are never separately weighted as individual score components.
 
 ### Malaysia news eligibility, version 1
 

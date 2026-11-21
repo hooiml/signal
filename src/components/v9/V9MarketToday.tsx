@@ -35,11 +35,11 @@ export function V9MarketTodaySummary({ market, href, state }: { market: Market; 
     const latest = state.status === 'ready' ? state.data.entries[0] : null;
     return <div className={styles.pulseToday}>
         <Link href={href} prefetch={false} className={styles.textLink} aria-label={`What changed today? ${marketName(market)}`}>What changed today? →</Link>
-        <div className={styles.todayPreview}>
+        {state.status !== 'error' && <div className={styles.todayPreview}>
             {latest ? <><CaptureTime value={latest.capturedAt} /><ScoreTransition entry={latest} /><span>{statusText[latest.status]}</span></>
                 : state.status === 'loading' ? 'Checking today’s captures…'
-                    : state.status === 'error' ? 'Capture history unavailable.' : 'No captures for this UTC day yet.'}
-        </div>
+                    : 'No captures for this UTC day yet.'}
+        </div>}
     </div>;
 }
 

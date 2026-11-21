@@ -82,6 +82,7 @@ export interface MarketSignal {
     confidence: ConfidenceMetrics;
     metadata: {
         market: 'US' | 'MY';
+        source_included?: boolean;
         data_freshness: Record<string, string>; // { vix: '2026-02-15T...', social: '...' }
         weight_distribution: Record<string, number>; // { vix: 0.65, social: 0.35 }
         coverage_adjustment?: {

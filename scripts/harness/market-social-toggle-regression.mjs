@@ -77,22 +77,19 @@ const recompose = data => Math.round(
     Object.values(data.components).reduce((sum, item) => sum + item.score * item.weight, 0)
     + data.metadata.coverage_adjustment.neutral_points,
 );
-for (const [market, key, expectedWeight] of [['US', 'social', .20], ['MY', 'news', .65]]) {
+for (const [market, key, expectedWeight] of [['US', 'social', .15], ['MY', 'news', .15]]) {
     const [included, excluded] = await Promise.all([scoreRequest(market, true), scoreRequest(market, false)]);
     const includedInput = included.data.components[key];
     assert.ok(includedInput, `${market} fixture evidence activates the ${key} indicator.`);
     assert.ok(includedInput.score > 50, `${market} fixture evidence has a positive sentiment score.`);
     assert.equal(includedInput.weight, expectedWeight, `${market} evidence retains its configured score weight.`);
     assert.equal(excluded.data.components[key], undefined, `${market} disabled evidence contributes no indicator.`);
-    const otherIncluded = Object.fromEntries(Object.entries(included.data.components).filter(([name]) => name !== key));
-    assert.deepEqual(excluded.data.components, otherIncluded, `${market} non-social indicators remain identical when the toggle changes.`);
+    assert.equal(included.data.metadata.source_included, true, `${market} included response marks source_included=true.`);
+    assert.equal(excluded.data.metadata.source_included, false, `${market} excluded response marks source_included=false.`);
+    assert.ok(excluded.data.components.vix.weight > included.data.components.vix.weight,
+        `${market} opting out of ${key} proportionally redistributes weight to active indicators instead of neutral fallback.`);
     assert.equal(included.data.composite_score, recompose(included.data), `${market} included score follows the production weighted-score and reserve calculation.`);
     assert.equal(excluded.data.composite_score, recompose(excluded.data), `${market} excluded score follows the production weighted-score and reserve calculation.`);
-    assert.ok(Math.abs(
-        excluded.data.metadata.coverage_adjustment.missing_weight
-        - included.data.metadata.coverage_adjustment.missing_weight
-        - expectedWeight
-    ) < 1e-9, `${market} excluded source weight moves to missing coverage.`);
     assert.equal(included.fixture.events.includes('fetchMultipleSubreddits'), true, `${market} source evidence is read for comparison.`);
     assert.equal(excluded.fixture.events.includes('fetchMultipleSubreddits'), true, `${market} source evidence may still be read when excluded from the score.`);
     const availabilityKey = market === 'MY' ? 'news' : 'reddit';
@@ -107,8 +104,9 @@ for (const [market, key, expectedWeight] of [['US', 'social', .20], ['MY', 'news
         assert.equal(included.fixture.events.includes('fetchMarketNews'), true);
         assert.equal(excluded.fixture.events.includes('fetchMarketNews'), true, 'MY dated evidence remains available to the source comparison when excluded from the score.');
         assert.equal(included.data.metadata.news_evidence.eligible_count, excluded.data.metadata.news_evidence.eligible_count);
+        assert.ok((excluded.data.metadata.articles?.length ?? 0) > 0, 'MY news headlines remain available as reading context even when news scoring is toggled off.');
     }
-    console.log(`${market} toggle evidence: included=${included.data.composite_score}, excluded=${excluded.data.composite_score}, ${key}=${includedInput.score} × ${includedInput.weight}, excluded neutral points=${excluded.data.metadata.coverage_adjustment.neutral_points}.`);
+    console.log(`${market} toggle evidence: included=${included.data.composite_score}, excluded=${excluded.data.composite_score}, ${key}=${includedInput.score} × ${includedInput.weight}, excluded vix weight=${excluded.data.components.vix.weight.toFixed(3)}.`);
 }
 
 console.log('Market social/news toggle status and request bindings passed.');
