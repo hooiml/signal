@@ -140,17 +140,19 @@ const noResults = await request(marketRequestFixture({ rawMarketData: { newsItem
 assert.equal(noResults.metadata.source_availability.news.status, 'no-results', 'No returned news or Reddit is distinct from returned but ineligible evidence.');
 
 const { isStoredSnapshotValidationEligible } = load('src/lib/market-calibration-service.ts');
-assert.equal(isStoredSnapshotValidationEligible('MY', { scoring_model_version: '2.1.0' }), false, 'News-enabled MY snapshots without eligibility metadata cannot enter current validation.');
-assert.equal(isStoredSnapshotValidationEligible('MY', { scoring_model_version: '2.1.0', my_news_eligibility_version: 1 }), true, 'Current v2.1.0 version 1 MY snapshots remain validation eligible.');
-assert.equal(isStoredSnapshotValidationEligible('MY', { scoring_model_version: '2.1.0', my_news_eligibility_version: 1, validation_eligible: false }), false, 'An explicit validation exclusion still applies.');
+assert.equal(isStoredSnapshotValidationEligible('MY', { scoring_model_version: '2.2.0' }), false, 'News-enabled MY snapshots without eligibility metadata cannot enter current validation.');
+assert.equal(isStoredSnapshotValidationEligible('MY', { scoring_model_version: '2.2.0', my_news_eligibility_version: 1 }), true, 'Current v2.2.0 version 1 MY snapshots remain validation eligible.');
+assert.equal(isStoredSnapshotValidationEligible('MY', { scoring_model_version: '2.2.0', my_news_eligibility_version: 1, validation_eligible: false }), false, 'An explicit validation exclusion still applies.');
+assert.equal(isStoredSnapshotValidationEligible('MY', { scoring_model_version: '2.1.0', my_news_eligibility_version: 1 }), false, 'Prior v2.1.0 MY snapshots stay timeline-only.');
 assert.equal(isStoredSnapshotValidationEligible('MY', { scoring_model_version: '2.0.0', my_news_eligibility_version: 1 }), false, 'Legacy v2.0.0 MY snapshots stay timeline-only even with news eligibility metadata.');
-assert.equal(isStoredSnapshotValidationEligible('MY', { scoring_model_version: '2.1.0' }, false), true, 'Current v2.1.0 MY snapshots with news disabled remain eligible because news did not affect their inputs.');
-assert.equal(isStoredSnapshotValidationEligible('MY', { scoring_model_version: '2.1.0', validation_eligible: false }, false), false, 'An explicit validation exclusion still applies when MY news is disabled.');
+assert.equal(isStoredSnapshotValidationEligible('MY', { scoring_model_version: '2.2.0' }, false), true, 'Current v2.2.0 MY snapshots with news disabled remain eligible because news did not affect their inputs.');
+assert.equal(isStoredSnapshotValidationEligible('MY', { scoring_model_version: '2.2.0', validation_eligible: false }, false), false, 'An explicit validation exclusion still applies when MY news is disabled.');
 assert.equal(isStoredSnapshotValidationEligible('MY', { scoring_model_version: '2.0.0' }, false), false, 'Legacy v2.0.0 MY snapshots stay timeline-only even when news is disabled.');
-assert.equal(isStoredSnapshotValidationEligible('US', { scoring_model_version: '2.1.0' }), true, 'Current v2.1.0 US snapshots are validation eligible.');
-assert.equal(isStoredSnapshotValidationEligible('US', { scoring_model_version: '2.1.0' }, false), true, 'Current v2.1.0 US social-off snapshots are validation eligible.');
-assert.equal(isStoredSnapshotValidationEligible('US', { scoring_model_version: '2.1.0', validation_eligible: false }), false, 'An explicit US validation exclusion still applies.');
-assert.equal(isStoredSnapshotValidationEligible('US', { scoring_model_version: '2.0.0' }), false, 'Legacy v2.0.0 US snapshots stay timeline-only rather than mixing into v2.1.0 cohorts.');
+assert.equal(isStoredSnapshotValidationEligible('US', { scoring_model_version: '2.2.0' }), true, 'Current v2.2.0 US snapshots are validation eligible.');
+assert.equal(isStoredSnapshotValidationEligible('US', { scoring_model_version: '2.2.0' }, false), true, 'Current v2.2.0 US social-off snapshots are validation eligible.');
+assert.equal(isStoredSnapshotValidationEligible('US', { scoring_model_version: '2.2.0', validation_eligible: false }), false, 'An explicit US validation exclusion still applies.');
+assert.equal(isStoredSnapshotValidationEligible('US', { scoring_model_version: '2.1.0' }), false, 'Prior v2.1.0 US snapshots stay timeline-only rather than mixing into v2.2.0 cohorts.');
+assert.equal(isStoredSnapshotValidationEligible('US', { scoring_model_version: '2.0.0' }), false, 'Legacy v2.0.0 US snapshots stay timeline-only rather than mixing into v2.2.0 cohorts.');
 assert.equal(isStoredSnapshotValidationEligible('US', {}), false, 'Snapshots without a scoring model version stay timeline-only.');
 const { calculateMarketCalibration } = load('src/lib/market-calibration.ts');
 const calibrationStart = Date.parse('2026-01-01T00:00:00.000Z');
@@ -209,7 +211,7 @@ const renderMissing = indicatorKey => renderToStaticMarkup(createElement(Connect
 }));
 assert.match(renderMissing('social'), /15\.0% · held as neutral reserve/);
 assert.match(renderMissing('social'), /Reddit: OAuth is not configured; StockTwits: disabled by configuration/);
-assert.match(renderMissing('naaim'), /15\.0% · held as neutral reserve/);
+assert.match(renderMissing('naaim'), /No configured scoring weight/);
 assert.match(renderMissing('naaim'), /No current .* observation was supplied/);
 assert.doesNotMatch(renderMissing('naaim'), /delayed|parsable|failed/);
 assert.match(renderMissing('bofa'), /No configured scoring weight/);
@@ -218,13 +220,13 @@ assert.match(renderMissing('bofa'), /No current .* observation was supplied/);
 const { calculateCompositeScoreV2 } = load('src/lib/sentiment-calculator-v2.ts');
 const { getIndicatorBaseWeights } = load('src/lib/indicator-registry.ts');
 const { calculateSentimentScore } = load('src/lib/sentiment-calculator.ts');
-const { normalizePutCallRatio, normalizeNaaimExposure } = load('src/lib/market-indicators.ts');
-assert.equal(SCORING_MODEL_VERSION, '2.1.0', 'Backfill script stamps active scoring model version 2.1.0.');
+const { normalizePutCallRatio } = load('src/lib/market-indicators.ts');
+assert.equal(SCORING_MODEL_VERSION, '2.2.0', 'Backfill script stamps active scoring model version 2.2.0.');
 const parityCases = [
-    { label: 'calm-full', vix: 18, social: 0.25, putCall: 0.85, aaii: 38, naaim: 72 },
-    { label: 'mid-stress-full', vix: 32, social: -0.4, putCall: 1.05, aaii: 26, naaim: 54 },
-    { label: 'full-stress-full', vix: 45, social: -0.75, putCall: 1.2, aaii: 21, naaim: 41 },
-    { label: 'long-range-vix-only', vix: 32, social: null, putCall: null, aaii: null, naaim: null },
+    { label: 'calm-full', vix: 18, social: 0.25, putCall: 0.85, aaii: 38 },
+    { label: 'mid-stress-full', vix: 32, social: -0.4, putCall: 1.05, aaii: 26 },
+    { label: 'full-stress-full', vix: 45, social: -0.75, putCall: 1.2, aaii: 21 },
+    { label: 'long-range-vix-only', vix: 32, social: null, putCall: null, aaii: null },
 ];
 for (const sample of parityCases) {
     const vixScored = calculateSentimentScore({ vix: sample.vix, social: sample.social ?? 0 }, { vixBaseWeight: 0.60, socialBaseWeight: 0.40 });
@@ -232,7 +234,8 @@ for (const sample of parityCases) {
         for (const enableSocial of [true, false]) {
             const actualWeights = backfillWeightsFor(sample.vix, enableSocial);
             const expectedWeights = getIndicatorBaseWeights('US', { vixValue: sample.vix, highVolatilityOverride: sample.vix > 25, enableSocial });
-            for (const key of ['vix', 'social', 'put_call', 'aaii', 'naaim']) {
+            assert.equal(expectedWeights.naaim ?? 0, 0, `${sample.label}/${mode}/social=${enableSocial} naaim has zero weight`);
+            for (const key of ['vix', 'social', 'put_call', 'aaii']) {
                 assert.ok(Math.abs((actualWeights[key] ?? 0) - (expectedWeights[key] ?? 0)) < 1e-9, `${sample.label}/${mode}/social=${enableSocial} weight ${key}`);
             }
             const backfillResult = calculateBackfill({
@@ -242,7 +245,6 @@ for (const sample of parityCases) {
                     social: sample.social === null ? null : { date: '2026-08-28', value: sample.social },
                     putCall: sample.putCall === null ? null : { date: '2026-08-28', value: sample.putCall },
                     aaii: sample.aaii === null ? null : { date: '2026-08-27', value: sample.aaii },
-                    naaim: sample.naaim === null ? null : { date: '2026-08-26', value: sample.naaim },
                 },
             });
             const expectedSignal = calculateCompositeScoreV2([
@@ -250,8 +252,9 @@ for (const sample of parityCases) {
                 ...(enableSocial ? [{ name: 'social', display_name: 'Social Sentiment', value: sample.social ?? 0, score: sample.social === null ? 50 : vixScored.components.socialScore, weight: 0, signal: 'neutral', enabled: true, last_updated: '2026-08-28' }] : []),
                 ...(sample.putCall === null ? [] : [{ name: 'put_call', display_name: 'Put/call ratio', value: sample.putCall, score: normalizePutCallRatio(sample.putCall), weight: 0, signal: 'neutral', enabled: true, last_updated: '2026-08-28' }]),
                 ...(sample.aaii === null ? [] : [{ name: 'aaii', display_name: 'AAII Sentiment', value: sample.aaii, score: Math.min(Math.max(((sample.aaii - 20) / 30) * 100, 0), 100), weight: 0, signal: 'neutral', enabled: true, last_updated: '2026-08-27' }]),
-                ...(sample.naaim === null ? [] : [{ name: 'naaim', display_name: 'Manager exposure (NAAIM)', value: sample.naaim, score: normalizeNaaimExposure(sample.naaim), weight: 0, signal: 'neutral', enabled: true, last_updated: '2026-08-26' }]),
             ], { market: 'US', mode, enableSocial });
+            assert.equal(backfillResult.components.naaim, undefined, `${sample.label}/${mode}/social=${enableSocial} backfill excludes naaim`);
+            assert.equal(expectedSignal.components.naaim, undefined, `${sample.label}/${mode}/social=${enableSocial} scorer excludes naaim`);
             assert.equal(backfillResult.score, expectedSignal.composite_score, `${sample.label}/${mode}/social=${enableSocial} score`);
             assert.equal(backfillResult.tier, expectedSignal.tier, `${sample.label}/${mode}/social=${enableSocial} tier`);
             assert.equal(backfillResult.confidence, expectedSignal.confidence.level, `${sample.label}/${mode}/social=${enableSocial} confidence`);

@@ -113,9 +113,9 @@ assert.equal(entry.previousScore, equalScore.composite_score);
 assert.equal(entry.accounting.drivers[0].key, 'vix');
 assert.equal(entry.accounting.drivers[0].beforeValue, 23.4);
 assert.equal(entry.accounting.drivers[0].afterValue, 28);
-assert.equal(entry.accounting.drivers[0].beforeWeight, 0.35);
-assert.ok(Math.abs(entry.accounting.drivers[0].afterWeight - 0.4) < 1e-9);
-assert.ok(Math.abs(entry.accounting.neutralDelta - (-2.5)) < 1e-6);
+assert.equal(entry.accounting.drivers[0].beforeWeight, 0.4);
+assert.ok(Math.abs(entry.accounting.drivers[0].afterWeight - 0.44) < 1e-9);
+assert.ok(Math.abs(entry.accounting.neutralDelta - (-2)) < 1e-6);
 assert.ok(Math.abs(entry.accounting.componentDelta + entry.accounting.neutralDelta + entry.accounting.roundingResidual - entry.delta) < 0.000001);
 
 const home = await read('limit=1');
@@ -165,7 +165,7 @@ assert.equal(compare(row(2, 2, 31, 42, { config: myConfig, eligibility: 2 }), ro
 assert.equal(compare(row(2, 2, 31, 42, { config: myConfig }), row(1, 1, 29, 55, { config: myConfig }), myConfig).reason.code, 'inputs-changed');
 const unverifiedCrossing = compare(row(3, 3, 28, 42, { basis: 'retrieved' }), equalScore);
 assert.equal(unverifiedCrossing.reason.code, 'coverage-or-weights');
-assert.match(unverifiedCrossing.reason.text, /23\.4 to 28.*35% to 40%.*cannot establish a market crossing/);
+assert.match(unverifiedCrossing.reason.text, /23\.4 to 28.*40% to 44%.*cannot establish a market crossing/);
 assert.equal(compare(row(2, 2, 23.4, 55, { basis: 'retrieved' }), baseline).reason.code, 'observation-uncertain');
 assert.equal(compare(row(2, 2, 23.4, 55, { observedAt: baseline.recorded_at }), baseline).reason.code, 'observation-uncertain');
 assert.equal(compare(row(2, 2, 23.4, 55, { observedAt: `${day}T09:00:00Z` }), baseline).reason.code, 'observation-uncertain');

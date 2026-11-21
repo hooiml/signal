@@ -116,7 +116,7 @@ try {
     for (const width of [1280, 768, 375]) for (const theme of ['light', 'dark']) {
         const { context, page } = await setup(width, theme);
         await scenario(`home ${width} ${theme}`, async () => {
-            await page.goto(`${base}/v9?market=US`, { waitUntil: 'domcontentloaded' });
+            await page.goto(`${base}/v9`, { waitUntil: 'domcontentloaded' });
             await page.getByTestId('v9-workspace').filter({ visible: true }).waitFor();
             await page.getByRole('heading', { level: 1 }).waitFor();
             assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), 'document overflow');
@@ -174,7 +174,7 @@ try {
     }
     const { context, page } = await setup(1280, 'dark');
     await scenario('Home opens the intraday timeline for the selected market and configuration', async () => {
-        await page.goto(`${base}/v9?market=US&mode=contrarian&enableSocial=false`, { waitUntil: 'domcontentloaded' });
+        await page.goto(`${base}/v9?mode=contrarian&enableSocial=false`, { waitUntil: 'domcontentloaded' });
         const pulse = page.getByRole('region', { name: 'Market pulse summary' });
         const todayLink = market => pulse.locator(`a[href*="tab=today"][href*="market=${market}"]`);
         await todayLink('US').waitFor();
@@ -215,7 +215,7 @@ try {
         await page.getByRole('heading', { name: /market condition score/i }).waitFor();
         await page.getByText(/VIX is above 25/).first().waitFor();
         const body = await page.locator('main:visible').innerText();
-        assert.match(body, /44%|48%/); assert.match(body, /35%|41%/);
+        assert.match(body, /47%|52%/); assert.match(body, /40%|47%/);
         for (const name of [/change details/i, /review source coverage/i, /explore market context/i]) {
             const control = page.getByRole('button', { name }).or(page.getByRole('link', { name })).first();
             if (await control.isVisible()) {
@@ -275,13 +275,33 @@ try {
         await page.waitForURL(url => url.searchParams.get('view') === 'market');
         assert.equal(new URL(page.url()).searchParams.get('market'), 'MY');
     });
-    await scenario('Home focus toggle and catalyst action navigate cleanly', async () => {
-        await page.goto(`${base}/v9?market=US`, { waitUntil: 'domcontentloaded' });
+    await scenario('Home focus toggle shows selected market without duplicate catalyst', async () => {
+        await page.goto(`${base}/v9`, { waitUntil: 'domcontentloaded' });
+        const pulse = page.getByRole('region', { name: 'Market pulse summary' });
+        const focus = page.getByRole('region', { name: "Today's Focus" });
         await page.getByRole('group', { name: 'Home market focus' }).waitFor();
-        await page.getByRole('button', { name: 'Malaysia', exact: true }).click();
-        await page.getByRole('heading', { level: 1, name: /Malaysia · Bursa/i }).waitFor();
+        assert.equal(await pulse.locator('article').count(), 2, 'Auto (MYT) shows both market cards');
+
         await page.getByRole('button', { name: 'US', exact: true }).click();
-        await page.getByRole('button', { name: /United States:.*Open Market/i }).click();
+        await page.getByRole('heading', { level: 1, name: /^United States$/i }).waitFor();
+        assert.equal(await pulse.locator('article').count(), 1, 'US focus shows 1 pulse card');
+        await pulse.getByText('United States').waitFor();
+        assert.equal(await pulse.getByText('Malaysia · Bursa').count(), 0, 'US focus hides Malaysia card');
+        assert.equal(await focus.getByText(/US catalyst/i).count(), 0, 'Today’s Focus omits duplicate US catalyst row');
+        await page.screenshot({ path: `${output}/home-us-focus-1280-dark.png` });
+
+        await page.getByRole('button', { name: 'Malaysia', exact: true }).click();
+        await page.getByRole('heading', { level: 1, name: /^Malaysia · Bursa$/i }).waitFor();
+        assert.equal(await pulse.locator('article').count(), 1, 'Malaysia focus shows 1 pulse card');
+        await pulse.getByText('Malaysia · Bursa').waitFor();
+        assert.equal(await pulse.getByText('United States').count(), 0, 'Malaysia focus hides US card');
+        assert.equal(await focus.getByText(/Bursa catalyst/i).count(), 0, 'Today’s Focus omits duplicate Bursa catalyst row');
+
+        await page.getByRole('button', { name: 'Auto (MYT)', exact: true }).click();
+        assert.equal(await pulse.locator('article').count(), 2, 'Auto (MYT) restores both pulse cards');
+
+        await page.getByRole('button', { name: 'US', exact: true }).click();
+        await page.getByRole('button', { name: /Open Market Pulse/ }).first().click();
         await page.waitForURL(url => url.searchParams.get('view') === 'market' && url.searchParams.get('market') === 'US');
     });
     await scenario('quick jump to Discover and ticker stays in V9', async () => {
@@ -389,7 +409,7 @@ try {
     });
     try {
         await scenario('Home baseline and equal-score changed input', async () => {
-            await states.page.goto(`${base}/v9?market=MY`, { waitUntil: 'domcontentloaded' });
+            await states.page.goto(`${base}/v9`, { waitUntil: 'domcontentloaded' });
             const pulse = states.page.getByRole('region', { name: 'Market pulse summary' });
             await pulse.getByText('First capture').first().waitFor();
             await states.page.waitForFunction(() => [...document.querySelectorAll('time')].filter(el => el.textContent?.includes('9:00 am')).length >= 2);

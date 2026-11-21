@@ -23,7 +23,7 @@ export const INDICATOR_REGISTRY: Record<string, IndicatorDefinition> = {
         category: 'volatility',
         frequency: 'live',
         staleAfterDays: 1,
-        baseWeights: { US: 0.35, MY: 0.30 },
+        baseWeights: { US: 0.40, MY: 0.30 },
     },
     social: {
         key: 'social',
@@ -39,7 +39,7 @@ export const INDICATOR_REGISTRY: Record<string, IndicatorDefinition> = {
         category: 'positioning',
         frequency: 'daily',
         staleAfterDays: 2,
-        baseWeights: { US: 0.15 },
+        baseWeights: { US: 0.20 },
     },
     klci_trend: {
         key: 'klci_trend',
@@ -71,7 +71,7 @@ export const INDICATOR_REGISTRY: Record<string, IndicatorDefinition> = {
         category: 'survey',
         frequency: 'weekly',
         staleAfterDays: 14,
-        baseWeights: { US: 0.20 },
+        baseWeights: { US: 0.25 },
     },
     naaim: {
         key: 'naaim',
@@ -79,7 +79,7 @@ export const INDICATOR_REGISTRY: Record<string, IndicatorDefinition> = {
         category: 'positioning',
         frequency: 'weekly',
         staleAfterDays: 14,
-        baseWeights: { US: 0.15 },
+        baseWeights: {},
     },
     bofa: {
         key: 'bofa',
@@ -130,7 +130,7 @@ export function getIndicatorBaseWeights(
             : options.highVolatilityOverride ? 35 : null;
         const stress = getVixStressFactor(effectiveVix);
         if (stress > 0) {
-            const baseVix = weights.vix ?? 0.35;
+            const baseVix = weights.vix ?? 0.40;
             const targetVix = baseVix + (US_VIX_MAX_WEIGHT - baseVix) * stress;
             const nonVixTarget = Math.max(0, 1 - targetVix);
             // Taper slow weekly surveys gently during volatility stress while preserving daily put/call.

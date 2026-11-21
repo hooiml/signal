@@ -428,6 +428,7 @@ a.ghostBtn { color: var(--link); }
 
 .pulseGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .pulseGrid[data-layout=focused] { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); }
+.pulseGrid[data-layout=single] { grid-template-columns: minmax(0, 1fr); }
 .pulseCard {
     display: grid;
     grid-template-rows: 1fr auto;

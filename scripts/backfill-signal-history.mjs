@@ -1,11 +1,11 @@
 import { neon } from '@neondatabase/serverless';
 import { pathToFileURL } from 'node:url';
 
-export const SCORING_MODEL_VERSION = '2.1.0';
+export const SCORING_MODEL_VERSION = '2.2.0';
 const US_VIX_STRESS_START = 25;
 const US_VIX_STRESS_FULL = 40;
 const US_VIX_MAX_WEIGHT = 0.60;
-const WEEKLY_KEYS = new Set(['aaii', 'naaim']);
+const WEEKLY_KEYS = new Set(['aaii']);
 
 const dateRange = (start, end) => {
     const values = [];
@@ -21,7 +21,6 @@ const weeklyDates = (rows, start, end) => Object.values(rows.filter((row) => row
 const latest = (rows, date) => rows.filter((row) => row.date <= date).at(-1) ?? null;
 const vixScore = (value) => Math.max(0, Math.min(100, Math.round((100 / (1 + Math.exp((value - 24) / 6))) * 100) / 100));
 const putCallScore = (value) => Math.round(((1.25 - Math.max(0.55, Math.min(1.25, value))) / 0.70) * 100);
-const naaimScore = (value) => Math.round(((Math.max(40, Math.min(90, value)) - 40) / 50) * 100);
 const aaiiScore = (value) => Math.min(Math.max(((value - 20) / 30) * 100, 0), 100);
 const tierFor = (score, mode) => score >= 85 ? (mode === 'contrarian' ? 'strong-sell' : 'strong-buy')
     : score >= 65 ? (mode === 'contrarian' ? 'sell' : 'buy')
@@ -30,9 +29,9 @@ const tierFor = (score, mode) => score >= 85 ? (mode === 'contrarian' ? 'strong-
                 : mode === 'contrarian' ? 'strong-buy' : 'strong-sell';
 const actionFor = (tier) => tier.includes('buy') ? 'BUY' : tier.includes('sell') ? 'SELL' : 'NEUTRAL';
 
-/** Compute US model v2.1.0 weights with proportional social opt-out and smooth VIX 25->40 ramp. */
+/** Compute US model v2.2.0 weights with proportional social opt-out and smooth VIX 25->40 ramp. */
 export const weightsFor = (vix, enableSocial = true) => {
-    const weights = { vix: 0.35, social: 0.15, put_call: 0.15, aaii: 0.20, naaim: 0.15 };
+    const weights = { vix: 0.40, social: 0.15, put_call: 0.20, aaii: 0.25 };
     if (enableSocial === false) {
         weights.social = 0;
         const remainingTotal = Object.values(weights).reduce((sum, w) => sum + w, 0);
@@ -70,7 +69,7 @@ export const weightsFor = (vix, enableSocial = true) => {
     return weights;
 };
 
-/** Reconstruct a single US snapshot using model v2.1.0 scoring and alignment rules. */
+/** Reconstruct a single US snapshot using model v2.2.0 scoring and alignment rules. */
 export const calculate = ({ date, mode, enableSocial, inputs }) => {
     const weights = weightsFor(inputs.vix.value, enableSocial);
     const definitions = [
@@ -78,7 +77,6 @@ export const calculate = ({ date, mode, enableSocial, inputs }) => {
         ...(enableSocial ? [['social', 'Social Sentiment', inputs.social?.value ?? 0, inputs.social ? (Math.max(-1, Math.min(1, inputs.social.value)) + 1) * 50 : 50, inputs.social?.date ?? date]] : []),
         ...(inputs.putCall ? [['put_call', 'Put/call ratio', inputs.putCall.value, putCallScore(inputs.putCall.value), inputs.putCall.date]] : []),
         ...(inputs.aaii ? [['aaii', 'AAII Sentiment', inputs.aaii.value, aaiiScore(inputs.aaii.value), inputs.aaii.date]] : []),
-        ...(inputs.naaim ? [['naaim', 'Manager exposure (NAAIM)', inputs.naaim.value, naaimScore(inputs.naaim.value), inputs.naaim.date]] : []),
     ];
     const components = Object.fromEntries(definitions.filter(([key]) => (weights[key] ?? 0) > 0).map(([key, name, raw, score, sourceDate]) => [key, {
         raw_value: raw, score, weight: weights[key], signal: tierFor(score, mode), last_updated: sourceDate, display_name: name,
@@ -97,7 +95,7 @@ export const calculate = ({ date, mode, enableSocial, inputs }) => {
         if (active.length < 3 && confidence === 'high') confidence = 'moderate';
     }
     const drivers = Object.entries(components).map(([key, item]) => ({ key, name: item.display_name, contribution: item.score * item.weight, score: item.score, weight: item.weight, raw_value: item.raw_value, last_updated: item.last_updated, impact: actionFor(item.signal) === majority ? 'positive' : 'negative', detail: 'Reconstructed historical input' })).sort((left, right) => Math.abs(right.contribution) - Math.abs(left.contribution));
-    const coverage = ['VIX historical close', enableSocial ? (inputs.social ? `social historical reading from ${inputs.social.date}` : 'social neutral fallback (raw 0)') : 'social disabled (weight redistributed)', inputs.putCall ? `put/call carried from ${inputs.putCall.date}` : 'put/call neutral reserve', inputs.aaii ? `AAII carried from ${inputs.aaii.date}` : 'AAII neutral reserve', inputs.naaim ? `NAAIM ${inputs.naaim.date}` : 'NAAIM neutral reserve'].join('; ');
+    const coverage = ['VIX historical close', enableSocial ? (inputs.social ? `social historical reading from ${inputs.social.date}` : 'social neutral fallback (raw 0)') : 'social disabled (weight redistributed)', inputs.putCall ? `put/call carried from ${inputs.putCall.date}` : 'put/call neutral reserve', inputs.aaii ? `AAII carried from ${inputs.aaii.date}` : 'AAII neutral reserve'].join('; ');
     return { score, tier, majority, agreement, confidence, components, drivers, coverage };
 };
 
@@ -117,12 +115,6 @@ const chart = yahoo.chart?.result?.[0];
 const closes = chart?.indicators?.quote?.[0]?.close ?? [];
 const vixRows = (chart?.timestamp ?? []).flatMap((timestamp, index) => Number.isFinite(closes[index]) ? [{ date: new Date(timestamp * 1000).toISOString().slice(0, 10), value: closes[index] }] : []);
 
-const naaimHtml = longRange ? '' : await fetch('https://naaim.org/programs/naaim-exposure-index/', { headers: { 'user-agent': 'SignalDashboard/1.0' } }).then((response) => response.text());
-const fetchedNaaimRows = [...naaimHtml.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').matchAll(/(\d{2})\/(\d{2})\/(\d{4})\s+([0-9]+(?:\.[0-9]+)?)/g)]
-    .map((match) => ({ date: `${match[3]}-${match[1]}-${match[2]}`, value: Number(match[4]) }))
-    .filter((row, index, rows) => rows.findIndex((candidate) => candidate.date === row.date) === index)
-    .sort((left, right) => left.date.localeCompare(right.date));
-
 const observed = await sql`SELECT mode, enable_social, snapshot_date::text AS date, composite_score, components, COALESCE(origin, 'observed') AS origin FROM signal_snapshots WHERE market_type = 'US' ORDER BY snapshot_date`;
 const institutional = await sql`SELECT indicator_name, report_date::text AS date, value::float AS value FROM institutional_data ORDER BY report_date`;
 const historicalSocialRows = await sql`SELECT signal_date::text AS date, social_sentiment_score::float AS value FROM market_signals WHERE market_type = 'US' AND social_sentiment_score IS NOT NULL ORDER BY signal_date`;
@@ -132,7 +124,6 @@ const componentSeries = (key) => observed.filter((row) => row.origin === 'observ
 }).filter((row, index, rows) => rows.findIndex((candidate) => candidate.date === row.date && candidate.value === row.value) === index).sort((left, right) => left.date.localeCompare(right.date));
 const putCallRows = componentSeries('put_call');
 const aaiiRows = [...institutional.filter((row) => row.indicator_name === 'aaii').map((row) => ({ date: row.date, value: Number(row.value) })), ...componentSeries('aaii')].sort((left, right) => left.date.localeCompare(right.date));
-const naaimRows = [...fetchedNaaimRows, ...componentSeries('naaim')].sort((left, right) => left.date.localeCompare(right.date));
 const observedKeys = new Set(observed.filter((row) => row.origin === 'observed').map((row) => `${row.mode}:${row.enable_social}:${row.date}`));
 const candidates = [];
 const targetDates = longRange ? weeklyDates(vixRows, startDate, endDate) : dateRange(startDate, endDate);
@@ -146,8 +137,8 @@ const observedScoreMismatches = observed.flatMap((row) => {
 
 for (const date of targetDates) {
     const inputs = longRange
-        ? { vix: latest(vixRows, date), social: null, putCall: null, aaii: null, naaim: null }
-        : { vix: latest(vixRows, date), social: historicalSocialRows.find((row) => row.date === date) ?? null, putCall: latest(putCallRows, date), aaii: latest(aaiiRows, date), naaim: latest(naaimRows, date) };
+        ? { vix: latest(vixRows, date), social: null, putCall: null, aaii: null }
+        : { vix: latest(vixRows, date), social: historicalSocialRows.find((row) => row.date === date) ?? null, putCall: latest(putCallRows, date), aaii: latest(aaiiRows, date) };
     if (!inputs.vix) continue;
     for (const mode of ['standard', 'contrarian']) for (const enableSocial of [true, false]) {
         if (!observedKeys.has(`${mode}:${enableSocial}:${date}`)) candidates.push({ date, mode, enableSocial, ...calculate({ date, mode, enableSocial, inputs }) });
@@ -170,7 +161,6 @@ console.log(JSON.stringify({
         vix: [vixRows.at(0)?.date, vixRows.at(-1)?.date],
         putCall: [putCallRows.at(0)?.date, putCallRows.at(-1)?.date],
         aaii: [aaiiRows.at(0)?.date, aaiiRows.at(-1)?.date],
-        naaim: [naaimRows.at(0)?.date, naaimRows.at(-1)?.date],
         historicalSocial: [historicalSocialRows.at(0)?.date, historicalSocialRows.at(-1)?.date],
     },
     socialCoverage: {

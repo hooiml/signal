@@ -163,7 +163,7 @@ export function V9HomeView({
     const primaryCard = cardByMarket[activePrimary];
     const secondaryCard = cardByMarket[activeSecondary];
     const orderedCards = [
-        { ...primaryCard, role: 'primary' as const, roleLabel: focusChoice === 'auto' ? sessionContext.sessionLabel : `${primaryCard.title} focus` },
+        { ...primaryCard, role: 'primary' as const, roleLabel: focusChoice === 'auto' ? sessionContext.sessionLabel : 'Focused view' },
         {
             ...secondaryCard,
             role: 'secondary' as const,
@@ -172,17 +172,24 @@ export function V9HomeView({
                 : activeSecondary === 'US' ? 'US snapshot' : 'Bursa snapshot',
         },
     ];
+    const visibleCards = focusChoice === 'auto' ? orderedCards : [orderedCards[0]];
 
     const primarySignal = activePrimary === 'US' ? usSignal : mySignal;
-    const primaryBrief = activePrimary === 'US' ? usBrief : myBrief;
-    const primaryTitle = activePrimary === 'US' ? 'United States' : 'Malaysia · Bursa';
+
+    const visibleRecords = useMemo(
+        () => (!records ? null : focusChoice === 'auto' ? records : records.filter(record => record.market === activePrimary)),
+        [records, focusChoice, activePrimary],
+    );
 
     const focusItems = useMemo<FocusActionItem[]>(() => {
         const list: FocusActionItem[] = [];
 
         // 1. Personal due/overdue watchlist reviews come first when signed in.
         if (owner && records?.length) {
-            const due = records
+            const scoped = focusChoice === 'auto'
+                ? records
+                : records.filter(record => record.market === activePrimary);
+            const due = scoped
                 .map(record => ({ record, review: watchlistReview(record, todayIso) }))
                 .filter(item => item.review.dueThisWeek)
                 .slice(0, 2);
@@ -199,31 +206,8 @@ export function V9HomeView({
             }
         }
 
-        // 2. One concrete catalyst takeaway from the primary market's top driver + index tape.
-        if (primarySignal) {
-            const topDriver = primarySignal.metadata.score_drivers?.[0];
-            const benchmark = primarySignal.metadata.index_trend?.[0];
-            const parts: string[] = [];
-            if (topDriver) parts.push(`${topDriver.name} (${Math.round(topDriver.weight * 100)}% weight)`);
-            if (benchmark && Number.isFinite(benchmark.changePercent)) {
-                parts.push(`${indexName(benchmark.symbol)} ${signed(benchmark.changePercent)}%`);
-            }
-            const primaryTone = toneFor(primarySignal, Boolean(primaryBrief && primaryBrief.status !== 'unavailable'));
-            list.push({
-                id: `catalyst-${activePrimary}`,
-                tag: `${activePrimary === 'US' ? 'US' : 'Bursa'} catalyst`,
-                tone: primaryTone,
-                title: `${primaryTitle}: ${marketReadingLabel(primarySignal.tier)} (${primarySignal.composite_score.toFixed(0)}/100)`,
-                body: parts.length > 0
-                    ? `Led by ${parts.join(' · ')}. Open Market Pulse to inspect active drivers.`
-                    : primaryBrief?.conclusion ?? 'Inspect the active market drivers and trend.',
-                cta: 'Open Market →',
-                run: () => onOpenMarket(activePrimary),
-            });
-        }
-
-        // 3. Curated fresh headlines from the primary market (context-only, decoupled from scoring).
-        const articles = (primarySignal?.metadata.articles ?? []).slice(0, 3);
+        // 2. Curated fresh headlines from the primary market (context-only, decoupled from scoring).
+        const articles = (primarySignal?.metadata.articles ?? []).slice(0, 4);
         for (const [index, article] of articles.entries()) {
             const safeUrl = safeExternalUrl(article.url);
             const age = formatHeadlineAge(article.pubDate);
@@ -238,7 +222,7 @@ export function V9HomeView({
             });
         }
 
-        // 4. Helpful fallback only if neither personal reviews nor headlines are available.
+        // 3. Helpful fallback only if neither personal reviews nor headlines are available.
         if (list.length < 2 && records && records.length === 0) {
             list.push({
                 id: 'start-watchlist',
@@ -263,7 +247,7 @@ export function V9HomeView({
         }
 
         return list.slice(0, 4);
-    }, [activePrimary, onOpenDiscover, onOpenMarket, onOpenStock, owner, primaryBrief, primarySignal, primaryTitle, records, todayIso]);
+    }, [activePrimary, focusChoice, onOpenDiscover, onOpenMarket, onOpenStock, owner, primarySignal, records, todayIso]);
 
     const totalCostSummary = portfolioSummaries.map(s => `${s.currency} ${fmtMoney(s.costBasis + s.cashBalance, s.currency)}`).join(' · ');
 
@@ -272,10 +256,14 @@ export function V9HomeView({
             <div className={styles.heroBrief}>
                 <div>
                     <div className={styles.kicker}>
-                        <span>{sessionContext.sessionLabel} · {marketTimestampLabel(todayIso)} UTC · {mode === 'contrarian' ? 'Contrarian' : 'Momentum'}</span>
+                        <span>
+                            {focusChoice === 'auto'
+                                ? `MYT · ${marketTimestampLabel(todayIso)} UTC · ${mode === 'contrarian' ? 'Contrarian' : 'Momentum'}`
+                                : `${sessionContext.sessionLabel} · ${marketTimestampLabel(todayIso)} UTC · ${mode === 'contrarian' ? 'Contrarian' : 'Momentum'}`}
+                        </span>
                     </div>
                     <h1 className={`${styles.heroTitle} ${styles.homeTitle}`}>
-                        <span>{primaryCard.title}: {readingFor(primaryCard.slot, primaryCard.brief).toLowerCase()}</span>
+                        <span>{focusChoice === 'auto' ? sessionContext.sessionLabel : primaryCard.title}</span>
                     </h1>
                 </div>
                 <div className={styles.heroActions}>
@@ -290,10 +278,10 @@ export function V9HomeView({
 
             <section
                 className={styles.pulseGrid}
-                data-layout={sessionContext.isWeekend && focusChoice === 'auto' ? 'balanced' : 'focused'}
+                data-layout={focusChoice !== 'auto' ? 'single' : sessionContext.isWeekend ? 'balanced' : 'focused'}
                 aria-label="Market pulse summary"
             >
-                {orderedCards.map(({ market, title, subtitle, slot, brief, today, role, roleLabel }) => {
+                {visibleCards.map(({ market, title, subtitle, slot, brief, today, role, roleLabel }) => {
                     const delta = slot.signal?.metadata.score_delta?.delta;
                     const snapshotDay = marketEvidenceDay(slot.signal?.metadata.score_delta?.snapshot_date);
                     const tone = toneFor(slot.signal, Boolean(brief && brief.status !== 'unavailable'));
@@ -352,7 +340,7 @@ export function V9HomeView({
                     <div className={styles.sectionHead}>
                         <div>
                             <h2>Today’s Focus</h2>
-                            <p>Market catalysts, fresh headlines, and due reviews for {primaryCard.title}</p>
+                            <p>Fresh headlines and due reviews for {primaryCard.title}</p>
                         </div>
                         <span className={styles.toneBadge}>{focusItems.length} items</span>
                     </div>
@@ -384,11 +372,15 @@ export function V9HomeView({
                         <div>
                             <h2>Watchlist Pulse</h2>
                             <p>
-                                {records === null
+                                {visibleRecords === null
                                     ? 'Loading saved workspace…'
-                                    : records.length
-                                        ? 'Your saved US and Bursa Malaysia thesis notes'
-                                        : 'Save stocks to track reviews and thesis notes here'}
+                                    : records?.length === 0
+                                        ? 'Save stocks to track reviews and thesis notes here'
+                                        : focusChoice === 'auto'
+                                            ? 'Your saved US and Bursa Malaysia thesis notes'
+                                            : activePrimary === 'MY'
+                                                ? 'Your saved Bursa Malaysia thesis notes'
+                                                : 'Your saved US thesis notes'}
                             </p>
                         </div>
                         <div className={styles.heroActions}>
@@ -396,9 +388,9 @@ export function V9HomeView({
                             <button type="button" className={styles.textLink} onClick={onOpenDiscover}>Discover →</button>
                         </div>
                     </div>
-                    {records && records.length > 0 ? (
+                    {visibleRecords && visibleRecords.length > 0 ? (
                         <div className={styles.watchList}>
-                            {records.slice(0, 6).map(r => (
+                            {visibleRecords.slice(0, 6).map(r => (
                                 <button
                                     key={`${r.market}:${r.symbol}`}
                                     type="button"
@@ -415,6 +407,18 @@ export function V9HomeView({
                                     <span className={styles.textLink}>Inspect →</span>
                                 </button>
                             ))}
+                        </div>
+                    ) : records && records.length > 0 ? (
+                        <div className={styles.watchEmpty}>
+                            <p>No saved {activePrimary === 'MY' ? 'Bursa Malaysia' : 'US'} stocks in your watchlist yet.</p>
+                            <div className={styles.heroActions}>
+                                <Link className={styles.primaryBtn} href={href('research', { tab: 'watchlist' })} prefetch={false}>
+                                    View all saved stocks →
+                                </Link>
+                                <button type="button" className={styles.ghostBtn} onClick={() => setFocusOverride('auto')}>
+                                    Show all markets
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         <div className={styles.watchEmpty}>

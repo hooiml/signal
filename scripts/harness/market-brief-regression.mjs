@@ -44,7 +44,7 @@ const input = (name, score, options = {}) => ({
 
 function inputs(market, scores = {}, options = {}) {
     const names = market === 'US'
-        ? ['vix', 'social', 'put_call', 'aaii', 'naaim']
+        ? ['vix', 'social', 'put_call', 'aaii']
         : ['klci_trend', 'vix', 'my_breadth', 'news'];
     return names.map((name) => input(name, scores[name] ?? 70, options[name]));
 }
@@ -205,21 +205,21 @@ const changeCases = [
     {
         label: 'offsetting effects',
         current: signal('US', 'standard', { vix: 75, social: 45 }),
-        previous: signal('US', 'standard', { vix: 60, social: 80 }, { vix: { last_updated: '2026-10-19' }, social: { last_updated: '2026-10-19' } }),
+        previous: signal('US', 'standard', { vix: 60, social: 85 }, { vix: { last_updated: '2026-10-19' }, social: { last_updated: '2026-10-19' } }),
         expected: 'offset',
         status: 'available',
     },
     {
         label: 'returning input',
         current: signal('US', 'standard'),
-        previous: signal('US', 'standard', {}, { naaim: { enabled: false } }),
+        previous: signal('US', 'standard', {}, { put_call: { enabled: false } }),
         expected: 'coverage',
         status: 'available',
         changeCode: 'coverage-or-weights',
     },
     {
         label: 'missing input',
-        current: signal('US', 'standard', {}, { naaim: { enabled: false } }),
+        current: signal('US', 'standard', {}, { put_call: { enabled: false } }),
         previous: signal('US', 'standard'),
         expected: 'coverage',
         status: 'limited',

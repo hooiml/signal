@@ -56,7 +56,7 @@ export function computeVixStress({
     // Fallback when full signal components are absent: numeric score always falls as VIX rises
     // (Contrarian mode flips tier interpretation, never the 0-100 score direction).
     const liveVixScore = normalizeVixLogistic(liveVix);
-    const effectiveWeight = vixWeight > 0 ? vixWeight : 0.35;
+    const effectiveWeight = vixWeight > 0 ? vixWeight : 0.40;
     const rawDelta = (simVixScore - liveVixScore) * effectiveWeight;
     const score = clamp(Math.round(liveScore + rawDelta), 0, 100);
     return { vix: simulatedVix, score, delta: score - Math.round(liveScore), active: true };
