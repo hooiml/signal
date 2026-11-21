@@ -92,6 +92,9 @@
 .history svg[role=slider] { height: 260px; }
 .historyDetails { border-top: 1px solid var(--line); margin-top: 16px; }
 .historyDetails > summary { min-height: 44px; padding: 12px 24px; color: var(--link); cursor: pointer; font-size: var(--text-sm); font-weight: 600; }
+.historyViewControls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 0 24px 8px; }
+.historyViewControls > div { flex-wrap: wrap; }
+.historyViewControls p { margin: 0; color: var(--muted); font-size: var(--text-sm); }
 .evidence, .inspector { padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--card-shadow); }
 .evidence h2 { font-size: var(--text-md); }
 .evidenceRows { display: grid; gap: 0; }
@@ -197,6 +200,7 @@
     .brief { padding: 14px; }
     .evidence, .inspector { padding: 14px; }
     .history svg[role=slider] { height: 220px; }
+    .historyViewControls { padding-inline: 15px; }
     .evidenceRows .evidenceRow { padding: 12px 0; gap: 10px; }
     .longLabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .contextCard .indexList { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; }

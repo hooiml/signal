@@ -229,6 +229,107 @@ try {
         assert.equal(await advanced.getAttribute('aria-pressed'), 'true');
         assert.equal(new URL(page.url()).pathname, '/v9');
     });
+    for (const width of [1280, 375]) {
+        const { context, page: historyPage } = await setup(width, 'light');
+        await scenario(`V9 US score history views are distinct at ${width}px`, async () => {
+            const history = structuredClone(seeds['US:standard:false']);
+            const rows = [
+                ['2026-04-01', 31, 'reconstructed', '2.1.0', 38, []],
+                ['2026-08-01', 46, 'observed', '2.1.0', 58, ['aaii']],
+                ['2026-09-09', 51, 'observed', '2.1.0', 49, []],
+                ['2026-09-10', 55, 'observed', '2.1.0'],
+                ['2026-09-11', 54, 'observed', '2.1.0', 42, []],
+                ['2026-09-12', us.composite_score, 'observed', '2.2.0', us.composite_score, []],
+            ];
+            history.data.metadata.score_history = rows.map(([date, score, origin, model_version, recalculated, missing_inputs]) => ({
+                date, score, origin, model_version, tier: 'neutral',
+                ...(recalculated === undefined ? {} : { recalculated_v220: { score: recalculated, missing_inputs } }),
+            }));
+            history.data.metadata.trend_context = { score_trend: 'Fixture mixed-model live trend', last_signal_change: 'Fixture mixed-model comparison', note: 'Fixture only' };
+            const summary = { date: '2026-09-11', score: 54, tier: 'neutral', origin: 'observed', coverageNote: null, hasFullEvidence: true, updatedAt: '2026-09-11T20:00:00Z' };
+            await context.route('**/api/signals/v2?*', route => {
+                const params = new URL(route.request().url()).searchParams;
+                return params.get('market') === 'US' && params.get('mode') === 'standard' && params.get('enableSocial') === 'false'
+                    ? route.fulfill({ json: history }) : route.fallback();
+            });
+            await context.route('**/api/signals/replay?*', route => {
+                const params = new URL(route.request().url()).searchParams;
+                return route.fulfill({ json: { success: true, data: params.has('date')
+                    ? { summary, confidenceLevel: 'normal', agreementPercent: 50, majoritySignal: 'NEUTRAL', components: [], scoreDrivers: [], indexTrend: [], signalQuality: {}, interpretationContext: {}, metadata: {} }
+                    : { market: params.get('market'), mode: params.get('mode'), enableSocial: params.get('enableSocial') === 'true', summaries: [summary] } } });
+            });
+            await historyPage.goto(`${base}/v9?view=market&market=US&mode=standard&enableSocial=false&advanced=1`, { waitUntil: 'domcontentloaded' });
+            const score = historyPage.getByRole('region', { name: 'Market score and history' });
+            const hero = historyPage.getByRole('region', { name: 'Market assessment' });
+            const slider = score.getByRole('slider', { name: 'Market condition score' });
+            const recorded = score.getByRole('button', { name: 'As recorded', exact: true });
+            const calculated = score.getByRole('button', { name: 'Recalculated with v2.2.0', exact: true });
+            const replay = score.getByRole('button', { name: 'Open historical snapshot' });
+            const groups = slider.locator('g[data-origin]');
+            await recorded.waitFor();
+            assert.equal(await recorded.getAttribute('aria-pressed'), 'true');
+            assert.equal(await groups.count(), 5, '3M only shows dates inside its recorded window');
+            await hero.getByText('Scoring model changed from v2.1.0 to v2.2.0. Score comparison unavailable.').waitFor();
+            assert.equal(await hero.getByRole('button', { name: /points vs prior snapshot/ }).count(), 0);
+            await historyPage.getByText('How to read this assessment · methodology and limits').click();
+            await historyPage.getByText('No earlier comparable score supplied. A change cannot be established.').waitFor();
+            assert.equal(await groups.last().locator('path').count(), 0, 'recorded line breaks between models');
+            await score.getByText('History and comparison details').click();
+            assert.equal(await score.getByText('Fixture mixed-model live trend').count(), 0);
+            await slider.press('ArrowLeft');
+            assert.match(await slider.getAttribute('aria-valuetext'), /11 Sept? 2026, score 54\. Observed · Model v2\.1\.0/);
+            await replay.waitFor();
+            await calculated.click();
+            assert.match(await slider.getAttribute('aria-valuetext'), /11 Sept? 2026, score 42\. Recalculated with v2\.2\.0/);
+            assert.equal(await groups.nth(2).locator('path').count(), 0, 'recalculated line leaves a gap on 10 September');
+            assert.equal(await replay.count(), 0, 'recalculated scores cannot open recorded replay');
+            assert.equal(await hero.getByTestId('connected-score').innerText(), String(us.composite_score));
+            await slider.press('Home');
+            assert.match(await slider.getAttribute('aria-valuetext'), /1 Aug 2026, score 58.*Partial · Neutral fallback for AAII Sentiment/);
+            await score.getByRole('button', { name: '1M', exact: true }).click();
+            assert.equal(await groups.count(), 3, '1M uses the same cutoff in both views');
+            await score.getByRole('button', { name: 'All', exact: true }).click();
+            await slider.press('Home');
+            assert.match(await slider.getAttribute('aria-valuetext'), /1 Apr 2026, score 38.*backfilled inputs/);
+            await recorded.click();
+            assert.match(await slider.getAttribute('aria-valuetext'), /1 Apr 2026, score 31\. Backfilled · Model v2\.1\.0/);
+            await slider.press('End');
+            await slider.press('ArrowLeft');
+            await slider.press('ArrowLeft');
+            await calculated.click();
+            await score.getByText(/No recalculated score on 10 Sept? 2026/).waitFor();
+            assert.ok(await historyPage.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), 'document overflow');
+            await score.screenshot({ path: `${output}/market-history-${width}.png` });
+            await recorded.click();
+            await slider.press('ArrowRight');
+            await replay.click();
+            await historyPage.getByRole('heading', { name: /Reading on 11 Sept? 2026/ }).waitFor();
+            assert.equal(await historyPage.getByTestId('connected-score').innerText(), '54');
+            await score.getByRole('button', { name: 'As recorded', exact: true }).waitFor({ state: 'hidden' });
+            await historyPage.getByRole('button', { name: 'Return to current ↗' }).click();
+            await historyPage.getByRole('checkbox', { name: 'Include social in score', exact: true }).check();
+            await historyPage.waitForURL(url => url.searchParams.get('enableSocial') === 'true');
+            await slider.waitFor({ state: 'visible' });
+            assert.equal(await recorded.count(), 0, 'social-on view has no history toggle');
+            if (width === 1280) {
+                await historyPage.goto(`${base}/v9?view=market&market=MY&mode=standard&enableSocial=false`, { waitUntil: 'domcontentloaded' });
+                await score.waitFor();
+                assert.equal(await recorded.count(), 0, 'MY view has no history toggle');
+                await historyPage.goto(`${base}/v9?view=market&market=US&mode=contrarian&enableSocial=false`, { waitUntil: 'domcontentloaded' });
+                await score.waitFor();
+                assert.equal(await recorded.count(), 0, 'Contrarian view has no history toggle');
+                history.data.metadata.score_history.slice(1).forEach(row => delete row.recalculated_v220);
+                await historyPage.goto(`${base}/v9?view=market&market=US&mode=standard&enableSocial=false`, { waitUntil: 'domcontentloaded' });
+                await calculated.click();
+                await score.getByText('No recalculated scores are available in this range.').waitFor();
+                assert.equal(await slider.count(), 0, 'an empty range has no synthetic score or selected point');
+                await score.getByRole('button', { name: 'All', exact: true }).click();
+                await slider.waitFor();
+                assert.match(await slider.getAttribute('aria-valuetext'), /1 Apr 2026, score 38/);
+            }
+        });
+        await context.close();
+    }
     await scenario('market and ticker deep links survive reload', async () => {
         await page.goto(`${base}/v9?market=US&view=market&tab=history`, { waitUntil: 'domcontentloaded' });
         await page.getByRole('tab', { name: 'History', exact: true }).waitFor();

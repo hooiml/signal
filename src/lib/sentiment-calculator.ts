@@ -1,3 +1,5 @@
+import { normalizeV220Vix } from './market-score-v220';
+
 /**
  * Market Sentiment Score Calculator
  * Combines VIX volatility index with social sentiment data
@@ -109,22 +111,15 @@ export function getScoreDescription(score: number): string {
  * Uses either absolute scale or 52-week percentile if provided
  */
 function normalizeVixScore(vix: number, config: SentimentConfig): number {
-    let vixScore: number;
-
     if (config.vix52wRange && config.vix52wRange.min !== config.vix52wRange.max) {
         // REGIME-AWARE: Use 52-week percentile (MUCH BETTER)
         const { min, max } = config.vix52wRange;
         const percentile = (vix - min) / (max - min);
-        vixScore = 100 - (percentile * 100);
-    } else {
-        // ABSOLUTE SCALE: Logistic function for smooth mapping
-        // - Centered at VIX=24 (per user mandates)
-        // - Steepness=6 controls transition smoothness
-        vixScore = 100 / (1 + Math.exp((vix - 24) / 6));
+        const vixScore = 100 - (percentile * 100);
+        return Math.max(0, Math.min(100, Math.round(vixScore * 100) / 100));
     }
 
-    // Clamp and round
-    return Math.max(0, Math.min(100, Math.round(vixScore * 100) / 100));
+    return normalizeV220Vix(vix);
 }
 
 /**

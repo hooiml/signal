@@ -1,5 +1,7 @@
 import { parseMarketReportDate } from './market-observation-date';
 
+export { normalizeV220PutCall as normalizePutCallRatio } from './market-score-v220';
+
 const CBOE_DAILY_MARKET_STATS_URL = 'https://www.cboe.com/markets/us/options/market-statistics/daily';
 const NAAIM_EXPOSURE_URL = 'https://naaim.org/programs/naaim-exposure-index/';
 const FRED_GDP_URL = 'https://fred.stlouisfed.org/series/GDP';
@@ -103,14 +105,6 @@ function parseCboeReportDate(html: string, retrievedAt: string): string | null {
         return parseMarketReportDate(`${parts[3]}-${String(month).padStart(2, '0')}-${parts[1].padStart(2, '0')}`, retrievedAt);
     });
     return dates.length > 0 && dates.every(date => date !== null && date === dates[0]) ? dates[0] : null;
-}
-
-export function normalizePutCallRatio(ratio: number): number {
-    // Lower put/call means call-heavy optimism/complacency; higher means fear or hedging.
-    const lowerBound = 0.55;
-    const upperBound = 1.25;
-    const clamped = Math.max(lowerBound, Math.min(upperBound, ratio));
-    return Math.round(((upperBound - clamped) / (upperBound - lowerBound)) * 100);
 }
 
 export async function fetchNaaimExposure(): Promise<NaaimExposureData | null> {

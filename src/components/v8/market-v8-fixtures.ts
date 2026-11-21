@@ -10,7 +10,14 @@ export type InvestigationTab = 'What changed' | 'Evidence' | 'Context' | 'Histor
 export const tabs: InvestigationTab[] = ['What changed', 'Evidence', 'Context', 'History', 'Scenarios'];
 export const currentDate = '2026-09-04';
 export const archiveDate = '2026-08-28';
-export type Point = { date: string; value: number; origin?: 'observed' | 'reconstructed' };
+export type Point = {
+    date: string;
+    value: number;
+    origin?: 'observed' | 'reconstructed';
+    modelVersion?: string | null;
+    recalculatedV220?: { score: number; missing_inputs: readonly string[] };
+    breakBefore?: boolean;
+};
 export type ExplorerIndicator = {
     key: string; name: string; short: string; value: number | null; prior: number | null;
     units: string; score: number; priorScore: number; date: string; cadence: string;

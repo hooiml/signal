@@ -67,13 +67,23 @@ function validIndicator(value: unknown): boolean {
     return true;
 }
 
+function validRecalculatedScore(value: unknown): boolean {
+    if (!object(value) || !percentage(value.score) || !stringArray(value.missing_inputs)) return false;
+    const inputs = value.missing_inputs;
+    return inputs.length < 3 && new Set(inputs).size === inputs.length
+        && inputs.every(key => key === 'vix' || key === 'put_call' || key === 'aaii');
+}
+
 function validScoreHistory(value: unknown): boolean {
     return Array.isArray(value) && value.every((item) => object(item)
         && date(item.date)
         && percentage(item.score)
         && isTier(item.tier)
         && (item.origin === undefined || isOrigin(item.origin))
-        && optionalNullableString(item, 'coverage_note'));
+        && optionalNullableString(item, 'coverage_note')
+        && optionalNullableString(item, 'model_version')
+        && (item.recalculated_v220 === undefined || (marketEvidenceDay(item.date) === item.date
+            && isOrigin(item.origin) && validRecalculatedScore(item.recalculated_v220))));
 }
 
 const nullableFinite = (value: unknown) => value === null || finite(value);
@@ -467,7 +477,26 @@ export function overviewHistory(signal: MarketSignal): Point[] {
     for (const point of signal.metadata.score_history ?? []) {
         if (!records.has(point.date) || point.origin === 'observed') records.set(point.date, point);
     }
-    return [...records.values()].sort((a,b) => a.date.localeCompare(b.date)).map(row => ({ date: row.date, value: row.score, origin: row.origin }));
+    return [...records.values()].sort((a,b) => a.date.localeCompare(b.date)).map(row => ({
+        date: row.date, value: row.score, origin: row.origin, modelVersion: row.model_version, recalculatedV220: row.recalculated_v220,
+    }));
+}
+
+export function recordedModelComparison(signal: MarketSignal, history: Point[]) {
+    const comparison = signal.metadata.score_delta;
+    const versions = signal.metadata.change_reconciliation?.model_version;
+    const getVersion = (date: string | null | undefined) => {
+        const day = marketEvidenceDay(date);
+        const point = day ? history.find(point => point.date === day && point.origin === 'observed') : undefined;
+        return point?.modelVersion || null;
+    };
+    const current = getVersion(comparison?.snapshot_date) ?? versions?.current ?? null;
+    const previous = getVersion(comparison?.previous_date) ?? versions?.previous ?? null;
+    const notice = !comparison?.previous_date ? null
+        : current && previous && current !== previous
+            ? `Scoring model changed from v${previous} to v${current}. Score comparison unavailable.`
+            : !current || !previous ? 'Earlier scoring model could not be verified. Score comparison unavailable.' : null;
+    return { current, notice };
 }
 
 export function archivedSeries(key: string, summaries: readonly MarketReplaySummary[], snapshots: Readonly<Record<string, MarketReplaySnapshot>>, currentDisplayName?: string, expectedUnit?: string): Point[][] {

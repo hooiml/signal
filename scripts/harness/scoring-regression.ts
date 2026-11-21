@@ -8,6 +8,7 @@ import { getSourceIndicatorCount, shouldEnableSourceIndicator } from '../../src/
 import { calculateMarketCalibration, getCalibrationZone, selectHistoricalValidationCases, selectSimilarScoreOutcomes } from '../../src/lib/market-calibration';
 import { marketEvidenceCoverage } from '../../src/lib/market-evidence-coverage';
 import { reconstructUsMarketScores } from '../../src/lib/market-score-reconstruction';
+import { recalculateUsScoreV220 } from '../../src/lib/market-score-history';
 import { isAuraCacheFresh } from '../../src/lib/aura-cache';
 import { getRedditOAuthConfiguration } from '../../src/lib/reddit';
 import { isStockTwitsEnabled, isStockTwitsRateLimitStatus } from '../../src/lib/stocktwits';
@@ -578,6 +579,39 @@ function runMarketReconstructionTests() {
     assertTrue(momentum[0]?.score !== withoutSocial[0]?.score, 'source toggle changes reconstructed score coverage');
 }
 
+function runUsScoreHistoryTests() {
+    const date = '2026-05-13';
+    for (const [vix, putCall, aaii, expected] of [
+        [17, 0.7, 44, 78],
+        [34, 1.15, 25, 16],
+        [44, null, null, 22],
+        [2, 0.55, 50, 98],
+        [null, 0.55, 0, 47],
+    ] as const) {
+        const originals = Object.freeze({
+            vix: Object.freeze({ raw_value: vix, last_updated: date, score: 80, weight: 0.20 }),
+            put_call: Object.freeze({ raw_value: putCall, last_updated: '2026-05-12' }),
+            aaii: Object.freeze({ raw_value: aaii, last_updated: '2026-05-06' }),
+            naaim: Object.freeze({ raw_value: 100, last_updated: date, score: 100, weight: 0.15 }),
+        });
+        assertEqual(recalculateUsScoreV220(date, originals)?.score, expected, 'read-time calculation uses pinned v2.2.0 weights and raw normalizers');
+    }
+
+    const partial = recalculateUsScoreV220(date, {
+        vix: { raw_value: 20, last_updated: '2026-05-13T20:00:00Z' },
+        put_call: { raw_value: 0.70, last_updated: '2026-05-14' },
+        aaii: { raw_value: 40, last_updated: '2026-05-06', retrieved_at: '2026-05-14T04:00:00Z' },
+    });
+    assertEqual(partial?.score, 58, 'missing or future readings use their configured neutral contribution');
+    assertEqual(partial?.missing_inputs.join(','), 'put_call,aaii', 'partial history names missing inputs');
+    assertEqual(recalculateUsScoreV220(date, {
+        vix: { raw_value: '20', last_updated: date },
+        put_call: { raw_value: null, score: 85 },
+        aaii: { raw_value: -1, last_updated: date },
+        naaim: { raw_value: 100 },
+    }), undefined, 'no valid v2.2.0 inputs leaves no recalculated point');
+}
+
 function main() {
     runCoreScoringTests();
     runSourceIndicatorTests();
@@ -590,6 +624,7 @@ function main() {
     runDriverChangeTests();
     runMarketCalibrationTests();
     runMarketReconstructionTests();
+    runUsScoreHistoryTests();
     assertTrue(true, 'scoring regression tests reached completion');
     console.log('Scoring regression tests passed.');
 }

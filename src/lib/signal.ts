@@ -16,6 +16,8 @@ import type { MarketContextData } from './types/market-context';
 import { getEligibleMyEvidence, getSourceIndicatorCount, MY_NEWS_ELIGIBILITY_VERSION, MY_NEWS_FRESHNESS_WINDOW_MS, shouldEnableSourceIndicator } from './source-indicator';
 import { getMarketCalibration } from './market-calibration-service';
 import { MARKET_SCORE_MODEL_VERSION } from './market-calibration';
+import { recalculateUsScoreV220 } from './market-score-history';
+import { normalizeV220Aaii } from './market-score-v220';
 import { AURA_CACHE_MAX_AGE_DAYS, isAuraCacheFresh } from './aura-cache';
 
 interface AggregateMarketData {
@@ -81,6 +83,7 @@ interface SnapshotSummaryRow {
     tier: SignalTier;
     origin?: 'observed' | 'reconstructed';
     coverage_note?: string | null;
+    model_version?: unknown;
     components?: unknown;
     score_drivers?: unknown;
     metadata_snapshot?: { scoring_model_version?: unknown; my_news_eligibility_version?: unknown } | null;
@@ -325,6 +328,7 @@ async function persistSignalSnapshot(
     onTiming?: SignalTimingObserver,
 ) {
     let persistence: SignalSnapshotPersistence = { status: 'unavailable', snapshot_date: null };
+    const includeRecalculatedHistory = options.market === 'US' && options.mode === 'standard' && !options.enableSocial;
     try {
         const [previousRows, historyBefore] = await Promise.all([
             measureSignalStage('snapshot_previous', () => sql`
@@ -338,13 +342,15 @@ async function persistSignalSnapshot(
             LIMIT 1
         `, onTiming) as Promise<SnapshotSummaryRow[]>,
             measureSignalStage('snapshot_history', () => sql`
-            SELECT snapshot_date::text as snapshot_date, composite_score, tier, origin, coverage_note
+            SELECT snapshot_date::text as snapshot_date, composite_score, tier, origin, coverage_note,
+                CASE WHEN ${includeRecalculatedHistory} THEN metadata_snapshot->'scoring_model_version' END AS model_version,
+                CASE WHEN ${includeRecalculatedHistory} THEN components END AS components
             FROM signal_snapshots
             WHERE market_type = ${options.market}
               AND mode = ${options.mode}
               AND enable_social = ${options.enableSocial}
             ORDER BY snapshot_date DESC
-            LIMIT 89
+            LIMIT ${includeRecalculatedHistory ? null : 89}
         `, onTiming) as Promise<SnapshotSummaryRow[]>,
         ]);
 
@@ -452,10 +458,10 @@ async function persistSignalSnapshot(
                 } : {}),
             })
             : null;
-        const history = [
-            { snapshot_date: today, composite_score: signal.composite_score, tier: signal.tier },
+        const history: SnapshotSummaryRow[] = [
+            { snapshot_date: today, composite_score: signal.composite_score, tier: signal.tier, components: componentsSnapshot, model_version: MARKET_SCORE_MODEL_VERSION },
             ...historyBefore.filter(row => row.snapshot_date !== today)
-        ].slice(0, 90);
+        ];
 
         const context = {
             scoreDelta: {
@@ -475,7 +481,7 @@ async function persistSignalSnapshot(
             changeReconciliationNote: changeReconciliation ? null
                 : !previous ? 'No earlier snapshot is available for comparison.'
                 : 'The earlier snapshot did not archive per-component score and weight, so a complete accounting is unavailable.',
-            history: history
+            history: (includeRecalculatedHistory ? history : history.slice(0, 90))
                 .reverse()
                 .map(row => ({
                     date: row.snapshot_date,
@@ -483,6 +489,10 @@ async function persistSignalSnapshot(
                     tier: row.tier,
                     origin: row.origin ?? 'observed',
                     coverage_note: row.coverage_note ?? null,
+                    ...(includeRecalculatedHistory ? {
+                        model_version: typeof row.model_version === 'string' ? row.model_version : null,
+                        recalculated_v220: recalculateUsScoreV220(row.snapshot_date, row.components),
+                    } : {}),
                 }))
         };
         return { persistence, context };
@@ -634,7 +644,7 @@ export const getSmartSignal = async (market: MarketType = 'US', mode: 'standard'
         const normalizeInst = (name: string, val: number): number => {
             if (name === 'aaii') {
                 // AAII Bullish %: 20% (Fear) to 50% (Greed)
-                return Math.min(Math.max((val - 20) / (50 - 20) * 100, 0), 100);
+                return normalizeV220Aaii(val);
             }
             if (name === 'naaim') {
                 // NAAIM Exposure: 40% (Fear) to 90% (Greed)

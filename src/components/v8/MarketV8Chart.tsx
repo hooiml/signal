@@ -3,12 +3,13 @@
 import { useId, useState } from 'react';
 import type { Point } from './market-v8-fixtures';
 import { fullDate } from './MarketV8ConnectedData';
+import { getIndicatorDisplayName } from '@/lib/indicator-registry';
 import { MARKET_SCORE_TIER_THRESHOLDS } from '@/lib/market-score-thresholds';
 import styles from './market-v8.module.css';
 
-function geometry(points: Point[], width: number, height: number, min: number, max: number, pad = 0) {
-    const first = Date.parse(points[0].date);
-    const duration = Date.parse(points.at(-1)!.date) - first || 1;
+function geometry(points: Point[], width: number, height: number, min: number, max: number, pad = 0, firstDate = points[0].date, lastDate = points.at(-1)!.date) {
+    const first = Date.parse(firstDate);
+    const duration = Date.parse(lastDate) - first || 1;
     const rounded = (value: number) => Math.round(value * 100) / 100;
     return points.map(point => ({ x: rounded(pad + (Date.parse(point.date) - first) / duration * (width - pad * 2)), y: rounded(pad + (1 - (point.value - min) / (max - min || 1)) * (height - pad * 2)) }));
 }
@@ -27,25 +28,50 @@ export function Sparkline({ points, weekly = false }: { points: Point[]; weekly?
     const locations = geometry(points, 160, 44, Math.min(...values), Math.max(...values), 3);
     return <svg className={styles.sparkline} viewBox="0 0 160 44" aria-hidden="true"><path d={locations.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(' ')} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />{weekly && locations.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="2" fill="currentColor" />)}</svg>;
 }
-export function MarketChart({ points, selectedDate, onSelect, raw = false, name = 'Market condition score', sourced = false, replayAvailable = true, compactLegend = false }: { points: Point[]; selectedDate?: string; onSelect?: (point: Point) => void; raw?: boolean; name?: string; sourced?: boolean; replayAvailable?: boolean; compactLegend?: boolean }) {
+export type ScoreHistoryView = 'recorded' | 'recalculated';
+
+function historyPointLabel(point: Point, view: ScoreHistoryView) {
+    const source = point.origin === 'reconstructed' ? 'Backfilled' : point.origin === 'observed' ? 'Observed' : 'Origin unavailable';
+    return view === 'recalculated'
+        ? `Recalculated with v2.2.0 · ${source.toLowerCase()} inputs`
+        : `${source} · ${point.modelVersion ? `Model v${point.modelVersion}` : 'Model version unknown'}`;
+}
+
+export function MarketChart({ points, selectedDate, onSelect, raw = false, name = 'Market condition score', sourced = false, replayAvailable = true, compactLegend = false, historyView, dateLabels }: {
+    points: Point[]; selectedDate?: string; onSelect?: (point: Point) => void; raw?: boolean; name?: string;
+    sourced?: boolean; replayAvailable?: boolean; compactLegend?: boolean; historyView?: ScoreHistoryView;
+    dateLabels?: readonly [string, string, string];
+}) {
     const id = useId().replace(/:/g, '');
     const [cursor, setCursor] = useState(() => {
         const initial = points.findIndex(p => p.date === selectedDate);
         return initial >= 0 ? initial : points.length - 1;
     });
     const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-    if (!points.length) return <div className={styles.chartEmpty}>No historical observations are supplied.</div>;
+    if (!points.length) return <div className={styles.chartEmpty}>
+        {historyView === 'recalculated' ? 'No recalculated scores are available in this range.' : 'No historical observations are supplied.'}
+    </div>;
     const axis = raw ? { minimum: Math.floor(Math.min(...points.map(p => p.value)) * 0.75), maximum: Math.ceil(Math.max(...points.map(p => p.value)) * 1.15) } : scoreAxis(points.map(p => p.value));
     const { minimum, maximum } = axis;
     const yFor = (value: number) => (1 - (value - minimum) / (maximum - minimum || 1)) * 226;
-    const locations = geometry(points, 800, 226, minimum, maximum);
+    const [firstDate, middleDate, lastDate] = dateLabels ?? [points[0].date, points[Math.floor(points.length / 2)].date, points.at(-1)!.date];
+    const locations = geometry(points, 800, 226, minimum, maximum, 0, firstDate, lastDate);
     const selectedIndex = points.findIndex(point => point.date === selectedDate);
     const committed = selectedIndex >= 0 ? selectedIndex : Math.max(0, Math.min(cursor, points.length - 1));
     const at = hoverIndex !== null ? Math.max(0, Math.min(hoverIndex, points.length - 1)) : committed;
     const position = locations[at];
     const path = locations.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(' ');
-    const origin = points[at].origin ?? 'unavailable';
-    const provenancePaths = points.map((point, i) => ({ point, location: locations[i], previous: points[i - 1], previousLocation: locations[i - 1] }));
+    const active = points[at];
+    const origin = historyView ? historyPointLabel(active, historyView) : `Origin: ${active.origin ?? 'unavailable'}`;
+    const missingInputs = historyView === 'recalculated' ? active.recalculatedV220?.missing_inputs ?? [] : [];
+    const missing = missingInputs.length > 0 ? `Partial · Neutral fallback for ${missingInputs.map(getIndicatorDisplayName).join(', ')}` : null;
+    const canConnect = (previous: Point | undefined, point: Point | undefined) => !!previous && !!point
+        && !point.breakBefore && previous.origin === point.origin
+        && (historyView !== 'recorded' || (!!previous.modelVersion && previous.modelVersion === point.modelVersion));
+    const provenancePaths = points.map((point, i) => ({
+        point, location: locations[i], previousLocation: locations[i - 1], connected: canConnect(points[i - 1], point),
+        continues: canConnect(point, points[i + 1]),
+    }));
     const latestValue = points[at].value;
     const accentStroke = raw
         ? 'var(--chart-line)'
@@ -62,15 +88,15 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
     }
 
     return <div className={styles.chart}>
-        <div className={styles.chartTopline}><span>{sourced ? raw ? 'Raw readings from archived snapshots' : `0–100 composite · axis ${minimum}–${maximum}` : raw ? 'Raw observations · illustrative' : '0–100 composite · illustrative history'}</span><output aria-live="polite">{fullDate(points[at].date)} <b>{points[at].value.toFixed(raw ? 2 : 0)}{raw ? '' : ' /100'}</b>{sourced && !raw && <span>Origin: {origin}</span>}</output></div>
+        <div className={styles.chartTopline}><span>{sourced ? raw ? 'Raw readings from archived snapshots' : `0–100 composite · axis ${minimum}–${maximum}` : raw ? 'Raw observations · illustrative' : '0–100 composite · illustrative history'}</span><output aria-live="polite">{fullDate(active.date)} <b>{active.value.toFixed(raw ? 2 : 0)}{raw ? '' : ' /100'}</b>{sourced && !raw && <span>{origin}</span>}{missing && <span>{missing}</span>}</output></div>
         {sourced && !raw && (compactLegend ? <ul className={styles.compactChartLegend} aria-label="Chart legend">
-            <li><span aria-hidden="true">━</span> Observed</li>
-            <li><span aria-hidden="true">┄</span> Reconstructed</li>
+            <li><span aria-hidden="true">━</span> {historyView === 'recalculated' ? 'Observed inputs' : 'Observed'}</li>
+            <li><span aria-hidden="true">┄</span> {historyView === 'recalculated' ? 'Backfilled inputs' : historyView ? 'Backfilled' : 'Reconstructed'}</li>
             <li><span aria-hidden="true" className={styles.neutralLegendSwatch} /> Neutral {MARKET_SCORE_TIER_THRESHOLDS.neutralLower}–{MARKET_SCORE_TIER_THRESHOLDS.neutralUpper - 1}</li>
         </ul> : <p className={styles.chartLegend}>━━ Observed · ┄┄ Reconstructed · breaks separate origins · shaded band = neutral score tier {MARKET_SCORE_TIER_THRESHOLDS.neutralLower}–{MARKET_SCORE_TIER_THRESHOLDS.neutralUpper - 1}</p>)}
         <div className={styles.chartPlot}>
             <div className={styles.axis}>{[maximum, (maximum + minimum) / 2, minimum].map(value => <span key={value}>{value.toFixed(0)}</span>)}</div>
-            <svg viewBox="-8 -8 816 242" preserveAspectRatio="none" role={onSelect ? 'slider' : 'img'} tabIndex={onSelect ? 0 : undefined} aria-label={name} aria-valuemin={onSelect ? 0 : undefined} aria-valuemax={onSelect ? points.length - 1 : undefined} aria-valuenow={onSelect ? at : undefined} aria-valuetext={onSelect ? `${fullDate(points[at].date)}, score ${points[at].value}. Arrow keys preview, Enter selects a preview.` : undefined}
+            <svg viewBox="-8 -8 816 242" preserveAspectRatio="none" role={onSelect ? 'slider' : 'img'} tabIndex={onSelect ? 0 : undefined} aria-label={name} aria-valuemin={onSelect ? 0 : undefined} aria-valuemax={onSelect ? points.length - 1 : undefined} aria-valuenow={onSelect ? at : undefined} aria-valuetext={onSelect ? `${fullDate(active.date)}, score ${active.value}.${historyView ? ` ${origin}.${missing ? ` ${missing}.` : ''}` : ''} Arrow keys preview, Enter selects a preview.` : undefined}
                 onKeyDown={event => {
                     if (!onSelect) return;
                     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
@@ -100,8 +126,8 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                 {[0, 56.5, 113, 169.5, 226].map(y => <line key={y} x1="0" x2="800" y1={y} y2={y} stroke="currentColor" strokeOpacity=".10" strokeDasharray="3 5" />)}
                 {!raw && [MARKET_SCORE_TIER_THRESHOLDS.neutralLower, MARKET_SCORE_TIER_THRESHOLDS.neutralUpper].map(threshold => <line key={threshold} x1="0" x2="800" y1={yFor(threshold)} y2={yFor(threshold)} stroke="var(--subtle)" strokeOpacity=".55" strokeDasharray="3 6" />)}
                 {sourced && !raw ? <>
-                    {provenancePaths.map(({ point, location, previous, previousLocation }) => (
-                        previous && previous.origin === point.origin ? (
+                    {provenancePaths.map(({ point, location, connected, previousLocation }) => (
+                        connected ? (
                             <path
                                 key={`fill-${point.date}`}
                                 d={`M${previousLocation.x},${previousLocation.y} L${location.x},${location.y} L${location.x},226 L${previousLocation.x},226 Z`}
@@ -110,9 +136,9 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                             />
                         ) : null
                     ))}
-                    {provenancePaths.map(({ point, location, previous, previousLocation }, i) => <g key={point.date} data-origin={point.origin ?? 'unavailable'}>
-                        {previous && previous.origin === point.origin && <path d={`M${previousLocation.x},${previousLocation.y} L${location.x},${location.y}`} fill="none" stroke={accentStroke} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={point.origin === 'reconstructed' ? '6 5' : undefined} vectorEffect="non-scaling-stroke" />}
-                        {(!previous || previous.origin !== point.origin || points[i + 1]?.origin !== point.origin) && <circle cx={location.x} cy={location.y} r="3" fill={accentStroke} />}
+                    {provenancePaths.map(({ point, location, connected, continues, previousLocation }) => <g key={point.date} data-origin={point.origin ?? 'unavailable'}>
+                        {connected && <path d={`M${previousLocation.x},${previousLocation.y} L${location.x},${location.y}`} fill="none" stroke={accentStroke} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={point.origin === 'reconstructed' ? '6 5' : undefined} vectorEffect="non-scaling-stroke" />}
+                        {(!connected || !continues) && <circle cx={location.x} cy={location.y} r="3" fill={accentStroke} />}
                     </g>)}
                 </> : <><path d={`${path} L800,226 L0,226 Z`} fill={`url(#${id})`} /><path d={path} fill="none" stroke={accentStroke} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /></>}
                 <line x1={position.x} x2={position.x} y1="0" y2="226" stroke={accentStroke} strokeDasharray="4 4" opacity=".45" />
@@ -120,7 +146,7 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                 <circle cx={position.x} cy={position.y} r="4.8" fill="var(--surface)" stroke={accentStroke} strokeWidth="2.8" />
             </svg>
         </div>
-        <div className={styles.chartDates}><span>{fullDate(points[0].date)}</span><span>{fullDate(points[Math.floor(points.length / 2)].date)}</span><span>{fullDate(points.at(-1)!.date)}</span></div>
-        {onSelect && <span className={styles.chartHint}>{sourced ? replayAvailable ? 'Hover, click or use arrow keys to preview. Use Open historical snapshot to enter replay.' : 'Hover, click or use arrow keys to inspect a stored score.' : 'Select a date to investigate · keyboard: ← → then Enter'}</span>}
+        <div className={styles.chartDates}><span>{fullDate(firstDate)}</span><span>{fullDate(middleDate)}</span><span>{fullDate(lastDate)}</span></div>
+        {onSelect && <span className={styles.chartHint}>{historyView === 'recalculated' ? 'Hover, click or use arrow keys to inspect a recalculated score.' : sourced ? replayAvailable ? 'Hover, click or use arrow keys to preview. Use Open historical snapshot to enter replay.' : 'Hover, click or use arrow keys to inspect a stored score.' : 'Select a date to investigate · keyboard: ← → then Enter'}</span>}
     </div>;
 }
