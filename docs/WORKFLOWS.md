@@ -158,19 +158,21 @@ The Filings workspace requests only SEC filing metadata through fixed `sec.gov` 
 
 ## Long-Range Market Timeline Backfill
 
-Generate the weekly US timeline-only reconstruction without writing data:
+Preview the daily US backfill or weekly long-range reconstruction without writing data:
 
 ```powershell
+node --env-file=.env.local scripts/backfill-signal-history.mjs
 node --env-file=.env.local scripts/backfill-signal-history.mjs --long-range
 ```
 
-After reviewing the date range, candidate counts, source coverage, and observed-score validation, apply the tagged rows:
+After reviewing the date range, candidate counts, source coverage, and observed-score validation, apply the updates (`origin = 'reconstructed'` across Momentum `standard` and Contrarian `contrarian`, social on and off):
 
 ```powershell
+node --env-file=.env.local scripts/backfill-signal-history.mjs --apply
 node --env-file=.env.local scripts/backfill-signal-history.mjs --long-range --apply
 ```
 
-The long-range profile uses weekly VIX closes, holds unavailable inputs neutral, writes `long_range_reconstruction_version: 1`, and sets `validation_eligible: false`. It must extend the timeline only. The rollback target is restricted to reconstructed US rows whose `metadata_snapshot->>'long_range_reconstruction_version'` equals `1`; never delete by date range alone.
+Both backfill profiles use active model `v2.1.0` math and never overwrite existing `origin = 'observed'` snapshots. The long-range profile uses weekly VIX closes, holds unavailable inputs neutral, writes `long_range_reconstruction_version: 1`, and sets `validation_eligible: false`. It must extend the timeline only. The rollback target is restricted to reconstructed US rows whose `metadata_snapshot->>'long_range_reconstruction_version'` equals `1`; never delete by date range alone.
 
 ## Scheduled Refresh
 
