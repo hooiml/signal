@@ -173,12 +173,25 @@ export function V9MarketSummaryRail({
         <aside className={styles.v9SummaryRail} aria-label="Market summary">
             <section className={`${styles.card} ${styles.v9ScoreCard}`} data-tone={tone} aria-label="Market assessment">
                 <div className={styles.v9ScoreHeaderRow}>
-                    <div>
+                    <div className={styles.v9ScoreTitleBlock}>
                         <h1>{title}</h1>
-                        <p className={styles.v9ScoreSub}>
-                            {mode === 'contrarian' ? 'Contrarian' : 'Momentum'} · {market === 'US' ? 'Model v2.2.0' : 'Malaysia v2'}
-                            {snapshotDay ? ` · ${marketTimestampLabel(snapshotDay)}` : ''}
-                        </p>
+                        <div className={styles.v9ScoreSubRow}>
+                            <p className={styles.v9ScoreSub}>
+                                {mode === 'contrarian' ? 'Contrarian' : 'Momentum'}
+                                {snapshotDay ? ` · ${marketTimestampLabel(snapshotDay)}` : ''}
+                            </p>
+                            <details className={styles.v9InfoPopover}>
+                                <summary aria-label="Model version info">i</summary>
+                                <div className={styles.v9InfoPopoverCard}>
+                                    <b>{market === 'US' ? 'Model v2.2.0' : 'Malaysia v2'}</b>
+                                    <p>
+                                        {mode === 'contrarian'
+                                            ? 'Contrarian lens treats extreme pessimism as potential opportunity and crowding as risk.'
+                                            : 'Momentum lens tracks whether sentiment and volatility confirm trend strength.'}
+                                    </p>
+                                </div>
+                            </details>
+                        </div>
                     </div>
                     <span className={styles.toneBadge} data-tone={tone}>{marketReadingLabel(signal.tier)}</span>
                 </div>

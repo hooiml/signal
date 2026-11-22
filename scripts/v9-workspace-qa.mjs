@@ -303,11 +303,16 @@ try {
             const score = historyPage.getByRole('region', { name: 'Market score and history' });
             const hero = historyPage.getByRole('region', { name: 'Market assessment' });
             const slider = score.getByRole('slider', { name: 'Market condition score' });
+            const modelInfo = score.locator('summary[aria-label="Score model details"]');
             const recorded = score.getByRole('button', { name: 'As recorded', exact: true });
             const calculated = score.getByRole('button', { name: 'Recalculated with v2.2.0', exact: true });
             const replay = score.getByRole('button', { name: 'Open historical snapshot' });
             const groups = slider.locator('g[data-origin]');
-            await recorded.waitFor();
+            await modelInfo.waitFor();
+            await modelInfo.click();
+            await calculated.waitFor();
+            assert.equal(await calculated.getAttribute('aria-pressed'), 'true');
+            await recorded.click();
             assert.equal(await recorded.getAttribute('aria-pressed'), 'true');
             assert.equal(await groups.count(), 5, '3M only shows dates inside its recorded window');
             await hero.getByText('Scoring model changed from v2.1.0 to v2.2.0. Score comparison unavailable.').waitFor();
@@ -329,6 +334,11 @@ try {
             assert.match(await slider.getAttribute('aria-valuetext'), /1 Aug 2026, score 58.*Partial · Neutral fallback for AAII Sentiment/);
             await score.getByRole('button', { name: '1M', exact: true }).click();
             assert.equal(await groups.count(), 3, '1M uses the same cutoff in both views');
+            await score.getByRole('button', { name: '6M', exact: true }).click();
+            assert.equal(await groups.count(), 5, '6M includes 1 Apr 2026 in recalculated view');
+            await score.getByRole('button', { name: '1Y', exact: true }).click();
+            await score.getByRole('button', { name: '3Y', exact: true }).click();
+            await score.getByRole('button', { name: '5Y', exact: true }).click();
             await score.getByRole('button', { name: 'All', exact: true }).click();
             await slider.press('Home');
             assert.match(await slider.getAttribute('aria-valuetext'), /1 Apr 2026, score 38.*backfilled inputs/);
@@ -361,7 +371,6 @@ try {
                 assert.equal(await recorded.count(), 0, 'Contrarian view has no history toggle');
                 history.data.metadata.score_history.slice(1).forEach(row => delete row.recalculated_v220);
                 await historyPage.goto(`${base}/v9?view=market&market=US&mode=standard&enableSocial=false`, { waitUntil: 'domcontentloaded' });
-                await calculated.click();
                 await score.getByText('No recalculated scores are available in this range.').waitFor();
                 assert.equal(await slider.count(), 0, 'an empty range has no synthetic score or selected point');
                 await score.getByRole('button', { name: 'All', exact: true }).click();
