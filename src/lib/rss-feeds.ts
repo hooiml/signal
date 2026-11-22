@@ -12,9 +12,16 @@ const parser = new Parser();
 const myParser = new Parser({ timeout: 8_000 });
 
 const US_FEEDS = [
-    { url: 'https://feeds.content.dowjones.io/public/rss/mw_topstories', source: 'MarketWatch' },
-    { url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664', source: 'CNBC Finance' }
+    { url: 'https://feeds.content.dowjones.io/public/rss/mw_bulletins', source: 'MarketWatch' },
+    { url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664', source: 'CNBC Finance' },
+    { url: 'https://news.google.com/rss/search?q=US+stock+market+S%26P+500+when%3A1d&hl=en-US&gl=US&ceid=US:en', source: 'Google News (US)' },
 ];
+
+const PERSONAL_ADVICE_PATTERN = /(?:\b(?:my husband|my wife|my brother|my sister|my mother|my father|my parents|is he being fair|is she being fair|should i ask|am i wrong|should i accept a lower pension|stay-at-home (?:mom|dad))\b|\bwhat can i do\b|\braid (?:his|her|my) 401\(k\))/i;
+
+function isPersonalAdviceHeadline(title: string): boolean {
+    return PERSONAL_ADVICE_PATTERN.test(title);
+}
 
 const MY_FEEDS = [
     { url: 'https://news.google.com/rss/search?q=business+finance+malaysia+when%3A1d&hl=en-MY&gl=MY&ceid=MY:en', source: 'Google News (MY)' }
@@ -91,7 +98,9 @@ export const fetchMarketNews = async (market: 'US' | 'MY'): Promise<NewsItem[]> 
                 contentSnippet: item.contentSnippet,
                 source: feed.source
             }));
-            return market === 'MY' ? normalizeNewsItems(items) : items;
+            return market === 'MY'
+                ? normalizeNewsItems(items)
+                : items.filter(item => !isPersonalAdviceHeadline(item.title));
         } catch (error) {
             console.error(`Error fetching RSS ${feed.source}:`, error);
             return [];
@@ -101,5 +110,5 @@ export const fetchMarketNews = async (market: 'US' | 'MY'): Promise<NewsItem[]> 
     const results = await Promise.all(promises);
     return market === 'MY'
         ? results.flat()
-        : results.flat().sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
+        : normalizeNewsItems(results.flat());
 };

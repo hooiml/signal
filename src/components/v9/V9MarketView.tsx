@@ -8,7 +8,7 @@ import { marketSourceToggleStatus } from '@/components/v8/MarketV8ConnectedData'
 import type { MarketExposureWorkspace } from '@/components/v8/MarketV8Exposure';
 import type { Market, Mode } from '@/components/v8/market-v8-fixtures';
 import { V9MarketTodayPanel } from './V9MarketToday';
-import { V9MarketSummaryRail } from './V9MarketSummaryRail';
+import { V9CrossMarketStrip, V9MarketSummaryRail } from './V9MarketSummaryRail';
 import { V9MarketInternalsGrid } from './V9MarketInternals';
 import type { V9MarketTodayState } from './useV9MarketToday';
 import base from '@/components/v8/market-v8.module.css';
@@ -85,7 +85,7 @@ export function V9MarketView({
         exposureWorkspace={exposureWorkspace}
         todayPanel={<V9MarketTodayPanel market={market} state={today} />}
         onReload={onReload}
-        renderSummaryRail={({ signal: railSignal, referenceDate, comparisonNotice, onOpenDrivers, onOpenToday, onOpenScenarios, onOpenContext }) => (
+        renderSummaryRail={({ signal: railSignal, referenceDate, comparisonNotice, onOpenDrivers, onOpenToday, onOpenScenarios }) => (
             <V9MarketSummaryRail
                 market={market}
                 mode={mode}
@@ -93,11 +93,17 @@ export function V9MarketView({
                 signal={railSignal}
                 referenceDate={referenceDate}
                 comparisonNotice={comparisonNotice}
-                internals={currentInternals}
-                internalsLoading={internalsLoading}
                 onOpenDrivers={onOpenDrivers}
                 onOpenToday={onOpenToday}
                 onOpenScenarios={onOpenScenarios}
+            />
+        )}
+        renderBelowTopStage={({ signal: stageSignal, onOpenContext }) => (
+            <V9CrossMarketStrip
+                market={market}
+                signalScore={stageSignal.composite_score}
+                internals={currentInternals}
+                internalsLoading={internalsLoading}
                 onOpenContext={onOpenContext}
             />
         )}
@@ -120,10 +126,15 @@ export function V9MarketView({
                         <button type="button" className={styles.segBtn} aria-pressed={mode === 'standard'} onClick={() => onModeChange('standard')}>Momentum</button>
                         <button type="button" className={styles.segBtn} aria-pressed={mode === 'contrarian'} onClick={() => onModeChange('contrarian')}>Contrarian</button>
                     </div>
-                    <label className={base.sourceToggle}>
-                        <input type="checkbox" checked={social} onChange={event => onSocialChange(event.target.checked)} />
-                        <span>{market === 'MY' ? 'Include news in score' : 'Include social in score'}</span>
-                    </label>
+                    <span className={styles.v9ToggleWithStatus}>
+                        <label className={base.sourceToggle}>
+                            <input type="checkbox" checked={social} onChange={event => onSocialChange(event.target.checked)} />
+                            <span>{market === 'MY' ? 'Include news in score' : 'Include social in score'}</span>
+                        </label>
+                        {social && !loading && signal && (market === 'US' ? !signal.components.social : !signal.components.news) && (
+                            <span className={styles.v9MissingToolbarPill}>unavailable</span>
+                        )}
+                    </span>
                     <details>
                         <summary>About these settings</summary>
                         <p>{mode === 'standard' ? 'Momentum reads higher scores as stronger trend confirmation.' : 'Contrarian reads higher scores as crowding risk and lower scores as potential opportunity.'}</p>

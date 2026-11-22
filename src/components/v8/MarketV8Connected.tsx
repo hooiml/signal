@@ -72,6 +72,10 @@ type EmbeddedMarket = {
         readonly onOpenScenarios: () => void;
         readonly onOpenContext: () => void;
     }) => ReactNode;
+    renderBelowTopStage?: (args: {
+        readonly signal: MarketSignal;
+        readonly onOpenContext: () => void;
+    }) => ReactNode;
     renderContextExtra?: () => ReactNode;
 };
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Data could not be loaded.';
@@ -576,6 +580,26 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
         <details className={layout.archiveNote}><summary>About indicator history{archiveData?.error ? ' · some history unavailable' : ''}</summary><p>History is available inside each indicator. Archive {archiveData ? archiveData.loading ? 'loading; partial history' : 'loaded' : archiveRequested ? 'loading' : 'not requested yet'} · {Object.values(archiveData?.states ?? {}).filter(state => state === 'loaded').length} loaded / {Object.values(archiveData?.states ?? {}).filter(state => state === 'pending').length} pending / {Object.values(archiveData?.states ?? {}).filter(state => state === 'failed').length} failed / {Object.values(archiveData?.states ?? {}).filter(state => state === 'unavailable').length} unavailable. The latest {archiveData?.samples.length ?? 0} archived snapshot dates retain gaps. Raw readings stored in snapshots are not continuous provider histories. {archiveData?.error} {!!archiveData?.error && <button disabled={indicatorHistoryState.loading} onClick={retryArchive}>Retry archive</button>}</p></details>
     );
 
+    const investigationSection = !historical && (hasScore || embedded) ? (
+        <MarketMobileSection name="investigation" title={embedded ? 'Market investigation' : 'What changed'} summary={embedded && tab !== 'What changed' ? tab : changeSummary} className={`${styles.investigation} ${layout.mobileInvestigation}`} id="investigation" open={investigationOpen} onOpenChange={setInvestigationOpen}>
+            <div className={styles.tabs} role="tablist" aria-label="Market investigation">{visibleTabs.map((name,index)=><button key={name} id={`tab-${index}`} role="tab" aria-selected={tab===name} aria-controls="investigation-panel" tabIndex={tab===name?0:-1} onClick={()=>setTab(name)} onKeyDown={event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?visibleTabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+visibleTabs.length)%visibleTabs.length;document.getElementById(`tab-${next}`)?.focus();}}>{name}</button>)}</div>
+            <V8Card as="div" id="investigation-panel" role="tabpanel" tabIndex={-1} aria-labelledby={`tab-${visibleTabs.indexOf(tab)}`} key={`${key}-${tab}`}>
+                {tab === 'Today' ? embedded?.todayPanel : data && (
+                    tab === 'History' ? <ConnectedHistory signal={data} state={historyState} setState={setHistoryState} />
+                        : tab === 'Alerts' ? <MarketAlertsV6 signal={data} enableSocial={social} theme={embedded?.isDark ? 'dark' : 'light'} />
+                            : <ConnectedPanels advanced={advanced} signal={tab === 'What changed' ? comparisonData ?? data : data} tab={tab} onSelect={openIndicator} scenario={scenario} setScenario={setScenario} explainSnapshotComparison={isEmbedded} contextExtra={isEmbedded ? embedded?.renderContextExtra?.() : undefined} />
+                )}
+            </V8Card>
+        </MarketMobileSection>
+    ) : null;
+
+    const noSavedForMarket = Boolean(
+        isEmbedded
+        && !advanced
+        && embedded?.exposureWorkspace?.status === 'ready'
+        && embedded.exposureWorkspace.records.filter(r => r.market === market).length === 0,
+    );
+
     return <>
       {embedded?.renderToolbar(advanced, toggleAdvanced)}
       <div className={embedded ? `${styles.app} ${styles.embedded}` : styles.app} onKeyDown={event => { if (event.key === 'Escape' && selected) closeInspector(); }}>
@@ -613,6 +637,10 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                                         {scorePanelBody}
                                     </section>
                                 </div>
+                                {embedded?.renderBelowTopStage?.({
+                                    signal: comparisonData ?? data,
+                                    onOpenContext: () => openTab('Context'),
+                                })}
                                 <div ref={indicatorsRef} tabIndex={-1} className={layout.v9EvidenceRow} data-inspecting={!!selected}>
                                     <div className={layout.v9EvidenceCol}>
                                         <MarketIndicatorEvidence
@@ -631,6 +659,7 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                                     </div>
                                     {selected && <aside className={`${styles.rail} ${layout.inspector} ${layout.desktopInspector}`} ref={rail} tabIndex={-1} id="indicator-inspector" aria-label="Selected indicator">{inspector}</aside>}
                                 </div>
+                                {investigationSection && <div className={layout.v9InvestigationSlot}>{investigationSection}</div>}
                                 <div className={layout.v9ContextRow}>
                                     <MarketContextSummary signal={data} onExplore={() => openTab('Context')} />
                                 </div>
@@ -685,38 +714,44 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                                 </section>
                             )}
                             <MarketV8Outcomes signal={data} onHistory={() => { setAdvanced(true); openTab('History'); }} compactWhenEmpty={isEmbedded && !advanced} />
-                            {isEmbedded && !advanced && embedded?.exposureWorkspace?.status === 'ready' && embedded.exposureWorkspace.records.filter(r => r.market === market).length === 0 ? (
-                                <nav className={layout.researchLinks} aria-label="Watchlist exposure">
-                                    <div>
-                                        <b>Market → your saved stocks</b>
-                                        <span>No saved {market} stocks to map yet. Save a ticker in Research to see driver connections here.</span>
-                                    </div>
-                                    <a href={researchHref()}>Open Research →</a>
-                                </nav>
-                            ) : (
+                            {!noSavedForMarket && (
                                 <MarketV8Exposure key={market} signal={data} researchHref={embedded ? researchHref : undefined} savedWorkspace={embedded?.exposureWorkspace} />
                             )}
                             {(!isEmbedded || market === 'US') ? (
-                                <nav className={layout.researchLinks} aria-label="Find stocks in Research"><div><b>From market to stocks</b><span>US large caps with sustained momentum, a rule-based shortlist, and upcoming earnings.{market === 'MY' ? ' The trend scan covers US stocks only.' : ''}</span></div><a href={discoverHref('trending', 'US')}>Trending · Top 20 →</a><a href={discoverHref('picker', 'US')}>Stock Picker →</a><a href={discoverHref('calendar', market)}>Earnings calendar →</a></nav>
+                                <nav className={layout.researchLinks} aria-label="Find stocks in Research">
+                                    <div>
+                                        <b>{noSavedForMarket ? 'Next: from market to stocks' : 'From market to stocks'}</b>
+                                        <span>
+                                            {noSavedForMarket
+                                                ? `Save a ticker in Research to see driver connections, or browse screens.${market === 'MY' ? ' The trend scan covers US stocks only.' : ''}`
+                                                : `US large caps with sustained momentum, a rule-based shortlist, and upcoming earnings.${market === 'MY' ? ' The trend scan covers US stocks only.' : ''}`}
+                                        </span>
+                                    </div>
+                                    {noSavedForMarket && <a href={researchHref()}>Open Research →</a>}
+                                    <a href={discoverHref('trending', 'US')}>Trending · Top 20 →</a>
+                                    <a href={discoverHref('picker', 'US')}>Stock Picker →</a>
+                                    <a href={discoverHref('calendar', market)}>Earnings calendar →</a>
+                                </nav>
                             ) : (
-                                <nav className={layout.researchLinks} aria-label="Find stocks in Research"><div><b>From market to stocks</b><span>Inspect Bursa Malaysia stocks in Research or check upcoming market events.</span></div><a href={researchHref('1155')}>Inspect Bursa stocks →</a><a href={discoverHref('calendar', 'MY')}>Calendar →</a></nav>
+                                <nav className={layout.researchLinks} aria-label="Find stocks in Research">
+                                    <div>
+                                        <b>{noSavedForMarket ? 'Next: from market to stocks' : 'From market to stocks'}</b>
+                                        <span>
+                                            {noSavedForMarket
+                                                ? 'Save a ticker in Research to see driver connections, or inspect Bursa Malaysia stocks.'
+                                                : 'Inspect Bursa Malaysia stocks in Research or check upcoming market events.'}
+                                        </span>
+                                    </div>
+                                    {noSavedForMarket && <a href={researchHref()}>Open Research →</a>}
+                                    <a href={researchHref('1155')}>Inspect Bursa stocks →</a>
+                                    <a href={discoverHref('calendar', 'MY')}>Calendar →</a>
+                                </nav>
                             )}
                             <details className={layout.readingDetails}><summary>How to read this assessment · methodology and limits</summary><div><MarketCurrentAssessment signal={comparisonData ?? data} date={date} onSelect={openIndicator} showLeadingEvidence={false} /><MarketCoverageNotices signal={data} inputKeys={inputKeys} date={date} sourceEnabled={social} onReview={reviewEvidence} /></div></details>
                         </>}
                     </>}
                     {data && !hasScore && <section className={styles.empty}><h2>No usable observations returned.</h2><p>The service supplied no current components. A neutral placeholder is not shown as market evidence.</p>{hasHistoryViews ? chart : history.length>0&&<><h3>Stored history only</h3><MarketChart points={history} sourced name="Stored score history"/><details><summary>Stored score records</summary><table className={styles.zoneTable}><thead><tr><th>Date</th><th>Score</th></tr></thead><tbody>{history.map(point=><tr key={point.date}><td>{fullDate(point.date)}</td><td>{point.value}</td></tr>)}</tbody></table></details></>}</section>}
-                    {!historical && (hasScore || embedded) && (
-                        <MarketMobileSection name="investigation" title={embedded ? 'Market investigation' : 'What changed'} summary={embedded && tab !== 'What changed' ? tab : changeSummary} className={`${styles.investigation} ${layout.mobileInvestigation}`} id="investigation" open={investigationOpen} onOpenChange={setInvestigationOpen}>
-                            <div className={styles.tabs} role="tablist" aria-label="Market investigation">{visibleTabs.map((name,index)=><button key={name} id={`tab-${index}`} role="tab" aria-selected={tab===name} aria-controls="investigation-panel" tabIndex={tab===name?0:-1} onClick={()=>setTab(name)} onKeyDown={event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?visibleTabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+visibleTabs.length)%visibleTabs.length;document.getElementById(`tab-${next}`)?.focus();}}>{name}</button>)}</div>
-                            <V8Card as="div" id="investigation-panel" role="tabpanel" tabIndex={-1} aria-labelledby={`tab-${visibleTabs.indexOf(tab)}`} key={`${key}-${tab}`}>
-                                {tab === 'Today' ? embedded?.todayPanel : data && (
-                                    tab === 'History' ? <ConnectedHistory signal={data} state={historyState} setState={setHistoryState} />
-                                        : tab === 'Alerts' ? <MarketAlertsV6 signal={data} enableSocial={social} theme={embedded?.isDark ? 'dark' : 'light'} />
-                                            : <ConnectedPanels advanced={advanced} signal={tab === 'What changed' ? comparisonData ?? data : data} tab={tab} onSelect={openIndicator} scenario={scenario} setScenario={setScenario} explainSnapshotComparison={isEmbedded} contextExtra={isEmbedded ? embedded?.renderContextExtra?.() : undefined} />
-                                )}
-                            </V8Card>
-                        </MarketMobileSection>
-                    )}
+                    {!(useV9TopStage && data && hasScore) && investigationSection}
                 </div>
 
             </MarketContent>

@@ -554,6 +554,9 @@
 .unchangedScore { display: flex; align-items: baseline; gap: 14px; margin: 18px 0; padding: 14px 16px; border-block: 1px solid var(--line); }
 .unchangedScore strong { font-size: var(--text-xl); font-weight: 700; color: var(--ink); }
 .unchangedScore span { font-size: var(--text-sm); color: var(--muted); }
+.v9CompactUnchanged { display: flex; align-items: baseline; gap: 12px; margin: 4px 0 12px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-subtle); }
+.v9CompactUnchanged strong { font-size: var(--text-xl); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.v9CompactUnchanged span { font-size: var(--text-sm); color: var(--muted); }
 /* Phones: market and mode share row one; the mode note sits beside compact actions. */
 @media (max-width: 600px) {
     .toolbar:has(> .depthActions) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; }
