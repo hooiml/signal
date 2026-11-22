@@ -75,9 +75,26 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
         && !point.breakBefore && previous.origin === point.origin
         && (historyView !== 'recorded' || (!!previous.modelVersion && previous.modelVersion === point.modelVersion));
     const provenancePaths = points.map((point, i) => ({
-        point, location: locations[i], previousLocation: locations[i - 1], connected: canConnect(points[i - 1], point),
+        point,
+        location: locations[i],
+        previousLocation: locations[i - 1],
+        connected: canConnect(points[i - 1], point),
         continues: canConnect(point, points[i + 1]),
     }));
+    const provenanceRuns: {
+        readonly origin: Point['origin'];
+        readonly items: { readonly point: Point; readonly location: { readonly x: number; readonly y: number } }[];
+    }[] = [];
+    for (let i = 0; i < points.length; i += 1) {
+        const point = points[i];
+        const location = locations[i];
+        const currentRun = provenanceRuns.at(-1);
+        if (currentRun && canConnect(points[i - 1], point)) {
+            currentRun.items.push({ point, location });
+        } else {
+            provenanceRuns.push({ origin: point.origin, items: [{ point, location }] });
+        }
+    }
     const latestValue = points[at].value;
     const accentStroke = raw
         ? 'var(--chart-line)'
@@ -190,25 +207,47 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                         <stop offset="1" stopColor={accentStroke} stopOpacity=".01" />
                     </linearGradient>
                 </defs>
-                {!raw && <rect x="0" y={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} width="800" height={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralLower) - yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} fill="var(--line-strong)" fillOpacity=".18" />}
+                {!raw && <rect x="0" y={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} width="800" height={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralLower) - yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} fill="var(--line-strong)" fillOpacity=".26" />}
                 {[0, 56.5, 113, 169.5, 226].map(y => <line key={y} x1="0" x2="800" y1={y} y2={y} stroke="currentColor" strokeOpacity=".10" strokeDasharray="3 5" />)}
-                {!raw && [MARKET_SCORE_TIER_THRESHOLDS.neutralLower, MARKET_SCORE_TIER_THRESHOLDS.neutralUpper].map(threshold => <line key={threshold} x1="0" x2="800" y1={yFor(threshold)} y2={yFor(threshold)} stroke="var(--subtle)" strokeOpacity=".55" strokeDasharray="3 6" />)}
+                {!raw && [MARKET_SCORE_TIER_THRESHOLDS.neutralLower, MARKET_SCORE_TIER_THRESHOLDS.neutralUpper].map(threshold => <line key={threshold} x1="0" x2="800" y1={yFor(threshold)} y2={yFor(threshold)} stroke="var(--subtle)" strokeOpacity=".72" strokeDasharray="4 4" />)}
                 {overlayData && <path d={overlayData.pathD} data-testid="benchmark-overlay-path" fill="none" stroke="var(--subtle)" strokeWidth="1.75" strokeDasharray="5 4" strokeLinecap="round" strokeLinejoin="round" opacity=".85" vectorEffect="non-scaling-stroke" />}
                 {sourced && !raw ? <>
-                    {provenancePaths.map(({ point, location, connected, previousLocation }) => (
-                        connected ? (
+                    {provenanceRuns.map(run => {
+                        if (run.origin !== 'observed' || run.items.length < 2) return null;
+                        const runLine = run.items.map((item, idx) => `${idx ? 'L' : 'M'}${item.location.x},${item.location.y}`).join(' ');
+                        const firstX = run.items[0].location.x;
+                        const lastX = run.items[run.items.length - 1].location.x;
+                        return (
                             <path
-                                key={`fill-${point.date}`}
-                                d={`M${previousLocation.x},${previousLocation.y} L${location.x},${location.y} L${location.x},226 L${previousLocation.x},226 Z`}
+                                key={`fill-${run.items[0].point.date}`}
+                                d={`${runLine} L${lastX},226 L${firstX},226 Z`}
                                 fill={`url(#${id})`}
-                                opacity={point.origin === 'reconstructed' ? 0.45 : 1}
                             />
-                        ) : null
-                    ))}
-                    {provenancePaths.map(({ point, location, connected, continues, previousLocation }) => <g key={point.date} data-origin={point.origin ?? 'unavailable'}>
-                        {connected && <path d={`M${previousLocation.x},${previousLocation.y} L${location.x},${location.y}`} fill="none" stroke={accentStroke} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={point.origin === 'reconstructed' ? '6 5' : undefined} vectorEffect="non-scaling-stroke" />}
-                        {(!connected || !continues) && <circle cx={location.x} cy={location.y} r="3" fill={accentStroke} />}
-                    </g>)}
+                        );
+                    })}
+                    {provenancePaths.map(({ point, location, connected, continues, previousLocation }) => {
+                        const isReconstructed = point.origin === 'reconstructed';
+                        const segStroke = isReconstructed ? 'var(--muted)' : accentStroke;
+                        return (
+                            <g key={point.date} data-origin={point.origin ?? 'unavailable'}>
+                                {connected && (
+                                    <path
+                                        d={`M${previousLocation.x},${previousLocation.y} L${location.x},${location.y}`}
+                                        fill="none"
+                                        stroke={segStroke}
+                                        strokeWidth={isReconstructed ? '2' : '2.4'}
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeDasharray={isReconstructed ? '5 4' : undefined}
+                                        vectorEffect="non-scaling-stroke"
+                                    />
+                                )}
+                                {!connected && !continues && (
+                                    <circle cx={location.x} cy={location.y} r="3" fill={segStroke} />
+                                )}
+                            </g>
+                        );
+                    })}
                 </> : <><path d={`${path} L800,226 L0,226 Z`} fill={`url(#${id})`} /><path d={path} fill="none" stroke={accentStroke} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /></>}
                 <line x1={position.x} x2={position.x} y1="0" y2="226" stroke={accentStroke} strokeDasharray="4 4" opacity=".45" />
                 {overlayData?.matched && <circle cx={overlayData.matched.x} cy={overlayData.matched.y} r="3.5" fill="var(--surface)" stroke="var(--subtle)" strokeWidth="2" />}

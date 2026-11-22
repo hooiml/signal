@@ -286,6 +286,25 @@ function ChangePanel({ signal, onSelect, explainSnapshotComparison }: { signal: 
     const changes = signal.metadata.driver_changes ?? [];
     const hasDriverChanges = signal.metadata.driver_changes_available === true && changes.length > 0;
     const comparisonAvailable = signal.metadata.driver_changes_available === true;
+    const isCompactUnchanged = Boolean(
+        explainSnapshotComparison
+        && scoreDelta
+        && finiteNumber(scoreDelta.delta)
+        && Math.abs(scoreDelta.delta) < 0.005
+        && !hasDriverChanges,
+    );
+
+    if (isCompactUnchanged && scoreDelta) {
+        return <>
+            <p className={styles.v9CompactUnchanged} data-testid="what-changed-unchanged">
+                <strong>{signal.composite_score.toFixed(0)}</strong>
+                <span>
+                    Unchanged since {scoreDelta.previous_date ? formatDate(scoreDelta.previous_date) : 'the previous snapshot'} · {comparisonAvailable ? 'no weighted-contribution changes.' : 'comparable prior input readings unavailable.'}
+                </span>
+            </p>
+            <ChangeAccounting signal={signal} />
+        </>;
+    }
 
     return <>
         <SectionHeading eyebrow="What changed" title="Reported score changes" tag={formatMarketDates(scoreDelta?.label ?? 'Latest comparison')} />
