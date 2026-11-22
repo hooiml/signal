@@ -312,6 +312,16 @@ try {
             await modelInfo.click();
             await calculated.waitFor();
             assert.equal(await calculated.getAttribute('aria-pressed'), 'true');
+            const smoothTrend = score.getByRole('button', { name: 'Smooth trend', exact: true });
+            const exactDaily = score.getByRole('button', { name: 'Daily scores', exact: true });
+            await smoothTrend.waitFor();
+            assert.equal(await smoothTrend.getAttribute('aria-pressed'), 'true', 'V9 defaults to a smoother trend');
+            assert.ok(await score.getByTestId('v9-score-trend-path').count() > 0, 'trend is drawn for contiguous readings');
+            await exactDaily.click();
+            assert.equal(await exactDaily.getAttribute('aria-pressed'), 'true', 'exact daily view is available');
+            assert.equal(await score.getByTestId('v9-score-trend-path').count(), 0, 'daily view has no smoothed overlay');
+            await smoothTrend.click();
+            assert.ok(await score.getByTestId('v9-score-trend-path').count() > 0, 'smooth trend can be restored');
             await recorded.click();
             assert.equal(await recorded.getAttribute('aria-pressed'), 'true');
             assert.equal(await groups.count(), 5, '3M only shows dates inside its recorded window');
@@ -505,6 +515,7 @@ try {
     });
     await scenario('shared command palette retains V8 fallback', async () => {
         await page.goto(`${base}/main-v8?market=US`, { waitUntil: 'domcontentloaded' });
+        assert.equal(await page.getByRole('button', { name: 'Smooth trend', exact: true }).count(), 0, 'V8 chart does not expose V9 smoothing');
         await page.getByLabel('Quick jump (Ctrl+K)').click();
         const link = page.getByRole('link', { name: /US Market Pulse/i });
         assert.match(await link.getAttribute('href'), /^\/main-v8\?/);
