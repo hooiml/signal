@@ -11,7 +11,7 @@ export const V9Navigation = createContext<V9Href | null>(null);
 
 export function workspaceHref(view: V9View, config: SignalConfig, params: Record<string, string> = {}): string {
     const query = new URLSearchParams({
-        ...(view === 'home' ? {} : { view }),
+        ...(view === 'market' ? {} : { view }),
         market: config.market,
         mode: config.mode,
         enableSocial: String(config.enableSocial),

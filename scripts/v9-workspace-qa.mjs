@@ -28,6 +28,18 @@ function intradayFixture(url) {
     const entries = market === 'MY' ? [] : url.searchParams.has('before') ? [baseline] : [change];
     return { success: true, data: { market, mode, enableSocial, day, entries, hasEarlierCaptures: market === 'US' && !url.searchParams.has('before') } };
 }
+function benchmarkChartFixture(symbol) {
+    const isKlci = symbol === 'KLCI';
+    const baseVal = isKlci ? 1620 : 510;
+    const step = isKlci ? 0.35 : 0.14;
+    const chart = [];
+    for (let d = 0; d < 107; d++) {
+        const dt = new Date(Date.UTC(2026, 5, 1 + d));
+        const wave = Math.sin(d / 6) * (isKlci ? 8 : 3.2);
+        chart.push({ time: dt.toISOString().slice(0, 10), close: Number((baseVal + d * step + wave).toFixed(2)) });
+    }
+    return { success: true, data: { symbol, market: isKlci ? 'MY' : 'US', fetchedAt: '2026-09-12T00:00:00.000Z', chart } };
+}
 const modules = new Map();
 function load(file) {
     const absolute = path.resolve(file);
@@ -98,7 +110,9 @@ async function setup(width, theme, owner = false) {
         }
         if (url.pathname.startsWith('/api/research/symbol/') && req.method() === 'GET') return route.fulfill({ json: researchSnapshotFixture });
         if (url.pathname === '/api/research/quotes' && req.method() === 'POST') return route.fulfill({ json: { success: true, data: [{ symbol: 'AAPL', success: true, data: researchSnapshotFixture.data }] } });
-        if (url.pathname === '/api/signals/replay' && req.method() === 'GET') return route.fulfill({ json: { success: true, data: { market: 'US', mode: 'standard', enableSocial: false, summaries: [] } } });
+        if (url.pathname === '/api/signals/fear-greed' && req.method() === 'GET') return route.fulfill({ json: { success: true, data: { available: true, score: 31, rating: 'fear', previousClose: 35, oneWeekAgo: 44, oneMonthAgo: 56, updatedAt: '2026-09-12T00:00:00.000Z' } } });
+        if ((url.pathname === '/api/research/chart/VOO' || url.pathname === '/api/research/chart/KLCI') && req.method() === 'GET') return route.fulfill({ json: benchmarkChartFixture(url.pathname.split('/').pop()) });
+        if (url.pathname === '/api/signals/replay' && req.method() === 'GET') return route.fulfill({ json: { success: true, data: { market: url.searchParams.get('market') || 'US', mode: url.searchParams.get('mode') || 'standard', enableSocial: url.searchParams.get('enableSocial') === 'true', summaries: [] } } });
         if (req.method() !== 'GET') report.failures.push({ name: 'unexpected mutation blocked', error: `${req.method()} ${url.pathname}` });
         return route.fulfill({ status: 404, json: { success: false, error: 'Not included in QA fixture.' } });
     });
@@ -115,10 +129,28 @@ try {
     } else report.checks.push('Palette reference screenshot skipped: SIGNAL_QA_PALETTE_REFERENCE not set.');
     for (const width of [1280, 768, 375]) for (const theme of ['light', 'dark']) {
         const { context, page } = await setup(width, theme);
-        await scenario(`home ${width} ${theme}`, async () => {
+        await scenario(`market landing ${width} ${theme}`, async () => {
             await page.goto(`${base}/v9`, { waitUntil: 'domcontentloaded' });
             await page.getByTestId('v9-workspace').filter({ visible: true }).waitFor();
             await page.getByRole('heading', { level: 1 }).waitFor();
+            await page.getByRole('group', { name: 'Select market' }).waitFor();
+            await page.getByRole('region', { name: 'Market assessment' }).waitFor();
+            const fng = page.getByRole('region', { name: 'CNN Fear & Greed Index' });
+            await fng.waitFor();
+            await fng.getByText('31/100', { exact: true }).waitFor();
+            await page.getByRole('heading', { name: /market condition score/i }).waitFor();
+            assert.ok(await page.getByRole('slider', { name: /market condition score/i }).count(), 'score chart');
+            await page.getByTestId('benchmark-overlay-path').waitFor();
+            if (width === 1280) {
+                const overlayToggle = page.getByRole('checkbox', { name: /Overlay VOO \(S&P 500\)/i });
+                await overlayToggle.waitFor();
+                assert.equal(await overlayToggle.isChecked(), true, 'overlay checked by default');
+                await overlayToggle.uncheck();
+                assert.equal(await page.getByTestId('benchmark-overlay-path').count(), 0, 'overlay hidden when unchecked');
+                await overlayToggle.check();
+                await page.getByTestId('benchmark-overlay-path').waitFor();
+            }
+            await page.getByRole('region', { name: 'Explore indicators' }).waitFor();
             assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), 'document overflow');
             const mainWidth = await page.locator('main:visible').first().evaluate(node => node.getBoundingClientRect().width);
             if (width === 375 && theme === 'light') {
@@ -132,21 +164,16 @@ try {
                 });
                 report.checks.push({ name: 'mobile geometry', viewport: await page.evaluate(() => ({ innerWidth, clientWidth: document.documentElement.clientWidth })), geometry });
             }
-            assert.ok(width > 768 || mainWidth >= width * .88, `main uses only ${mainWidth}px of ${width}px viewport`);
+            assert.ok(width > 768 || mainWidth >= width * .88, `market main uses only ${mainWidth}px of ${width}px viewport`);
             const palette = await page.getByTestId('v9-workspace').filter({ visible: true }).evaluate(node => {
                 const css = getComputedStyle(node);
                 return Object.fromEntries(['--canvas', '--surface', '--brand', '--ink', '--muted'].map(key => [key, css.getPropertyValue(key).trim()]));
             });
             report.checks.push({ name: `palette ${width} ${theme}`, palette });
             assert.equal(palette['--brand'].toLowerCase(), theme === 'dark' ? '#dfc08a' : '#8a5c22');
-            const pulse = page.getByRole('region', { name: 'Market pulse summary' });
-            const usSummary = pulse.locator('div').filter({ has: page.getByRole('link', { name: 'What changed today? United States' }) }).last();
-            await usSummary.getByText('43 → 30/100').waitFor();
-            assert.match(await usSummary.innerText(), /3:15 pm MYT/i);
-            await pulse.getByText('No captures for this UTC day yet.').waitFor();
-            await page.screenshot({ path: `${output}/home-${width}-${theme}.png` });
-            const link = page.getByRole('link', { name: 'What changed today? United States' });
-            await link.focus(); await page.keyboard.press('Enter');
+            await page.screenshot({ path: `${output}/market-${width}-${theme}.png` });
+
+            await page.getByRole('region', { name: 'Market assessment' }).getByRole('button', { name: /What changed today\?/i }).click();
             const timeline = page.getByRole('region', { name: 'Intraday market timeline' });
             await timeline.getByText(/VIX rose from 29.8 to 30.4/).waitFor();
             await timeline.evaluate(node => window.scrollBy(0, node.getBoundingClientRect().top - 80));
@@ -160,41 +187,21 @@ try {
                 assert.ok(box && nav && box.y + box.height <= nav.y, 'Load older captures obscured by mobile navigation');
             }
         });
-        await scenario(`market ${width} ${theme}`, async () => {
-            await page.goto(`${base}/v9?market=US&view=market`, { waitUntil: 'domcontentloaded' });
-            await page.getByRole('heading', { name: /market condition score/i }).waitFor();
-            await page.getByRole('group', { name: 'Select market' }).waitFor();
-            assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), 'document overflow');
-            const mainWidth = await page.locator('main:visible').first().evaluate(node => node.getBoundingClientRect().width);
-            assert.ok(width > 768 || mainWidth >= width * .88, `market main uses only ${mainWidth}px of ${width}px viewport`);
-            assert.ok(await page.getByRole('slider', { name: /market condition score/i }).count(), 'score chart');
-            await page.screenshot({ path: `${output}/market-${width}-${theme}.png` });
-        });
         await context.close();
     }
     const { context, page } = await setup(1280, 'dark');
-    await scenario('Home opens the intraday timeline for the selected market and configuration', async () => {
+    await scenario('Market summary opens the intraday timeline and preserves configuration', async () => {
         await page.goto(`${base}/v9?mode=contrarian&enableSocial=false`, { waitUntil: 'domcontentloaded' });
-        const pulse = page.getByRole('region', { name: 'Market pulse summary' });
-        const todayLink = market => pulse.locator(`a[href*="tab=today"][href*="market=${market}"]`);
-        await todayLink('US').waitFor();
-        await todayLink('MY').waitFor();
-        for (const market of ['US', 'MY']) {
-            const destination = new URL(await todayLink(market).getAttribute('href'), base);
-            assert.equal(destination.pathname, '/v9');
-            assert.equal(destination.searchParams.get('view'), 'market');
-            assert.equal(destination.searchParams.get('mode'), 'contrarian');
-            assert.equal(destination.searchParams.get('enableSocial'), 'false');
-        }
-        await todayLink('US').click();
+        const summary = page.getByRole('region', { name: 'Market assessment' });
+        await summary.getByRole('button', { name: /What changed today\?/i }).click();
+        await page.waitForURL(url => url.searchParams.get('tab') === 'today' && url.searchParams.get('mode') === 'contrarian' && url.searchParams.get('enableSocial') === 'false');
         const timeline = page.getByRole('tabpanel', { name: 'Today', exact: true });
         await timeline.getByText(/VIX rose from 29.8 to 30.4/).waitFor();
         await timeline.getByRole('button', { name: /earlier|older/i }).click();
         await timeline.getByText('First recorded reading.', { exact: true }).waitFor();
         await page.reload();
         await timeline.getByText(/VIX rose from 29.8 to 30.4/).waitFor();
-        await page.goBack();
-        await todayLink('MY').click();
+        await page.getByRole('button', { name: 'Malaysia · Bursa', exact: true }).click();
         await page.waitForURL(url => url.searchParams.get('market') === 'MY' && url.searchParams.get('tab') === 'today');
         await timeline.waitFor();
         assert.equal(await timeline.getByText(/VIX rose/).count(), 0);
@@ -369,41 +376,13 @@ try {
         assert.equal(await page.getByRole('button', { name: 'Contrarian', exact: true }).getAttribute('aria-pressed'), 'true');
         assert.equal(await page.getByLabel('Include news in score').isChecked(), true);
     });
-    await scenario('Home market CTA respects selected market', async () => {
+    await scenario('Market Pulse landing respects market selection and preserves URL', async () => {
         await page.goto(`${base}/v9?market=MY`, { waitUntil: 'domcontentloaded' });
         await page.getByRole('heading', { level: 1, name: /Malaysia · Bursa/i }).waitFor();
-        await page.getByRole('button', { name: /Open Market Pulse/ }).first().click();
-        await page.waitForURL(url => url.searchParams.get('view') === 'market');
         assert.equal(new URL(page.url()).searchParams.get('market'), 'MY');
-    });
-    await scenario('Home focus toggle shows selected market without duplicate catalyst', async () => {
-        await page.goto(`${base}/v9`, { waitUntil: 'domcontentloaded' });
-        const pulse = page.getByRole('region', { name: 'Market pulse summary' });
-        const focus = page.getByRole('region', { name: "Today's Focus" });
-        await page.getByRole('group', { name: 'Home market focus' }).waitFor();
-        assert.equal(await pulse.locator('article').count(), 2, 'Auto (MYT) shows both market cards');
-
-        await page.getByRole('button', { name: 'US', exact: true }).click();
+        await page.getByRole('button', { name: 'US Market', exact: true }).click();
+        await page.waitForURL(url => url.searchParams.get('market') === 'US');
         await page.getByRole('heading', { level: 1, name: /^United States$/i }).waitFor();
-        assert.equal(await pulse.locator('article').count(), 1, 'US focus shows 1 pulse card');
-        await pulse.getByText('United States').waitFor();
-        assert.equal(await pulse.getByText('Malaysia · Bursa').count(), 0, 'US focus hides Malaysia card');
-        assert.equal(await focus.getByText(/US catalyst/i).count(), 0, 'Today’s Focus omits duplicate US catalyst row');
-        await page.screenshot({ path: `${output}/home-us-focus-1280-dark.png` });
-
-        await page.getByRole('button', { name: 'Malaysia', exact: true }).click();
-        await page.getByRole('heading', { level: 1, name: /^Malaysia · Bursa$/i }).waitFor();
-        assert.equal(await pulse.locator('article').count(), 1, 'Malaysia focus shows 1 pulse card');
-        await pulse.getByText('Malaysia · Bursa').waitFor();
-        assert.equal(await pulse.getByText('United States').count(), 0, 'Malaysia focus hides US card');
-        assert.equal(await focus.getByText(/Bursa catalyst/i).count(), 0, 'Today’s Focus omits duplicate Bursa catalyst row');
-
-        await page.getByRole('button', { name: 'Auto (MYT)', exact: true }).click();
-        assert.equal(await pulse.locator('article').count(), 2, 'Auto (MYT) restores both pulse cards');
-
-        await page.getByRole('button', { name: 'US', exact: true }).click();
-        await page.getByRole('button', { name: /Open Market Pulse/ }).first().click();
-        await page.waitForURL(url => url.searchParams.get('view') === 'market' && url.searchParams.get('market') === 'US');
     });
     await scenario('quick jump to Discover and ticker stays in V9', async () => {
         await page.goto(`${base}/v9?market=US`, { waitUntil: 'domcontentloaded' });
@@ -509,16 +488,12 @@ try {
         return route.fulfill({ json: data });
     });
     try {
-        await scenario('Home baseline and equal-score changed input', async () => {
-            await states.page.goto(`${base}/v9`, { waitUntil: 'domcontentloaded' });
-            const pulse = states.page.getByRole('region', { name: 'Market pulse summary' });
-            await pulse.getByText('First capture').first().waitFor();
-            await states.page.waitForFunction(() => [...document.querySelectorAll('time')].filter(el => el.textContent?.includes('9:00 am')).length >= 2);
-            assert.equal(await pulse.getByText('First capture').count(), 2);
-            assert.equal(await pulse.getByText('43/100').count(), 2);
+        await scenario('Market Today baseline and equal-score changed input', async () => {
+            await states.page.goto(`${base}/v9?market=US&tab=today`, { waitUntil: 'domcontentloaded' });
+            const panel = states.page.getByRole('region', { name: 'Intraday market timeline' });
+            await panel.getByText('First recorded reading.').waitFor();
             stateMode = 'equal';
             await states.page.goto(`${base}/v9?market=US&view=market&tab=today`, { waitUntil: 'domcontentloaded' });
-            const panel = states.page.getByRole('region', { name: 'Intraday market timeline' });
             await panel.getByText('Inputs changed while the score stayed equal.').waitFor();
             await panel.getByText('Input or score changed').waitFor();
             await panel.getByText('43 → 43/100').waitFor();
@@ -563,11 +538,11 @@ try {
         await route.fulfill({ json: seeds[key] });
     });
     try {
-        await scenario('Home stress action opens Scenarios', async () => {
+        await scenario('Market summary action opens Scenarios', async () => {
             await deferred.page.goto(`${base}/v9?market=US`, { waitUntil: 'domcontentloaded' });
-            await deferred.page.getByRole('button', { name: /Run a volatility stress test/i }).click();
-            await deferred.page.waitForURL(url => url.searchParams.get('view') === 'market' && url.searchParams.get('tab') === 'scenarios');
             releaseSignals();
+            await deferred.page.getByRole('region', { name: 'Market assessment' }).getByRole('button', { name: /Scenarios/i }).click();
+            await deferred.page.waitForURL(url => url.searchParams.get('tab') === 'scenarios');
             const tab = deferred.page.getByRole('tab', { name: 'Scenarios', exact: true });
             await tab.waitFor();
             assert.equal(await tab.getAttribute('aria-selected'), 'true');

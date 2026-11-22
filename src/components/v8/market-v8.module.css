@@ -115,17 +115,20 @@
 .chartTopline output { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .chartTopline b { font-size: var(--text-sm); font-weight: 600; color: var(--ink); padding: 2px 8px; background: var(--surface-muted); border-radius: 6px; }
 .chartPlot { display: flex; gap: 12px; }
-.chartPlot > svg { height: 185px; width: calc(100% - 28px); overflow: visible; touch-action: pan-y; }
+.chartPlot > svg { height: 185px; flex: 1 1 0%; min-width: 0; width: auto; overflow: visible; touch-action: pan-y; }
 .chartPlot > svg[role=slider] { cursor: crosshair; }
 .app .chartPlot:has(> svg:focus-visible) { outline: 3px solid var(--focus); outline-offset: 4px; border-radius: 5px; }
 .app .chartPlot > svg:focus-visible { outline: none; }
 .axis { display: flex; flex-direction: column; justify-content: space-between; font-size: var(--text-xs); color: var(--subtle); min-width: 20px; padding: 3px 0; }
+.axisRight { display: flex; flex-direction: column; justify-content: space-between; font-size: var(--text-xs); color: var(--subtle); min-width: 38px; text-align: right; padding: 3px 0; font-variant-numeric: tabular-nums; flex-shrink: 0; }
 .chartDates { margin: 10px 0 0 32px; display: flex; justify-content: space-between; color: var(--subtle); font-size: var(--text-xs); }
+.chartDatesWithRight { margin-right: 50px; }
 .chartHint { display: block; color: var(--muted); font-size: var(--text-sm); margin: 10px 0 0 32px; }
 .app .chartLegend { font-size: var(--text-sm); margin: 0 0 10px; }
 .compactChartLegend { display: flex; flex-wrap: wrap; gap: 4px 12px; list-style: none; padding: 0; margin: 0 0 10px; color: var(--muted); font-size: var(--text-xs); }
 .compactChartLegend li { display: inline-flex; align-items: center; gap: 4px; }
 .neutralLegendSwatch { width: 10px; height: 8px; border: 1px solid var(--line-strong); border-radius: 2px; background: var(--surface-muted); }
+.benchmarkLegendDash { width: 14px; height: 0; border-top: 1.8px dashed var(--subtle); }
 .chartFoot { display: flex; justify-content: space-between; gap: 12px; padding: 8px 24px 16px; align-items: center; }
 .chartFoot > span { font-size: var(--text-sm); color: var(--muted); }
 .app .textButton { display: inline-flex; gap: 12px; align-items: center; color: var(--link); font-size: var(--text-sm); font-weight: 600; padding: 8px 0; text-align: left; }
