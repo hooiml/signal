@@ -114,6 +114,11 @@
 .chartTopline { display: flex; justify-content: space-between; gap: 12px; margin: 4px 0 12px; font-size: var(--text-sm); color: var(--muted); align-items: center; }
 .chartTopline output { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .chartTopline b { font-size: var(--text-sm); font-weight: 600; color: var(--ink); padding: 2px 8px; background: var(--surface-muted); border-radius: 6px; }
+.chartPresentation { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin: 0 0 10px; font-size: var(--text-xs); color: var(--muted); }
+.chartPresentationToggle { display: inline-flex; gap: 2px; padding: 2px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-muted); }
+.chartPresentationToggle button { min-height: 36px; padding: 5px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font: inherit; font-weight: 600; cursor: pointer; }
+.chartPresentationToggle button:hover { color: var(--ink); }
+.chartPresentationToggle button[aria-pressed=true] { background: var(--surface); color: var(--ink); box-shadow: var(--control-shadow); font-weight: 700; }
 .chartPlot { display: flex; gap: 12px; }
 .chartPlot > svg { height: 185px; flex: 1 1 0%; min-width: 0; width: auto; overflow: visible; touch-action: pan-y; }
 .chartPlot > svg[role=slider] { cursor: crosshair; }

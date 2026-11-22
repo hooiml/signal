@@ -56,6 +56,11 @@ const RANGE_MONTHS: Readonly<Record<string, number>> = {
 };
 const V9_CHART_RANGES = ['1M', '3M', '6M', '1Y', '3Y', '5Y', 'All'] as const;
 const V8_CHART_RANGES = ['1M', '3M', 'All'] as const;
+// V9's trend is a display-only trailing average, sized for the selected calendar range.
+// Keep the raw scores available through the presentation toggle and point inspection.
+const V9_TREND_WINDOW_DAYS: Readonly<Record<string, number>> = {
+    '1M': 7, '3M': 14, '6M': 28, '1Y': 42, '3Y': 90, '5Y': 120, All: 140,
+};
 
 const isDetailedTab = (name: MarketTab) => name !== 'Today' && name !== 'What changed' && name !== 'Context';
 function focusInvestigation() {
@@ -578,7 +583,8 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
             </p>
         )}
         <MarketChart key={`${key}-${range}-${latest}-${historical?.date}-${chartView}`} points={chartPoints} sourced compactLegend={isEmbedded}
-            historyView={chartView} replayAvailable={advanced && !recalculated} benchmarkOverlay={activeBenchmarkOverlay}
+            historyView={chartView} replayAvailable={advanced && !recalculated} benchmarkOverlay={activeBenchmarkOverlay} enableTrend={isEmbedded}
+            trendWindowDays={V9_TREND_WINDOW_DAYS[range] ?? 14}
             dateLabels={recalculated && windowHistory.length > 0 ? [windowHistory[0].date, windowHistory[Math.floor(windowHistory.length / 2)].date, windowHistory.at(-1)!.date] : undefined}
             selectedDate={embedded ? preview?.date : historical ? replayPoint?.date ?? historical.date : currentPoint?.date}
             onSelect={point => historical ? setReplayPoint(point) : setCurrentPoint(point)} />

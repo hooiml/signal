@@ -76,6 +76,22 @@ function smoothPath(pts: readonly XY[]): string {
     return `${head} ${monotoneSegments(pts).join(' ')}`;
 }
 
+
+/** Time-based trailing average, used only for the optional V9 presentation layer. */
+function trailingDateAverage(points: readonly Point[], windowDays: number): number[] {
+    let sum = 0;
+    let start = 0;
+    return points.map((point, index) => {
+        sum += point.value;
+        const cutoff = Date.parse(point.date) - windowDays * 86_400_000;
+        while (start < index && Date.parse(points[start].date) < cutoff) {
+            sum -= points[start].value;
+            start += 1;
+        }
+        return sum / (index - start + 1);
+    });
+}
+
 function geometry(points: Point[], width: number, height: number, min: number, max: number, pad = 0, firstDate = points[0].date, lastDate = points.at(-1)!.date) {
     const first = Date.parse(firstDate);
     const duration = Date.parse(lastDate) - first || 1;
@@ -112,10 +128,10 @@ function historyPointLabel(point: Point, view: ScoreHistoryView) {
         : `${source} · ${point.modelVersion ? `Model v${point.modelVersion}` : 'Model version unknown'}`;
 }
 
-export function MarketChart({ points, selectedDate, onSelect, raw = false, name = 'Market condition score', sourced = false, replayAvailable = true, compactLegend = false, historyView, dateLabels, benchmarkOverlay }: {
+export function MarketChart({ points, selectedDate, onSelect, raw = false, name = 'Market condition score', sourced = false, replayAvailable = true, compactLegend = false, historyView, dateLabels, benchmarkOverlay, enableTrend = false, trendWindowDays = 14 }: {
     points: Point[]; selectedDate?: string; onSelect?: (point: Point) => void; raw?: boolean; name?: string;
     sourced?: boolean; replayAvailable?: boolean; compactLegend?: boolean; historyView?: ScoreHistoryView;
-    dateLabels?: readonly [string, string, string]; benchmarkOverlay?: BenchmarkOverlaySeries;
+    dateLabels?: readonly [string, string, string]; benchmarkOverlay?: BenchmarkOverlaySeries; enableTrend?: boolean; trendWindowDays?: number;
 }) {
     const id = useId().replace(/:/g, '');
     const [cursor, setCursor] = useState(() => {
@@ -123,6 +139,9 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
         return initial >= 0 ? initial : points.length - 1;
     });
     const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+    // Only embedded V9 enables this view; V8 retains the original chart.
+    const [showTrend, setShowTrend] = useState(enableTrend);
+    const trendActive = enableTrend && sourced && !raw && showTrend;
     if (!points.length) return <div className={styles.chartEmpty}>
         {historyView === 'recalculated' ? 'No recalculated scores are available in this range.' : 'No historical observations are supplied.'}
     </div>;
@@ -140,9 +159,18 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
     const origin = historyView ? historyPointLabel(active, historyView) : `Origin: ${active.origin ?? 'unavailable'}`;
     const missingInputs = historyView === 'recalculated' ? active.recalculatedV220?.missing_inputs ?? [] : [];
     const missing = missingInputs.length > 0 ? `Partial · Neutral fallback for ${missingInputs.map(getIndicatorDisplayName).join(', ')}` : null;
+    // V9's v2.2.0 recalculated scores share one scoring scale even when their input
+    // provenance alternates. Other views retain the original source/model breaks.
+    const comparableRecalculated = enableTrend && historyView === 'recalculated';
     const canConnect = (previous: Point | undefined, point: Point | undefined) => !!previous && !!point
-        && !point.breakBefore && previous.origin === point.origin
-        && (historyView !== 'recorded' || (!!previous.modelVersion && previous.modelVersion === point.modelVersion));
+        && !point.breakBefore
+        && (comparableRecalculated
+            ? !!previous.recalculatedV220 && !!point.recalculatedV220
+                // Do not interpolate long unobserved gaps in sparse backfill.
+                && Date.parse(point.date) > Date.parse(previous.date)
+                && Date.parse(point.date) - Date.parse(previous.date) <= 21 * 86_400_000
+            : previous.origin === point.origin
+                && (historyView !== 'recorded' || (!!previous.modelVersion && previous.modelVersion === point.modelVersion)));
     const provenancePaths = points.map((point, i) => ({
         point,
         location: locations[i],
@@ -163,6 +191,18 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
             provenanceRuns.push({ origin: point.origin, items: [{ index: i, point, location }] });
         }
     }
+    // Reset at actual gaps or incompatible models; comparable recalculated input
+    // origins share the same curve without erasing their per-point labels.
+    const trendByIndex = new Map<number, number>();
+    const trendRuns = enableTrend && sourced && !raw ? provenanceRuns.map(run => {
+        const means = trailingDateAverage(run.items.map(item => item.point), trendWindowDays);
+        const locations = run.items.map((item, index) => {
+            trendByIndex.set(item.index, means[index]);
+            return { x: item.location.x, y: round2(yFor(means[index])) };
+        });
+        return { origin: run.origin, items: run.items, locations };
+    }) : [];
+    const selectedTrend = trendByIndex.get(at);
     const segmentByIndex = new Map<number, string>();
     for (const run of provenanceRuns) {
         if (run.items.length < 2) continue;
@@ -248,13 +288,22 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
     })();
 
     return <div className={styles.chart}>
-        <div className={styles.chartTopline}><span>{sourced ? raw ? 'Raw readings from archived snapshots' : `0–100 composite · axis ${minimum}–${maximum}` : raw ? 'Raw observations · illustrative' : '0–100 composite · illustrative history'}</span><output aria-live="polite">{fullDate(active.date)} <b>{active.value.toFixed(raw ? 2 : 0)}{raw ? '' : ' /100'}</b>{sourced && !raw && <span>{origin}</span>}{overlayData?.matched && <span>· {overlayData.shortLabel} {overlayData.unitPrefix}{overlayData.matched.close.toFixed(overlayData.matched.close >= 1000 ? 0 : 2)} ({overlayData.matched.pct >= 0 ? '+' : ''}{overlayData.matched.pct.toFixed(1)}%)</span>}{missing && <span>{missing}</span>}</output></div>
+        <div className={styles.chartTopline}><span>{sourced ? raw ? 'Raw readings from archived snapshots' : `0–100 composite · axis ${minimum}–${maximum}` : raw ? 'Raw observations · illustrative' : '0–100 composite · illustrative history'}</span><output aria-live="polite">{fullDate(active.date)} <b>{active.value.toFixed(raw ? 2 : 0)}{raw ? '' : ' /100'}</b>{sourced && !raw && <span>{origin}</span>}{trendActive && selectedTrend !== undefined && <span>· {trendWindowDays}-day trend {selectedTrend.toFixed(1)} /100</span>}{overlayData?.matched && <span>· {overlayData.shortLabel} {overlayData.unitPrefix}{overlayData.matched.close.toFixed(overlayData.matched.close >= 1000 ? 0 : 2)} ({overlayData.matched.pct >= 0 ? '+' : ''}{overlayData.matched.pct.toFixed(1)}%)</span>}{missing && <span>{missing}</span>}</output></div>
+        {enableTrend && sourced && !raw && (
+            <div className={styles.chartPresentation}>
+                <div className={styles.chartPresentationToggle} role="group" aria-label="Score chart presentation">
+                    <button type="button" aria-pressed={trendActive} onClick={() => setShowTrend(true)}>Smooth trend</button>
+                    <button type="button" aria-pressed={!trendActive} onClick={() => setShowTrend(false)}>Daily scores</button>
+                </div>
+                <span>{trendActive ? `${trendWindowDays}-day trailing average (bold) · actual scores (faint) · display only` : 'Actual daily scores · no smoothing'}</span>
+            </div>
+        )}
         {sourced && !raw && (compactLegend ? <ul className={styles.compactChartLegend} aria-label="Chart legend">
-            <li><span aria-hidden="true">━</span> {historyView === 'recalculated' ? 'Observed inputs' : 'Observed'}</li>
-            <li><span aria-hidden="true">┄</span> {historyView === 'recalculated' ? 'Backfilled inputs' : historyView ? 'Backfilled' : 'Reconstructed'}</li>
+            <li><span aria-hidden="true">━</span> {trendActive ? 'Smoothed trend (solid)' : historyView === 'recalculated' ? 'Observed inputs' : 'Observed'}</li>
+            <li><span aria-hidden="true">┄</span> {trendActive ? 'Actual scores (faint; backfilled dashed)' : historyView === 'recalculated' ? 'Backfilled inputs' : historyView ? 'Backfilled' : 'Reconstructed'}</li>
             <li><span aria-hidden="true" className={styles.neutralLegendSwatch} /> Neutral {MARKET_SCORE_TIER_THRESHOLDS.neutralLower}–{MARKET_SCORE_TIER_THRESHOLDS.neutralUpper - 1}</li>
             {overlayData && <li><span aria-hidden="true" className={styles.benchmarkLegendDash} /> {overlayData.label} (right axis %)</li>}
-        </ul> : <p className={styles.chartLegend}>━━ Observed · ┄┄ Reconstructed · breaks separate origins · shaded band = neutral score tier {MARKET_SCORE_TIER_THRESHOLDS.neutralLower}–{MARKET_SCORE_TIER_THRESHOLDS.neutralUpper - 1}</p>)}
+        </ul> : <p className={styles.chartLegend}>{comparableRecalculated ? 'Comparable recalculated scores connect across input origins; missing-history gaps remain. ' : '━━ Observed · ┄┄ Reconstructed · breaks separate origins · ' }Shaded band = neutral score tier {MARKET_SCORE_TIER_THRESHOLDS.neutralLower}–{MARKET_SCORE_TIER_THRESHOLDS.neutralUpper - 1}</p>)}
         <div className={styles.chartPlot}>
             <div className={styles.axis}>{[maximum, (maximum + minimum) / 2, minimum].map(value => <span key={value}>{value.toFixed(0)}</span>)}</div>
             <svg viewBox="-8 -8 816 242" preserveAspectRatio="none" role={onSelect ? 'slider' : 'img'} tabIndex={onSelect ? 0 : undefined} aria-label={name} aria-valuemin={onSelect ? 0 : undefined} aria-valuemax={onSelect ? points.length - 1 : undefined} aria-valuenow={onSelect ? at : undefined} aria-valuetext={onSelect ? `${fullDate(active.date)}, score ${active.value}.${historyView ? ` ${origin}.${missing ? ` ${missing}.` : ''}` : ''} Arrow keys preview, Enter selects a preview.` : undefined}
@@ -288,9 +337,9 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                 {!raw && [MARKET_SCORE_TIER_THRESHOLDS.neutralLower, MARKET_SCORE_TIER_THRESHOLDS.neutralUpper].map(threshold => <line key={threshold} x1="0" x2="800" y1={yFor(threshold)} y2={yFor(threshold)} stroke="var(--subtle)" strokeOpacity=".72" strokeDasharray="4 4" />)}
                 {overlayData && <path d={overlayData.pathD} data-testid="benchmark-overlay-path" fill="none" stroke="var(--subtle)" strokeWidth="1.75" strokeDasharray="5 4" strokeLinecap="round" strokeLinejoin="round" opacity=".85" vectorEffect="non-scaling-stroke" />}
                 {sourced && !raw ? <>
-                    {provenanceRuns.map(run => {
-                        if (run.origin !== 'observed' || run.items.length < 2) return null;
-                        const runLine = smoothPath(run.items.map(item => item.location));
+                    {provenanceRuns.map((run, runIndex) => {
+                        if (comparableRecalculated || run.origin !== 'observed' || run.items.length < 2) return null;
+                        const runLine = smoothPath(trendActive ? trendRuns[runIndex].locations : run.items.map(item => item.location));
                         const firstX = run.items[0].location.x;
                         const lastX = run.items[run.items.length - 1].location.x;
                         return (
@@ -303,7 +352,7 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                     })}
                     {provenancePaths.map(({ point, location, connected, continues }, index) => {
                         const isReconstructed = point.origin === 'reconstructed';
-                        const segStroke = isReconstructed ? 'var(--muted)' : accentStroke;
+                        const segStroke = trendActive ? 'var(--muted)' : isReconstructed ? 'var(--muted)' : accentStroke;
                         const segD = connected ? segmentByIndex.get(index) : undefined;
                         return (
                             <g key={point.date} data-origin={point.origin ?? 'unavailable'}>
@@ -312,7 +361,8 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                                         d={segD}
                                         fill="none"
                                         stroke={segStroke}
-                                        strokeWidth={isReconstructed ? '2' : '2.4'}
+                                        strokeWidth={trendActive ? '1.3' : isReconstructed ? '2' : '2.4'}
+                                        strokeOpacity={trendActive ? 0.42 : 1}
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
                                         strokeDasharray={isReconstructed ? '5 4' : undefined}
@@ -320,14 +370,29 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                                     />
                                 )}
                                 {!connected && !continues && (
-                                    <circle cx={location.x} cy={location.y} r="3" fill={segStroke} />
+                                    <circle cx={location.x} cy={location.y} r={trendActive ? 2.4 : 3} fill={segStroke} opacity={trendActive ? 0.5 : 1} />
                                 )}
                             </g>
                         );
                     })}
+                    {trendActive && trendRuns.map((run, index) => run.items.length < 2 ? null : (
+                        <path
+                            key={`trend-${index}`}
+                            data-testid="v9-score-trend-path"
+                            d={smoothPath(run.locations)}
+                            fill="none"
+                            stroke={comparableRecalculated ? accentStroke : run.origin === 'reconstructed' ? 'var(--muted)' : accentStroke}
+                            strokeWidth={comparableRecalculated ? '3' : run.origin === 'reconstructed' ? '2.4' : '3'}
+                            strokeDasharray={!comparableRecalculated && run.origin === 'reconstructed' ? '6 4' : undefined}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            vectorEffect="non-scaling-stroke"
+                        />
+                    ))}
                 </> : <><path d={`${path} L800,226 L0,226 Z`} fill={`url(#${id})`} /><path d={path} fill="none" stroke={accentStroke} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /></>}
                 <line x1={position.x} x2={position.x} y1="0" y2="226" stroke={accentStroke} strokeDasharray="4 4" opacity=".45" />
                 {overlayData?.matched && <circle cx={overlayData.matched.x} cy={overlayData.matched.y} r="3.5" fill="var(--surface)" stroke="var(--subtle)" strokeWidth="2" />}
+                {trendActive && selectedTrend !== undefined && <circle cx={position.x} cy={yFor(selectedTrend)} r="3.4" fill={accentStroke} stroke="var(--surface)" strokeWidth="1.2" />}
                 <circle cx={position.x} cy={position.y} r="9" fill={accentStroke} opacity=".2" />
                 <circle cx={position.x} cy={position.y} r="4.8" fill="var(--surface)" stroke={accentStroke} strokeWidth="2.8" />
             </svg>
