@@ -578,7 +578,7 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
             </p>
         )}
         <MarketChart key={`${key}-${range}-${latest}-${historical?.date}-${chartView}`} points={chartPoints} sourced compactLegend={isEmbedded}
-            historyView={chartView} replayAvailable={advanced && !recalculated} benchmarkOverlay={activeBenchmarkOverlay}
+            historyView={chartView} replayAvailable={advanced && !recalculated} benchmarkOverlay={activeBenchmarkOverlay} enableTrend={isEmbedded}
             dateLabels={recalculated && windowHistory.length > 0 ? [windowHistory[0].date, windowHistory[Math.floor(windowHistory.length / 2)].date, windowHistory.at(-1)!.date] : undefined}
             selectedDate={embedded ? preview?.date : historical ? replayPoint?.date ?? historical.date : currentPoint?.date}
             onSelect={point => historical ? setReplayPoint(point) : setCurrentPoint(point)} />
