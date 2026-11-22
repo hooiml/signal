@@ -86,6 +86,7 @@ async function setup(width, theme, owner = false) {
             entries: [], hasEarlierCaptures: false,
         } } });
         if (url.pathname === '/api/signals/replay') return route.fulfill({ json: { success: true, data: { market: 'US', mode: 'standard', enableSocial: true, summaries: [] } } });
+        if (url.pathname === '/api/signals/fear-greed' && req.method() === 'GET') return route.fulfill({ json: { success: true, data: { available: true, score: 31, rating: 'fear', previousClose: 35, oneWeekAgo: 44, oneMonthAgo: 56, updatedAt: '2026-09-12T00:00:00.000Z' } } });
         if (url.pathname === '/api/research/search') {
             const market = url.searchParams.get('market'), symbol = market === 'MY' ? '5347.KL' : 'MSFT';
             return route.fulfill({ json: { success: true, source: 'Yahoo Finance', data: [{
@@ -111,12 +112,12 @@ async function setup(width, theme, owner = false) {
 try {
     for (const width of [1280,768,375]) for (const theme of ['light','dark']) {
         const { context, page, requests } = await setup(width, theme);
-        await check(`guest Home/watchlist ${width} ${theme}`, async () => {
+        await check(`guest market/watchlist ${width} ${theme}`, async () => {
             await page.goto(`${base}/v9?market=US`, { waitUntil: 'domcontentloaded' });
-            const pulse = page.getByRole('region', { name: 'Watchlist Pulse' }); await pulse.getByRole('link', { name: 'View all →' }).waitFor();
+            await page.getByRole('region', { name: 'Market assessment' }).waitFor();
             assert.equal(requests.filter(r => r.path.startsWith('/api/research/symbol/')).length, 0);
             await page.screenshot({ path: `${output}/home-${width}-${theme}.png` });
-            await pulse.getByRole('link', { name: 'View all →' }).click();
+            await page.goto(`${base}/v9?view=research&tab=watchlist&market=US`, { waitUntil: 'domcontentloaded' });
             await page.waitForURL(url => url.searchParams.get('tab') === 'watchlist');
             const rows = page.getByTestId('watchlist-row'); await rows.first().waitFor(); assert.equal(await rows.count(), 8);
             assert.equal(requests.filter(r => r.path.startsWith('/api/research/symbol/')).length, 0);
@@ -180,9 +181,9 @@ try {
     await check('guest saved and new ticker drafts survive switching and reload', async () => {
         await guest.page.goto(`${base}/v9?view=research&ticker=AAPL&market=US`, { waitUntil: 'domcontentloaded' });
         const note = guest.page.getByLabel('Research note'); await note.waitFor(); await note.fill('AAPL fixture unsaved draft');
-        await guest.page.getByRole('group', { name: 'Quick tickers' }).getByRole('button', { name: /US MSFT/ }).click();
+        await guest.page.locator('aside').getByRole('button', { name: /MSFT.*US/ }).click();
         await guest.page.waitForURL(url => url.searchParams.get('ticker') === 'MSFT');
-        await guest.page.getByRole('group', { name: 'Quick tickers' }).getByRole('button', { name: /US AAPL/ }).click();
+        await guest.page.locator('aside').getByRole('button', { name: /AAPL.*US/ }).click();
         await note.waitFor(); assert.equal(await note.inputValue(), 'AAPL fixture unsaved draft');
         const lookup = guest.page.getByRole('region', { name: 'Find a security' });
         await lookup.getByLabel('Company or ticker').fill('NEWX'); await lookup.getByRole('button', { name: /Read ticker directly/ }).click();

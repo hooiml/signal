@@ -23,7 +23,7 @@ import { V8CommandPalette } from '@/components/v8/V8CommandPalette';
 import { setV8ThemeChoice } from '@/components/v8/V8ThemeControl';
 import type { Market } from '@/components/v8/market-v8-fixtures';
 import { V9Navigation, workspaceHref, type V9View, type V9Href } from './v9-navigation';
-import { V9HomeView, type SignalSlot } from './V9HomeView';
+import { type SignalSlot } from './V9HomeView';
 import { V9MarketView } from './V9MarketView';
 import { V9ResearchView } from './V9ResearchView';
 import { V9WatchlistView } from './V9WatchlistView';
@@ -40,8 +40,7 @@ const errorText = (cause: unknown) => (cause instanceof Error ? cause.message : 
 const loadingSlot: SignalSlot = { signal: null, loading: true, error: '' };
 type RequestedSignal = SignalSlot & { requestKey: string };
 
-const navIcons: Record<Exclude<V9View, 'learn'>, ReactNode> = {
-    home: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V20h14V9.5" /></>,
+const navIcons: Record<Exclude<V9View, 'learn' | 'home'>, ReactNode> = {
     market: <path d="M3 12h4l3-7 4 14 3-7h4" />,
     portfolio: <><rect x="3" y="6" width="18" height="14" rx="2" /><path d="M8 6V4h8v2" /></>,
     discover: <><circle cx="12" cy="12" r="9" /><path d="m14.8 9.2-1.8 5.6-5.6 1.8 1.8-5.6 5.6-1.8Z" /></>,
@@ -53,8 +52,9 @@ export function V9Workspace() {
     const returnsToToday = searchParams.get('returnTo') === 'today';
 
     const requestedView = searchParams.get('view') as V9View | null;
+    const normalizedView = requestedView === 'home' ? 'market' : requestedView;
     const requestedTicker = searchParams.get('ticker')?.trim().toUpperCase();
-    const view = requestedView && validViews.has(requestedView) ? requestedView : requestedTicker ? 'research' : 'home';
+    const view = normalizedView && validViews.has(normalizedView) ? normalizedView : requestedTicker ? 'research' : 'market';
     const showingWatchlist = view === 'research' && searchParams.get('tab') === 'watchlist';
     const [defaults, setDefaults] = useState<SignalConfig | null>(null);
     const { market, mode, enableSocial: social } = { ...(defaults ?? DEFAULT_SIGNAL_CONFIG), ...marketRouteConfig(searchParams) };
@@ -197,11 +197,6 @@ export function V9Workspace() {
         window.scrollTo(0, 0);
     }, [href, ticker, tickerMarket]);
 
-    const openMarket = useCallback((nextMarket: Market, tab?: 'evidence' | 'scenarios') => {
-        window.history.pushState(null, '', href('market', { market: nextMarket, ...(tab ? { tab } : {}) }));
-        window.scrollTo(0, 0);
-    }, [href]);
-
     const openStock = useCallback((sym: string, mkt: ResearchMarket) => {
         const clean = sym.trim().toUpperCase();
         setLastStock({ symbol: clean, market: mkt });
@@ -238,10 +233,10 @@ export function V9Workspace() {
     const todayVisible = view === 'market' && (searchParams.get('tab') === 'today'
         || (!activeSlot.loading && (!activeSlot.signal || Object.keys(activeSlot.signal.components).length === 0)));
     const usToday = useV9MarketToday({ market: 'US', mode, enableSocial: social }, utcDay,
-        view === 'home' ? 'summary' : todayVisible && market === 'US' ? 'timeline' : null,
+        todayVisible && market === 'US' ? 'timeline' : null,
         usSlot.loading ? null : `${requestKey}:${usSlot.receivedAt ?? 'error'}`);
     const myToday = useV9MarketToday({ market: 'MY', mode, enableSocial: social }, utcDay,
-        view === 'home' ? 'summary' : todayVisible && market === 'MY' ? 'timeline' : null,
+        todayVisible && market === 'MY' ? 'timeline' : null,
         mySlot.loading ? null : `${requestKey}:${mySlot.receivedAt ?? 'error'}`);
     const mergeSavedOwner = useCallback((saved: ResearchRecord) => {
         setWatchlist(current => {
@@ -255,7 +250,6 @@ export function V9Workspace() {
         });
     }, []);
     const navItems: readonly { id: keyof typeof navIcons; label: string; shortLabel: string; badge?: string }[] = [
-        { id: 'home', label: 'Home', shortLabel: 'Home' },
         { id: 'market', label: 'Market Pulse', shortLabel: 'Market', badge: activeSlot.signal ? activeSlot.signal.composite_score.toFixed(0) : undefined },
         { id: 'portfolio', label: 'Portfolio', shortLabel: 'Portfolio', badge: portfolio.count ? String(portfolio.count) : undefined },
         { id: 'discover', label: 'Discover', shortLabel: 'Discover' },
@@ -271,18 +265,25 @@ export function V9Workspace() {
             { symbol: '5347', market: 'MY' as const, name: 'Tenaga Nasional' },
         ]);
 
+    const breadcrumbLabel =
+        view === 'market' ? `Market Pulse · ${market}`
+        : view === 'portfolio' ? 'Portfolio'
+        : view === 'discover' ? 'Discover'
+        : view === 'learn' ? 'Learn'
+        : showingWatchlist ? 'Watchlist' : `Stock Research · ${ticker}`;
+
     return (
         <V9Navigation.Provider value={href}>
         <div className={`${base.tokens} ${styles.shell}`} data-collapsed={collapsed} data-testid="v9-workspace">
             <aside className={styles.sidebar} aria-label="Workspace sidebar">
                 <div className={styles.brandRow}>
-                    <button type="button" className={styles.brandBtn} onClick={() => switchView('home')}>
+                    <button type="button" className={styles.brandBtn} onClick={() => switchView('market')}>
                         <span className={styles.brandMark} aria-hidden="true">
                             <svg viewBox="0 0 28 24"><path d="M2 12c3.5-8 7.5-8 12 0s8.5 8 12 0" /></svg>
                         </span>
                         <span className={styles.brandTitle}>
                             <strong>Signal <span className={styles.versionTag}>v9.0.1</span></strong>
-                            <small>Calm Investing Workspace</small>
+                            <small>Ahead of the Move</small>
                         </span>
                     </button>
                     <button
@@ -343,15 +344,23 @@ export function V9Workspace() {
 
             <div className={styles.mainCol}>
                 <header className={styles.topbar}>
-                    <button type="button" className={styles.mobileBrand} onClick={() => switchView('home')}>
-                        <span className={styles.brandMark} aria-hidden="true" style={{ width: 28, height: 28 }}>
-                            <svg viewBox="0 0 28 24" style={{ width: 15, height: 15 }}><path d="M2 12c3.5-8 7.5-8 12 0s8.5 8 12 0" /></svg>
+                    <div className={styles.topLead}>
+                        <button type="button" className={styles.mobileBrand} onClick={() => switchView('market')}>
+                            <span className={styles.brandMark} aria-hidden="true" style={{ width: 28, height: 28 }}>
+                                <svg viewBox="0 0 28 24" style={{ width: 15, height: 15 }}><path d="M2 12c3.5-8 7.5-8 12 0s8.5 8 12 0" /></svg>
+                            </span>
+                            <span>Signal</span>
+                        </button>
+                        <span className={styles.breadcrumb} aria-label="Current location">
+                            <span>Signal /</span> {breadcrumbLabel}
                         </span>
-                        <span>Signal</span>
-                    </button>
+                    </div>
 
-                    <div className={styles.topActions} style={{ flex: 1, justifyContent: 'flex-end' }}>
+                    <div className={styles.topSearch}>
                         <V8CommandPalette market={market} />
+                    </div>
+
+                    <div className={styles.topActions}>
                         <button
                             type="button"
                             className={styles.themeToggle}
@@ -382,25 +391,6 @@ export function V9Workspace() {
                     )}
 
                     {view === 'learn' && <LearnDashboard key={searchParams.get('concept')} embedded initialConcept={parseLearnMetric(searchParams.get('concept') ?? undefined)} />}
-                    {view === 'home' && (
-                        <V9HomeView
-                            selectedMarket={market}
-                            explicitMarket={marketRouteConfig(searchParams).market ?? null}
-                            us={usSlot}
-                            my={mySlot}
-                            usToday={usToday}
-                            myToday={myToday}
-                            todayHref={target => href('market', { market: target, tab: 'today' })}
-                            mode={mode}
-                            records={records}
-                            owner={workspace === 'owner'}
-                            portfolioSummaries={portfolio.summaries}
-                            onOpenMarket={openMarket}
-                            onOpenPortfolio={() => switchView('portfolio')}
-                            onOpenDiscover={() => switchView('discover')}
-                            onOpenStock={openStock}
-                        />
-                    )}
 
                     {view === 'market' && (
                         <V9MarketView

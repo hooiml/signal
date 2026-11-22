@@ -206,3 +206,107 @@
     .contextCard .indexList { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; }
     .contextCard .indexList li:nth-child(odd) { border-left: 0; padding-left: 0; }
 }
+
+/* V9 Embedded Market Pulse Main Stage & Indicator Grid */
+.v9TopStage {
+    display: grid;
+    grid-template-columns: minmax(0, 1.75fr) minmax(300px, 1fr);
+    gap: 18px;
+    align-items: stretch;
+    margin-bottom: 20px;
+}
+.v9TopStage > * { min-width: 0; }
+.v9TopStage > section {
+    display: flex;
+    flex-direction: column;
+}
+.v9TopStage > section > :has(svg[role=slider]) {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+}
+.v9TopStage > section :has(> svg[role=slider]) {
+    flex: 1 1 auto;
+    min-height: 280px;
+    align-items: stretch;
+}
+.v9TopStage > section svg[role=slider] {
+    height: auto;
+    min-height: 280px;
+    align-self: stretch;
+}
+.v9ChartControls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+.v9OverlayToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--text-xs);
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+.v9OverlayToggle input { accent-color: var(--brand); width: 14px; height: 14px; cursor: pointer; }
+.v9EvidenceRow { margin-bottom: 20px; }
+.v9EvidenceRow[data-inspecting=true] {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+.v9ContextRow { margin-bottom: 20px; }
+.v9EvidenceCol { min-width: 0; }
+.evidenceRows[data-v9-grid=true] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 8px;
+}
+.evidenceRows[data-v9-grid=true] .evidenceRow {
+    align-items: start;
+    align-content: start;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-subtle);
+}
+.evidenceRows[data-v9-grid=true] .evidenceRow:hover {
+    border-color: var(--line-strong);
+}
+.v9SparkWrap {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 4px;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+}
+.v9MiniSpark { display: block; width: 100%; height: 30px; overflow: visible; }
+.v9SparkMeta, .v9DeltaHint {
+    grid-column: 1 / -1;
+    font-size: var(--text-xs);
+    color: var(--subtle);
+    font-variant-numeric: tabular-nums;
+}
+.v9DeltaHint {
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+}
+@media (max-width: 1080px) {
+    .v9TopStage { grid-template-columns: minmax(0, 1fr); }
+    .v9TopStage > section :has(> svg[role=slider]),
+    .v9TopStage > section svg[role=slider] { min-height: 220px; }
+}
+@media (max-width: 900px) {
+    .v9EvidenceRow[data-inspecting=true] { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 768px) {
+    .evidenceRows[data-v9-grid=true] { grid-template-columns: minmax(0, 1fr); }
+}

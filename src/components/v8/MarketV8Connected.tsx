@@ -15,12 +15,12 @@ import { readData as read, readPolicies } from './read-data';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import { parseMarketReplayIndex, parseMarketReplaySnapshot, type MarketReplaySnapshot, type MarketReplaySummary } from '@/lib/types/market-replay';
 import { getIndicatorBaseWeights, getIndicatorDisplayName } from '@/lib/indicator-registry';
-import { MarketChart, type ScoreHistoryView } from './MarketV8Chart';
+import { MarketChart, type BenchmarkOverlaySeries, type ScoreHistoryView } from './MarketV8Chart';
 import { ConnectedHistory, defaultHistory } from './MarketV8ConnectedHistory';
 import { MarketCoverageNotices, MarketCurrentAssessment } from './MarketV8Coverage';
 import { MarketV81Hero } from './MarketV81Hero';
 import { MarketContextSummary } from './MarketV8ContextSummary';
-import { MarketIndicatorEvidence } from './MarketIndicatorEvidence';
+import { MarketIndicatorEvidence, type IndicatorSeriesPoint } from './MarketIndicatorEvidence';
 import layout from './market-v8-connected.module.css';
 import { MarketV8Exposure, type MarketExposureWorkspace } from './MarketV8Exposure';
 import { MarketV8Outcomes } from './MarketV8Outcomes';
@@ -63,6 +63,14 @@ type EmbeddedMarket = {
     todayPanel: ReactNode;
     onReload: () => void;
     renderToolbar: (advanced: boolean, toggleAdvanced: () => void) => ReactNode;
+    renderSummaryRail?: (args: {
+        readonly signal: MarketSignal;
+        readonly referenceDate?: string;
+        readonly comparisonNotice?: string | null;
+        readonly onOpenDrivers: () => void;
+        readonly onOpenToday: () => void;
+        readonly onOpenScenarios: () => void;
+    }) => ReactNode;
 };
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Data could not be loaded.';
 const tierClasses: Record<MarketSignal['tier'], string> = {
@@ -127,6 +135,11 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
     const [currentPoint, setCurrentPoint] = useState<Point | null>(null);
     const [replayPoint, setReplayPoint] = useState<Point | null>(null);
     const [range, setRange] = useState('3M');
+    const [showBenchmarkOverlay, setShowBenchmarkOverlay] = useState(true);
+    const [benchmarkState, setBenchmarkState] = useState<{
+        key: string;
+        points: readonly { readonly date: string; readonly close: number }[];
+    }>({ key: '', points: [] });
     const [historyView, setHistoryView] = useState<ScoreHistoryView>('recorded');
     const [scenario, setScenario] = useState(emptyScenario);
     const [historyState, setHistoryState] = useState(defaultHistory);
@@ -152,6 +165,12 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
     const isEmbedded = !!embedded;
     const reload = embedded?.onReload ?? (() => setRevision(value => value + 1));
     const MarketContent = embedded ? 'div' : 'main';
+    const isV9Rail = Boolean(embedded?.renderSummaryRail);
+    const benchmarkSymbol = market === 'MY' ? 'KLCI' : 'VOO';
+    const benchmarkLabel = market === 'MY' ? 'FBM KLCI' : 'VOO (S&P 500)';
+    const benchmarkShortLabel = market === 'MY' ? 'KLCI' : 'VOO';
+    const benchmarkUnitPrefix = market === 'MY' ? '' : '$';
+    const benchmarkKey = `${market}:${benchmarkSymbol}`;
 
     function researchHref(symbol?: string) {
         if (!embedded) return `/research-v8?${symbol ? `ticker=${encodeURIComponent(symbol)}&` : ''}market=${market}`;
@@ -208,11 +227,11 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
     }, [isEmbedded]);
 
     useEffect(() => {
-        if (isEmbedded || !data || loading) return;
+        if (!data || loading) return;
         const observer = new IntersectionObserver(entries => { if (entries.some(entry => entry.isIntersecting)) setArchiveRequested(true); });
         if (indicatorsRef.current) observer.observe(indicatorsRef.current);
         return () => observer.disconnect();
-    }, [isEmbedded, data, loading]);
+    }, [data, loading]);
 
     useEffect(() => {
         if (loading || (!advanced && !archiveRequested)) return;
@@ -278,6 +297,30 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
     // Archive progress must not restart a replay read or erase its loading/error state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [historical, query, revision]);
+
+    useEffect(() => {
+        if (!isV9Rail || !showBenchmarkOverlay || historical) return;
+        if (benchmarkState.key === benchmarkKey) return;
+        const controller = new AbortController();
+        void (async () => {
+            try {
+                const res = await fetch(`/api/research/chart/${encodeURIComponent(benchmarkSymbol)}?market=${market}`, { signal: controller.signal });
+                if (!res.ok) throw new Error('Benchmark unavailable');
+                const body = await res.json() as { data?: { chart?: Array<{ time?: unknown; close?: unknown }> } };
+                if (controller.signal.aborted) return;
+                const chartRows = Array.isArray(body?.data?.chart) ? body.data.chart : [];
+                const parsed = chartRows.flatMap(row => (
+                    typeof row?.time === 'string' && typeof row?.close === 'number' && Number.isFinite(row.close) && row.close > 0
+                        ? [{ date: row.time, close: row.close }]
+                        : []
+                ));
+                setBenchmarkState({ key: benchmarkKey, points: parsed });
+            } catch {
+                if (!controller.signal.aborted) setBenchmarkState({ key: benchmarkKey, points: [] });
+            }
+        })();
+        return () => controller.abort();
+    }, [benchmarkKey, benchmarkState.key, benchmarkSymbol, historical, isV9Rail, market, showBenchmarkOverlay]);
 
     function closeInspector() {
         modal.current?.close(); setSelected(null);
@@ -428,8 +471,38 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
     const changeSummary = comparisonNotice ?? (typeof scoreDelta?.delta === 'number' && Number.isFinite(scoreDelta.delta)
         ? `${Math.abs(scoreDelta.delta) < 0.005 ? 'Score unchanged' : `${signed(scoreDelta.delta)} score points`} · ${scoreDelta.previous_date ? `since ${fullDate(scoreDelta.previous_date)}` : 'prior date unavailable'}`
         : 'Score comparison unavailable');
+    const useV9TopStage = Boolean(isEmbedded && embedded?.renderSummaryRail && !historical);
+    const activeBenchmarkOverlay: BenchmarkOverlaySeries | undefined =
+        useV9TopStage && showBenchmarkOverlay && benchmarkState.key === benchmarkKey && benchmarkState.points.length >= 2
+            ? {
+                label: benchmarkLabel,
+                shortLabel: benchmarkShortLabel,
+                points: benchmarkState.points,
+                unitPrefix: benchmarkUnitPrefix,
+            }
+            : undefined;
+    const rangeControl = (
+        <div className={styles.range} role="group" aria-label="Chart range">
+            {['1M', '3M', 'All'].map(value => <button type="button" key={value} aria-pressed={range === value} onClick={() => setRange(value)}>{value}</button>)}
+        </div>
+    );
     const chart = <>
-        <div className={styles.chartHeader}><h2>Market condition score</h2><div className={styles.range} role="group" aria-label="Chart range">{['1M','3M','All'].map(value=><button type="button" key={value} aria-pressed={range===value} onClick={()=>setRange(value)}>{value}</button>)}</div></div>
+        <div className={styles.chartHeader}>
+            <h2>Market condition score</h2>
+            {useV9TopStage ? (
+                <div className={layout.v9ChartControls}>
+                    <label className={layout.v9OverlayToggle}>
+                        <input
+                            type="checkbox"
+                            checked={showBenchmarkOverlay}
+                            onChange={event => setShowBenchmarkOverlay(event.target.checked)}
+                        />
+                        <span>Overlay {benchmarkLabel}</span>
+                    </label>
+                    {rangeControl}
+                </div>
+            ) : rangeControl}
+        </div>
         {chartView && !historical && <div className={layout.historyViewControls}>
             <div className={styles.range} role="group" aria-label="Chart score history">
                 <button type="button" aria-pressed={!recalculated} onClick={() => setHistoryView('recorded')}>As recorded</button>
@@ -442,7 +515,7 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
             {unavailableChartDate && <p role="status">No recalculated score on {fullDate(unavailableChartDate)}.{preview && ` Showing ${fullDate(preview.date)}.`}</p>}
         </div>}
         <MarketChart key={`${key}-${range}-${latest}-${historical?.date}-${chartView}`} points={chartPoints} sourced compactLegend={isEmbedded}
-            historyView={chartView} replayAvailable={advanced && !recalculated}
+            historyView={chartView} replayAvailable={advanced && !recalculated} benchmarkOverlay={activeBenchmarkOverlay}
             dateLabels={recalculated && windowHistory.length > 0 ? [windowHistory[0].date, windowHistory[Math.floor(windowHistory.length / 2)].date, windowHistory.at(-1)!.date] : undefined}
             selectedDate={embedded ? preview?.date : historical ? replayPoint?.date ?? historical.date : currentPoint?.date}
             onSelect={point => historical ? setReplayPoint(point) : setCurrentPoint(point)} />
@@ -457,6 +530,40 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
         total: archiveData?.samples.length ?? 0,
     };
     const inspector = selected && data ? <ConnectedIndicator signal={data} indicatorKey={selected} onClose={closeInspector} sourceEnabled={social} advanced={advanced} history={archivedSeries(selected, archiveData?.samples ?? [], archiveData?.snapshots ?? {}, data.components[selected]?.display_name, data.components[selected]?.metadata?.unit)} historyState={indicatorHistoryState} onRetryHistory={retryArchive} /> : null;
+    const indicatorSeriesByKey: Record<string, readonly IndicatorSeriesPoint[]> | undefined =
+        isEmbedded && data
+            ? Object.fromEntries(
+                inputKeys.map(itemKey => {
+                    const groups = archivedSeries(
+                        itemKey,
+                        archiveData?.samples ?? [],
+                        archiveData?.snapshots ?? {},
+                        data.components[itemKey]?.display_name,
+                        data.components[itemKey]?.metadata?.unit,
+                    );
+                    const flat: IndicatorSeriesPoint[] = groups.flatMap(group =>
+                        group.map(point => ({ date: point.date, raw: point.value, score: null })),
+                    );
+                    return [itemKey, flat];
+                }),
+            )
+            : undefined;
+    const scorePanelBody = data ? (
+        <>
+            {historical ? <div className={styles.scoreStrip}><div className={styles.score}><strong data-testid="connected-score">{score}</strong><span>/100</span></div><span className={`${styles.zone} ${tierClasses[(historical ? archived?.summary.tier : data.tier) ?? 'neutral']}`}>{archived?.summary.tier ? marketReadingLabel(archived.summary.tier) : 'Stored reading'}</span><div className={`${styles.scoreMeta} ${styles.scoreDelta}`}><b>{!historical && data.metadata.score_delta?.delta != null ? signed(data.metadata.score_delta.delta) : '—'} <small>points</small></b><span>{!historical ? `vs ${fullDate(data.metadata.score_delta?.previous_date)}` : 'Current comparison withheld'}</span></div><div className={styles.scoreMeta}><b>{historical ? archived ? `${archived.agreementPercent.toFixed(0)}%` : '—' : `${data.confidence.agreement_pct.toFixed(0)}%`} <small>agreement</small></b><span>Not forecast accuracy</span></div><button className={styles.coverageButton} disabled={!!historical} onClick={() => openTab('Evidence')}><b>{historical ? archived?.components.length ?? '—' : `${Object.keys(data.components).length}/${inputKeys.length}`} <small>scored inputs</small></b><span>{!historical ? `${Math.round((data.metadata.coverage_adjustment?.active_weight ?? Object.values(data.components).reduce((sum, item) => sum + item.weight, 0)) * 100)}% included weight ↗` : 'Archived evidence only'}</span></button></div> : null}
+            {chart}
+            {recalculated ? <div className={styles.chartFoot}><span>Snapshot replay is available from observed points in As recorded.</span></div>
+                : <div className={styles.chartFoot}>{!embedded && <span>{preview ? `${fullDate(preview.date)} · ${preview.value}/100 · ${preview.origin ?? 'Origin unavailable'}` : 'Select a point to preview its evidence.'}</span>}{previewCoverage && <span className={styles.v81PreviewCoverage}>{previewCoverage}</span>}{advanced && <button className={styles.textButton} disabled={!preview || !previewArchive?.hasFullEvidence} onClick={() => preview && enterReplay(preview)}>Open historical snapshot</button>}<span>{advanced && preview && (!archiveData || archiveData.loading) ? 'Checking snapshot availability…' : advanced && preview && !previewArchive?.hasFullEvidence ? 'No full archived snapshot is available for this point.' : ''}</span></div>}
+            <details className={layout.historyDetails}><summary>History and comparison details</summary><div className={styles.chartFoot}><span>{recalculated ? `${chartPoints.length} recalculated scores shown (${range})` : `${chartPoints.length} snapshots shown (${range}) · ${history.length} in returned history · observed and ${chartView ? 'backfilled' : 'reconstructed'}`}</span>{advanced && <button className={styles.textButton} disabled={!!historical} onClick={() => openTab('History')}>Historical calibration →</button>}{!recalculated && <span>{historical ? `Selected snapshot ${fullDate(historical.date)}` : snapshotDay ? `Snapshot ${fullDate(snapshotDay)}` : referenceLabel}</span>}</div>
+                {!historical && !recalculated && (comparisonNotice
+                    ? <div className={styles.seriesSummary}><span>{comparisonNotice}</span></div>
+                    : data.metadata.trend_context && <div className={styles.seriesSummary}><span>{formatMarketDates(data.metadata.trend_context.score_trend)}</span><span>{formatMarketDates(data.metadata.trend_context.last_signal_change)}</span></div>)}
+            </details>
+        </>
+    ) : null;
+    const archiveDetails = (
+        <details className={layout.archiveNote}><summary>About indicator history{archiveData?.error ? ' · some history unavailable' : ''}</summary><p>History is available inside each indicator. Archive {archiveData ? archiveData.loading ? 'loading; partial history' : 'loaded' : archiveRequested ? 'loading' : 'not requested yet'} · {Object.values(archiveData?.states ?? {}).filter(state => state === 'loaded').length} loaded / {Object.values(archiveData?.states ?? {}).filter(state => state === 'pending').length} pending / {Object.values(archiveData?.states ?? {}).filter(state => state === 'failed').length} failed / {Object.values(archiveData?.states ?? {}).filter(state => state === 'unavailable').length} unavailable. The latest {archiveData?.samples.length ?? 0} archived snapshot dates retain gaps. Raw readings stored in snapshots are not continuous provider histories. {archiveData?.error} {!!archiveData?.error && <button disabled={indicatorHistoryState.loading} onClick={retryArchive}>Retry archive</button>}</p></details>
+    );
 
     return <>
       {embedded?.renderToolbar(advanced, toggleAdvanced)}
@@ -479,29 +586,61 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                     {loading && !data && <div className={styles.loadingSkeleton} role="status" aria-label="Loading current scores, evidence coverage and score history"><div><span>Composite reading</span><span className={styles.skeletonLine} /></div><div><span>Evidence coverage</span><span className={styles.skeletonLine} /></div><div><span>Score history</span><span className={styles.skeletonLine} /></div></div>}{loading && data && <p role="status">Reloading this configuration; the previous response remains visible with its original date.</p>}
                     {data && hasScore && <>
                         {historical && <div className={styles.historyBanner}><span>{fullDate(historical.date)} · {archived?.summary.origin ?? data.metadata.score_history?.find(point=>point.date===historical.date)?.origin ?? 'Origin unavailable'}</span><button onClick={returnCurrent}>Return to current ↗</button></div>}
-                        {!historical && <MarketV81Hero signal={comparisonData ?? data} snapshotDate={snapshotDate} receivedAt={receivedAt} tierClass={tierClasses[data.tier]} onEvidence={reviewEvidence} onDrivers={()=>openTab('What changed')} onSelect={openIndicator} sourceEnabled={embedded ? social : undefined} advanced={advanced} comparisonNotice={comparisonNotice} recordedModelVersion={modelComparison ? modelComparison.current : undefined} />}
-                        <div className={layout.analysisGrid}>
-                            <section className={`${styles.scorePanel} ${layout.history}`} aria-label="Market score and history">
-                                {historical ? <div className={styles.scoreStrip}><div className={styles.score}><strong data-testid="connected-score">{score}</strong><span>/100</span></div><span className={`${styles.zone} ${tierClasses[(historical ? archived?.summary.tier : data.tier) ?? 'neutral']}`}>{archived?.summary.tier ? marketReadingLabel(archived.summary.tier) : 'Stored reading'}</span><div className={`${styles.scoreMeta} ${styles.scoreDelta}`}><b>{!historical && data.metadata.score_delta?.delta != null ? signed(data.metadata.score_delta.delta) : '—'} <small>points</small></b><span>{!historical ? `vs ${fullDate(data.metadata.score_delta?.previous_date)}`:'Current comparison withheld'}</span></div><div className={styles.scoreMeta}><b>{historical?archived?`${archived.agreementPercent.toFixed(0)}%`:'—':`${data.confidence.agreement_pct.toFixed(0)}%`} <small>agreement</small></b><span>Not forecast accuracy</span></div><button className={styles.coverageButton} disabled={!!historical} onClick={()=>openTab('Evidence')}><b>{historical?archived?.components.length ?? '—':`${Object.keys(data.components).length}/${inputKeys.length}`} <small>scored inputs</small></b><span>{!historical?`${Math.round((data.metadata.coverage_adjustment?.active_weight ?? Object.values(data.components).reduce((sum,item)=>sum+item.weight,0))*100)}% included weight ↗`:'Archived evidence only'}</span></button></div> : null}
-                            {chart}
-                            {recalculated ? <div className={styles.chartFoot}><span>Snapshot replay is available from observed points in As recorded.</span></div>
-                                : <div className={styles.chartFoot}>{!embedded && <span>{preview ? `${fullDate(preview.date)} · ${preview.value}/100 · ${preview.origin ?? "Origin unavailable"}` : "Select a point to preview its evidence."}</span>}{previewCoverage && <span className={styles.v81PreviewCoverage}>{previewCoverage}</span>}{advanced && <button className={styles.textButton} disabled={!preview || !previewArchive?.hasFullEvidence} onClick={() => preview && enterReplay(preview)}>Open historical snapshot</button>}<span>{advanced && preview && (!archiveData || archiveData.loading) ? "Checking snapshot availability…" : advanced && preview && !previewArchive?.hasFullEvidence ? "No full archived snapshot is available for this point." : ""}</span></div>}
-                            <details className={layout.historyDetails}><summary>History and comparison details</summary><div className={styles.chartFoot}><span>{recalculated ? `${chartPoints.length} recalculated scores shown (${range})` : `${chartPoints.length} snapshots shown (${range}) · ${history.length} in returned history · observed and ${chartView ? 'backfilled' : 'reconstructed'}`}</span>{advanced && <button className={styles.textButton} disabled={!!historical} onClick={()=>openTab('History')}>Historical calibration →</button>}{!recalculated && <span>{historical?`Selected snapshot ${fullDate(historical.date)}`:snapshotDay?`Snapshot ${fullDate(snapshotDay)}`:referenceLabel}</span>}</div>
-                            {!historical && !recalculated && (comparisonNotice
-                                ? <div className={styles.seriesSummary}><span>{comparisonNotice}</span></div>
-                                : data.metadata.trend_context && <div className={styles.seriesSummary}><span>{formatMarketDates(data.metadata.trend_context.score_trend)}</span><span>{formatMarketDates(data.metadata.trend_context.last_signal_change)}</span></div>)}
-                            </details>
-
-                            </section>
-                                {historical ? <section className={styles.panel} aria-label="Archived indicator evidence"><h2>Evidence for {fullDate(historical.date)}</h2>{replay.loading?<p role="status">Loading this archived record…</p>:archived?<><p>{archived.summary.coverageNote ?? 'Observed snapshot. Individual source timestamps remain distinct from snapshot capture.'}</p><div className={styles.contextList}>{archived.components.map(item=><details key={item.key}><summary><span><b>{item.displayName}</b><small>Raw {item.rawValue ?? 'unavailable'} {item.unit ?? '· unit unavailable'} · normalized {item.score ?? 'unavailable'} / 100</small></span><span aria-hidden="true">＋</span></summary><p><MetricGlossary metric={metricForIndicator(item.key)}>{item.displayName}</MetricGlossary></p><dl className={`${styles.keyValues} ${styles.observationTimes}`}><div><dt>Stored weight</dt><dd>{item.weight===null?'Unavailable':`${(item.weight*100).toFixed(1)}%`}</dd></div><div><dt>Contribution</dt><dd>{item.score===null||item.weight===null?'Unavailable':`${(item.score*item.weight).toFixed(2)} points`}</dd></div><div><dt>{item.timestampBasis === 'observed' ? 'Observed' : item.timestampBasis === 'retrieved' ? 'Retrieved' : 'Recorded time · basis unavailable'}</dt><dd>{marketTimestampLabel(item.lastUpdated)}</dd></div>{item.timestampBasis === 'observed' && item.retrievedAt && <div><dt>Retrieved</dt><dd>{marketTimestampLabel(item.retrievedAt)}</dd></div>}</dl><p>No present-day values are used.</p></details>)}</div></>:<div className={styles.unavailable}><b>Historical indicator records unavailable</b><p>{replay.error} <button onClick={() => setRevision(value => value + 1)}>Retry snapshot</button> This date retains its stored score only. Current context, articles and outcomes are withheld.</p><p>{data.metadata.score_history?.find(point=>point.date===historical.date)?.coverage_note}</p></div>}</section> : <div ref={indicatorsRef} tabIndex={-1} className={layout.evidenceSlot} data-inspecting={!!selected}>
-                                <div className={layout.evidenceList}>
-                                    <MarketIndicatorEvidence key={key} signal={data} inputKeys={inputKeys} configured={configured} date={date} referenceLabel={referenceLabel} sourceEnabled={social} onSelect={openIndicator} />
+                        {useV9TopStage ? (
+                            <>
+                                <div className={layout.v9TopStage}>
+                                    <section className={styles.scorePanel} aria-label="Market score and history">
+                                        {scorePanelBody}
+                                    </section>
+                                    {embedded?.renderSummaryRail?.({
+                                        signal: comparisonData ?? data,
+                                        referenceDate: snapshotDay ?? receivedAt,
+                                        comparisonNotice,
+                                        onOpenDrivers: () => openTab('What changed'),
+                                        onOpenToday: () => openTab('Today'),
+                                        onOpenScenarios: () => openTab('Scenarios'),
+                                    })}
                                 </div>
-                                {selected && <aside className={`${styles.rail} ${layout.inspector} ${layout.desktopInspector}`} ref={rail} tabIndex={-1} id="indicator-inspector" aria-label="Selected indicator">{inspector}</aside>}
-                                <details className={layout.archiveNote}><summary>About indicator history{archiveData?.error ? ' · some history unavailable' : ''}</summary><p>History is available inside each indicator. Archive {archiveData ? archiveData.loading ? 'loading; partial history' : 'loaded' : archiveRequested ? 'loading' : 'not requested yet'} · {Object.values(archiveData?.states ?? {}).filter(state => state === 'loaded').length} loaded / {Object.values(archiveData?.states ?? {}).filter(state => state === 'pending').length} pending / {Object.values(archiveData?.states ?? {}).filter(state => state === 'failed').length} failed / {Object.values(archiveData?.states ?? {}).filter(state => state === 'unavailable').length} unavailable. The latest {archiveData?.samples.length ?? 0} archived snapshot dates retain gaps. Raw readings stored in snapshots are not continuous provider histories. {archiveData?.error} {!!archiveData?.error && <button disabled={indicatorHistoryState.loading} onClick={retryArchive}>Retry archive</button>}</p></details>
-                            </div>}
-                            {!historical && <MarketContextSummary signal={data} onExplore={()=>openTab('Context')} />}
-                        </div>
+                                <div ref={indicatorsRef} tabIndex={-1} className={layout.v9EvidenceRow} data-inspecting={!!selected}>
+                                    <div className={layout.v9EvidenceCol}>
+                                        <MarketIndicatorEvidence
+                                            key={key}
+                                            signal={data}
+                                            inputKeys={inputKeys}
+                                            configured={configured}
+                                            date={date}
+                                            referenceLabel={referenceLabel}
+                                            sourceEnabled={social}
+                                            seriesByKey={indicatorSeriesByKey}
+                                            compactCards
+                                            onSelect={openIndicator}
+                                        />
+                                        {archiveDetails}
+                                    </div>
+                                    {selected && <aside className={`${styles.rail} ${layout.inspector} ${layout.desktopInspector}`} ref={rail} tabIndex={-1} id="indicator-inspector" aria-label="Selected indicator">{inspector}</aside>}
+                                </div>
+                                <div className={layout.v9ContextRow}>
+                                    <MarketContextSummary signal={data} onExplore={() => openTab('Context')} />
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                {!historical && <MarketV81Hero signal={comparisonData ?? data} snapshotDate={snapshotDate} receivedAt={receivedAt} tierClass={tierClasses[data.tier]} onEvidence={reviewEvidence} onDrivers={()=>openTab('What changed')} onSelect={openIndicator} sourceEnabled={embedded ? social : undefined} advanced={advanced} comparisonNotice={comparisonNotice} recordedModelVersion={modelComparison ? modelComparison.current : undefined} />}
+                                <div className={layout.analysisGrid}>
+                                    <section className={`${styles.scorePanel} ${layout.history}`} aria-label="Market score and history">
+                                        {scorePanelBody}
+                                    </section>
+                                    {historical ? <section className={styles.panel} aria-label="Archived indicator evidence"><h2>Evidence for {fullDate(historical.date)}</h2>{replay.loading?<p role="status">Loading this archived record…</p>:archived?<><p>{archived.summary.coverageNote ?? 'Observed snapshot. Individual source timestamps remain distinct from snapshot capture.'}</p><div className={styles.contextList}>{archived.components.map(item=><details key={item.key}><summary><span><b>{item.displayName}</b><small>Raw {item.rawValue ?? 'unavailable'} {item.unit ?? '· unit unavailable'} · normalized {item.score ?? 'unavailable'} / 100</small></span><span aria-hidden="true">＋</span></summary><p><MetricGlossary metric={metricForIndicator(item.key)}>{item.displayName}</MetricGlossary></p><dl className={`${styles.keyValues} ${styles.observationTimes}`}><div><dt>Stored weight</dt><dd>{item.weight===null?'Unavailable':`${(item.weight*100).toFixed(1)}%`}</dd></div><div><dt>Contribution</dt><dd>{item.score===null||item.weight===null?'Unavailable':`${(item.score*item.weight).toFixed(2)} points`}</dd></div><div><dt>{item.timestampBasis === 'observed' ? 'Observed' : item.timestampBasis === 'retrieved' ? 'Retrieved' : 'Recorded time · basis unavailable'}</dt><dd>{marketTimestampLabel(item.lastUpdated)}</dd></div>{item.timestampBasis === 'observed' && item.retrievedAt && <div><dt>Retrieved</dt><dd>{marketTimestampLabel(item.retrievedAt)}</dd></div>}</dl><p>No present-day values are used.</p></details>)}</div></>:<div className={styles.unavailable}><b>Historical indicator records unavailable</b><p>{replay.error} <button onClick={() => setRevision(value => value + 1)}>Retry snapshot</button> This date retains its stored score only. Current context, articles and outcomes are withheld.</p><p>{data.metadata.score_history?.find(point=>point.date===historical.date)?.coverage_note}</p></div>}</section> : <div ref={indicatorsRef} tabIndex={-1} className={layout.evidenceSlot} data-inspecting={!!selected}>
+                                        <div className={layout.evidenceList}>
+                                            <MarketIndicatorEvidence key={key} signal={data} inputKeys={inputKeys} configured={configured} date={date} referenceLabel={referenceLabel} sourceEnabled={social} onSelect={openIndicator} />
+                                        </div>
+                                        {selected && <aside className={`${styles.rail} ${layout.inspector} ${layout.desktopInspector}`} ref={rail} tabIndex={-1} id="indicator-inspector" aria-label="Selected indicator">{inspector}</aside>}
+                                        {archiveDetails}
+                                    </div>}
+                                    {!historical && <MarketContextSummary signal={data} onExplore={()=>openTab('Context')} />}
+                                </div>
+                            </>
+                        )}
                         {!historical && <>
                             {isEmbedded && (data.metadata.articles?.length ?? 0) > 0 && (
                                 <section className={styles.panel} aria-label="Market headlines">
