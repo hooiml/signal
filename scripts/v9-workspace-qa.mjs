@@ -316,6 +316,7 @@ try {
             const exactDaily = score.getByRole('button', { name: 'Daily scores', exact: true });
             await smoothTrend.waitFor();
             assert.equal(await smoothTrend.getAttribute('aria-pressed'), 'true', 'V9 defaults to a smoother trend');
+            await score.getByText(/14-day trailing average/).waitFor();
             assert.ok(await score.getByTestId('v9-score-trend-path').count() > 0, 'trend is drawn for contiguous readings');
             await exactDaily.click();
             assert.equal(await exactDaily.getAttribute('aria-pressed'), 'true', 'exact daily view is available');
@@ -345,6 +346,7 @@ try {
             await score.getByRole('button', { name: '1M', exact: true }).click();
             assert.equal(await groups.count(), 3, '1M uses the same cutoff in both views');
             await score.getByRole('button', { name: '6M', exact: true }).click();
+            await score.getByText(/28-day trailing average/).waitFor();
             assert.equal(await groups.count(), 5, '6M includes 1 Apr 2026 in recalculated view');
             await score.getByRole('button', { name: '1Y', exact: true }).click();
             await score.getByRole('button', { name: '3Y', exact: true }).click();
@@ -386,6 +388,44 @@ try {
                 await score.getByRole('button', { name: 'All', exact: true }).click();
                 await slider.waitFor();
                 assert.match(await slider.getAttribute('aria-valuetext'), /1 Apr 2026, score 38/);
+
+                // Recalculated historical scores are comparable across observed/backfilled
+                // provenance; recorded history still keeps source/model breaks.
+                const syntheticRows = [
+                    ['2026-08-01', 58, 'reconstructed'],
+                    ['2026-09-08', 54, 'reconstructed'],
+                    ['2026-09-09', 28, 'observed'],
+                    ['2026-09-10', 64, 'reconstructed'],
+                    ['2026-09-11', 32, 'observed'],
+                    ['2026-09-12', 60, 'observed'],
+                ];
+                history.data.metadata.score_history = syntheticRows.map(([date, value, origin]) => ({
+                    date, score: value, origin, model_version: origin === 'observed' ? '2.2.0' : '2.1.0',
+                    tier: 'neutral', recalculated_v220: { score: value, missing_inputs: [] },
+                }));
+                await historyPage.goto(`${base}/v9?view=market&market=US&mode=standard&enableSocial=false&advanced=1`, { waitUntil: 'domcontentloaded' });
+                await smoothTrend.waitFor();
+                const smoothGroups = slider.locator('g[data-origin]');
+                assert.equal(await smoothGroups.count(), 6, 'historical observations remain individually inspectable');
+                assert.equal(await smoothGroups.nth(1).locator('path').count(), 0, '38-day historical gap is not connected');
+                assert.equal(await smoothGroups.nth(2).locator('path').count(), 1, 'adjacent recalculated observed/backfilled inputs connect');
+                assert.equal(await smoothGroups.nth(3).locator('path').count(), 1, 'source-switching inputs stay connected');
+                assert.equal(await score.getByTestId('v9-score-trend-path').count(), 1, 'single continuous recalculated trend after the genuine gap');
+                assert.match(await slider.getAttribute('aria-valuetext'), /score 60/, 'inspection keeps actual scores');
+                await exactDaily.click();
+                assert.equal(await score.getByTestId('v9-score-trend-path').count(), 0, 'daily view hides the average');
+                assert.equal(await smoothGroups.nth(2).locator('path').count(), 1, 'daily view still connects comparable recalculated inputs');
+                await recorded.click();
+                assert.equal(await smoothGroups.nth(2).locator('path').count(), 0, 'as-recorded mode retains origin/model breaks');
+                await calculated.click();
+                await smoothTrend.click();
+
+                // A missing recalculated day is still a break, even when nearby scores exist.
+                delete history.data.metadata.score_history[3].recalculated_v220;
+                await historyPage.reload();
+                await smoothTrend.waitFor();
+                assert.equal(await slider.locator('g[data-origin]').count(), 5, 'missing recalculated input is omitted');
+                assert.equal(await slider.locator('g[data-origin]').nth(3).locator('path').count(), 0, 'missing day is not bridged');
             }
         });
         await context.close();
