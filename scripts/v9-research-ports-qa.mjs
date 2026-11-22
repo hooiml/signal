@@ -87,6 +87,7 @@ async function setup(width, theme, owner = false) {
         } } });
         if (url.pathname === '/api/signals/replay') return route.fulfill({ json: { success: true, data: { market: 'US', mode: 'standard', enableSocial: true, summaries: [] } } });
         if (url.pathname === '/api/signals/fear-greed' && req.method() === 'GET') return route.fulfill({ json: { success: true, data: { available: true, score: 31, rating: 'fear', previousClose: 35, oneWeekAgo: 44, oneMonthAgo: 56, updatedAt: '2026-09-12T00:00:00.000Z' } } });
+        if (url.pathname === '/api/signals/internals' && req.method() === 'GET') return route.fulfill({ json: { success: true, data: { market: url.searchParams.get('market') || 'US', available: false, updatedAt: null, items: [] } } });
         if (url.pathname === '/api/research/search') {
             const market = url.searchParams.get('market'), symbol = market === 'MY' ? '5347.KL' : 'MSFT';
             return route.fulfill({ json: { success: true, source: 'Yahoo Finance', data: [{

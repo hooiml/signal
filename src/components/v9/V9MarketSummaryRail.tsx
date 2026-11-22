@@ -2,20 +2,20 @@
 
 import { useEffect, useState } from 'react';
 import type { FearGreedPayload } from '@/app/api/signals/fear-greed/route';
+import type { MarketInternalsPayload } from '@/app/api/signals/internals/route';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import { getIndicatorBaseWeights } from '@/lib/indicator-registry';
 import { buildMarketBrief } from '@/lib/market-brief';
 import { marketEvidenceCoverage, marketEvidenceDay } from '@/lib/market-evidence-coverage';
 import { marketReadingLabel, marketTimestampLabel } from '@/lib/market-display';
 import { signed } from '@/components/v8/market-v8-fixtures';
+import { confirmationBadge } from './V9MarketInternals';
 import styles from './v9-workspace.module.css';
 
 type Tone = 'up' | 'neutral' | 'down';
 
 const toneForTier = (tier: MarketSignal['tier']): Tone =>
     tier === 'buy' || tier === 'strong-buy' ? 'up' : tier === 'sell' || tier === 'strong-sell' ? 'down' : 'neutral';
-
-const toneForFng = (score: number): Tone => (score <= 44 ? 'down' : score >= 56 ? 'up' : 'neutral');
 
 const formatRating = (rating: string): string =>
     rating
@@ -24,26 +24,37 @@ const formatRating = (rating: string): string =>
         .map(word => (word ? word[0].toUpperCase() + word.slice(1).toLowerCase() : ''))
         .join(' ') || 'Neutral';
 
-function compareWithSignal(signalScore: number, fngScore: number, market: 'US' | 'MY'): string {
-    const rounded = Math.round(signalScore);
-    if (market === 'MY') {
-        const fngState = fngScore <= 44 ? 'Fear' : fngScore >= 56 ? 'Greed' : 'Neutral';
-        const myState = rounded < 40 ? 'cautious' : rounded > 64 ? 'constructive' : 'neutral';
-        if ((fngScore <= 44 && rounded < 40) || (fngScore >= 56 && rounded > 64)) {
-            return `Aligned: US Street is in ${fngState} (${fngScore}) and Bursa leans ${myState} (${rounded}).`;
-        }
-        return `Regional divergence: US Street sits in ${fngState} (${fngScore}), while Bursa reads ${rounded}.`;
+function overallCheckBadge(
+    signalScore: number,
+    internals: MarketInternalsPayload,
+): { readonly label: string; readonly tone: Tone } {
+    const items = internals.items;
+    if (internals.market === 'MY') {
+        const upCount = items.filter(item => item.tone === 'up').length;
+        const downCount = items.filter(item => item.tone === 'down').length;
+        if (upCount >= 2) return { label: `Resilient locally · ${upCount}/${items.length}`, tone: 'up' };
+        if (downCount >= 2) return { label: `Caution · ${downCount}/${items.length}`, tone: 'down' };
+        return { label: `Mixed · ${items.length} checks`, tone: 'neutral' };
     }
-    if (rounded <= 44 && fngScore <= 44) {
-        return `Aligned: both Signal (${rounded}) and CNN Fear & Greed (${fngScore}) point to defensive caution.`;
+    const signalBearish = signalScore < 40;
+    const signalBullish = signalScore >= 65;
+    if (signalBearish) {
+        const confirms = items.filter(item => item.tone === 'down').length;
+        return confirms >= 2
+            ? { label: `Confirms caution · ${confirms}/${items.length}`, tone: 'down' }
+            : { label: `Mixed vs caution · ${confirms}/${items.length}`, tone: 'neutral' };
     }
-    if (rounded >= 56 && fngScore >= 56) {
-        return `Aligned: both Signal (${rounded}) and CNN Fear & Greed (${fngScore}) lean constructive.`;
+    if (signalBullish) {
+        const confirms = items.filter(item => item.tone === 'up').length;
+        return confirms >= 2
+            ? { label: `Confirms strength · ${confirms}/${items.length}`, tone: 'up' }
+            : { label: `Divergent · ${confirms}/${items.length}`, tone: 'neutral' };
     }
-    if (rounded >= 40 && rounded <= 64 && fngScore >= 40 && fngScore <= 60) {
-        return `Aligned: both Signal (${rounded}) and CNN Fear & Greed (${fngScore}) sit in neutral balance.`;
-    }
-    return `Divergence: Signal (${rounded}) differs from CNN Fear & Greed (${fngScore}).`;
+    const downCount = items.filter(item => item.tone === 'down').length;
+    const upCount = items.filter(item => item.tone === 'up').length;
+    if (downCount >= 2) return { label: `Cautious internals · ${downCount}/${items.length}`, tone: 'down' };
+    if (upCount >= 2) return { label: `Constructive · ${upCount}/${items.length}`, tone: 'up' };
+    return { label: `Balanced · ${items.length} checks`, tone: 'neutral' };
 }
 
 function CompactScoreRing({ score, tone }: { readonly score: number | null; readonly tone: Tone }) {
@@ -83,9 +94,12 @@ export function V9MarketSummaryRail({
     signal,
     referenceDate,
     comparisonNotice,
+    internals,
+    internalsLoading = false,
     onOpenDrivers,
     onOpenToday,
     onOpenScenarios,
+    onOpenContext,
 }: {
     readonly market: 'US' | 'MY';
     readonly mode: 'standard' | 'contrarian';
@@ -93,9 +107,12 @@ export function V9MarketSummaryRail({
     readonly signal: MarketSignal;
     readonly referenceDate?: string;
     readonly comparisonNotice?: string | null;
+    readonly internals?: MarketInternalsPayload | null;
+    readonly internalsLoading?: boolean;
     readonly onOpenDrivers: () => void;
     readonly onOpenToday: () => void;
     readonly onOpenScenarios: () => void;
+    readonly onOpenContext: () => void;
 }) {
     const [fngState, setFngState] = useState<FngState>({ status: 'loading' });
 
@@ -205,56 +222,63 @@ export function V9MarketSummaryRail({
                 </div>
             </section>
 
-            <section className={`${styles.card} ${styles.v9FngCard}`} aria-label="CNN Fear & Greed Index">
+            <section className={`${styles.card} ${styles.v9FngCard}`} aria-label="Cross-Market Check">
                 <div className={styles.v9FngHead}>
                     <div>
-                        <h3>CNN Fear &amp; Greed Index</h3>
-                        <p>{market === 'MY' ? 'US Street reference · Context only' : 'Context · Not scored'}</p>
+                        <h3>Cross-Market Check</h3>
+                        <p>{market === 'MY' ? 'KLCI, Ringgit & US credit' : 'Yahoo benchmarks · Context'}</p>
                     </div>
-                    {fngState.status === 'loading' ? (
+                    {internalsLoading && !internals ? (
                         <span className={styles.toneBadge}>Loading</span>
-                    ) : fng && fng.available ? (
-                        <span className={styles.toneBadge} data-tone={toneForFng(fng.score)}>{formatRating(fng.rating)}</span>
+                    ) : internals && internals.available && internals.items.length > 0 ? (
+                        (() => {
+                            const summary = overallCheckBadge(signal.composite_score, internals);
+                            return <span className={styles.toneBadge} data-tone={summary.tone}>{summary.label}</span>;
+                        })()
                     ) : (
                         <span className={styles.toneBadge}>Unavailable</span>
                     )}
                 </div>
 
-                {fng && fng.available ? (
+                {internals && internals.available && internals.items.length > 0 ? (
                     <>
-                        <div className={styles.v9FngValRow}>
-                            <div className={styles.v9FngNum}>{fng.score}<span>/100</span></div>
-                            <div className={styles.v9FngHist}>
-                                Prev <b>{fng.previousClose ?? '—'}</b> · 1W <b>{fng.oneWeekAgo ?? '—'}</b> · 1M <b>{fng.oneMonthAgo ?? '—'}</b>
-                            </div>
+                        <div className={styles.v9CrossRows}>
+                            {internals.items.map(item => {
+                                const check = confirmationBadge(
+                                    signal.composite_score,
+                                    item.tone,
+                                    market === 'MY' && item.id === 'global_credit',
+                                );
+                                return (
+                                    <div key={item.id} className={styles.v9CrossRow}>
+                                        <div>
+                                            <b>{item.name}</b>
+                                            <small>{item.latestLabel} · {item.baselineLabel}</small>
+                                        </div>
+                                        <span className={styles.toneBadge} data-tone={check.tone}>{check.label}</span>
+                                    </div>
+                                );
+                            })}
                         </div>
 
-                        <div className={styles.v9SpectrumWrap}>
-                            <div className={styles.v9SpectrumTrack} aria-hidden="true">
-                                <span style={{ background: 'var(--down-mark)', opacity: 0.85 }} />
-                                <span style={{ background: 'var(--down-mark)', opacity: 0.45 }} />
-                                <span style={{ background: 'var(--caution-mark)', opacity: 0.65 }} />
-                                <span style={{ background: 'var(--up-mark)', opacity: 0.45 }} />
-                                <span style={{ background: 'var(--up-mark)', opacity: 0.85 }} />
-                                <i className={styles.v9SpectrumMarker} style={{ left: `${fng.score}%` }} />
-                            </div>
-                            <div className={styles.v9SpectrumLabels}>
-                                <span>0 · Extreme Fear</span>
-                                <span>50</span>
-                                <span>Extreme Greed · 100</span>
-                            </div>
+                        <div className={styles.v9CrossAction}>
+                            <button type="button" className={styles.textLink} onClick={onOpenContext}>
+                                Inspect {internals.items.length} baseline charts ↓
+                            </button>
                         </div>
-
-                        <p className={styles.v9FngCompare}>
-                            {compareWithSignal(signal.composite_score, fng.score, market)}
-                        </p>
                     </>
                 ) : (
                     <p className={styles.v9FngFallback}>
-                        {fngState.status === 'loading'
-                            ? 'Fetching CNN Fear & Greed street benchmark…'
-                            : 'CNN Fear & Greed feed is unavailable right now. Signal scoring is unaffected.'}
+                        {internalsLoading
+                            ? 'Fetching cross-market confirmation series…'
+                            : 'Cross-market reference feed is unavailable right now. Signal scoring is unaffected.'}
                     </p>
+                )}
+
+                {fng && fng.available && (
+                    <div className={styles.v9OptionalCnn}>
+                        <span>CNN Fear &amp; Greed (optional): <b>{fng.score}/100 · {formatRating(fng.rating)}</b></span>
+                    </div>
                 )}
             </section>
         </aside>

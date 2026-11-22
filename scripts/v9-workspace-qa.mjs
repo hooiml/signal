@@ -32,13 +32,33 @@ function benchmarkChartFixture(symbol) {
     const isKlci = symbol === 'KLCI';
     const baseVal = isKlci ? 1620 : 510;
     const step = isKlci ? 0.35 : 0.14;
-    const chart = [];
+    const points = [];
     for (let d = 0; d < 107; d++) {
         const dt = new Date(Date.UTC(2026, 5, 1 + d));
         const wave = Math.sin(d / 6) * (isKlci ? 8 : 3.2);
-        chart.push({ time: dt.toISOString().slice(0, 10), close: Number((baseVal + d * step + wave).toFixed(2)) });
+        const close = Number((baseVal + d * step + wave).toFixed(2));
+        points.push({ time: dt.toISOString().slice(0, 10), open: close, high: close, low: close, close, volume: 1_000_000 });
     }
-    return { success: true, data: { symbol, market: isKlci ? 'MY' : 'US', fetchedAt: '2026-09-12T00:00:00.000Z', chart } };
+    return { success: true, data: { symbol, market: isKlci ? 'MY' : 'US', fetchedAt: '2026-09-12T00:00:00.000Z', chart: { interval: '1d', points } } };
+}
+function internalsFixture(rawMarket) {
+    const market = rawMarket === 'MY' ? 'MY' : 'US';
+    const makeSeries = (start, delta, baseVal) => Array.from({ length: 20 }, (_, i) => {
+        const dt = new Date(Date.UTC(2026, 7, 20 + i));
+        return { date: dt.toISOString().slice(0, 10), value: Number((start + i * delta).toFixed(2)), baseline: baseVal };
+    });
+    const items = market === 'MY'
+        ? [
+            { id: 'klci_trend', name: 'FBM KLCI Longer Trend', subtitle: 'Index close vs 125-day MA', latestLabel: '1648', baselineLabel: '125DMA: 1605 (+2.7%)', tone: 'up', description: 'FBM KLCI holds above its 125-day baseline.', points: makeSeries(1612, 1.8, 1605) },
+            { id: 'myr_fx', name: 'Ringgit Stability (USD/MYR)', subtitle: 'Spot rate vs 50-day MA', latestLabel: '4.420', baselineLabel: '50DMA: 4.390 (+0.7%)', tone: 'neutral', description: 'USD/MYR sits near its 50-day average.', points: makeSeries(4.36, 0.003, 4.39) },
+            { id: 'global_credit', name: 'US Credit Check (HYG / LQD)', subtitle: 'Global risk appetite vs 50-day MA', latestLabel: '97.8', baselineLabel: '50DMA: 99.6 (-1.8%)', tone: 'down', description: 'US high-yield credit lags investment grade.', points: makeSeries(100.4, -0.13, 99.6) },
+        ]
+        : [
+            { id: 'credit', name: 'Credit Stress', subtitle: 'HYG / LQD ratio vs 50-day MA', latestLabel: '97.8', baselineLabel: '50DMA: 99.6 (-1.8%)', tone: 'down', description: 'High-yield bonds lagged investment-grade credit.', points: makeSeries(100.4, -0.13, 99.6) },
+            { id: 'breadth', name: 'Equal-Weight Breadth', subtitle: 'RSP / SPY ratio vs 50-day MA', latestLabel: '0.295', baselineLabel: '50DMA: 0.299 (-1.3%)', tone: 'neutral', description: 'Equal-weight participation trailed megacaps.', points: makeSeries(0.303, -0.0004, 0.299) },
+            { id: 'safe_haven', name: 'Safe-Haven Demand', subtitle: 'SPY vs TLT 20D relative return', latestLabel: '-3.4%', baselineLabel: 'Baseline: 0.0% neutral', tone: 'down', description: 'Treasuries outperformed equities over 20 days.', points: makeSeries(1.4, -0.25, 0) },
+        ];
+    return { success: true, data: { market, available: true, updatedAt: '2026-09-12T00:00:00.000Z', items } };
 }
 const modules = new Map();
 function load(file) {
@@ -111,6 +131,7 @@ async function setup(width, theme, owner = false) {
         if (url.pathname.startsWith('/api/research/symbol/') && req.method() === 'GET') return route.fulfill({ json: researchSnapshotFixture });
         if (url.pathname === '/api/research/quotes' && req.method() === 'POST') return route.fulfill({ json: { success: true, data: [{ symbol: 'AAPL', success: true, data: researchSnapshotFixture.data }] } });
         if (url.pathname === '/api/signals/fear-greed' && req.method() === 'GET') return route.fulfill({ json: { success: true, data: { available: true, score: 31, rating: 'fear', previousClose: 35, oneWeekAgo: 44, oneMonthAgo: 56, updatedAt: '2026-09-12T00:00:00.000Z' } } });
+        if (url.pathname === '/api/signals/internals' && req.method() === 'GET') return route.fulfill({ json: internalsFixture(url.searchParams.get('market')) });
         if ((url.pathname === '/api/research/chart/VOO' || url.pathname === '/api/research/chart/KLCI') && req.method() === 'GET') return route.fulfill({ json: benchmarkChartFixture(url.pathname.split('/').pop()) });
         if (url.pathname === '/api/signals/replay' && req.method() === 'GET') return route.fulfill({ json: { success: true, data: { market: url.searchParams.get('market') || 'US', mode: url.searchParams.get('mode') || 'standard', enableSocial: url.searchParams.get('enableSocial') === 'true', summaries: [] } } });
         if (req.method() !== 'GET') report.failures.push({ name: 'unexpected mutation blocked', error: `${req.method()} ${url.pathname}` });
@@ -135,13 +156,26 @@ try {
             await page.getByRole('heading', { level: 1 }).waitFor();
             await page.getByRole('group', { name: 'Select market' }).waitFor();
             await page.getByRole('region', { name: 'Market assessment' }).waitFor();
-            const fng = page.getByRole('region', { name: 'CNN Fear & Greed Index' });
-            await fng.waitFor();
-            await fng.getByText('31/100', { exact: true }).waitFor();
+            const crossCheck = page.getByRole('region', { name: 'Cross-Market Check' });
+            await crossCheck.waitFor();
+            await crossCheck.getByText('Credit Stress').waitFor();
+            await crossCheck.getByText('Equal-Weight Breadth').waitFor();
+            await crossCheck.getByText('Safe-Haven Demand').waitFor();
+            await crossCheck.getByText(/31\/100/).waitFor();
             await page.getByRole('heading', { name: /market condition score/i }).waitFor();
             assert.ok(await page.getByRole('slider', { name: /market condition score/i }).count(), 'score chart');
             await page.getByTestId('benchmark-overlay-path').waitFor();
             if (width === 1280) {
+                const collapseBtn = page.getByRole('button', { name: 'Collapse sidebar' });
+                const beforeRect = await collapseBtn.boundingBox();
+                await collapseBtn.click();
+                const expandBtn = page.getByRole('button', { name: 'Expand sidebar' });
+                await expandBtn.waitFor();
+                const afterRect = await expandBtn.boundingBox();
+                assert.ok(beforeRect && afterRect && Math.abs(beforeRect.x - afterRect.x) <= 1 && Math.abs(beforeRect.y - afterRect.y) <= 1, 'sidebar toggle stays stationary');
+                await expandBtn.click();
+                await page.getByRole('button', { name: 'Collapse sidebar' }).waitFor();
+
                 const overlayToggle = page.getByRole('checkbox', { name: /Overlay VOO \(S&P 500\)/i });
                 await overlayToggle.waitFor();
                 assert.equal(await overlayToggle.isChecked(), true, 'overlay checked by default');

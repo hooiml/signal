@@ -70,7 +70,9 @@ type EmbeddedMarket = {
         readonly onOpenDrivers: () => void;
         readonly onOpenToday: () => void;
         readonly onOpenScenarios: () => void;
+        readonly onOpenContext: () => void;
     }) => ReactNode;
+    renderContextExtra?: () => ReactNode;
 };
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Data could not be loaded.';
 const tierClasses: Record<MarketSignal['tier'], string> = {
@@ -306,9 +308,18 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
             try {
                 const res = await fetch(`/api/research/chart/${encodeURIComponent(benchmarkSymbol)}?market=${market}`, { signal: controller.signal });
                 if (!res.ok) throw new Error('Benchmark unavailable');
-                const body = await res.json() as { data?: { chart?: Array<{ time?: unknown; close?: unknown }> } };
+                const body = await res.json() as {
+                    data?: {
+                        chart?: Array<{ time?: unknown; close?: unknown }> | { points?: Array<{ time?: unknown; close?: unknown }> };
+                    };
+                };
                 if (controller.signal.aborted) return;
-                const chartRows = Array.isArray(body?.data?.chart) ? body.data.chart : [];
+                const chartField = body?.data?.chart;
+                const chartRows = Array.isArray(chartField)
+                    ? chartField
+                    : Array.isArray(chartField?.points)
+                        ? chartField.points
+                        : [];
                 const parsed = chartRows.flatMap(row => (
                     typeof row?.time === 'string' && typeof row?.close === 'number' && Number.isFinite(row.close) && row.close > 0
                         ? [{ date: row.time, close: row.close }]
@@ -589,9 +600,6 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                         {useV9TopStage ? (
                             <>
                                 <div className={layout.v9TopStage}>
-                                    <section className={styles.scorePanel} aria-label="Market score and history">
-                                        {scorePanelBody}
-                                    </section>
                                     {embedded?.renderSummaryRail?.({
                                         signal: comparisonData ?? data,
                                         referenceDate: snapshotDay ?? receivedAt,
@@ -599,7 +607,11 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                                         onOpenDrivers: () => openTab('What changed'),
                                         onOpenToday: () => openTab('Today'),
                                         onOpenScenarios: () => openTab('Scenarios'),
+                                        onOpenContext: () => openTab('Context'),
                                     })}
+                                    <section className={styles.scorePanel} aria-label="Market score and history">
+                                        {scorePanelBody}
+                                    </section>
                                 </div>
                                 <div ref={indicatorsRef} tabIndex={-1} className={layout.v9EvidenceRow} data-inspecting={!!selected}>
                                     <div className={layout.v9EvidenceCol}>
@@ -700,7 +712,7 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                                 {tab === 'Today' ? embedded?.todayPanel : data && (
                                     tab === 'History' ? <ConnectedHistory signal={data} state={historyState} setState={setHistoryState} />
                                         : tab === 'Alerts' ? <MarketAlertsV6 signal={data} enableSocial={social} theme={embedded?.isDark ? 'dark' : 'light'} />
-                                            : <ConnectedPanels advanced={advanced} signal={tab === 'What changed' ? comparisonData ?? data : data} tab={tab} onSelect={openIndicator} scenario={scenario} setScenario={setScenario} explainSnapshotComparison={isEmbedded} />
+                                            : <ConnectedPanels advanced={advanced} signal={tab === 'What changed' ? comparisonData ?? data : data} tab={tab} onSelect={openIndicator} scenario={scenario} setScenario={setScenario} explainSnapshotComparison={isEmbedded} contextExtra={isEmbedded ? embedded?.renderContextExtra?.() : undefined} />
                                 )}
                             </V8Card>
                         </MarketMobileSection>
