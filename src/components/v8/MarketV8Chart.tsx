@@ -76,6 +76,17 @@ function smoothPath(pts: readonly XY[]): string {
     return `${head} ${monotoneSegments(pts).join(' ')}`;
 }
 
+
+/** Seven-observation trailing average for presentation only; raw scores are unchanged. */
+function trailingSeven(values: readonly number[]): number[] {
+    let sum = 0;
+    return values.map((value, index) => {
+        sum += value;
+        if (index >= 7) sum -= values[index - 7];
+        return sum / Math.min(index + 1, 7);
+    });
+}
+
 function geometry(points: Point[], width: number, height: number, min: number, max: number, pad = 0, firstDate = points[0].date, lastDate = points.at(-1)!.date) {
     const first = Date.parse(firstDate);
     const duration = Date.parse(lastDate) - first || 1;
@@ -112,10 +123,10 @@ function historyPointLabel(point: Point, view: ScoreHistoryView) {
         : `${source} · ${point.modelVersion ? `Model v${point.modelVersion}` : 'Model version unknown'}`;
 }
 
-export function MarketChart({ points, selectedDate, onSelect, raw = false, name = 'Market condition score', sourced = false, replayAvailable = true, compactLegend = false, historyView, dateLabels, benchmarkOverlay }: {
+export function MarketChart({ points, selectedDate, onSelect, raw = false, name = 'Market condition score', sourced = false, replayAvailable = true, compactLegend = false, historyView, dateLabels, benchmarkOverlay, enableTrend = false }: {
     points: Point[]; selectedDate?: string; onSelect?: (point: Point) => void; raw?: boolean; name?: string;
     sourced?: boolean; replayAvailable?: boolean; compactLegend?: boolean; historyView?: ScoreHistoryView;
-    dateLabels?: readonly [string, string, string]; benchmarkOverlay?: BenchmarkOverlaySeries;
+    dateLabels?: readonly [string, string, string]; benchmarkOverlay?: BenchmarkOverlaySeries; enableTrend?: boolean;
 }) {
     const id = useId().replace(/:/g, '');
     const [cursor, setCursor] = useState(() => {
@@ -123,6 +134,9 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
         return initial >= 0 ? initial : points.length - 1;
     });
     const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+    // Only embedded V9 enables this view; V8 retains the original chart.
+    const [showTrend, setShowTrend] = useState(enableTrend);
+    const trendActive = enableTrend && sourced && !raw && showTrend;
     if (!points.length) return <div className={styles.chartEmpty}>
         {historyView === 'recalculated' ? 'No recalculated scores are available in this range.' : 'No historical observations are supplied.'}
     </div>;
@@ -163,6 +177,18 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
             provenanceRuns.push({ origin: point.origin, items: [{ index: i, point, location }] });
         }
     }
+    // Reset the average whenever provenance, model version or history continuity changes.
+    // Seven observations can span more than seven calendar days.
+    const trendByIndex = new Map<number, number>();
+    const trendRuns = enableTrend && sourced && !raw ? provenanceRuns.map(run => {
+        const means = trailingSeven(run.items.map(item => item.point.value));
+        const locations = run.items.map((item, index) => {
+            trendByIndex.set(item.index, means[index]);
+            return { x: item.location.x, y: round2(yFor(means[index])) };
+        });
+        return { origin: run.origin, items: run.items, locations };
+    }) : [];
+    const selectedTrend = trendByIndex.get(at);
     const segmentByIndex = new Map<number, string>();
     for (const run of provenanceRuns) {
         if (run.items.length < 2) continue;
@@ -248,9 +274,18 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
     })();
 
     return <div className={styles.chart}>
-        <div className={styles.chartTopline}><span>{sourced ? raw ? 'Raw readings from archived snapshots' : `0–100 composite · axis ${minimum}–${maximum}` : raw ? 'Raw observations · illustrative' : '0–100 composite · illustrative history'}</span><output aria-live="polite">{fullDate(active.date)} <b>{active.value.toFixed(raw ? 2 : 0)}{raw ? '' : ' /100'}</b>{sourced && !raw && <span>{origin}</span>}{overlayData?.matched && <span>· {overlayData.shortLabel} {overlayData.unitPrefix}{overlayData.matched.close.toFixed(overlayData.matched.close >= 1000 ? 0 : 2)} ({overlayData.matched.pct >= 0 ? '+' : ''}{overlayData.matched.pct.toFixed(1)}%)</span>}{missing && <span>{missing}</span>}</output></div>
+        <div className={styles.chartTopline}><span>{sourced ? raw ? 'Raw readings from archived snapshots' : `0–100 composite · axis ${minimum}–${maximum}` : raw ? 'Raw observations · illustrative' : '0–100 composite · illustrative history'}</span><output aria-live="polite">{fullDate(active.date)} <b>{active.value.toFixed(raw ? 2 : 0)}{raw ? '' : ' /100'}</b>{sourced && !raw && <span>{origin}</span>}{trendActive && selectedTrend !== undefined && <span>· 7-point trend {selectedTrend.toFixed(1)} /100</span>}{overlayData?.matched && <span>· {overlayData.shortLabel} {overlayData.unitPrefix}{overlayData.matched.close.toFixed(overlayData.matched.close >= 1000 ? 0 : 2)} ({overlayData.matched.pct >= 0 ? '+' : ''}{overlayData.matched.pct.toFixed(1)}%)</span>}{missing && <span>{missing}</span>}</output></div>
+        {enableTrend && sourced && !raw && (
+            <div className={styles.chartPresentation}>
+                <div className={styles.chartPresentationToggle} role="group" aria-label="Score chart presentation">
+                    <button type="button" aria-pressed={trendActive} onClick={() => setShowTrend(true)}>Smooth trend</button>
+                    <button type="button" aria-pressed={!trendActive} onClick={() => setShowTrend(false)}>Daily scores</button>
+                </div>
+                <span>{trendActive ? '7-point trailing average (bold) · daily scores (faint) · display only' : 'Actual daily scores · no smoothing'}</span>
+            </div>
+        )}
         {sourced && !raw && (compactLegend ? <ul className={styles.compactChartLegend} aria-label="Chart legend">
-            <li><span aria-hidden="true">━</span> {historyView === 'recalculated' ? 'Observed inputs' : 'Observed'}</li>
+            <li><span aria-hidden="true">━</span> {historyView === 'recalculated' ? 'Observed inputs' : 'Observed'}{trendActive ? ' (faint daily line)' : ''}</li>
             <li><span aria-hidden="true">┄</span> {historyView === 'recalculated' ? 'Backfilled inputs' : historyView ? 'Backfilled' : 'Reconstructed'}</li>
             <li><span aria-hidden="true" className={styles.neutralLegendSwatch} /> Neutral {MARKET_SCORE_TIER_THRESHOLDS.neutralLower}–{MARKET_SCORE_TIER_THRESHOLDS.neutralUpper - 1}</li>
             {overlayData && <li><span aria-hidden="true" className={styles.benchmarkLegendDash} /> {overlayData.label} (right axis %)</li>}
@@ -288,9 +323,9 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                 {!raw && [MARKET_SCORE_TIER_THRESHOLDS.neutralLower, MARKET_SCORE_TIER_THRESHOLDS.neutralUpper].map(threshold => <line key={threshold} x1="0" x2="800" y1={yFor(threshold)} y2={yFor(threshold)} stroke="var(--subtle)" strokeOpacity=".72" strokeDasharray="4 4" />)}
                 {overlayData && <path d={overlayData.pathD} data-testid="benchmark-overlay-path" fill="none" stroke="var(--subtle)" strokeWidth="1.75" strokeDasharray="5 4" strokeLinecap="round" strokeLinejoin="round" opacity=".85" vectorEffect="non-scaling-stroke" />}
                 {sourced && !raw ? <>
-                    {provenanceRuns.map(run => {
+                    {provenanceRuns.map((run, runIndex) => {
                         if (run.origin !== 'observed' || run.items.length < 2) return null;
-                        const runLine = smoothPath(run.items.map(item => item.location));
+                        const runLine = smoothPath(trendActive ? trendRuns[runIndex].locations : run.items.map(item => item.location));
                         const firstX = run.items[0].location.x;
                         const lastX = run.items[run.items.length - 1].location.x;
                         return (
@@ -303,7 +338,7 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                     })}
                     {provenancePaths.map(({ point, location, connected, continues }, index) => {
                         const isReconstructed = point.origin === 'reconstructed';
-                        const segStroke = isReconstructed ? 'var(--muted)' : accentStroke;
+                        const segStroke = trendActive ? 'var(--muted)' : isReconstructed ? 'var(--muted)' : accentStroke;
                         const segD = connected ? segmentByIndex.get(index) : undefined;
                         return (
                             <g key={point.date} data-origin={point.origin ?? 'unavailable'}>
@@ -312,7 +347,8 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                                         d={segD}
                                         fill="none"
                                         stroke={segStroke}
-                                        strokeWidth={isReconstructed ? '2' : '2.4'}
+                                        strokeWidth={trendActive ? '1.3' : isReconstructed ? '2' : '2.4'}
+                                        strokeOpacity={trendActive ? 0.42 : 1}
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
                                         strokeDasharray={isReconstructed ? '5 4' : undefined}
@@ -320,14 +356,29 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                                     />
                                 )}
                                 {!connected && !continues && (
-                                    <circle cx={location.x} cy={location.y} r="3" fill={segStroke} />
+                                    <circle cx={location.x} cy={location.y} r={trendActive ? 2.4 : 3} fill={segStroke} opacity={trendActive ? 0.5 : 1} />
                                 )}
                             </g>
                         );
                     })}
+                    {trendActive && trendRuns.map((run, index) => run.items.length < 2 ? null : (
+                        <path
+                            key={`trend-${index}`}
+                            data-testid="v9-score-trend-path"
+                            d={smoothPath(run.locations)}
+                            fill="none"
+                            stroke={run.origin === 'reconstructed' ? 'var(--muted)' : accentStroke}
+                            strokeWidth={run.origin === 'reconstructed' ? '2.4' : '3'}
+                            strokeDasharray={run.origin === 'reconstructed' ? '6 4' : undefined}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            vectorEffect="non-scaling-stroke"
+                        />
+                    ))}
                 </> : <><path d={`${path} L800,226 L0,226 Z`} fill={`url(#${id})`} /><path d={path} fill="none" stroke={accentStroke} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /></>}
                 <line x1={position.x} x2={position.x} y1="0" y2="226" stroke={accentStroke} strokeDasharray="4 4" opacity=".45" />
                 {overlayData?.matched && <circle cx={overlayData.matched.x} cy={overlayData.matched.y} r="3.5" fill="var(--surface)" stroke="var(--subtle)" strokeWidth="2" />}
+                {trendActive && selectedTrend !== undefined && <circle cx={position.x} cy={yFor(selectedTrend)} r="3.4" fill={accentStroke} stroke="var(--surface)" strokeWidth="1.2" />}
                 <circle cx={position.x} cy={position.y} r="9" fill={accentStroke} opacity=".2" />
                 <circle cx={position.x} cy={position.y} r="4.8" fill="var(--surface)" stroke={accentStroke} strokeWidth="2.8" />
             </svg>
