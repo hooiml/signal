@@ -7,6 +7,75 @@ import { getIndicatorDisplayName } from '@/lib/indicator-registry';
 import { MARKET_SCORE_TIER_THRESHOLDS } from '@/lib/market-score-thresholds';
 import styles from './market-v8.module.css';
 
+type XY = { readonly x: number; readonly y: number };
+
+function round2(value: number): number {
+    return Math.round(value * 100) / 100;
+}
+
+/** Fritsch-Carlson monotone cubic Bézier segments so curves stay smooth without overshooting extrema. */
+function monotoneSegments(pts: readonly XY[]): string[] {
+    const n = pts.length;
+    if (n < 2) return [];
+    if (n === 2) return [`L${round2(pts[1].x)},${round2(pts[1].y)}`];
+
+    const dx: number[] = [];
+    const slopes: number[] = [];
+    for (let i = 0; i < n - 1; i += 1) {
+        const span = pts[i + 1].x - pts[i].x;
+        dx.push(span);
+        slopes.push(Math.abs(span) > 1e-6 ? (pts[i + 1].y - pts[i].y) / span : 0);
+    }
+
+    const tangents = new Array<number>(n).fill(0);
+    tangents[0] = slopes[0];
+    tangents[n - 1] = slopes[n - 2];
+    for (let i = 1; i < n - 1; i += 1) {
+        if (slopes[i - 1] * slopes[i] <= 0) {
+            tangents[i] = 0;
+        } else {
+            const w1 = 2 * dx[i] + dx[i - 1];
+            const w2 = dx[i] + 2 * dx[i - 1];
+            const denom = w1 / slopes[i - 1] + w2 / slopes[i];
+            tangents[i] = Math.abs(denom) > 1e-12 ? (w1 + w2) / denom : 0;
+        }
+    }
+
+    for (let i = 0; i < n - 1; i += 1) {
+        if (Math.abs(slopes[i]) < 1e-9) {
+            tangents[i] = 0;
+            tangents[i + 1] = 0;
+        } else {
+            const a = tangents[i] / slopes[i];
+            const b = tangents[i + 1] / slopes[i];
+            const sq = a * a + b * b;
+            if (sq > 9) {
+                const scale = 3 / Math.sqrt(sq);
+                tangents[i] = scale * a * slopes[i];
+                tangents[i + 1] = scale * b * slopes[i];
+            }
+        }
+    }
+
+    const segments: string[] = [];
+    for (let i = 0; i < n - 1; i += 1) {
+        const h = dx[i] / 3;
+        const c1x = round2(pts[i].x + h);
+        const c1y = round2(pts[i].y + h * tangents[i]);
+        const c2x = round2(pts[i + 1].x - h);
+        const c2y = round2(pts[i + 1].y - h * tangents[i + 1]);
+        segments.push(`C${c1x},${c1y} ${c2x},${c2y} ${round2(pts[i + 1].x)},${round2(pts[i + 1].y)}`);
+    }
+    return segments;
+}
+
+function smoothPath(pts: readonly XY[]): string {
+    if (pts.length === 0) return '';
+    const head = `M${round2(pts[0].x)},${round2(pts[0].y)}`;
+    if (pts.length === 1) return head;
+    return `${head} ${monotoneSegments(pts).join(' ')}`;
+}
+
 function geometry(points: Point[], width: number, height: number, min: number, max: number, pad = 0, firstDate = points[0].date, lastDate = points.at(-1)!.date) {
     const first = Date.parse(firstDate);
     const duration = Date.parse(lastDate) - first || 1;
@@ -66,7 +135,7 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
     const committed = selectedIndex >= 0 ? selectedIndex : Math.max(0, Math.min(cursor, points.length - 1));
     const at = hoverIndex !== null ? Math.max(0, Math.min(hoverIndex, points.length - 1)) : committed;
     const position = locations[at];
-    const path = locations.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(' ');
+    const path = smoothPath(locations);
     const active = points[at];
     const origin = historyView ? historyPointLabel(active, historyView) : `Origin: ${active.origin ?? 'unavailable'}`;
     const missingInputs = historyView === 'recalculated' ? active.recalculatedV220?.missing_inputs ?? [] : [];
@@ -77,22 +146,30 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
     const provenancePaths = points.map((point, i) => ({
         point,
         location: locations[i],
-        previousLocation: locations[i - 1],
         connected: canConnect(points[i - 1], point),
         continues: canConnect(point, points[i + 1]),
     }));
     const provenanceRuns: {
         readonly origin: Point['origin'];
-        readonly items: { readonly point: Point; readonly location: { readonly x: number; readonly y: number } }[];
+        readonly items: { readonly index: number; readonly point: Point; readonly location: XY }[];
     }[] = [];
     for (let i = 0; i < points.length; i += 1) {
         const point = points[i];
         const location = locations[i];
         const currentRun = provenanceRuns.at(-1);
         if (currentRun && canConnect(points[i - 1], point)) {
-            currentRun.items.push({ point, location });
+            currentRun.items.push({ index: i, point, location });
         } else {
-            provenanceRuns.push({ origin: point.origin, items: [{ point, location }] });
+            provenanceRuns.push({ origin: point.origin, items: [{ index: i, point, location }] });
+        }
+    }
+    const segmentByIndex = new Map<number, string>();
+    for (const run of provenanceRuns) {
+        if (run.items.length < 2) continue;
+        const segments = monotoneSegments(run.items.map(item => item.location));
+        for (let k = 1; k < run.items.length; k += 1) {
+            const prevLoc = run.items[k - 1].location;
+            segmentByIndex.set(run.items[k].index, `M${round2(prevLoc.x)},${round2(prevLoc.y)} ${segments[k - 1]}`);
         }
     }
     const latestValue = points[at].value;
@@ -127,7 +204,6 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
         if (windowPoints.length < 2) return null;
         const baseClose = windowPoints[0].close;
         const duration = lastMs - firstMs || 1;
-        const round2 = (value: number) => Math.round(value * 100) / 100;
         const rawSeries = windowPoints.map(point => ({
             ...point,
             pct: ((point.close - baseClose) / baseClose) * 100,
@@ -147,7 +223,7 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                 y: round2((1 - (point.pct - minPct) / pctSpan) * 226),
             };
         });
-        const pathD = mapped.map((point, index) => `${index ? 'L' : 'M'}${point.x},${point.y}`).join(' ');
+        const pathD = smoothPath(mapped);
         const activeMs = Date.parse(active.date);
         let matched = Number.isFinite(activeMs) && activeMs >= mapped[0].ms ? mapped[0] : null;
         if (matched && Number.isFinite(activeMs)) {
@@ -214,7 +290,7 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                 {sourced && !raw ? <>
                     {provenanceRuns.map(run => {
                         if (run.origin !== 'observed' || run.items.length < 2) return null;
-                        const runLine = run.items.map((item, idx) => `${idx ? 'L' : 'M'}${item.location.x},${item.location.y}`).join(' ');
+                        const runLine = smoothPath(run.items.map(item => item.location));
                         const firstX = run.items[0].location.x;
                         const lastX = run.items[run.items.length - 1].location.x;
                         return (
@@ -225,14 +301,15 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                             />
                         );
                     })}
-                    {provenancePaths.map(({ point, location, connected, continues, previousLocation }) => {
+                    {provenancePaths.map(({ point, location, connected, continues }, index) => {
                         const isReconstructed = point.origin === 'reconstructed';
                         const segStroke = isReconstructed ? 'var(--muted)' : accentStroke;
+                        const segD = connected ? segmentByIndex.get(index) : undefined;
                         return (
                             <g key={point.date} data-origin={point.origin ?? 'unavailable'}>
-                                {connected && (
+                                {segD && (
                                     <path
-                                        d={`M${previousLocation.x},${previousLocation.y} L${location.x},${location.y}`}
+                                        d={segD}
                                         fill="none"
                                         stroke={segStroke}
                                         strokeWidth={isReconstructed ? '2' : '2.4'}

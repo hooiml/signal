@@ -46,6 +46,17 @@ const marketTabs: readonly MarketTab[] = ['Today', ...tabs, 'Alerts'];
 const tabQueries: Record<MarketTab, string> = {
     Today: 'today', 'What changed': 'changes', Evidence: 'evidence', Context: 'context', History: 'history', Scenarios: 'scenarios', Alerts: 'alerts',
 };
+const RANGE_MONTHS: Readonly<Record<string, number>> = {
+    '1M': 1,
+    '3M': 3,
+    '6M': 6,
+    '1Y': 12,
+    '3Y': 36,
+    '5Y': 60,
+};
+const V9_CHART_RANGES = ['1M', '3M', '6M', '1Y', '3Y', '5Y', 'All'] as const;
+const V8_CHART_RANGES = ['1M', '3M', 'All'] as const;
+
 const isDetailedTab = (name: MarketTab) => name !== 'Today' && name !== 'What changed' && name !== 'Context';
 function focusInvestigation() {
     const panel = document.getElementById('investigation-panel');
@@ -146,7 +157,7 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
         key: string;
         points: readonly { readonly date: string; readonly close: number }[];
     }>({ key: '', points: [] });
-    const [historyView, setHistoryView] = useState<ScoreHistoryView>('recorded');
+    const [historyView, setHistoryView] = useState<ScoreHistoryView>(() => (embedded ? 'recalculated' : 'recorded'));
     const [scenario, setScenario] = useState(emptyScenario);
     const [historyState, setHistoryState] = useState(defaultHistory);
     const [resetNotice, setResetNotice] = useState('');
@@ -447,7 +458,8 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
     } : data;
     const latest = history.at(-1)?.date;
     const cutoff = latest ? new Date(`${latest}T00:00:00Z`) : null;
-    if (cutoff) cutoff.setUTCMonth(cutoff.getUTCMonth() - (range === '1M' ? 1 : 3));
+    const rangeMonths = RANGE_MONTHS[range];
+    if (cutoff && rangeMonths) cutoff.setUTCMonth(cutoff.getUTCMonth() - rangeMonths);
     const windowHistory = range === 'All' ? history : history.filter(point => !cutoff || Date.parse(point.date) >= cutoff.getTime());
     const chartPoints = recalculated ? windowHistory.flatMap((point, index) => {
         if (!point.recalculatedV220) return [];
@@ -496,14 +508,45 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                 unitPrefix: benchmarkUnitPrefix,
             }
             : undefined;
+    const chartRanges = useV9TopStage ? V9_CHART_RANGES : V8_CHART_RANGES;
     const rangeControl = (
         <div className={styles.range} role="group" aria-label="Chart range">
-            {['1M', '3M', 'All'].map(value => <button type="button" key={value} aria-pressed={range === value} onClick={() => setRange(value)}>{value}</button>)}
+            {chartRanges.map(value => <button type="button" key={value} aria-pressed={range === value} onClick={() => setRange(value)}>{value}</button>)}
         </div>
     );
     const chart = <>
-        <div className={styles.chartHeader}>
-            <h2>Market condition score</h2>
+        <div className={useV9TopStage ? `${styles.chartHeader} ${layout.v9ChartHeader}` : styles.chartHeader}>
+            <div className={layout.v9ChartTitleRow}>
+                <h2>Market condition score</h2>
+                {useV9TopStage && (
+                    <details className={layout.v9ChartInfo}>
+                        <summary aria-label="Score model details">i</summary>
+                        <div className={layout.v9ChartInfoCard}>
+                            <div className={layout.v9ChartInfoHead}>
+                                <b>{market === 'US' ? 'Model v2.2.0' : 'Malaysia v2'}</b>
+                                <span>{chartView ? (recalculated ? 'Consistent model view' : 'Historical recorded view') : 'Current scoring model'}</span>
+                            </div>
+                            {chartView && !historical ? (
+                                <>
+                                    <div className={styles.range} role="group" aria-label="Chart score history">
+                                        <button type="button" aria-pressed={!recalculated} onClick={() => setHistoryView('recorded')}>As recorded</button>
+                                        <button type="button" aria-pressed={recalculated} onClick={() => setHistoryView('recalculated')}>Recalculated with v2.2.0</button>
+                                    </div>
+                                    <p>
+                                        {recalculated
+                                            ? `Historical inputs scored with v2.2.0.${missingDates > 0 ? ` ${missingDates} ${missingDates === 1 ? 'date has' : 'dates have'} no recalculated score in this range.` : ''}`
+                                            : hasModelChange
+                                                ? 'Scoring model changed in this range. Lines break between models and sources.'
+                                                : 'Observed and backfilled scores retain their original values.'}
+                                    </p>
+                                </>
+                            ) : (
+                                <p>Scores in this view use {market === 'US' ? 'US Model v2.2.0' : 'Malaysia v2'}.</p>
+                            )}
+                        </div>
+                    </details>
+                )}
+            </div>
             {useV9TopStage ? (
                 <div className={layout.v9ChartControls}>
                     <label className={layout.v9OverlayToggle}>
@@ -518,7 +561,7 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                 </div>
             ) : rangeControl}
         </div>
-        {chartView && !historical && <div className={layout.historyViewControls}>
+        {!useV9TopStage && chartView && !historical && <div className={layout.historyViewControls}>
             <div className={styles.range} role="group" aria-label="Chart score history">
                 <button type="button" aria-pressed={!recalculated} onClick={() => setHistoryView('recorded')}>As recorded</button>
                 <button type="button" aria-pressed={recalculated} onClick={() => setHistoryView('recalculated')}>Recalculated with v2.2.0</button>
@@ -529,6 +572,11 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                     : 'Observed and backfilled scores retain their original values.'}</p>
             {unavailableChartDate && <p role="status">No recalculated score on {fullDate(unavailableChartDate)}.{preview && ` Showing ${fullDate(preview.date)}.`}</p>}
         </div>}
+        {useV9TopStage && unavailableChartDate && (
+            <p className={layout.v9ChartStatus} role="status">
+                No recalculated score on {fullDate(unavailableChartDate)}.{preview && ` Showing ${fullDate(preview.date)}.`}
+            </p>
+        )}
         <MarketChart key={`${key}-${range}-${latest}-${historical?.date}-${chartView}`} points={chartPoints} sourced compactLegend={isEmbedded}
             historyView={chartView} replayAvailable={advanced && !recalculated} benchmarkOverlay={activeBenchmarkOverlay}
             dateLabels={recalculated && windowHistory.length > 0 ? [windowHistory[0].date, windowHistory[Math.floor(windowHistory.length / 2)].date, windowHistory.at(-1)!.date] : undefined}
