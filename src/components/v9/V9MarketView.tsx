@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import type { MarketInternalsPayload } from '@/app/api/signals/internals/route';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import { EmbeddedMarketView } from '@/components/v8/MarketV8Connected';
 import { marketSourceToggleStatus } from '@/components/v8/MarketV8ConnectedData';
@@ -7,6 +9,7 @@ import type { MarketExposureWorkspace } from '@/components/v8/MarketV8Exposure';
 import type { Market, Mode } from '@/components/v8/market-v8-fixtures';
 import { V9MarketTodayPanel } from './V9MarketToday';
 import { V9MarketSummaryRail } from './V9MarketSummaryRail';
+import { V9MarketInternalsGrid } from './V9MarketInternals';
 import type { V9MarketTodayState } from './useV9MarketToday';
 import base from '@/components/v8/market-v8.module.css';
 import styles from './v9-workspace.module.css';
@@ -42,6 +45,36 @@ export function V9MarketView({
     readonly onSocialChange: (next: boolean) => void;
     readonly onReload: () => void;
 }) {
+    const [internalsByMarket, setInternalsByMarket] = useState<Partial<Record<Market, MarketInternalsPayload>>>({});
+    const currentInternals = internalsByMarket[market] ?? null;
+    const internalsLoading = currentInternals === null;
+
+    useEffect(() => {
+        if (currentInternals) return;
+        const controller = new AbortController();
+        void (async () => {
+            try {
+                const res = await fetch(`/api/signals/internals?market=${market}`, { signal: controller.signal });
+                if (!res.ok) throw new Error('Request failed');
+                const body = (await res.json()) as { data?: MarketInternalsPayload };
+                if (!controller.signal.aborted) {
+                    setInternalsByMarket(prev => ({
+                        ...prev,
+                        [market]: body?.data ?? { market, available: false, updatedAt: null, items: [] },
+                    }));
+                }
+            } catch {
+                if (!controller.signal.aborted) {
+                    setInternalsByMarket(prev => ({
+                        ...prev,
+                        [market]: { market, available: false, updatedAt: null, items: [] },
+                    }));
+                }
+            }
+        })();
+        return () => controller.abort();
+    }, [currentInternals, market]);
+
     return <EmbeddedMarketView
         config={{ market, mode, enableSocial: social }}
         signal={signal}
@@ -52,7 +85,7 @@ export function V9MarketView({
         exposureWorkspace={exposureWorkspace}
         todayPanel={<V9MarketTodayPanel market={market} state={today} />}
         onReload={onReload}
-        renderSummaryRail={({ signal: railSignal, referenceDate, comparisonNotice, onOpenDrivers, onOpenToday, onOpenScenarios }) => (
+        renderSummaryRail={({ signal: railSignal, referenceDate, comparisonNotice, onOpenDrivers, onOpenToday, onOpenScenarios, onOpenContext }) => (
             <V9MarketSummaryRail
                 market={market}
                 mode={mode}
@@ -60,9 +93,20 @@ export function V9MarketView({
                 signal={railSignal}
                 referenceDate={referenceDate}
                 comparisonNotice={comparisonNotice}
+                internals={currentInternals}
+                internalsLoading={internalsLoading}
                 onOpenDrivers={onOpenDrivers}
                 onOpenToday={onOpenToday}
                 onOpenScenarios={onOpenScenarios}
+                onOpenContext={onOpenContext}
+            />
+        )}
+        renderContextExtra={() => (
+            <V9MarketInternalsGrid
+                market={market}
+                signalScore={signal?.composite_score ?? null}
+                internals={currentInternals}
+                loading={internalsLoading}
             />
         )}
         renderToolbar={(advanced, toggleAdvanced) => (

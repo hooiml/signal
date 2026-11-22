@@ -277,6 +277,19 @@ export function V9Workspace() {
         <div className={`${base.tokens} ${styles.shell}`} data-collapsed={collapsed} data-testid="v9-workspace">
             <aside className={styles.sidebar} aria-label="Workspace sidebar">
                 <div className={styles.brandRow}>
+                    <button
+                        type="button"
+                        className={styles.collapseBtn}
+                        onClick={() => setCollapsed(v => !v)}
+                        aria-expanded={!collapsed}
+                        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <rect x="3" y="4" width="18" height="16" rx="2.5" />
+                            <path d="M9 4v16" />
+                        </svg>
+                    </button>
                     <button type="button" className={styles.brandBtn} onClick={() => switchView('market')}>
                         <span className={styles.brandMark} aria-hidden="true">
                             <svg viewBox="0 0 28 24"><path d="M2 12c3.5-8 7.5-8 12 0s8.5 8 12 0" /></svg>
@@ -285,15 +298,6 @@ export function V9Workspace() {
                             <strong>Signal <span className={styles.versionTag}>v9.0.1</span></strong>
                             <small>Ahead of the Move</small>
                         </span>
-                    </button>
-                    <button
-                        type="button"
-                        className={styles.collapseBtn}
-                        onClick={() => setCollapsed(v => !v)}
-                        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                    >
-                        {collapsed ? '›' : '‹'}
                     </button>
                 </div>
 

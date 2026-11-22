@@ -17,47 +17,131 @@ export type IndicatorSeriesPoint = {
     readonly score: number | null;
 };
 
+type ThresholdRef =
+    | { readonly kind: 'line'; readonly value: number; readonly label: string }
+    | { readonly kind: 'band'; readonly min: number; readonly max: number; readonly label: string };
+
+const INDICATOR_THRESHOLDS: Readonly<Record<string, ThresholdRef>> = {
+    vix: { kind: 'line', value: 25, label: 'Threshold 25' },
+    aaii: { kind: 'band', min: 32, max: 38, label: 'Neutral ~35%' },
+    put_call: { kind: 'line', value: 0.90, label: 'Neutral 0.90' },
+    klci_trend: { kind: 'line', value: 50, label: '52w mid 50%' },
+    my_breadth: { kind: 'line', value: 50, label: 'Balanced 50%' },
+    social: { kind: 'line', value: 0, label: 'Neutral 0.0' },
+    news: { kind: 'line', value: 0, label: 'Neutral 0.0' },
+};
+
 function IndicatorMiniSpark({
+    indicatorKey,
     series,
     direction,
+    unit,
 }: {
+    readonly indicatorKey: string;
     readonly series: readonly IndicatorSeriesPoint[];
     readonly direction: string;
+    readonly unit?: string;
 }) {
-    const values = series
-        .map(point => (point.raw !== null && Number.isFinite(point.raw) ? point.raw : point.score))
-        .filter((value): value is number => value !== null && Number.isFinite(value))
-        .slice(-14);
-    if (values.length < 2) return null;
+    const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+    const plotted = series
+        .map(point => ({
+            date: point.date,
+            isRaw: point.raw !== null && Number.isFinite(point.raw),
+            val: point.raw !== null && Number.isFinite(point.raw) ? point.raw : point.score,
+        }))
+        .filter((point): point is { date: string; isRaw: boolean; val: number } => point.val !== null && Number.isFinite(point.val))
+        .slice(-20);
+    if (plotted.length < 2) return null;
 
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const w = 180;
-    const h = 30;
-    const padX = 3;
-    const padY = 4;
-    const coords = values.map((val, index) => {
-        const x = padX + (index / (values.length - 1)) * (w - padX * 2);
-        const y = max === min ? h / 2 : padY + (1 - (val - min) / (max - min)) * (h - padY * 2);
-        return { x, y };
-    });
+    const allRaw = plotted.every(point => point.isRaw);
+    const threshold = allRaw ? INDICATOR_THRESHOLDS[indicatorKey] : undefined;
+    const rawVals = plotted.map(point => point.val);
+    const extVals = threshold
+        ? threshold.kind === 'line'
+            ? [...rawVals, threshold.value]
+            : [...rawVals, threshold.min, threshold.max]
+        : rawVals;
+
+    const rawMin = Math.min(...extVals);
+    const rawMax = Math.max(...extVals);
+    const span = rawMax - rawMin || 1;
+    const padMin = rawMin - span * 0.08;
+    const padMax = rawMax + span * 0.08;
+
+    const w = 220;
+    const h = 50;
+    const padX = 4;
+    const padY = 5;
+    const xFor = (idx: number) => padX + (idx / (plotted.length - 1)) * (w - padX * 2);
+    const yFor = (val: number) => padY + (1 - (val - padMin) / (padMax - padMin || 1)) * (h - padY * 2);
+
+    const coords = plotted.map((pt, index) => ({
+        x: xFor(index),
+        y: yFor(pt.val),
+        pt,
+    }));
     const linePts = coords.map(pt => `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join(' ');
     const areaPts = `${padX},${h - 2} ${linePts} ${(w - padX).toFixed(1)},${h - 2}`;
-    const last = coords[coords.length - 1];
+    const activeIdx = hoverIdx !== null ? Math.max(0, Math.min(coords.length - 1, hoverIdx)) : coords.length - 1;
+    const active = coords[activeIdx];
     const stroke = direction.endsWith('positive')
         ? 'var(--up-mark)'
         : direction.endsWith('negative')
             ? 'var(--down-mark)'
             : 'var(--caution-mark)';
+    const decimals = Math.abs(active.pt.val) < 10 ? 2 : 1;
+    const valueText = `${active.pt.val.toFixed(decimals)}${unit ? ` ${unit}` : ''}`;
 
     return (
-        <span className={styles.v9SparkWrap}>
+        <span
+            className={styles.v9SparkWrap}
+            onPointerLeave={() => setHoverIdx(null)}
+            onPointerMove={event => {
+                const rect = event.currentTarget.getBoundingClientRect();
+                const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / (rect.width || 1)));
+                setHoverIdx(Math.round(ratio * (coords.length - 1)));
+            }}
+        >
             <svg viewBox={`0 0 ${w} ${h}`} className={styles.v9MiniSpark} aria-hidden="true">
+                {threshold?.kind === 'band' && (
+                    <rect
+                        x={padX}
+                        y={yFor(threshold.max)}
+                        width={w - padX * 2}
+                        height={Math.max(2, yFor(threshold.min) - yFor(threshold.max))}
+                        fill="var(--line-strong)"
+                        fillOpacity="0.22"
+                    />
+                )}
+                {threshold?.kind === 'line' && (
+                    <line
+                        x1={padX}
+                        x2={w - padX}
+                        y1={yFor(threshold.value)}
+                        y2={yFor(threshold.value)}
+                        stroke="var(--subtle)"
+                        strokeWidth="1.2"
+                        strokeDasharray="4 3"
+                        opacity="0.85"
+                    />
+                )}
                 <polygon fill={stroke} fillOpacity="0.14" points={areaPts} />
-                <polyline fill="none" stroke={stroke} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" points={linePts} />
-                <circle cx={last.x.toFixed(1)} cy={last.y.toFixed(1)} r="2.6" fill={stroke} />
+                <polyline fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" points={linePts} />
+                {hoverIdx !== null && (
+                    <line x1={active.x.toFixed(1)} x2={active.x.toFixed(1)} y1={padY} y2={h - 2} stroke="var(--subtle)" strokeDasharray="3 3" opacity="0.65" />
+                )}
+                <circle cx={active.x.toFixed(1)} cy={active.y.toFixed(1)} r="3" fill="var(--surface)" stroke={stroke} strokeWidth="2" />
             </svg>
-            <span className={styles.v9SparkMeta}>{values.length} archived pts</span>
+            <span className={styles.v9SparkMeta}>
+                <span>
+                    {hoverIdx !== null ? (
+                        <><b>{fullDate(active.pt.date)}</b>: {valueText}</>
+                    ) : (
+                        <>{fullDate(plotted[0].date)} – {fullDate(plotted[plotted.length - 1].date)}</>
+                    )}
+                </span>
+                {threshold && <span className={styles.v9SparkRef}>{threshold.label}</span>}
+            </span>
         </span>
     );
 }
@@ -98,7 +182,7 @@ export function MarketIndicatorEvidence({ signal, inputKeys, configured, date, r
                     <span><b>{item?.display_name ?? getIndicatorDisplayName(key)}</b><small className={status.startsWith('Stale') ? styles.caution : ''}>{status}</small>{item && <V8FreshnessLine as="small" label={hasRetrievalTimestamp(item) ? 'Retrieved' : 'Dated'} separator=" " value={fullDate(marketEvidenceDay(item.last_updated))} />}</span>
                     <span><strong>{item ? formatRawValue(item, signal.metadata.market) : 'Unavailable'}</strong><span className={styles.direction} data-direction={direction}>{disabled ? 'Disabled' : scored ? `${signal.mode === 'contrarian' ? 'Contrarian' : 'Momentum'}: ${direction} · ${Math.round(item.weight * 100)}% wt` : item ? 'Context · not scored' : 'No reading'}</span>{scored && <ImpactChip impact={inputImpact(item.score, item.weight)} />}{conflict && <small>Disagrees with composite</small>}</span>
                     {compactCards && (series.length >= 2 ? (
-                        <IndicatorMiniSpark series={series} direction={direction} />
+                        <IndicatorMiniSpark indicatorKey={key} series={series} direction={direction} unit={item?.metadata?.unit} />
                     ) : hasDeltaHint && changeRow ? (
                         <span className={styles.v9DeltaHint}>
                             Prior {changeRow.previous_raw_value} → {changeRow.current_raw_value}{changeRow.current_unit ? ` ${changeRow.current_unit}` : ''}

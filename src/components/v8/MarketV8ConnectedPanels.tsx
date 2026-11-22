@@ -34,6 +34,7 @@ type ConnectedPanelsProps = {
     readonly onSelect: (key: string, element: HTMLButtonElement) => void;
     readonly scenario: ScenarioState;
     readonly setScenario: Dispatch<SetStateAction<ScenarioState>>;
+    readonly contextExtra?: ReactNode;
 };
 
 type ConnectedIndicatorProps = {
@@ -432,7 +433,7 @@ function EvidencePanel({ signal, onSelect, advanced }: { signal: MarketSignal; o
     </>;
 }
 
-function ContextPanel({ signal }: { signal: MarketSignal }) {
+function ContextPanel({ signal, contextExtra }: { signal: MarketSignal; contextExtra?: ReactNode }) {
     const context = signal.metadata.market_context;
     const backdrop = signal.metadata.valuation_backdrop;
     const backdropUrls = safeHttpUrls(backdrop?.source_url);
@@ -442,6 +443,7 @@ function ContextPanel({ signal }: { signal: MarketSignal }) {
     return <>
         <SectionHeading eyebrow="Context" title="Market context outside the score" tag="Context only" />
         <p className={styles.panelIntro}>These dated records provide context and do not change the composite score.</p>
+        {contextExtra}
         {backdrop ? <section className={styles.calibration} aria-label="Valuation backdrop"><h3>{backdrop.name}</h3><dl className={styles.keyValues}><div><dt>Ratio</dt><dd>{backdrop.ratio_pct.toFixed(1)}%</dd></div><div><dt>Label</dt><dd>{backdrop.label}</dd></div><div><dt>Market value</dt><dd>{backdrop.market_value_billions.toFixed(1)}bn</dd></div><div><dt>GDP</dt><dd>{backdrop.gdp_billions.toFixed(1)}bn</dd></div><div><dt>Report date</dt><dd>{formatDate(backdrop.report_date)}</dd></div></dl><p>{backdrop.detail}</p>{backdropUrls.length ? <div>{backdropUrls.map((sourceUrl, index) => <p key={sourceUrl}><a className={styles.textButton} href={sourceUrl} target="_blank" rel="noreferrer">{backdropLinkLabel(index)}</a></p>)}</div> : <p className={styles.muted}>Source URL unavailable.</p>}</section> : <Unavailable title="Valuation backdrop unavailable" />}
 
         <section className={styles.calibration} aria-label="Market context"><h3>Market context</h3>{context ? <ContextData context={context} /> : <Unavailable title="Market context unavailable" />}</section>
@@ -479,14 +481,14 @@ function ScenarioPanel({ signal, scenario, setScenario }: Pick<ConnectedPanelsPr
     </>;
 }
 
-export function ConnectedPanels({ signal, tab, onSelect, scenario, setScenario, advanced = false, explainSnapshotComparison }: ConnectedPanelsProps) {
+export function ConnectedPanels({ signal, tab, onSelect, scenario, setScenario, advanced = false, explainSnapshotComparison, contextExtra }: ConnectedPanelsProps) {
     const normalizedTab = tab.trim().toLowerCase();
     const panel = useMemo(() => {
         if (normalizedTab === 'what changed') return <ChangePanel signal={signal} onSelect={onSelect} explainSnapshotComparison={explainSnapshotComparison} />;
         if (normalizedTab === 'evidence') return <EvidencePanel advanced={advanced} signal={signal} onSelect={onSelect} />;
-        if (normalizedTab === 'context') return <ContextPanel signal={signal} />;
+        if (normalizedTab === 'context') return <ContextPanel signal={signal} contextExtra={contextExtra} />;
         if (normalizedTab === 'scenarios') return <ScenarioPanel signal={signal} scenario={scenario} setScenario={setScenario} />;
         return <Unavailable title="Panel unavailable" detail={`No connected V8 panel is defined for “${tab}”.`} />;
-    }, [normalizedTab, onSelect, signal, tab, scenario, setScenario, advanced, explainSnapshotComparison]);
+    }, [normalizedTab, onSelect, signal, tab, scenario, setScenario, advanced, explainSnapshotComparison, contextExtra]);
     return <div data-testid={`market-v8-connected-${normalizedTab.replace(/\s+/g, '-')}`}>{panel}</div>;
 }
