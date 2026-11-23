@@ -5,6 +5,7 @@ This file is the map, not the manual. Keep it short so agents can quickly find t
 ## Start Here
 
 - Architecture: `docs/ARCHITECTURE.md`
+- UI design: [default V9 workspace](docs/design-concepts/README.md) and [classic V8 Market and Research](DESIGN.md).
 - Testing and verification: `docs/TESTING.md`
 - Quality rules: `docs/QUALITY.md`
 - Harness engineering standards: `docs/HARNESS.md`
