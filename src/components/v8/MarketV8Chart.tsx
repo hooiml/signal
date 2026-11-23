@@ -302,7 +302,7 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
             <li><span aria-hidden="true">━</span> {trendActive ? 'Smoothed trend (solid)' : historyView === 'recalculated' ? 'Observed inputs' : 'Observed'}</li>
             <li><span aria-hidden="true">┄</span> {trendActive ? 'Actual scores (faint; backfilled dashed)' : historyView === 'recalculated' ? 'Backfilled inputs' : historyView ? 'Backfilled' : 'Reconstructed'}</li>
             <li><span aria-hidden="true" className={styles.neutralLegendSwatch} /> Neutral {MARKET_SCORE_TIER_THRESHOLDS.neutralLower}–{MARKET_SCORE_TIER_THRESHOLDS.neutralUpper - 1}</li>
-            {overlayData && <li><span aria-hidden="true" className={styles.benchmarkLegendDash} /> {overlayData.label} (right axis %)</li>}
+            {overlayData && <li><span aria-hidden="true" data-testid="benchmark-overlay-legend" className={styles.benchmarkLegendLine} /> {overlayData.label} (right axis %)</li>}
         </ul> : <p className={styles.chartLegend}>{comparableRecalculated ? 'Comparable recalculated scores connect across input origins; missing-history gaps remain. ' : '━━ Observed · ┄┄ Reconstructed · breaks separate origins · ' }Shaded band = neutral score tier {MARKET_SCORE_TIER_THRESHOLDS.neutralLower}–{MARKET_SCORE_TIER_THRESHOLDS.neutralUpper - 1}</p>)}
         <div className={styles.chartPlot}>
             <div className={styles.axis}>{[maximum, (maximum + minimum) / 2, minimum].map(value => <span key={value}>{value.toFixed(0)}</span>)}</div>
@@ -335,7 +335,7 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                 {!raw && <rect x="0" y={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} width="800" height={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralLower) - yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} fill="var(--line-strong)" fillOpacity=".26" />}
                 {[0, 56.5, 113, 169.5, 226].map(y => <line key={y} x1="0" x2="800" y1={y} y2={y} stroke="currentColor" strokeOpacity=".10" strokeDasharray="3 5" />)}
                 {!raw && [MARKET_SCORE_TIER_THRESHOLDS.neutralLower, MARKET_SCORE_TIER_THRESHOLDS.neutralUpper].map(threshold => <line key={threshold} x1="0" x2="800" y1={yFor(threshold)} y2={yFor(threshold)} stroke="var(--subtle)" strokeOpacity=".72" strokeDasharray="4 4" />)}
-                {overlayData && <path d={overlayData.pathD} data-testid="benchmark-overlay-path" fill="none" stroke="var(--subtle)" strokeWidth="1.75" strokeDasharray="5 4" strokeLinecap="round" strokeLinejoin="round" opacity=".85" vectorEffect="non-scaling-stroke" />}
+                {overlayData && <path d={overlayData.pathD} data-testid="benchmark-overlay-path" fill="none" stroke="var(--benchmark-line, var(--subtle))" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
                 {sourced && !raw ? <>
                     {provenanceRuns.map((run, runIndex) => {
                         if (comparableRecalculated || run.origin !== 'observed' || run.items.length < 2) return null;
@@ -391,12 +391,12 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
                     ))}
                 </> : <><path d={`${path} L800,226 L0,226 Z`} fill={`url(#${id})`} /><path d={path} fill="none" stroke={accentStroke} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /></>}
                 <line x1={position.x} x2={position.x} y1="0" y2="226" stroke={accentStroke} strokeDasharray="4 4" opacity=".45" />
-                {overlayData?.matched && <circle cx={overlayData.matched.x} cy={overlayData.matched.y} r="3.5" fill="var(--surface)" stroke="var(--subtle)" strokeWidth="2" />}
+                {overlayData?.matched && <circle data-testid="benchmark-overlay-marker" cx={overlayData.matched.x} cy={overlayData.matched.y} r="3.5" fill="var(--surface)" stroke="var(--benchmark-line, var(--subtle))" strokeWidth="2" />}
                 {trendActive && selectedTrend !== undefined && <circle cx={position.x} cy={yFor(selectedTrend)} r="3.4" fill={accentStroke} stroke="var(--surface)" strokeWidth="1.2" />}
                 <circle cx={position.x} cy={position.y} r="9" fill={accentStroke} opacity=".2" />
                 <circle cx={position.x} cy={position.y} r="4.8" fill="var(--surface)" stroke={accentStroke} strokeWidth="2.8" />
             </svg>
-            {overlayData && <div className={styles.axisRight} aria-hidden="true">{overlayData.ticks.map((tick, index) => <span key={index}>{tick}</span>)}</div>}
+            {overlayData && <div className={styles.axisRight} data-testid="benchmark-overlay-axis" aria-hidden="true">{overlayData.ticks.map((tick, index) => <span key={index}>{tick}</span>)}</div>}
         </div>
         <div className={overlayData ? `${styles.chartDates} ${styles.chartDatesWithRight}` : styles.chartDates}><span>{fullDate(firstDate)}</span><span>{fullDate(middleDate)}</span><span>{fullDate(lastDate)}</span></div>
         {onSelect && <span className={styles.chartHint}>{historyView === 'recalculated' ? 'Hover, click or use arrow keys to inspect a recalculated score.' : sourced ? replayAvailable ? 'Hover, click or use arrow keys to preview. Use Open historical snapshot to enter replay.' : 'Hover, click or use arrow keys to inspect a stored score.' : 'Select a date to investigate · keyboard: ← → then Enter'}</span>}
