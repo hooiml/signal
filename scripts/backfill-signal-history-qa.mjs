@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
     KNOWN_2026_SCORE_GAP, calculate, dateRange, datesWithoutUsableVix,
-    vixHistoryUrl, weightsFor,
+    vixHistoryUrl, weightsFor, latestAvailable,
 } from './backfill-signal-history.mjs';
 
 // Deterministic, offline coverage: no credentials, live providers or DB mutations.
@@ -36,6 +36,13 @@ assert.deepEqual(
     datesWithoutUsableVix([{ date: '2026-02-13', value: 20.6 }], ['2026-02-14', '2026-02-20', '2026-02-22']),
     ['2026-02-22'], 'long stale close must not be reused to invent a dated reading',
 );
+
+const pointInTimeInputs = [
+    { date: '2026-02-10', availableAt: '2026-02-10', value: 0.91 },
+    { date: '2026-02-12', availableAt: '2026-04-26', value: 0.72 },
+];
+assert.equal(latestAvailable(pointInTimeInputs, '2026-03-01', true)?.value, 0.91, 'later-archived historical input must not leak backwards');
+assert.equal(latestAvailable(pointInTimeInputs, '2026-03-01', false)?.value, 0.72, 'general backfill behaviour is retained');
 
 const weights = weightsFor(20.6, false);
 assert.equal(weights.social, 0, 'target US Standard/Social Off does not include social inputs');
