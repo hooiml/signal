@@ -32,6 +32,8 @@ jobs:
         run: npm ci
       - name: Typecheck and lint
         run: npm run check:pr
+      - name: Score history recovery guardrails
+        run: node scripts/backfill-signal-history-qa.mjs
       - name: Production build
         if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
         env:
