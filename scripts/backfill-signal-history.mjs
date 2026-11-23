@@ -22,6 +22,9 @@ const weeklyDates = (rows, start, end) => Object.values(rows.filter((row) => row
     return weeks;
 }, {})).sort();
 const latest = (rows, date) => rows.filter((row) => row.date <= date).at(-1) ?? null;
+/** For a point-in-time repair, never reuse input first archived only after the target date. */
+export const latestAvailable = (rows, date, enforceAsOf = false) =>
+    latest(enforceAsOf ? rows.filter((row) => row.availableAt <= date) : rows, date);
 
 /** Fetch a bounded historical VIX window, including the last close before the start date. */
 export function vixHistoryUrl(start, end, longRange = false) {
@@ -148,10 +151,10 @@ const institutional = await sql`SELECT indicator_name, report_date::text AS date
 const historicalSocialRows = await sql`SELECT signal_date::text AS date, social_sentiment_score::float AS value FROM market_signals WHERE market_type = 'US' AND social_sentiment_score IS NOT NULL ORDER BY signal_date`;
 const componentSeries = (key) => observed.filter((row) => row.origin === 'observed').flatMap((row) => {
     const item = row.components?.[key];
-    return item && Number.isFinite(Number(item.raw_value)) ? [{ date: String(item.last_updated ?? row.date).slice(0, 10), value: Number(item.raw_value) }] : [];
+    return item && Number.isFinite(Number(item.raw_value)) ? [{ date: String(item.last_updated ?? row.date).slice(0, 10), availableAt: row.date, value: Number(item.raw_value) }] : [];
 }).filter((row, index, rows) => rows.findIndex((candidate) => candidate.date === row.date && candidate.value === row.value) === index).sort((left, right) => left.date.localeCompare(right.date));
 const putCallRows = componentSeries('put_call');
-const aaiiRows = [...institutional.filter((row) => row.indicator_name === 'aaii').map((row) => ({ date: row.date, value: Number(row.value) })), ...componentSeries('aaii')].sort((left, right) => left.date.localeCompare(right.date));
+const aaiiRows = [...institutional.filter((row) => row.indicator_name === 'aaii').map((row) => ({ date: row.date, availableAt: row.date, value: Number(row.value) })), ...componentSeries('aaii')].sort((left, right) => left.date.localeCompare(right.date));
 const observedKeys = new Set(observed.filter((row) => row.origin === 'observed').map((row) => `${row.mode}:${row.enable_social}:${row.date}`));
 const candidates = [];
 const targetDates = longRange ? weeklyDates(vixRows, startDate, endDate) : dateRange(startDate, endDate);
@@ -172,7 +175,7 @@ const observedScoreMismatches = observed.flatMap((row) => {
 for (const date of targetDates) {
     const inputs = longRange
         ? { vix: latest(vixRows, date), social: null, putCall: null, aaii: null }
-        : { vix: latest(vixRows, date), social: historicalSocialRows.find((row) => row.date === date) ?? null, putCall: latest(putCallRows, date), aaii: latest(aaiiRows, date) };
+        : { vix: latest(vixRows, date), social: historicalSocialRows.find((row) => row.date === date) ?? null, putCall: latestAvailable(putCallRows, date, repairGap), aaii: latestAvailable(aaiiRows, date, repairGap) };
     if (!inputs.vix) continue;
     const configurations = repairGap ? [['standard', false]] : [['standard', true], ['standard', false], ['contrarian', true], ['contrarian', false]];
     for (const [mode, enableSocial] of configurations) {
