@@ -33,6 +33,7 @@
     --caution-soft: #fef6e7;
     --caution-line: rgba(180, 83, 9, 0.25);
     --score-mark: #475569;
+    --benchmark-line: #2563eb;
     --focus: var(--brand);
     --shadow: #14171f;
     --card-shadow: 0 1px 2px rgba(20, 23, 31, 0.04), 0 10px 24px -18px rgba(20, 23, 31, 0.12);
@@ -94,6 +95,7 @@
     --caution-soft: #2b2419;
     --caution-line: rgba(229, 181, 98, 0.30);
     --score-mark: #98a6bd;
+    --benchmark-line: #60a5fa;
     --chart-line: var(--up-mark);
     --shadow: #000000;
     --card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 28px -16px rgba(0, 0, 0, 0.75);
