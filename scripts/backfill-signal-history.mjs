@@ -7,7 +7,10 @@ const US_VIX_STRESS_FULL = 40;
 const US_VIX_MAX_WEIGHT = 0.60;
 const WEEKLY_KEYS = new Set(['aaii']);
 
-const dateRange = (start, end) => {
+/** The 2026 gap between the weekly reconstruction and daily backfill. */
+export const KNOWN_2026_SCORE_GAP = Object.freeze({ start: '2026-02-14', end: '2026-04-24' });
+
+export const dateRange = (start, end) => {
     const values = [];
     for (const date = new Date(`${start}T00:00:00Z`); date <= new Date(`${end}T00:00:00Z`); date.setUTCDate(date.getUTCDate() + 1)) values.push(date.toISOString().slice(0, 10));
     return values;
@@ -19,6 +22,27 @@ const weeklyDates = (rows, start, end) => Object.values(rows.filter((row) => row
     return weeks;
 }, {})).sort();
 const latest = (rows, date) => rows.filter((row) => row.date <= date).at(-1) ?? null;
+
+/** Fetch a bounded historical VIX window, including the last close before the start date. */
+export function vixHistoryUrl(start, end, longRange = false) {
+    const prefix = 'https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d';
+    if (longRange) return `${prefix}&range=10y`;
+    const validDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value)
+        && Number.isFinite(Date.parse(`${value}T00:00:00Z`))
+        && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+    if (!validDate(start) || !validDate(end) || start > end) throw new Error('Invalid historical VIX date range');
+    const from = Math.floor((Date.parse(`${start}T00:00:00Z`) - 14 * 86_400_000) / 1000);
+    const through = Math.floor((Date.parse(`${end}T00:00:00Z`) + 86_400_000) / 1000);
+    return `${prefix}&period1=${from}&period2=${through}`;
+}
+
+/** Never manufacture a dated score from a VIX close that is missing or too old. */
+export function datesWithoutUsableVix(vixRows, dates, maxAgeDays = 7) {
+    return dates.filter((date) => {
+        const quote = latest(vixRows, date);
+        return !quote || (Date.parse(`${date}T00:00:00Z`) - Date.parse(`${quote.date}T00:00:00Z`)) > maxAgeDays * 86_400_000;
+    });
+}
 const vixScore = (value) => Math.max(0, Math.min(100, Math.round((100 / (1 + Math.exp((value - 24) / 6))) * 100) / 100));
 const putCallScore = (value) => Math.round(((1.25 - Math.max(0.55, Math.min(1.25, value))) / 0.70) * 100);
 const aaiiScore = (value) => Math.min(Math.max(((value - 20) / 30) * 100, 0), 100);
@@ -95,19 +119,23 @@ export const calculate = ({ date, mode, enableSocial, inputs }) => {
         if (active.length < 3 && confidence === 'high') confidence = 'moderate';
     }
     const drivers = Object.entries(components).map(([key, item]) => ({ key, name: item.display_name, contribution: item.score * item.weight, score: item.score, weight: item.weight, raw_value: item.raw_value, last_updated: item.last_updated, impact: actionFor(item.signal) === majority ? 'positive' : 'negative', detail: 'Reconstructed historical input' })).sort((left, right) => Math.abs(right.contribution) - Math.abs(left.contribution));
-    const coverage = ['VIX historical close', enableSocial ? (inputs.social ? `social historical reading from ${inputs.social.date}` : 'social neutral fallback (raw 0)') : 'social disabled (weight redistributed)', inputs.putCall ? `put/call carried from ${inputs.putCall.date}` : 'put/call neutral reserve', inputs.aaii ? `AAII carried from ${inputs.aaii.date}` : 'AAII neutral reserve'].join('; ');
+    const coverage = [`VIX historical close from ${inputs.vix.date}`, enableSocial ? (inputs.social ? `social historical reading from ${inputs.social.date}` : 'social neutral fallback (raw 0)') : 'social disabled (weight redistributed)', inputs.putCall ? `put/call carried from ${inputs.putCall.date}` : 'put/call neutral reserve', inputs.aaii ? `AAII carried from ${inputs.aaii.date}` : 'AAII neutral reserve'].join('; ');
     return { score, tier, majority, agreement, confidence, components, drivers, coverage };
 };
 
 async function main() {
 const apply = process.argv.includes('--apply');
 const longRange = process.argv.includes('--long-range');
-const startDate = process.argv.find((value) => value.startsWith('--start='))?.split('=')[1] ?? (longRange ? '2020-01-01' : '2026-04-25');
-const endDate = process.argv.find((value) => value.startsWith('--end='))?.split('=')[1] ?? (longRange ? '2026-02-13' : new Date(Date.now() - 86_400_000).toISOString().slice(0, 10));
+const repairGap = process.argv.includes('--repair-gap');
+if (repairGap && (longRange || process.argv.some((arg) => arg.startsWith('--start=') || arg.startsWith('--end=')))) {
+    throw new Error('--repair-gap uses a fixed historical window and cannot be combined with --long-range, --start or --end');
+}
+const startDate = repairGap ? KNOWN_2026_SCORE_GAP.start : process.argv.find((value) => value.startsWith('--start='))?.split('=')[1] ?? (longRange ? '2020-01-01' : '2026-04-25');
+const endDate = repairGap ? KNOWN_2026_SCORE_GAP.end : process.argv.find((value) => value.startsWith('--end='))?.split('=')[1] ?? (longRange ? '2026-02-13' : new Date(Date.now() - 86_400_000).toISOString().slice(0, 10));
 if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
 const sql = neon(process.env.DATABASE_URL);
 
-const yahoo = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=${longRange ? '10y' : '1y'}`, { headers: { 'user-agent': 'SignalDashboard/1.0' } }).then(async (response) => {
+const yahoo = await fetch(vixHistoryUrl(startDate, endDate, longRange), { headers: { 'user-agent': 'SignalDashboard/1.0' } }).then(async (response) => {
     if (!response.ok) throw new Error(`Yahoo VIX history failed: ${response.status}`);
     return response.json();
 });
@@ -127,6 +155,12 @@ const aaiiRows = [...institutional.filter((row) => row.indicator_name === 'aaii'
 const observedKeys = new Set(observed.filter((row) => row.origin === 'observed').map((row) => `${row.mode}:${row.enable_social}:${row.date}`));
 const candidates = [];
 const targetDates = longRange ? weeklyDates(vixRows, startDate, endDate) : dateRange(startDate, endDate);
+if (repairGap) {
+    const missingVix = datesWithoutUsableVix(vixRows, targetDates);
+    if (missingVix.length > 0) {
+        throw new Error(`Refusing to repair score gap: VIX history is missing or stale for ${missingVix.length} date(s), starting ${missingVix[0]}`);
+    }
+}
 
 const observedScoreMismatches = observed.flatMap((row) => {
     const components = Object.values(row.components ?? {});
@@ -140,7 +174,8 @@ for (const date of targetDates) {
         ? { vix: latest(vixRows, date), social: null, putCall: null, aaii: null }
         : { vix: latest(vixRows, date), social: historicalSocialRows.find((row) => row.date === date) ?? null, putCall: latest(putCallRows, date), aaii: latest(aaiiRows, date) };
     if (!inputs.vix) continue;
-    for (const mode of ['standard', 'contrarian']) for (const enableSocial of [true, false]) {
+    const configurations = repairGap ? [['standard', false]] : [['standard', true], ['standard', false], ['contrarian', true], ['contrarian', false]];
+    for (const [mode, enableSocial] of configurations) {
         if (!observedKeys.has(`${mode}:${enableSocial}:${date}`)) candidates.push({ date, mode, enableSocial, ...calculate({ date, mode, enableSocial, inputs }) });
     }
 }
@@ -153,8 +188,9 @@ const byTarget = Object.values(candidates.reduce((summary, row) => {
 }, {}));
 console.log(JSON.stringify({
     mode: apply ? 'apply' : 'dry-run',
-    profile: longRange ? 'weekly-limited-timeline' : 'daily-backfill',
+    profile: repairGap ? 'repair-known-2026-gap' : longRange ? 'weekly-limited-timeline' : 'daily-backfill',
     range: [startDate, endDate],
+    targetDateCount: targetDates.length,
     candidateCount: candidates.length,
     byTarget,
     sourceCoverage: {
@@ -193,6 +229,27 @@ if (apply) {
             WHERE signal_snapshots.origin = 'reconstructed'`;
     }
     console.log(`Inserted or refreshed ${candidates.length} backfilled snapshots.`);
+    if (repairGap) {
+        const rows = await sql`
+            SELECT snapshot_date::text AS date, origin
+            FROM signal_snapshots
+            WHERE market_type = 'US' AND mode = 'standard' AND enable_social = false
+              AND snapshot_date >= ${startDate}::date AND snapshot_date <= ${endDate}::date
+            ORDER BY snapshot_date
+        `;
+        const datesPresent = new Set(rows.map((row) => row.date));
+        const missing = targetDates.filter((date) => !datesPresent.has(date));
+        const invalidOrigin = rows.filter((row) => row.origin !== 'observed' && row.origin !== 'reconstructed');
+        console.log(JSON.stringify({
+            repairVerification: {
+                expectedDates: targetDates.length, presentDates: datesPresent.size,
+                observedPreserved: rows.filter((row) => row.origin === 'observed').length,
+                reconstructed: rows.filter((row) => row.origin === 'reconstructed').length,
+                missingDates: missing, invalidOrigins: invalidOrigin,
+            },
+        }, null, 2));
+        if (missing.length || invalidOrigin.length) throw new Error('Score gap repair failed post-write verification');
+    }
 }
 }
 
