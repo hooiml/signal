@@ -165,6 +165,34 @@ try {
             await page.getByRole('heading', { name: /market condition score/i }).waitFor();
             assert.ok(await page.getByRole('slider', { name: /market condition score/i }).count(), 'score chart');
             await page.getByTestId('benchmark-overlay-path').waitFor();
+            const benchmarkColour = theme === 'dark' ? 'rgb(96, 165, 250)' : 'rgb(37, 99, 235)';
+            const benchmarkAppearance = await page.evaluate(() => {
+                const line = document.querySelector('[data-testid="benchmark-overlay-path"]');
+                const marker = document.querySelector('[data-testid="benchmark-overlay-marker"]');
+                const legend = document.querySelector('[data-testid="benchmark-overlay-legend"]');
+                const axis = document.querySelector('[data-testid="benchmark-overlay-axis"]');
+                assertNotNull(line, 'benchmark line');
+                assertNotNull(marker, 'benchmark marker');
+                assertNotNull(legend, 'benchmark legend');
+                assertNotNull(axis, 'benchmark percentage axis');
+                return {
+                    lineColour: getComputedStyle(line).stroke,
+                    lineDash: getComputedStyle(line).strokeDasharray,
+                    markerColour: getComputedStyle(marker).stroke,
+                    legendColour: getComputedStyle(legend).borderTopColor,
+                    legendStyle: getComputedStyle(legend).borderTopStyle,
+                    axisColour: getComputedStyle(axis).color,
+                };
+                function assertNotNull(element, label) {
+                    if (!element) throw new Error(`${label} is missing`);
+                }
+            });
+            assert.equal(benchmarkAppearance.lineColour, benchmarkColour, 'benchmark line uses theme-aware blue');
+            assert.ok(['none', ''].includes(benchmarkAppearance.lineDash), 'benchmark line is solid');
+            assert.equal(benchmarkAppearance.markerColour, benchmarkColour, 'benchmark selected marker matches');
+            assert.equal(benchmarkAppearance.legendColour, benchmarkColour, 'benchmark legend colour matches');
+            assert.equal(benchmarkAppearance.legendStyle, 'solid', 'benchmark legend is solid');
+            assert.equal(benchmarkAppearance.axisColour, benchmarkColour, 'benchmark percentage axis matches');
             if (width === 1280) {
                 const collapseBtn = page.getByRole('button', { name: 'Collapse sidebar' });
                 const beforeRect = await collapseBtn.boundingBox();
