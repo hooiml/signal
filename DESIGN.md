@@ -1,16 +1,15 @@
-# Design
+# Classic V8 design
 
-The design contract for Signal's default (V8) interface. Older surfaces keep their own contracts:
-V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
+This guide covers classic Market (`/main-v8`) and Research (`/research-v8`).
+For Signal's default workspace at `/v9`, start with the [V9 design references](docs/design-concepts/README.md).
+The [V6](src/components/v6/DESIGN.md) and [V7](docs/DESIGN_V7.md) guides cover their respective interfaces.
 
 ## Source of truth
 
 - Status: Active
-- Last refreshed: 2026-11-20
+- Route guidance checked: 2026-11-24
 - Feature contract: [Latest Market Brief](docs/MARKET_BRIEF_DESIGN.md) (E28;
   evidence-qualified interpretation inside the Market assessment).
-- V9 design specifications: [`docs/design-concepts/README.md`](docs/design-concepts/README.md) (`v9.0` baseline and `v9.0.1` Calm Monochrome flagship spec; Phase 1 implemented on connected Market & header shell).
-- Default surfaces: **Market** (`/main-v8`) and **Research** (`/research-v8`).
 - Evidence reviewed: `src/components/v8/` (components and CSS modules), `src/app/page.tsx`,
   `src/app/research/page.tsx`, `src/app/layout.tsx`, `docs/TESTING.md`, `docs/V8_UI_UX_ENHANCEMENT_PLAN.md`
   and `docs/NEXT_PRODUCT_ROADMAP.md` ("Product Direction To Preserve").
@@ -40,14 +39,14 @@ V6 in `src/components/v6/DESIGN.md`, V7 in `docs/DESIGN_V7.md`.
 
 | Route | What it is |
 | --- | --- |
-| `/` | Redirects to `/main-v8`. |
+| `/` | Redirects to `/v9` and preserves the query. |
 | `/main-v8` | Market conditions. Basic view by default; the **Detailed view** toggle adds tabs and replay. |
-| `/research-v8` | Company research. `/research?ticker=…` (ticker only) redirects here. |
-| `/research` (other params) | The V7 integrated workspace (built on the V6 dashboard) that saved-research edit links open. |
+| `/research-v8` | Classic company research. Ordinary `/research` links, including ticker and market, redirect here. |
+| `/research` with a task parameter | Opens the V7 integrated workspace. See the [task parameters](docs/LEGACY_ROUTE_RETIREMENT.md#route-contract). |
 | `/start` | V6 guided start. Not linked from the V8 header. |
 | `/learn` | Existing courses in the V8 shell; `?concept=rsi`, `put-call`, `naaim`, `pe` or `fcf-yield` opens its matching lab. |
 
-- **Primary navigation (V8/V9 header):** Market · Research, plus local Quick Jump (`⌘K`) and Settings.
+- **Primary navigation (classic V8 header):** Market · Research, plus local Quick Jump (`⌘K`) and Settings.
   Learn uses the same header with a current Learn link; its navigation wraps below the wordmark and
   Settings on phones. Existing courses and the command palette remain available.
 - **V9 Phase 1 Market stage:** Calm Monochrome structural chrome (softened pearl dark ink `#e7ecf4`

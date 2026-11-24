@@ -8,7 +8,8 @@ Redirects are temporary HTTP 307 responses with fixed local destinations.
 
 | Entry | Destination |
 | --- | --- |
-| `/`, `/main-v2`, `/main-v4`, `/main-v5`, `/main-v6`, `/main-v7`, `/backup/main` | `/main-v8` |
+| `/` | `/v9` |
+| `/main-v2`, `/main-v4`, `/main-v5`, `/main-v6`, `/main-v7`, `/backup/main` | `/main-v8` |
 | `/research-v2`, `/research-v4`, `/research-v5`, `/research-v6`, `/research-v7`, `/backup/research` | `/research-v8` for ordinary reading; `/research` for advanced task links |
 | `/research` | `/research-v8` for ordinary reading; existing shared Research controller for advanced task links |
 | `/market/tools` | Retained detailed Market engine, including alerts and queued exposure reviews |
@@ -53,7 +54,7 @@ owners or their shared components. A later migration needs explicit feature acce
 ## Today continuity
 
 The real chain is Today in `/research?workspace=today` → client router navigation to
-`/?returnTo=today` → `/main-v8?returnTo=today`. V8 records the existing Market continuation
+`/?returnTo=today` → `/v9?returnTo=today`. V9 records the existing Market continuation
 and exposes Back to Today. It does not mutate ticker decisions or introduce a new storage
 schema. The same return action remains available when Market data is unavailable.
 

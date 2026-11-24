@@ -22,7 +22,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-The main dashboard route starts at `src/app/page.tsx`, with V2 dashboard UI under `src/components/v2`.
+The home route redirects to `/v9`, which opens Market Pulse. Start with the [V9 workspace](src/components/v9/V9Workspace.tsx) for the dashboard UI and the [design guide](docs/design-concepts/README.md) for its visual references.
 
 Create `.env.local` from `.env.example` and fill in the required values before using database-backed or AI-backed routes.
 
