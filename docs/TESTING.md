@@ -11,11 +11,11 @@ applicable harness, browser suites, and screenshot comparisons locally. See
 
 For V9 workspace changes, run `node scripts/v9-workspace-qa.mjs` against the local
 production server at `SIGNAL_QA_URL` (default `http://127.0.0.1:3000`). It exercises
-workspace navigation with fixture data and captures Home and Market at 1280, 768
+workspace navigation with fixture data and captures Market Pulse and its intraday timeline at 1280, 768
 and 375 pixels in both themes under `.tmp/v9-workspace/`.
 
 Run `node scripts/v9-research-ports-qa.mjs` against the same local server for the
-Research ports. Check the six-stock Home preview against a larger watchlist, owner
+Research ports. Check the six-stock sidebar preview against a larger watchlist, owner
 review links, guest filters, company-name search and direct ticker entry. Selecting
 a result must retain its market and stay in V9. Check guest note recovery after
 switching stock and reloading, including a stock that has never been saved. Confirm
