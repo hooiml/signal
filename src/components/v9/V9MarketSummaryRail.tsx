@@ -1,7 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import type { FearGreedPayload } from '@/app/api/signals/fear-greed/route';
 import type { MarketInternalsPayload } from '@/app/api/signals/internals/route';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import { getIndicatorBaseWeights, getIndicatorDisplayName } from '@/lib/indicator-registry';
@@ -11,19 +9,13 @@ import { marketReadingLabel, marketTimestampLabel } from '@/lib/market-display';
 import { MARKET_SCORE_TIER_THRESHOLDS } from '@/lib/market-score-thresholds';
 import { signed } from '@/components/v8/market-v8-fixtures';
 import { confirmationBadge } from './V9MarketInternals';
+import { V9FearGreedCard } from './V9FearGreedCard';
 import styles from './v9-workspace.module.css';
 
 type Tone = 'up' | 'neutral' | 'down';
 
 const toneForTier = (tier: MarketSignal['tier']): Tone =>
     tier === 'buy' || tier === 'strong-buy' ? 'up' : tier === 'sell' || tier === 'strong-sell' ? 'down' : 'neutral';
-
-const formatRating = (rating: string): string =>
-    rating
-        .trim()
-        .split(/\s+/)
-        .map(word => (word ? word[0].toUpperCase() + word.slice(1).toLowerCase() : ''))
-        .join(' ') || 'Neutral';
 
 function overallCheckBadge(
     signalScore: number,
@@ -92,10 +84,6 @@ function findRangeStartComparison(
         delta: currentScore - baseline.score,
     };
 }
-
-type FngState =
-    | { readonly status: 'loading' }
-    | { readonly status: 'ready'; readonly payload: FearGreedPayload };
 
 export function V9MarketSummaryRail({
     market,
@@ -302,6 +290,8 @@ export function V9MarketSummaryRail({
                     <button type="button" className={styles.textLink} onClick={onOpenScenarios}>Scenarios →</button>
                 </div>
             </section>
+
+            <V9FearGreedCard />
         </aside>
     );
 }
@@ -319,37 +309,8 @@ export function V9CrossMarketStrip({
     readonly internalsLoading?: boolean;
     readonly onOpenContext: () => void;
 }) {
-    const [fngState, setFngState] = useState<FngState>({ status: 'loading' });
-
-    useEffect(() => {
-        const controller = new AbortController();
-        void (async () => {
-            try {
-                const res = await fetch('/api/signals/fear-greed', { signal: controller.signal });
-                if (!res.ok) throw new Error('Request failed');
-                const body = (await res.json()) as { success?: boolean; data?: FearGreedPayload };
-                if (!controller.signal.aborted) {
-                    setFngState({
-                        status: 'ready',
-                        payload: body?.data ?? { available: false, reason: 'CNN Fear & Greed feed is currently unavailable.' },
-                    });
-                }
-            } catch {
-                if (!controller.signal.aborted) {
-                    setFngState({
-                        status: 'ready',
-                        payload: { available: false, reason: 'CNN Fear & Greed feed is currently unavailable.' },
-                    });
-                }
-            }
-        })();
-        return () => controller.abort();
-    }, []);
-
-    const fng = fngState.status === 'ready' ? fngState.payload : null;
     const hasInternals = Boolean(internals && internals.available && internals.items.length > 0);
     const summaryBadge = hasInternals && internals ? overallCheckBadge(signalScore, internals) : null;
-    const hasFngCard = Boolean(fng && fng.available);
 
     return (
         <section className={`${styles.card} ${styles.v9CrossStrip}`} aria-label="Cross-Market Check">
@@ -375,7 +336,7 @@ export function V9CrossMarketStrip({
             </div>
 
             {hasInternals && internals ? (
-                <div className={styles.v9CrossStripGrid} data-cols={hasFngCard ? '4' : '3'}>
+                <div className={styles.v9CrossStripGrid} data-cols="3">
                     {internals.items.map(item => {
                         const check = confirmationBadge(
                             signalScore,
@@ -393,30 +354,13 @@ export function V9CrossMarketStrip({
                             </div>
                         );
                     })}
-                    {hasFngCard && fng && fng.available && (
-                        <div className={`${styles.v9CrossTile} ${styles.v9CrossTileOptional}`}>
-                            <div className={styles.v9CrossTileTop}>
-                                <b>CNN Fear &amp; Greed</b>
-                                <span className={styles.toneBadge}>Not scored</span>
-                            </div>
-                            <strong className={styles.v9CrossTileVal}>{fng.score}/100</strong>
-                            <small className={styles.v9CrossTileMeta}>{formatRating(fng.rating)}</small>
-                        </div>
-                    )}
                 </div>
             ) : (
-                <>
-                    <p className={styles.v9FngFallback}>
-                        {internalsLoading
-                            ? 'Fetching cross-market confirmation series…'
-                            : 'Cross-market reference feed is unavailable right now. Signal scoring is unaffected.'}
-                    </p>
-                    {hasFngCard && fng && fng.available && (
-                        <div className={styles.v9OptionalCnn}>
-                            <span>CNN Fear &amp; Greed (optional): <b>{fng.score}/100 · {formatRating(fng.rating)}</b></span>
-                        </div>
-                    )}
-                </>
+                <p className={styles.v9FngFallback}>
+                    {internalsLoading
+                        ? 'Fetching cross-market confirmation series…'
+                        : 'Cross-market reference feed is unavailable right now. Signal scoring is unaffected.'}
+                </p>
             )}
         </section>
     );

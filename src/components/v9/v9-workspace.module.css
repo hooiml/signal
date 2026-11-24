@@ -382,7 +382,7 @@
 
 .pageContent {
     width: 100%;
-    max-width: 1240px;
+    max-width: 1680px;
     margin: 0 auto;
     padding: 24px 28px 48px;
     display: grid;
@@ -736,8 +736,8 @@ a.ghostBtn { color: var(--link); }
 .todayLoad { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
 
 /* V9 Market Pulse Top Summary Rail & Cross-Market Strip */
-.v9SummaryRail { display: grid; gap: 12px; min-width: 0; }
-.v9ScoreCard { display: grid; gap: 12px; padding: 18px 20px; align-content: start; }
+.v9SummaryRail { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.v9ScoreCard { display: grid; gap: 15px; padding: 20px 22px; align-content: start; }
 .v9ScoreCard[data-tone=up] { background: var(--aurora-up); }
 .v9ScoreCard[data-tone=neutral] { background: var(--aurora-neutral); }
 .v9ScoreCard[data-tone=down] { background: var(--aurora-down); }
@@ -861,7 +861,8 @@ a.ghostBtn { color: var(--link); }
 }
 .v9ZoneLabels {
     display: flex;
-    font-size: 12px;
+    gap: 4px;
+    font-size: 11.5px;
     color: var(--muted);
     font-variant-numeric: tabular-nums;
 }
@@ -913,6 +914,351 @@ a.ghostBtn { color: var(--link); }
     border-top: 1px solid var(--line);
 }
 .v9CardFoot .textLink { min-height: 36px; }
+
+.v9FngCard {
+    display: grid;
+    gap: 10px;
+    padding: 16px 20px;
+    align-content: start;
+}
+.v9FngHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+.v9FngEyebrow {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--muted);
+}
+.v9FngHead h2 {
+    margin: 2px 0 0;
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -.015em;
+}
+.v9FngScoreRow {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    font-variant-numeric: tabular-nums;
+}
+.v9FngScoreNum {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -.03em;
+    color: var(--ink);
+}
+.v9FngScoreNum[data-tone=up] { color: var(--up-mark); }
+.v9FngScoreNum[data-tone=down] { color: var(--down-mark); }
+.v9FngScoreNum[data-tone=neutral] { color: var(--caution-mark); }
+.v9FngScoreDenom {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+}
+.v9FngTrack {
+    height: 7px;
+    border-radius: 999px;
+    background: var(--surface-muted);
+    overflow: hidden;
+}
+.v9FngFill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--caution-mark);
+}
+.v9FngFill[data-tone=up] { background: var(--up-mark); }
+.v9FngFill[data-tone=down] { background: var(--down-mark); }
+.v9FngNote {
+    margin: 0;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.45;
+}
+.v9FngMainRow {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 14px;
+    align-items: center;
+}
+.v9FngScoreCol {
+    display: grid;
+    gap: 6px;
+    min-width: 82px;
+}
+.v9FngSparkWrap {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+.v9FngSparkPlot {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+}
+.v9FngSparkSvgWrap {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 54px;
+}
+.v9FngSparkSvgWrap svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
+}
+.v9FngSparkDot {
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+.v9FngSparkTicks {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-size: 10.5px;
+    line-height: 1;
+    color: var(--subtle);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    min-width: 16px;
+}
+.v9FngSparkCaption {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--subtle);
+    text-align: right;
+}
+.v9FngRefRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin: 0;
+    padding: 8px 0 0;
+    border-top: 1px solid var(--line);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+.v9FngRefRow > div {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+}
+.v9FngRefRow dt {
+    color: var(--muted);
+}
+.v9FngRefRow dd {
+    margin: 0;
+    font-weight: 650;
+    color: var(--ink);
+}
+.v9FngFooter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+    font-size: 11.5px;
+    color: var(--muted);
+}
+.v9FngFooter .textLink {
+    min-height: 32px;
+    font-size: 12px;
+}
+
+/* 1Y Fear & Greed History Dialog */
+.v9FngModal {
+    width: min(860px, calc(100vw - 32px));
+    max-width: none;
+    padding: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 16px;
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+    margin: auto;
+}
+.v9FngModal::backdrop {
+    background: rgba(8, 11, 18, 0.68);
+    backdrop-filter: blur(3px);
+}
+.v9FngModalBody {
+    padding: 22px 24px;
+    display: grid;
+    gap: 16px;
+}
+.v9FngModalHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+.v9FngModalHead h2 {
+    margin: 2px 0 0;
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+.v9FngModalClose {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--surface-subtle);
+    color: var(--ink);
+    font-size: 20px;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+}
+.v9FngModalClose:hover {
+    border-color: var(--line-strong);
+    background: var(--surface-muted);
+}
+.v9FngModalChartWrap {
+    display: grid;
+    gap: 10px;
+}
+.v9FngModalReadout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    font-size: 13px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+.v9FngModalReadout b {
+    color: var(--ink);
+    font-weight: 700;
+}
+.v9FngModalPlot {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+}
+.v9FngModalSvgWrap {
+    position: relative;
+    flex: 1 1 0%;
+    min-width: 0;
+    height: 236px;
+}
+.v9FngModalSvgWrap svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
+    cursor: crosshair;
+}
+.v9FngModalSvgWrap svg:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 4px;
+    border-radius: 4px;
+}
+.v9FngModalAxis {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 4px 0;
+    min-width: 24px;
+    text-align: right;
+    font-size: 11.5px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+.v9FngZoneTop,
+.v9FngZoneBottom {
+    position: absolute;
+    left: 12px;
+    font-size: 11.5px;
+    color: var(--subtle);
+    pointer-events: none;
+}
+.v9FngZoneTop { top: 14%; }
+.v9FngZoneBottom { bottom: 14%; }
+.v9FngModalDot {
+    position: absolute;
+    width: 11px;
+    height: 11px;
+    border-radius: 999px;
+    border: 3px solid var(--ink);
+    background: var(--surface);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 3;
+}
+.v9FngModalTooltip {
+    position: absolute;
+    top: 10px;
+    z-index: 5;
+    transform: translateX(12px);
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--shadow) 24%, transparent);
+    pointer-events: none;
+    display: grid;
+    gap: 2px;
+    font-size: 12px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.v9FngModalTooltip[data-flip=true] {
+    transform: translateX(calc(-100% - 12px));
+}
+.v9FngModalTooltip span {
+    color: var(--muted);
+}
+.v9FngModalMonths {
+    position: relative;
+    height: 18px;
+    margin-right: 34px;
+    font-size: 11.5px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+.v9FngModalMonths span {
+    position: absolute;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+.v9FngModalStats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 12px 0 0;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+}
+.v9FngModalStats dt {
+    color: var(--muted);
+    font-size: 11.5px;
+}
+.v9FngModalStats dd {
+    margin: 2px 0 0;
+    font-weight: 650;
+    color: var(--ink);
+}
 
 .v9CrossStrip { display: grid; gap: 12px; padding: 16px 18px; margin-bottom: 20px; }
 .v9CrossStripHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }

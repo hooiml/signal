@@ -120,10 +120,37 @@
 .chartPresentationToggle button:hover { color: var(--ink); }
 .chartPresentationToggle button[aria-pressed=true] { background: var(--surface); color: var(--ink); box-shadow: var(--control-shadow); font-weight: 700; }
 .chartPlot { display: flex; gap: 12px; }
-.chartPlot > svg { height: 185px; flex: 1 1 0%; min-width: 0; width: auto; overflow: visible; touch-action: pan-y; }
-.chartPlot > svg[role=slider] { cursor: crosshair; }
-.app .chartPlot:has(> svg:focus-visible) { outline: 3px solid var(--focus); outline-offset: 4px; border-radius: 5px; }
-.app .chartPlot > svg:focus-visible { outline: none; }
+.chartSvgWrap { position: relative; flex: 1 1 0%; min-width: 0; display: flex; align-items: stretch; }
+.chartSvgWrap > svg { height: 185px; flex: 1 1 0%; min-width: 0; width: 100%; overflow: visible; touch-action: pan-y; }
+.chartSvgWrap > svg[role=slider] { cursor: crosshair; }
+.app .chartPlot:has(svg:focus-visible) { outline: 3px solid var(--focus); outline-offset: 4px; border-radius: 5px; }
+.app .chartSvgWrap > svg:focus-visible { outline: none; }
+.chartDot { position: absolute; border-radius: 999px; transform: translate(-50%, -50%); pointer-events: none; background: var(--surface); }
+.chartDotPrimary { width: 11px; height: 11px; border: 3px solid var(--ink); z-index: 3; }
+.chartDotSecondary { width: 7px; height: 7px; border: 2px solid var(--muted); z-index: 2; }
+.chartDotBenchmark { width: 8px; height: 8px; border: 2px solid var(--benchmark-line, var(--subtle)); z-index: 2; }
+.chartTooltip {
+    position: absolute;
+    top: 8px;
+    z-index: 6;
+    transform: translateX(12px);
+    min-width: 170px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--shadow) 22%, transparent);
+    pointer-events: none;
+    display: grid;
+    gap: 4px;
+    font-size: var(--text-xs);
+    font-variant-numeric: tabular-nums;
+}
+.chartTooltip[data-flip=true] { transform: translateX(calc(-100% - 12px)); }
+.chartTooltipDate { font-weight: 700; color: var(--ink); padding-bottom: 3px; border-bottom: 1px solid var(--line); }
+.chartTooltipRow { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.chartTooltipRow b { margin-left: auto; color: var(--ink); font-weight: 650; }
+.chartTooltipSwatch { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; }
 .axis { display: flex; flex-direction: column; justify-content: space-between; font-size: var(--text-xs); color: var(--subtle); min-width: 20px; padding: 3px 0; }
 .axisRight { display: flex; flex-direction: column; justify-content: space-between; font-size: var(--text-xs); color: var(--benchmark-line, var(--subtle)); min-width: 38px; text-align: right; padding: 3px 0; font-variant-numeric: tabular-nums; flex-shrink: 0; }
 .chartDates { margin: 10px 0 0 32px; display: flex; justify-content: space-between; color: var(--subtle); font-size: var(--text-xs); }
@@ -553,7 +580,7 @@
 
 /* Prevent bounded 0–100 chart labels from wrapping into misleading split digits. */
 .app .axis { flex: 0 0 32px; min-width: 32px; white-space: nowrap; text-align: right; }
-.app .chartPlot > svg { flex: 1 1 auto; min-width: 0; width: auto; }
+.app .chartSvgWrap > svg { flex: 1 1 auto; min-width: 0; width: 100%; }
 
 /* Zero score change: one line instead of three equal metrics. */
 .unchangedScore { display: flex; align-items: baseline; gap: 14px; margin: 18px 0; padding: 14px 16px; border-block: 1px solid var(--line); }
