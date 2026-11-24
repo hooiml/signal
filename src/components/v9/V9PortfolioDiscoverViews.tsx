@@ -100,19 +100,19 @@ export function V9PortfolioView({
         <div style={{ display: 'grid', gap: 18 }}>
             <div className={styles.heroBrief}>
                 <div>
-                    <div className={styles.kicker}><span>Local Holdings Snapshot · Private on this device</span></div>
                     <h1 className={styles.heroTitle}>Portfolio & Sleeves</h1>
+                    <p className={styles.pageSub}>Local holdings snapshot · Private on this device</p>
                 </div>
             </div>
 
-            <nav className={styles.quickPills} aria-label="Portfolio views">
-                <Link className={managing ? styles.quickPill : styles.primaryBtn} href={v9Href('portfolio')} aria-current={managing ? undefined : 'page'}>Holdings</Link>
-                <Link className={managing ? styles.primaryBtn : styles.quickPill} href={v9Href('portfolio', { tab: 'manage' })} aria-current={managing ? 'page' : undefined}>Manage portfolio</Link>
+            <nav className={styles.segWrap} aria-label="Portfolio views">
+                <Link className={styles.segLink} href={v9Href('portfolio')} aria-current={managing ? undefined : 'page'}>Holdings</Link>
+                <Link className={styles.segLink} href={v9Href('portfolio', { tab: 'manage' })} aria-current={managing ? 'page' : undefined}>Manage portfolio</Link>
             </nav>
 
             {!managing && summaries.length > 0 && (
                 <section className={styles.card} aria-label="Currency totals">
-                    <div className={styles.metricGrid} style={{ marginTop: 0 }}>
+                    <div className={styles.metricGrid} data-cols="2" style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}>
                         {summaries.map(summary => (
                             <div key={summary.currency} className={styles.metricTile}>
                                 <small>{summary.currency} Cost Basis + Cash</small>
@@ -156,8 +156,8 @@ export function V9DiscoverView({
         <div style={{ display: 'grid', gap: 18 }}>
             <div className={styles.heroBrief}>
                 <div>
-                    <div className={styles.kicker}><span>US Universe · Trend Discovery · Stock Picker · Earnings Calendar</span></div>
                     <h1 className={styles.heroTitle}>Discover Ideas</h1>
+                    <p className={styles.pageSub}>US universe · Trend discovery, Stock Picker &amp; Earnings calendar</p>
                 </div>
             </div>
 

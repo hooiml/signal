@@ -210,7 +210,7 @@
 /* V9 Embedded Market Pulse Main Stage & Indicator Grid */
 .v9TopStage {
     display: grid;
-    grid-template-columns: minmax(320px, 360px) minmax(0, 1fr) minmax(300px, 340px);
+    grid-template-columns: minmax(340px, 390px) minmax(0, 1fr);
     gap: 18px;
     align-items: stretch;
     margin-bottom: 20px;
@@ -235,19 +235,33 @@
     min-height: 280px;
     align-self: stretch;
 }
+.v9ContextSplit {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    gap: 18px;
+    align-items: stretch;
+    margin-bottom: 20px;
+}
+.v9ContextSplit > * { min-width: 0; }
 .v9HeadlinesRail {
-    background: var(--surface-subtle);
+    background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 18px 20px;
+    border-radius: 16px;
+    box-shadow: var(--card-shadow);
+    padding: 18px 22px;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 .v9HeadlinesHead {
     display: grid;
     gap: 2px;
+}
+.v9HeadlinesSub {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--muted);
 }
 .v9HeadlinesHead h2 {
     margin: 0;
@@ -319,6 +333,9 @@
     position: relative;
     flex-wrap: wrap;
     gap: 10px 14px;
+}
+.v9ChartHeader:has(.v9ChartInfo[open]) {
+    margin-bottom: 156px;
 }
 .v9ChartTitleRow {
     display: inline-flex;
@@ -437,19 +454,25 @@
 .evidenceRows[data-v9-grid=true] {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    margin-top: 8px;
+    gap: 0;
+    margin-top: 10px;
+    border-top: 1px solid var(--line);
 }
 .evidenceRows[data-v9-grid=true] .evidenceRow {
     align-items: start;
     align-content: space-between;
     padding: 14px 16px;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: var(--surface-subtle);
+    border-bottom: 1px solid var(--line);
+}
+.evidenceRows[data-v9-grid=true] .evidenceRow:nth-child(odd) {
+    padding-left: 0;
+    border-right: 1px solid var(--line);
+}
+.evidenceRows[data-v9-grid=true] .evidenceRow:nth-child(even) {
+    padding-right: 0;
 }
 .evidenceRows[data-v9-grid=true] .evidenceRow:hover {
-    border-color: var(--line-strong);
+    background: var(--surface-subtle);
 }
 .evidenceRows[data-v9-grid=true] .direction {
     white-space: nowrap;
@@ -529,18 +552,16 @@
     padding-top: 8px;
     border-top: 1px solid var(--line);
 }
-@media (max-width: 1359px) {
-    .v9TopStage { grid-template-columns: minmax(300px, 340px) minmax(0, 1fr); }
-    .v9HeadlinesRail { grid-column: 1 / -1; }
-}
-@media (max-width: 900px) {
-    .v9TopStage { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 960px) {
+    .v9TopStage, .v9ContextSplit { grid-template-columns: minmax(0, 1fr); }
     .v9TopStage > section :has(> svg[role=slider]),
     .v9TopStage > section svg[role=slider] { min-height: 220px; }
     .v9EvidenceRow[data-inspecting=true] { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 768px) {
     .evidenceRows[data-v9-grid=true] { grid-template-columns: minmax(0, 1fr); }
+    .evidenceRows[data-v9-grid=true] .evidenceRow:nth-child(odd) { border-right: 0; }
+    .evidenceRows[data-v9-grid=true] .evidenceRow { padding-inline: 0; }
     .v9ChartInfoCard { left: 14px; right: 14px; width: auto; }
     .v9ChartControls { justify-content: flex-start; }
     .v9ChartStatus { padding-inline: 15px; }
