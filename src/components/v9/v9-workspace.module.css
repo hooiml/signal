@@ -1,25 +1,27 @@
-/* V9 neutral research surfaces with high-contrast text and a restrained bronze brand accent.
-   Scoped tokens also style embedded V8 components; market up/down colors remain semantic. */
+/* V9 neutral off-white / midnight graphite surfaces with monochrome actions.
+   Scoped tokens also style embedded V8 components; financial data colors remain semantic. */
+:global(html):has(.shell[data-collapsed]),
 .shell[data-collapsed] {
-    --canvas: #f8fafc;
+    --canvas: #f7f7f7;
     --surface: #ffffff;
-    --surface-subtle: #f7f9fc;
-    --surface-muted: #f1f5f9;
-    --sidebar-bg: #f1f5f9;
-    --line: #d7dfe9;
-    --line-strong: #b8c7d8;
-    --ink: #0f172a;
-    --muted: #334155;
-    --subtle: #475569;
-    --brand: #8a5c22;
-    --brand-hover: #704919;
-    --brand-soft: #f6f3ee;
+    --surface-subtle: #f5f5f5;
+    --surface-muted: #eaeaea;
+    --sidebar-bg: #f0f0f0;
+    --line: #e5e5e5;
+    --line-strong: #b8b8b8;
+    --ink: #171717;
+    --muted: #525252;
+    --subtle: #616161;
+    --brand: #171717;
+    --brand-hover: #333333;
+    --brand-soft: #dedede;
     --link: var(--brand);
     --link-hover: var(--brand-hover);
-    --cta: #171c26;
-    --cta-hover: #252c3b;
+    --cta: #171717;
+    --cta-hover: #333333;
     --on-brand: #ffffff;
     --on-cta: #ffffff;
+    --secondary-hover: #dedede;
     --up: #047857;
     --up-mark: #10b981;
     --up-soft: #ecfdf5;
@@ -32,21 +34,24 @@
     --caution-mark: #d97706;
     --caution-soft: #fef6e7;
     --caution-line: rgba(180, 83, 9, 0.25);
-    --score-mark: #475569;
+    --score-mark: #525252;
+    --chart-line: #171717;
     --benchmark-line: #2563eb;
     --focus: var(--brand);
-    --shadow: #14171f;
-    --card-shadow: 0 1px 2px rgba(20, 23, 31, 0.04), 0 10px 24px -18px rgba(20, 23, 31, 0.12);
+    --shadow: #171717;
+    --card-shadow: 0 1px 2px rgba(23, 23, 23, 0.04), 0 10px 24px -18px rgba(23, 23, 23, 0.12);
     --aurora-up: radial-gradient(ellipse 72% 80% at 88% 0%, rgba(16, 185, 129, 0.09), transparent 64%), var(--surface);
-    --aurora-neutral: radial-gradient(ellipse 72% 80% at 88% 0%, rgba(100, 116, 139, 0.06), transparent 64%), var(--surface);
+    --aurora-neutral: radial-gradient(ellipse 72% 80% at 88% 0%, rgba(23, 23, 23, 0.05), transparent 64%), var(--surface);
     --aurora-down: radial-gradient(ellipse 72% 80% at 88% 0%, rgba(244, 63, 94, 0.09), transparent 64%), var(--surface);
-    --avatar-us-bg: #eef2f7;
-    --avatar-us-ink: #8a5c22;
+    --avatar-us-bg: #eaeaea;
+    --avatar-us-ink: #525252;
     --avatar-my-bg: #e6f6f2;
     --avatar-my-ink: #0f766e;
     --font-display: var(--font-plus-jakarta), system-ui, sans-serif;
     --font-sans: var(--font-inter), system-ui, sans-serif;
-
+    color-scheme: light;
+}
+.shell[data-collapsed] {
     display: grid;
     grid-template-columns: 248px minmax(0, 1fr);
     min-height: 100vh;
@@ -57,31 +62,33 @@
     line-height: 1.55;
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1, "zero" 0;
-    color-scheme: light;
 }
 .shell[data-collapsed=true] {
     grid-template-columns: 74px minmax(0, 1fr);
 }
+:global(html[data-v8-theme=dark]):has(.shell[data-collapsed]),
 :global(html[data-v8-theme=dark]) .shell[data-collapsed] {
-    --canvas: #090d16;
-    --surface: #111826;
-    --surface-subtle: #151e2f;
-    --surface-muted: #1b2539;
-    --sidebar-bg: #0c111c;
-    --line: rgba(226, 232, 244, 0.09);
-    --line-strong: rgba(223, 192, 138, 0.28);
-    --ink: #ecf0f6;
-    --muted: #98a6bd;
-    --subtle: #7e8da6;
-    --brand: #dfc08a;
-    --brand-hover: #ebd3a6;
-    --brand-soft: #221f1c;
-    --link: #dfc08a;
-    --link-hover: #ebd3a6;
-    --cta: #efe6d5;
-    --cta-hover: #f8f2e7;
-    --on-brand: #0c1018;
-    --on-cta: #0c1018;
+    --canvas: #111318;
+    --surface: #191d24;
+    --surface-subtle: #1e232c;
+    --surface-muted: #242a34;
+    --sidebar-bg: #15181e;
+    --line: #2c323d;
+    --line-strong: #454e5c;
+    --ink: #f1f3f5;
+    --muted: #a3abb8;
+    --subtle: #98a2b0;
+    --brand: #f1f3f5;
+    --brand-hover: #ffffff;
+    --brand-soft: #303744;
+    --link: var(--brand);
+    --link-hover: var(--brand-hover);
+    --cta: #f1f3f5;
+    --cta-hover: #e0e4e9;
+    --on-brand: #111318;
+    --on-cta: #111318;
+    --secondary-hover: #303744;
+    --focus: var(--brand);
     --up: #4ade80;
     --up-mark: #34d399;
     --up-soft: #102a29;
@@ -94,16 +101,16 @@
     --caution-mark: #e5b562;
     --caution-soft: #2b2419;
     --caution-line: rgba(229, 181, 98, 0.30);
-    --score-mark: #98a6bd;
+    --score-mark: #a3abb8;
     --benchmark-line: #60a5fa;
-    --chart-line: var(--up-mark);
+    --chart-line: #f1f3f5;
     --shadow: #000000;
     --card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 28px -16px rgba(0, 0, 0, 0.75);
     --aurora-up: radial-gradient(ellipse 72% 80% at 88% 0%, rgba(52, 211, 153, 0.14), transparent 64%), var(--surface);
-    --aurora-neutral: radial-gradient(ellipse 72% 80% at 88% 0%, rgba(223, 192, 138, 0.13), transparent 64%), var(--surface);
+    --aurora-neutral: radial-gradient(ellipse 72% 80% at 88% 0%, rgba(163, 171, 184, 0.08), transparent 64%), var(--surface);
     --aurora-down: radial-gradient(ellipse 72% 80% at 88% 0%, rgba(251, 113, 133, 0.16), transparent 64%), var(--surface);
-    --avatar-us-bg: #23201b;
-    --avatar-us-ink: #dfc08a;
+    --avatar-us-bg: #242a34;
+    --avatar-us-ink: #a3abb8;
     --avatar-my-bg: #122926;
     --avatar-my-ink: #5eead4;
     color-scheme: dark;
@@ -425,13 +432,13 @@
     padding: 0 13px;
     border-radius: 10px;
     border: 1px solid var(--line);
-    background: var(--surface-subtle);
+    background: var(--surface-muted);
     color: var(--ink);
     font-size: 13px;
     font-weight: 600;
     transition: border-color .15s, background .15s;
 }
-.ghostBtn:hover { border-color: var(--line-strong); background: var(--surface); }
+.ghostBtn:hover { border-color: var(--line-strong); background: var(--secondary-hover); }
 a.ghostBtn { color: var(--link); }
 .textLink { font-size: 12.5px; font-weight: 600; color: var(--link); display: inline-flex; align-items: center; gap: 4px; min-height: 36px; flex-shrink: 0; }
 .textLink:hover { color: var(--link-hover); }

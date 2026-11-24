@@ -229,10 +229,40 @@ try {
             assert.ok(width > 768 || mainWidth >= width * .88, `market main uses only ${mainWidth}px of ${width}px viewport`);
             const palette = await page.getByTestId('v9-workspace').filter({ visible: true }).evaluate(node => {
                 const css = getComputedStyle(node);
-                return Object.fromEntries(['--canvas', '--surface', '--brand', '--ink', '--muted'].map(key => [key, css.getPropertyValue(key).trim()]));
+                return Object.fromEntries(['--canvas', '--surface', '--surface-muted', '--line', '--brand', '--brand-soft', '--ink', '--muted', '--cta', '--on-cta', '--secondary-hover', '--up', '--down', '--caution', '--benchmark-line'].map(key => [key, css.getPropertyValue(key).trim().toLowerCase()]));
             });
             report.checks.push({ name: `palette ${width} ${theme}`, palette });
-            assert.equal(palette['--brand'].toLowerCase(), theme === 'dark' ? '#dfc08a' : '#8a5c22');
+            const dark = theme === 'dark';
+            assert.deepEqual(palette, dark ? {
+                '--canvas': '#111318', '--surface': '#191d24', '--surface-muted': '#242a34', '--line': '#2c323d',
+                '--brand': '#f1f3f5', '--brand-soft': '#303744', '--ink': '#f1f3f5', '--muted': '#a3abb8',
+                '--cta': '#f1f3f5', '--on-cta': '#111318', '--secondary-hover': '#303744',
+                '--up': '#4ade80', '--down': '#fda4af', '--caution': '#f5c977', '--benchmark-line': '#60a5fa',
+            } : {
+                '--canvas': '#f7f7f7', '--surface': '#ffffff', '--surface-muted': '#eaeaea', '--line': '#e5e5e5',
+                '--brand': '#171717', '--brand-soft': '#dedede', '--ink': '#171717', '--muted': '#525252',
+                '--cta': '#171717', '--on-cta': '#ffffff', '--secondary-hover': '#dedede',
+                '--up': '#047857', '--down': '#be123c', '--caution': '#92400e', '--benchmark-line': '#2563eb',
+            });
+            const hexToRgb = hex => `rgb(${hex.slice(1).match(/../g).map(value => Number.parseInt(value, 16)).join(', ')})`;
+            const shellBackground = await page.getByTestId('v9-workspace').filter({ visible: true }).evaluate(node => getComputedStyle(node).backgroundColor);
+            assert.equal(shellBackground, hexToRgb(palette['--canvas']), 'canvas uses the resolved V9 theme');
+            const nav = page.getByRole('navigation', { name: width <= 860 ? 'Mobile navigation' : 'Primary navigation', exact: true });
+            const currentNav = nav.locator('[aria-current="page"]');
+            const navAppearance = await currentNav.evaluate(node => {
+                const css = getComputedStyle(node);
+                return { background: css.backgroundColor, text: css.color };
+            });
+            assert.equal(navAppearance.background, hexToRgb(palette['--brand-soft']), 'active navigation has a neutral fill');
+            assert.equal(navAppearance.text, hexToRgb(palette['--brand']), 'active navigation has monochrome text');
+            const secondary = page.getByRole('button', { name: 'Advanced Market', exact: true });
+            await page.mouse.move(0, 0);
+            const secondaryAppearance = await secondary.evaluate(node => {
+                const css = getComputedStyle(node);
+                return { background: css.backgroundColor, text: css.color };
+            });
+            assert.equal(secondaryAppearance.background, hexToRgb(palette['--surface-muted']), 'secondary action is graphite / gray');
+            assert.equal(secondaryAppearance.text, hexToRgb(palette['--ink']), 'secondary action uses readable neutral text');
             await page.screenshot({ path: `${output}/market-${width}-${theme}.png` });
 
             await page.getByRole('region', { name: 'Market assessment' }).getByRole('button', { name: /What changed today\?/i }).click();
