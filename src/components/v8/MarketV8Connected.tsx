@@ -92,6 +92,7 @@ type EmbeddedMarket = {
         readonly signal: MarketSignal;
         readonly onOpenContext: () => void;
     }) => ReactNode;
+    renderSecondaryRail?: () => ReactNode;
     renderContextExtra?: () => ReactNode;
 };
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Data could not be loaded.';
@@ -690,10 +691,12 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                                     <section className={styles.scorePanel} aria-label="Market score and history">
                                         {scorePanelBody}
                                     </section>
+                                </div>
+                                <div className={layout.v9ContextSplit}>
                                     <aside className={layout.v9HeadlinesRail} aria-label="Market headlines">
                                         <div className={layout.v9HeadlinesHead}>
-                                            <span className={styles.eyebrow}>Market headlines · Context (not scored)</span>
                                             <h2>What is moving {market === 'MY' ? 'Malaysia · Bursa' : 'US markets'}</h2>
+                                            <p className={layout.v9HeadlinesSub}>Context only · outside Signal’s composite score</p>
                                         </div>
                                         {(data.metadata.articles?.length ?? 0) > 0 ? (
                                             <div className={layout.v9HeadlinesList}>
@@ -727,8 +730,8 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                                                 No recent market headlines returned for this snapshot. Context only — outside the score.
                                             </p>
                                         )}
-                                        <p className={layout.v9HeadlinesFoot}>Context only — headlines do not alter the composite score.</p>
                                     </aside>
+                                    {embedded?.renderSecondaryRail?.()}
                                 </div>
                                 {embedded?.renderBelowTopStage?.({
                                     signal: comparisonData ?? data,

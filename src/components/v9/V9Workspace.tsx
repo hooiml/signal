@@ -295,8 +295,7 @@ export function V9Workspace() {
                             <svg viewBox="0 0 28 24"><path d="M2 12c3.5-8 7.5-8 12 0s8.5 8 12 0" /></svg>
                         </span>
                         <span className={styles.brandTitle}>
-                            <strong>Signal <span className={styles.versionTag}>v9.0.1</span></strong>
-                            <small>Ahead of the Move</small>
+                            <strong>Signal</strong>
                         </span>
                     </button>
                 </div>

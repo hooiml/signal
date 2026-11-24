@@ -395,9 +395,9 @@ export function V9ResearchView({
                 </div>
             </div>
 
-            <nav className={styles.quickPills} aria-label="Company research">
+            <nav className={styles.underlineTabs} aria-label="Company research">
                 {[...readingPanels, ...(ownerRecord ? ownerPanels : [])].map(([id, label]) => (
-                    <Link key={id} className={activeReadingPanel === id ? styles.primaryBtn : styles.quickPill} href={panelHref(id)} aria-current={activeReadingPanel === id ? 'page' : undefined}>{label}</Link>
+                    <Link key={id} className={styles.uTab} href={panelHref(id)} aria-current={activeReadingPanel === id ? 'page' : undefined}>{label}</Link>
                 ))}
             </nav>
 
@@ -475,11 +475,9 @@ export function V9ResearchView({
                                             {snapshot.quote.dailyChangePercent.toFixed(2)}% latest session
                                         </span>
                                     )}
-                                    <small style={{ display: 'block', marginTop: 4 }}>
-                                        Quote observed · {formatResearchTimestamp(snapshot.quote.observedAt)}
-                                    </small>
-                                    <small style={{ display: 'block' }}>Provider response retrieved · {formatResearchTimestamp(snapshot.fetchedAt)}</small>
-                                    <Link className={styles.textLink} href={panelHref('sources')}>Sources &amp; coverage →</Link>
+                                    <div style={{ marginTop: 6, fontSize: 13, color: 'var(--muted)' }}>
+                                        Observed {formatResearchTimestamp(snapshot.quote.observedAt)} · Retrieved {formatResearchTimestamp(snapshot.fetchedAt)} · <Link className={styles.textLink} href={panelHref('sources')}>Sources &amp; coverage →</Link>
+                                    </div>
                                     {showTour && workspace === 'guest' && !savedRecord && ready && (
                                         <button type="button" className={styles.ghostBtn} disabled={saving} onClick={handleSaveNote}>Save stock</button>
                                     )}
@@ -530,21 +528,27 @@ export function V9ResearchView({
                                 <Link className={styles.textLink} href={panelHref('financials')}>Financials &amp; valuation →</Link>
                             </div>
                             {annuals.length > 0 ? (
-                                <div className={styles.finBars}>
-                                    {annuals.map(period => {
-                                        const revH = Math.max(8, Math.round(((period.annualRevenue ?? 0) / maxAnnualVal) * 106));
-                                        const fcfH = Math.max(6, Math.round((Math.max(0, period.freeCashFlow ?? 0) / maxAnnualVal) * 106));
-                                        return (
-                                            <div key={period.reportingPeriod} className={styles.finCol} title={`Rev: ${fmtCompact(period.annualRevenue, period.currency)} · FCF: ${fmtCompact(period.freeCashFlow, period.currency)}`}>
-                                                <div className={styles.finPair}>
-                                                    <span className={styles.finBarRev} style={{ height: revH }} />
-                                                    <span className={styles.finBarFcf} style={{ height: fcfH }} />
+                                <>
+                                    <div className={styles.finLegend}>
+                                        <span><i className={styles.finSwatchRev} aria-hidden="true" />Revenue</span>
+                                        <span><i className={styles.finSwatchFcf} aria-hidden="true" />Free Cash Flow</span>
+                                    </div>
+                                    <div className={styles.finBars}>
+                                        {annuals.map(period => {
+                                            const revH = Math.max(8, Math.round(((period.annualRevenue ?? 0) / maxAnnualVal) * 106));
+                                            const fcfH = Math.max(6, Math.round((Math.max(0, period.freeCashFlow ?? 0) / maxAnnualVal) * 106));
+                                            return (
+                                                <div key={period.reportingPeriod} className={styles.finCol} title={`Rev: ${fmtCompact(period.annualRevenue, period.currency)} · FCF: ${fmtCompact(period.freeCashFlow, period.currency)}`}>
+                                                    <div className={styles.finPair}>
+                                                        <span className={styles.finBarRev} style={{ height: revH }} />
+                                                        <span className={styles.finBarFcf} style={{ height: fcfH }} />
+                                                    </div>
+                                                    <small>{period.reportingPeriod.slice(0, 4)}</small>
                                                 </div>
-                                                <small>{period.reportingPeriod.slice(0, 4)}</small>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </>
                             ) : (
                                 <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>
                                     Multi-year financial history was not returned for this listing.

@@ -9,6 +9,7 @@ import type { MarketExposureWorkspace } from '@/components/v8/MarketV8Exposure';
 import type { Market, Mode } from '@/components/v8/market-v8-fixtures';
 import { V9MarketTodayPanel } from './V9MarketToday';
 import { V9CrossMarketStrip, V9MarketSummaryRail } from './V9MarketSummaryRail';
+import { V9FearGreedCard } from './V9FearGreedCard';
 import { V9MarketInternalsGrid } from './V9MarketInternals';
 import type { V9MarketTodayState } from './useV9MarketToday';
 import base from '@/components/v8/market-v8.module.css';
@@ -98,6 +99,7 @@ export function V9MarketView({
                 onOpenScenarios={onOpenScenarios}
             />
         )}
+        renderSecondaryRail={() => <V9FearGreedCard />}
         renderBelowTopStage={({ signal: stageSignal, onOpenContext }) => (
             <V9CrossMarketStrip
                 market={market}

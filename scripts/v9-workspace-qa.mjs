@@ -161,7 +161,9 @@ try {
             await crossCheck.getByText('Credit Stress').waitFor();
             await crossCheck.getByText('Equal-Weight Breadth').waitFor();
             await crossCheck.getByText('Safe-Haven Demand').waitFor();
-            await crossCheck.getByText(/31\/100/).waitFor();
+            const fngCard = page.getByRole('region', { name: 'CNN Fear & Greed' });
+            await fngCard.waitFor();
+            assert.match(await fngCard.innerText(), /31\s*\/\s*100/);
             await page.getByRole('heading', { name: /market condition score/i }).waitFor();
             assert.ok(await page.getByRole('slider', { name: /market condition score/i }).count(), 'score chart');
             await page.getByTestId('benchmark-overlay-path').waitFor();
@@ -178,7 +180,7 @@ try {
                 return {
                     lineColour: getComputedStyle(line).stroke,
                     lineDash: getComputedStyle(line).strokeDasharray,
-                    markerColour: getComputedStyle(marker).stroke,
+                    markerColour: marker.tagName.toLowerCase() === 'circle' ? getComputedStyle(marker).stroke : getComputedStyle(marker).borderTopColor,
                     legendColour: getComputedStyle(legend).borderTopColor,
                     legendStyle: getComputedStyle(legend).borderTopStyle,
                     axisColour: getComputedStyle(axis).color,
@@ -235,12 +237,12 @@ try {
             const dark = theme === 'dark';
             assert.deepEqual(palette, dark ? {
                 '--canvas': '#111318', '--surface': '#191d24', '--surface-muted': '#242a34', '--line': '#2c323d',
-                '--brand': '#f1f3f5', '--brand-soft': '#303744', '--ink': '#f1f3f5', '--muted': '#a3abb8',
+                '--brand': '#60a5fa', '--brand-soft': '#1b2a44', '--ink': '#f1f3f5', '--muted': '#a3abb8',
                 '--cta': '#f1f3f5', '--on-cta': '#111318', '--secondary-hover': '#303744',
                 '--up': '#4ade80', '--down': '#fda4af', '--caution': '#f5c977', '--benchmark-line': '#60a5fa',
             } : {
                 '--canvas': '#f7f7f7', '--surface': '#ffffff', '--surface-muted': '#eaeaea', '--line': '#e5e5e5',
-                '--brand': '#171717', '--brand-soft': '#dedede', '--ink': '#171717', '--muted': '#525252',
+                '--brand': '#2563eb', '--brand-soft': '#e8f0fe', '--ink': '#171717', '--muted': '#525252',
                 '--cta': '#171717', '--on-cta': '#ffffff', '--secondary-hover': '#dedede',
                 '--up': '#047857', '--down': '#be123c', '--caution': '#92400e', '--benchmark-line': '#2563eb',
             });
@@ -253,8 +255,8 @@ try {
                 const css = getComputedStyle(node);
                 return { background: css.backgroundColor, text: css.color };
             });
-            assert.equal(navAppearance.background, hexToRgb(palette['--brand-soft']), 'active navigation has a neutral fill');
-            assert.equal(navAppearance.text, hexToRgb(palette['--brand']), 'active navigation has monochrome text');
+            assert.equal(navAppearance.background, hexToRgb(palette['--brand-soft']), 'active navigation has a cobalt tint fill');
+            assert.equal(navAppearance.text, hexToRgb(palette['--brand']), 'active navigation has cobalt accent text');
             const secondary = page.getByRole('button', { name: 'Advanced Market', exact: true });
             await page.mouse.move(0, 0);
             const secondaryAppearance = await secondary.evaluate(node => {
@@ -473,6 +475,7 @@ try {
                 await exactDaily.click();
                 assert.equal(await score.getByTestId('v9-score-trend-path').count(), 0, 'daily view hides the average');
                 assert.equal(await smoothGroups.nth(2).locator('path').count(), 1, 'daily view still connects comparable recalculated inputs');
+                await modelInfo.click();
                 await recorded.click();
                 assert.equal(await smoothGroups.nth(2).locator('path').count(), 0, 'as-recorded mode retains origin/model breaks');
                 await calculated.click();

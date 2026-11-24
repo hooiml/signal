@@ -9,7 +9,6 @@ import { marketReadingLabel, marketTimestampLabel } from '@/lib/market-display';
 import { MARKET_SCORE_TIER_THRESHOLDS } from '@/lib/market-score-thresholds';
 import { signed } from '@/components/v8/market-v8-fixtures';
 import { confirmationBadge } from './V9MarketInternals';
-import { V9FearGreedCard } from './V9FearGreedCard';
 import styles from './v9-workspace.module.css';
 
 type Tone = 'up' | 'neutral' | 'down';
@@ -290,8 +289,6 @@ export function V9MarketSummaryRail({
                     <button type="button" className={styles.textLink} onClick={onOpenScenarios}>Scenarios →</button>
                 </div>
             </section>
-
-            <V9FearGreedCard />
         </aside>
     );
 }
@@ -347,7 +344,10 @@ export function V9CrossMarketStrip({
                             <div key={item.id} className={styles.v9CrossTile}>
                                 <div className={styles.v9CrossTileTop}>
                                     <b>{item.name}</b>
-                                    <span className={styles.toneBadge} data-tone={check.tone}>{check.label}</span>
+                                    <span className={styles.v9StatusText} data-tone={check.tone}>
+                                        <span className={styles.v9StatusDot} aria-hidden="true" />
+                                        {check.label}
+                                    </span>
                                 </div>
                                 <strong className={styles.v9CrossTileVal}>{item.latestLabel}</strong>
                                 <small className={styles.v9CrossTileMeta}>{item.baselineLabel}</small>

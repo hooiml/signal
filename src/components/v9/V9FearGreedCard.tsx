@@ -250,7 +250,7 @@ export function V9FearGreedCard() {
 
     const fng = fngState.status === 'ready' ? fngState.payload : null;
     const tone: Tone = fng && fng.available ? toneForScore(fng.score) : 'neutral';
-    const history = fng && fng.available ? fng.history : [];
+    const history = fng && fng.available && Array.isArray(fng.history) ? fng.history : [];
     const hasHistory = history.length >= 2;
     const spark = hasHistory ? buildSparkPoints(history, 180, 54) : null;
     const sparkStroke = toneColorVar(tone);
@@ -262,10 +262,10 @@ export function V9FearGreedCard() {
             <section className={`${styles.card} ${styles.v9FngCard}`} aria-label="CNN Fear & Greed">
                 <div className={styles.v9FngHead}>
                     <div>
-                        <span className={styles.v9FngEyebrow}>
-                            External gauge · not scored{updatedDay ? ` · ${marketTimestampLabel(updatedDay)}` : ''}
-                        </span>
                         <h2>CNN Fear &amp; Greed</h2>
+                        <p className={styles.v9FngSub}>
+                            External gauge · not scored{updatedDay ? ` · ${marketTimestampLabel(updatedDay)}` : ''}
+                        </p>
                     </div>
                     {fngState.status === 'loading' ? (
                         <span className={styles.toneBadge}>Loading</span>
@@ -338,7 +338,7 @@ export function V9FearGreedCard() {
                                             <span>{Math.round(spark.min)}</span>
                                         </div>
                                     </div>
-                                    <span className={styles.v9FngSparkCaption}>52W trend</span>
+                                    <span className={styles.v9FngSparkCaption}>52-week trend</span>
                                 </div>
                             )}
                         </div>
@@ -352,7 +352,7 @@ export function V9FearGreedCard() {
                         )}
 
                         <div className={styles.v9FngFooter}>
-                            <span>Context only · excluded from score</span>
+                            <span>US sentiment reference</span>
                             {hasHistory && (
                                 <button ref={triggerRef} type="button" className={styles.textLink} onClick={openModal}>
                                     See 1Y chart →
