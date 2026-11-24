@@ -212,7 +212,7 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
             segmentByIndex.set(run.items[k].index, `M${round2(prevLoc.x)},${round2(prevLoc.y)} ${segments[k - 1]}`);
         }
     }
-    const latestValue = points[at].value;
+    const latestValue = points.at(-1)!.value;
     const accentStroke = raw
         ? 'var(--chart-line)'
         : latestValue >= MARKET_SCORE_TIER_THRESHOLDS.neutralUpper
@@ -220,6 +220,11 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
             : latestValue < MARKET_SCORE_TIER_THRESHOLDS.neutralLower
                 ? 'var(--down-mark)'
                 : 'var(--caution-mark)';
+    const dotPos = (x: number, y: number) => ({
+        left: `${((x + 8) / 816) * 100}%`,
+        top: `${((y + 8) / 242) * 100}%`,
+    });
+    const primaryDotY = trendActive && selectedTrend !== undefined ? yFor(selectedTrend) : position.y;
 
     function nearestIndex(clientX: number, svg: SVGSVGElement) {
         const box = svg.getBoundingClientRect();
@@ -306,96 +311,147 @@ export function MarketChart({ points, selectedDate, onSelect, raw = false, name 
         </ul> : <p className={styles.chartLegend}>{comparableRecalculated ? 'Comparable recalculated scores connect across input origins; missing-history gaps remain. ' : '━━ Observed · ┄┄ Reconstructed · breaks separate origins · ' }Shaded band = neutral score tier {MARKET_SCORE_TIER_THRESHOLDS.neutralLower}–{MARKET_SCORE_TIER_THRESHOLDS.neutralUpper - 1}</p>)}
         <div className={styles.chartPlot}>
             <div className={styles.axis}>{[maximum, (maximum + minimum) / 2, minimum].map(value => <span key={value}>{value.toFixed(0)}</span>)}</div>
-            <svg viewBox="-8 -8 816 242" preserveAspectRatio="none" role={onSelect ? 'slider' : 'img'} tabIndex={onSelect ? 0 : undefined} aria-label={name} aria-valuemin={onSelect ? 0 : undefined} aria-valuemax={onSelect ? points.length - 1 : undefined} aria-valuenow={onSelect ? at : undefined} aria-valuetext={onSelect ? `${fullDate(active.date)}, score ${active.value}.${historyView ? ` ${origin}.${missing ? ` ${missing}.` : ''}` : ''} Arrow keys preview, Enter selects a preview.` : undefined}
-                onKeyDown={event => {
-                    if (!onSelect) return;
-                    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
-                        event.preventDefault();
+            <div className={styles.chartSvgWrap}>
+                <svg viewBox="-8 -8 816 242" preserveAspectRatio="none" role={onSelect ? 'slider' : 'img'} tabIndex={onSelect ? 0 : undefined} aria-label={name} aria-valuemin={onSelect ? 0 : undefined} aria-valuemax={onSelect ? points.length - 1 : undefined} aria-valuenow={onSelect ? at : undefined} aria-valuetext={onSelect ? `${fullDate(active.date)}, score ${active.value}.${historyView ? ` ${origin}.${missing ? ` ${missing}.` : ''}` : ''} Arrow keys preview, Enter selects a preview.` : undefined}
+                    onKeyDown={event => {
+                        if (!onSelect) return;
+                        if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+                            event.preventDefault();
+                            setHoverIndex(null);
+                            const next = event.key === 'Home' ? 0 : event.key === 'End' ? points.length - 1 : Math.max(0, Math.min(points.length - 1, committed + (event.key === 'ArrowRight' ? 1 : -1)));
+                            setCursor(next); if (sourced) onSelect(points[next]);
+                        } else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(points[at]); }
+                    }}
+                    onPointerMove={event => {
+                        if (event.pointerType === 'mouse' && onSelect) setHoverIndex(nearestIndex(event.clientX, event.currentTarget));
+                    }}
+                    onPointerLeave={() => setHoverIndex(null)}
+                    onClick={event => {
+                        if (!onSelect) return;
+                        const nearest = nearestIndex(event.clientX, event.currentTarget);
                         setHoverIndex(null);
-                        const next = event.key === 'Home' ? 0 : event.key === 'End' ? points.length - 1 : Math.max(0, Math.min(points.length - 1, committed + (event.key === 'ArrowRight' ? 1 : -1)));
-                        setCursor(next); if (sourced) onSelect(points[next]);
-                    } else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(points[at]); }
-                }}
-                onPointerMove={event => {
-                    if (event.pointerType === 'mouse' && onSelect) setHoverIndex(nearestIndex(event.clientX, event.currentTarget));
-                }}
-                onPointerLeave={() => setHoverIndex(null)}
-                onClick={event => {
-                    if (!onSelect) return;
-                    const nearest = nearestIndex(event.clientX, event.currentTarget);
-                    setHoverIndex(null);
-                    setCursor(nearest); onSelect(points[nearest]);
-                }}>
-                <defs>
-                    <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
-                        <stop stopColor={accentStroke} stopOpacity=".24" />
-                        <stop offset="1" stopColor={accentStroke} stopOpacity=".01" />
-                    </linearGradient>
-                </defs>
-                {!raw && <rect x="0" y={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} width="800" height={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralLower) - yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} fill="var(--line-strong)" fillOpacity=".26" />}
-                {[0, 56.5, 113, 169.5, 226].map(y => <line key={y} x1="0" x2="800" y1={y} y2={y} stroke="currentColor" strokeOpacity=".10" strokeDasharray="3 5" />)}
-                {!raw && [MARKET_SCORE_TIER_THRESHOLDS.neutralLower, MARKET_SCORE_TIER_THRESHOLDS.neutralUpper].map(threshold => <line key={threshold} x1="0" x2="800" y1={yFor(threshold)} y2={yFor(threshold)} stroke="var(--subtle)" strokeOpacity=".72" strokeDasharray="4 4" />)}
-                {overlayData && <path d={overlayData.pathD} data-testid="benchmark-overlay-path" fill="none" stroke="var(--benchmark-line, var(--subtle))" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
-                {sourced && !raw ? <>
-                    {provenanceRuns.map((run, runIndex) => {
-                        if (comparableRecalculated || run.origin !== 'observed' || run.items.length < 2) return null;
-                        const runLine = smoothPath(trendActive ? trendRuns[runIndex].locations : run.items.map(item => item.location));
-                        const firstX = run.items[0].location.x;
-                        const lastX = run.items[run.items.length - 1].location.x;
-                        return (
+                        setCursor(nearest); onSelect(points[nearest]);
+                    }}>
+                    <defs>
+                        <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
+                            <stop stopColor={accentStroke} stopOpacity=".24" />
+                            <stop offset="1" stopColor={accentStroke} stopOpacity=".01" />
+                        </linearGradient>
+                    </defs>
+                    {!raw && <rect x="0" y={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} width="800" height={yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralLower) - yFor(MARKET_SCORE_TIER_THRESHOLDS.neutralUpper)} fill="var(--line-strong)" fillOpacity=".26" />}
+                    {[0, 56.5, 113, 169.5, 226].map(y => <line key={y} x1="0" x2="800" y1={y} y2={y} stroke="currentColor" strokeOpacity=".10" strokeDasharray="3 5" />)}
+                    {!raw && [MARKET_SCORE_TIER_THRESHOLDS.neutralLower, MARKET_SCORE_TIER_THRESHOLDS.neutralUpper].map(threshold => <line key={threshold} x1="0" x2="800" y1={yFor(threshold)} y2={yFor(threshold)} stroke="var(--subtle)" strokeOpacity=".72" strokeDasharray="4 4" />)}
+                    {overlayData && <path d={overlayData.pathD} data-testid="benchmark-overlay-path" fill="none" stroke="var(--benchmark-line, var(--subtle))" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
+                    {sourced && !raw ? <>
+                        {provenanceRuns.map((run, runIndex) => {
+                            if (comparableRecalculated || run.origin !== 'observed' || run.items.length < 2) return null;
+                            const runLine = smoothPath(trendActive ? trendRuns[runIndex].locations : run.items.map(item => item.location));
+                            const firstX = run.items[0].location.x;
+                            const lastX = run.items[run.items.length - 1].location.x;
+                            return (
+                                <path
+                                    key={`fill-${run.items[0].point.date}`}
+                                    d={`${runLine} L${lastX},226 L${firstX},226 Z`}
+                                    fill={`url(#${id})`}
+                                />
+                            );
+                        })}
+                        {provenancePaths.map(({ point, location, connected, continues }, index) => {
+                            const isReconstructed = point.origin === 'reconstructed';
+                            const segStroke = trendActive ? 'var(--muted)' : isReconstructed ? 'var(--muted)' : accentStroke;
+                            const segD = connected ? segmentByIndex.get(index) : undefined;
+                            return (
+                                <g key={point.date} data-origin={point.origin ?? 'unavailable'}>
+                                    {segD && (
+                                        <path
+                                            d={segD}
+                                            fill="none"
+                                            stroke={segStroke}
+                                            strokeWidth={trendActive ? '1.3' : isReconstructed ? '2' : '2.4'}
+                                            strokeOpacity={trendActive ? 0.42 : 1}
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeDasharray={isReconstructed ? '5 4' : undefined}
+                                            vectorEffect="non-scaling-stroke"
+                                        />
+                                    )}
+                                    {!connected && !continues && (
+                                        <circle cx={location.x} cy={location.y} r={trendActive ? 2.4 : 3} fill={segStroke} opacity={trendActive ? 0.5 : 1} />
+                                    )}
+                                </g>
+                            );
+                        })}
+                        {trendActive && trendRuns.map((run, index) => run.items.length < 2 ? null : (
                             <path
-                                key={`fill-${run.items[0].point.date}`}
-                                d={`${runLine} L${lastX},226 L${firstX},226 Z`}
-                                fill={`url(#${id})`}
+                                key={`trend-${index}`}
+                                data-testid="v9-score-trend-path"
+                                d={smoothPath(run.locations)}
+                                fill="none"
+                                stroke={comparableRecalculated ? accentStroke : run.origin === 'reconstructed' ? 'var(--muted)' : accentStroke}
+                                strokeWidth={comparableRecalculated ? '3' : run.origin === 'reconstructed' ? '2.4' : '3'}
+                                strokeDasharray={!comparableRecalculated && run.origin === 'reconstructed' ? '6 4' : undefined}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                vectorEffect="non-scaling-stroke"
                             />
-                        );
-                    })}
-                    {provenancePaths.map(({ point, location, connected, continues }, index) => {
-                        const isReconstructed = point.origin === 'reconstructed';
-                        const segStroke = trendActive ? 'var(--muted)' : isReconstructed ? 'var(--muted)' : accentStroke;
-                        const segD = connected ? segmentByIndex.get(index) : undefined;
-                        return (
-                            <g key={point.date} data-origin={point.origin ?? 'unavailable'}>
-                                {segD && (
-                                    <path
-                                        d={segD}
-                                        fill="none"
-                                        stroke={segStroke}
-                                        strokeWidth={trendActive ? '1.3' : isReconstructed ? '2' : '2.4'}
-                                        strokeOpacity={trendActive ? 0.42 : 1}
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeDasharray={isReconstructed ? '5 4' : undefined}
-                                        vectorEffect="non-scaling-stroke"
-                                    />
-                                )}
-                                {!connected && !continues && (
-                                    <circle cx={location.x} cy={location.y} r={trendActive ? 2.4 : 3} fill={segStroke} opacity={trendActive ? 0.5 : 1} />
-                                )}
-                            </g>
-                        );
-                    })}
-                    {trendActive && trendRuns.map((run, index) => run.items.length < 2 ? null : (
-                        <path
-                            key={`trend-${index}`}
-                            data-testid="v9-score-trend-path"
-                            d={smoothPath(run.locations)}
-                            fill="none"
-                            stroke={comparableRecalculated ? accentStroke : run.origin === 'reconstructed' ? 'var(--muted)' : accentStroke}
-                            strokeWidth={comparableRecalculated ? '3' : run.origin === 'reconstructed' ? '2.4' : '3'}
-                            strokeDasharray={!comparableRecalculated && run.origin === 'reconstructed' ? '6 4' : undefined}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            vectorEffect="non-scaling-stroke"
-                        />
-                    ))}
-                </> : <><path d={`${path} L800,226 L0,226 Z`} fill={`url(#${id})`} /><path d={path} fill="none" stroke={accentStroke} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /></>}
-                <line x1={position.x} x2={position.x} y1="0" y2="226" stroke={accentStroke} strokeDasharray="4 4" opacity=".45" />
-                {overlayData?.matched && <circle data-testid="benchmark-overlay-marker" cx={overlayData.matched.x} cy={overlayData.matched.y} r="3.5" fill="var(--surface)" stroke="var(--benchmark-line, var(--subtle))" strokeWidth="2" />}
-                {trendActive && selectedTrend !== undefined && <circle cx={position.x} cy={yFor(selectedTrend)} r="3.4" fill={accentStroke} stroke="var(--surface)" strokeWidth="1.2" />}
-                <circle cx={position.x} cy={position.y} r="9" fill={accentStroke} opacity=".2" />
-                <circle cx={position.x} cy={position.y} r="4.8" fill="var(--surface)" stroke={accentStroke} strokeWidth="2.8" />
-            </svg>
+                        ))}
+                    </> : <><path d={`${path} L800,226 L0,226 Z`} fill={`url(#${id})`} /><path d={path} fill="none" stroke={accentStroke} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /></>}
+                    <line x1={position.x} x2={position.x} y1="0" y2="226" stroke={accentStroke} strokeDasharray="4 4" opacity=".45" />
+                </svg>
+                {overlayData?.matched && (
+                    <span
+                        data-testid="benchmark-overlay-marker"
+                        className={`${styles.chartDot} ${styles.chartDotBenchmark}`}
+                        style={dotPos(overlayData.matched.x, overlayData.matched.y)}
+                        aria-hidden="true"
+                    />
+                )}
+                {trendActive && selectedTrend !== undefined && (
+                    <span
+                        className={`${styles.chartDot} ${styles.chartDotSecondary}`}
+                        style={{ ...dotPos(position.x, position.y), borderColor: 'var(--muted)' }}
+                        aria-hidden="true"
+                    />
+                )}
+                <span
+                    className={`${styles.chartDot} ${styles.chartDotPrimary}`}
+                    style={{
+                        ...dotPos(position.x, primaryDotY),
+                        borderColor: accentStroke,
+                        boxShadow: `0 0 0 5px color-mix(in srgb, ${accentStroke} 22%, transparent)`,
+                    }}
+                    aria-hidden="true"
+                />
+                {hoverIndex !== null && (
+                    <div
+                        className={styles.chartTooltip}
+                        data-flip={position.x > 460 ? 'true' : 'false'}
+                        style={{ left: `${((position.x + 8) / 816) * 100}%` }}
+                        aria-hidden="true"
+                    >
+                        <div className={styles.chartTooltipDate}>{fullDate(active.date)}</div>
+                        {trendActive && selectedTrend !== undefined && (
+                            <div className={styles.chartTooltipRow}>
+                                <span className={styles.chartTooltipSwatch} style={{ background: accentStroke }} />
+                                <span>{trendWindowDays}-day trend</span>
+                                <b>{selectedTrend.toFixed(1)} /100</b>
+                            </div>
+                        )}
+                        <div className={styles.chartTooltipRow}>
+                            <span className={styles.chartTooltipSwatch} style={{ background: trendActive ? 'var(--muted)' : accentStroke }} />
+                            <span>{raw ? 'Reading' : 'Daily score'}</span>
+                            <b>{active.value.toFixed(raw ? 2 : 0)}{raw ? '' : ' /100'}</b>
+                        </div>
+                        {overlayData?.matched && (
+                            <div className={styles.chartTooltipRow}>
+                                <span className={styles.chartTooltipSwatch} style={{ background: 'var(--benchmark-line, var(--subtle))' }} />
+                                <span>{overlayData.shortLabel}</span>
+                                <b>{overlayData.unitPrefix}{overlayData.matched.close.toFixed(overlayData.matched.close >= 1000 ? 0 : 2)} ({overlayData.matched.pct >= 0 ? '+' : ''}{overlayData.matched.pct.toFixed(1)}%)</b>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
             {overlayData && <div className={styles.axisRight} data-testid="benchmark-overlay-axis" aria-hidden="true">{overlayData.ticks.map((tick, index) => <span key={index}>{tick}</span>)}</div>}
         </div>
         <div className={overlayData ? `${styles.chartDates} ${styles.chartDatesWithRight}` : styles.chartDates}><span>{fullDate(firstDate)}</span><span>{fullDate(middleDate)}</span><span>{fullDate(lastDate)}</span></div>

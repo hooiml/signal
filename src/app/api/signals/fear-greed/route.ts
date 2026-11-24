@@ -3,6 +3,12 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+export type FearGreedHistoryPoint = {
+    readonly date: string;
+    readonly score: number;
+    readonly rating: string;
+};
+
 export type FearGreedPayload =
     | {
           readonly available: true;
@@ -12,6 +18,7 @@ export type FearGreedPayload =
           readonly oneWeekAgo: number | null;
           readonly oneMonthAgo: number | null;
           readonly updatedAt: string | null;
+          readonly history: readonly FearGreedHistoryPoint[];
       }
     | {
           readonly available: false;
@@ -28,6 +35,39 @@ let cachedEntry: { readonly payload: Extract<FearGreedPayload, { readonly availa
 const finiteScore = (value: unknown): number | null => {
     if (typeof value !== 'number' || !Number.isFinite(value)) return null;
     return Math.min(100, Math.max(0, Math.round(value)));
+};
+
+const deriveRating = (score: number): string => {
+    if (score < 25) return 'Extreme Fear';
+    if (score < 45) return 'Fear';
+    if (score <= 55) return 'Neutral';
+    if (score <= 75) return 'Greed';
+    return 'Extreme Greed';
+};
+
+const parseHistory = (raw: unknown): readonly FearGreedHistoryPoint[] => {
+    if (typeof raw !== 'object' || raw === null) return [];
+    const historical = Reflect.get(raw, 'fear_and_greed_historical');
+    if (typeof historical !== 'object' || historical === null) return [];
+    const rows = Reflect.get(historical, 'data');
+    if (!Array.isArray(rows)) return [];
+
+    const byDate = new Map<string, FearGreedHistoryPoint>();
+    for (const row of rows) {
+        if (typeof row !== 'object' || row === null) continue;
+        const x = Reflect.get(row, 'x');
+        const y = Reflect.get(row, 'y');
+        if (typeof x !== 'number' || !Number.isFinite(x) || typeof y !== 'number' || !Number.isFinite(y)) continue;
+        const parsedDate = new Date(x);
+        if (Number.isNaN(parsedDate.getTime())) continue;
+        const date = parsedDate.toISOString().slice(0, 10);
+        const score = Math.round(Math.min(100, Math.max(0, y)) * 10) / 10;
+        const ratingRaw = Reflect.get(row, 'rating');
+        const rating = typeof ratingRaw === 'string' && ratingRaw.trim() ? ratingRaw.trim() : deriveRating(score);
+        byDate.set(date, { date, score, rating });
+    }
+
+    return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 };
 
 const parseFearGreed = (raw: unknown): Extract<FearGreedPayload, { readonly available: true }> | null => {
@@ -51,6 +91,7 @@ const parseFearGreed = (raw: unknown): Extract<FearGreedPayload, { readonly avai
         oneWeekAgo: finiteScore(Reflect.get(node, 'previous_1_week')),
         oneMonthAgo: finiteScore(Reflect.get(node, 'previous_1_month')),
         updatedAt,
+        history: parseHistory(raw),
     };
 };
 

@@ -690,6 +690,45 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                                     <section className={styles.scorePanel} aria-label="Market score and history">
                                         {scorePanelBody}
                                     </section>
+                                    <aside className={layout.v9HeadlinesRail} aria-label="Market headlines">
+                                        <div className={layout.v9HeadlinesHead}>
+                                            <span className={styles.eyebrow}>Market headlines · Context (not scored)</span>
+                                            <h2>What is moving {market === 'MY' ? 'Malaysia · Bursa' : 'US markets'}</h2>
+                                        </div>
+                                        {(data.metadata.articles?.length ?? 0) > 0 ? (
+                                            <div className={layout.v9HeadlinesList}>
+                                                {(data.metadata.articles ?? []).slice(0, 5).map((article, idx) => {
+                                                    let safeHref: string | null = null;
+                                                    if (article.url) {
+                                                        try {
+                                                            const parsed = new URL(article.url);
+                                                            if (parsed.protocol === 'http:' || parsed.protocol === 'https:') safeHref = parsed.toString();
+                                                        } catch { safeHref = null; }
+                                                    }
+                                                    return (
+                                                        <article key={`${article.title}-${idx}`} className={layout.v9HeadlineItem}>
+                                                            <div className={layout.v9HeadlineTitle}>
+                                                                {safeHref ? (
+                                                                    <a href={safeHref} target="_blank" rel="noreferrer">{article.title}</a>
+                                                                ) : (
+                                                                    <span>{article.title}</span>
+                                                                )}
+                                                            </div>
+                                                            <div className={layout.v9HeadlineMeta}>
+                                                                <span>{article.source}{article.pubDate ? ` · ${fullDate(article.pubDate)}` : ''}</span>
+                                                                {safeHref ? <a className={styles.textButton} href={safeHref} target="_blank" rel="noreferrer">Read →</a> : <span className={styles.muted}>Context</span>}
+                                                            </div>
+                                                        </article>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <p className={layout.v9HeadlinesEmpty}>
+                                                No recent market headlines returned for this snapshot. Context only — outside the score.
+                                            </p>
+                                        )}
+                                        <p className={layout.v9HeadlinesFoot}>Context only — headlines do not alter the composite score.</p>
+                                    </aside>
                                 </div>
                                 {embedded?.renderBelowTopStage?.({
                                     signal: comparisonData ?? data,
@@ -737,7 +776,7 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                             </>
                         )}
                         {!historical && <>
-                            {isEmbedded && (data.metadata.articles?.length ?? 0) > 0 && (
+                            {!useV9TopStage && isEmbedded && (data.metadata.articles?.length ?? 0) > 0 && (
                                 <section className={styles.panel} aria-label="Market headlines">
                                     <div className={styles.sectionHeading}>
                                         <div>
