@@ -780,8 +780,8 @@ a.ghostBtn { color: var(--link); }
 .todayLoad { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
 
 /* V9 Market Pulse Top Summary Rail & Cross-Market Strip */
-.v9SummaryRail { display: grid; gap: 14px; align-content: start; min-width: 0; }
-.v9ScoreCard { display: grid; gap: 15px; padding: 20px 22px; align-content: start; }
+.v9SummaryRail { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.v9ScoreCard { display: flex; flex-direction: column; gap: 15px; padding: 20px 22px; flex: 1 1 auto; }
 .v9ScoreCard[data-tone=up] { background: var(--aurora-up); }
 .v9ScoreCard[data-tone=neutral] { background: var(--aurora-neutral); }
 .v9ScoreCard[data-tone=down] { background: var(--aurora-down); }
@@ -955,7 +955,8 @@ a.ghostBtn { color: var(--link); }
     justify-content: space-between;
     gap: 8px;
     flex-wrap: wrap;
-    padding-top: 8px;
+    margin-top: auto;
+    padding-top: 10px;
     border-top: 1px solid var(--line);
 }
 .v9CardFoot .textLink { min-height: 36px; }

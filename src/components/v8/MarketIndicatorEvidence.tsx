@@ -164,7 +164,7 @@ export function MarketIndicatorEvidence({ signal, inputKeys, configured, date, r
     const formatDirection = (label: string) => label ? label[0].toUpperCase() + label.slice(1) : '';
     return <section className={styles.evidence} aria-label="Explore indicators">
         <div className={base.sectionHeading}><div><h2>Current indicator evidence</h2><p>{referenceLabel ?? (marketEvidenceDay(date) ? fullDate(date) : 'Snapshot date unavailable')} · select an observation for details</p></div></div>
-        <div className={styles.evidenceRows} data-expanded={expanded} data-v9-grid={compactCards ? 'true' : undefined}>
+        <div className={styles.evidenceRows} data-expanded={expanded} data-v9-grid={compactCards ? 'true' : undefined} data-v9-cols={compactCards ? String(observed.length + missing.length === 3 ? 3 : 2) : undefined}>
             {observed.map((key, index) => {
                 const item = signal.components[key];
                 const disabled = item?.enabled === false || ((key === 'social' || key === 'news') && !sourceEnabled);
