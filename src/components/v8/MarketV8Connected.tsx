@@ -678,21 +678,22 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                         {historical && <div className={styles.historyBanner}><span>{fullDate(historical.date)} · {archived?.summary.origin ?? data.metadata.score_history?.find(point=>point.date===historical.date)?.origin ?? 'Origin unavailable'}</span><button onClick={returnCurrent}>Return to current ↗</button></div>}
                         {useV9TopStage ? (
                             <>
-                                <div className={layout.v9TopStage}>
-                                    {embedded?.renderSummaryRail?.({
-                                        signal: comparisonData ?? data,
-                                        referenceDate: snapshotDay ?? receivedAt,
-                                        comparisonNotice,
-                                        onOpenDrivers: () => openTab('What changed'),
-                                        onOpenToday: () => openTab('Today'),
-                                        onOpenScenarios: () => openTab('Scenarios'),
-                                        onOpenContext: () => openTab('Context'),
-                                    })}
+                                <div className={layout.v9TopStage} data-testid="v9-top-stage">
+                                    <div className={layout.v9LeftRail}>
+                                        {embedded?.renderSummaryRail?.({
+                                            signal: comparisonData ?? data,
+                                            referenceDate: snapshotDay ?? receivedAt,
+                                            comparisonNotice,
+                                            onOpenDrivers: () => openTab('What changed'),
+                                            onOpenToday: () => openTab('Today'),
+                                            onOpenScenarios: () => openTab('Scenarios'),
+                                            onOpenContext: () => openTab('Context'),
+                                        })}
+                                        {embedded?.renderSecondaryRail?.()}
+                                    </div>
                                     <section className={styles.scorePanel} aria-label="Market score and history">
                                         {scorePanelBody}
                                     </section>
-                                </div>
-                                <div className={layout.v9ContextSplit}>
                                     <aside className={layout.v9HeadlinesRail} aria-label="Market headlines">
                                         <div className={layout.v9HeadlinesHead}>
                                             <h2>What is moving {market === 'MY' ? 'Malaysia · Bursa' : 'US markets'}</h2>
@@ -731,7 +732,6 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
                                             </p>
                                         )}
                                     </aside>
-                                    {embedded?.renderSecondaryRail?.()}
                                 </div>
                                 {embedded?.renderBelowTopStage?.({
                                     signal: comparisonData ?? data,

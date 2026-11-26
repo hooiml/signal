@@ -210,12 +210,21 @@
 /* V9 Embedded Market Pulse Main Stage & Indicator Grid */
 .v9TopStage {
     display: grid;
-    grid-template-columns: minmax(340px, 390px) minmax(0, 1fr);
+    grid-template-columns: minmax(330px, 370px) minmax(0, 1fr);
     gap: 18px;
     align-items: stretch;
     margin-bottom: 20px;
 }
 .v9TopStage > * { min-width: 0; }
+.v9LeftRail {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+.v9LeftRail > :first-child {
+    flex: 1 1 auto;
+}
 .v9TopStage > section {
     display: flex;
     flex-direction: column;
@@ -235,15 +244,8 @@
     min-height: 280px;
     align-self: stretch;
 }
-.v9ContextSplit {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
-    gap: 18px;
-    align-items: start;
-    margin-bottom: 20px;
-}
-.v9ContextSplit > * { min-width: 0; }
 .v9HeadlinesRail {
+    grid-column: 1 / -1;
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: 16px;
@@ -270,17 +272,31 @@
 }
 .v9HeadlinesList {
     display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 24px;
     flex: 1;
     align-content: start;
 }
 .v9HeadlineItem {
     display: grid;
     gap: 6px;
-    padding: 13px 0;
+    padding: 12px 0;
     border-bottom: 1px solid var(--line);
 }
 .v9HeadlineItem:last-child {
     border-bottom: 0;
+}
+@media (min-width: 1520px) {
+    .v9TopStage {
+        grid-template-columns: minmax(330px, 370px) minmax(0, 1fr) minmax(290px, 330px);
+    }
+    .v9HeadlinesRail {
+        grid-column: auto;
+    }
+    .v9HeadlinesList {
+        grid-template-columns: minmax(0, 1fr);
+        column-gap: 0;
+    }
 }
 .v9HeadlineTitle {
     font-size: var(--text-sm);
@@ -747,7 +763,8 @@
     }
 }
 @media (max-width: 960px) {
-    .v9TopStage, .v9ContextSplit { grid-template-columns: minmax(0, 1fr); }
+    .v9TopStage { grid-template-columns: minmax(0, 1fr); }
+    .v9HeadlinesList { grid-template-columns: minmax(0, 1fr); column-gap: 0; }
     .v9TopStage > section :has(> svg[role=slider]),
     .v9TopStage > section svg[role=slider] { min-height: 220px; }
     .v9EvidenceRow[data-inspecting=true] { grid-template-columns: minmax(0, 1fr); }
