@@ -29,6 +29,7 @@ import { V9GuestResearchRecovery } from './V9GuestResearchRecovery';
 import { useV9ResearchBenchmark } from './useV9ResearchBenchmark';
 import type { V9ResearchDetail } from './V9ResearchDetails';
 import { V9Navigation } from './v9-navigation';
+import { smoothSplinePath, V9SegmentedPill } from './V9Primitives';
 import styles from './v9-workspace.module.css';
 
 type ChartRange = '1M' | '3M' | '1Y' | '5Y';
@@ -253,7 +254,7 @@ function PriceChart({
                 pct: pt.pct,
                 index: pt.index,
             }));
-            const d = pts.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`).join(' ');
+            const d = smoothSplinePath(pts);
             return {
                 symbol: series.symbol,
                 available: series.available,
@@ -295,7 +296,7 @@ function PriceChart({
     const isUp = (periodPct ?? 0) >= 0;
     const stroke = overlayActive ? 'var(--brand)' : isUp ? 'var(--up-mark)' : 'var(--down-mark)';
 
-    const linePath = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ');
+    const linePath = smoothSplinePath(coords);
     const areaPath = !overlayActive && coords.length > 1 ? `${linePath} L ${coords[coords.length - 1].x.toFixed(1)} ${h} L ${coords[0].x.toFixed(1)} ${h} Z` : '';
     const activeCoord = coords[activeIdx] ?? null;
     const spanLeftIdx = validSpan ? Math.min(spanStart!, spanEnd!) : null;
@@ -321,19 +322,24 @@ function PriceChart({
         <div className={styles.chartBox}>
             <div className={styles.chartControls}>
                 <div className={styles.chartControlLeft}>
-                    <div className={styles.segWrap} role="group" aria-label="Chart range">
-                        {(['1M', '3M', '1Y', '5Y'] as const).map(item => (
-                            <button
-                                key={item}
-                                type="button"
-                                className={styles.segBtn}
-                                aria-pressed={range === item}
-                                onClick={() => { setHoverIndex(null); setFocusIndex(null); clearMeasurement(); setActiveReviewId(null); onRangeChange(item); }}
-                            >
-                                {item}
-                            </button>
-                        ))}
-                    </div>
+                    <V9SegmentedPill
+                        ariaLabel="Chart range"
+                        size="sm"
+                        value={range}
+                        onChange={item => {
+                            setHoverIndex(null);
+                            setFocusIndex(null);
+                            clearMeasurement();
+                            setActiveReviewId(null);
+                            onRangeChange(item);
+                        }}
+                        options={[
+                            { value: '1M', label: '1M' },
+                            { value: '3M', label: '3M' },
+                            { value: '1Y', label: '1Y' },
+                            { value: '5Y', label: '5Y' },
+                        ]}
+                    />
                     {coords.length > 1 && !overlayActive && (
                         <button
                             type="button"
@@ -441,6 +447,7 @@ function PriceChart({
             )}
 
             {coords.length > 1 ? (
+                <div className={styles.chartSvgStage}>
                 <svg
                     className={styles.chartSvg}
                     viewBox={`0 0 ${w} ${h}`}
@@ -569,7 +576,7 @@ function PriceChart({
                             )}
                         </g>
                     ) : null)}
-                    <path d={linePath} fill="none" stroke={stroke} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+                    <path key={`${range}-${overlayActive ? 'ov' : 'px'}`} d={linePath} fill="none" stroke={stroke} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" className={styles.chartLineReveal} />
                     {overlayActive && coords.at(-1) && (
                         <text
                             x={(plotRight + 6).toFixed(1)}
@@ -626,6 +633,31 @@ function PriceChart({
                         </>
                     )}
                 </svg>
+                {hoverIndex !== null && !validSpan && active && activeCoord && (
+                    <div
+                        className={styles.v9PriceTooltip}
+                        data-flip={activeCoord.x > plotRight * 0.6 ? 'true' : 'false'}
+                        style={{ left: `${(activeCoord.x / w) * 100}%` }}
+                        aria-hidden="true"
+                    >
+                        <span className={styles.v9PriceTooltipDate}>{active.time.slice(0, 10)}</span>
+                        {overlayActive && activeCoord.pct !== null ? (
+                            <strong className={styles.v9PriceTooltipVal}>
+                                {symbol} {activeCoord.pct >= 0 ? '+' : ''}{activeCoord.pct.toFixed(1)}%
+                            </strong>
+                        ) : (
+                            <strong className={styles.v9PriceTooltipVal}>
+                                {fmtPrice(active.close, currency)}
+                                {periodPct !== null && (
+                                    <span data-direction={periodPct >= 0 ? 'up' : 'down'}>
+                                        {periodPct >= 0 ? '+' : ''}{periodPct.toFixed(1)}%
+                                    </span>
+                                )}
+                            </strong>
+                        )}
+                    </div>
+                )}
+                </div>
             ) : (
                 <p style={{ margin: '12px 0', color: 'var(--muted)', fontSize: 13 }}>Historical price closes were not returned for this security.</p>
             )}

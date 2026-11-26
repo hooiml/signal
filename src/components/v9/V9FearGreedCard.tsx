@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { FearGreedHistoryPoint, FearGreedPayload } from '@/app/api/signals/fear-greed/route';
 import { marketTimestampLabel } from '@/lib/market-display';
 import { fullDate } from '../v8/MarketV8ConnectedData';
+import { smoothSplinePath, V9RadialTickGauge } from './V9Primitives';
 import styles from './v9-workspace.module.css';
 
 type Tone = 'up' | 'neutral' | 'down';
@@ -88,7 +89,7 @@ function FearGreedModalChart({ history, tone }: { readonly history: readonly Fea
     const at = Math.max(0, Math.min(hoverIndex ?? cursor, history.length - 1));
     const active = history[at];
     const activeCoord = coords[at];
-    const lineD = coords.map((pt, idx) => `${idx === 0 ? 'M' : 'L'}${pt.x},${pt.y}`).join(' ');
+    const lineD = smoothSplinePath(coords);
     const areaD = `${lineD} L${coords.at(-1)!.x},${H} L${coords[0].x},${H} Z`;
     const activeTone = toneForScore(active.score);
     const activeColor = toneColorVar(activeTone);
@@ -255,6 +256,7 @@ export function V9FearGreedCard() {
     const spark = hasHistory ? buildSparkPoints(history, 180, 54) : null;
     const sparkStroke = toneColorVar(tone);
     const sparkLast = spark?.coords.at(-1);
+    const sparkLineD = spark ? smoothSplinePath(spark.coords) : '';
     const updatedDay = fng && fng.available && fng.updatedAt ? fng.updatedAt.slice(0, 10) : null;
 
     return (
@@ -280,17 +282,14 @@ export function V9FearGreedCard() {
                     <p className={styles.v9FngNote}>Loading CNN Fear &amp; Greed index…</p>
                 ) : fng && fng.available ? (
                     <>
-                        <div className={styles.v9FngMainRow}>
+                        <div className={styles.v9FngMainRow} data-has-history={hasHistory ? 'true' : 'false'}>
                             <div className={styles.v9FngScoreCol}>
-                                <div className={styles.v9FngScoreRow}>
-                                    <strong className={styles.v9FngScoreNum} data-tone={tone}>{fng.score}</strong>
-                                    <span className={styles.v9FngScoreDenom}>/ 100</span>
-                                </div>
-                                {!hasHistory && (
-                                    <div className={styles.v9FngTrack} aria-hidden="true">
-                                        <span className={styles.v9FngFill} data-tone={tone} style={{ width: `${fng.score}%` }} />
-                                    </div>
-                                )}
+                                <V9RadialTickGauge
+                                    score={fng.score}
+                                    tone={tone}
+                                    size="sm"
+                                    ariaLabel={`CNN Fear and Greed score ${fng.score} out of 100`}
+                                />
                             </div>
 
                             {spark && sparkLast && (
@@ -308,11 +307,11 @@ export function V9FearGreedCard() {
                                                     <line key={y} x1={0} x2={180} y1={y} y2={y} stroke="var(--line)" strokeWidth="1" strokeDasharray="2 3" />
                                                 ))}
                                                 <path
-                                                    d={`${spark.coords.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ')} L${sparkLast.x},54 L${spark.coords[0].x},54 Z`}
+                                                    d={`${sparkLineD} L${sparkLast.x},54 L${spark.coords[0].x},54 Z`}
                                                     fill={`url(#${sparkGradId})`}
                                                 />
                                                 <path
-                                                    d={spark.coords.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ')}
+                                                    d={sparkLineD}
                                                     fill="none"
                                                     stroke={sparkStroke}
                                                     strokeWidth="1.9"

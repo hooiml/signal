@@ -11,6 +11,7 @@ import { fullDate, parseConnectedSignal } from '@/components/v8/MarketV8Connecte
 import { readData, readPolicies } from '@/components/v8/read-data';
 import type { Market, Mode } from '@/components/v8/market-v8-fixtures';
 import type { SignalSlot } from './V9HomeView';
+import { V9SegmentedPill } from './V9Primitives';
 import styles from './v9-workspace.module.css';
 
 export type CompareTab = 'markets' | 'modes';
@@ -225,24 +226,15 @@ export function V9MarketCompareStrip({
             <div className={styles.compareHead}>
                 <div className={styles.compareHeadLeft}>
                     <h2>Compare readings</h2>
-                    <div className={styles.segWrap} role="group" aria-label="Comparison view">
-                        <button
-                            type="button"
-                            className={styles.segBtn}
-                            aria-pressed={tab === 'markets'}
-                            onClick={() => setTab('markets')}
-                        >
-                            US vs. Malaysia
-                        </button>
-                        <button
-                            type="button"
-                            className={styles.segBtn}
-                            aria-pressed={tab === 'modes'}
-                            onClick={() => setTab('modes')}
-                        >
-                            Momentum vs. Contrarian
-                        </button>
-                    </div>
+                    <V9SegmentedPill
+                        ariaLabel="Comparison view"
+                        value={tab}
+                        onChange={setTab}
+                        options={[
+                            { value: 'markets', label: 'US vs. Malaysia' },
+                            { value: 'modes', label: 'Momentum vs. Contrarian' },
+                        ]}
+                    />
                 </div>
                 <button type="button" className={styles.ghostBtn} onClick={onClose}>
                     Close compare
