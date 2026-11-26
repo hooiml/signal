@@ -9,6 +9,7 @@ import { researchCoverageNote } from '@/lib/research/reading-display';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { useV9ResearchBenchmark } from './useV9ResearchBenchmark';
+import { ResearchValuationReasoningV9 } from './ResearchValuationReasoningV9';
 import styles from './v9-workspace.module.css';
 
 const labels = {
@@ -71,5 +72,6 @@ export function V9ResearchDetails({ detail, symbol, market, snapshot, ownerRecor
             advanced={detail === 'valuation' && !!ownerRecord} record={ownerRecord ?? undefined} editHref={href('review')}
             onBenchmarkRequest={benchmark.request} benchmarkError={benchmark.error} benchmarkLoading={benchmark.loading}
         />}
+        {snapshot && detail === 'valuation' && <ResearchValuationReasoningV9 key={`${market}:${symbol}:${ownerRecord ? 'owner' : 'local'}`} ticker={symbol} snapshot={snapshot} localOnly={!ownerRecord} />}
     </section>;
 }

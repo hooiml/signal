@@ -22,6 +22,7 @@ import { ResearchDiscoverV8 } from '@/components/v8/ResearchDiscoverV8';
 import { parseDiscoverView } from '@/components/v8/discover-view';
 import { V9Navigation } from './v9-navigation';
 import { useV9OwnerResearch } from './useV9OwnerResearch';
+import { V9FactorExposureView } from './V9FactorExposureView';
 import styles from './v9-workspace.module.css';
 
 const PortfolioRiskCockpit = dynamic(() => import('@/components/v6/PortfolioRiskCockpitV6').then(module => module.PortfolioRiskCockpitV6));
@@ -95,7 +96,8 @@ export function V9PortfolioView({
 }) {
     const v9Href = useContext(V9Navigation)!;
     const searchParams = useSearchParams();
-    const managing = searchParams.get('tab') === 'manage';
+    const rawTab = searchParams.get('tab');
+    const activeTab = rawTab === 'manage' ? 'manage' : rawTab === 'factors' ? 'factors' : 'holdings';
     return (
         <div style={{ display: 'grid', gap: 18 }}>
             <div className={styles.heroBrief}>
@@ -106,11 +108,12 @@ export function V9PortfolioView({
             </div>
 
             <nav className={styles.segWrap} aria-label="Portfolio views">
-                <Link className={styles.segLink} href={v9Href('portfolio')} aria-current={managing ? undefined : 'page'}>Holdings</Link>
-                <Link className={styles.segLink} href={v9Href('portfolio', { tab: 'manage' })} aria-current={managing ? 'page' : undefined}>Manage portfolio</Link>
+                <Link className={styles.segLink} href={v9Href('portfolio')} aria-current={activeTab === 'holdings' ? 'page' : undefined}>Holdings</Link>
+                <Link className={styles.segLink} href={v9Href('portfolio', { tab: 'factors' })} aria-current={activeTab === 'factors' ? 'page' : undefined}>Factor exposure</Link>
+                <Link className={styles.segLink} href={v9Href('portfolio', { tab: 'manage' })} aria-current={activeTab === 'manage' ? 'page' : undefined}>Manage portfolio</Link>
             </nav>
 
-            {!managing && summaries.length > 0 && (
+            {activeTab === 'holdings' && summaries.length > 0 && (
                 <section className={styles.card} aria-label="Currency totals">
                     <div className={styles.metricGrid} data-cols="2" style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}>
                         {summaries.map(summary => (
@@ -126,10 +129,18 @@ export function V9PortfolioView({
                 </section>
             )}
 
-            {managing && (workspace !== 'checking' && records
+            {activeTab === 'factors' && (
+                <V9FactorExposureView
+                    records={records}
+                    manageHref={v9Href('portfolio', { tab: 'manage' })}
+                    onOpenStock={onOpenStock}
+                />
+            )}
+
+            {activeTab === 'manage' && (workspace !== 'checking' && records
                 ? <PortfolioManagement records={records} workspace={workspace} theme={theme} onSavedOwner={onSavedOwner} onOpenStock={onOpenStock} />
                 : <div className={styles.card} role="status">Loading saved research…</div>)}
-            {!managing && <div className={styles.card}>
+            {activeTab === 'holdings' && <div className={styles.card}>
                 <ResearchHoldingsV8 records={records} onOpen={onOpenStock} />
             </div>}
         </div>

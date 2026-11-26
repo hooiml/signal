@@ -11,6 +11,8 @@ import { V9MarketTodayPanel } from './V9MarketToday';
 import { V9CrossMarketStrip, V9MarketSummaryRail } from './V9MarketSummaryRail';
 import { V9FearGreedCard } from './V9FearGreedCard';
 import { V9MarketInternalsGrid } from './V9MarketInternals';
+import { V9MarketCompareStrip } from './V9MarketCompareStrip';
+import type { SignalSlot } from './V9HomeView';
 import type { V9MarketTodayState } from './useV9MarketToday';
 import base from '@/components/v8/market-v8.module.css';
 import styles from './v9-workspace.module.css';
@@ -21,6 +23,8 @@ export function V9MarketView({
     mode,
     social,
     signal,
+    usSlot,
+    mySlot,
     loading,
     error,
     receivedAt,
@@ -36,6 +40,8 @@ export function V9MarketView({
     readonly mode: Mode;
     readonly social: boolean;
     readonly signal: MarketSignal | null;
+    readonly usSlot?: SignalSlot;
+    readonly mySlot?: SignalSlot;
     readonly loading: boolean;
     readonly error: string;
     readonly receivedAt?: string;
@@ -46,6 +52,7 @@ export function V9MarketView({
     readonly onSocialChange: (next: boolean) => void;
     readonly onReload: () => void;
 }) {
+    const [compareOpen, setCompareOpen] = useState(false);
     const [internalsByMarket, setInternalsByMarket] = useState<Partial<Record<Market, MarketInternalsPayload>>>({});
     const currentInternals = internalsByMarket[market] ?? null;
     const internalsLoading = currentInternals === null;
@@ -76,7 +83,20 @@ export function V9MarketView({
         return () => controller.abort();
     }, [currentInternals, market]);
 
-    return <EmbeddedMarketView
+    return <>
+        {compareOpen && usSlot && mySlot && (
+            <V9MarketCompareStrip
+                market={market}
+                mode={mode}
+                social={social}
+                usSlot={usSlot}
+                mySlot={mySlot}
+                onSelectMarket={next => { onMarketChange(next); }}
+                onSelectMode={next => { onModeChange(next); }}
+                onClose={() => setCompareOpen(false)}
+            />
+        )}
+        <EmbeddedMarketView
         config={{ market, mode, enableSocial: social }}
         signal={signal}
         loading={loading}
@@ -144,6 +164,17 @@ export function V9MarketView({
                     </details>
                 </div>
                 <div className={styles.marketControlGroup}>
+                    {usSlot && mySlot && (
+                        <button
+                            type="button"
+                            className={styles.ghostBtn}
+                            aria-expanded={compareOpen}
+                            aria-pressed={compareOpen}
+                            onClick={() => setCompareOpen(value => !value)}
+                        >
+                            Compare
+                        </button>
+                    )}
                     <button type="button" className={styles.ghostBtn} aria-pressed={advanced} onClick={toggleAdvanced}>Advanced Market</button>
                     <button type="button" className={styles.ghostBtn} onClick={onReload} disabled={loading}>
                         {loading ? 'Refreshing…' : 'Reload data'}
@@ -151,5 +182,6 @@ export function V9MarketView({
                 </div>
             </div>
         )}
-    />;
+    />
+    </>;
 }
