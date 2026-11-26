@@ -34,6 +34,12 @@ const { createResearchRecord } = loadTs('src/lib/research/records.ts');
 const marketFixture = marketRequestFixture({
     providerOverrides: {
         fetchVIX: () => ({ price: 30.4, change: 0, observedAt: new Date('2026-09-11T20:00:00Z') }),
+        fetchMarketNews: () => [
+            { title: 'Tech leads US pullback as VIX climbs past 30', source: 'CNBC Finance', link: 'https://example.test/h1', pubDate: '2026-09-11T22:00:00Z' },
+            { title: 'Treasury yields slip as investors add defensive hedges', source: 'Reuters Markets', link: 'https://example.test/h2', pubDate: '2026-09-11T20:30:00Z' },
+            { title: 'Options volume tilts toward index puts ahead of CPI', source: 'MarketWatch', link: 'https://example.test/h3', pubDate: '2026-09-11T19:15:00Z' },
+            { title: 'Equal-weight breadth lags megacap benchmarks for third session', source: 'Bloomberg', link: 'https://example.test/h4', pubDate: '2026-09-11T17:45:00Z' },
+        ],
     },
     providerReadings: {
         putCallRatio: {
@@ -341,6 +347,33 @@ try {
         });
 
         await context.close();
+    }
+
+    // Adaptive Top Stage geometry: Fear & Greed under Market Score at both 1280px (2-col) and 1600px (3-col docked headlines)
+    for (const wideWidth of [1280, 1600]) {
+        const wide = await createPage(wideWidth, 'dark', true);
+        await runCheck(`adaptive top stage Fear & Greed under score at ${wideWidth}px`, async () => {
+            await wide.page.goto(`${base}/v9?market=US&mode=standard&enableSocial=false`, { waitUntil: 'domcontentloaded' });
+            await wide.page.getByTestId('v9-top-stage').waitFor();
+            const boxes = await wide.page.evaluate(() => {
+                const score = document.querySelector('[aria-label="Market assessment"]')?.getBoundingClientRect();
+                const fng = document.querySelector('[aria-label="CNN Fear & Greed"]')?.getBoundingClientRect();
+                const chart = document.querySelector('[aria-label="Market score and history"]')?.getBoundingClientRect();
+                const headlines = document.querySelector('[aria-label="Market headlines"]')?.getBoundingClientRect();
+                return { score, fng, chart, headlines };
+            });
+            assert.ok(boxes.score && boxes.fng && boxes.chart && boxes.headlines, 'all top-stage cards rendered');
+            assert.ok(Math.abs(boxes.score.left - boxes.fng.left) <= 2, 'Fear & Greed aligns under Market Score column');
+            assert.ok(boxes.fng.top >= boxes.score.bottom - 2, 'Fear & Greed sits directly below Market Score');
+            if (wideWidth >= 1520) {
+                assert.ok(boxes.headlines.left >= boxes.chart.right - 2, 'Headlines docks in 3rd column at >=1520px');
+            } else {
+                assert.ok(boxes.headlines.top >= boxes.chart.bottom - 2, 'Headlines spans full width below chart at <1520px');
+            }
+            assert.ok(await wide.page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), 'no horizontal overflow');
+            await wide.page.screenshot({ path: `${output}/market-top-stage-${wideWidth}-dark.png` });
+        });
+        await wide.context.close();
     }
 
     // Guest local-only valuation check (zero /api/research/valuation-plan calls)
