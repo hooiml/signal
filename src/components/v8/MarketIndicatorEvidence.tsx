@@ -1,7 +1,9 @@
 import { hasRetrievalTimestamp, marketEvidenceDay } from '@/lib/market-evidence-coverage';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import { getIndicatorDisplayName } from '@/lib/indicator-registry';
+import { computeScoreAnatomy, indicatorCadenceInfo } from '@/lib/market-score-anatomy';
+import { marketReadingLabel } from '@/lib/market-display';
 import { formatRawValue } from '@/components/v2/cockpit-utils';
 import { fullDate, indicatorReadingLabel, indicatorStatus } from './MarketV8ConnectedData';
 import base from './market-v8.module.css';
@@ -155,6 +157,29 @@ export function MarketIndicatorEvidence({ signal, inputKeys, configured, date, r
     onSelect: (key: string, trigger: HTMLButtonElement) => void;
 }) {
     const [expanded, setExpanded] = useState(false);
+    const [anatomyOpen, setAnatomyOpen] = useState(false);
+    const signalScopeKey = `${signal.metadata.market}:${signal.mode}:${signal.composite_score}:${date}`;
+    const [excludedState, setExcludedState] = useState<{ scope: string; keys: string[] }>({ scope: signalScopeKey, keys: [] });
+    const excludedKeys = useMemo(
+        () => new Set(excludedState.scope === signalScopeKey ? excludedState.keys : []),
+        [excludedState, signalScopeKey],
+    );
+    const anatomy = useMemo(
+        () => (compactCards ? computeScoreAnatomy(signal, excludedKeys) : null),
+        [compactCards, excludedKeys, signal],
+    );
+    const maxAbsImpact = useMemo(
+        () => Math.max(4, ...(anatomy?.items.map(item => Math.abs(item.impact)) ?? [4])),
+        [anatomy],
+    );
+    const toggleAnatomyKey = (key: string) => {
+        setExcludedState(current => {
+            const active = current.scope === signalScopeKey ? current.keys : [];
+            const next = active.includes(key) ? active.filter(item => item !== key) : [...active, key];
+            return { scope: signalScopeKey, keys: next };
+        });
+    };
+    const resetAnatomy = () => setExcludedState({ scope: signalScopeKey, keys: [] });
     // Observations come first; unavailable configured inputs remain inspectable.
     const ordered = [...inputKeys].sort((a, b) => Number(!!signal.components[b]) - Number(!!signal.components[a]) || (signal.components[b]?.weight ?? configured[b] ?? 0) - (signal.components[a]?.weight ?? configured[a] ?? 0));
     // Inputs with no observation share one compact row in V8 or fill the 2x2 grid in V9.
@@ -162,8 +187,86 @@ export function MarketIndicatorEvidence({ signal, inputKeys, configured, date, r
     const missing = ordered.filter(key => !signal.components[key]);
     const changeComponents = signal.metadata.change_reconciliation?.components ?? [];
     const formatDirection = (label: string) => label ? label[0].toUpperCase() + label.slice(1) : '';
+    const canExploreAnatomy = Boolean(compactCards && anatomy && anatomy.items.length >= 2);
     return <section className={styles.evidence} aria-label="Explore indicators">
-        <div className={base.sectionHeading}><div><h2>Current indicator evidence</h2><p>{referenceLabel ?? (marketEvidenceDay(date) ? fullDate(date) : 'Snapshot date unavailable')} · select an observation for details</p></div></div>
+        <div className={base.sectionHeading}>
+            <div>
+                <h2>Current indicator evidence</h2>
+                <p>{referenceLabel ?? (marketEvidenceDay(date) ? fullDate(date) : 'Snapshot date unavailable')} · select an observation for details</p>
+            </div>
+            {canExploreAnatomy && (
+                <button
+                    type="button"
+                    className={styles.v9AnatomyToggle}
+                    aria-expanded={anatomyOpen}
+                    onClick={() => setAnatomyOpen(value => !value)}
+                >
+                    {anatomyOpen ? 'Hide score anatomy' : 'Explore score anatomy'}
+                </button>
+            )}
+        </div>
+        {canExploreAnatomy && anatomyOpen && anatomy && (
+            <div className={styles.v9AnatomyPanel} data-testid="market-score-anatomy" aria-label="Interactive score anatomy">
+                <div className={styles.v9AnatomyHead}>
+                    <div className={styles.v9AnatomyScore}>
+                        <strong>
+                            {anatomy.excludedNames.length === 0
+                                ? `Official score ${anatomy.officialScore.toFixed(0)} / 100`
+                                : anatomy.exploringScore === null
+                                    ? `Official ${anatomy.officialScore.toFixed(0)} → All active inputs excluded`
+                                    : anatomy.delta === 0
+                                        ? `${anatomy.officialScore.toFixed(0)} → ${anatomy.exploringScore} (unchanged without ${anatomy.excludedNames.join(', ')})`
+                                        : `${anatomy.officialScore.toFixed(0)} → ${anatomy.exploringScore} (${anatomy.delta !== null && anatomy.delta > 0 ? '+' : ''}${anatomy.delta ?? 0} pts without ${anatomy.excludedNames.join(', ')})`}
+                        </strong>
+                        <span>
+                            {anatomy.excludedNames.length > 0 && anatomy.exploringTier
+                                ? `${marketReadingLabel(anatomy.exploringTier)} · Exploring · not saved`
+                                : 'Toggle any active input below to test its effect on the score · Exploring · not saved'}
+                        </span>
+                    </div>
+                    {anatomy.excludedNames.length > 0 && (
+                        <button type="button" className={styles.v9AnatomyReset} onClick={resetAnatomy}>
+                            Reset
+                        </button>
+                    )}
+                </div>
+                <div className={styles.v9AnatomyRows}>
+                    {anatomy.items.map(item => {
+                        const pctWidth = Math.min(100, (Math.abs(item.impact) / maxAbsImpact) * 100);
+                        const direction = item.impact > 0.05 ? 'up' : item.impact < -0.05 ? 'down' : 'flat';
+                        return (
+                            <div key={item.key} className={styles.v9AnatomyRow} data-excluded={!item.included}>
+                                <button
+                                    type="button"
+                                    className={styles.v9AnatomySwitch}
+                                    aria-pressed={item.included}
+                                    onClick={() => toggleAnatomyKey(item.key)}
+                                >
+                                    <span className={styles.v9AnatomyCheck} aria-hidden="true">{item.included ? '✓' : '—'}</span>
+                                    <span>{item.name}</span>
+                                    <small>{Math.round(item.weight * 100)}%</small>
+                                </button>
+                                <div className={styles.v9AnatomyTrack} aria-hidden="true">
+                                    <span className={styles.v9AnatomySpine} />
+                                    {direction === 'down' && (
+                                        <span className={styles.v9AnatomyBar} data-direction="down" style={{ right: '50%', width: `${(pctWidth / 2).toFixed(1)}%` }} />
+                                    )}
+                                    {direction === 'up' && (
+                                        <span className={styles.v9AnatomyBar} data-direction="up" style={{ left: '50%', width: `${(pctWidth / 2).toFixed(1)}%` }} />
+                                    )}
+                                </div>
+                                <span className={styles.v9AnatomyImpact} data-impact={direction}>
+                                    {item.impact > 0 ? '+' : item.impact < 0 ? '−' : '±'}{Math.abs(item.impact).toFixed(1)} pts
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
+                <p className={styles.v9AnatomyFoot}>
+                    Re-weights remaining active inputs across observed coverage while keeping neutral fallback unchanged. Official reading is never modified.
+                </p>
+            </div>
+        )}
         <div className={styles.evidenceRows} data-expanded={expanded} data-v9-grid={compactCards ? 'true' : undefined} data-v9-cols={compactCards ? String(observed.length + missing.length === 3 ? 3 : 2) : undefined}>
             {observed.map((key, index) => {
                 const item = signal.components[key];
@@ -179,8 +282,14 @@ export function MarketIndicatorEvidence({ signal, inputKeys, configured, date, r
                     && changeRow.previous_raw_value !== null
                     && changeRow.current_raw_value !== null
                     && changeRow.previous_raw_value !== changeRow.current_raw_value;
+                const cadence = compactCards ? indicatorCadenceInfo(key) : null;
                 return <MetricGlossary key={key} metric={metricForIndicator(key)} onInspect={element => onSelect(key, element)} buttonProps={{ type: 'button', 'data-indicator': key, 'data-overflow': index >= 3, 'data-available': !!item && !disabled, className: styles.evidenceRow, 'aria-label': item?.display_name ?? getIndicatorDisplayName(key) }}>
-                    <span><b>{item?.display_name ?? getIndicatorDisplayName(key)}</b><small className={status.startsWith('Stale') ? styles.caution : ''}>{status}</small>{item && <V8FreshnessLine as="small" label={hasRetrievalTimestamp(item) ? 'Retrieved' : 'Dated'} separator=" " value={fullDate(marketEvidenceDay(item.last_updated))} />}</span>
+                    <span>
+                        <b>{item?.display_name ?? getIndicatorDisplayName(key)}</b>
+                        <small className={status.startsWith('Stale') ? styles.caution : ''}>{status}</small>
+                        {item && <V8FreshnessLine as="small" label={hasRetrievalTimestamp(item) ? 'Retrieved' : 'Dated'} separator=" " value={fullDate(marketEvidenceDay(item.last_updated))} />}
+                        {cadence && <small className={styles.v9CadenceHint} title={cadence.scheduleHint}>{cadence.shortLabel}</small>}
+                    </span>
                     <span>
                         <strong>{item ? formatRawValue(item, signal.metadata.market) : 'Unavailable'}</strong>
                         {compactCards ? (

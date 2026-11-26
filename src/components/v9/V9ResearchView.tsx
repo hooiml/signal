@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useEffect, useId, useMemo, useState } from 'react';
+import { useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -12,11 +12,15 @@ import { ResearchFilingsV8 } from '@/components/v8/ResearchFilingsV8';
 import { ResearchPeersV8 } from '@/components/v8/ResearchPeersV8';
 import { FirstVisitCallout, useFirstVisit } from '@/components/v8/V8FirstVisit';
 import { ownerUnlockHref } from '@/lib/owner-access-client';
-import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
+import type { ResearchMarket, ResearchRecord, ResearchReviewSnapshot } from '@/lib/types/research';
 import type { ResearchChartPoint, ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { parseResearchSnapshotResponse } from '@/lib/research/snapshot-input';
 import { formatResearchTimestamp } from '@/lib/research/metric-provenance';
 import { GuestWorkspaceConflictError } from '@/lib/research/guest-workspace';
+import { dueReviewReasons, savedReviewContext } from '@/lib/research/due-review';
+import { buildRebasedPeerOverlay } from '@/lib/research/peer-overlay';
+import { priceSpanChange } from '@/lib/research/reading-display';
+import { useReviewDay } from '@/lib/research/use-review-day';
 import { readData, readPolicies } from '@/components/v8/read-data';
 import { readResearchChart } from '@/components/v8/read-research-chart';
 import { useV9OwnerResearch } from './useV9OwnerResearch';
@@ -85,25 +89,100 @@ const fmtPrice = (value: number | null, currency: string | null): string => {
     return `${currency ? `${currency} ` : ''}${value.toFixed(2)}`;
 };
 
+const PEER_COLORS = ['var(--caution-mark)', 'var(--subtle)'] as const;
+
 function PriceChart({
+    symbol,
+    market,
     points,
     currency,
     range,
+    reviewHistory,
+    peerSuggestions,
     onRangeChange,
 }: {
+    readonly symbol: string;
+    readonly market: ResearchMarket;
     readonly points: readonly ResearchChartPoint[];
     readonly currency: string | null;
     readonly range: ChartRange;
+    readonly reviewHistory?: readonly ResearchReviewSnapshot[];
+    readonly peerSuggestions: readonly string[];
     readonly onRangeChange: (next: ChartRange) => void;
 }) {
     const gradId = `v9-price-grad-${useId().replace(/:/g, '')}`;
     const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+    const [focusIndex, setFocusIndex] = useState<number | null>(null);
+    const [measureMode, setMeasureMode] = useState(false);
+    const [spanStart, setSpanStart] = useState<number | null>(null);
+    const [spanEnd, setSpanEnd] = useState<number | null>(null);
+    const [draggingPointer, setDraggingPointer] = useState<number | null>(null);
+    const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
+    const [selectedPeers, setSelectedPeers] = useState<readonly string[]>([]);
+    const [peerCharts, setPeerCharts] = useState<Record<string, readonly ResearchChartPoint[] | 'loading' | 'error'>>({});
 
     const sliced = useMemo(() => {
         if (!points.length) return [];
         const counts: Record<ChartRange, number> = { '1M': 22, '3M': 66, '1Y': 252, '5Y': 1260 };
         return points.slice(-counts[range]);
     }, [points, range]);
+
+    const peerRequestsRef = useRef<AbortController | null>(null);
+    useEffect(() => () => peerRequestsRef.current?.abort(), []);
+    const missingPeersKey = selectedPeers.filter(peer => !peerCharts[`${market}:${peer}`]).join('|');
+
+    // Fetch overlaid peer histories strictly on demand without aborting on loading state transition.
+    useEffect(() => {
+        if (!missingPeersKey) return;
+        if (!peerRequestsRef.current || peerRequestsRef.current.signal.aborted) {
+            peerRequestsRef.current = new AbortController();
+        }
+        const abortSignal = peerRequestsRef.current.signal;
+        const toLoad = missingPeersKey.split('|');
+        const timer = window.setTimeout(() => {
+            setPeerCharts(current => ({
+                ...current,
+                ...Object.fromEntries(toLoad.map(peer => [`${market}:${peer}`, 'loading' as const])),
+            }));
+            for (const peer of toLoad) {
+                readResearchChart(peer, market, abortSignal)
+                    .then(chart => {
+                        if (!abortSignal.aborted) {
+                            setPeerCharts(current => ({ ...current, [`${market}:${peer}`]: chart.points }));
+                        }
+                    })
+                    .catch(() => {
+                        if (!abortSignal.aborted) {
+                            setPeerCharts(current => ({ ...current, [`${market}:${peer}`]: 'error' }));
+                        }
+                    });
+            }
+        }, 0);
+        return () => window.clearTimeout(timer);
+    }, [market, missingPeersKey]);
+
+    const togglePeerOverlay = (peer: string) => {
+        const clean = peer.trim().toUpperCase();
+        if (!clean || clean === symbol.toUpperCase()) return;
+        setSelectedPeers(current => {
+            if (current.includes(clean)) return current.filter(item => item !== clean);
+            if (current.length >= 2) return [current[1], clean];
+            return [...current, clean];
+        });
+        setMeasureMode(false);
+        setSpanStart(null);
+        setSpanEnd(null);
+    };
+
+    const overlayActive = selectedPeers.length > 0;
+    const loadedPeerInputs = useMemo(() => selectedPeers.flatMap(peer => {
+        const entry = peerCharts[`${market}:${peer}`];
+        return Array.isArray(entry) ? [{ symbol: peer, points: entry }] : [];
+    }), [market, peerCharts, selectedPeers]);
+    const rebased = useMemo(
+        () => (overlayActive ? buildRebasedPeerOverlay(sliced, loadedPeerInputs) : null),
+        [loadedPeerInputs, overlayActive, sliced],
+    );
 
     const bounds = useMemo(() => {
         if (!sliced.length) return { min: 0, max: 1 };
@@ -113,47 +192,180 @@ function PriceChart({
         return { min, max: max === min ? min + 1 : max };
     }, [sliced]);
 
-    const activeIdx = hoverIndex !== null && hoverIndex < sliced.length ? hoverIndex : sliced.length - 1;
+    const reviewPins = useMemo(() => {
+        if (!sliced.length || !reviewHistory?.length || overlayActive) return [];
+        const firstDay = sliced[0].time.slice(0, 10);
+        const lastDay = sliced[sliced.length - 1].time.slice(0, 10);
+        const byDay = new Map<string, ResearchReviewSnapshot>();
+        for (const entry of reviewHistory) {
+            const day = entry.reviewedAt.slice(0, 10);
+            if (day >= firstDay && day <= lastDay) byDay.set(day, entry);
+        }
+        const pins: { readonly id: string; readonly index: number; readonly day: string; readonly entry: ResearchReviewSnapshot }[] = [];
+        byDay.forEach((entry, day) => {
+            let bestIdx = 0;
+            let bestGap = Infinity;
+            const targetMs = Date.parse(`${day}T00:00:00Z`);
+            if (!Number.isFinite(targetMs)) return;
+            sliced.forEach((pt, idx) => {
+                const gap = Math.abs(Date.parse(pt.time) - targetMs);
+                if (Number.isFinite(gap) && gap < bestGap) { bestGap = gap; bestIdx = idx; }
+            });
+            pins.push({ id: entry.id, index: bestIdx, day, entry });
+        });
+        return pins.sort((a, b) => a.index - b.index);
+    }, [overlayActive, reviewHistory, sliced]);
+
+    const hasPins = reviewPins.length > 0;
+    const w = 640;
+    const h = hasPins ? 210 : 196;
+    const padTop = hasPins ? 30 : 14;
+    const padBottom = 14;
+    const plotRight = overlayActive ? w - 58 : w;
+
+    const coords = useMemo(() => {
+        if (!sliced.length) return [];
+        const plotH = h - padTop - padBottom;
+        if (rebased) {
+            const pctSpan = rebased.maxPct - rebased.minPct || 1;
+            return rebased.subject.map((pt, index) => {
+                const x = rebased.subject.length === 1 ? plotRight / 2 : (index / (rebased.subject.length - 1)) * plotRight;
+                const y = padTop + ((rebased.maxPct - pt.pct) / pctSpan) * plotH;
+                return { x, y, point: sliced[index]!, pct: pt.pct };
+            });
+        }
+        return sliced.map((point, index) => {
+            const x = sliced.length === 1 ? plotRight / 2 : (index / (sliced.length - 1)) * plotRight;
+            const y = padTop + ((bounds.max - point.close) / (bounds.max - bounds.min)) * plotH;
+            return { x, y, point, pct: null as number | null };
+        });
+    }, [bounds.max, bounds.min, h, padTop, plotRight, rebased, sliced]);
+
+    const rebasedPeerPaths = useMemo(() => {
+        if (!rebased || !coords.length) return [];
+        const plotH = h - padTop - padBottom;
+        const pctSpan = rebased.maxPct - rebased.minPct || 1;
+        const denom = Math.max(1, rebased.subject.length - 1);
+        return rebased.peers.map((series, idx) => {
+            const pts = series.points.map(pt => ({
+                x: (pt.index / denom) * plotRight,
+                y: padTop + ((rebased.maxPct - pt.pct) / pctSpan) * plotH,
+                pct: pt.pct,
+                index: pt.index,
+            }));
+            const d = pts.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`).join(' ');
+            return {
+                symbol: series.symbol,
+                available: series.available,
+                latestPct: series.latestPct,
+                pts,
+                d,
+                color: PEER_COLORS[idx % PEER_COLORS.length],
+                dashed: idx === 1,
+            };
+        });
+    }, [coords.length, h, padTop, plotRight, rebased]);
+
+    const zeroBaselineY = rebased
+        ? padTop + ((rebased.maxPct - 0) / (rebased.maxPct - rebased.minPct || 1)) * (h - padTop - padBottom)
+        : null;
+
+    const clearMeasurement = () => {
+        setSpanStart(null);
+        setSpanEnd(null);
+        setMeasureMode(false);
+        setDraggingPointer(null);
+    };
+
+    const validSpan = !overlayActive && spanStart !== null && spanEnd !== null && spanStart !== spanEnd
+        && spanStart < sliced.length && spanEnd < sliced.length;
+    const measured = useMemo(
+        () => (validSpan ? priceSpanChange(sliced, spanStart!, spanEnd!) : null),
+        [sliced, spanEnd, spanStart, validSpan],
+    );
+
+    const activeIdx = hoverIndex !== null && hoverIndex < sliced.length
+        ? hoverIndex
+        : focusIndex !== null && focusIndex < sliced.length
+            ? focusIndex
+            : sliced.length - 1;
     const active = sliced[activeIdx] ?? null;
     const first = sliced[0] ?? null;
     const periodPct = active && first && first.close > 0 ? ((active.close - first.close) / first.close) * 100 : null;
     const isUp = (periodPct ?? 0) >= 0;
-    const stroke = isUp ? 'var(--up-mark)' : 'var(--down-mark)';
-
-    const coords = useMemo(() => {
-        if (!sliced.length) return [];
-        const w = 640;
-        const h = 190;
-        const padY = 14;
-        return sliced.map((point, index) => {
-            const x = sliced.length === 1 ? w / 2 : (index / (sliced.length - 1)) * w;
-            const y = padY + ((bounds.max - point.close) / (bounds.max - bounds.min)) * (h - padY * 2);
-            return { x, y, point };
-        });
-    }, [bounds.max, bounds.min, sliced]);
+    const stroke = overlayActive ? 'var(--brand)' : isUp ? 'var(--up-mark)' : 'var(--down-mark)';
 
     const linePath = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ');
-    const areaPath = coords.length > 1 ? `${linePath} L ${coords[coords.length - 1].x.toFixed(1)} 200 L ${coords[0].x.toFixed(1)} 200 Z` : '';
+    const areaPath = !overlayActive && coords.length > 1 ? `${linePath} L ${coords[coords.length - 1].x.toFixed(1)} ${h} L ${coords[0].x.toFixed(1)} ${h} Z` : '';
     const activeCoord = coords[activeIdx] ?? null;
+    const spanLeftIdx = validSpan ? Math.min(spanStart!, spanEnd!) : null;
+    const spanRightIdx = validSpan ? Math.max(spanStart!, spanEnd!) : null;
+    const spanLeft = spanLeftIdx !== null ? coords[spanLeftIdx] : null;
+    const spanRight = spanRightIdx !== null ? coords[spanRightIdx] : null;
+    const activePin = activeReviewId ? reviewPins.find(pin => pin.id === activeReviewId) ?? null : null;
+
+    const indexFromClientX = (clientX: number, svg: SVGSVGElement): number => {
+        const rect = svg.getBoundingClientRect();
+        if (!rect.width || !coords.length) return 0;
+        const scaledX = ((clientX - rect.left) / rect.width) * w;
+        const ratio = Math.min(1, Math.max(0, scaledX / plotRight));
+        return Math.round(ratio * (coords.length - 1));
+    };
+
+    const peerAtIndex = (peerSeries: (typeof rebasedPeerPaths)[number], idx: number) => {
+        if (!peerSeries.pts.length) return null;
+        return peerSeries.pts.reduce((best, pt) => (Math.abs(pt.index - idx) < Math.abs(best.index - idx) ? pt : best), peerSeries.pts[0]);
+    };
 
     return (
         <div className={styles.chartBox}>
             <div className={styles.chartControls}>
-                <div className={styles.segWrap} role="group" aria-label="Chart range">
-                    {(['1M', '3M', '1Y', '5Y'] as const).map(item => (
+                <div className={styles.chartControlLeft}>
+                    <div className={styles.segWrap} role="group" aria-label="Chart range">
+                        {(['1M', '3M', '1Y', '5Y'] as const).map(item => (
+                            <button
+                                key={item}
+                                type="button"
+                                className={styles.segBtn}
+                                aria-pressed={range === item}
+                                onClick={() => { setHoverIndex(null); setFocusIndex(null); clearMeasurement(); setActiveReviewId(null); onRangeChange(item); }}
+                            >
+                                {item}
+                            </button>
+                        ))}
+                    </div>
+                    {coords.length > 1 && !overlayActive && (
                         <button
-                            key={item}
                             type="button"
-                            className={styles.segBtn}
-                            aria-pressed={range === item}
-                            onClick={() => { setHoverIndex(null); onRangeChange(item); }}
+                            className={styles.measureBtn}
+                            aria-pressed={measureMode || validSpan}
+                            onClick={() => {
+                                if (measureMode || validSpan) { clearMeasurement(); }
+                                else { setMeasureMode(true); setSpanStart(null); setSpanEnd(null); }
+                            }}
                         >
-                            {item}
+                            {validSpan ? 'Clear measure' : measureMode ? 'Cancel measure' : 'Measure'}
                         </button>
-                    ))}
+                    )}
                 </div>
                 <span className={styles.chartMeta}>
-                    {active ? (
+                    {overlayActive && activeCoord && activeCoord.pct !== null ? (
+                        <>
+                            <strong>{symbol} {activeCoord.pct >= 0 ? '+' : ''}{activeCoord.pct.toFixed(1)}%</strong>
+                            {rebasedPeerPaths.map(peer => {
+                                const pt = peerAtIndex(peer, activeIdx);
+                                return pt ? ` · ${peer.symbol} ${pt.pct >= 0 ? '+' : ''}${pt.pct.toFixed(1)}%` : '';
+                            }).join('')}
+                            {active ? ` · ${active.time.slice(0, 10)}` : ''}
+                        </>
+                    ) : activePin ? (
+                        <>
+                            <strong>Review · {activePin.day}</strong> · {activePin.entry.decisionJournal.decision}
+                            {activePin.entry.decisionJournal.observedPrice !== null
+                                ? ` at ${fmtPrice(activePin.entry.decisionJournal.observedPrice, activePin.entry.decisionJournal.observedCurrency ?? currency)}`
+                                : ''}
+                        </>
+                    ) : active ? (
                         <>
                             <strong>{fmtPrice(active.close, currency)}</strong> · {active.time.slice(0, 10)}
                             {periodPct !== null && ` (${periodPct >= 0 ? '+' : ''}${periodPct.toFixed(2)}% over ${range})`}
@@ -164,31 +376,251 @@ function PriceChart({
                 </span>
             </div>
 
+            {coords.length > 1 && peerSuggestions.length > 0 && (
+                <div className={styles.peerOverlayBar} aria-label="Overlay peer comparison" data-testid="v9-peer-overlay-bar">
+                    <span className={styles.peerOverlayLabel}>Compare on chart</span>
+                    <div className={styles.peerOverlayPills}>
+                        {peerSuggestions.map(peer => {
+                            const selectedIdx = selectedPeers.indexOf(peer);
+                            const activePeer = selectedIdx !== -1;
+                            const status = peerCharts[`${market}:${peer}`];
+                            return (
+                                <button
+                                    key={peer}
+                                    type="button"
+                                    className={styles.peerChip}
+                                    aria-pressed={activePeer}
+                                    onClick={() => togglePeerOverlay(peer)}
+                                >
+                                    {activePeer && (
+                                        <span
+                                            className={styles.peerSwatch}
+                                            style={{ background: PEER_COLORS[selectedIdx % PEER_COLORS.length] }}
+                                            aria-hidden="true"
+                                        />
+                                    )}
+                                    <span>{activePeer ? peer : `+ ${peer}`}</span>
+                                    {activePeer && status === 'loading' && <small>…</small>}
+                                    {activePeer && status === 'error' && <small>err</small>}
+                                </button>
+                            );
+                        })}
+                        {selectedPeers.length > 0 && (
+                            <button type="button" className={styles.peerClearBtn} onClick={() => setSelectedPeers([])}>
+                                Clear overlay
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {(measureMode || measured) && !overlayActive && (
+                <div className={styles.measureReadout} role="status" data-testid="v9-chart-measurement">
+                    {measured ? (
+                        <>
+                            <span>
+                                <strong>{measured.start.slice(0, 10)} → {measured.end.slice(0, 10)}</strong>
+                                {' · '}
+                                <span className={styles.measureDelta} data-direction={measured.amount >= 0 ? 'up' : 'down'}>
+                                    {measured.amount >= 0 ? '+' : '−'}{fmtPrice(Math.abs(measured.amount), currency)}
+                                    {measured.percentage !== null ? ` (${measured.percentage >= 0 ? '+' : ''}${measured.percentage.toFixed(2)}%)` : ''}
+                                </span>
+                                {' · '}
+                                {measured.observations} returned {measured.observations === 1 ? 'observation' : 'observations'}
+                            </span>
+                            <span className={styles.measureNote}>Exploring · not saved · Price change only</span>
+                        </>
+                    ) : (
+                        <span>
+                            {spanStart !== null && sliced[spanStart]
+                                ? `Start: ${sliced[spanStart].time.slice(0, 10)} — tap or click a second date to finish.`
+                                : 'Tap or click a start date on the chart, or drag across two dates.'}
+                        </span>
+                    )}
+                </div>
+            )}
+
             {coords.length > 1 ? (
                 <svg
                     className={styles.chartSvg}
-                    viewBox="0 0 640 200"
-                    role="img"
-                    aria-label={`Price history over ${range}`}
-                    onPointerMove={event => {
-                        const rect = event.currentTarget.getBoundingClientRect();
-                        if (!rect.width || !coords.length) return;
-                        const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
-                        setHoverIndex(Math.round(ratio * (coords.length - 1)));
+                    viewBox={`0 0 ${w} ${h}`}
+                    role="slider"
+                    tabIndex={0}
+                    aria-label={overlayActive
+                        ? `Rebased percentage price history over ${range} for ${symbol} and ${selectedPeers.join(', ')}`
+                        : `Price history over ${range}. Drag or use Shift plus arrow keys to measure between two dates.`}
+                    aria-valuemin={0}
+                    aria-valuemax={coords.length - 1}
+                    aria-valuenow={activeIdx}
+                    aria-valuetext={active ? `${active.time.slice(0, 10)}, ${fmtPrice(active.close, currency)}` : undefined}
+                    onKeyDown={event => {
+                        if (event.key === 'Escape') {
+                            if (measureMode || validSpan || spanStart !== null) { event.preventDefault(); clearMeasurement(); }
+                            return;
+                        }
+                        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+                        event.preventDefault();
+                        const current = focusIndex ?? activeIdx;
+                        const next = event.key === 'Home'
+                            ? 0
+                            : event.key === 'End'
+                                ? coords.length - 1
+                                : Math.max(0, Math.min(coords.length - 1, current + (event.key === 'ArrowRight' ? 1 : -1)));
+                        setHoverIndex(null);
+                        setFocusIndex(next);
+                        if (event.shiftKey && !overlayActive) {
+                            if (spanStart === null) setSpanStart(current);
+                            setSpanEnd(next);
+                        }
                     }}
-                    onPointerLeave={() => setHoverIndex(null)}
+                    onPointerDown={event => {
+                        if (overlayActive) return;
+                        if (event.button !== 0 && event.pointerType === 'mouse') return;
+                        const idx = indexFromClientX(event.clientX, event.currentTarget);
+                        if (measureMode) {
+                            if (spanStart === null || spanEnd !== null) {
+                                setSpanStart(idx);
+                                setSpanEnd(null);
+                            } else {
+                                setSpanEnd(idx);
+                                setMeasureMode(false);
+                            }
+                            return;
+                        }
+                        if (event.pointerType === 'mouse' || event.pointerType === 'pen') {
+                            setDraggingPointer(event.pointerId);
+                            setSpanStart(idx);
+                            setSpanEnd(idx);
+                            event.currentTarget.setPointerCapture?.(event.pointerId);
+                        }
+                    }}
+                    onPointerMove={event => {
+                        const idx = indexFromClientX(event.clientX, event.currentTarget);
+                        setHoverIndex(idx);
+                        if (!overlayActive && draggingPointer === event.pointerId) setSpanEnd(idx);
+                    }}
+                    onPointerUp={event => {
+                        if (draggingPointer !== event.pointerId) return;
+                        const idx = indexFromClientX(event.clientX, event.currentTarget);
+                        setDraggingPointer(null);
+                        event.currentTarget.releasePointerCapture?.(event.pointerId);
+                        if (spanStart === idx) { setSpanStart(null); setSpanEnd(null); }
+                        else setSpanEnd(idx);
+                    }}
+                    onPointerCancel={event => {
+                        if (draggingPointer !== event.pointerId) return;
+                        setDraggingPointer(null);
+                        setSpanStart(null);
+                        setSpanEnd(null);
+                    }}
+                    onPointerLeave={() => {
+                        setHoverIndex(null);
+                        setActiveReviewId(null);
+                    }}
                 >
                     <defs>
                         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor={stroke} stopOpacity="0.24" />
+                            <stop offset="0%" stopColor={stroke} stopOpacity="0.22" />
                             <stop offset="100%" stopColor={stroke} stopOpacity="0" />
                         </linearGradient>
                     </defs>
-                    <path d={areaPath} fill={`url(#${gradId})`} />
-                    <path d={linePath} fill="none" stroke={stroke} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
-                    {activeCoord && (
+                    {zeroBaselineY !== null && (
                         <>
-                            <line x1={activeCoord.x.toFixed(1)} y1="10" x2={activeCoord.x.toFixed(1)} y2="196" stroke="var(--line-strong)" strokeDasharray="3 4" />
+                            <line x1="0" y1={zeroBaselineY.toFixed(1)} x2={plotRight.toFixed(1)} y2={zeroBaselineY.toFixed(1)} stroke="var(--line-strong)" strokeWidth="1" strokeDasharray="4 4" />
+                            <text x={(plotRight + 6).toFixed(1)} y={(zeroBaselineY + 4).toFixed(1)} fill="var(--muted)" fontSize="11">0%</text>
+                        </>
+                    )}
+                    {spanLeft && spanRight && (
+                        <>
+                            <rect
+                                x={spanLeft.x.toFixed(1)}
+                                y={padTop - 4}
+                                width={Math.max(2, spanRight.x - spanLeft.x).toFixed(1)}
+                                height={h - padTop + 4}
+                                fill="var(--brand)"
+                                fillOpacity="0.14"
+                            />
+                            <line x1={spanLeft.x.toFixed(1)} y1={padTop - 4} x2={spanLeft.x.toFixed(1)} y2={h} stroke="var(--brand)" strokeWidth="1.5" strokeDasharray="3 3" />
+                            <line x1={spanRight.x.toFixed(1)} y1={padTop - 4} x2={spanRight.x.toFixed(1)} y2={h} stroke="var(--brand)" strokeWidth="1.5" strokeDasharray="3 3" />
+                        </>
+                    )}
+                    {areaPath && <path d={areaPath} fill={`url(#${gradId})`} />}
+                    {rebasedPeerPaths.map(peer => peer.available && peer.d ? (
+                        <g key={peer.symbol} data-testid={`v9-peer-overlay-line-${peer.symbol}`}>
+                            <path
+                                d={peer.d}
+                                fill="none"
+                                stroke={peer.color}
+                                strokeWidth="2"
+                                strokeDasharray={peer.dashed ? '5 4' : undefined}
+                                strokeLinejoin="round"
+                                strokeLinecap="round"
+                            />
+                            {peer.pts.at(-1) && (
+                                <text
+                                    x={(plotRight + 6).toFixed(1)}
+                                    y={(peer.pts.at(-1)!.y + 4).toFixed(1)}
+                                    fill={peer.color}
+                                    fontSize="11"
+                                    fontWeight="700"
+                                >
+                                    {peer.symbol}
+                                </text>
+                            )}
+                        </g>
+                    ) : null)}
+                    <path d={linePath} fill="none" stroke={stroke} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+                    {overlayActive && coords.at(-1) && (
+                        <text
+                            x={(plotRight + 6).toFixed(1)}
+                            y={(coords.at(-1)!.y + 4).toFixed(1)}
+                            fill="var(--brand)"
+                            fontSize="11"
+                            fontWeight="700"
+                        >
+                            {symbol}
+                        </text>
+                    )}
+                    {spanLeft && spanRight && (
+                        <>
+                            <circle cx={spanLeft.x.toFixed(1)} cy={spanLeft.y.toFixed(1)} r="4.5" fill="var(--surface)" stroke="var(--brand)" strokeWidth="2.5" />
+                            <circle cx={spanRight.x.toFixed(1)} cy={spanRight.y.toFixed(1)} r="4.5" fill="var(--surface)" stroke="var(--brand)" strokeWidth="2.5" />
+                        </>
+                    )}
+                    {hasPins && (
+                        <g aria-label="Saved review markers">
+                            <line x1="0" y1="14" x2={w} y2="14" stroke="var(--line)" strokeWidth="1" />
+                            {reviewPins.map(pin => {
+                                const pt = coords[pin.index];
+                                if (!pt) return null;
+                                const isSelected = activeReviewId === pin.id;
+                                const cx = pt.x;
+                                const cy = 14;
+                                return (
+                                    <g
+                                        key={pin.id}
+                                        style={{ cursor: 'pointer' }}
+                                        onPointerEnter={() => setActiveReviewId(pin.id)}
+                                        onPointerLeave={() => setActiveReviewId(null)}
+                                        onClick={event => { event.stopPropagation(); setActiveReviewId(current => current === pin.id ? null : pin.id); }}
+                                    >
+                                        <line x1={cx.toFixed(1)} y1={cy + 6} x2={cx.toFixed(1)} y2={pt.y.toFixed(1)} stroke="var(--brand)" strokeDasharray="2 3" opacity={isSelected ? '0.9' : '0.45'} />
+                                        <polygon
+                                            points={`${cx.toFixed(1)},${cy - 6} ${(cx + 6).toFixed(1)},${cy} ${cx.toFixed(1)},${cy + 6} ${(cx - 6).toFixed(1)},${cy}`}
+                                            fill={isSelected ? 'var(--brand)' : 'var(--surface)'}
+                                            stroke="var(--brand)"
+                                            strokeWidth="2"
+                                        >
+                                            <title>{`Saved review ${pin.day} · ${pin.entry.decisionJournal.decision}`}</title>
+                                        </polygon>
+                                    </g>
+                                );
+                            })}
+                        </g>
+                    )}
+                    {activeCoord && !validSpan && (
+                        <>
+                            <line x1={activeCoord.x.toFixed(1)} y1={padTop - 4} x2={activeCoord.x.toFixed(1)} y2={h - 4} stroke="var(--line-strong)" strokeDasharray="3 4" />
                             <circle cx={activeCoord.x.toFixed(1)} cy={activeCoord.y.toFixed(1)} r="8" fill={stroke} opacity="0.2" />
                             <circle cx={activeCoord.x.toFixed(1)} cy={activeCoord.y.toFixed(1)} r="4.5" fill="var(--surface)" stroke={stroke} strokeWidth="2.5" />
                         </>
@@ -196,6 +628,18 @@ function PriceChart({
                 </svg>
             ) : (
                 <p style={{ margin: '12px 0', color: 'var(--muted)', fontSize: 13 }}>Historical price closes were not returned for this security.</p>
+            )}
+            {overlayActive && (
+                <p className={styles.pinLegend} data-testid="v9-peer-overlay-note">
+                    Rebased to 0% at range start · Price return only · Currencies are not combined.
+                    {rebasedPeerPaths.some(p => !p.available) && ` Unavailable in range: ${rebasedPeerPaths.filter(p => !p.available).map(p => p.symbol).join(', ')}.`}
+                </p>
+            )}
+            {hasPins && (
+                <p className={styles.pinLegend}>
+                    <span className={styles.pinDiamond} aria-hidden="true" />
+                    {reviewPins.length} saved {reviewPins.length === 1 ? 'review' : 'reviews'} in this range · hover or tap a marker for context
+                </p>
             )}
         </div>
     );
@@ -373,8 +817,49 @@ export function V9ResearchView({
         setAttempt(value => value + 1);
     }
 
+    const peerSuggestions = useMemo(() => {
+        const currentSym = symbol.toUpperCase();
+        const savedPeers = (records ?? [])
+            .filter(r => r.market === market && r.symbol.toUpperCase() !== currentSym)
+            .map(r => r.symbol.toUpperCase());
+        const fallbackPeers = market === 'MY' ? ['1155', '1295', '5347', 'KLCI'] : ['MSFT', 'NVDA', 'AAPL', 'VOO'];
+        const list: string[] = [];
+        for (const candidate of [...savedPeers, ...fallbackPeers]) {
+            if (candidate !== currentSym && !list.includes(candidate) && list.length < 4) list.push(candidate);
+        }
+        return list;
+    }, [market, records, symbol]);
+
     const ownerRecord = owner ? savedRecord : null;
     const ownerPanel = ownerPanels.some(([id]) => id === panel);
+    const todayUtc = useReviewDay();
+    const [dismissedDueVisit, setDismissedDueVisit] = useState<string | null>(null);
+    const dueReasons = useMemo(
+        () => (ownerRecord ? dueReviewReasons(ownerRecord, todayUtc) : []),
+        [ownerRecord, todayUtc],
+    );
+    const dueVisitKey = ownerRecord ? `${ownerRecord.revision}:${dueReasons.map(r => `${r.kind}:${r.date}`).join(',')}` : '';
+    const showDueReview = panel === 'overview' && !!ownerRecord && dueReasons.length > 0 && dismissedDueVisit !== dueVisitKey;
+    const priorReview = useMemo(() => (ownerRecord ? savedReviewContext(ownerRecord) : null), [ownerRecord]);
+    const readinessItems = useMemo(() => {
+        if (!ownerRecord) return [];
+        const hasThesis = Boolean(ownerRecord.whyInterested.trim() || ownerRecord.notes.trim());
+        const citationCount = ownerRecord.documentEvidence.citations.length + ownerRecord.acceptedEvidence.length;
+        const triggerCount = ownerRecord.monitoringRules.structuredTriggers.rules.filter(rule => rule.enabled).length;
+        const hasPlan = ownerRecord.positionPlan.plannedEntryPrice !== null || ownerRecord.positionPlan.invalidationPrice !== null;
+        const reviewStatus = dueReasons.length > 0
+            ? (dueReasons.some(r => r.date < todayUtc) ? 'Overdue' : 'Due today')
+            : ownerRecord.decisionJournal.nextReviewAt
+                ? `Next ${ownerRecord.decisionJournal.nextReviewAt.slice(0, 10)}`
+                : 'Unscheduled';
+        return [
+            { label: 'Thesis', value: hasThesis ? 'Recorded' : 'Not written', tone: hasThesis ? 'up' : 'neutral', tab: 'review' as const },
+            { label: 'Cited evidence', value: citationCount > 0 ? `${citationCount} saved` : 'None yet', tone: citationCount > 0 ? 'up' : 'neutral', tab: 'evidence' as const },
+            { label: 'Monitoring rules', value: triggerCount > 0 ? `${triggerCount} active` : 'None active', tone: triggerCount > 0 ? 'up' : 'neutral', tab: 'monitoring' as const },
+            { label: 'Position plan', value: hasPlan ? 'Entry / stop set' : 'Not set', tone: hasPlan ? 'up' : 'neutral', tab: 'review' as const },
+            { label: 'Review cadence', value: reviewStatus, tone: dueReasons.length > 0 ? 'down' : ownerRecord.decisionJournal.nextReviewAt ? 'up' : 'neutral', tab: 'review' as const },
+        ];
+    }, [dueReasons, ownerRecord, todayUtc]);
 
     return (
         <>
@@ -452,6 +937,39 @@ export function V9ResearchView({
             )}
 
             {panel === 'overview' && snapshot && (
+                <>
+                {showDueReview && ownerRecord && (
+                    <section className={`${styles.card} ${styles.dueBanner}`} aria-label="Review due comparison" data-testid="v9-due-review">
+                        <div className={styles.dueHead}>
+                            <div>
+                                <h2>{dueReasons.some(r => r.date < todayUtc) ? 'Review overdue · Then vs now' : 'Review due today · Then vs now'}</h2>
+                                <p>
+                                    {dueReasons.map(r => r.kind === 'scheduled' ? `Scheduled ${r.date} UTC` : `Age deadline passed ${r.date} UTC`).join(' · ')}
+                                </p>
+                            </div>
+                            <div className={styles.dueActions}>
+                                <Link className={styles.primaryBtn} href={panelHref('review')}>Start review →</Link>
+                                <button type="button" className={styles.ghostBtn} onClick={() => setDismissedDueVisit(dueVisitKey)}>Later</button>
+                            </div>
+                        </div>
+                        <div className={styles.dueGrid}>
+                            <div>
+                                <small>Saved review price</small>
+                                <strong>{priorReview?.journal.observedPrice != null ? fmtPrice(priorReview.journal.observedPrice, priorReview.journal.observedCurrency ?? snapshot.quote.currency) : 'Not recorded'}</strong>
+                                <span>{priorReview ? `Reviewed ${priorReview.reviewedAt.slice(0, 10)}` : 'No prior snapshot'}</span>
+                            </div>
+                            <div>
+                                <small>Current market price</small>
+                                <strong>{fmtPrice(snapshot.quote.price, snapshot.quote.currency)}</strong>
+                                <span>Observed {formatResearchTimestamp(snapshot.quote.observedAt)}</span>
+                            </div>
+                            <div>
+                                <small>Saved thesis</small>
+                                <p className={styles.dueThesis}>{priorReview?.thesis?.trim() || ownerRecord.whyInterested.trim() || ownerRecord.notes.trim() || 'No thesis recorded yet.'}</p>
+                            </div>
+                        </div>
+                    </section>
+                )}
                 <div className={styles.researchLayout}>
                     <div className={styles.researchStack}>
                         <section className={styles.card} aria-label="Security price and key metrics">
@@ -485,9 +1003,13 @@ export function V9ResearchView({
                             </div>
 
                             <PriceChart
+                                symbol={snapshot.symbol}
+                                market={market}
                                 points={range === '5Y' && extendedPoints ? extendedPoints : snapshot.chart.points}
                                 currency={snapshot.quote.currency}
                                 range={range}
+                                reviewHistory={ownerRecord?.reviewHistory}
+                                peerSuggestions={peerSuggestions}
                                 onRangeChange={next => { if (next !== range) setHistoryError(false); setRange(next); }}
                             />
                             {range === '5Y' && extendedPoints === null && (historyError
@@ -606,6 +1128,16 @@ export function V9ResearchView({
                                     <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>
                                         {savedRecord?.notes?.trim() || 'No thesis note written yet for this stock.'}
                                     </p>
+                                    {ownerRecord && readinessItems.length > 0 && (
+                                        <div className={styles.readinessList} aria-label="Research readiness summary" data-testid="v9-research-readiness">
+                                            {readinessItems.map(item => (
+                                                <Link key={item.label} href={panelHref(item.tab)} className={styles.readinessRow}>
+                                                    <span>{item.label}</span>
+                                                    <strong data-tone={item.tone}>{item.value} →</strong>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    )}
                                     {savedRecord
                                         ? <Link className={styles.primaryBtn} href={panelHref('review')}>Edit saved research</Link>
                                         : <button type="button" className={styles.primaryBtn} disabled={!records || writer.saving || loading} onClick={saveOwnerStock}>{writer.saving ? 'Saving…' : 'Save stock'}</button>}
@@ -664,6 +1196,7 @@ export function V9ResearchView({
                         </section>
                     </div>
                 </div>
+                </>
             )}
         </>
     );

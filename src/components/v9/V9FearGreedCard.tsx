@@ -376,8 +376,8 @@ export function V9FearGreedCard() {
                     <div className={styles.v9FngModalBody}>
                         <div className={styles.v9FngModalHead}>
                             <div>
-                                <span className={styles.v9FngEyebrow}>External sentiment history · context only</span>
                                 <h2 id="v9-fng-modal-title">CNN Fear &amp; Greed · 1-year record</h2>
+                                <p className={styles.v9FngSub}>External sentiment history · context only</p>
                             </div>
                             <button type="button" className={styles.v9FngModalClose} onClick={closeModal} aria-label="Close Fear & Greed chart">
                                 ×

@@ -11,24 +11,34 @@ import {
     parseResearchValuationPlan,
     type ResearchValuationPlan,
 } from '@/lib/research/research-valuation-plan';
+import styles from './research-valuation-v9.module.css';
 
 type Props = {
     readonly ticker: string;
     readonly snapshot: ResearchSnapshot | null;
+    /** Local-only exploration mode for guests or unsaved stocks (no owner API calls or saves). */
+    readonly localOnly?: boolean;
 };
 
-const inputNumber = (value: number | null) => value === null ? '' : String(value);
+const inputNumber = (value: number | null) => (value === null ? '' : String(value));
 
-
-export const ResearchValuationReasoningV9 = ({ ticker, snapshot }: Props) => {
+export const ResearchValuationReasoningV9 = ({ ticker, snapshot, localOnly = false }: Props) => {
     const [plan, setPlan] = useState<ResearchValuationPlan>(() => createResearchValuationPlan(ticker));
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!localOnly);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [accessIssue, setAccessIssue] = useState<OwnerAccessIssue | null>(null);
-    const [planLoaded, setPlanLoaded] = useState(false);
+    const [planLoaded, setPlanLoaded] = useState(localOnly);
 
     const load = useCallback(async () => {
+        if (localOnly) {
+            setPlan(createResearchValuationPlan(ticker));
+            setLoading(false);
+            setPlanLoaded(true);
+            setMessage(null);
+            setAccessIssue(null);
+            return;
+        }
         setLoading(true);
         setMessage(null);
         setAccessIssue(null);
@@ -45,7 +55,7 @@ export const ResearchValuationReasoningV9 = ({ ticker, snapshot }: Props) => {
         } finally {
             setLoading(false);
         }
-    }, [ticker]);
+    }, [localOnly, ticker]);
 
     useEffect(() => { void load(); }, [load]);
 
@@ -60,6 +70,32 @@ export const ResearchValuationReasoningV9 = ({ ticker, snapshot }: Props) => {
         }
     }, [plan, marketPrice]);
     const result = evaluation.result;
+
+    const rangePlot = useMemo(() => {
+        if (!result || !result.scenarioResults.length) return null;
+        const pvs = result.scenarioResults.map(item => item.presentValue).filter(val => Number.isFinite(val) && val > 0);
+        if (!pvs.length) return null;
+        const allVals = marketPrice && marketPrice > 0 ? [...pvs, marketPrice] : pvs;
+        const minRaw = Math.min(...allVals);
+        const maxRaw = Math.max(...allVals);
+        const span = maxRaw - minRaw || Math.max(1, maxRaw * 0.2);
+        const domainMin = Math.max(0, minRaw - span * 0.12);
+        const domainMax = maxRaw + span * 0.12;
+        const pctFor = (val: number) => Math.max(4, Math.min(96, ((val - domainMin) / (domainMax - domainMin || 1)) * 100));
+        const lowPv = Math.min(...pvs);
+        const highPv = Math.max(...pvs);
+        return {
+            leftPct: pctFor(lowPv),
+            widthPct: Math.max(2, pctFor(highPv) - pctFor(lowPv)),
+            marketPct: marketPrice && marketPrice > 0 ? pctFor(marketPrice) : null,
+            points: result.scenarioResults.map(item => ({
+                id: item.id,
+                label: item.label,
+                value: item.presentValue,
+                pct: pctFor(item.presentValue),
+            })),
+        };
+    }, [marketPrice, result]);
 
     const updateShared = (key: 'currentEps' | 'years' | 'annualDiscountRatePct', value: string) => {
         if (value.trim() === '') {
@@ -79,6 +115,7 @@ export const ResearchValuationReasoningV9 = ({ ticker, snapshot }: Props) => {
     };
 
     const save = async () => {
+        if (localOnly) return;
         setSaving(true);
         setMessage(null);
         setAccessIssue(null);
@@ -100,63 +137,131 @@ export const ResearchValuationReasoningV9 = ({ ticker, snapshot }: Props) => {
         }
     };
 
-    if (loading) return <section data-testid="valuation-reasoning-v9" aria-busy="true" className="mt-3 rounded-lg border border-zinc-700/40 p-3 text-xs text-zinc-500">Loading valuation reasoning…</section>;
-    if (!planLoaded) return <section data-testid="valuation-reasoning-v9" className="mt-3 rounded-lg border border-zinc-700/40 p-3">
-        <h3 className="text-sm font-semibold">Valuation reasoning · {ticker}</h3>
+    if (loading) return <section data-testid="valuation-reasoning-v9" aria-busy="true" className={styles.section}><p className={styles.status}>Loading valuation reasoning…</p></section>;
+    if (!planLoaded) return <section data-testid="valuation-reasoning-v9" className={styles.section}>
+        <div className={styles.titleGroup}><h3>Valuation reasoning · {ticker}</h3></div>
         {accessIssue ? <OwnerAccessNotice issue={accessIssue} resource="Saved valuation model" onRetry={() => void load()} /> : <>
-            <p role="status" className="mt-2 text-xs text-zinc-500">{message ?? 'Valuation assumptions could not be loaded.'}</p>
-            <button type="button" onClick={() => void load()} className="mt-2 min-h-11 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-emerald-500">Retry valuation assumptions</button>
+            <p role="status" className={styles.status}>{message ?? 'Valuation assumptions could not be loaded.'}</p>
+            <button type="button" onClick={() => void load()} className={styles.retryBtn}>Retry valuation assumptions</button>
         </>}
     </section>;
 
     return (
-        <section data-testid="valuation-reasoning-v9" className="mt-3 rounded-lg border border-zinc-700/40 p-3" aria-label={`Valuation reasoning for ${ticker}`}>
-            {accessIssue && <OwnerAccessNotice issue={accessIssue} resource="Saved valuation model" preserveDraft saveLabel="Save assumptions" />}
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-500">Valuation reasoning</p>
-                    <h3 className="mt-1 text-sm font-semibold">What assumptions make today&apos;s price reasonable?</h3>
-                    <p className="mt-1 max-w-2xl text-xs text-zinc-500">This is an assumption model, not a fair-value oracle. Current EPS is explicit because Signal does not infer forward earnings from trailing P/E.</p>
+        <section data-testid="valuation-reasoning-v9" className={styles.section} aria-label={`Valuation reasoning for ${ticker}`}>
+            {!localOnly && accessIssue && <OwnerAccessNotice issue={accessIssue} resource="Saved valuation model" preserveDraft saveLabel="Save assumptions" />}
+            <div className={styles.header}>
+                <div className={styles.titleGroup}>
+                    <h3>Valuation reasoning · What assumptions make today&apos;s price reasonable?</h3>
+                    <p>This is an assumption model, not a fair-value oracle. Current EPS is explicit because Signal does not infer forward earnings from trailing P/E.</p>
                 </div>
-                <div className="text-right text-xs"><span className="block text-zinc-500">Market price</span><strong>{formatResearchPrice(marketPrice, currency)}</strong></div>
+                <div className={styles.priceMeta}>
+                    <span>Market price</span>
+                    <strong>{formatResearchPrice(marketPrice, currency)}</strong>
+                </div>
             </div>
 
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                <label className="grid gap-1 text-xs"><span className="font-semibold">Current EPS {currency ? `(${currency})` : '(same currency as market price)'}</span><input aria-label="Current EPS" inputMode="decimal" value={inputNumber(plan.currentEps)} onChange={(event) => updateShared('currentEps', event.target.value)} className="min-h-10 rounded-lg border border-zinc-700/50 bg-transparent px-3" placeholder="Enter evidence-backed EPS" /></label>
-                <label className="grid gap-1 text-xs"><span className="font-semibold">Forecast years</span><input aria-label="Forecast years" type="number" min="1" max="10" value={plan.years} onChange={(event) => updateShared('years', event.target.value)} className="min-h-10 rounded-lg border border-zinc-700/50 bg-transparent px-3" /></label>
-                <label className="grid gap-1 text-xs"><span className="font-semibold">Discount rate %</span><input aria-label="Discount rate percent" inputMode="decimal" value={plan.annualDiscountRatePct} onChange={(event) => updateShared('annualDiscountRatePct', event.target.value)} className="min-h-10 rounded-lg border border-zinc-700/50 bg-transparent px-3" /></label>
+            <div className={styles.inputGrid}>
+                <label className={styles.field}>
+                    <span>Current EPS {currency ? `(${currency})` : '(same currency as market price)'}</span>
+                    <input aria-label="Current EPS" inputMode="decimal" value={inputNumber(plan.currentEps)} onChange={(event) => updateShared('currentEps', event.target.value)} className={styles.input} placeholder="Enter evidence-backed EPS" />
+                </label>
+                <label className={styles.field}>
+                    <span>Forecast years</span>
+                    <input aria-label="Forecast years" type="number" min="1" max="10" value={plan.years} onChange={(event) => updateShared('years', event.target.value)} className={styles.input} />
+                </label>
+                <label className={styles.field}>
+                    <span>Discount rate %</span>
+                    <input aria-label="Discount rate percent" inputMode="decimal" value={plan.annualDiscountRatePct} onChange={(event) => updateShared('annualDiscountRatePct', event.target.value)} className={styles.input} />
+                </label>
             </div>
 
-            {evaluation.error && <p role="alert" className="mt-2 text-xs text-zinc-500">{evaluation.error} Adjust the assumptions before saving.</p>}
+            {evaluation.error && <p role="alert" className={styles.error}>{evaluation.error} Adjust the assumptions before saving.</p>}
 
             {plan.currentEps === null ? (
-                <div className="mt-3 rounded-lg border border-zinc-700/30 p-3 text-xs text-zinc-500">Enter a current EPS supported by your source before scenario values are calculated. This prevents trailing P/E from being silently re-labeled as forward earnings evidence.</div>
+                <p className={styles.notice}>Enter a current EPS supported by your source before scenario values are calculated. This prevents trailing P/E from being silently re-labeled as forward earnings evidence.</p>
             ) : result ? (
-                <div className="mt-3 grid gap-3 lg:grid-cols-3">
-                    {plan.scenarios.map((scenario) => {
-                        const evaluated = result.scenarioResults.find((item) => item.id === scenario.id);
-                        return (
-                            <article key={scenario.id} className="rounded-lg border border-zinc-700/40 p-3">
-                                <div className="flex items-center justify-between gap-2"><strong className="text-sm">{scenario.label}</strong><span className="text-xs text-zinc-500">{evaluated ? formatResearchPrice(evaluated.presentValue, currency) : '—'}</span></div>
-                                <div className="mt-3 grid grid-cols-2 gap-2">
-                                    <label className="grid gap-1 text-xs"><span>EPS CAGR %</span><input aria-label={`${scenario.label} EPS CAGR percent`} inputMode="decimal" value={scenario.epsCagrPct} onChange={(event) => updateScenario(scenario.id, 'epsCagrPct', event.target.value)} className="min-h-10 min-w-0 rounded-md border border-zinc-700/50 bg-transparent px-2" /></label>
-                                    <label className="grid gap-1 text-xs"><span>Terminal P/E</span><input aria-label={`${scenario.label} terminal PE`} inputMode="decimal" value={scenario.terminalPe} onChange={(event) => updateScenario(scenario.id, 'terminalPe', event.target.value)} className="min-h-10 min-w-0 rounded-md border border-zinc-700/50 bg-transparent px-2" /></label>
+                <>
+                    {rangePlot && (
+                        <div
+                            className={styles.rangeVisual}
+                            role="img"
+                            aria-label={`Scenario value range from ${rangePlot.points.map(p => `${p.label} ${formatResearchPrice(p.value, currency)}`).join(', ')}${marketPrice ? `, compared with market price ${formatResearchPrice(marketPrice, currency)}` : ''}.`}
+                        >
+                            <div className={styles.rangeHead}>
+                                <strong>Scenario present-value range vs. market price</strong>
+                                <span>Discounted at {plan.annualDiscountRatePct}% over {plan.years}y</span>
+                            </div>
+                            <div className={styles.rangeTrackWrap}>
+                                {rangePlot.marketPct !== null && (
+                                    <span className={styles.rangePinLabel} data-pos="top" style={{ left: `${rangePlot.marketPct}%` }}>
+                                        Market {formatResearchPrice(marketPrice, currency)}
+                                    </span>
+                                )}
+                                <div className={styles.rangeTrack}>
+                                    <span className={styles.rangeSpan} style={{ left: `${rangePlot.leftPct}%`, width: `${rangePlot.widthPct}%` }} />
+                                    {rangePlot.points.map(pt => (
+                                        <span key={pt.id} className={styles.rangePin} style={{ left: `${pt.pct}%` }} title={`${pt.label}: ${formatResearchPrice(pt.value, currency)}`} />
+                                    ))}
+                                    {rangePlot.marketPct !== null && (
+                                        <span className={styles.rangePin} data-kind="market" style={{ left: `${rangePlot.marketPct}%` }} title={`Market price: ${formatResearchPrice(marketPrice, currency)}`} />
+                                    )}
                                 </div>
-                                {evaluated && <p className="mt-3 text-xs text-zinc-500">Terminal EPS {evaluated.terminalEps.toFixed(2)}{evaluated.gapPct !== null ? ` · scenario value ${evaluated.gapPct >= 0 ? '+' : ''}${evaluated.gapPct.toFixed(1)}% vs market` : ''}</p>}
-                            </article>
-                        );
-                    })}
-                </div>
+                                {rangePlot.points.map(pt => (
+                                    <span key={pt.id} className={styles.rangePinLabel} data-pos="bottom" style={{ left: `${pt.pct}%` }}>
+                                        {pt.label}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className={styles.scenarioGrid}>
+                        {plan.scenarios.map((scenario) => {
+                            const evaluated = result.scenarioResults.find((item) => item.id === scenario.id);
+                            const gapTone = evaluated && evaluated.gapPct !== null ? (evaluated.gapPct >= 0 ? 'up' : 'down') : undefined;
+                            return (
+                                <article key={scenario.id} className={styles.scenarioCol}>
+                                    <div className={styles.scenarioHead}>
+                                        <strong>{scenario.label}</strong>
+                                        <span className={styles.scenarioValue}>{evaluated ? formatResearchPrice(evaluated.presentValue, currency) : '—'}</span>
+                                    </div>
+                                    <div className={styles.scenarioInputs}>
+                                        <label className={styles.field}>
+                                            <span>EPS CAGR %</span>
+                                            <input aria-label={`${scenario.label} EPS CAGR percent`} inputMode="decimal" value={scenario.epsCagrPct} onChange={(event) => updateScenario(scenario.id, 'epsCagrPct', event.target.value)} className={styles.input} />
+                                        </label>
+                                        <label className={styles.field}>
+                                            <span>Terminal P/E</span>
+                                            <input aria-label={`${scenario.label} terminal PE`} inputMode="decimal" value={scenario.terminalPe} onChange={(event) => updateScenario(scenario.id, 'terminalPe', event.target.value)} className={styles.input} />
+                                        </label>
+                                    </div>
+                                    {evaluated && (
+                                        <p className={styles.scenarioFoot}>
+                                            Terminal EPS {evaluated.terminalEps.toFixed(2)}
+                                            {evaluated.gapPct !== null && (
+                                                <> · <span className={styles.scenarioGap} data-tone={gapTone}>scenario value {evaluated.gapPct >= 0 ? '+' : ''}{evaluated.gapPct.toFixed(1)}% vs market</span></>
+                                            )}
+                                        </p>
+                                    )}
+                                </article>
+                            );
+                        })}
+                    </div>
+                </>
             ) : null}
 
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700/30 p-3">
-                <div className="text-xs">
+            <div className={styles.footerRow}>
+                <div className={styles.impliedBlock}>
                     <strong>{!result || result.impliedEpsCagrPct === null ? 'Implied growth unavailable' : `Market-implied EPS CAGR: ${result.impliedEpsCagrPct.toFixed(1)}%`}</strong>
-                    <p className="mt-1 text-zinc-500">Uses the Base terminal P/E, your forecast horizon and discount rate. Change those assumptions to see how sensitive the implied expectation is.</p>
+                    <p>Uses the Base terminal P/E, your forecast horizon and discount rate. Change those assumptions to see how sensitive the implied expectation is.</p>
                 </div>
-                <button type="button" onClick={() => void save()} disabled={saving || Boolean(evaluation.error)} className="min-h-10 rounded-lg border border-emerald-600 px-4 py-2 text-xs font-semibold disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-emerald-500">{saving ? 'Saving…' : 'Save assumptions'}</button>
+                {localOnly ? (
+                    <span className={styles.localTag}>Exploring · not saved</span>
+                ) : (
+                    <button type="button" onClick={() => void save()} disabled={saving || Boolean(evaluation.error)} className={styles.saveBtn}>{saving ? 'Saving…' : 'Save assumptions'}</button>
+                )}
             </div>
-            {message && <p role="status" className="mt-2 text-xs text-zinc-500">{message}</p>}
+            {message && <p role="status" className={styles.status}>{message}</p>}
         </section>
     );
 };

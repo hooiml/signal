@@ -402,6 +402,8 @@ export function V9Workspace() {
                             mode={mode}
                             social={social}
                             signal={activeSlot.signal}
+                            usSlot={usSlot}
+                            mySlot={mySlot}
                             loading={activeSlot.loading}
                             error={activeSlot.error}
                             isDark={isDark}
