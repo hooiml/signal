@@ -38,6 +38,7 @@ import { V8Card, V8Disclosure } from './V8Primitives';
 import { V8SegmentedControl } from './V8SegmentedControl';
 import { MarketAlertsV6 } from '@/components/v6/MarketAlertsV6';
 import { V9Navigation, workspaceHref } from '@/components/v9/v9-navigation';
+import { V9SegmentedPill } from '@/components/v9/V9Primitives';
 
 type ResponseState = { key: string; signal: MarketSignal | null; loading: boolean; error: string; received: string };
 type ArchiveState = { key: string; summaries: readonly MarketReplaySummary[]; samples: readonly MarketReplaySummary[]; snapshots: Record<string, MarketReplaySnapshot>; loading: boolean; error: string; states?: Record<string, 'pending' | 'loaded' | 'failed' | 'unavailable'> };
@@ -515,7 +516,15 @@ function MarketView({ initialConfig, initialPreferenceError, embedded }: { initi
             }
             : undefined;
     const chartRanges = useV9TopStage ? V9_CHART_RANGES : V8_CHART_RANGES;
-    const rangeControl = (
+    const rangeControl = useV9TopStage ? (
+        <V9SegmentedPill
+            ariaLabel="Chart range"
+            size="sm"
+            value={range}
+            onChange={setRange}
+            options={V9_CHART_RANGES.map(value => ({ value, label: value }))}
+        />
+    ) : (
         <div className={styles.range} role="group" aria-label="Chart range">
             {chartRanges.map(value => <button type="button" key={value} aria-pressed={range === value} onClick={() => setRange(value)}>{value}</button>)}
         </div>

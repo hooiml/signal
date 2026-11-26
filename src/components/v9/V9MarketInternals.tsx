@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { InternalPoint, MarketInternalItem, MarketInternalsPayload } from '@/app/api/signals/internals/route';
 import { fullDate } from '@/components/v8/MarketV8ConnectedData';
+import { smoothSplinePath } from './V9Primitives';
 import styles from './v9-workspace.module.css';
 
 export type CheckTone = 'up' | 'neutral' | 'down';
@@ -69,12 +70,12 @@ function InternalChart({
         y: yFor(point.value),
         point,
     }));
-    const lineD = coords.map((pt, idx) => `${idx ? 'L' : 'M'}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join(' ');
+    const lineD = smoothSplinePath(coords);
     const areaD = `${lineD} L${w},${h} L0,${h} Z`;
-    const basePts = coords.filter(pt => pt.point.baseline !== null);
-    const baseD = basePts.length >= 2
-        ? basePts.map((pt, idx) => `${idx ? 'L' : 'M'}${pt.x.toFixed(1)},${yFor(pt.point.baseline!).toFixed(1)}`).join(' ')
-        : null;
+    const basePts = coords
+        .filter(pt => pt.point.baseline !== null)
+        .map(pt => ({ x: pt.x, y: yFor(pt.point.baseline!) }));
+    const baseD = basePts.length >= 2 ? smoothSplinePath(basePts) : null;
 
     const stroke = tone === 'up' ? 'var(--up-mark)' : tone === 'down' ? 'var(--down-mark)' : 'var(--caution-mark)';
     const activeIdx = hoverIdx !== null ? Math.max(0, Math.min(points.length - 1, hoverIdx)) : points.length - 1;

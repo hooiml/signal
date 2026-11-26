@@ -14,7 +14,7 @@ import { V9MarketInternalsGrid } from './V9MarketInternals';
 import { V9MarketCompareStrip } from './V9MarketCompareStrip';
 import type { SignalSlot } from './V9HomeView';
 import type { V9MarketTodayState } from './useV9MarketToday';
-import base from '@/components/v8/market-v8.module.css';
+import { V9SegmentedPill } from './V9Primitives';
 import styles from './v9-workspace.module.css';
 
 export function V9MarketView({
@@ -140,18 +140,31 @@ export function V9MarketView({
         renderToolbar={(advanced, toggleAdvanced) => (
             <div className={styles.marketToolbar}>
                 <div className={styles.marketControlGroup}>
-                    <div className={styles.segWrap} role="group" aria-label="Select market">
-                        <button type="button" className={styles.segBtn} aria-pressed={market === 'US'} onClick={() => onMarketChange('US')}>US Market</button>
-                        <button type="button" className={styles.segBtn} aria-pressed={market === 'MY'} onClick={() => onMarketChange('MY')}>Malaysia · Bursa</button>
-                    </div>
-                    <div className={styles.segWrap} role="group" aria-label="Interpretation lens">
-                        <button type="button" className={styles.segBtn} aria-pressed={mode === 'standard'} onClick={() => onModeChange('standard')}>Momentum</button>
-                        <button type="button" className={styles.segBtn} aria-pressed={mode === 'contrarian'} onClick={() => onModeChange('contrarian')}>Contrarian</button>
-                    </div>
+                    <V9SegmentedPill
+                        ariaLabel="Select market"
+                        value={market}
+                        onChange={onMarketChange}
+                        options={[
+                            { value: 'US', label: 'US Market' },
+                            { value: 'MY', label: 'Malaysia · Bursa' },
+                        ]}
+                    />
+                    <V9SegmentedPill
+                        ariaLabel="Interpretation lens"
+                        value={mode}
+                        onChange={onModeChange}
+                        options={[
+                            { value: 'standard', label: 'Momentum' },
+                            { value: 'contrarian', label: 'Contrarian' },
+                        ]}
+                    />
                     <span className={styles.v9ToggleWithStatus}>
-                        <label className={base.sourceToggle}>
-                            <input type="checkbox" checked={social} onChange={event => onSocialChange(event.target.checked)} />
-                            <span>{market === 'MY' ? 'Include news in score' : 'Include social in score'}</span>
+                        <label className={styles.v9LiquidSwitch} data-checked={social ? 'true' : 'false'}>
+                            <input type="checkbox" className={styles.v9LiquidInput} checked={social} onChange={event => onSocialChange(event.target.checked)} />
+                            <span className={styles.v9LiquidTrack} aria-hidden="true">
+                                <span className={styles.v9LiquidThumb} />
+                            </span>
+                            <span className={styles.v9LiquidLabel}>{market === 'MY' ? 'Include news in score' : 'Include social in score'}</span>
                         </label>
                         {social && !loading && signal && (market === 'US' ? !signal.components.social : !signal.components.news) && (
                             <span className={styles.v9MissingToolbarPill}>unavailable</span>

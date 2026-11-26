@@ -9,6 +9,7 @@ import { marketReadingLabel, marketTimestampLabel } from '@/lib/market-display';
 import { MARKET_SCORE_TIER_THRESHOLDS } from '@/lib/market-score-thresholds';
 import { signed } from '@/components/v8/market-v8-fixtures';
 import { confirmationBadge } from './V9MarketInternals';
+import { V9MiniSparkline, V9RadialTickGauge } from './V9Primitives';
 import styles from './v9-workspace.module.css';
 
 type Tone = 'up' | 'neutral' | 'down';
@@ -116,7 +117,6 @@ export function V9MarketSummaryRail({
     const prevDay = marketEvidenceDay(prevDate);
     const rangeBaseline = findRangeStartComparison(signal, snapshotDay, prevDay);
     const currentScore = Number.isFinite(signal.composite_score) ? signal.composite_score : null;
-    const clampedPct = currentScore === null ? 50 : Math.min(98, Math.max(2, currentScore));
 
     const vixComponent = signal.components.vix;
     const effectiveSourceEnabled = signal.metadata.source_included ?? social;
@@ -152,9 +152,9 @@ export function V9MarketSummaryRail({
         .join(' · ');
 
     const { neutralLower, neutralUpper } = MARKET_SCORE_TIER_THRESHOLDS;
-    const negWidth = neutralLower;
-    const neuWidth = neutralUpper - neutralLower;
-    const posWidth = 100 - neutralUpper;
+    const staleWeightPct = Math.min(scoredWeightPct, staleItems.reduce((sum, item) => sum + (item.comp.weight ?? 0) * 100, 0));
+    const freshWeightPct = Math.max(0, scoredWeightPct - staleWeightPct);
+    const missingWeightPct = Math.max(0, 100 - scoredWeightPct);
 
     return (
         <aside className={styles.v9SummaryRail} aria-label="Market summary">
@@ -183,13 +183,17 @@ export function V9MarketSummaryRail({
                     <span className={styles.toneBadge} data-tone={tone}>{marketReadingLabel(signal.tier)}</span>
                 </div>
 
-                <div className={styles.v9HeroScoreRow}>
-                    <div className={styles.v9HeroScoreMain}>
-                        <span className={styles.v9HeroScoreNum} data-tone={tone} data-testid="connected-score">
-                            {currentScore === null ? '—' : Math.round(currentScore)}
-                        </span>
-                        <span className={styles.v9HeroScoreDenom}>/ 100</span>
-                    </div>
+                <div className={styles.v9HeroInstrument}>
+                    <V9RadialTickGauge
+                        score={currentScore}
+                        tone={tone}
+                        neutralLower={neutralLower}
+                        neutralUpper={neutralUpper}
+                        size="lg"
+                        scoreTestId="connected-score"
+                        ariaLabel={currentScore !== null ? `Score ${Math.round(currentScore)} out of 100` : 'Score unavailable'}
+                        showScaleLabels
+                    />
 
                     {!comparisonNotice && (
                         <div className={styles.v9HeroDeltas}>
@@ -224,29 +228,6 @@ export function V9MarketSummaryRail({
 
                 {comparisonNotice && <p className={styles.v9Caution}>{comparisonNotice}</p>}
 
-                <div className={styles.v9ZoneScale} aria-label="Score position on 0 to 100 scale">
-                    <div className={styles.v9ZoneTrack}>
-                        <div className={styles.v9ZoneSegNeg} style={{ width: `${negWidth}%` }} />
-                        <div className={styles.v9ZoneSegNeu} style={{ width: `${neuWidth}%` }} />
-                        <div className={styles.v9ZoneSegPos} style={{ width: `${posWidth}%` }} />
-                        {currentScore !== null && (
-                            <span
-                                className={styles.v9ZoneMarker}
-                                style={{ left: `${clampedPct}%` }}
-                                aria-hidden="true"
-                            />
-                        )}
-                    </div>
-                    <div className={styles.v9ZoneLabels} aria-hidden="true">
-                        <span style={{ width: `${negWidth}%` }}>0 · Negative</span>
-                        <span style={{ width: `${neuWidth}%` }}>{neutralLower} · Neutral</span>
-                        <span style={{ width: `${posWidth}%` }} className={styles.v9ZoneEndLabels}>
-                            <span>{neutralUpper} · Positive</span>
-                            <span>100</span>
-                        </span>
-                    </div>
-                </div>
-
                 {elevatedWeights && (
                     <p className={styles.v9Caution}>
                         VIX is above 25, so its weight ramps smoothly to {(elevatedWeights.vix * 100).toFixed(0)}% of the US score (from its {(baselineUsVixWeight * 100).toFixed(0)}% baseline).
@@ -266,8 +247,9 @@ export function V9MarketSummaryRail({
                             <span>{Math.round(scoredWeightPct)}% of weight</span>
                         </div>
                         <div className={styles.v9CoverageTrack} aria-hidden="true">
-                            <span style={{ flex: Math.max(0, scoredWeightPct), background: 'var(--brand)' }} />
-                            {scoredWeightPct < 100 && <span style={{ flex: Math.max(0, 100 - scoredWeightPct), background: 'var(--surface-muted)' }} />}
+                            {freshWeightPct > 0 && <span className={styles.v9CovSegFresh} style={{ flex: freshWeightPct }} />}
+                            {staleWeightPct > 0 && <span className={styles.v9CovSegStale} style={{ flex: staleWeightPct }} />}
+                            {missingWeightPct > 0 && <span className={styles.v9CovSegMissing} style={{ flex: missingWeightPct }} />}
                         </div>
                         <small className={styles.v9CoverageNote}>{coverageSubtext}</small>
                     </div>
@@ -349,7 +331,16 @@ export function V9CrossMarketStrip({
                                         {check.label}
                                     </span>
                                 </div>
-                                <strong className={styles.v9CrossTileVal}>{item.latestLabel}</strong>
+                                <div className={styles.v9CrossTileMetricRow}>
+                                    <strong className={styles.v9CrossTileVal}>{item.latestLabel}</strong>
+                                    {item.points.length >= 2 && (
+                                        <V9MiniSparkline
+                                            values={item.points.map(pt => pt.value)}
+                                            tone={check.tone}
+                                            baseline={item.points.at(-1)?.baseline ?? null}
+                                        />
+                                    )}
+                                </div>
                                 <small className={styles.v9CrossTileMeta}>{item.baselineLabel}</small>
                             </div>
                         );
