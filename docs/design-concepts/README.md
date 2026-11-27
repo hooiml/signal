@@ -4,7 +4,8 @@ Signal opens the V9 workspace at `/v9`. Its default view is Market Pulse. The ol
 `?view=home` link also opens Market Pulse. For UI work, start with the
 [workspace component](../../src/components/v9/V9Workspace.tsx) and its
 [stylesheet](../../src/components/v9/v9-workspace.module.css). The [route guide](../ARCHITECTURE.md#user-facing-routes)
-describes the available views. The HTML prototypes below record earlier design decisions.
+describes the available views, and [`docs/V9_ENHANCEMENT_ROADMAP.md`](../V9_ENHANCEMENT_ROADMAP.md)
+tracks the prioritized V9 enhancements and refinements. The HTML prototypes below record earlier design decisions.
 
 ## Archived Versions
 
