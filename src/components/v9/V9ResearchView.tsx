@@ -10,6 +10,8 @@ import { applyResearchSnapshotV6 } from '@/components/v6/research-snapshot-v6';
 import { getResearchActionV6, type ResearchThemeV6 } from '@/components/v6/research-v6';
 import { ResearchFilingsV8 } from '@/components/v8/ResearchFilingsV8';
 import { ResearchPeersV8 } from '@/components/v8/ResearchPeersV8';
+import { ResearchEarningsTicket } from '@/components/v8/ResearchEarningsTicket';
+import { MetricGlossary, type GlossaryEntry } from '@/components/v8/MetricGlossary';
 import { FirstVisitCallout, useFirstVisit } from '@/components/v8/V8FirstVisit';
 import { ownerUnlockHref } from '@/lib/owner-access-client';
 import type { ResearchMarket, ResearchRecord, ResearchReviewSnapshot } from '@/lib/types/research';
@@ -19,7 +21,7 @@ import { formatResearchTimestamp } from '@/lib/research/metric-provenance';
 import { GuestWorkspaceConflictError } from '@/lib/research/guest-workspace';
 import { dueReviewReasons, savedReviewContext } from '@/lib/research/due-review';
 import { buildRebasedPeerOverlay } from '@/lib/research/peer-overlay';
-import { priceSpanChange } from '@/lib/research/reading-display';
+import { priceSpanChange, researchPanelCoverage } from '@/lib/research/reading-display';
 import { useReviewDay } from '@/lib/research/use-review-day';
 import { readData, readPolicies } from '@/components/v8/read-data';
 import { readResearchChart } from '@/components/v8/read-research-chart';
@@ -28,9 +30,23 @@ import type { V9GuestDrafts } from './useV9GuestDrafts';
 import { V9GuestResearchRecovery } from './V9GuestResearchRecovery';
 import { useV9ResearchBenchmark } from './useV9ResearchBenchmark';
 import type { V9ResearchDetail } from './V9ResearchDetails';
+import { V9AnnualFinancialsCard, V9EntryGuardrailCard } from './V9ResearchOverviewCards';
 import { V9Navigation } from './v9-navigation';
 import { smoothSplinePath, V9SegmentedPill } from './V9Primitives';
 import styles from './v9-workspace.module.css';
+
+const V9_METRIC_GLOSSARY: Readonly<Record<'operatingMargin' | 'revenueGrowth', GlossaryEntry>> = {
+    operatingMargin: {
+        id: 'operating-margin',
+        label: 'Operating margin',
+        definition: 'Operating income divided by revenue for the stated fiscal period. Shows core profitability before interest and taxes; accounting choices vary by sector.',
+    },
+    revenueGrowth: {
+        id: 'revenue-growth',
+        label: 'Revenue growth',
+        definition: 'Year-over-year percentage change in reported top-line sales. Reflects historical scale changes and does not guarantee future growth rates.',
+    },
+};
 
 type ChartRange = '1M' | '3M' | '1Y' | '5Y';
 const OverviewPanel = dynamic(() => import('@/components/v6/OverviewPanelV6').then(module => module.OverviewPanelV6));
@@ -85,7 +101,7 @@ const fmtCompact = (value: number | null, currency?: string | null): string => {
     return `${sign}${prefix}${abs.toFixed(2)}`;
 };
 
-const fmtPrice = (value: number | null, currency: string | null): string => {
+const fmtPrice = (value: number | null, currency?: string | null): string => {
     if (value === null || !Number.isFinite(value)) return 'Unavailable';
     return `${currency ? `${currency} ` : ''}${value.toFixed(2)}`;
 };
@@ -716,7 +732,6 @@ export function V9ResearchView({
     const [loading, setLoading] = useState(true);
     const [attempt, setAttempt] = useState(0);
     const [error, setError] = useState('');
-    const [targetPrice, setTargetPrice] = useState<number | null>(null);
     const [saveStatus, setSaveStatus] = useState('');
     const [saveError, setSaveError] = useState('');
     const [conflictingNote, setConflictingNote] = useState<string | null>(null);
@@ -742,10 +757,6 @@ export function V9ResearchView({
                 if (result.symbol !== symbol || result.market !== market) throw new Error('Security data did not match the request.');
                 if (controller.signal.aborted) return;
                 setSnapshot(result);
-                const { low52Week, high52Week } = result.technicals;
-                if (result.quote.price !== null && low52Week !== null && high52Week !== null && high52Week > low52Week) {
-                    setTargetPrice(Math.max(low52Week, Math.min(high52Week, Number((result.quote.price * 0.9).toFixed(2)))));
-                }
             })
             .catch(cause => {
                 if (!controller.signal.aborted) {
@@ -784,14 +795,6 @@ export function V9ResearchView({
 
     const livePrice = snapshot?.quote.price ?? null;
     const ready = !loading && !error && livePrice !== null && Number.isFinite(livePrice) && livePrice > 0;
-    const low52 = snapshot?.technicals.low52Week ?? null;
-    const high52 = snapshot?.technicals.high52Week ?? null;
-    const gapPct = livePrice && targetPrice && targetPrice > 0 ? ((livePrice - targetPrice) / targetPrice) * 100 : null;
-    const annuals = useMemo(() => (snapshot?.fundamentals.history ?? []).slice(-5), [snapshot]);
-    const maxAnnualVal = useMemo(() => {
-        const vals = annuals.flatMap(a => [a.annualRevenue ?? 0, Math.max(0, a.freeCashFlow ?? 0)]);
-        return Math.max(1, ...vals);
-    }, [annuals]);
 
     async function handleSaveNote() {
         if (workspace !== 'guest' || saving || !snapshot) return;
@@ -844,7 +847,6 @@ export function V9ResearchView({
         setError('');
         setLoading(true);
         setExtendedPoints(null);
-        setTargetPrice(null);
         setHistoryError(false);
         setAttempt(value => value + 1);
     }
@@ -1013,6 +1015,9 @@ export function V9ResearchView({
                                         {snapshot.quote.classification?.sector ? ` · ${snapshot.quote.classification.sector}` : ''}
                                         {snapshot.valuation.marketCap ? ` · Mkt Cap ${fmtCompact(snapshot.valuation.marketCap, snapshot.quote.currency)}` : ''}
                                     </p>
+                                    {researchPanelCoverage(snapshot.market).earningsDates
+                                        ? <ResearchEarningsTicket symbol={snapshot.symbol} market={snapshot.market} />
+                                        : <p className={styles.quoteCoverageNote} data-testid="v9-earnings-coverage-note">Earnings · Unavailable for Malaysia listings (US Nasdaq calendar only)</p>}
                                 </div>
                                 <div className={styles.quotePrice}>
                                     <strong>{fmtPrice(snapshot.quote.price, snapshot.quote.currency)}</strong>
@@ -1051,101 +1056,42 @@ export function V9ResearchView({
 
                             <div className={styles.metricGrid}>
                                 <div className={styles.metricTile}>
-                                    <small>P/E Ratio</small>
+                                    <small><MetricGlossary metric="pe">P/E Ratio</MetricGlossary></small>
                                     <strong>{snapshot.valuation.priceEarnings !== null ? `${snapshot.valuation.priceEarnings.toFixed(1)}×` : 'N/A'}</strong>
                                     <span>{snapshot.valuation.reportingPeriod ?? 'Reported'}</span>
                                 </div>
                                 <div className={styles.metricTile}>
-                                    <small>FCF Yield</small>
+                                    <small><MetricGlossary metric="fcf-yield">FCF Yield</MetricGlossary></small>
                                     <strong>{snapshot.valuation.freeCashFlowYieldPercent !== null ? `${snapshot.valuation.freeCashFlowYieldPercent.toFixed(2)}%` : 'N/A'}</strong>
                                     <span>Annual cash flow</span>
                                 </div>
                                 <div className={styles.metricTile}>
-                                    <small>Operating Margin</small>
+                                    <small><MetricGlossary entry={V9_METRIC_GLOSSARY.operatingMargin}>Operating Margin</MetricGlossary></small>
                                     <strong>{snapshot.fundamentals.operatingMarginPercent !== null ? `${snapshot.fundamentals.operatingMarginPercent.toFixed(1)}%` : 'N/A'}</strong>
                                     <span>{snapshot.fundamentals.reportingPeriod ?? 'Latest fiscal'}</span>
                                 </div>
                                 <div className={styles.metricTile}>
-                                    <small>Revenue Growth</small>
+                                    <small><MetricGlossary entry={V9_METRIC_GLOSSARY.revenueGrowth}>Revenue Growth</MetricGlossary></small>
                                     <strong>{snapshot.fundamentals.revenueGrowthPercent !== null ? `${snapshot.fundamentals.revenueGrowthPercent >= 0 ? '+' : ''}${snapshot.fundamentals.revenueGrowthPercent.toFixed(1)}%` : 'N/A'}</strong>
                                     <span>Year over year</span>
                                 </div>
                             </div>
                         </section>
 
-                        <section className={styles.card} aria-label="Annual financials">
-                            <div className={styles.sectionHead}>
-                                <div>
-                                    <h2>Annual Financials</h2>
-                                    <p>Revenue vs Free Cash Flow ({snapshot.fundamentals.source ?? 'Provider statements'})</p>
-                                </div>
-                                <Link className={styles.textLink} href={panelHref('financials')}>Financials &amp; valuation →</Link>
-                            </div>
-                            {annuals.length > 0 ? (
-                                <>
-                                    <div className={styles.finLegend}>
-                                        <span><i className={styles.finSwatchRev} aria-hidden="true" />Revenue</span>
-                                        <span><i className={styles.finSwatchFcf} aria-hidden="true" />Free Cash Flow</span>
-                                    </div>
-                                    <div className={styles.finBars}>
-                                        {annuals.map(period => {
-                                            const revH = Math.max(8, Math.round(((period.annualRevenue ?? 0) / maxAnnualVal) * 106));
-                                            const fcfH = Math.max(6, Math.round((Math.max(0, period.freeCashFlow ?? 0) / maxAnnualVal) * 106));
-                                            return (
-                                                <div key={period.reportingPeriod} className={styles.finCol} title={`Rev: ${fmtCompact(period.annualRevenue, period.currency)} · FCF: ${fmtCompact(period.freeCashFlow, period.currency)}`}>
-                                                    <div className={styles.finPair}>
-                                                        <span className={styles.finBarRev} style={{ height: revH }} />
-                                                        <span className={styles.finBarFcf} style={{ height: fcfH }} />
-                                                    </div>
-                                                    <small>{period.reportingPeriod.slice(0, 4)}</small>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </>
-                            ) : (
-                                <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>
-                                    Multi-year financial history was not returned for this listing.
-                                </p>
-                            )}
-                        </section>
+                        <V9AnnualFinancialsCard
+                            snapshot={snapshot}
+                            financialsHref={panelHref('financials')}
+                            fmtCompact={fmtCompact}
+                        />
                     </div>
 
                     <div className={styles.researchStack}>
-                        {livePrice !== null && low52 !== null && high52 !== null && targetPrice !== null && (
-                            <section className={styles.card} aria-label="Target entry guardrail">
-                                <div className={styles.sectionHead}>
-                                    <div>
-                                        <h2>Target Entry Guardrail</h2>
-                                        <p>Local planning slider · saves nothing</p>
-                                    </div>
-                                    {gapPct !== null && (
-                                        <span className={styles.toneBadge} data-tone={gapPct <= 0 ? 'up' : 'neutral'}>
-                                            {gapPct >= 0 ? `${gapPct.toFixed(1)}% above` : `${Math.abs(gapPct).toFixed(1)}% below`} target
-                                        </span>
-                                    )}
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--muted)' }}>
-                                    <span>Your Calm Entry Target</span>
-                                    <strong style={{ color: 'var(--ink)' }}>{fmtPrice(targetPrice, snapshot.quote.currency)}</strong>
-                                </div>
-                                <input
-                                    type="range"
-                                    className={styles.guardrailSlider}
-                                    min={low52}
-                                    max={high52}
-                                    step={Math.max(0.01, Number(((high52 - low52) / 100).toFixed(2)))}
-                                    value={targetPrice}
-                                    onChange={e => setTargetPrice(Number(e.target.value))}
-                                    aria-label="Target entry price"
-                                />
-                                <div className={styles.guardrailRange}>
-                                    <span>52W Low {fmtPrice(low52, snapshot.quote.currency)}</span>
-                                    <span>Now {fmtPrice(livePrice, snapshot.quote.currency)}</span>
-                                    <span>52W High {fmtPrice(high52, snapshot.quote.currency)}</span>
-                                </div>
-                            </section>
-                        )}
+                        <V9EntryGuardrailCard
+                            snapshot={snapshot}
+                            ownerRecord={ownerRecord}
+                            reviewHref={panelHref('review')}
+                            fmtPrice={fmtPrice}
+                        />
 
                         <section className={styles.card} aria-label="Thesis and note">
                             <div className={styles.sectionHead}>

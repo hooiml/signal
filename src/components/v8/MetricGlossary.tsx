@@ -5,22 +5,40 @@ import { V9Navigation } from '@/components/v9/v9-navigation';
 import { metricLessonHref, metricLessons, type LearnMetric } from '@/lib/learn/metric-links';
 import styles from './metric-glossary.module.css';
 
+export type GlossaryEntry = {
+    readonly id: string;
+    readonly label: string;
+    readonly definition: string;
+    readonly learnHref?: string;
+};
+
 type Props = {
     metric?: LearnMetric;
+    entry?: GlossaryEntry;
     children?: ReactNode;
     /** Preserve an existing metric selection button, without nesting another control. */
     buttonProps?: ButtonHTMLAttributes<HTMLButtonElement> & { 'data-indicator'?: string; 'data-overflow'?: boolean; 'data-available'?: boolean | string };
     onInspect?: (trigger: HTMLButtonElement) => void;
 };
 
-export function MetricGlossary({ metric, children, buttonProps, onInspect }: Props) {
-    if (!metric) return buttonProps ? <button type="button" {...buttonProps} onClick={onInspect ? event => onInspect(event.currentTarget) : buttonProps.onClick}>{children}</button> : <>{children}</>;
-    return <GlossaryPopover metric={metric} buttonProps={buttonProps} onInspect={onInspect}>{children}</GlossaryPopover>;
+export function MetricGlossary({ metric, entry, children, buttonProps, onInspect }: Props) {
+    const resolved = metric ? metricLessons.find(lesson => lesson.id === metric) : entry;
+    if (!resolved) return buttonProps ? <button type="button" {...buttonProps} onClick={onInspect ? event => onInspect(event.currentTarget) : buttonProps.onClick}>{children}</button> : <>{children}</>;
+    return <GlossaryPopover glossaryId={metric ?? resolved.id} metric={metric} entry={resolved} buttonProps={buttonProps} onInspect={onInspect}>{children}</GlossaryPopover>;
 }
 
-function GlossaryPopover({ metric, children, buttonProps, onInspect }: Props & { metric: LearnMetric }) {
+function GlossaryPopover({
+    glossaryId,
+    metric,
+    entry,
+    children,
+    buttonProps,
+    onInspect,
+}: Props & { glossaryId: string; entry: GlossaryEntry }) {
     const v9 = useContext(V9Navigation);
-    const entry = metricLessons.find(lesson => lesson.id === metric)!;
+    const learnHref = metric
+        ? (v9?.('learn', { concept: metric }) ?? metricLessonHref(metric))
+        : (entry.learnHref ?? v9?.('learn') ?? '/learn');
     const id = useId();
     const trigger = useRef<HTMLButtonElement>(null);
     const popover = useRef<HTMLSpanElement>(null);
@@ -75,7 +93,7 @@ function GlossaryPopover({ metric, children, buttonProps, onInspect }: Props & {
     return <>
         <button type="button" {...buttonProps} ref={trigger}
             className={`${buttonProps ? buttonProps.className ?? '' : styles.trigger} ${styles.control}`}
-            data-glossary={metric} popoverTarget={id} aria-haspopup="dialog" aria-expanded={open}
+            data-glossary={glossaryId} popoverTarget={id} aria-haspopup="dialog" aria-expanded={open}
             aria-label={buttonProps?.['aria-label'] ?? `${typeof children === 'string' ? children : entry.label} definition`}
             onClick={event => {
                 buttonProps?.onClick?.(event);
@@ -97,7 +115,7 @@ function GlossaryPopover({ metric, children, buttonProps, onInspect }: Props & {
             {children ?? entry.label}
         </button>
         <span ref={popover} id={id} popover="auto" role="dialog" aria-labelledby={`${id}-title`}
-            className={styles.popover} data-glossary-panel={metric}
+            className={styles.popover} data-glossary-panel={glossaryId}
             onToggle={event => { setOpen(event.newState === 'open'); if (event.newState === 'open') position(); }}
             onKeyDown={event => {
                 // A glossary inside an inspector must dismiss before the containing dialog.
@@ -108,7 +126,7 @@ function GlossaryPopover({ metric, children, buttonProps, onInspect }: Props & {
             <span className={styles.definition}>{entry.definition}</span>
             {onInspect && <button className={styles.inspect} type="button" onClick={() => { close(); if (trigger.current) onInspect(trigger.current); }}>View indicator</button>}
             <span className={styles.actions}>
-                <a href={v9?.('learn', { concept: metric }) ?? metricLessonHref(metric)} target="_blank" rel="noopener noreferrer" aria-label={`Learn more about ${entry.label} (opens in a new tab)`}>Learn more <span aria-hidden="true">↗</span></a>
+                <a href={learnHref} target="_blank" rel="noopener noreferrer" aria-label={`Learn more about ${entry.label} (opens in a new tab)`}>Learn more <span aria-hidden="true">↗</span></a>
                 <button type="button" onClick={close} aria-label={`Close ${entry.label} definition`}>Close</button>
             </span>
         </span>
