@@ -45,9 +45,14 @@ Search and market controls reuse the connected stock switcher's state; sort and 
 choices live only in the mounted home. Default saved order is retained, with symbol and
 review-due alternatives and symbol/market tie breaking. Owner actions use the existing
 exact-market editable Research handoff in a new tab. Guests have no schedules or review
-actions. Price sorts remain explicitly unavailable: `ResearchRecord` has neither current
-quotes/daily percentage changes nor 52-week highs. Stock-detail snapshots have those
-fields, but the Watchlist does not load them; no quote fan-out or new data contract is added.
+actions. In classic V8 (`/research-v8`), price sorts and Holdings live valuation remain
+cost-only and quote-free: `ResearchRecord` has no quotes, and classic V8 never fetches
+`/api/research/quotes`. In V9 (`/v9`), `useV9QuoteBatch` shares one bounded (at most 50
+saved-record symbols) `POST /api/research/quotes` hydration across Portfolio (`Holdings`,
+`Factor exposure`, and `Manage portfolio`) and the V9 `Watchlist`, surfacing currency-matched
+live market values, unrealized P/L, weights, value-weighted factor bars, optional
+`fiftyTwoWeekHigh` metadata, and live `Closest to 52-week high` / `Biggest daily % move`
+sorting without ever sending local holdings quantities, accounts, or unmatched symbols.
 
 L2/T2/T3 keep connected V8 missing-data presentation local to existing responses.
 Market exposure uses an inline Research action; empty historical outcomes retain both

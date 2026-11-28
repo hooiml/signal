@@ -41,7 +41,8 @@ const isResearchQuote = (value: unknown): value is ResearchSnapshot['quote'] => 
         && (value.observedAt === undefined || value.observedAt === null || (typeof value.observedAt === 'string' && Number.isFinite(Date.parse(value.observedAt))))
         && isNullableString(value.name)
         && isNullableString(value.currency)
-        && hasNullableNumbers(value, ['price', 'dailyChangePercent']);
+        && hasNullableNumbers(value, ['price', 'dailyChangePercent'])
+        && (value.fiftyTwoWeekHigh === undefined || isNullableNumber(value.fiftyTwoWeekHigh));
 };
 
 const isBenchmarkStatus = (value: unknown) => typeof value === 'string' && researchBenchmarkStatuses.some((status) => status === value);
@@ -110,6 +111,7 @@ const isResearchSnapshot = (value: unknown): value is ResearchSnapshot => {
         && isNullableString(value.quote.name)
         && isNullableString(value.quote.currency)
         && hasNullableNumbers(value.quote, ['price', 'dailyChangePercent'])
+        && (value.quote.fiftyTwoWeekHigh === undefined || isNullableNumber(value.quote.fiftyTwoWeekHigh))
         && hasNullableNumbers(value.fundamentals, [
             'revenueGrowthPercent', 'grossMarginPercent', 'operatingMarginPercent', 'freeCashFlow',
             'debt', 'cash', 'shares', 'annualRevenue', 'annualNetIncome', 'shareChangePercent',

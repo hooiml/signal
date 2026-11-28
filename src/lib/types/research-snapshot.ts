@@ -98,6 +98,7 @@ export type ResearchSnapshot = {
         readonly currency: string | null;
         readonly price: number | null;
         readonly dailyChangePercent: number | null;
+        readonly fiftyTwoWeekHigh?: number | null;
     };
     readonly fundamentals: {
         readonly metricProvenance?: ResearchFundamentalProvenance;

@@ -398,6 +398,12 @@
 .homeList li { min-width: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--card-shadow); overflow: hidden; }
 .homeList li > button { border: 0; border-radius: 0; }
 .homeList li > button:hover { background: var(--surface-subtle); }
+.homeQuote { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 8px 16px; border-top: 1px solid var(--line); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.homeQuote strong { color: var(--ink); font-weight: 650; }
+.homeQuote small { margin-left: auto; color: var(--muted); font-size: var(--text-xs); }
+.homeMove { font-size: var(--text-xs); font-weight: 650; }
+.homeMove[data-tone="up"] { color: var(--up); }
+.homeMove[data-tone="down"] { color: var(--down); }
 .homeReview { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--line); font-size: var(--text-xs); }
 .homeReview > div { display: grid; gap: 3px; flex: 1; }
 .homeReview b { font-family: inherit; font-size: var(--text-sm); }

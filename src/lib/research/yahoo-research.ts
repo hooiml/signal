@@ -12,6 +12,7 @@ export type YahooResearchResult = {
     readonly currency: string | null;
     readonly price: number | null;
     readonly dailyChangePercent: number | null;
+    readonly fiftyTwoWeekHigh?: number | null;
     readonly technicals: TechnicalSnapshot;
     readonly chart: {
         readonly interval: '1d';
@@ -25,7 +26,7 @@ export type YahooResearchResult = {
     };
 };
 
-export type YahooQuoteResult = Pick<YahooResearchResult, 'name' | 'currency' | 'price' | 'dailyChangePercent' | 'observedAt'>;
+export type YahooQuoteResult = Pick<YahooResearchResult, 'name' | 'currency' | 'price' | 'dailyChangePercent' | 'observedAt' | 'fiftyTwoWeekHigh'>;
 
 const objectValue = (value: unknown): Record<string, unknown> | null =>
     typeof value === 'object' && value !== null && !Array.isArray(value) ? Object.fromEntries(Object.entries(value)) : null;
@@ -114,6 +115,8 @@ export const parseYahooResearchChart = (payload: unknown): YahooResearchResult =
             ? [new Date(seconds * 1_000).toISOString().slice(0, 10)]
             : [];
     }).sort();
+    const raw52High = numberValue(meta.fiftyTwoWeekHigh);
+    const fiftyTwoWeekHigh = raw52High !== null && raw52High > 0 ? raw52High : null;
     return {
         instrumentType: stringValue(meta.instrumentType),
         sharesOutstanding: numberValue(meta.sharesOutstanding) !== null && Number(meta.sharesOutstanding) > 0 ? Number(meta.sharesOutstanding) : null,
@@ -125,6 +128,7 @@ export const parseYahooResearchChart = (payload: unknown): YahooResearchResult =
         dailyChangePercent: price === null || previousClose === null || previousClose === 0
             ? null
             : Number((((price - previousClose) / previousClose) * 100).toFixed(2)),
+        fiftyTwoWeekHigh,
         technicals: {
             ...calculated,
             ma50: latest?.ma50 ?? calculated.ma50,
@@ -174,6 +178,6 @@ export const fetchYahooResearchChart = async (symbol: string, market: ResearchMa
 
 export const fetchYahooQuote = async (symbol: string, market: ResearchMarket): Promise<YahooQuoteResult> => {
     const providerSymbol = toYahooSymbol(symbol, market);
-    const { name, currency, price, dailyChangePercent, observedAt } = parseYahooResearchChart(await fetchYahooChart(providerSymbol, '5d'));
-    return { name, currency, price, dailyChangePercent, observedAt };
+    const { name, currency, price, dailyChangePercent, observedAt, fiftyTwoWeekHigh } = parseYahooResearchChart(await fetchYahooChart(providerSymbol, '5d'));
+    return { name, currency, price, dailyChangePercent, observedAt, fiftyTwoWeekHigh };
 };
