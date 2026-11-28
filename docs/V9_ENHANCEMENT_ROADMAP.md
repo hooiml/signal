@@ -11,7 +11,7 @@ This document is the canonical, value-ranked reference for enhancements, workflo
 5. **Learn & Glossary** (`?view=learn`)
 6. **Workspace Shell, Navigation & Platform** (`V9Workspace.tsx`, `⌘K`, `Settings`, PWA, Performance)
 
-- **Baseline:** `origin/main` at `d6cd648` (PR #95, 2026-11-27).
+- **Original planning baseline** `d6cd648` (PR #95, 2026-11-27). Delivery status verified against `main` at `0d41d1c` on 2026-11-28.
 - **V9 Entry Point & Shell:** [`src/app/v9/page.tsx`](../src/app/v9/page.tsx) and [`src/components/v9/V9Workspace.tsx`](../src/components/v9/V9Workspace.tsx).
 - **Related Roadmaps:**
   - [`ENHANCEMENT_ROADMAP.md`](ENHANCEMENT_ROADMAP.md) — classic V8 `E1`–`E28` history and platform-wide `E3`–`E7` gates.
@@ -22,7 +22,7 @@ Every enhancement in this document must preserve the nine product rules in [`NEX
 
 ---
 
-## Current V9 Baseline Inventory (`d6cd648`)
+## V9 inventory before roadmap PR-1 (`d6cd648`)
 
 | V9 Sidebar Module | Primary Files | Delivered Capabilities (up to PR #95) |
 | :--- | :--- | :--- |
@@ -34,6 +34,16 @@ Every enhancement in this document must preserve the nine product rules in [`NEX
 | **Workspace Shell & Controls** | `V9Workspace.tsx`, `v9-navigation.ts`, `V8CommandPalette.tsx`, `V8Settings.tsx` | Collapsible desktop sidebar, mobile bottom nav, sidebar quick watchlist (first 6 saved stocks), `⌘K` Quick Jump (7 static routes + ticker jump), Light/Dark toggle, unified Settings modal, Today return banner (`returnTo=today`). |
 
 ---
+
+## Delivery status and follow-ups before PR-5
+
+Roadmap PR-1 ([#98](https://github.com/hooiml/signal/pull/98)), PR-2 ([#99](https://github.com/hooiml/signal/pull/99)), PR-3 ([#100](https://github.com/hooiml/signal/pull/100)) and PR-4 ([#101](https://github.com/hooiml/signal/pull/101)) merged into `main`. PR-5 through PR-10 are planned. Complete the following three follow-ups in order.
+
+| Follow-up | Scope | Acceptance |
+| --- | --- | --- |
+| **PR-1a · Portfolio quote currency** | Require a confirmed match between the quote and holding currencies before valuing a holding. Apply the check in `useV9QuoteBatch` for Holdings and Factor exposure, and in Manage portfolio wherever V6 consumers build prices from `items`, including `PortfolioHoldingsImportV6`. | Exercise matching, missing and mismatched currencies in all three views, including owner and guest Manage portfolio. Only a matching quote contributes to market value, P/L, weights and factor exposure. Other holdings remain visible as unpriced. |
+| **PR-3/4a · Cross-market identity** | Use a dedicated PR for `(market, symbol)` across `calendar-input.ts` and `ResearchCalendarV8`, and through `alert-request.ts`, the alert service and `research-alert.ts` response types. Carry that identity through `useV9AlertsScan`, `ResearchAlertsV8`, `V9AttentionPopover` and `V9WatchlistView`. | Save the same symbol in US and MY with distinct rules. Assert the actual Calendar request and returned events include both listings. Trigger only one rule and verify its market in the Alerts response, filtered Watchlist row and monitoring link. Reject duplicate copies of the same listing. |
+| **PR-3/4b · Guest search and Discover badges** | Open a guest note match on the stock’s Overview, where the guest can read and edit it. Keep owner thesis matches linked to Review. Label the available Discover changes `1W rank` and `1D score`. | Select a search hit in each workspace. Show `New` only when a usable previous scan of the same ranked list omitted the stock. Test prior membership, a genuine new entrant, first scan and unavailable history. Omit the badge when the baseline is missing. |
 
 ## PR Bundle Grouping Rules
 
@@ -57,8 +67,8 @@ To ship faster without sacrificing reviewability or verification discipline unde
 | **PR-6** | **P1 · High** | `V9-E8` (part 2) + `V9-E9` | **V9 Portfolio Sandbox, Income, FX & Policy Guardrails** — Add the `What-if & Scenarios` tab (`PR-6a`) and expose `Dividend & Cash-Flow Plan`, `FX Currency Decomposition`, and `Policy Concentration Guardrails` (`PR-6b`) inside V9 Portfolio (`E6` Corporate Actions remains demand-gated). | `V9PortfolioDiscoverViews.tsx`, `src/lib/portfolio/*` | Medium–Large (splittable into `PR-6a`/`PR-6b`) | Standard |
 | **PR-7** | **P2 · Medium–High** | `V9-E13` + `V9-E14` + `V9-E21` | **V9 Research Deep-Dive & Continuity (`Filings`, `Peers`, `Compare`, `Outcomes`, `Export`, `Backup`)** — Direct `"Cite this filing"` handoff, sector-synced Peer chart overlays & Side-by-Side Compare `W2` (`PR-7a`); plus Decision Outcomes Lab, Evidence Quality Map, Thesis Changes scanner, Decision Packet Export, AES-GCM Backup in `V8Settings`, and guest owner-preview hint (`PR-7b`). | `V9ResearchView.tsx`, `ResearchFilingsV8.tsx`, `ResearchPeersV8.tsx`, `V9WatchlistView.tsx`, `V8Settings.tsx` | Medium–Large (splittable into `PR-7a`/`PR-7b`) | Standard |
 | **PR-8** | **P2 · Medium** | `V9-E16` + `V9-E17` + `V9-E18` (part 2: `E5`) | **Market Pulse Visual Calibration, Snapshot Rewind & Prospective Validation** — Add Similar Days as Dots (`M4`) distribution strip, score history turning-point driver callouts + inline Snapshot Rewind (`M2`), and the `E5` Forward-Validation prospective cohort panel (gated on `E4` from `PR-5`). | `V9MarketView.tsx`, `MarketV8Outcomes` | Medium–Large | Standard |
-| **PR-9** | **P2 · Medium** | `V9-E19` | **V9 `Learn & Glossary` Fixes, Token Alignment & Glossary Index** — Fix hidden `Market positioning` track in embedded `<select>`, update hardcoded `/main-v8`/`/research-v8` commands to `/v9`, align `--v7-*` tokens with V9, and add a dedicated searchable Glossary index tab. | `LearnDashboardV1.tsx`, `learn-v8.module.css` | Small–Medium | Standard |
-| **PR-10** | **P3 · Medium / Hygiene** | `V9-E22` + `V9-E7` | **V9 Platform Speed, `V9HomeView` Resolution, Offline & Accessibility** — Defer non-active US/MY `/api/signals/v2` fetches on Research/Portfolio/Discover/Learn (`Q2`), scope `V9FearGreedCard` cleanly on MY, add cached-reading offline banner (`Q3`), run 200% zoom + screen-reader chart audit (`Q1`), and mount or retire `V9HomeView.tsx`. | `V9Workspace.tsx`, `V9HomeView.tsx`, `V9FearGreedCard.tsx` | Small–Medium | Standard |
+| **PR-9** | **P2 · Medium** | `V9-E19` | **V9 `Learn & Glossary` Fixes, Token Alignment & Glossary Index** — Fix hidden `Market positioning` track in embedded `<select>`, verify embedded V9 palette routes, align embedded tokens with V9, and add a dedicated searchable Glossary index tab. | `LearnDashboardV1.tsx`, `learn-v8.module.css` | Small–Medium | Standard |
+| **PR-10** | **P3 · Medium / Hygiene** | `V9-E22` + `V9-E7` | **V9 Platform Speed, `V9HomeView` Resolution, Offline & Accessibility** — Defer non-active US/MY `/api/signals/v2` fetches on Research/Portfolio/Discover/Learn (`Q2`), scope `V9FearGreedCard` cleanly on MY, decide offline reading lifetime (`Q3`), run 200% zoom + screen-reader chart audit (`Q1`), and mount or retire `V9HomeView.tsx`. | `V9Workspace.tsx`, `V9HomeView.tsx`, `V9FearGreedCard.tsx` | Small–Medium | Standard |
 
 ---
 
@@ -75,7 +85,7 @@ Every enhancement sorted strictly from highest value (`Rank 1`) to lesser value 
 | **5** | **V9-E5** | `PR-3` | **Workspace Shell (`⌘K`)** | Universal local research search in V9 `⌘K` palette (missing V9 routes, recent tickers, saved thesis notes, cited filings, monitoring rules) | **P0 · Highest** | Medium | Standard |
 | **6** | **V9-E6** | `PR-3` | **Watchlist & Topbar** | Topbar Alerts & Due-Review popover + sidebar due-review dots + Watchlist `Triggered rules` filter | **P0 · Highest** | Medium | Standard |
 | **7** | **V9-E8** | `PR-1` / `PR-6` | **Portfolio** | Deduplicate `Holdings` currency-totals cards (`PR-1`) + add `What-if & Scenarios` sandbox tab (`PR-6`) | **P0 · Highest** (dedup) / **P1** (sandbox) | Small–Medium | Standard |
-| **8** | **V9-E10** | `PR-4` | **Discover (`Trending` & `Early`)** | Sector/risk/hide-saved filters, inline `"Saved"` badge, hourly rank deltas, and Quick-Peek candidate drawer | **P1 · High** | Medium | Standard |
+| **8** | **V9-E10** | `PR-4` | **Discover (`Trending` & `Early`)** | Sector/risk/hide-saved filters, inline `"Saved"` badge, period-labeled rank and score deltas, and Quick-Peek candidate drawer | **P1 · High** | Medium | Standard |
 | **9** | **V9-E15** | `PR-5` | **Market Pulse** | Cadence-aware indicator freshness clock (`M5`) + verified observation dating for fresh 24h news/social aggregates | **P1 · High (Trust)** | Small–Medium | Standard |
 | **10** | **V9-E18** | `PR-5` / `PR-8` | **Market Pulse** | Forward-Validation Lab (`E4` frozen `v2.2.0` discovery spec in `PR-5` → `E5` V9 prospective cohort panel in `PR-8`) | **P1 · High (Trust)** | Medium | LIGHT → Standard |
 | **11** | **V9-E11** | `PR-4` | **Discover (`Picker`)** | Batch `POST /api/research/quotes` for Picker basket refreshes, saved local Picker policies, and 1-click Watchlist handoff | **P1 · High** | Small–Medium | Standard |
@@ -83,12 +93,12 @@ Every enhancement sorted strictly from highest value (`Rank 1`) to lesser value 
 | **13** | **V9-E9** | `PR-6` | **Portfolio** | Port `Dividend & Cash-Flow Plan`, `FX Currency Decomposition`, and `Policy Concentration Guardrails` into V9 Portfolio (`E6` Corporate Actions demand-gated) | **P1 · High** | Medium–Large | Standard |
 | **14** | **V9-E13** | `PR-7` | **Stock Research (`Filings` & `Peers`)** | Direct `"Cite this filing"` action from SEC rows, sector-aware chart peer suggestions synced with `Peers` tab, and Side-by-Side Stock Compare (`W2`) | **P2 · Medium–High** | Medium | Standard |
 | **15** | **V9-E14** | `PR-7` | **Stock Research (`Outcomes` & `Changes`)** | Port `Decision Outcomes Lab`, `Evidence Quality Map`, `Thesis Changes` scanner, and Markdown/PDF `Decision Packet` export into V9 Research | **P2 · Medium–High** | Medium–Large | Standard |
-| **16** | **V9-E19** | `PR-9` | **Learn & Glossary** | Dedicated searchable Glossary index tab, fix hidden `Market positioning` track option in embedded `<select>`, align V9 tokens, and fix hardcoded `/main-v8` & `/research-v8` commands | **P2 · Medium–High** | Small–Medium | Standard |
+| **16** | **V9-E19** | `PR-9` | **Learn & Glossary** | Dedicated searchable Glossary index tab, fix hidden `Market positioning` track option in embedded `<select>`, align embedded V9 tokens and verify palette routes | **P2 · Medium–High** | Small–Medium | Standard |
 | **17** | **V9-E20** | `PR-2` | **Research & Market Polish** | Shared `MetricGlossary` popovers (`G3`) on V9 Overview metric tiles (`P/E`, `FCF Yield`, `Operating Margin`) and `V9MarketInternals` labels | **P2 · Medium** | Small | UI-LIGHT |
 | **18** | **V9-E16** | `PR-8` | **Market Pulse** | Similar-score historical distribution strip ("Similar Days as Dots", `M4`) below 7D/30D medians | **P2 · Medium** | Medium | Standard |
 | **19** | **V9-E17** | `PR-8` | **Market Pulse** | Score history turning-point driver callouts + one-click historical snapshot scrub rewind (`M2`) | **P2 · Medium** | Medium | Standard |
 | **20** | **V9-E21** | `PR-7` | **Settings & Continuity** | Encrypted AES-GCM cross-device Backup/Restore in `V8Settings` + explicit guest-to-owner capability hint on locked owner tabs | **P2 · Medium** | Small–Medium | Standard |
-| **21** | **V9-E22** | `PR-10` | **Platform & Performance** | Lazy/route-scoped US & MY signal loading (`Q2`), MY Fear & Greed scoping, offline cached-reading indicator (`Q3`), and 200% zoom + chart screen-reader audit (`Q1`) | **P3 · Medium** | Small–Medium | Standard |
+| **21** | **V9-E22** | `PR-10` | **Platform & Performance** | Lazy/route-scoped US & MY signal loading (`Q2`), MY Fear & Greed scoping, offline reading lifetime and timestamps (`Q3`), and 200% zoom + chart screen-reader audit (`Q1`) | **P3 · Medium** | Small–Medium | Standard |
 | **22** | **V9-E7** | `PR-10` | **Workspace Shell / Home** | Mount `V9HomeView` as an explicit Morning Briefing view (`?view=home`) or extract `SignalSlot` and retire unmounted 690-line code | **P3 · Medium / Hygiene** | Small–Medium | Standard |
 
 ---
@@ -98,26 +108,18 @@ Every enhancement sorted strictly from highest value (`Rank 1`) to lesser value 
 ### 1. Portfolio Module (`?view=portfolio`)
 
 #### V9-E1 [PR-1] · Shared Live Batch Quote Hydration (`Holdings`, `Factor Exposure`, `Manage Portfolio`, `Watchlist`)
-- **Current V9 gap:**
-  - [`V9Workspace.tsx`](../src/components/v9/V9Workspace.tsx#L177-L185) calls `reconcilePortfolioHoldings(loaded.snapshot, records ?? [], new Map())` with an empty quote map.
-  - [`ResearchHoldingsV8.tsx`](../src/components/v8/ResearchHoldingsV8.tsx#L47-L49) and [`V9FactorExposureView.tsx`](../src/components/v9/V9FactorExposureView.tsx#L57-L61) also pass `new Map()`, forcing cost-only / count-only views (`"Prices not loaded"`).
-  - [`V9PortfolioDiscoverViews.tsx`](../src/components/v9/V9PortfolioDiscoverViews.tsx#L42) (`PortfolioManagement`) **already fetches `POST /api/research/quotes`** — but only for `owner`, leaving guests without live quotes on `Manage portfolio` (`PortfolioCoveredAttributionV6`, `PortfolioHoldingsImportV6`), and not sharing those quotes with `Holdings`, `Factor exposure`, or `V9WatchlistView`.
-- **Enhancement:**
-  - Extract a shared, bounded hook `useV9QuoteBatch(symbols, enabled)` (capped at 50 symbols, abortable, triggered only on `Portfolio` or `Watchlist`).
-  - Feed the resulting `Map<string, ResearchQuote>` into `V9Workspace`, `ResearchHoldingsV8`, `V9FactorExposureView`, `PortfolioManagement` (both owner & guest), and `V9WatchlistView`.
-  - Unlocks live market values, actual portfolio weights, per-currency unrealized attribution, value-weighted Factor Exposure, and Watchlist sorting by *"Closest to 52W high"* and *"Biggest daily % move"*.
-- **Guardrails:** Zero background polling; never combine USD + MYR without explicit FX; never send holdings quantities, accounts, or cost basis in any request.
+
+PR-1 merged shared, abortable batch quotes for Holdings, Factor exposure, Manage portfolio and Watchlist. The request includes at most 50 saved listing identities. Unmatched imported symbols, quantities, accounts and cost basis stay local. Holdings reports priced coverage per currency and Watchlist supports 52-week-high proximity and daily-move sorting. PR-1a closes the currency check across all valuation paths.
 
 #### V9-E8 [PR-1 part 1 / PR-6 part 2] · Deduplicate `Holdings` Summary Cards + Add `What-if & Scenarios` Sandbox Tab
-- **Current V9 gap:**
-  - On `?view=portfolio` (`activeTab === 'holdings'`), [`V9PortfolioDiscoverViews.tsx`](../src/components/v9/V9PortfolioDiscoverViews.tsx#L116-L130) renders a `Currency totals` card (`Cost Basis + Cash`), and immediately below it [`ResearchHoldingsV8.tsx`](../src/components/v8/ResearchHoldingsV8.tsx#L81-L88) renders a **second** `Totals by currency` card with the exact same `Cost basis` and `Cash` numbers.
-  - Meanwhile, the pure **Pre-Trade What-If Sandbox** ([`docs/portfolio-what-if-sandbox.md`](portfolio-what-if-sandbox.md)) and **Saved Stress-Scenario Library** (`src/lib/portfolio/simulation.ts`) are only accessible in V6/V7 `/research`.
-- **Enhancement:**
-  1. **`PR-1`:** Remove the redundant summary block on `Holdings` so each currency sleeve displays one clean summary card (upgraded with live market value and unrealized P/L via `V9-E1`).
-  2. **`PR-6`:** Add a fourth tab in `V9PortfolioView`: **`What-if & Scenarios`** (`?view=portfolio&tab=what-if`) allowing up to 20 session-only buy/sell legs and deterministic macro/sector stress illustrations without mutating local holdings.
+
+PR-1 merged the single summary per currency. Owners can already open the [What-if sandbox](portfolio-what-if-sandbox.md) through `PortfolioRiskCockpitV6` in Manage portfolio.
+
+For PR-6, expose `?view=portfolio&tab=what-if` to owners and guests using their browser’s accepted holdings. Reuse `PortfolioWhatIfSandboxV6` and give owners one sandbox entry without mounting a second copy in Manage portfolio. Keep the 20-leg simulation session-only and stress illustrations deterministic. Test owner and guest access, deep-link reload and reset. Holdings without an eligible saved-stock quote stay unpriced and count toward missing coverage. Keep unmatched imported symbols out of quote requests.
 
 #### V9-E9 [PR-6] · Portfolio Income (`Dividends`), FX Attribution (`Currency`), Policy Guardrails & Corporate Actions (`E6`)
-- **Current V9 gap:** Four existing portfolio/risk capabilities still live exclusively in V6/V7 `/research`:
+
+- **Portfolio scope** Three existing workflows need V9 entry points. Corporate-action resolution remains demand-gated.
   - **Dividend & Cash-Flow Plan** ([`docs/dividend-cashflow-calendar.md`](dividend-cashflow-calendar.md), `/api/research/dividends/[symbol]`)
   - **FX / Currency Return Decomposition** (`Currency` workspace — separates stock price return from USD/MYR FX impact for Malaysian investors holding US stocks)
   - **Policy Concentration Limits** (`Policy` workspace — single-name %, sector %, evidence coverage, and review-age advisory guardrails)
@@ -129,60 +131,46 @@ Every enhancement sorted strictly from highest value (`Rank 1`) to lesser value 
 ### 2. Discover Module (`?view=discover`)
 
 #### V9-E10 [PR-4] · Discover `Trending` & `Early trends`: Filters, Watchlist Status, Rank Deltas & Quick-Peek Drawer
-- **Current V9 gap:**
-  - [`ResearchTrendingV8.tsx`](../src/components/v8/ResearchTrendingV8.tsx) and [`ResearchEarlyTrendsV8.tsx`](../src/components/v8/ResearchEarlyTrendsV8.tsx) render flat lists with no sector filter, risk filter (`low`/`medium`), or `"Hide/Highlight saved"` toggle.
-  - Even though `/api/research/discovery` already persists hourly leader/contender ranks for score deltas ([`ARCHITECTURE.md`](ARCHITECTURE.md#L173)), V9 Discover rows don't show `"New in Top 20"` or rank-movement pills.
-  - Clicking any row navigates completely away from Discover into `Stock Research` — losing scroll position and scan context.
-- **Enhancement:**
-  1. Add compact filter chips (`All sectors` / sector picker, `Low risk only`, `Hide saved`) and show an inline **`Saved`** badge on tickers already in the user's watchlist.
-  2. Surface hourly rank/score deltas (`▲ +2`, `New`) when present in the discovery payload.
-  3. Add a **Quick-Peek Drawer** (from [`signal-v9.0-flagship.html`](design-concepts/signal-v9.0-flagship.html)) with a secondary `"Peek"` action on each row showing price, 3M/6M trend, quality breakdown, catalyst date, and a 1-click `"Open full research →"` or `"Save to watchlist"` button.
+
+PR-4 merged sector, low-risk and hide-saved filters, Saved badges, and the Quick-Peek drawer for Trending and Early trends. The drawer shows price, 3M/6M trend, quality and catalyst details, with actions to open research or save the stock. PR-3/4b corrects the badge periods and the evidence required to label a stock new.
 
 #### V9-E11 [PR-4] · Discover `Stock Picker`: Batch Quotes, Saved Policies & Watchlist Handoff
-- **Current V9 gap:**
-  - [`ResearchPickerV8.tsx`](../src/components/v8/ResearchPickerV8.tsx#L63) refreshes paper basket quotes by firing **N individual `GET /api/research/quote/[symbol]` requests** in `Promise.allSettled` instead of calling the existing single batch `POST /api/research/quotes` endpoint.
-  - Picker rules (`horizon`, `riskProfile`, `minimumScore`, `pickCount`, `maximumPerSector`) reset on reload; users cannot save named transparent Discovery policies or send a shortlisted candidate directly to Watchlist/Review.
-- **Enhancement:**
-  1. Migrate Picker basket quote refreshes to a single batched `POST /api/research/quotes` call.
-  2. Persist browser-local Picker presets (labeled `"Saved on this device"`) and add a per-row `"Open in Research"` / `"Save to Watchlist"` action.
+
+PR-4 merged bounded `POST /api/research/quotes` basket refreshes, named browser-local Picker presets labeled “Saved on this device,” and per-row research and Watchlist actions.
 
 #### V9-E12 [PR-4] · Discover `Calendar` & `Alerts` Polish
-- **Current V9 gap:**
-  - [`V9PortfolioDiscoverViews.tsx`](../src/components/v9/V9PortfolioDiscoverViews.tsx#L171) header subtitle reads `"US universe · Trend discovery, Stock Picker & Earnings calendar"` — omitting both **Early trends** and **Alerts** (and implying Calendar/Alerts are US-only even though Calendar includes MY macro releases & MY saved reviews and Alerts monitors MY saved stocks).
-  - [`ResearchCalendarV8.tsx`](../src/components/v8/ResearchCalendarV8.tsx) has no event-kind filter pills (`All` | `Earnings` | `Reviews` | `Macro` | `Trending`), no weekend/US-MY market-holiday shading or session status pill (from `src/lib/home-schedule.ts`), and doesn't overlay the user's local **Dividend dates** (`dividend-cashflow-calendar.md`).
-  - [`ResearchAlertsV8.tsx`](../src/components/v8/ResearchAlertsV8.tsx#L57-L58) links `"Manage triggers →"` strictly to `records[0]` instead of linking each trigger row to its own `trigger.symbol`'s `tab=monitoring`.
-- **Enhancement:**
-  1. Update the Discover header subtitle to accurately reflect all 5 tabs and US/MY scope.
-  2. Add event-kind filter chips, trading-day weekend/session rhythm, and optional local dividend-date overlay to `ResearchCalendarV8`.
-  3. Link every matched/active trigger row in `ResearchAlertsV8` directly to `v9Href('research', { ticker: trigger.symbol, market, tab: 'monitoring' })`.
+
+PR-4 merged the five-tab Discover subtitle, Calendar event filters, weekend/session cues, optional local dividend dates and per-trigger monitoring links. PR-3/4a covers same-symbol listings across US and MY in both Calendar and Alerts.
 
 ---
 
 ### 3. Stock Research & Watchlist Module (`?view=research`)
 
 #### V9-E2 [PR-2] · Upcoming Earnings Ticket in V9 Research Quote Header (`R3`)
-- **Current V9 gap:** [`V9ResearchView.tsx`](../src/components/v9/V9ResearchView.tsx#L981-L1008) (`quoteHead`) does not mount `ResearchEarningsTicket`, even though `V9DiscoverView` already accepts `calendarTarget` deep links.
-- **Enhancement:** Render the unconfirmed next-30-day US earnings badge (`"Earnings · Tue 28 Oct · after close"`) inside V9's quote header, linking straight to `v9Href('discover', { discover: 'calendar', ticker: symbol, market, calendarDate })`. Preserve MY unavailability notice and zero-mutation rules.
+
+PR-2 merged the unconfirmed next-30-day US earnings ticket in the quote header. It opens the selected date in V9 Discover Calendar. MY listings show the coverage notice.
 
 #### V9-E3 [PR-2] · Connect V9's `Target Entry Guardrail` to the Owner's Saved `Position Plan` (`R5`)
-- **Current V9 gap:** [`V9ResearchView.tsx`](../src/components/v9/V9ResearchView.tsx#L718-L721) initializes `targetPrice` to `quote.price * 0.90`, and the guardrail card ([lines 1088–1121](../src/components/v9/V9ResearchView.tsx#L1088-L1121)) ignores `ownerRecord.positionPlan` (`plannedEntryPrice`, `targetZoneLow/High`, `invalidationPrice`).
-- **Enhancement:** When a same-currency `positionPlan` exists, initialize from `plannedEntryPrice`, draw labeled pins on the slider track for Entry, Target Zone, and Invalidation/Stop, display distances to each level as the user drags, and offer `"Reset to saved plan"` while keeping drags temporary (*"Exploring · not saved"*).
+
+PR-2 merged same-currency planned entry, invalidation, average cost and current-price markers. Dragging previews distances, and “Reset to saved plan” restores the entry. Keep `targetBuyZone` as authored free text below the slider. Numeric pins cover only structured prices.
 
 #### V9-E4 [PR-2] · Multi-Mode `Annual Financials` Card on V9 Overview (`Quality`, `Cushion` & `Dilution`)
-- **Current V9 gap:** [`V9ResearchView.tsx`](../src/components/v9/V9ResearchView.tsx#L1049-L1084) plots only 5-year `Revenue vs Free Cash Flow`, hiding margin compression, balance-sheet leverage, and share dilution behind the `Financials & valuation` tab.
-- **Enhancement:** Add a 3-pill toggle on the V9 Overview `Annual Financials` card (`Revenue & FCF` | `Margins %` | `Cushion & Shares`) reusing `annualMarginSeries`, `annualMarginComparison`, `balanceSheetCushion`, and `annualShareSeries` from [`src/lib/research/reading-display.ts`](../src/lib/research/reading-display.ts).
+
+PR-2 merged the `Revenue & FCF`, `Margins %` and `Cushion & Shares` modes in the Overview Annual Financials card.
 
 #### V9-E13 [PR-7] · `Filings` Direct Citation, Synced `Peers` Overlay & Side-by-Side Stock Compare (`W2`)
+
 - **Current V9 gap:**
   - In [`ResearchFilingsV8.tsx`](../src/components/v8/ResearchFilingsV8.tsx#L53-L56), each official SEC filing row links out to SEC EDGAR, but has no `"Cite this filing →"` button pre-filling accession number, form, filing date, and URL in the `Cited evidence` tab.
   - In [`V9ResearchView.tsx`](../src/components/v9/V9ResearchView.tsx#L825-L836), chart peer overlay suggestions fall back to a hardcoded list (`MSFT`, `NVDA`, `AAPL`, `VOO`) instead of preferring same-sector saved stocks, and the `Peers` tab (`ResearchPeersV8`) cannot pin a peer onto the Overview chart.
   - Users cannot view two stocks side-by-side across margins, balance-sheet cushion, and valuation multiples (`W2`).
 - **Enhancement:**
-  1. Add `"Cite filing"` handoff params from `ResearchFilingsV8` → `?view=research&tab=evidence`.
+  1. For an owner’s saved stock, “Cite this filing” opens `tab=evidence` with the selected SEC accession, form, filing date, title and source URL prefilled for explicit save. For an unsaved owner stock, offer Save stock first and preserve the filing selection. For a guest, keep the SEC link available and offer owner unlock with a return to the selected stock and filing.
   2. Prefer same-industry/sector watchlist peers for `PriceChart` overlays and add an `"Overlay on chart"` action inside `ResearchPeersV8`.
   3. Add a currency-safe 2-stock Side-by-Side Compare view (`W2`) inside Research.
 
 #### V9-E14 [PR-7] · Port `Decision Outcomes`, `Evidence Quality Map`, `Thesis Changes` & `Decision Packet Export` into V9 Research
+
 - **Current V9 gap:** Four high-trust Research workflows from V7 still require leaving `/v9` for legacy `/research`:
   - **Decision Outcomes Lab** (`Outcomes` — immutable review history resolution + act-or-pass 1M/3M/6M/1Y benchmark-relative cohorts)
   - **Evidence Quality Map** (`Evidence` — 7-rule field classification: supported / stale / conflicting / assumption / missing)
@@ -197,90 +185,74 @@ Every enhancement sorted strictly from highest value (`Rank 1`) to lesser value 
 ### 4. Market Pulse Module (`?view=market`)
 
 #### V9-E15 [PR-5] · Cadence-Aware Indicator Freshness Clock (`M5`) & News/Social Observation Dating
-- **Current V9 gap:**
-  - In [`src/lib/market-brief.ts`](../src/lib/market-brief.ts), live US social and MY news aggregates carry retrieval timestamps rather than verified observation dates, capping almost every live brief at **`Limited assessment`**.
-  - Weekly inputs (`AAII`, `NAAIM`) display raw timestamps without explaining their release schedule (*"Published weekly on Thursdays"*).
-- **Enhancement:**
-  1. Add explicit expected release cadences in [`src/lib/indicator-registry.ts`](../src/lib/indicator-registry.ts) and render `"Observed [Date] · Published weekly (Thu)"` inside V9 evidence rows and inspectors.
-  2. Propagate the newest eligible article/post publication timestamp (`news_evidence.latest_published_at` / `evaluated_at`) when fresh 24h items exist so complete live feeds can earn verified observation dating.
+
+Extend the frequency and stale thresholds in [the indicator registry](../src/lib/indicator-registry.ts) with verified release schedules for evidence rows and inspectors. Preserve item publication, retrieval and evaluation times separately.
+
+Derive a news/social observation date only from the eligible articles or posts that contributed to that score within its 24-hour window. The raw `newest_published_at` spans all returned articles and `evaluated_at` records the evaluation clock. Neither alone verifies the aggregate. Test fresh, stale, future-dated, undated, mixed and empty inputs. Show unknown observation time whenever the scored evidence cannot support a date.
 
 #### V9-E16 [PR-8] · Similar-Score Historical Distribution Strip ("Similar Days as Dots", `M4`)
+
 - **Current V9 gap:** `MarketV8Outcomes` displays 7D and 30D median returns and hit rates, hiding outcome spread and downside tail frequency.
-- **Enhancement:** Render a compact horizontal dot strip of each eligible historical observation in the current score zone (colored by sign with an all-score median reference tick and hover/tap date readout), keeping all overlapping-history and non-prediction disclaimers intact.
+- Render one dot per eligible observation in the active score zone for each 7D/30D horizon. `selectSimilarScoreOutcomes` supplies all horizon observations alongside the selected cohort. Filter by the cohort zone and verify the plotted count equals `cohort.sample_count` before drawing. Retain sample thresholds, observed/reconstructed labels, the all-score median tick, accessible date/return details and overlap/non-prediction disclosures.
 
 #### V9-E17 [PR-8] · Score History Turning-Point Callouts & Historical Snapshot Scrub Rewind (`M2`)
+
 - **Current V9 gap:** V9's smooth score history chart lets users hover historical points, and `Detailed view` opens replay separately, but the chart itself doesn't explain *why* major inflections happened or rewind the page's evidence rows inline.
 - **Enhancement:**
-  1. Annotate the 1–2 largest daily inflections on `1M`/`3M` views with their primary driver delta (e.g., `"VIX +4.2 pts"`).
-  2. Clicking an observed historical point previews that snapshot's exact breakdown under a persistent banner: **`"Viewing historical snapshot: 12 Sep 2026 · Return to latest"`** (reusing `/api/signals/replay`).
+  1. Annotate the 1–2 largest daily inflections on `1M`/`3M` only when archived inputs for the compared dates and configuration support a driver delta.
+  2. Reuse `/api/signals/replay` for observed points in As recorded. Bind the preview to the selected date, market, mode and source settings. Show the archived breakdown when present. For score-only dates show “Historical indicator records unavailable” and withhold live evidence. Provide a persistent date banner and “Return to latest” action.
 
 #### V9-E18 [PR-5 part 1: `E4` / PR-8 part 2: `E5`] · Forward-Validation Lab (`E4` Discovery Spec → `E5` V9 Calibration Panel)
+
 - **Current V9 gap:** Historical calibration includes backfilled/gap-repaired rows and marks out-of-sample status unavailable ([`docs/signal-scoring.md`](signal-scoring.md#L121)).
 - **Enhancement:**
-  1. **`PR-5` (`E4`):** Author the discovery spec freezing `v2.2.0` model version, eligible configurations, 7D/30D horizons, VOO/KLCI benchmarks, and drift rules before collecting prospective cohorts.
-  2. **`PR-8` (`E5`):** Deliver the prospective out-of-sample cohort table strictly separated from historical/backfilled rows in V9 Market Pulse.
+  1. **PR-5 (E4)** Preserve the earlier six-input US scorer approval as a historical record. Write a separate, versioned contract for [v2.2.0](signal-scoring.md), including its volatility ramp, enabled inputs, eligible markets/modes/source settings, cadence, 7D/30D horizons, benchmarks (VOO/KLCI as applicable), missing data, corrections, sample thresholds and drift rules. Record source and benchmark feasibility. The earlier approval covers its original scorer only.
+  2. **PR-8 (E5)** Require explicit sign-off on the v2.2.0 contract and commit it in-repo before enrolling observations. Register the approved configuration before its first observation. Keep prospective records distinct from backfills and historical calibration, and show immature or missing benchmark outcomes as unresolved. A model change starts a separate cohort. The historical dots and rewind can proceed independently. See [the forward-validation criteria](NEXT_PRODUCT_ROADMAP.md#task-6--forward-validation-lab).
 
 ---
 
 ### 5. Learn & Glossary Module (`?view=learn`)
 
 #### V9-E19 [PR-9] · V9 `Learn & Glossary` Integration Fixes & Dedicated Glossary Index
-- **Current V9 gap (verified in [`LearnDashboardV1.tsx`](../src/components/learn/LearnDashboardV1.tsx)):**
-  1. **Hidden Track Bug:** When `embedded` in `/v9?view=learn` ([line 109](../src/components/learn/LearnDashboardV1.tsx#L109)), `{release === 'market' && <option value="market">Market positioning metrics</option>}` hides the Market Positioning track from the Track dropdown unless the user arrived from a `Put/Call` or `NAAIM` deep link.
-  2. **Legacy Route Commands:** [Lines 81–82](../src/components/learn/LearnDashboardV1.tsx#L81-L82) still hardcode `/main-v8` and `/research-v8` instead of `/v9`.
-  3. **Missing Glossary Index:** The V9 sidebar footer names the link **`"Learn & Glossary"`** ([`V9Workspace.tsx`](../src/components/v9/V9Workspace.tsx#L344)), yet `/v9?view=learn` has no searchable Glossary view listing all Signal indicators, valuation ratios, and portfolio metrics in one place.
-  4. **Token Mismatch:** `LearnDashboardV1` uses `--v7-surface` / `--v7-border` classes inside the V9 Midnight Graphite / Calm Monochrome shell.
-- **Enhancement:**
-  1. Always expose `Market positioning metrics` in the embedded Track selector and route internal Learn commands to `/v9` when `v9` context is present.
-  2. Add a **`Glossary`** tab/view inside `/v9?view=learn` indexing every Signal Market indicator, Cross-Market Internal, Valuation ratio, and Research/Portfolio term with direct links back to live V9 screens.
-  3. Align embedded Learn surface/border/accent tokens with V9's CSS variables.
+
+- Expose Market positioning in the embedded Track selector on ordinary entry and verify existing concept deep links. The `/main-v8` and `/research-v8` commands in `LearnDashboardV1` belong to standalone `LearnShellV8`. Test embedded navigation through the V9 command palette and check standalone Learn separately.
+- Add a searchable Glossary tab with a term inventory covering market indicators, Market Internals, valuation ratios and Research/Portfolio terms. Share the existing popover IDs with the index, including `operating-margin`, `revenue-growth`, `internal-credit`, `internal-breadth`, `internal-safe-haven`, `internal-klci-trend`, `internal-myr-fx` and `internal-global-credit`. Preserve existing lesson IDs such as `pe` and `fcf-yield`. Verify each “Learn more” link selects the exact term, including Operating Margin, Revenue Growth and Market Internals, and that links back open the relevant V9 screen.
+- Scope surface, border and accent token changes to embedded Learn. Check both themes and preserve the standalone presentation.
 
 #### V9-E20 [PR-2] · Shared `MetricGlossary` Popovers (`G3`) Across V9 Research Overview & Internals
-- **Current V9 gap:** [`V9ResearchView.tsx`](../src/components/v9/V9ResearchView.tsx#L1025-L1046) renders `P/E Ratio`, `FCF Yield`, `Operating Margin`, and `Revenue Growth` as plain `<small>` text instead of wrapping them in `MetricGlossary` (`src/components/v8/MetricGlossary.tsx`), and [`V9MarketInternals.tsx`](../src/components/v9/V9MarketInternals.tsx) has no inline glossary popovers for credit spreads or equal-weight breadth.
-- **Enhancement:** Wrap V9 Research Overview metric labels and V9 Market Internals headers in `MetricGlossary` with `"Learn more →"` deep links into `/v9?view=learn&concept=...`.
+
+PR-2 merged shared glossary popovers on the Overview tiles and Market Internals. PR-9 owns exact-term destinations for Operating Margin, Revenue Growth and `V9MarketInternals` through the stable glossary IDs in V9-E19.
 
 ---
 
 ### 6. Workspace Shell, Cross-Module Continuity & Platform (`V9Workspace.tsx`)
 
 #### V9-E5 [PR-3] · Universal Local Research Search in V9 `⌘K` Command Palette
-- **Current V9 gap:** [`V8CommandPalette.tsx`](../src/components/v8/V8CommandPalette.tsx) only lists 7 static destinations (missing `Portfolio`, `Factor exposure`, `Discover · Early trends`, `Discover · Alerts`) and a basic ticker jump. It does not search saved company names, thesis notes, cited filings, or monitoring rules.
-- **Enhancement:**
-  - Add missing V9 static routes (`Portfolio`, `Factor exposure`, `Discover · Early trends`, `Discover · Alerts`) and browser-local recent tickers.
-  - Pass loaded `records` into `V8CommandPalette` to build a bounded, 100% browser-local index over company names, thesis fields, accepted evidence, primary-document citations, and monitoring rules — jumping straight to `/v9?view=research&ticker=...&tab=review|evidence|monitoring`.
+
+PR-3 merged V9 destinations, browser-local recent tickers and bounded local search across loaded company names, research notes, accepted evidence, filings and monitoring rules. PR-3/4b corrects the destination for guest note matches.
 
 #### V9-E6 [PR-3] · Topbar Alerts & Due-Review Popover + Sidebar Attention Badges
-- **Current V9 gap:**
-  - [`signal-v9.0.1-flagship.html`](design-concepts/signal-v9.0.1-flagship.html) specifies a **top-bar Alerts popover**, which is not yet built in [`V9Workspace.tsx`](../src/components/v9/V9Workspace.tsx#L366-L381).
-  - The sidebar Watchlist (`sideWatch`) shows no overdue-review dot or triggered-alert indicator, and `V9WatchlistView` has no quick `"Check triggered rules"` filter without switching to `Discover → Alerts`.
-- **Enhancement:**
-  - Add a compact, restrained **Attention Popover** in the V9 topbar (beside Theme & Settings) summarizing already-loaded overdue/due-this-week reviews and on-demand `/api/research/alerts` matches (never firing unsolicited background polls).
-  - Show a subtle due-review dot on matching rows in the sidebar quick watchlist and add a `Triggered rules` filter inside `V9WatchlistView`.
+
+PR-3 merged the topbar attention popover, sidebar due-review dots and Watchlist `Triggered rules` filter with on-demand scans. PR-3/4a carries each listing’s market through alert evaluation, filtering and navigation.
 
 #### V9-E7 [PR-10] · Resolve `V9HomeView` (`Morning Briefing` Hub vs. `Market Pulse` Default)
+
 - **Current V9 gap:** [`src/components/v9/V9HomeView.tsx`](../src/components/v9/V9HomeView.tsx) (690 lines) implements a timezone-aware (`home-schedule.ts`) Morning Briefing combining US + MY pulse cards, Today's Focus queue, Watchlist Pulse, and Portfolio summary — but [`V9Workspace.tsx`](../src/components/v9/V9Workspace.tsx#L55) aliases `?view=home` to `market`, leaving it unmounted.
-- **Enhancement:** Decide explicitly whether to mount `V9HomeView` as an optional `Morning Briefing` view/pill or extract `SignalSlot` to `v9-navigation.ts` and retire the dead code.
+- **Open decision** Choose whether to mount `V9HomeView` as an optional Morning Briefing or retire it and extract `SignalSlot`. Record the behavior of `?view=home`, Back and mobile navigation for the chosen option before setting request expectations.
 
 #### V9-E21 [PR-7] · Encrypted Backup/Sync in `V8Settings` & Owner Capability Preview
+
 - **Current V9 gap:** Copy/paste AES-GCM encrypted cross-device backup (`Backup` workspace) is only in V7 `/research`; `V8Settings` only offers guest JSON export/clear. Also, guests viewing `V9ResearchView` do not see what `Review`, `Cited evidence`, and `Monitoring rules` unlock in owner mode.
-- **Enhancement:** Add an **Encrypted Backup & Restore** section inside `V8Settings` for unlocked owners and a subtle non-intrusive capability note for guests.
+- Add encrypted Backup & Restore in Settings for unlocked owners and explain the owner-only tools to guests. Reuse `EncryptedResearchBackupV6`, including local preview, add-only default and explicit confirmation for replacement. Wire `onRestored` to refresh V9 records. Verify wrong-passphrase handling and that restored or replaced records appear in the open workspace.
 
 #### V9-E22 [PR-10] · Platform Speed (`Q2`), Offline Cached Reading (`Q3`) & Accessibility Audit (`Q1`)
-- **Current V9 gap:**
-  - [`V9Workspace.tsx`](../src/components/v9/V9Workspace.tsx#L104-L122) eagerly fetches **both US and MY `/api/signals/v2`** on every `/v9` mount, even when the user opens `/v9?view=research&ticker=AAPL` or `/v9?view=learn` — and [`V9FearGreedCard.tsx`](../src/components/v9/V9FearGreedCard.tsx) fetches US CNN Fear & Greed even on `Malaysia · Bursa`.
-  - No explicit cached-reading offline banner (`Q3`) or formal 200%-zoom + screen-reader SVG chart table audit across all V9 screens (`Q1`).
-- **Enhancement:**
-  - Defer non-active market signal fetches until `Market Pulse` or `Compare` is opened (keeps initial Research/Portfolio/Learn loads fast).
-  - Scope `V9FearGreedCard` clearly on MY or make it collapsible context on MY.
-  - Run a focused `Q1` accessibility pass (200% zoom at 1280px, keyboard focus order across sidebar/tabs/popovers, chart text alternatives) and add an explicit cached-timestamp offline banner (`Q3`).
+
+- **Q2 · Performance.** Add direct V9 Market and stock Research entries to [the performance baseline](../scripts/performance-baseline.mjs) and measure time to the first useful reading. Assert zero shell score requests on initial Research, Portfolio, Discover and Learn entry. Load the selected market on Market Pulse and request the comparison market or mode when opened. Cover retry, switching and the chosen Home behavior. On MY, clearly label CNN Fear & Greed as US context.
+- **Q3 · Open offline decision.** Decide whether the last public market reading must survive reload. The existing fallback shows last-online time. A mounted reading can show its observation time while disconnected. If persistence across reload is selected, amend [the PWA cache contract](pwa-offline-web-push.md) first to define allowed public fields, configuration, source/time, expiry, cache miss and reconnect behavior. Preserve the exclusion of private research and portfolio data.
+- **Q1 · Accessibility.** At 200% zoom from a 1280px viewport, traverse sidebar and mobile navigation, command search, attention popover, research tabs, Quick Peek and glossary by keyboard. Verify visible focus, return focus on close and access to every control. With a screen reader, check the Market score/history and Fear & Greed charts, Research price/peer overlays and Annual Financials, and the portfolio factor matrix. Verify that values, dates and missing-data states are available as text or table data. Record and retest failures.
 
 ---
 
 ## How to Execute
 
-Start from `PR-1` and work one PR bundle at a time per [`AGENTS.md`](../AGENTS.md):
-
-- **`Proceed with PR-1`** — Live Portfolio, Factor Matrix & Watchlist Hydration + Holdings Dedup (`V9-E1` + `V9-E8` part 1)
-- **`Proceed with PR-2`** — V9 Stock Research Overview Decision Upgrade (`V9-E2` + `V9-E3` + `V9-E4` + `V9-E20`)
-- **`Proceed with PR-3`** — V9 `⌘K` Universal Local Search & Topbar Attention Loop (`V9-E5` + `V9-E6`)
-- Continue sequentially through `PR-4`–`PR-10` (splitting `PR-6a`/`PR-6b` or `PR-7a`/`PR-7b` if needed to keep PR diffs tight).
+Start with PR-1a, then PR-3/4a and PR-3/4b as listed in [Delivery status and follow-ups before PR-5](#delivery-status-and-follow-ups-before-pr-5). Continue with PR-5 through PR-10 under [the repository verification rules](../AGENTS.md). Use the PR-6a/6b or PR-7a/7b split when needed and check the E4 approval gate before prospective enrollment.
