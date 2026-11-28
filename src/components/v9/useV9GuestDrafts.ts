@@ -27,7 +27,7 @@ const empty = {
 };
 
 /** Keep live drafts above the ticker and workspace routes, including drafts with unavailable storage. */
-export function useV9GuestDrafts(guest: boolean) {
+export function useV9GuestDrafts(guest: boolean, refreshTick = 0) {
     const [state, setState] = useState(empty);
     const current = useRef(state);
     const generation = useRef(0);
@@ -86,6 +86,12 @@ export function useV9GuestDrafts(guest: boolean) {
             current.current = empty;
         };
     }, [guest, publish, refresh]);
+
+    useEffect(() => {
+        if (!guest || refreshTick === 0) return;
+        const timer = window.setTimeout(refresh, 0);
+        return () => window.clearTimeout(timer);
+    }, [guest, refreshTick, refresh]);
 
     async function requireIdentity(atGeneration: number) {
         const identity = current.current.identity ?? await ensureGuestDraftIdentity();

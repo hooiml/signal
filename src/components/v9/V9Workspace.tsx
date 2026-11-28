@@ -78,12 +78,12 @@ export function V9Workspace() {
         records: ResearchRecord[] | null;
         workspace: 'checking' | 'guest' | 'owner';
     }>({ records: null, workspace: 'checking' });
-    const guestDrafts = useV9GuestDrafts(workspace === 'guest');
+    const [guestTick, setGuestTick] = useState(0);
+    const guestDrafts = useV9GuestDrafts(workspace === 'guest', guestTick);
     const [workspaceError, setWorkspaceError] = useState('');
     const records = workspace === 'guest' && !workspaceError ? guestDrafts.records ?? loadedRecords : loadedRecords;
     const [refreshingWatchlist, setRefreshingWatchlist] = useState(false);
     const [holdingsTick, setHoldingsTick] = useState(0);
-    const [guestTick, setGuestTick] = useState(0);
 
     // Sync initial user defaults & Today continuation
     useEffect(() => {
@@ -474,6 +474,8 @@ export function V9Workspace() {
                         <V9DiscoverView
                             records={records}
                             workspace={workspace}
+                            onSavedOwner={mergeSavedOwner}
+                            onSavedGuest={() => setGuestTick(v => v + 1)}
                             onOpenStock={openStock}
                         />
                     )}

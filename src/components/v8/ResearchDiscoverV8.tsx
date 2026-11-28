@@ -38,7 +38,7 @@ function useDiscoveryScan(enabled: boolean): DiscoveryScan {
     return { data, error, retry: () => { setError(''); setAttempt(value => value + 1); } };
 }
 
-export function ResearchDiscoverV8({ initialView, activeView, onViewChange, calendarTarget, defaultOpen, embedded = false, records, workspace, onSelect }: { initialView?: DiscoverView; activeView?: DiscoverView; onViewChange?: (view: DiscoverView) => void; calendarTarget?: EarningsCalendarTarget; defaultOpen: boolean; embedded?: boolean; records: readonly ResearchRecord[] | null; workspace: 'checking' | 'guest' | 'owner'; onSelect: (symbol: string, market: ResearchMarket) => void }) {
+export function ResearchDiscoverV8({ initialView, activeView, onViewChange, calendarTarget, defaultOpen, embedded = false, records, workspace, onSelect, onSaveToWatchlist }: { initialView?: DiscoverView; activeView?: DiscoverView; onViewChange?: (view: DiscoverView) => void; calendarTarget?: EarningsCalendarTarget; defaultOpen: boolean; embedded?: boolean; records: readonly ResearchRecord[] | null; workspace: 'checking' | 'guest' | 'owner'; onSelect: (symbol: string, market: ResearchMarket) => void; onSaveToWatchlist?: (symbol: string, name: string) => Promise<{ ok: boolean; error?: string }> }) {
     const [expanded, setOpen] = useState(defaultOpen || !!initialView);
     // On the Research home, Discover is a tab beside the watchlist and is always open.
     const open = embedded || expanded;
@@ -67,9 +67,9 @@ export function ResearchDiscoverV8({ initialView, activeView, onViewChange, cale
     const content = <>
         <div className={styles.views} role="tablist" aria-label="Discover views">{discoverViews.map(value => <button key={value} role="tab" id={`discover-tab-${value}`} aria-selected={view === value} aria-controls="discover-panel" onClick={() => changeView(value)}>{labels[value]}</button>)}</div>
         <div id="discover-panel" role="tabpanel" aria-labelledby={`discover-tab-${view}`} className={styles.body}>
-            {view === 'trending' && <ResearchTrendingV8 scan={scan} onSelect={symbol => select(symbol, 'US')} />}
-            {view === 'early' && <ResearchEarlyTrendsV8 scan={scan} onSelect={symbol => select(symbol, 'US')} />}
-            {view === 'picker' && <ResearchPickerV8 scan={scan} savedSymbols={savedSymbols} onSelect={symbol => select(symbol, 'US')} />}
+            {view === 'trending' && <ResearchTrendingV8 scan={scan} savedSymbols={savedSymbols} onSelect={symbol => select(symbol, 'US')} onSaveToWatchlist={onSaveToWatchlist} />}
+            {view === 'early' && <ResearchEarlyTrendsV8 scan={scan} savedSymbols={savedSymbols} onSelect={symbol => select(symbol, 'US')} onSaveToWatchlist={onSaveToWatchlist} />}
+            {view === 'picker' && <ResearchPickerV8 scan={scan} savedSymbols={savedSymbols} onSelect={symbol => select(symbol, 'US')} onSaveToWatchlist={onSaveToWatchlist} />}
             {view === 'calendar' && <ResearchCalendarV8 key={calendarTarget ? `${calendarTarget.market}:${calendarTarget.symbol}:${calendarTarget.date}` : 'watchlist'} target={calendarTarget} records={records} trending={scan.data} onSelect={select} />}
             {view === 'alerts' && <ResearchAlertsV8 records={records} workspace={workspace} onSelect={select} />}
         </div>
