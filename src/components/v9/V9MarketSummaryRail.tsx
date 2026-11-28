@@ -1,7 +1,10 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import type { MarketInternalsPayload } from '@/app/api/signals/internals/route';
 import type { MarketSignal } from '@/lib/types/signal-v2';
+import type { SavedMarketPulse } from '@/lib/v9-market-pulse';
+import { getLivePulseSnapshot } from '@/lib/v9-live-market-pulse';
 import { getIndicatorBaseWeights, getIndicatorDisplayName } from '@/lib/indicator-registry';
 import { buildMarketBrief } from '@/lib/market-brief';
 import { marketEvidenceCoverage, marketEvidenceDay } from '@/lib/market-evidence-coverage';
@@ -16,6 +19,83 @@ type Tone = 'up' | 'neutral' | 'down';
 
 const toneForTier = (tier: MarketSignal['tier']): Tone =>
     tier === 'buy' || tier === 'strong-buy' ? 'up' : tier === 'sell' || tier === 'strong-sell' ? 'down' : 'neutral';
+
+function V9MarketScoreCard({ market, mode, tier, score, timestamp, showModelInfo, gaugeDetails, children }: {
+    readonly market: 'US' | 'MY';
+    readonly mode: MarketSignal['mode'];
+    readonly tier: MarketSignal['tier'];
+    readonly score: number | null;
+    readonly timestamp?: ReactNode;
+    readonly showModelInfo?: boolean;
+    readonly gaugeDetails?: ReactNode;
+    readonly children?: ReactNode;
+}) {
+    const tone = toneForTier(tier);
+    const { neutralLower, neutralUpper } = MARKET_SCORE_TIER_THRESHOLDS;
+
+    return (
+        <aside className={styles.v9SummaryRail} aria-label="Market summary">
+            <section className={`${styles.card} ${styles.v9ScoreCard}`} data-tone={tone} aria-label="Market assessment">
+                <div className={styles.v9ScoreHeaderRow}>
+                    <div className={styles.v9ScoreTitleBlock}>
+                        <h1>{market === 'MY' ? 'Malaysia · Bursa' : 'United States'}</h1>
+                        <div className={styles.v9ScoreSubRow}>
+                            <p className={styles.v9ScoreSub}>
+                                {mode === 'contrarian' ? 'Contrarian' : 'Momentum'}
+                                {timestamp && <> · {timestamp}</>}
+                            </p>
+                            {showModelInfo && (
+                                <details className={styles.v9InfoPopover}>
+                                    <summary aria-label="Model version info">i</summary>
+                                    <div className={styles.v9InfoPopoverCard}>
+                                        <b>{market === 'US' ? 'Model v2.2.0' : 'Malaysia v2'}</b>
+                                        <p>
+                                            {mode === 'contrarian'
+                                                ? 'Contrarian lens treats extreme pessimism as potential opportunity and crowding as risk.'
+                                                : 'Momentum lens tracks whether sentiment and volatility confirm trend strength.'}
+                                        </p>
+                                    </div>
+                                </details>
+                            )}
+                        </div>
+                    </div>
+                    <span className={styles.toneBadge} data-tone={tone}>{marketReadingLabel(tier)}</span>
+                </div>
+
+                <div className={styles.v9HeroInstrument}>
+                    <V9RadialTickGauge
+                        score={score}
+                        tone={tone}
+                        neutralLower={neutralLower}
+                        neutralUpper={neutralUpper}
+                        size="lg"
+                        scoreTestId="connected-score"
+                        ariaLabel={score !== null ? `Score ${Math.round(score)} out of 100` : 'Score unavailable'}
+                        showScaleLabels
+                    />
+                    {gaugeDetails}
+                </div>
+
+                {children}
+            </section>
+        </aside>
+    );
+}
+
+export function V9MarketSavedRail({ pulse, loading }: { readonly pulse: SavedMarketPulse; readonly loading: boolean }) {
+    return (
+        <V9MarketScoreCard
+            market={pulse.config.market}
+            mode={pulse.config.mode}
+            tier={pulse.tier}
+            score={pulse.score}
+            timestamp={<>Saved snapshot · <time dateTime={pulse.snapshotDate}>{marketTimestampLabel(pulse.snapshotDate)}</time></>}
+        >
+            <p className={styles.v9ScoreSub}>Last updated <time dateTime={pulse.savedAt}>{marketTimestampLabel(pulse.savedAt)}</time></p>
+            <p className={styles.v9ScoreSub} role="status">{loading ? 'Refreshing market data…' : 'Live market data unavailable.'}</p>
+        </V9MarketScoreCard>
+    );
+}
 
 function overallCheckBadge(
     signalScore: number,
@@ -91,6 +171,7 @@ export function V9MarketSummaryRail({
     social,
     signal,
     referenceDate,
+    receivedAt,
     comparisonNotice,
     onOpenDrivers,
     onOpenToday,
@@ -101,21 +182,29 @@ export function V9MarketSummaryRail({
     readonly social: boolean;
     readonly signal: MarketSignal;
     readonly referenceDate?: string;
+    readonly receivedAt?: string;
     readonly comparisonNotice?: string | null;
     readonly onOpenDrivers: () => void;
     readonly onOpenToday: () => void;
     readonly onOpenScenarios: () => void;
 }) {
-    const tone = toneForTier(signal.tier);
-    const title = market === 'MY' ? 'Malaysia · Bursa' : 'United States';
-    const snapshotDay = marketEvidenceDay(signal.metadata.score_delta?.snapshot_date ?? referenceDate);
-    const brief = buildMarketBrief(signal, snapshotDay ?? referenceDate);
-    const coverage = marketEvidenceCoverage(signal, snapshotDay ?? referenceDate);
+    const snapshot = getLivePulseSnapshot(signal);
+    const snapshotDay = snapshot?.snapshotDate;
+    const referenceDay = snapshotDay ?? marketEvidenceDay(referenceDate);
+    const timestamp = snapshot?.savedAt
+        ? <>Last updated <time dateTime={snapshot.savedAt}>{marketTimestampLabel(snapshot.savedAt)}</time></>
+        : snapshotDay
+            ? <>Snapshot <time dateTime={snapshotDay}>{marketTimestampLabel(snapshotDay)}</time></>
+            : marketEvidenceDay(receivedAt)
+                ? <>Checked <time dateTime={receivedAt}>{marketTimestampLabel(receivedAt)}</time></>
+                : undefined;
+    const brief = buildMarketBrief(signal, referenceDay ?? referenceDate);
+    const coverage = marketEvidenceCoverage(signal, referenceDay ?? referenceDate);
     const scoredWeightPct = coverage.observedPct ?? Math.round((signal.metadata.coverage_adjustment?.active_weight ?? 1) * 100);
     const delta = signal.metadata.score_delta?.delta;
     const prevDate = signal.metadata.score_delta?.previous_date;
     const prevDay = marketEvidenceDay(prevDate);
-    const rangeBaseline = findRangeStartComparison(signal, snapshotDay, prevDay);
+    const rangeBaseline = findRangeStartComparison(signal, referenceDay, prevDay);
     const currentScore = Number.isFinite(signal.composite_score) ? signal.composite_score : null;
 
     const vixComponent = signal.components.vix;
@@ -151,127 +240,93 @@ export function V9MarketSummaryRail({
         .filter(Boolean)
         .join(' · ');
 
-    const { neutralLower, neutralUpper } = MARKET_SCORE_TIER_THRESHOLDS;
     const staleWeightPct = Math.min(scoredWeightPct, staleItems.reduce((sum, item) => sum + (item.comp.weight ?? 0) * 100, 0));
     const freshWeightPct = Math.max(0, scoredWeightPct - staleWeightPct);
     const missingWeightPct = Math.max(0, 100 - scoredWeightPct);
 
     return (
-        <aside className={styles.v9SummaryRail} aria-label="Market summary">
-            <section className={`${styles.card} ${styles.v9ScoreCard}`} data-tone={tone} aria-label="Market assessment">
-                <div className={styles.v9ScoreHeaderRow}>
-                    <div className={styles.v9ScoreTitleBlock}>
-                        <h1>{title}</h1>
-                        <div className={styles.v9ScoreSubRow}>
-                            <p className={styles.v9ScoreSub}>
-                                {mode === 'contrarian' ? 'Contrarian' : 'Momentum'}
-                                {snapshotDay ? ` · ${marketTimestampLabel(snapshotDay)}` : ''}
-                            </p>
-                            <details className={styles.v9InfoPopover}>
-                                <summary aria-label="Model version info">i</summary>
-                                <div className={styles.v9InfoPopoverCard}>
-                                    <b>{market === 'US' ? 'Model v2.2.0' : 'Malaysia v2'}</b>
-                                    <p>
-                                        {mode === 'contrarian'
-                                            ? 'Contrarian lens treats extreme pessimism as potential opportunity and crowding as risk.'
-                                            : 'Momentum lens tracks whether sentiment and volatility confirm trend strength.'}
-                                    </p>
-                                </div>
-                            </details>
-                        </div>
-                    </div>
-                    <span className={styles.toneBadge} data-tone={tone}>{marketReadingLabel(signal.tier)}</span>
-                </div>
-
-                <div className={styles.v9HeroInstrument}>
-                    <V9RadialTickGauge
-                        score={currentScore}
-                        tone={tone}
-                        neutralLower={neutralLower}
-                        neutralUpper={neutralUpper}
-                        size="lg"
-                        scoreTestId="connected-score"
-                        ariaLabel={currentScore !== null ? `Score ${Math.round(currentScore)} out of 100` : 'Score unavailable'}
-                        showScaleLabels
-                    />
-
-                    {!comparisonNotice && (
-                        <div className={styles.v9HeroDeltas}>
-                            <button type="button" className={styles.v9DeltaBtn} onClick={onOpenDrivers}>
-                                <span className={styles.v9DeltaLabel}>
-                                    {prevDate ? `vs ${marketTimestampLabel(prevDate)}` : 'vs prior'}
-                                </span>
-                                <span
-                                    className={styles.v9DeltaVal}
-                                    data-direction={typeof delta === 'number' && delta !== 0 ? (delta > 0 ? 'up' : 'down') : undefined}
-                                >
-                                    {typeof delta === 'number' && Number.isFinite(delta)
-                                        ? `${signed(delta, 1)} pts`
-                                        : 'Details'}{' '}
-                                    <span aria-hidden="true">↗</span>
-                                </span>
-                            </button>
-                            {rangeBaseline && (
-                                <div className={styles.v9DeltaItem}>
-                                    <span className={styles.v9DeltaLabel}>vs {marketTimestampLabel(rangeBaseline.date)}</span>
-                                    <span
-                                        className={styles.v9DeltaVal}
-                                        data-direction={rangeBaseline.delta > 0.5 ? 'up' : rangeBaseline.delta < -0.5 ? 'down' : undefined}
-                                    >
-                                        {signed(rangeBaseline.delta, 0)} pts
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {comparisonNotice && <p className={styles.v9Caution}>{comparisonNotice}</p>}
-
-                {elevatedWeights && (
-                    <p className={styles.v9Caution}>
-                        VIX is above 25, so its weight ramps smoothly to {(elevatedWeights.vix * 100).toFixed(0)}% of the US score (from its {(baselineUsVixWeight * 100).toFixed(0)}% baseline).
-                    </p>
-                )}
-
-                {brief.status !== 'unavailable' && (
-                    <p className={styles.v9BriefLine}>
-                        <strong>Brief:</strong> {brief.conclusion}
-                    </p>
-                )}
-
-                <div className={styles.v9TrustGrid} data-has-stale={topStale ? 'true' : 'false'}>
-                    <div className={styles.v9CoverageBox}>
-                        <div className={styles.v9CoverageHead}>
-                            <span>Evidence coverage</span>
-                            <span>{Math.round(scoredWeightPct)}% of weight</span>
-                        </div>
-                        <div className={styles.v9CoverageTrack} aria-hidden="true">
-                            {freshWeightPct > 0 && <span className={styles.v9CovSegFresh} style={{ flex: freshWeightPct }} />}
-                            {staleWeightPct > 0 && <span className={styles.v9CovSegStale} style={{ flex: staleWeightPct }} />}
-                            {missingWeightPct > 0 && <span className={styles.v9CovSegMissing} style={{ flex: missingWeightPct }} />}
-                        </div>
-                        <small className={styles.v9CoverageNote}>{coverageSubtext}</small>
-                    </div>
-
-                    {topStale && (
-                        <div className={styles.v9StaleBox} role="note">
-                            <b>{(topStale.comp.weight ?? 0) >= 0.35 ? 'Main driver is stale' : 'Stale input included'}</b>
-                            <span>
-                                {topStale.comp.display_name || getIndicatorDisplayName(topStale.key)} ({Math.round(topStale.comp.weight * 100)}% wt)
-                                {topStaleDay ? ` dated ${marketTimestampLabel(topStaleDay)}` : ''}
-                                {topStaleAgeDays !== null && topStaleAgeDays > 0 ? `, ${topStaleAgeDays} ${topStaleAgeDays === 1 ? 'day' : 'days'} old` : ''}.
+        <V9MarketScoreCard
+            market={market}
+            mode={mode}
+            tier={signal.tier}
+            score={currentScore}
+            timestamp={timestamp}
+            showModelInfo
+            gaugeDetails={!comparisonNotice && (
+                <div className={styles.v9HeroDeltas}>
+                    <button type="button" className={styles.v9DeltaBtn} onClick={onOpenDrivers}>
+                        <span className={styles.v9DeltaLabel}>
+                            {prevDate ? `vs ${marketTimestampLabel(prevDate)}` : 'vs prior'}
+                        </span>
+                        <span
+                            className={styles.v9DeltaVal}
+                            data-direction={typeof delta === 'number' && delta !== 0 ? (delta > 0 ? 'up' : 'down') : undefined}
+                        >
+                            {typeof delta === 'number' && Number.isFinite(delta)
+                                ? `${signed(delta, 1)} pts`
+                                : 'Details'}{' '}
+                            <span aria-hidden="true">↗</span>
+                        </span>
+                    </button>
+                    {rangeBaseline && (
+                        <div className={styles.v9DeltaItem}>
+                            <span className={styles.v9DeltaLabel}>vs {marketTimestampLabel(rangeBaseline.date)}</span>
+                            <span
+                                className={styles.v9DeltaVal}
+                                data-direction={rangeBaseline.delta > 0.5 ? 'up' : rangeBaseline.delta < -0.5 ? 'down' : undefined}
+                            >
+                                {signed(rangeBaseline.delta, 0)} pts
                             </span>
                         </div>
                     )}
                 </div>
+            )}
+        >
+            {comparisonNotice && <p className={styles.v9Caution}>{comparisonNotice}</p>}
 
-                <div className={styles.v9CardFoot}>
-                    <button type="button" className={styles.textLink} onClick={onOpenToday}>What changed today? →</button>
-                    <button type="button" className={styles.textLink} onClick={onOpenScenarios}>Scenarios →</button>
+            {elevatedWeights && (
+                <p className={styles.v9Caution}>
+                    VIX is above 25, so its weight ramps smoothly to {(elevatedWeights.vix * 100).toFixed(0)}% of the US score (from its {(baselineUsVixWeight * 100).toFixed(0)}% baseline).
+                </p>
+            )}
+
+            {brief.status !== 'unavailable' && (
+                <p className={styles.v9BriefLine}>
+                    <strong>Brief:</strong> {brief.conclusion}
+                </p>
+            )}
+
+            <div className={styles.v9TrustGrid} data-has-stale={topStale ? 'true' : 'false'}>
+                <div className={styles.v9CoverageBox}>
+                    <div className={styles.v9CoverageHead}>
+                        <span>Evidence coverage</span>
+                        <span>{Math.round(scoredWeightPct)}% of weight</span>
+                    </div>
+                    <div className={styles.v9CoverageTrack} aria-hidden="true">
+                        {freshWeightPct > 0 && <span className={styles.v9CovSegFresh} style={{ flex: freshWeightPct }} />}
+                        {staleWeightPct > 0 && <span className={styles.v9CovSegStale} style={{ flex: staleWeightPct }} />}
+                        {missingWeightPct > 0 && <span className={styles.v9CovSegMissing} style={{ flex: missingWeightPct }} />}
+                    </div>
+                    <small className={styles.v9CoverageNote}>{coverageSubtext}</small>
                 </div>
-            </section>
-        </aside>
+
+                {topStale && (
+                    <div className={styles.v9StaleBox} role="note">
+                        <b>{(topStale.comp.weight ?? 0) >= 0.35 ? 'Main driver is stale' : 'Stale input included'}</b>
+                        <span>
+                            {topStale.comp.display_name || getIndicatorDisplayName(topStale.key)} ({Math.round(topStale.comp.weight * 100)}% wt)
+                            {topStaleDay ? ` dated ${marketTimestampLabel(topStaleDay)}` : ''}
+                            {topStaleAgeDays !== null && topStaleAgeDays > 0 ? `, ${topStaleAgeDays} ${topStaleAgeDays === 1 ? 'day' : 'days'} old` : ''}.
+                        </span>
+                    </div>
+                )}
+            </div>
+
+            <div className={styles.v9CardFoot}>
+                <button type="button" className={styles.textLink} onClick={onOpenToday}>What changed today? →</button>
+                <button type="button" className={styles.textLink} onClick={onOpenScenarios}>Scenarios →</button>
+            </div>
+        </V9MarketScoreCard>
     );
 }
 

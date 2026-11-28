@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
@@ -16,6 +16,9 @@ import { watchlistReview } from '@/lib/research/watchlist-review';
 import { DEFAULT_SIGNAL_CONFIG, readSignalConfig, type SignalConfig } from '@/lib/signal-config';
 import { parseLearnMetric } from '@/lib/learn/metric-links';
 import { marketRouteConfig } from '@/lib/legacy-routes';
+import type { SavedMarketPulse } from '@/lib/v9-market-pulse';
+import { getLivePulseSnapshot, isCompletePulse } from '@/lib/v9-live-market-pulse';
+import { resolveV9View } from '@/lib/v9-view';
 import { parseConnectedSignal } from '@/components/v8/MarketV8ConnectedData';
 import { parseWatchlist } from '@/components/v8/research-v8-connected-data';
 import { readData, readPolicies } from '@/components/v8/read-data';
@@ -39,7 +42,6 @@ import base from '@/components/v8/market-v8.module.css';
 import styles from './v9-workspace.module.css';
 
 const LearnDashboard = dynamic(() => import('@/components/learn/LearnDashboardV1').then(module => module.LearnDashboardV1));
-const validViews = new Set<V9View>(['home', 'market', 'portfolio', 'discover', 'research', 'learn']);
 const errorText = (cause: unknown) => (cause instanceof Error ? cause.message : 'Data could not be loaded.');
 const loadingSlot: SignalSlot = { signal: null, loading: true, error: '' };
 type RequestedSignal = SignalSlot & { requestKey: string };
@@ -51,14 +53,12 @@ const navIcons: Record<Exclude<V9View, 'learn' | 'home'>, ReactNode> = {
     research: <><path d="M4 19V5" /><path d="M4 19h16" /><path d="m8 15 3-4 3 2 5-6" /></>,
 };
 
-export function V9Workspace() {
+export function V9Workspace({ savedPulses }: { savedPulses: SavedMarketPulse[] | null }) {
     const searchParams = useSearchParams();
     const returnsToToday = searchParams.get('returnTo') === 'today';
 
-    const requestedView = searchParams.get('view') as V9View | null;
-    const normalizedView = requestedView === 'home' ? 'market' : requestedView;
     const requestedTicker = searchParams.get('ticker')?.trim().toUpperCase();
-    const view = normalizedView && validViews.has(normalizedView) ? normalizedView : requestedTicker ? 'research' : 'market';
+    const view = resolveV9View(searchParams.get('view'), requestedTicker);
     const showingWatchlist = view === 'research' && searchParams.get('tab') === 'watchlist';
     const [defaults, setDefaults] = useState<SignalConfig | null>(null);
     const { market, mode, enableSocial: social } = { ...(defaults ?? DEFAULT_SIGNAL_CONFIG), ...marketRouteConfig(searchParams) };
@@ -69,7 +69,7 @@ export function V9Workspace() {
     const ticker = requestedTicker || (lastStock?.market === market ? lastStock.symbol : market === 'MY' ? '1155' : 'AAPL');
     const [isDark, setIsDark] = useState(false);
 
-    const requestKey = `${mode}:${social}:${revision}`;
+    const requestKey = `${mode}:${social}`;
     const [usResult, setUsResult] = useState<RequestedSignal | null>(null);
     const [myResult, setMyResult] = useState<RequestedSignal | null>(null);
     const usSlot = usResult?.requestKey === requestKey ? usResult : loadingSlot;
@@ -108,22 +108,39 @@ export function V9Workspace() {
     useEffect(() => {
         if (!defaults) return;
         const controller = new AbortController();
-        const loadMarket = (target: Market, setter: (slot: RequestedSignal) => void) => {
-            setter({ ...loadingSlot, requestKey });
+        const loadMarket = (target: Market, setter: Dispatch<SetStateAction<RequestedSignal | null>>) => {
+            const config = { market: target, mode, enableSocial: social };
+            const saved = savedPulses?.find(pulse => pulse.config.market === target
+                && pulse.config.mode === mode && pulse.config.enableSocial === social);
+            setter(previous => previous?.requestKey === requestKey
+                ? { ...previous, loading: true, error: '' }
+                : { ...loadingSlot, requestKey });
             const url = `/api/signals/v2?market=${target}&mode=${mode}&enableSocial=${social}`;
             readData(url, controller.signal, readPolicies.score)
                 .then(payload => parseConnectedSignal(payload, target, mode))
                 .then((signal: MarketSignal) => {
-                    if (!controller.signal.aborted) setter({ requestKey, signal, loading: false, error: '', receivedAt: new Date().toISOString() });
+                    if (controller.signal.aborted) return;
+                    const receivedAt = new Date().toISOString();
+                    setter(previous => {
+                        const current = previous?.requestKey === requestKey ? previous : loadingSlot;
+                        const prior = getLivePulseSnapshot(current.signal) ?? saved;
+                        if (prior && !isCompletePulse(signal, config, prior)) {
+                            return { ...current, requestKey, loading: false, error: 'The refresh did not return a newer or matching score and chart.' };
+                        }
+                        return { requestKey, signal, loading: false, error: '', receivedAt };
+                    });
                 })
                 .catch(cause => {
-                    if (!controller.signal.aborted) setter({ requestKey, signal: null, loading: false, error: errorText(cause) });
+                    if (!controller.signal.aborted) setter(previous => ({
+                        ...(previous?.requestKey === requestKey ? previous : loadingSlot),
+                        requestKey, loading: false, error: errorText(cause),
+                    }));
                 });
         };
         loadMarket('US', setUsResult);
         loadMarket('MY', setMyResult);
         return () => controller.abort();
-    }, [mode, social, requestKey, defaults]);
+    }, [mode, social, requestKey, defaults, revision, savedPulses]);
 
     // Load guest or owner watchlist records without unrequested writes
     useEffect(() => {
@@ -241,6 +258,8 @@ export function V9Workspace() {
     };
 
     const activeSlot = market === 'MY' ? mySlot : usSlot;
+    const savedPulse = savedPulses?.find(({ config }) => config.market === market
+        && config.mode === mode && config.enableSocial === social);
     const utcDay = useReviewDay();
     const todayVisible = view === 'market' && (searchParams.get('tab') === 'today'
         || (!activeSlot.loading && (!activeSlot.signal || Object.keys(activeSlot.signal.components).length === 0)));
@@ -262,7 +281,7 @@ export function V9Workspace() {
         });
     }, []);
     const navItems: readonly { id: keyof typeof navIcons; label: string; shortLabel: string; badge?: string }[] = [
-        { id: 'market', label: 'Market Pulse', shortLabel: 'Market', badge: activeSlot.signal ? activeSlot.signal.composite_score.toFixed(0) : undefined },
+        { id: 'market', label: 'Market Pulse', shortLabel: 'Market', badge: (activeSlot.signal?.composite_score ?? savedPulse?.score)?.toFixed(0) },
         { id: 'portfolio', label: 'Portfolio', shortLabel: 'Portfolio', badge: portfolioCount ? String(portfolioCount) : undefined },
         { id: 'discover', label: 'Discover', shortLabel: 'Discover' },
         { id: 'research', label: 'Stock Research', shortLabel: 'Research', badge: showingWatchlist ? undefined : ticker },
@@ -438,8 +457,12 @@ export function V9Workspace() {
 
                     {view === 'learn' && <LearnDashboard key={searchParams.get('concept')} embedded initialConcept={parseLearnMetric(searchParams.get('concept') ?? undefined)} />}
 
+                    {view === 'market' && savedPulses === null && !activeSlot.signal && (
+                        <p role="status">The saved market reading is unavailable.</p>
+                    )}
                     {view === 'market' && (
                         <V9MarketView
+                            savedPulse={savedPulse}
                             market={market}
                             today={market === 'MY' ? myToday : usToday}
                             mode={mode}

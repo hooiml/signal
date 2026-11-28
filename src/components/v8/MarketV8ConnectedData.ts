@@ -379,6 +379,13 @@ function validSignalQuality(value: unknown): boolean {
 }
 
 function validMetadata(value: Record<string, unknown>, market: string): boolean {
+    const persistence = value.snapshot_persistence;
+    if (persistence !== undefined) {
+        if (!object(persistence)) return false;
+        if (persistence.status === 'persisted') {
+            if (!date(persistence.snapshot_date) || (persistence.updated_at !== undefined && !date(persistence.updated_at))) return false;
+        } else if (persistence.status !== 'unavailable' || persistence.snapshot_date !== null) return false;
+    }
     if (value.market !== market
         || !['US', 'MY'].includes(String(value.market))
         || (value.source_included !== undefined && typeof value.source_included !== 'boolean')
