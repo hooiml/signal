@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useMemo } from 'react';
+import { useCallback, useContext, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -14,6 +14,7 @@ import { applyResearchQuoteV6 } from '@/components/v6/research-snapshot-v6';
 import type { ResearchThemeV6 } from '@/components/v6/research-v6';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import { parseEarningsCalendarTarget } from '@/lib/research/earnings-ticket';
+import { saveGuestSecurity } from '@/lib/research/guest-workspace';
 import { ResearchHoldingsV8 } from '@/components/v8/ResearchHoldingsV8';
 import { ResearchDiscoverV8 } from '@/components/v8/ResearchDiscoverV8';
 import { parseDiscoverView } from '@/components/v8/discover-view';
@@ -122,27 +123,69 @@ export function V9PortfolioView({
 export function V9DiscoverView({
     records,
     workspace,
+    onSavedOwner,
+    onSavedGuest,
     onOpenStock,
 }: {
     readonly records: readonly ResearchRecord[] | null;
     readonly workspace: 'checking' | 'guest' | 'owner';
+    readonly onSavedOwner: (record: ResearchRecord) => void;
+    readonly onSavedGuest: () => void;
     readonly onOpenStock: (symbol: string, market: ResearchMarket) => void;
 }) {
     const v9Href = useContext(V9Navigation)!;
     const router = useRouter();
     const searchParams = useSearchParams();
+    const writer = useV9OwnerResearch(workspace === 'owner', onSavedOwner);
+    const guestSavingRef = useRef(false);
     const view = parseDiscoverView(searchParams.get('discover')) ?? 'trending';
     const calendarTarget = view === 'calendar' ? parseEarningsCalendarTarget(
         searchParams.get('ticker')?.trim().toUpperCase(), searchParams.get('market') ?? undefined, searchParams.get('calendarDate') ?? undefined,
     ) : undefined;
+
+    const saveToWatchlist = useCallback(async (symbol: string, name: string): Promise<{ ok: boolean; error?: string }> => {
+        const cleanSymbol = symbol.trim().toUpperCase();
+        const cleanName = name.trim() || cleanSymbol;
+        if (workspace === 'checking') {
+            return { ok: false, error: 'Loading watchlist…' };
+        }
+        if (workspace === 'owner') {
+            const ok = await writer.create({
+                symbol: cleanSymbol,
+                market: 'US',
+                companyName: cleanName,
+                saveOnly: true,
+            });
+            return ok ? { ok: true } : { ok: false, error: 'Unable to save to watchlist.' };
+        }
+        if (guestSavingRef.current) return { ok: false, error: 'Saving in progress…' };
+        guestSavingRef.current = true;
+        try {
+            await saveGuestSecurity(cleanSymbol, 'US', cleanName);
+            onSavedGuest();
+            return { ok: true };
+        } catch (cause) {
+            return {
+                ok: false,
+                error: cause instanceof Error ? cause.message : 'Unable to save to watchlist.',
+            };
+        } finally {
+            guestSavingRef.current = false;
+        }
+    }, [onSavedGuest, workspace, writer]);
+
     return (
         <div style={{ display: 'grid', gap: 18 }}>
             <div className={styles.heroBrief}>
                 <div>
                     <h1 className={styles.heroTitle}>Discover Ideas</h1>
-                    <p className={styles.pageSub}>US universe · Trend discovery, Stock Picker &amp; Earnings calendar</p>
+                    <p className={styles.pageSub}>Trending, Early trends &amp; Stock Picker (US) · Calendar &amp; Alerts (US &amp; MY)</p>
                 </div>
             </div>
+
+            {writer.accessIssue && (
+                <OwnerAccessNotice issue={writer.accessIssue} resource="Saved research" preserveDraft />
+            )}
 
             <div className={styles.card}>
                 <ResearchDiscoverV8
@@ -154,6 +197,7 @@ export function V9DiscoverView({
                     records={records}
                     workspace={workspace}
                     onSelect={onOpenStock}
+                    onSaveToWatchlist={saveToWatchlist}
                 />
             </div>
         </div>

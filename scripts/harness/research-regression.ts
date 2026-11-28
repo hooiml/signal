@@ -1,6 +1,7 @@
 import './due-review-regression';
 import './watchlist-review-regression';
 import './v9-command-search-regression';
+import './v9-discover-pr4-regression';
 import { assessCurrentResearch } from '../../src/lib/research/current-assessment';
 import { getResearchAction } from '../../src/lib/research/decision';
 import { parsePersistedResearchMonitoringRules, parseResearchCreateInput, parseResearchExpectedRevision, parseResearchRecord, parseResearchUpdateInput, parseResearchUpdateMode } from '../../src/lib/research/input';

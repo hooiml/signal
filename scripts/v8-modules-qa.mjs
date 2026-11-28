@@ -93,6 +93,13 @@ await context.route('**/api/**', async route => {
     if (path === '/api/research/discovery') return route.fulfill({ json: pinnedDiscovery });
     if (path.startsWith('/api/research/symbol/')) return route.fulfill({ json: snapshot(decodeURIComponent(path.split('/').pop())) });
     if (path.startsWith('/api/research/quote/')) { const quote = structuredClone(seedQuote); quote.data.symbol = path.split('/').pop(); return route.fulfill({ json: quote }); }
+    if (path === '/api/research/quotes' && request.method() === 'POST') {
+        const items = (request.postDataJSON() ?? []).map(entry => ({
+            success: true,
+            data: { symbol: entry.symbol, market: entry.market, providerSymbol: entry.symbol, fetchedAt: new Date().toISOString(), quote: seedQuote.data.quote },
+        }));
+        return route.fulfill({ json: { success: true, data: { fetchedAt: new Date().toISOString(), items } } });
+    }
     if (path === '/api/research/search') { const symbol = url.searchParams.get('q'); const [sector, industry] = classification[symbol] ?? [null, null]; return route.fulfill({ json: { success: true, source: 'Yahoo Finance', data: [{ symbol, name: symbol, market: 'US', exchange: 'NMS', instrumentType: 'EQUITY', sector, industry }] } }); }
     if (path.startsWith('/api/research/filings/')) return filingsMode.value === 'ready' ? route.fulfill({ json: filings })
         : route.fulfill({ status: 503, json: { success: false, degraded: true, reason: 'configuration', error: 'Official SEC discovery is unavailable until the operator configures a compliant SEC contact.' } });

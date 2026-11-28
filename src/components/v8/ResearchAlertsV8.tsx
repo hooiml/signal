@@ -34,7 +34,7 @@ export function ResearchAlertsV8({ records, workspace, onSelect }: { records: re
         return () => controller.abort();
     }, [hasRecords, body, attempt]);
     const current = result?.body === body ? result : null;
-    const marketBySymbol = new Map((records ?? []).map(record => [record.symbol, record.market]));
+    const marketBySymbol = new Map((records ?? []).map(record => [record.symbol.trim().toUpperCase(), record.market]));
     const alerts = [...(current?.data?.alerts ?? [])].sort((left, right) => severityOrder[left.severity] - severityOrder[right.severity] || left.symbol.localeCompare(right.symbol));
     const triggers = current?.data?.triggerCoverage ?? [];
     return <div className={styles.alerts}>
@@ -48,15 +48,41 @@ export function ResearchAlertsV8({ records, workspace, onSelect }: { records: re
                             {alerts.length === 0 ? <p className={styles.meta}>No active conditions right now for {[...marketBySymbol.keys()].slice(0, maximumMonitored).join(', ')}.</p>
                                 : <ul className={styles.alertList}>{alerts.map(alert => <li key={alert.id} data-severity={alert.severity}>
                                     <span className={styles.badge} data-type={alert.severity}>{severityLabel[alert.severity]}</span>
-                                    <button className={styles.link} onClick={() => onSelect(alert.symbol, marketBySymbol.get(alert.symbol) ?? 'US')}>{alert.symbol}</button>
+                                    <button className={styles.link} onClick={() => onSelect(alert.symbol, marketBySymbol.get(alert.symbol.trim().toUpperCase()) ?? 'US')}>{alert.symbol}</button>
                                     <span><b>{alert.title}</b><small>{alert.detail}</small></span>
                                 </li>)}</ul>}
                             {workspace === 'owner' && <details className={styles.small}><summary>Your review triggers · {triggers.filter(trigger => trigger.status === 'matched').length} matched of {triggers.length}</summary>
-                                {triggers.length === 0 ? <p className={styles.meta}>No numeric review triggers set. Add up to 10 per security in its monitoring rules.</p>
-                                    : <ul>{triggers.map(trigger => <li key={`${trigger.symbol}-${trigger.rule.id}`}><b>{trigger.symbol}</b> · {trigger.title} · <i>{trigger.status === 'matched' ? 'matched' : trigger.status === 'not-matched' ? 'active' : trigger.status}</i></li>)}</ul>}
-                                {records[0] && (v9Href
-                                    ? <Link href={v9Href('research', { ticker: records[0].symbol, market: records[0].market, tab: 'monitoring' })}>Manage triggers →</Link>
-                                    : <a href={researchHref(records[0].symbol, 'alerts', records[0].market)} target="_blank" rel="noopener noreferrer">Manage triggers in the Research workspace (new tab) ↗</a>)}
+                                {triggers.length === 0 ? (
+                                    <>
+                                        <p className={styles.meta}>No numeric review triggers set. Add up to 10 per security in its monitoring rules.</p>
+                                        {records[0] && v9Href && (
+                                            <Link href={v9Href('research', { ticker: records[0].symbol, market: records[0].market, tab: 'monitoring' })}>Add monitoring rules →</Link>
+                                        )}
+                                    </>
+                                ) : (
+                                    <ul className={styles.triggerList}>{triggers.map(trigger => {
+                                        const triggerMarket = marketBySymbol.get(trigger.symbol.trim().toUpperCase()) ?? 'US';
+                                        return (
+                                            <li key={`${trigger.symbol}-${trigger.rule.id}`}>
+                                                <span>
+                                                    <b>{trigger.symbol}</b> · {trigger.title} · <i>{trigger.status === 'matched' ? 'matched' : trigger.status === 'not-matched' ? 'active' : trigger.status}</i>
+                                                </span>
+                                                {v9Href && (
+                                                    <Link
+                                                        className={styles.triggerLink}
+                                                        href={v9Href('research', { ticker: trigger.symbol, market: triggerMarket, tab: 'monitoring' })}
+                                                        data-testid={`alert-trigger-link-${trigger.symbol}-${trigger.rule.id}`}
+                                                    >
+                                                        Monitoring →
+                                                    </Link>
+                                                )}
+                                            </li>
+                                        );
+                                    })}</ul>
+                                )}
+                                {!v9Href && records[0] && (
+                                    <a href={researchHref(records[0].symbol, 'alerts', records[0].market)} target="_blank" rel="noopener noreferrer">Manage triggers in the Research workspace (new tab) ↗</a>
+                                )}
                             </details>}
                             {current.data.warnings.map(warning => <p key={warning} className={styles.meta}>{warning}</p>)}
                         </>}
