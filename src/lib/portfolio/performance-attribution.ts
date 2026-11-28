@@ -1,3 +1,4 @@
+import { holdingQuotePrice, portfolioCurrenciesMatch, type PortfolioQuote } from './holding-quote';
 import type {
     PortfolioCurrency,
     PortfolioHoldingsSnapshot,
@@ -67,7 +68,7 @@ export const buildCoveredPortfolioAttribution = (
     holdings: PortfolioHoldingsSnapshot,
     transactions: PortfolioTransactionSnapshot,
     reconciliation: PortfolioTransactionReconciliation,
-    prices: ReadonlyMap<string, number | null>,
+    quotes: ReadonlyMap<string, PortfolioQuote>,
 ): CoveredPortfolioAttribution => {
     const reconciliationByIdentity = new Map(reconciliation.positions.map((row) => [
         holdingIdentity(row.accountLabel, row.market, row.symbol, row.currency),
@@ -78,19 +79,14 @@ export const buildCoveredPortfolioAttribution = (
         const reconciled = reconciliationByIdentity.get(
             holdingIdentity(holding.accountLabel, holding.market, holding.symbol, holding.currency),
         );
-        const candidatePrice = prices.get(`${holding.market}:${holding.symbol}`) ?? null;
-        const currentPrice = typeof candidatePrice === 'number'
-            && Number.isFinite(candidatePrice)
-            && candidatePrice >= 0
-            ? candidatePrice
-            : null;
-        const expectedCurrency: PortfolioCurrency = holding.market === 'MY' ? 'MYR' : 'USD';
+        const quote = quotes.get(`${holding.market}:${holding.symbol}`);
+        const currentPrice = holdingQuotePrice(quote, holding.currency);
         const unavailableReason: CoveredAttributionUnavailableReason | null = !reconciled
             || reconciled.status !== 'match'
             ? 'incomplete-transaction-history'
             : reconciled.currencyConflict
                 ? 'currency-conflict'
-                : holding.currency !== expectedCurrency
+                : quote?.currency?.trim() && !portfolioCurrenciesMatch(quote.currency, holding.currency)
                     ? 'price-currency-mismatch'
                     : currentPrice === null
                         ? 'price-unavailable'

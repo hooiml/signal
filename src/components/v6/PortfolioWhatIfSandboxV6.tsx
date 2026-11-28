@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
+import { portfolioQuoteFromItem } from './research-snapshot-v6';
 import {
     PORTFOLIO_HOLDINGS_CHANGE_EVENT,
     PORTFOLIO_HOLDINGS_STORAGE_KEY,
@@ -102,7 +103,7 @@ export const PortfolioWhatIfSandboxV6 = ({ records, items, theme }: {
             return {
                 record,
                 sector: item?.sector ?? '',
-                currentPrice: typeof item?.price === 'number' ? item.price : null,
+                quote: item && portfolioQuoteFromItem(item),
             };
         });
     }, [items, records]);

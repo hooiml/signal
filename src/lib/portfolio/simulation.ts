@@ -1,3 +1,4 @@
+import { holdingQuotePrice, portfolioCurrenciesMatch, type PortfolioQuote } from './holding-quote';
 import {
     escapeSpreadsheetCell,
     parsePortfolioAccountLabel,
@@ -35,7 +36,7 @@ export type PortfolioSimulationLegInput = {
 export type PortfolioSimulationResearchInput = {
     readonly record: ResearchRecord;
     readonly sector: string;
-    readonly currentPrice: number | null;
+    readonly quote: PortfolioQuote | undefined;
 };
 
 export type PortfolioSimulationLegResult = {
@@ -235,11 +236,7 @@ const buildState = (
     const basePositions = holdings.map((holding) => {
         const match = research.get(researchIdentity(holding.market, holding.symbol)) ?? null;
         const assumed = assumedPrices.get(portfolioHoldingIdentity(holding));
-        const currentPrice = match && typeof match.currentPrice === 'number'
-            && Number.isFinite(match.currentPrice) && match.currentPrice >= 0
-            ? match.currentPrice
-            : null;
-        const valuationPrice = assumed ?? currentPrice;
+        const valuationPrice = assumed ?? holdingQuotePrice(match?.quote, holding.currency);
         return {
             accountLabel: holding.accountLabel,
             symbol: holding.symbol,
@@ -302,7 +299,8 @@ const buildState = (
         let riskCoveredPositions = 0;
         for (const position of bucketPositions) {
             const match = research.get(researchIdentity(position.market, position.symbol));
-            if (!match || position.valuationPrice === null || position.marketValue === null) continue;
+            if (!match || position.valuationPrice === null || position.marketValue === null
+                || !portfolioCurrenciesMatch(position.currency, match.record.positionPlan.currency)) continue;
             const risk = calculatePositionPlanRisk({
                 ...match.record.positionPlan,
                 plannedAllocationPercent: 100,

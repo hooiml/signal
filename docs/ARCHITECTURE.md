@@ -53,6 +53,9 @@ saved-record symbols) `POST /api/research/quotes` hydration across Portfolio (`H
 live market values, unrealized P/L, weights, value-weighted factor bars, optional
 `fiftyTwoWeekHigh` metadata, and live `Closest to 52-week high` / `Biggest daily % move`
 sorting without ever sending local holdings quantities, accounts, or unmatched symbols.
+Portfolio valuation compares the reported quote currency with each holding's declared
+currency, including when two accounts hold the same listing. Missing or conflicting
+quote currencies leave the holding unpriced and its imported cost basis visible.
 
 L2/T2/T3 keep connected V8 missing-data presentation local to existing responses.
 Market exposure uses an inline Research action; empty historical outcomes retain both

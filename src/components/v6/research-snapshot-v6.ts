@@ -1,5 +1,6 @@
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
+import type { PortfolioQuote } from '@/lib/portfolio/holding-quote';
 import { formatResearchPrice, researchPriceCurrency } from '@/lib/research/price-format';
 import { financialPeriodLabel, netCashCurrency, researchMetricPeriodLabel } from '@/lib/research/metric-provenance';
 export { parseResearchSnapshotResponse } from '@/lib/research/snapshot-input';
@@ -54,6 +55,14 @@ export const applyResearchSnapshotV6 = (item: ResearchWatchlistItem, snapshot: R
     },
     });
 };
+
+export const portfolioQuoteFromItem = (item: ResearchWatchlistItem): PortfolioQuote => ({
+    price: item.price ?? null,
+    currency: item.quoteCurrency ?? null,
+});
+
+export const portfolioQuotesFromItems = (items: readonly ResearchWatchlistItem[]) =>
+    new Map(items.map(item => [`${item.market}:${item.symbol}`, portfolioQuoteFromItem(item)]));
 
 export const applyResearchQuoteV6 = (item: ResearchWatchlistItem, quote: ResearchSnapshot['quote']): ResearchWatchlistItem => ({
     ...item,

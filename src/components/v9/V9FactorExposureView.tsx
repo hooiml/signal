@@ -17,7 +17,7 @@ import {
 } from '@/lib/research/factor-exposure';
 import { researchFactorIds, type ResearchFactorDirection, type ResearchFactorId, type ResearchMarket, type ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
-import { currencyMatchedHoldingPrices, type V9QuoteBatchStatus } from './useV9QuoteBatch';
+import type { V9QuoteBatchStatus } from './useV9QuoteBatch';
 import styles from './v9-workspace.module.css';
 
 const directionShort = (direction: ResearchFactorDirection): string =>
@@ -65,8 +65,7 @@ export function V9FactorExposureView({
 
     const groups = useMemo<readonly PortfolioFactorGroup[]>(() => {
         if (!loaded || loaded.status !== 'ready') return [];
-        const prices = quotes ? currencyMatchedHoldingPrices(loaded.snapshot.holdings, quotes) : new Map<string, number | null>();
-        const reconciled = reconcilePortfolioHoldings(loaded.snapshot, records ?? [], prices);
+        const reconciled = reconcilePortfolioHoldings(loaded.snapshot, records ?? [], quotes);
         return buildPortfolioFactorExposure(reconciled);
     }, [loaded, quotes, records]);
 

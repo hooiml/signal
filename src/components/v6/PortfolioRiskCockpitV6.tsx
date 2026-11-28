@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
+import { holdingQuotePrice } from '@/lib/portfolio/holding-quote';
+import { portfolioQuoteFromItem } from './research-snapshot-v6';
 import {
     buildPortfolioMarketAnalytics,
     buildPortfolioScenarios,
@@ -96,16 +98,16 @@ export const PortfolioRiskCockpitV6 = ({ records, items, theme, saving, saveErro
     const [scenarioShock, setScenarioShock] = useState(-10);
     const [history, setHistory] = useState<HistoryState>({ status: 'idle', key: '', analytics: emptyAnalytics });
     const styles = getThemeV6(theme);
-    const itemBySymbol = useMemo(() => new Map(items.map((item) => [item.symbol, item])), [items]);
+    const itemByListing = useMemo(() => new Map(items.map(item => [`${item.market}:${item.symbol}`, item])), [items]);
     const summary = useMemo(() => buildPortfolioSummary(records.map((record) => {
-        const item = itemBySymbol.get(record.symbol);
+        const item = itemByListing.get(`${record.market}:${record.symbol}`);
         return {
             record,
             sector: item?.sector ?? 'Unknown',
             currency: record.market === 'MY' ? 'MYR' : 'USD',
-            currentPrice: item?.price ?? null,
+            currentPrice: holdingQuotePrice(item && portfolioQuoteFromItem(item), record.positionPlan.currency),
         };
-    })), [itemBySymbol, records]);
+    })), [itemByListing, records]);
     const historyTargets = useMemo(() => summary.holdings.slice(0, historyLimit), [summary.holdings]);
     const historyKey = historyTargets.map((holding) => `${holding.symbol}:${holding.market}`).join('|');
     const historyLoading = historyTargets.length > 0 && history.key !== historyKey;

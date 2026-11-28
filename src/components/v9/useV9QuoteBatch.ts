@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { parseResearchQuoteBatchResponse } from '@/lib/research/snapshot-input';
-import type { PortfolioImportedHolding } from '@/lib/types/portfolio-holdings';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { ResearchQuoteBatchResult } from '@/lib/types/research-quote';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
@@ -19,31 +18,6 @@ export type V9QuoteBatchState = {
     readonly fetchedAt: string | null;
     readonly retry: () => void;
 };
-
-/**
- * Returns currency-verified prices keyed by `${market}:${symbol}` for portfolio holdings.
- * Excludes any quote whose non-null currency conflicts with a holding's declared currency.
- */
-export function currencyMatchedHoldingPrices(
-    holdings: readonly PortfolioImportedHolding[],
-    quotes: ReadonlyMap<string, ResearchSnapshot['quote']>,
-): ReadonlyMap<string, number | null> {
-    const prices = new Map<string, number | null>();
-    if (!holdings.length || !quotes.size) return prices;
-    const byIdentity = new Map<string, PortfolioImportedHolding[]>();
-    for (const holding of holdings) {
-        const key = `${holding.market}:${holding.symbol}`;
-        byIdentity.set(key, [...(byIdentity.get(key) ?? []), holding]);
-    }
-    for (const [identity, matched] of byIdentity) {
-        const quote = quotes.get(identity);
-        if (!quote || typeof quote.price !== 'number' || !Number.isFinite(quote.price) || quote.price < 0) continue;
-        const quoteCurrency = quote.currency?.trim().toUpperCase() || null;
-        if (quoteCurrency && !matched.every(holding => holding.currency === quoteCurrency)) continue;
-        prices.set(identity, quote.price);
-    }
-    return prices;
-}
 
 /**
  * Shared bounded quote hydration for V9 Portfolio and Watchlist views.
