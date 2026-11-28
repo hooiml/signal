@@ -113,8 +113,9 @@
     border-color: var(--line-strong);
 }
 .list {
-    max-height: min(360px, 60dvh);
+    max-height: min(374px, 60dvh);
     overflow-y: auto;
+    scroll-padding-block: 8px;
     padding: 8px;
     display: grid;
     gap: 4px;
@@ -164,4 +165,15 @@
     text-align: center;
     color: var(--muted);
     font-size: var(--text-sm);
+}
+.privacyNote {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 14px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-subtle);
+    color: var(--subtle);
+    font-size: 11px;
 }
