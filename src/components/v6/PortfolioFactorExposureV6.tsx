@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
+import { portfolioQuotesFromItems } from './research-snapshot-v6';
 import {
     buildPortfolioFactorExposure,
     parseResearchFactorAssumptionSet,
@@ -113,17 +114,14 @@ export const PortfolioFactorExposureV6 = ({ records, items, theme, saving, saveE
         return () => window.clearTimeout(timer);
     }, [selectedRecord]);
 
-    const prices = useMemo(() => new Map(items.map((item) => [
-        `${item.market}:${item.symbol}`,
-        typeof item.price === 'number' ? item.price : null,
-    ])), [items]);
+    const quotes = useMemo(() => portfolioQuotesFromItems(items), [items]);
     const recordByIdentity = useMemo(
         () => new Map(records.map((record) => [`${record.market}:${record.symbol}`, record])),
         [records],
     );
     const reconciled = useMemo(() => restore.status === 'ready'
-        ? reconcilePortfolioHoldings(restore.snapshot, records, prices)
-        : [], [prices, records, restore]);
+        ? reconcilePortfolioHoldings(restore.snapshot, records, quotes)
+        : [], [quotes, records, restore]);
     const groups = useMemo(() => buildPortfolioFactorExposure(reconciled), [reconciled]);
     const accounts = [...new Set(groups.map((group) => group.accountLabel))].sort();
     const currencies = [...new Set(groups.map((group) => group.currency))].sort();

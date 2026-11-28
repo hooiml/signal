@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
+import { portfolioQuotesFromItems } from './research-snapshot-v6';
 import {
     loadPortfolioHoldingsSnapshot,
     PORTFOLIO_HOLDINGS_CHANGE_EVENT,
@@ -37,10 +38,7 @@ export const PortfolioCoveredAttributionV6 = ({ items, theme }: {
     const [holdings, setHoldings] = useState<HoldingsState>({ status: 'loading', snapshot: null });
     const [transactions, setTransactions] = useState<TransactionsState>({ status: 'loading', snapshot: null });
     const styles = getThemeV6(theme);
-    const prices = useMemo(() => new Map(items.map((item) => [
-        `${item.market}:${item.symbol}`,
-        typeof item.price === 'number' ? item.price : null,
-    ])), [items]);
+    const quotes = useMemo(() => portfolioQuotesFromItems(items), [items]);
 
     useEffect(() => {
         const restoreHoldings = () => setHoldings(loadPortfolioHoldingsSnapshot());
@@ -78,7 +76,7 @@ export const PortfolioCoveredAttributionV6 = ({ items, theme }: {
                     holdings.snapshot,
                     transactions.snapshot,
                     reconciliation,
-                    prices,
+                    quotes,
                 ),
                 error: null,
             };
@@ -88,7 +86,7 @@ export const PortfolioCoveredAttributionV6 = ({ items, theme }: {
                 error: error instanceof Error ? error.message : 'Covered attribution could not be calculated safely.',
             };
         }
-    }, [holdings, prices, transactions]);
+    }, [holdings, quotes, transactions]);
     const sourceMessages = [
         holdings.status === 'invalid' || holdings.status === 'unavailable' ? holdings.message : null,
         transactions.status === 'invalid' || transactions.status === 'unavailable' ? transactions.message : null,
@@ -99,7 +97,7 @@ export const PortfolioCoveredAttributionV6 = ({ items, theme }: {
             <p className={'text-xs font-semibold uppercase tracking-[0.12em] ' + styles.positive}>Covered attribution · evidence limited</p>
             <h2 id="portfolio-covered-attribution-title" className={'mt-1 text-base font-bold ' + styles.textPrimary}>Explain covered portfolio contributions</h2>
             <p className={'mt-1 max-w-3xl text-xs leading-5 ' + styles.textMuted}>
-                This view reports only contribution that the accepted local snapshots and exact current prices can support. It is not a return calculation, brokerage statement, tax result, forecast, or recommendation.
+                This view reports only contribution that the accepted local snapshots and exact current quotes can support. It is not a return calculation, brokerage statement, tax result, forecast, or recommendation.
             </p>
 
             {holdings.status === 'loading' || transactions.status === 'loading' ? (

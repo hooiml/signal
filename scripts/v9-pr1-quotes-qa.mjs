@@ -93,6 +93,24 @@ async function runCheck(name, fn) {
     }
 }
 
+async function tableCell(table, rowName, columnName) {
+    const headers = await table.getByRole('columnheader').allTextContents();
+    const index = headers.findIndex(header => header.trim() === columnName);
+    assert.notEqual(index, -1, `Missing column ${columnName}`);
+    const row = table.getByRole('row', { name: rowName });
+    assert.equal(await row.count(), 1, `Expected one ${rowName} row`);
+    return (await row.locator('th, td').nth(index).innerText()).trim();
+}
+
+function assertQuotePrivacy(payloads) {
+    assert.ok(payloads.length, 'A quote batch was sent');
+    for (const payload of payloads) {
+        assert.ok(Array.isArray(payload));
+        assert.deepEqual(payload.map(x => `${x.market}:${x.symbol}`).sort(), ['MY:1155', 'US:AAPL', 'US:MSFT', 'US:ZZZZ']);
+        for (const entry of payload) assert.deepEqual(Object.keys(entry).sort(), ['market', 'symbol'], 'Only saved security identity may leave the browser');
+    }
+}
+
 async function setup(width, theme, { owner = true, quoteMode = 'ok' } = {}) {
     const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' });
     const page = await context.newPage();
@@ -135,6 +153,9 @@ async function setup(width, theme, { owner = true, quoteMode = 'ok' } = {}) {
                 if (!found) return { success: false, symbol: entry.symbol, market: entry.market, error: 'Live quote unavailable.' };
                 if (quoteMode === 'currency-mismatch' && key === 'MY:1155') {
                     return { success: true, data: { ...found, quote: { ...found.quote, currency: 'EUR' } } };
+                }
+                if (key === 'US:AAPL' && (quoteMode === 'missing-currency' || quoteMode === 'aapl-mismatch')) {
+                    return { success: true, data: { ...found, quote: { ...found.quote, currency: quoteMode === 'missing-currency' ? null : 'EUR' } } };
                 }
                 return { success: true, data: found };
             });
@@ -203,6 +224,64 @@ try {
         });
 
         await context.close();
+    }
+
+    // Exercise each portfolio consumer with the same priced quote under each currency condition.
+    for (const owner of [true, false]) {
+        for (const quoteMode of ['ok', 'missing-currency', 'aapl-mismatch']) {
+            const { context, page } = await setup(1280, 'light', { owner, quoteMode });
+            const requestStart = report.quoteRequests.length;
+            const priced = quoteMode === 'ok';
+            const label = `${owner ? 'owner' : 'guest'} ${quoteMode}`;
+
+            await runCheck(`${label}: Holdings valuation, coverage and quote privacy`, async () => {
+                await page.goto(`${base}/v9?view=portfolio`, { waitUntil: 'domcontentloaded' });
+                const totals = page.getByLabel('Totals by currency');
+                const usd = totals.locator('section', { hasText: 'USD totals' });
+                await usd.getByText('Known market value').waitFor();
+                const text = await usd.innerText();
+                assert.match(text, priced ? /8,870\.00/ : /4,300\.00/);
+                assert.match(text, priced ? /\+\$970\.00/ : /\+\$300\.00/, 'Unrealized P/L uses only priced holdings and their cost basis');
+                assert.match(text, priced ? /Holdings without current price\s*1/ : /Holdings without current price\s*2/);
+                const table = page.getByRole('region', { name: 'Imported holdings table' }).getByRole('table');
+                assert.match(await tableCell(table, /AAPL/, 'Price'), priced ? /228\.50/ : /^—$/);
+                assert.match(await tableCell(table, /AAPL/, 'Market value'), priced ? /4,570\.00/ : /^—$/);
+                assert.equal(await tableCell(table, /AAPL/, 'Weight'), '—', 'Partial USD coverage suppresses weights');
+                assertQuotePrivacy(report.quoteRequests.slice(requestStart));
+            });
+
+            await runCheck(`${label}: Factor exposure valuation and coverage`, async () => {
+                await page.getByRole('link', { name: 'Factor exposure', exact: true }).click();
+                const matrix = page.getByTestId('v9-factor-exposure');
+                if (owner) {
+                    const group = matrix.locator('article', { hasText: 'Core US · USD' });
+                    await group.getByText(priced ? /8,870\.00 priced/ : /4,300\.00 priced/).waitFor();
+                    const text = await group.innerText();
+                    assert.match(text, priced ? /8,870\.00 priced/ : /4,300\.00 priced/);
+                    assert.match(text, priced ? /1 without live price/ : /2 without live price/);
+                    const consumer = group.getByLabel('Core US factor concentration').locator(':scope > div', { has: page.getByText('Consumer demand', { exact: true }) });
+                    assert.match(await consumer.innerText(), priced ? /52% of priced value · 1\/3 holdings/ : /0% of priced value · 1\/3 holdings/);
+                } else {
+                    // Guest records contain identities and notes, not authored factor assumptions.
+                    await matrix.getByText(/none of their matched saved research records have declared factor assumptions/).waitFor();
+                }
+            });
+
+            await runCheck(`${label}: Manage portfolio valuation and coverage`, async () => {
+                await page.getByRole('link', { name: 'Manage portfolio', exact: true }).click();
+                const summary = page.getByTestId('portfolio-actual-summary');
+                await summary.getByText(priced ? /11,370\.00/ : /6,800\.00/).waitFor();
+                const card = summary.locator('div', { has: page.getByText('Known value + cash · USD', { exact: true }) }).first();
+                const text = await card.innerText();
+                assert.match(text, priced ? /11,370\.00/ : /6,800\.00/);
+                assert.match(text, priced ? /1 holding value unavailable/ : /2 holding value unavailable/);
+                const table = page.getByRole('table', { name: /Imported holdings — actual values/ });
+                assert.match(await tableCell(table, /AAPL/, 'Current value'), priced ? /4,570\.00/ : /^Unavailable$/);
+                assert.equal(await tableCell(table, /AAPL/, 'Actual weight'), 'Unavailable', 'Partial USD coverage suppresses weights');
+                assertQuotePrivacy(report.quoteRequests.slice(requestStart));
+            });
+            await context.close();
+        }
     }
 
     // Guest mode + currency mismatch + quote error checks

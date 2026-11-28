@@ -10,7 +10,7 @@ import {
 } from '@/lib/portfolio/holdings-client';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
-import { currencyMatchedHoldingPrices, type V9QuoteBatchStatus } from '@/components/v9/useV9QuoteBatch';
+import type { V9QuoteBatchStatus } from '@/components/v9/useV9QuoteBatch';
 import { V9Navigation } from '@/components/v9/v9-navigation';
 import styles from './research-holdings-v8.module.css';
 import { V8EmptyState } from './V8Primitives';
@@ -60,10 +60,9 @@ export function ResearchHoldingsV8({
 
     const livePricing = quotes !== undefined;
     const snapshot = state.status === 'ready' ? state.snapshot : null;
-    const prices = useMemo(() => (snapshot && quotes ? currencyMatchedHoldingPrices(snapshot.holdings, quotes) : new Map<string, number | null>()), [quotes, snapshot]);
     const reconciled = useMemo(() => snapshot
-        ? reconcilePortfolioHoldings(snapshot, records ?? [], prices)
-        : [], [prices, records, snapshot]);
+        ? reconcilePortfolioHoldings(snapshot, records ?? [], quotes)
+        : [], [quotes, records, snapshot]);
     const summaries = useMemo(() => snapshot
         ? buildPortfolioActualSummary(snapshot, reconciled)
         : [], [reconciled, snapshot]);

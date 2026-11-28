@@ -2134,9 +2134,23 @@ const runPortfolioHoldingsImportTests = () => {
     const msft = createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' });
     const wrongMarket = createResearchRecord({ symbol: '1155.KL', market: 'US', companyName: 'Wrong market record' });
     const reconciled = reconcilePortfolioHoldings(first, [msft, wrongMarket], new Map([
-        ['US:MSFT', 450],
-        ['MY:1155.KL', 10],
+        ['US:MSFT', { price: 450, currency: 'USD' }],
+        ['MY:1155.KL', { price: 10, currency: 'MYR' }],
     ]));
+    const usdHolding = first.holdings.find(holding => holding.symbol === 'MSFT')!;
+    const mixedAccounts = {
+        ...first,
+        holdings: [usdHolding, { ...usdHolding, accountLabel: 'Other', currency: 'MYR' as const }],
+    };
+    for (const currency of [null, '', '  ', 'EUR', ' usd ', 'MYR']) {
+        const rows = reconcilePortfolioHoldings(mixedAccounts, [msft], new Map([
+            ['US:MSFT', { price: 0, currency }],
+        ]));
+        assertEqual(rows[0].marketValue, currency === ' usd ' ? 0 : null, 'USD holding requires its own matching quote currency');
+        assertEqual(rows[1].marketValue, currency === 'MYR' ? 0 : null, 'second account uses its declared holding currency');
+        const groups = buildPortfolioFactorExposure(rows);
+        assertEqual(groups.find(group => group.currency === 'USD')?.missingPriceCount, currency === ' usd ' ? 0 : 1, 'factor coverage checks currency even for records without declared assumptions');
+    }
     assertEqual(reconciled.find((row) => row.holding.symbol === 'MSFT')?.marketValue, 4500, 'portfolio reconciliation uses exact matched research price');
     assertEqual(reconciled.find((row) => row.holding.symbol === '1155.KL')?.researchRecord, null, 'portfolio reconciliation never guesses across markets');
     assertEqual(reconciled.find((row) => row.holding.symbol === '1155.KL')?.marketValue, null, 'unmatched portfolio values remain unavailable');
@@ -2356,11 +2370,18 @@ const runCoveredPortfolioAttributionTests = () => {
         transactions,
         reconciliation,
         new Map([
-            ['US:MSFT', 450],
-            ['US:NVDA', null],
-            ['MY:1155.KL', 10],
+            ['US:MSFT', { price: 450, currency: 'USD' }],
+            ['US:NVDA', { price: null, currency: 'USD' }],
+            ['MY:1155.KL', { price: 10, currency: 'MYR' }],
         ]),
     );
+    for (const currency of [null, 'MYR']) {
+        const result = buildCoveredPortfolioAttribution(holdings, transactions, reconciliation,
+            new Map([['US:MSFT', { price: 450, currency }]]));
+        const excluded = result.holdings.find(row => row.symbol === 'MSFT')!;
+        assertEqual(excluded.unavailableReason, currency ? 'price-currency-mismatch' : 'price-unavailable', 'attribution reports unconfirmed quote currency');
+        assertEqual(excluded.unrealizedPriceContribution, null, 'unconfirmed currency excludes unrealized contribution');
+    }
     const msft = attribution.holdings.find((row) => row.symbol === 'MSFT');
     assertEqual(msft?.status, 'covered', 'attribution covers only exact reconciled holdings with a current price');
     assertEqual(msft?.costBasis, 4000, 'attribution uses the accepted snapshot average cost');
@@ -2560,7 +2581,7 @@ const runPortfolioSimulationTests = () => {
     const msft = {
         ...createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' }),
         lastReviewedAt: '2026-07-20',
-        positionPlan: { plannedAllocationPercent: null, averageCost: null, plannedEntryPrice: null, invalidationPrice: 90 },
+        positionPlan: { plannedAllocationPercent: null, averageCost: null, plannedEntryPrice: null, invalidationPrice: 90, currency: 'USD' },
     };
     const nvda = {
         ...createResearchRecord({ symbol: 'NVDA', market: 'US', companyName: 'Nvidia' }),
@@ -2568,8 +2589,8 @@ const runPortfolioSimulationTests = () => {
         positionPlan: { plannedAllocationPercent: null, averageCost: null, plannedEntryPrice: null, invalidationPrice: null },
     };
     const research = [
-        { record: msft, sector: 'Technology', currentPrice: 120 },
-        { record: nvda, sector: 'Technology', currentPrice: null },
+        { record: msft, sector: 'Technology', quote: { price: 120, currency: 'USD' } },
+        { record: nvda, sector: 'Technology', quote: { price: null, currency: 'USD' } },
     ];
     const buy: PortfolioSimulationLegInput = {
         id: 'buy-msft', accountLabel: 'Main', symbol: 'msft', market: 'US', currency: 'USD',
@@ -2580,6 +2601,15 @@ const runPortfolioSimulationTests = () => {
         side: 'sell', quantity: 2, assumedPrice: 210,
     };
     const result = simulatePortfolioScenario(imported, [partialSell, buy], research, defaultInvestmentPolicy, '2026-07-26');
+    for (const currency of [null, 'MYR']) {
+        const inputs = [{ ...research[0], quote: { price: 120, currency } }];
+        const scenario = simulatePortfolioScenario(imported, [buy], inputs, defaultInvestmentPolicy, '2026-07-26');
+        assertEqual(scenario.before.positions.find(row => row.symbol === 'MSFT')?.valuationPrice, null, 'what-if baseline requires matching quote currency');
+        assertEqual(scenario.after.positions.find(row => row.symbol === 'MSFT')?.valuationPrice, 110, 'explicit what-if assumptions still value the simulated leg');
+        const plan = { ...msft, positionPlan: { ...msft.positionPlan, currency } };
+        const mismatchedPlan = simulatePortfolioScenario(imported, [buy], [{ ...research[0], record: plan }], defaultInvestmentPolicy, '2026-07-26');
+        assertEqual(mismatchedPlan.after.buckets.find(row => row.accountLabel === 'Main')?.riskCoveredPositions, 0, 'a plan without matching currency cannot supply a downside price');
+    }
     assertEqual(result.status, 'ready', 'portfolio simulation accepts a valid multi-leg basket');
     assertEqual(result.legs[0]?.id, 'sell-nvda', 'portfolio simulation preserves visible leg ordering');
     assertEqual(result.after.positions.find((row) => row.symbol === 'MSFT')?.quantity, 15, 'portfolio simulation applies a buy quantity');
@@ -4656,10 +4686,10 @@ const runPortfolioFactorExposureTests = () => {
         holdingsSnapshot,
         [{ ...reviewedInput, factorAssumptions: valid }, orcl, maybank],
         new Map([
-            ['US:MSFT', 100],
-            ['US:ORCL', 50],
-            ['US:AMD', 80],
-            ['MY:1155.KL', 10],
+            ['US:MSFT', { price: 100, currency: 'USD' }],
+            ['US:ORCL', { price: 50, currency: 'USD' }],
+            ['US:AMD', { price: 80, currency: 'USD' }],
+            ['MY:1155.KL', { price: 10, currency: 'MYR' }],
         ]),
     );
     const exposure = buildPortfolioFactorExposure(reconciled);

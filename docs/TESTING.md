@@ -670,6 +670,11 @@ Use `--viewport 375` only for a focused rerun after a failure.
 
 ### Targeted Portfolio Import QA
 
+Run `node scripts/v9-pr1-quotes-qa.mjs` against the local production server at
+`SIGNAL_QA_URL` to check owner and guest quote currency handling in V9 Holdings,
+Factor exposure and Manage portfolio. The fixtures cover matching, missing and
+mismatched quote currencies and verify which listing identities leave the browser.
+
 For the read-only local portfolio import boundary, run:
 
 ```powershell

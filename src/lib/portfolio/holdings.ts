@@ -1,3 +1,4 @@
+import { holdingQuotePrice, type PortfolioQuote } from './holding-quote';
 import type { ResearchMarket, ResearchRecord } from '../types/research';
 import {
     portfolioHoldingSnapshotVersion,
@@ -441,16 +442,13 @@ export const mergePortfolioHoldingsSnapshots = (
 export const reconcilePortfolioHoldings = (
     snapshot: PortfolioHoldingsSnapshot,
     records: readonly ResearchRecord[],
-    prices: ReadonlyMap<string, number | null>,
+    quotes?: ReadonlyMap<string, PortfolioQuote>,
 ): readonly PortfolioReconciledHolding[] => {
     const recordsByIdentity = new Map(records.map((record) => [`${record.market}:${record.symbol}`, record]));
     return snapshot.holdings.map((holding) => {
         const identity = `${holding.market}:${holding.symbol}`;
         const researchRecord = recordsByIdentity.get(identity) ?? null;
-        const candidatePrice = researchRecord ? prices.get(identity) ?? null : null;
-        const currentPrice = typeof candidatePrice === 'number' && Number.isFinite(candidatePrice) && candidatePrice >= 0
-            ? candidatePrice
-            : null;
+        const currentPrice = researchRecord ? holdingQuotePrice(quotes?.get(identity), holding.currency) : null;
         return {
             holding,
             researchRecord,

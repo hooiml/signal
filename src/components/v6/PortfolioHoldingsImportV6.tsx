@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
+import { portfolioQuotesFromItems } from './research-snapshot-v6';
 import {
     buildCanonicalPortfolioCsvTemplate,
     buildPortfolioActualSummary,
@@ -80,13 +81,10 @@ export const PortfolioHoldingsImportV6 = ({ records, items, theme, onOpen }: {
     const effect = incoming ? previewPortfolioImportEffect(snapshot, incoming, policy) : null;
     const replacementCount = (effect?.replacedHoldings ?? 0) + (effect?.replacedCashBalances ?? 0);
 
-    const prices = useMemo(() => new Map(items.map((item) => [
-        `${item.market}:${item.symbol}`,
-        typeof item.price === 'number' ? item.price : null,
-    ])), [items]);
+    const quotes = useMemo(() => portfolioQuotesFromItems(items), [items]);
     const reconciled = useMemo(
-        () => snapshot ? reconcilePortfolioHoldings(snapshot, records, prices) : [],
-        [prices, records, snapshot],
+        () => snapshot ? reconcilePortfolioHoldings(snapshot, records, quotes) : [],
+        [quotes, records, snapshot],
     );
     const actualSummaries = useMemo(
         () => snapshot ? buildPortfolioActualSummary(snapshot, reconciled) : [],
