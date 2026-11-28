@@ -6,6 +6,7 @@ import {
     type ResearchCalendarQuery,
     type ResearchCalendarRange,
 } from '../types/research-calendar';
+import { normalizeResearchListingSymbol, researchListingKey } from './listing-identity';
 
 export class ResearchCalendarInputError extends Error {
     constructor(message: string) {
@@ -37,10 +38,11 @@ const nullableDays = (value: unknown, label: string, maximum: number): number | 
 const parseCalendarInput = (value: unknown): ResearchCalendarInput => {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new ResearchCalendarInputError('Invalid research calendar input.');
     const input = Object.fromEntries(Object.entries(value));
-    if (typeof input.symbol !== 'string' || !/^[A-Z0-9.-]{1,15}$/.test(input.symbol)) throw new ResearchCalendarInputError('Invalid research calendar symbol.');
+    const symbol = typeof input.symbol === 'string' ? normalizeResearchListingSymbol(input.symbol) : '';
+    if (!/^[A-Z0-9.-]{1,15}$/.test(symbol)) throw new ResearchCalendarInputError('Invalid research calendar symbol.');
     if (input.market !== 'US' && input.market !== 'MY') throw new ResearchCalendarInputError('Invalid research calendar market.');
     return {
-        symbol: input.symbol,
+        symbol,
         market: input.market,
         nextReviewAt: nullableDate(input.nextReviewAt, 'nextReviewAt'),
         lastReviewedAt: nullableDate(input.lastReviewedAt, 'lastReviewedAt'),
@@ -52,7 +54,7 @@ const parseCalendarInput = (value: unknown): ResearchCalendarInput => {
 export const parseResearchCalendarInputs = (value: unknown): readonly ResearchCalendarInput[] => {
     if (!Array.isArray(value) || value.length > 50) throw new ResearchCalendarInputError('Provide up to 50 research calendar records.');
     const parsed = value.map(parseCalendarInput);
-    if (new Set(parsed.map((input) => input.symbol)).size !== parsed.length) throw new ResearchCalendarInputError('Research calendar symbols must be unique.');
+    if (new Set(parsed.map(({ market, symbol }) => researchListingKey(market, symbol))).size !== parsed.length) throw new ResearchCalendarInputError('Research calendar listings must be unique.');
     return parsed;
 };
 
@@ -72,7 +74,7 @@ const eventTypeValue = (value: string | null): ResearchCalendarEventType | 'ALL'
 export const parseResearchCalendarQuery = (params: URLSearchParams): ResearchCalendarQuery => {
     const market = params.get('market') ?? 'ALL';
     if (market !== 'ALL' && market !== 'US' && market !== 'MY') throw new ResearchCalendarInputError('Invalid calendar market.');
-    const ticker = (params.get('ticker') ?? 'ALL').toUpperCase();
+    const ticker = normalizeResearchListingSymbol(params.get('ticker') ?? 'ALL');
     if (ticker !== 'ALL' && !/^[A-Z0-9.-]{1,15}$/.test(ticker)) throw new ResearchCalendarInputError('Invalid calendar ticker.');
     return {
         rangeDays: rangeValue(params.get('range')),

@@ -1,4 +1,5 @@
 import { parseResearchRecord } from '@/lib/research/input';
+import { researchListingKey } from '@/lib/research/listing-identity';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 
 export const researchTabs = ['Overview', 'Chart & technicals', 'Financials', 'Thesis', 'Valuation', 'Review', 'Peers', 'Filings'] as const;
@@ -8,7 +9,7 @@ export function parseWatchlist(payload: unknown): ResearchRecord[] {
     if (!payload || typeof payload !== 'object' || !('success' in payload) || payload.success !== true || !('data' in payload) || !Array.isArray(payload.data)) throw new Error('Saved research could not be read.');
     const archived = 'archivedSymbols' in payload && Array.isArray(payload.archivedSymbols) ? payload.archivedSymbols : [];
     const records = payload.data.map(parseResearchRecord).filter(record => !archived.includes(record.symbol));
-    if (new Set(records.map(record => record.symbol)).size !== records.length) throw new Error('Duplicate saved securities returned.');
+    if (new Set(records.map(record => researchListingKey(record.market, record.symbol))).size !== records.length) throw new Error('Duplicate saved securities returned.');
     return records.sort((a, b) => a.symbol.localeCompare(b.symbol));
 }
 

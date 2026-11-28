@@ -1533,8 +1533,8 @@ const runResearchNotificationTests = async () => {
     assertEqual(released, true, 'failed delivery releases its reservation for retry');
 
     const alerts = [
-        { id: 'MSFT-risk', symbol: 'MSFT', kind: 'market-condition' as const, title: 'Below 200-day average', detail: 'Review trend weakness.', severity: 'risk' as const, structuredTrigger: null },
-        { id: 'NVDA-opportunity', symbol: 'NVDA', kind: 'market-condition' as const, title: 'Near buy zone', detail: 'Price is near the saved range.', severity: 'opportunity' as const, structuredTrigger: null },
+        { id: 'MSFT-risk', symbol: 'MSFT', market: 'US' as const, kind: 'market-condition' as const, title: 'Below 200-day average', detail: 'Review trend weakness.', severity: 'risk' as const, structuredTrigger: null },
+        { id: 'NVDA-opportunity', symbol: 'NVDA', market: 'US' as const, kind: 'market-condition' as const, title: 'Near buy zone', detail: 'Price is near the saved range.', severity: 'opportunity' as const, structuredTrigger: null },
     ];
     const nativeSettings = parseResearchNativeNotificationSettings({ enabled: true, mode: 'risk-only' });
     assertEqual(nativeSettings.enabled, true, 'native notification settings preserve explicit opt-in');
@@ -3277,7 +3277,7 @@ const runAlertTests = () => {
     assertEqual(zone?.[1], 105, 'buy zone upper bound');
     assertEqual(parseBuyZone('review later'), null, 'invalid buy zone remains unset');
 
-    const alerts = evaluateResearchAlerts('MU', '$95 - $105', {
+    const alerts = evaluateResearchAlerts({ symbol: 'MU', market: 'US' }, '$95 - $105', {
         price: 100, dailyChangePercent: -8.5, ma50: 110, ma200: 90, rsi14: 28,
     });
     assertEqual(alerts.some((alert) => alert.title === 'Inside buy zone'), true, 'price inside configured zone alerts');
@@ -3291,7 +3291,7 @@ const runAlertTests = () => {
     }, {
         symbol: 'MAYBANK', market: 'MY', targetBuyZone: 'RM9.20 - RM9.60', lastReviewedAt: '2026-07-02',
     }], [{
-        symbol: 'MSFT', lastReviewedAt: '2026-07-20', acceptedEvidence: [], monitoringRules,
+        symbol: 'MSFT', market: 'US', lastReviewedAt: '2026-07-20', acceptedEvidence: [], monitoringRules,
         decisionJournal: createResearchRecord({ symbol: 'MSFT', market: 'US', companyName: 'Microsoft' }).decisionJournal, reviewHistory: [],
     }]);
     assertEqual(request[0]?.lastReviewedAt, '2026-07-20', 'alert request uses the saved record review date');
@@ -3647,9 +3647,9 @@ const runCalendarTests = async () => {
     assertEqual(calendar.events.find((event) => event.type === 'stale' && event.symbol === 'MSFT')?.sourceDate, '2026-06-09', 'calendar preserves the actual stale deadline');
     assertEqual(calendar.events.some((event) => event.symbol === '1155' && event.sourceDate === '2026-08-14'), true, 'calendar includes the inclusive day-thirty boundary');
     assertEqual(calendar.events.some((event) => event.symbol === 'NVDA' && event.sourceDate === '2026-08-15'), false, 'calendar excludes events beyond the inclusive boundary');
-    assertEqual(calendar.events.find((event) => event.type === 'review' && event.symbol === 'MSFT')?.targetHref, '/research?ticker=MSFT&tab=overview&review=edit', 'scheduled review opens the review workflow');
-    assertEqual(calendar.events.find((event) => event.type === 'earnings' && event.symbol === 'MSFT')?.targetHref, '/research?ticker=MSFT&tab=events', 'earnings opens the Events tab');
-    assertEqual(calendar.events.find((event) => event.type === 'stale' && event.symbol === 'MSFT')?.targetHref, '/research?ticker=MSFT&tab=overview&review=edit', 'stale review opens the review workflow');
+    assertEqual(calendar.events.find((event) => event.type === 'review' && event.symbol === 'MSFT')?.targetHref, '/research?ticker=MSFT&market=US&tab=overview&review=edit', 'scheduled review opens the review workflow');
+    assertEqual(calendar.events.find((event) => event.type === 'earnings' && event.symbol === 'MSFT')?.targetHref, '/research?ticker=MSFT&market=US&tab=events', 'earnings opens the Events tab');
+    assertEqual(calendar.events.find((event) => event.type === 'stale' && event.symbol === 'MSFT')?.targetHref, '/research?ticker=MSFT&market=US&tab=overview&review=edit', 'stale review opens the review workflow');
     assertEqual(calendar.events.every((event, index) => index === 0 || calendar.events[index - 1]!.displayDate <= event.displayDate), true, 'calendar events are ordered chronologically');
     assertEqual(calendar.warnings.length, 1, 'calendar preserves provider degradation warnings');
     const ninetyDay = buildResearchCalendar({
@@ -3675,22 +3675,33 @@ const runCalendarTests = async () => {
     assertThrows(() => parseResearchCalendarQuery(new URLSearchParams('ticker=../bad')), 'calendar query rejects unsafe tickers');
     assertThrows(() => parseResearchCalendarQuery(new URLSearchParams('type=dividend')), 'calendar query rejects unknown event types');
     assertEqual(parseResearchCalendarInputs([]).length, 0, 'calendar accepts an empty watchlist so macro dates remain useful');
-    assertThrows(() => parseResearchCalendarInputs([inputs[0], inputs[0]]), 'calendar input rejects duplicate symbols');
+    assertThrows(() => parseResearchCalendarInputs([inputs[0], inputs[0]]), 'calendar input rejects duplicate listings');
     assertThrows(() => parseResearchCalendarInputs([{ symbol: 'MSFT', market: 'US', nextReviewAt: '20/07/2026', lastReviewedAt: '2026-05-10', reviewAgeDays: 30, earningsWithinDays: 21 }]), 'calendar input rejects malformed review dates');
 
     const response = parseResearchCalendarResponse({ success: true, data: calendar });
     assertEqual(response.events.length, calendar.events.length, 'calendar client boundary accepts typed events');
     assertThrows(() => parseResearchCalendarResponse({ success: true, data: { ...calendar, timezone: 'local' } }), 'calendar client boundary rejects an unknown timezone');
     assertThrows(() => parseResearchCalendarResponse({ success: true, data: { ...calendar, events: [{ ...calendar.events[0], targetHref: 'https://evil.example' }] } }), 'calendar client boundary rejects an external destination');
+    assertThrows(() => parseResearchCalendarResponse({ success: true, data: { ...calendar, events: [{ ...calendar.events[0], targetHref: '/research?ticker=MSFT&market=MY&tab=overview&review=edit' }] } }), 'calendar client boundary rejects destinations for a different market');
 
-    const priorDates = parseResearchCalendarDateState({ 'MSFT:earnings': '2026-07-21', bad: '21/07/2026' });
-    assertEqual(Object.keys(priorDates).length, 1, 'calendar date state drops malformed entries');
+    const priorDates = parseResearchCalendarDateState({ 'MSFT:earnings': '2026-07-21', 'MSFT:review': '2026-07-19', bad: '21/07/2026' });
+    assertEqual(Object.keys(priorDates).length, 1, 'calendar date state migrates US earnings and drops ambiguous old review dates or malformed entries');
     const changes = calendarDateChanges(priorDates, calendar.events);
     assertEqual(changes[calendar.events.find((event) => event.type === 'earnings')?.id ?? ''], '2026-07-21', 'calendar reports the prior date when a scheduled event changes');
     const nextDates = snapshotResearchCalendarDates(calendar.events);
-    assertEqual(nextDates['MSFT:earnings'], '2026-07-22', 'calendar snapshots the current date by symbol and event type');
-    assertEqual(mergeResearchCalendarDateState(priorDates, {}, true)['MSFT:earnings'], '2026-07-21', 'degraded calendar refresh preserves missing provider dates');
-    assertEqual(mergeResearchCalendarDateState(priorDates, {}, false)['MSFT:earnings'], undefined, 'complete calendar refresh removes events that are no longer scheduled');
+    assertEqual(nextDates['US:MSFT:earnings'], '2026-07-22', 'calendar snapshots the current date by market, symbol and event type');
+    assertEqual(mergeResearchCalendarDateState(priorDates, {}, true)['US:MSFT:earnings'], '2026-07-21', 'degraded calendar refresh preserves missing provider dates');
+    assertEqual(mergeResearchCalendarDateState(priorDates, {}, false)['US:MSFT:earnings'], undefined, 'complete calendar refresh removes events that are no longer scheduled');
+
+    const parallelReviews = buildResearchCalendar({
+        inputs: parseResearchCalendarInputs([inputs[0], { ...inputs[0]!, symbol: ' msft ', market: 'MY' }]),
+        catalysts: [], macroEvents: [], now: new Date('2026-07-15T00:00:00Z'), rangeDays: 30,
+    }).events.filter((event) => event.type === 'review');
+    const reviewDates = parseResearchCalendarDateState({ 'US:MSFT:review': '2026-07-18', 'MY:MSFT:review': '2026-07-19' });
+    const reviewChanges = calendarDateChanges(reviewDates, parallelReviews);
+    assertEqual(Object.keys(reviewChanges).length, 2, 'both listings retain a date change for the same review date');
+    assertEqual(reviewChanges[parallelReviews.find((event) => event.market === 'US')!.id], '2026-07-18', 'US reads its own prior date');
+    assertEqual(reviewChanges[parallelReviews.find((event) => event.market === 'MY')!.id], '2026-07-19', 'MY reads its own prior date');
 
     const degraded = await getResearchCalendar(
         inputs,

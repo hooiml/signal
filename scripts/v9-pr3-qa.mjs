@@ -169,7 +169,7 @@ const alertsPayload = {
         alerts: [
             {
                 id: 'alert-aapl-trigger',
-                symbol: 'AAPL',
+                symbol: 'AAPL', market: 'US',
                 kind: 'structured-trigger',
                 severity: 'opportunity',
                 title: 'Price / earnings below 25',
@@ -178,7 +178,7 @@ const alertsPayload = {
             },
             {
                 id: 'alert-1155-ma200',
-                symbol: '1155',
+                symbol: '1155', market: 'MY',
                 kind: 'market-condition',
                 severity: 'watch',
                 title: 'Trading below 200-day moving average',
@@ -188,7 +188,7 @@ const alertsPayload = {
         ],
         triggerCoverage: [
             {
-                symbol: 'AAPL',
+                symbol: 'AAPL', market: 'US',
                 rule: aaplRecord.monitoringRules.structuredTriggers.rules[0],
                 status: 'matched',
                 severity: 'opportunity',
@@ -203,7 +203,7 @@ const alertsPayload = {
                 },
             },
             {
-                symbol: 'MSFT',
+                symbol: 'MSFT', market: 'US',
                 rule: msftRecord.monitoringRules.structuredTriggers.rules[0],
                 status: 'not-matched',
                 severity: 'opportunity',

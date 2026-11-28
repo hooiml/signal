@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { ResearchWatchlistItem } from '@/components/research/ResearchDashboardV2';
+import { researchListingKey } from '@/lib/research/listing-identity';
 import type { AcceptedResearchEvidence, ResearchRecord } from '@/lib/types/research';
 import type { ResearchWorkflowTemplateId } from '@/lib/research/workflow-queue';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
@@ -44,7 +45,7 @@ export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQu
     onSave: (record: ResearchRecord) => Promise<boolean>;
     onReviewChange: (editing: boolean) => void;
     onSnapshot: (symbol: string, snapshot: ResearchSnapshot) => void;
-    onSnapshotState: (symbol: string, state: 'loading' | 'ready' | 'error', message: string | null) => void;
+    onSnapshotState: (listingKey: string, state: 'loading' | 'ready' | 'error', message: string | null) => void;
     onDelete: () => Promise<void>;
     watchlistSlot?: ReactNode;
     presentation?: 'v6' | 'v7';
@@ -84,25 +85,27 @@ export const ResearchDetailV6 = ({ ticker, records, items, theme, record, liveQu
         const loadSnapshot = async () => {
             setProviderState('loading');
             setProviderError(null);
-            onSnapshotState(ticker.symbol, 'loading', null);
+            const listingKey = researchListingKey(ticker.market, ticker.symbol);
+            onSnapshotState(listingKey, 'loading', null);
             try {
                 const response = await fetch(`/api/research/symbol/${encodeURIComponent(ticker.symbol)}?market=${ticker.market}`);
                 const payload: unknown = await response.json();
                 if (!response.ok) throw new Error(typeof payload === 'object' && payload !== null && !Array.isArray(payload) && typeof Object.fromEntries(Object.entries(payload)).error === 'string'
                     ? String(Object.fromEntries(Object.entries(payload)).error) : 'Unable to load free-source data.');
                 const nextSnapshot = parseResearchSnapshotResponse(payload);
+                if (nextSnapshot.market !== ticker.market || nextSnapshot.symbol !== ticker.symbol) throw new Error('Snapshot does not match the selected listing.');
                 if (active) {
                     setSnapshot(nextSnapshot);
                     onSnapshot(ticker.symbol, nextSnapshot);
                     setProviderState('ready');
-                    onSnapshotState(ticker.symbol, 'ready', null);
+                    onSnapshotState(listingKey, 'ready', null);
                 }
             } catch (error) {
                 if (active) {
                     const message = error instanceof Error ? error.message : 'Unable to load free-source data.';
                     setProviderState('error');
                     setProviderError(message);
-                    onSnapshotState(ticker.symbol, 'error', message);
+                    onSnapshotState(listingKey, 'error', message);
                 }
             }
         };

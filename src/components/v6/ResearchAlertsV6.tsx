@@ -7,17 +7,21 @@ import { buildResearchAlertRequest } from '@/lib/research/alert-request';
 import type { ResearchStructuredTriggerEvaluation } from '@/lib/research/structured-triggers';
 import { enqueueResearchWorkflowTaskClient } from '@/lib/research/workflow-queue-client';
 import { getThemeV6, type ResearchThemeV6 } from './research-v6';
-import type { ResearchRecord } from '@/lib/types/research';
+import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import { ResearchNotificationCenterV6 } from './ResearchNotificationCenterV6';
 
 type ResearchAlertsV6Props = {
     readonly items: readonly ResearchWatchlistItem[];
     readonly records: readonly ResearchRecord[];
     readonly theme: ResearchThemeV6;
-    readonly onOpen: (symbol: string) => void;
+    readonly onOpen: (symbol: string, market: ResearchMarket) => void;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isListing = (value: Record<string, unknown>) =>
+    (value.market === 'US' || value.market === 'MY')
+    && typeof value.symbol === 'string' && /^[A-Z0-9.-]{1,20}$/.test(value.symbol);
 
 const isTriggerRule = (value: unknown) => isRecord(value)
     && typeof value.id === 'string'
@@ -28,7 +32,7 @@ const isTriggerRule = (value: unknown) => isRecord(value)
     && typeof value.threshold === 'number' && Number.isFinite(value.threshold);
 
 const isTriggerEvaluation = (value: unknown): value is ResearchStructuredTriggerEvaluation => {
-    if (!isRecord(value) || typeof value.symbol !== 'string' || !/^[A-Z0-9.-]{1,20}$/.test(value.symbol) || !isTriggerRule(value.rule)
+    if (!isRecord(value) || !isListing(value) || !isTriggerRule(value.rule)
         || (value.status !== 'matched' && value.status !== 'not-matched' && value.status !== 'unavailable' && value.status !== 'disabled')
         || (value.severity !== 'opportunity' && value.severity !== 'watch' && value.severity !== 'risk')
         || typeof value.title !== 'string' || typeof value.detail !== 'string') return false;
@@ -44,12 +48,13 @@ const isTriggerEvaluation = (value: unknown): value is ResearchStructuredTrigger
 const isAlert = (value: unknown): value is ResearchAlert => {
     if (!isRecord(value)) return false;
     return typeof value.id === 'string'
-        && typeof value.symbol === 'string' && /^[A-Z0-9.-]{1,20}$/.test(value.symbol)
+        && isListing(value)
         && (value.kind === 'market-condition' || value.kind === 'structured-trigger')
         && typeof value.title === 'string' && value.title.length > 0 && value.title.length <= 160
         && typeof value.detail === 'string' && value.detail.length <= 700
         && (value.severity === 'opportunity' || value.severity === 'watch' || value.severity === 'risk')
-        && (value.structuredTrigger === null || isTriggerEvaluation(value.structuredTrigger));
+        && (value.structuredTrigger === null || (isTriggerEvaluation(value.structuredTrigger)
+            && value.structuredTrigger.market === value.market && value.structuredTrigger.symbol === value.symbol));
 };
 
 export const parseResearchAlertsResponse = (payload: unknown): ResearchAlertsResponse => {
@@ -155,10 +160,10 @@ export const ResearchAlertsV6 = ({ items, records, theme, onOpen }: ResearchAler
                 {data.triggerCoverage.length === 0 ? <p className={'mt-3 text-sm ' + styles.textMuted}>No structured triggers are configured. Add up to 10 from a ticker&apos;s Monitoring rules editor.</p> : (
                     <ol className={'mt-3 divide-y border-y ' + styles.divider}>
                         {data.triggerCoverage.map((trigger) => (
-                            <li key={`${trigger.symbol}-${trigger.rule.id}`} className="grid gap-1 py-3 min-[760px]:grid-cols-[120px_minmax(0,1fr)]">
+                            <li key={`${trigger.market}:${trigger.symbol}-${trigger.rule.id}`} className="grid gap-1 py-3 min-[760px]:grid-cols-[120px_minmax(0,1fr)]">
                                 <span className={'text-xs font-bold ' + (trigger.status === 'matched' ? tone(trigger.severity) : trigger.status === 'unavailable' ? styles.risk : styles.textMuted)}>{coverageLabel(trigger.status)}</span>
                                 <div className="min-w-0">
-                                    <p className={'text-xs font-semibold ' + styles.textPrimary}>{trigger.symbol} · {trigger.title}</p>
+                                    <p className={'text-xs font-semibold ' + styles.textPrimary}>{trigger.symbol} ({trigger.market}) · {trigger.title}</p>
                                     <p className={'mt-1 break-words text-xs leading-5 ' + styles.textMuted}>{trigger.detail}</p>
                                 </div>
                             </li>
@@ -174,7 +179,7 @@ export const ResearchAlertsV6 = ({ items, records, theme, onOpen }: ResearchAler
                 <ol>
                     {data.alerts.map((alert) => (
                         <li key={alert.id} className={'grid grid-cols-[80px_minmax(0,1fr)] gap-3 border-b py-4 min-[700px]:grid-cols-[90px_120px_minmax(0,1fr)] ' + styles.divider}>
-                            <button type="button" onClick={() => onOpen(alert.symbol)} className={'flex min-h-10 items-start rounded pt-0.5 text-left font-mono text-sm font-bold leading-5 ' + styles.textPrimary}>{alert.symbol}</button>
+                            <button type="button" onClick={() => onOpen(alert.symbol, alert.market)} className={'flex min-h-10 items-start rounded pt-0.5 text-left font-mono text-sm font-bold leading-5 ' + styles.textPrimary}>{alert.symbol} ({alert.market})</button>
                             <span className={'text-xs font-semibold ' + tone(alert.severity)}>{severityLabel(alert.severity)}</span>
                             <div className="col-span-2 min-w-0 min-[700px]:col-span-1">
                                 <p className={'text-sm font-semibold ' + styles.textPrimary}>{alert.title}</p>

@@ -306,7 +306,7 @@ const alertsFixture = {
         alerts: [
             {
                 id: 'alert-aapl-1',
-                symbol: 'AAPL',
+                symbol: 'AAPL', market: 'US',
                 kind: 'structured-trigger',
                 severity: 'opportunity',
                 title: 'Price / earnings below 25',
@@ -315,7 +315,7 @@ const alertsFixture = {
             },
             {
                 id: 'alert-1155-1',
-                symbol: '1155',
+                symbol: '1155', market: 'MY',
                 kind: 'market-condition',
                 severity: 'watch',
                 title: 'RSI (14) below 35',
@@ -325,7 +325,7 @@ const alertsFixture = {
         ],
         triggerCoverage: [
             {
-                symbol: 'AAPL',
+                symbol: 'AAPL', market: 'US',
                 rule: aaplRecord.monitoringRules.structuredTriggers.rules[0],
                 status: 'matched',
                 severity: 'opportunity',
@@ -334,7 +334,7 @@ const alertsFixture = {
                 observed: null,
             },
             {
-                symbol: '1155',
+                symbol: '1155', market: 'MY',
                 rule: maybankRecord.monitoringRules.structuredTriggers.rules[0],
                 status: 'not-matched',
                 severity: 'opportunity',
@@ -346,6 +346,23 @@ const alertsFixture = {
         warnings: [],
     },
 };
+
+const dualRecords = [
+    { ...aaplRecord, symbol: 'DUAL', companyName: 'Dual US', monitoringRules: { ...aaplRecord.monitoringRules, earningsWithinDays: 11 } },
+    { ...maybankRecord, symbol: 'DUAL', companyName: 'Dual MY', monitoringRules: { ...maybankRecord.monitoringRules, earningsWithinDays: 18 } },
+];
+const dualCalendar = structuredClone(calendarFixture);
+dualCalendar.data.events = [
+    { ...calendarFixture.data.events[0], id: 'dual-us', symbol: 'DUAL', title: 'Dual US earnings', targetHref: '/research?ticker=DUAL&market=US&tab=events' },
+    { ...calendarFixture.data.events[1], id: 'dual-my', symbol: 'DUAL', title: 'Dual MY review', sourceDate: dayOffset(2), displayDate: dayOffset(2), targetHref: '/research?ticker=DUAL&market=MY&tab=overview&review=edit' },
+];
+dualCalendar.data.macroEvents = [];
+const dualAlerts = structuredClone(alertsFixture);
+dualAlerts.data.alerts = [{ ...alertsFixture.data.alerts[1], id: 'dual-my-alert', symbol: 'DUAL', market: 'MY', kind: 'structured-trigger', title: 'Dual MY alert', structuredTrigger: { ...alertsFixture.data.triggerCoverage[1], symbol: 'DUAL', market: 'MY', status: 'matched' } }];
+dualAlerts.data.triggerCoverage = [
+    { ...alertsFixture.data.triggerCoverage[0], symbol: 'DUAL', market: 'US', status: 'not-matched' },
+    { ...alertsFixture.data.triggerCoverage[1], symbol: 'DUAL', market: 'MY', status: 'matched' },
+];
 
 const dividendSnapshotFixture = {
     version: 1,
@@ -390,7 +407,7 @@ async function runCheck(name, fn) {
     }
 }
 
-async function setupContext({ width, theme, owner = false, seedGuest = true, seedDividends = true, blockPickerPresetWrite = false, corruptPickerPresets = false }) {
+async function setupContext({ width, theme, owner = false, seedGuest = true, seedDividends = true, blockPickerPresetWrite = false, corruptPickerPresets = false, dual = false }) {
     const context = await browser.newContext({
         viewport: { width, height: 900 },
         colorScheme: theme,
@@ -439,13 +456,13 @@ async function setupContext({ width, theme, owner = false, seedGuest = true, see
         const url = new URL(req.url());
         if (url.origin !== new URL(base).origin) return route.abort();
         if (!url.pathname.startsWith('/api/')) return route.continue();
-        requests.push({ method: req.method(), path: url.pathname, query: url.search });
+        requests.push({ method: req.method(), path: url.pathname, query: url.search, body: req.postData() || '' });
 
         if (url.pathname === '/api/owner/session') return route.fulfill({ json: { success: true, data: { configured: owner, unlocked: owner } } });
-        if (url.pathname === '/api/research/watchlist') return route.fulfill({ json: { success: true, data: owner ? [aaplRecord, maybankRecord] : [], archivedSymbols: [] } });
+        if (url.pathname === '/api/research/watchlist') return route.fulfill({ json: { success: true, data: owner ? (dual ? dualRecords : [aaplRecord, maybankRecord]) : [], archivedSymbols: [] } });
         if (url.pathname === '/api/research/discovery') return route.fulfill({ json: discoveryFixture });
-        if (url.pathname === '/api/research/calendar' && req.method() === 'POST') return route.fulfill({ json: calendarFixture });
-        if (url.pathname === '/api/research/alerts' && req.method() === 'POST') return route.fulfill({ json: alertsFixture });
+        if (url.pathname === '/api/research/calendar' && req.method() === 'POST') return route.fulfill({ json: dual ? dualCalendar : calendarFixture });
+        if (url.pathname === '/api/research/alerts' && req.method() === 'POST') return route.fulfill({ json: dual ? dualAlerts : alertsFixture });
         if (url.pathname === '/api/signals/v2') return route.fulfill({ json: url.searchParams.get('market') === 'MY' ? mySignal : usSignal });
         if (url.pathname === '/api/signals/intraday') return route.fulfill({ json: { success: true, data: { market: 'US', mode: 'standard', enableSocial: false, day: dayOffset(0), entries: [], hasEarlierCaptures: false } } });
         if (url.pathname === '/api/signals/internals') return route.fulfill({ json: { success: true, data: { market: 'US', available: false, updatedAt: null, items: [] } } });
@@ -644,8 +661,8 @@ try {
         const page = ownerCtx.page;
         await page.goto(`${base}/v9?view=discover&discover=alerts`, { waitUntil: 'networkidle' });
         await page.getByText(/Your review triggers/).click();
-        const aaplLink = page.getByTestId('alert-trigger-link-AAPL-aapl-pe');
-        const myLink = page.getByTestId('alert-trigger-link-1155-1155-rsi');
+        const aaplLink = page.getByTestId('alert-trigger-link-US-AAPL-aapl-pe');
+        const myLink = page.getByTestId('alert-trigger-link-MY-1155-1155-rsi');
         const aaplHref = await aaplLink.getAttribute('href');
         const myHref = await myLink.getAttribute('href');
         const aaplUrl = new URL(aaplHref ?? '', base);
@@ -671,6 +688,81 @@ try {
         await page.getByText(/Saved dividend and cash-flow data is invalid/).waitFor();
     });
     await ownerCtx.context.close();
+
+    const dualCtx = await setupContext({ width: 1280, theme: 'light', owner: true, dual: true });
+    await runCheck('Same-symbol US/MY calendar and alerts preserve listing identity', async () => {
+        const { page, requests } = dualCtx;
+        const assertBody = path => {
+            const request = requests.filter(item => item.path === path && item.method === 'POST').at(-1);
+            assert.ok(request, `Missing ${path} POST`);
+            const body = JSON.parse(request.body);
+            const entries = Array.isArray(body) ? body : body.records;
+            assert.ok(Array.isArray(entries), `Unexpected ${path} body: ${request.body}`);
+            const us = entries.find(item => item.symbol === 'DUAL' && item.market === 'US');
+            const my = entries.find(item => item.symbol === 'DUAL' && item.market === 'MY');
+            assert.ok(us && my, `${path} must contain both listings`);
+            if (path.endsWith('/calendar')) {
+                assert.equal(us.earningsWithinDays, 11);
+                assert.equal(my.earningsWithinDays, 18);
+            } else {
+                assert.equal(us.monitoringRules.structuredTriggers.rules[0].id, 'aapl-pe');
+                assert.equal(my.monitoringRules.structuredTriggers.rules[0].id, '1155-rsi');
+            }
+        };
+        await page.goto(`${base}/v9?view=discover`, { waitUntil: 'networkidle' });
+        const calendarRequest = page.waitForRequest(req => new URL(req.url()).pathname === '/api/research/calendar' && req.method() === 'POST');
+        await page.getByRole('tab', { name: 'Calendar', exact: true }).click();
+        await calendarRequest;
+        await page.getByTestId('research-calendar-grid').waitFor();
+        assertBody('/api/research/calendar');
+        for (const market of ['US', 'MY']) {
+            await page.locator(`button:has(time[datetime="${dayOffset(2)}"])`).click();
+            const agenda = page.getByRole('region', { name: 'Selected day' });
+            await agenda.getByText('Dual US earnings').waitFor();
+            await agenda.getByText('Dual MY review').waitFor();
+            await agenda.getByRole('button', { name: `DUAL · ${market}` }).click();
+            await page.waitForURL(u => u.searchParams.get('view') === 'research' && u.searchParams.get('ticker') === 'DUAL' && u.searchParams.get('market') === market);
+            await page.getByRole('navigation', { name: 'Company research' }).getByRole('link', { name: 'Monitoring rules' }).click();
+            const rule = market === 'US' ? 'aapl-pe' : '1155-rsi';
+            const metric = market === 'US' ? 'price-earnings' : 'rsi14';
+            assert.equal(await page.getByLabel(`Metric for rule ${rule}`).inputValue(), metric);
+            await page.goto(`${base}/v9?view=discover`, { waitUntil: 'networkidle' });
+            await page.getByRole('tab', { name: 'Calendar', exact: true }).click();
+        }
+        await page.goto(`${base}/v9?view=research&tab=watchlist`, { waitUntil: 'networkidle' });
+        await page.getByTestId('watchlist-row').first().waitFor();
+        await page.getByTestId('watchlist-triggered-filter').click();
+        await page.getByTestId('watchlist-triggered-status').getByText(/Showing stocks/).waitFor();
+        assertBody('/api/research/alerts');
+        const rows = page.getByTestId('watchlist-row');
+        assert.equal(await rows.count(), 1);
+        assert.equal(await rows.first().getAttribute('data-market'), 'MY');
+        assert.match(await rows.first().innerText(), /Dual MY/);
+        await page.getByTestId('attention-trigger').click();
+        const popover = page.getByTestId('attention-popover');
+        const myAlert = popover.getByRole('link', { name: /Dual MY alert/ });
+        const popoverUrl = new URL(await myAlert.getAttribute('href'), base);
+        assert.equal(popoverUrl.searchParams.get('market'), 'MY');
+        assert.equal(popoverUrl.searchParams.get('tab'), 'monitoring');
+        await myAlert.click();
+        await page.waitForURL(u => u.searchParams.get('ticker') === 'DUAL' && u.searchParams.get('market') === 'MY');
+        await page.getByRole('heading', { name: 'Monitoring rules for DUAL · MY' }).waitFor();
+        assert.equal(await page.getByLabel('Metric for rule 1155-rsi').inputValue(), 'rsi14');
+        await page.goto(`${base}/v9?view=discover&discover=alerts`, { waitUntil: 'networkidle' });
+        assertBody('/api/research/alerts');
+        await page.getByText(/Your review triggers/).click();
+        const myTrigger = page.getByTestId('alert-trigger-link-MY-DUAL-1155-rsi');
+        assert.equal(new URL(await myTrigger.getAttribute('href'), base).searchParams.get('market'), 'MY');
+        await myTrigger.click();
+        await page.waitForURL(u => u.searchParams.get('ticker') === 'DUAL' && u.searchParams.get('market') === 'MY' && u.searchParams.get('tab') === 'monitoring');
+        await page.getByRole('heading', { name: 'Monitoring rules for DUAL · MY' }).waitFor();
+        assert.equal(await page.getByLabel('Metric for rule 1155-rsi').inputValue(), 'rsi14');
+        await page.goto(`${base}/v9?view=discover&discover=alerts`, { waitUntil: 'networkidle' });
+        await page.getByRole('button', { name: 'DUAL (MY)' }).click();
+        await page.waitForURL(u => u.searchParams.get('ticker') === 'DUAL' && u.searchParams.get('market') === 'MY');
+    });
+    await dualCtx.context.close();
+
 
     // 3. Responsive Matrix: 1280, 768, 375 in Light & Dark
     for (const [width, theme] of [

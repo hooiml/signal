@@ -3,6 +3,7 @@ import type { AlertMarketState, ResearchAlertEvaluation } from '../types/researc
 import type { ResearchInboxInput, ResearchInboxItem, ResearchInboxResponse } from '../types/research-inbox';
 import { evaluateResearchAlertBatch } from './alert-service';
 import { parseBuyZone } from './alerts';
+import { researchListingKey } from './listing-identity';
 import { personalReviewAgeDays } from './review-lifecycle';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -97,9 +98,10 @@ export const buildResearchInboxItems = (
     },
 ): readonly ResearchInboxItem[] => {
     const { inputs, evaluations, catalysts, now } = context;
-    const inputBySymbol = new Map(inputs.map((input) => [input.symbol, input]));
+    const inputByListing = new Map(inputs.map((input) => [researchListingKey(input.market, input.symbol), input]));
     const alertItems = evaluations.flatMap((evaluation) => {
-        const input = inputBySymbol.get(evaluation.input.symbol);
+        const { market, symbol } = evaluation.input;
+        const input = inputByListing.get(researchListingKey(market, symbol));
         return input ? [...marketItems(input, evaluation.state), ...structuredTriggerItems(input, evaluation)] : [];
     });
     const staleItems = inputs.flatMap((input) => {
@@ -107,7 +109,7 @@ export const buildResearchInboxItems = (
         return ageDays !== null && input.monitoringRules.reviewAgeDays !== null && ageDays > input.monitoringRules.reviewAgeDays ? [staleItem(input, ageDays)] : [];
     });
     const catalystItems = [...catalysts.entries()].flatMap(([symbol, catalyst]) => {
-        const input = inputBySymbol.get(symbol);
+        const input = inputByListing.get(researchListingKey('US', symbol));
         if (!input || input.monitoringRules.earningsWithinDays === null || daysUntil(catalyst.date, now) > input.monitoringRules.earningsWithinDays) return [];
         return [catalystItem(input, catalyst, now)];
     }).sort((left, right) => (left.eventDate ?? '').localeCompare(right.eventDate ?? ''));

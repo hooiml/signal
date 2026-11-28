@@ -3,6 +3,7 @@
 import { useContext, useState } from 'react';
 import { ResearchWatchlistV8 } from '@/components/v8/ResearchHomeV8';
 import type { WatchlistSort } from '@/lib/research/watchlist-review';
+import { researchListingKey } from '@/lib/research/listing-identity';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { V9Navigation } from './v9-navigation';
@@ -72,7 +73,7 @@ export function V9WatchlistView({
                     >
                         <span>Triggered rules</span>
                         {alertsScan.status === 'ready' && (
-                            <span className={styles.triggeredCount}>{alertsScan.matchedSymbols.size}</span>
+                            <span className={styles.triggeredCount}>{alertsScan.matchedListings.size}</span>
                         )}
                     </button>
                 </div>
@@ -90,7 +91,7 @@ export function V9WatchlistView({
                 ) : alertsScan.status === 'ready' ? (
                     <>
                         <span>
-                            Showing stocks with active alerts or matched monitoring rules ({alertsScan.matchedSymbols.size} of {alertsScan.data?.monitoredCount ?? alertsScan.monitoredCount} checked) · On-demand check
+                            Showing stocks with active alerts or matched monitoring rules ({alertsScan.matchedListings.size} of {alertsScan.data?.monitoredCount ?? alertsScan.monitoredCount} checked) · On-demand check
                         </span>
                         <div className={styles.triggeredStatusActions}>
                             <button type="button" className={styles.textLink} onClick={alertsScan.scan}>Re-check</button>
@@ -119,7 +120,7 @@ export function V9WatchlistView({
             quotes={quotes}
             quoteStatus={quoteStatus}
             quoteError={quoteError}
-            extraFilter={filterActive ? record => alertsScan.matchedSymbols.has(record.symbol.trim().toUpperCase()) : undefined}
+            extraFilter={filterActive ? record => alertsScan.matchedListings.has(researchListingKey(record.market, record.symbol)) : undefined}
             onClearExtraFilter={triggeredOnly ? () => setTriggeredOnly(false) : undefined}
             extraEmptyMessage={filterActive ? 'No saved stocks currently have triggered rules or active alert conditions.' : undefined}
             actionClassName={styles.ghostBtn}

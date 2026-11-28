@@ -61,8 +61,8 @@ const calendarEventTone = (event: ResearchCalendarEvent, theme: ResearchThemeV6)
 const eventTypeLabel = (type: ResearchCalendarEventType) => type === 'earnings' ? 'Earnings' : type === 'stale' ? 'Stale review' : 'Scheduled review';
 
 const eventButtonLabel = (event: ResearchCalendarEvent) => event.type === 'earnings'
-    ? `Open ${event.symbol} earnings in Events`
-    : `Open ${event.symbol} review workflow`;
+    ? `Open ${event.symbol} earnings in Events (${event.market})`
+    : `Open ${event.symbol} review workflow (${event.market})`;
 
 const queueCalendarEvent = (event: ResearchCalendarEvent) => enqueueResearchWorkflowTaskClient({
     symbol: event.symbol,
@@ -75,7 +75,7 @@ const CalendarEventCard = ({ event, priorDate, theme, onOpen }: {
     readonly event: ResearchCalendarEvent;
     readonly priorDate: string | undefined;
     readonly theme: ResearchThemeV6;
-    readonly onOpen: (targetHref: string) => void;
+    readonly onOpen: (targetHref: string, market: ResearchMarket) => void;
 }) => {
     const styles = getThemeV6(theme);
     const [queueStatus, setQueueStatus] = useState<string | null>(null);
@@ -102,7 +102,7 @@ const CalendarEventCard = ({ event, priorDate, theme, onOpen }: {
                         }} className={'min-h-10 rounded-md border px-3 text-xs font-semibold ' + styles.row}>
                             Queue review
                         </button>
-                        <button type="button" aria-label={eventButtonLabel(event)} onClick={() => onOpen(event.targetHref)} className="min-h-10 rounded-md bg-emerald-500 px-3 text-xs font-semibold text-slate-950 transition-colors hover:bg-emerald-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500">
+                        <button type="button" aria-label={eventButtonLabel(event)} onClick={() => onOpen(event.targetHref, event.market)} className="min-h-10 rounded-md bg-emerald-500 px-3 text-xs font-semibold text-slate-950 transition-colors hover:bg-emerald-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500">
                             Open
                         </button>
                     </div>
@@ -117,7 +117,7 @@ const CompactCalendarEvent = ({ event, priorDate, theme, onOpen }: {
     readonly event: ResearchCalendarEvent;
     readonly priorDate: string | undefined;
     readonly theme: ResearchThemeV6;
-    readonly onOpen: (targetHref: string) => void;
+    readonly onOpen: (targetHref: string, market: ResearchMarket) => void;
 }) => (
     <button
         type="button"
@@ -125,11 +125,11 @@ const CompactCalendarEvent = ({ event, priorDate, theme, onOpen }: {
         data-calendar-event-chip
         aria-label={eventButtonLabel(event)}
         title={`${event.title} — ${event.detail} · ${event.source}`}
-        onClick={() => onOpen(event.targetHref)}
+        onClick={() => onOpen(event.targetHref, event.market)}
         className={'group w-full rounded border px-2 py-1 text-left leading-4 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-emerald-500 active:translate-y-px ' + calendarEventTone(event, theme)}
     >
         <span className="flex min-w-0 items-center gap-1">
-            <span className="truncate text-[10px] font-medium">{event.symbol}</span>
+            <span className="truncate text-[10px] font-medium">{event.symbol} ({event.market})</span>
             <span aria-hidden="true" className="opacity-45">·</span>
             <span className="truncate text-[10px] font-normal">{eventTypeLabel(event.type)}</span>
             {priorDate ? <span aria-label={`Date changed from ${priorDate} UTC`} className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" /> : null}
@@ -179,7 +179,7 @@ const MacroEventCard = ({ event, theme }: {
 export const ResearchCalendarV6 = ({ records, theme, onOpen }: {
     readonly records: readonly ResearchRecord[];
     readonly theme: ResearchThemeV6;
-    readonly onOpen: (targetHref: string) => void;
+    readonly onOpen: (targetHref: string, market: ResearchMarket) => void;
 }) => {
     const styles = getThemeV6(theme);
     const [rangeDays, setRangeDays] = useState<ResearchCalendarRange>(30);

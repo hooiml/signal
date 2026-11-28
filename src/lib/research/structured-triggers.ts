@@ -1,6 +1,7 @@
 import type { DiscoveryCatalyst } from '../types/research-discovery';
 import type {
     AcceptedResearchEvidence,
+    ResearchMarket,
     ResearchRecord,
     ResearchStructuredTriggerMetric,
     ResearchStructuredTriggerOperator,
@@ -142,6 +143,7 @@ export type ResearchStructuredTriggerObserved = {
 
 export type ResearchStructuredTriggerEvaluation = {
     readonly symbol: string;
+    readonly market: ResearchMarket;
     readonly rule: ResearchStructuredTriggerRule;
     readonly status: ResearchStructuredTriggerEvaluationStatus;
     readonly severity: 'risk' | 'opportunity' | 'watch';
@@ -151,7 +153,7 @@ export type ResearchStructuredTriggerEvaluation = {
 };
 
 export type ResearchStructuredTriggerContext = {
-    readonly record: Pick<ResearchRecord, 'symbol' | 'acceptedEvidence' | 'monitoringRules'> & (
+    readonly record: Pick<ResearchRecord, 'symbol' | 'market' | 'acceptedEvidence' | 'monitoringRules'> & (
         Pick<ResearchRecord, 'lastReviewedAt' | 'decisionJournal' | 'reviewHistory'>
         | { readonly lastReviewedAt: string | null }
     );
@@ -273,14 +275,14 @@ const thresholdLabel = (
 };
 
 const unavailable = (
-    symbol: string,
+    listing: Pick<ResearchRecord, 'market' | 'symbol'>,
     rule: ResearchStructuredTriggerRule,
     reason: string,
 ): ResearchStructuredTriggerEvaluation => {
     const presentation = purposePresentation(rule.purpose);
     const definition = definitionFor(rule.metric);
     return {
-        symbol,
+        ...listing,
         rule,
         status: 'unavailable',
         ...presentation,
@@ -408,10 +410,11 @@ const missingReason = (rule: ResearchStructuredTriggerRule, context: ResearchStr
 export const evaluateResearchStructuredTriggers = (
     context: ResearchStructuredTriggerContext,
 ): readonly ResearchStructuredTriggerEvaluation[] => context.record.monitoringRules.structuredTriggers.rules.map((rule) => {
+    const listing = { symbol: context.record.symbol, market: context.record.market };
     const presentation = purposePresentation(rule.purpose);
     const definition = definitionFor(rule.metric);
     if (!rule.enabled) return {
-        symbol: context.record.symbol,
+        ...listing,
         rule,
         status: 'disabled' as const,
         ...presentation,
@@ -419,11 +422,11 @@ export const evaluateResearchStructuredTriggers = (
         detail: `${definition.label} ${operatorLabel(rule.operator)} ${thresholdLabel(definition, rule.threshold, context.snapshot?.quote.currency ?? null)} is disabled.`,
     };
     const observed = observedMetric(rule, context);
-    if (!observed) return unavailable(context.record.symbol, rule, missingReason(rule, context));
+    if (!observed) return unavailable(listing, rule, missingReason(rule, context));
     const didMatch = observed.value !== null && matches(rule.operator, observed.value, rule.threshold);
     const threshold = thresholdLabel(definition, rule.threshold, context.snapshot?.quote.currency ?? null);
     return {
-        symbol: context.record.symbol,
+        ...listing,
         rule,
         status: didMatch ? 'matched' : 'not-matched',
         ...presentation,

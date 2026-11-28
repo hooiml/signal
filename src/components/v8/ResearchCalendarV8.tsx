@@ -12,6 +12,7 @@ import {
 import { buildResearchCalendarRequest } from '@/lib/research/calendar-request';
 import { parseResearchCalendarResponse } from '@/lib/research/calendar-response';
 import { earningsCalendarInput, earningsTimingLabel, nextEarningsEvent, type EarningsCalendarTarget } from '@/lib/research/earnings-ticket';
+import { researchListingKey } from '@/lib/research/listing-identity';
 import type { ResearchCalendarRange, ResearchCalendarResponse } from '@/lib/types/research-calendar';
 import type { DiscoveryResponse } from '@/lib/types/research-discovery';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
@@ -56,10 +57,9 @@ export function ResearchCalendarV8({ records, trending, target, onSelect }: { re
     const [showEmptyGrid, setShowEmptyGrid] = useState(false);
     const [attempt, setAttempt] = useState(0);
     const [result, setResult] = useState<{ key: string; data: ResearchCalendarResponse | null; error: string } | null>(null);
-    // The calendar API takes unique symbols; the first saved market wins for a duplicated ticker.
     const body = useMemo(() => {
         if (target) return JSON.stringify(earningsCalendarInput(target.symbol, target.market));
-        const unique = [...new Map((records ?? []).map(record => [record.symbol, record])).values()].slice(0, 50);
+        const unique = [...new Map((records ?? []).map(record => [researchListingKey(record.market, record.symbol), record])).values()].slice(0, 50);
         return JSON.stringify(buildResearchCalendarRequest(unique));
     }, [records, target]);
     const key = `${range}:${body}:${attempt}`;
@@ -102,11 +102,14 @@ export function ResearchCalendarV8({ records, trending, target, onSelect }: { re
 
     // Watchlist events, trending earnings not already on the watchlist, macro releases, and optional local dividend dates, in date order.
     const allItems: Item[] = [];
-    for (const event of current?.data?.events ?? []) allItems.push({ id: event.id, date: event.displayDate, kind: event.type, symbol: event.symbol, market: event.market, title: event.title, detail: target && event.type === 'earnings' ? `${earningsTimingLabel(event.earningsTiming)} · Date unconfirmed` : event.detail, source: event.freshness === 'overdue' ? `${event.source} · due ${event.sourceDate}` : event.source, action: event.urgency === 'action' });
-    const saved = new Set(allItems.filter(item => item.kind === 'earnings').map(item => item.symbol));
+    const watchlistEvents = current?.data?.events ?? [];
+    for (const event of watchlistEvents) allItems.push({ id: event.id, date: event.displayDate, kind: event.type, symbol: event.symbol, market: event.market, title: event.title, detail: target && event.type === 'earnings' ? `${earningsTimingLabel(event.earningsTiming)} · Date unconfirmed` : event.detail, source: event.freshness === 'overdue' ? `${event.source} · due ${event.sourceDate}` : event.source, action: event.urgency === 'action' });
+    const scheduledEarnings = new Set(watchlistEvents.filter(event => event.type === 'earnings').map(event => researchListingKey(event.market, event.symbol)));
     for (const row of target ? [] : [...(trending?.candidates ?? []), ...(trending?.contenders ?? [])]) {
-        if (!row.catalyst || row.catalyst.date < today || row.catalyst.date > end || saved.has(row.symbol)) continue;
-        allItems.push({ id: `trending:${row.symbol}`, date: row.catalyst.date, kind: 'trending', symbol: row.symbol, market: 'US', title: `${row.name} earnings`, detail: timingLabel(row.catalyst.timing), source: 'Trend scan' });
+        const listing = researchListingKey('US', row.symbol);
+        if (!row.catalyst || row.catalyst.date < today || row.catalyst.date > end || scheduledEarnings.has(listing)) continue;
+        allItems.push({ id: `trending:${listing}`, date: row.catalyst.date, kind: 'trending', symbol: row.symbol, market: 'US', title: `${row.name} earnings`, detail: timingLabel(row.catalyst.timing), source: 'Trend scan' });
+        scheduledEarnings.add(listing);
     }
     for (const event of current?.data?.macroEvents ?? []) allItems.push({ id: event.id, date: event.date, kind: 'macro', market: event.market, title: event.title, detail: event.timeLabel ?? 'Time not supplied', href: event.sourceUrl, source: event.source });
 
@@ -140,6 +143,14 @@ export function ResearchCalendarV8({ records, trending, target, onSelect }: { re
             }
         }
     }
+
+    const listings = new Set((records ?? []).map(record => researchListingKey(record.market, record.symbol)));
+    for (const { symbol, market } of allItems) {
+        if (symbol && market) listings.add(researchListingKey(market, symbol));
+    }
+    const itemLabel = (item: Item) => item.symbol && item.market && listings.has(researchListingKey(item.market === 'US' ? 'MY' : 'US', item.symbol))
+        ? `${item.symbol} · ${item.market}`
+        : item.symbol ?? item.title;
 
     allItems.sort((a, b) => a.date.localeCompare(b.date) || a.kind.localeCompare(b.kind));
     const effectiveFilter: KindFilter = (!showDividends && kindFilter === 'dividend') ? 'all' : kindFilter;
@@ -245,10 +256,10 @@ export function ResearchCalendarV8({ records, trending, target, onSelect }: { re
                 const inRange = date >= today && date <= end;
                 const dayOfWeek = weekday(date);
                 return <button key={date} type="button" className={styles.dayCell} data-in-range={inRange} data-today={date === today} data-weekend={isV9 && (dayOfWeek === 0 || dayOfWeek === 6) ? 'true' : undefined} aria-pressed={date === selectedDay}
-                    aria-label={`${dayLabel(date)}: ${dayItems.length ? dayItems.map(item => `${item.symbol ?? item.title} ${kindLabel[item.kind]}`).join(', ') : 'no events'}`}
+                    aria-label={`${dayLabel(date)}: ${dayItems.length ? dayItems.map(item => `${itemLabel(item)} ${kindLabel[item.kind]}`).join(', ') : 'no events'}`}
                     onClick={() => setSelectedDay(date)}>
                     <time dateTime={date}>{date.endsWith('-01') || date === gridDays[0] ? shortDate(date) : Number(date.slice(-2))}</time>
-                    {dayItems.slice(0, visibleChips).map(item => <span key={item.id} className={styles.chip} data-kind={item.kind}>{item.symbol ?? kindLabel[item.kind]}</span>)}
+                    {dayItems.slice(0, visibleChips).map(item => <span key={item.id} className={styles.chip} data-kind={item.kind}>{item.symbol ? itemLabel(item) : kindLabel[item.kind]}</span>)}
                     {dayItems.length > visibleChips && <span className={styles.more}>+{dayItems.length - visibleChips}</span>}
                 </button>;
             })}
@@ -258,7 +269,7 @@ export function ResearchCalendarV8({ records, trending, target, onSelect }: { re
             {selectedItems.length === 0 ? <p className={styles.meta}>Nothing scheduled. Pick a day with a marker.</p>
                 : <ul>{selectedItems.map(item => <li key={item.id} data-urgency={item.action ? 'action' : undefined}>
                     <span className={styles.badge} data-type={item.kind}>{kindLabel[item.kind]}</span>
-                    {item.symbol && item.market ? <button className={styles.link} onClick={() => onSelect(item.symbol!, item.market!)}>{item.symbol}</button> : <span />}
+                    {item.symbol && item.market ? <button className={styles.link} onClick={() => onSelect(item.symbol!, item.market!)}>{itemLabel(item)}</button> : <span />}
                     <span><b>{item.title}</b><small>{item.detail}{item.source ? ` · ${item.source}` : ''}{item.href && <> · <a href={item.href} target="_blank" rel="noopener noreferrer">Source ↗</a></>}</small></span>
                 </li>)}</ul>}
         </section>

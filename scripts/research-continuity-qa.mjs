@@ -96,8 +96,8 @@ try {
                     generatedAt: `2026-07-26T09:0${alertVersion}:00.000Z`,
                     monitoredCount: 2,
                     alerts: [
-                        { symbol: 'MSFT', title: `Risk alert v${alertVersion}`, detail: 'Review the updated risk condition.', severity: 'risk' },
-                        { symbol: 'NVDA', title: 'Near buy zone', detail: 'Price is near the saved range.', severity: 'opportunity' },
+                        { symbol: 'MSFT', market: 'US', title: `Risk alert v${alertVersion}`, detail: 'Review the updated risk condition.', severity: 'risk' },
+                        { symbol: 'NVDA', market: 'US', title: 'Near buy zone', detail: 'Price is near the saved range.', severity: 'opportunity' },
                     ],
                     warnings: [],
                 },

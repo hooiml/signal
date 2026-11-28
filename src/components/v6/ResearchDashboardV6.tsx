@@ -8,8 +8,9 @@ import { parseResearchRecord, ResearchInputError } from '@/lib/research/input';
 import { createOwnerResearchRecord, ResearchWriteAccessError, updateOwnerResearchRecord } from '@/lib/research/owner-record-client';
 import { parseResearchQuoteBatchResponse } from '@/lib/research/snapshot-input';
 import { personalReviewDate } from '@/lib/research/review-lifecycle';
+import { researchListingKey } from '@/lib/research/listing-identity';
 import { ownerAccessIssue, ownerAccessMessage, ownerUnlockHref, type OwnerAccessIssue } from '@/lib/owner-access-client';
-import type { AcceptedResearchEvidence, ResearchCreateInput, ResearchRecord, ResearchUpdateMode } from '@/lib/types/research';
+import type { AcceptedResearchEvidence, ResearchCreateInput, ResearchMarket, ResearchRecord, ResearchUpdateMode } from '@/lib/types/research';
 import { ResearchDetailV6 } from './ResearchDetailV6';
 import {
     ResearchHeaderV6,
@@ -389,26 +390,26 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     }, [items, recordsLoadState, requestedSymbol, requestedTicker, searchString, updateUrl, validRequestedTicker]);
 
     const selected = useMemo(
-        () => items.find((item) => item.symbol === selectedSymbol) ?? null,
-        [items, selectedSymbol],
+        () => items.find((item) => item.symbol === selectedSymbol && item.market === market)
+            ?? items.find((item) => item.symbol === selectedSymbol) ?? null,
+        [items, market, selectedSymbol],
     );
     const unsavedRequestedTicker = recordsLoadState === 'ready' && validRequestedTicker && requestedTicker && !items.some((item) => item.symbol === requestedTicker)
         ? requestedTicker
         : null;
-    const selectedHidden = Boolean(selected && !filteredItems.some((item) => item.symbol === selected.symbol));
+    const selectedHidden = Boolean(selected && !filteredItems.includes(selected));
     const latestReviewedAt = useMemo(
         () => records.filter(record => items.some(item => item.symbol === record.symbol))
             .map(personalReviewDate).filter((value): value is string => value !== null).sort().at(-1) ?? null,
         [items, records],
     );
-    const selectedRecord = selected
-        ? records.find((record) => record.symbol === selected.symbol) ?? toResearchRecordV6(selected)
-        : null;
     const savedSelectedRecord = selected
-        ? records.find((record) => record.symbol === selected.symbol) ?? null
+        ? records.find((record) => record.symbol === selected.symbol && record.market === selected.market) ?? null
         : null;
+    const selectedRecord = savedSelectedRecord ?? (selected ? toResearchRecordV6(selected) : null);
+    const selectedKey = selected ? researchListingKey(selected.market, selected.symbol) : '';
     const inboxRecords = useMemo(
-        () => items.map((item) => records.find((record) => record.symbol === item.symbol) ?? toResearchRecordV6(item)),
+        () => items.map((item) => records.find((record) => record.symbol === item.symbol && record.market === item.market) ?? toResearchRecordV6(item)),
         [items, records],
     );
     const themeClasses = getThemeV6(theme);
@@ -422,19 +423,20 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
     }, []);
 
     const updateLiveSnapshot = useCallback((symbol: string, snapshot: ResearchSnapshot) => {
-        liveSnapshots.current.set(symbol, snapshot);
-        liveQuotes.current.set(symbol, { quote: snapshot.quote, fetchedAt: snapshot.fetchedAt });
+        const key = researchListingKey(snapshot.market, symbol);
+        liveSnapshots.current.set(key, snapshot);
+        liveQuotes.current.set(key, { quote: snapshot.quote, fetchedAt: snapshot.fetchedAt });
         setItems((current) => current.map((item) => {
-            if (item.symbol !== symbol) return item;
+            if (item.symbol !== symbol || item.market !== snapshot.market) return item;
             return applyResearchSnapshotV6(item, snapshot);
         }));
     }, []);
 
-    const updateSnapshotState = useCallback((symbol: string, state: 'loading' | 'ready' | 'error', message: string | null) => {
+    const updateSnapshotState = useCallback((listingKey: string, state: 'loading' | 'ready' | 'error', message: string | null) => {
         setSnapshotStates((current) => {
-            const existing = current[symbol];
+            const existing = current[listingKey];
             if (existing?.state === state && existing.message === message) return current;
-            return { ...current, [symbol]: { state, message } };
+            return { ...current, [listingKey]: { state, message } };
         });
     }, []);
 
@@ -464,9 +466,10 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 setSaveError(null);
                 setRecordsLoadState('ready');
                 setItems(activeRecords.map((record, index) => createWatchlistItemV6(record, index)).map((item) => {
-                    const snapshot = liveSnapshots.current.get(item.symbol);
+                    const key = researchListingKey(item.market, item.symbol);
+                    const snapshot = liveSnapshots.current.get(key);
                     const withSnapshot = snapshot ? applyResearchSnapshotV6(item, snapshot) : item;
-                    const quote = liveQuotes.current.get(item.symbol)?.quote;
+                    const quote = liveQuotes.current.get(key)?.quote;
                     return quote ? applyResearchQuoteV6(withSnapshot, quote) : withSnapshot;
                 }));
             } catch (error) {
@@ -500,8 +503,10 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
 
     useEffect(() => {
         if (recordsLoadState !== 'ready') return;
-        const itemsToQuote = quoteItems.current.filter((item) =>
-            item.symbol !== selectedSymbol && !liveQuotes.current.has(item.symbol));
+        const itemsToQuote = quoteItems.current.filter((item) => {
+            const key = researchListingKey(item.market, item.symbol);
+            return key !== selectedKey && !liveQuotes.current.has(key);
+        });
         if (itemsToQuote.length === 0) {
             setQuoteStatus(null);
             return;
@@ -524,14 +529,15 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                 const failedSymbols: string[] = [];
                 for (const result of results) {
                     if (result.success) {
-                        quotes.set(result.data.symbol, result.data.quote);
-                        liveQuotes.current.set(result.data.symbol, { quote: result.data.quote, fetchedAt: result.data.fetchedAt });
+                        const key = researchListingKey(result.data.market, result.data.symbol);
+                        quotes.set(key, result.data.quote);
+                        liveQuotes.current.set(key, { quote: result.data.quote, fetchedAt: result.data.fetchedAt });
                     } else failedSymbols.push(result.symbol);
                 }
                 if (failedSymbols.length > 0) setQuoteStatus(`Live quotes are unavailable for ${failedSymbols.join(', ')}. Saved research remains visible.`);
                 if (quotes.size === 0) return;
                 setItems((current) => current.map((item) => {
-                    const quote = quotes.get(item.symbol);
+                    const quote = quotes.get(researchListingKey(item.market, item.symbol));
                     return quote ? applyResearchQuoteV6(item, quote) : item;
                 }));
             } catch {
@@ -541,12 +547,12 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         };
         void loadQuotes();
         return () => controller.abort();
-    }, [quoteTargetKey, recordsLoadState, selectedSymbol]);
+    }, [quoteTargetKey, recordsLoadState, selectedKey]);
 
-    const selectTicker = (symbol: string, focusDetail = false, tab: ResearchTabV6 = 'overview', startReview = false, historyMode: 'push' | 'replace' = 'push') => {
+    const selectTicker = (symbol: string, focusDetail = false, tab: ResearchTabV6 = 'overview', startReview = false, historyMode: 'push' | 'replace' = 'push', listingMarket?: ResearchMarket) => {
         if (focusDetail) {
             setQuery('');
-            setMarket('ALL');
+            setMarket(listingMarket ?? 'ALL');
             setAction('ALL');
         }
         setWorkspace('research');
@@ -556,6 +562,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         updateUrl({
             workspace: 'research',
             ticker: symbol,
+            ...(listingMarket && { market: listingMarket }),
             tab: tab === 'overview' ? null : tab,
             review: startReview ? 'edit' : null,
             queueTask: null,
@@ -608,7 +615,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         updateUrl({ query: selected.symbol, market: selected.market, decision: null });
     }, [selected, updateUrl]);
 
-    const openResearchFrom = (source: ProductAnalyticsSource) => (symbol: string) => {
+    const openResearchFrom = (source: ProductAnalyticsSource) => (symbol: string, listingMarket?: ResearchMarket) => {
         setProductAnalyticsWorkflowSource(source);
         trackProductAnalyticsEvent({
             name: 'review_opened',
@@ -616,7 +623,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
             workspace,
             source,
         });
-        selectTicker(symbol, true, 'overview', false, 'push');
+        selectTicker(symbol, true, 'overview', false, 'push', listingMarket);
     };
     const openResearch = openResearchFrom('direct');
 
@@ -682,7 +689,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
         selectTicker(symbol, true, 'overview', true, 'push');
     };
 
-    const openCalendarTarget = (targetHref: string) => {
+    const openCalendarTarget = (targetHref: string, listingMarket: ResearchMarket) => {
         const target = new URL(targetHref, window.location.origin);
         const symbol = target.searchParams.get('ticker');
         const tab = target.searchParams.get('tab');
@@ -694,7 +701,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
             workspace: 'calendar',
             source: 'calendar',
         });
-        selectTicker(symbol, true, tab, target.searchParams.get('review') === 'edit', 'push');
+        selectTicker(symbol, true, tab, target.searchParams.get('review') === 'edit', 'push', listingMarket);
     };
 
     const addDiscoveryCandidate = async (candidate: { readonly symbol: string; readonly name: string }) => {
@@ -1111,7 +1118,7 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                     {recordsLoadState === 'loading' ? (
                         <section role="status" className="flex min-h-72 flex-1 items-center justify-center px-6 text-center"><p className={themeClasses.textMuted}>Loading saved research…</p></section>
                     ) : recordsLoadState === 'error' ? null : selected && selectedRecord ? (
-                        <ResearchDetailV6 key={selected.symbol + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} ticker={selected} records={inboxRecords} items={items} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selected.symbol)?.quote ?? null} liveQuoteRetrievedAt={liveQuotes.current.get(selected.symbol)?.fetchedAt ?? null} activeTab={activeDetailTab} startReview={reviewRequested} stagedEvidence={stagedEvidence?.id.startsWith(selected.symbol + ':') ? stagedEvidence : null} workflowTemplateId={workflowTemplateId} saving={saving || recordsLoadState !== 'ready'} saveError={saveError} saveAccessIssue={saveAccessIssue} onTabChange={changeDetailTab} onReadinessNavigate={openReadinessDestination} onSave={saveRecord} onReviewChange={changeReviewMode} onSnapshot={updateLiveSnapshot} onSnapshotState={updateSnapshotState} onDelete={deleteRecord} watchlistSlot={presentation === 'v7' ? watchlistOwner : undefined} presentation={presentation} />
+                        <ResearchDetailV6 key={selectedKey + (stagedEvidence?.id ?? '') + (workflowTemplateId ?? '')} ticker={selected} records={inboxRecords} items={items} theme={theme} record={selectedRecord} liveQuote={liveQuotes.current.get(selectedKey)?.quote ?? null} liveQuoteRetrievedAt={liveQuotes.current.get(selectedKey)?.fetchedAt ?? null} activeTab={activeDetailTab} startReview={reviewRequested} stagedEvidence={stagedEvidence?.id.startsWith(selected.symbol + ':') ? stagedEvidence : null} workflowTemplateId={workflowTemplateId} saving={saving || recordsLoadState !== 'ready'} saveError={saveError} saveAccessIssue={saveAccessIssue} onTabChange={changeDetailTab} onReadinessNavigate={openReadinessDestination} onSave={saveRecord} onReviewChange={changeReviewMode} onSnapshot={updateLiveSnapshot} onSnapshotState={updateSnapshotState} onDelete={deleteRecord} watchlistSlot={presentation === 'v7' ? watchlistOwner : undefined} presentation={presentation} />
                     ) : (<>
                         {presentation === 'v7' ? watchlistOwner : null}
                         <section className="flex min-h-72 flex-1 items-center justify-center px-6 text-center">
@@ -1137,9 +1144,9 @@ export const ResearchDashboardV6 = ({ presentation = 'v6' }: { readonly presenta
                             ticker={selected.symbol}
                             record={savedSelectedRecord}
                             recordsState={recordsLoadState}
-                            snapshot={liveSnapshots.current.get(selected.symbol) ?? null}
-                            snapshotState={snapshotStates[selected.symbol]?.state ?? 'idle'}
-                            snapshotMessage={snapshotStates[selected.symbol]?.message ?? null}
+                            snapshot={liveSnapshots.current.get(selectedKey) ?? null}
+                            snapshotState={snapshotStates[selectedKey]?.state ?? 'idle'}
+                            snapshotMessage={snapshotStates[selectedKey]?.message ?? null}
                         />
                     ) : null}
                     <details data-testid="research-overview" data-surface-tier="utility" className={'group mb-3 rounded-[10px] border ' + themeClasses.panelSolid}>

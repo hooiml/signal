@@ -28,7 +28,9 @@ const parseEvent = (value: unknown): ResearchCalendarEvent => {
     if (typeof value.freshness !== 'string' || !researchCalendarFreshness.includes(value.freshness as ResearchCalendarEvent['freshness'])) throw new ResearchCalendarInputError('Invalid calendar event freshness.');
     if (value.urgency !== 'action' && value.urgency !== 'upcoming') throw new ResearchCalendarInputError('Invalid calendar event urgency.');
     if (value.earningsTiming !== undefined && (value.type !== 'earnings' || typeof value.earningsTiming !== 'string' || !researchCalendarEarningsTimings.includes(value.earningsTiming as NonNullable<ResearchCalendarEvent['earningsTiming']>))) throw new ResearchCalendarInputError('Invalid earnings timing.');
-    if (typeof value.targetHref !== 'string' || !/^\/research\?ticker=[A-Z0-9.%+-]+&tab=(overview&review=edit|events)$/.test(value.targetHref)) throw new ResearchCalendarInputError('Invalid calendar event destination.');
+    const target = typeof value.targetHref === 'string' ? /^\/research\?ticker=([A-Z0-9.-]+)(?:&market=(US|MY))?&tab=(overview&review=edit|events)$/.exec(value.targetHref) : null;
+    if (!target || target[1] !== value.symbol || (target[2] !== undefined && target[2] !== value.market)
+        || target[3] !== (value.type === 'earnings' ? 'events' : 'overview&review=edit')) throw new ResearchCalendarInputError('Invalid calendar event destination.');
     return value as ResearchCalendarEvent;
 };
 
