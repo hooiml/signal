@@ -8,6 +8,7 @@ import type {
     ResearchMacroEvent,
 } from '../types/research-calendar';
 import { fetchUpcomingCatalysts } from './catalysts';
+import { researchListingKey } from './listing-identity';
 import { fetchResearchMacroCalendar } from './macro-calendar';
 
 const utcDate = (date: Date): string => date.toISOString().slice(0, 10);
@@ -20,8 +21,7 @@ const addUtcDays = (date: string, days: number): string => {
 
 const inRange = (date: string, start: string, end: string): boolean => date >= start && date <= end;
 
-const reviewHref = (symbol: string) => `/research?ticker=${encodeURIComponent(symbol)}&tab=overview&review=edit`;
-const earningsHref = (symbol: string) => `/research?ticker=${encodeURIComponent(symbol)}&tab=events`;
+const listingHref = ({ symbol, market }: ResearchCalendarInput) => `/research?ticker=${encodeURIComponent(symbol)}&market=${market}`;
 
 const scheduledReviewEvent = (input: ResearchCalendarInput, start: string, end: string): ResearchCalendarEvent | null => {
     const sourceDate = input.nextReviewAt;
@@ -30,7 +30,7 @@ const scheduledReviewEvent = (input: ResearchCalendarInput, start: string, end: 
     const displayDate = overdue ? start : sourceDate;
     if (!inRange(displayDate, start, end)) return null;
     return {
-        id: `${input.symbol}-review-${sourceDate}`,
+        id: `${researchListingKey(input.market, input.symbol)}:review:${sourceDate}`,
         symbol: input.symbol,
         market: input.market,
         type: 'review',
@@ -42,7 +42,7 @@ const scheduledReviewEvent = (input: ResearchCalendarInput, start: string, end: 
         timezone: 'UTC',
         freshness: overdue ? 'overdue' : 'scheduled',
         urgency: overdue ? 'action' : 'upcoming',
-        targetHref: reviewHref(input.symbol),
+        targetHref: `${listingHref(input)}&tab=overview&review=edit`,
     };
 };
 
@@ -53,7 +53,7 @@ const staleReviewEvent = (input: ResearchCalendarInput, start: string, end: stri
     const displayDate = start;
     if (!inRange(displayDate, start, end)) return null;
     return {
-        id: `${input.symbol}-stale-${sourceDate}`,
+        id: `${researchListingKey(input.market, input.symbol)}:stale:${sourceDate}`,
         symbol: input.symbol,
         market: input.market,
         type: 'stale',
@@ -65,7 +65,7 @@ const staleReviewEvent = (input: ResearchCalendarInput, start: string, end: stri
         timezone: 'UTC',
         freshness: 'overdue',
         urgency: 'action',
-        targetHref: reviewHref(input.symbol),
+        targetHref: `${listingHref(input)}&tab=overview&review=edit`,
     };
 };
 
@@ -73,7 +73,7 @@ const earningsEvent = (input: ResearchCalendarInput, catalyst: ResearchCalendarC
     if (!inRange(catalyst.date, start, end)) return null;
     const timing = catalyst.timing === 'pre-market' ? 'Before market open' : catalyst.timing === 'after-hours' ? 'After market close' : 'Timing not supplied';
     return {
-        id: `${input.symbol}-earnings-${catalyst.date}`,
+        id: `${researchListingKey(input.market, input.symbol)}:earnings:${catalyst.date}`,
         symbol: input.symbol,
         market: input.market,
         type: 'earnings',
@@ -85,7 +85,7 @@ const earningsEvent = (input: ResearchCalendarInput, catalyst: ResearchCalendarC
         timezone: 'UTC',
         freshness: 'scheduled',
         urgency: 'upcoming',
-        targetHref: earningsHref(input.symbol),
+        targetHref: `${listingHref(input)}&tab=events`,
         earningsTiming: catalyst.timing,
     };
 };
@@ -94,7 +94,8 @@ const eventOrder = (left: ResearchCalendarEvent, right: ResearchCalendarEvent) =
     left.displayDate.localeCompare(right.displayDate)
     || Number(right.urgency === 'action') - Number(left.urgency === 'action')
     || left.symbol.localeCompare(right.symbol)
-    || left.type.localeCompare(right.type);
+    || left.type.localeCompare(right.type)
+    || left.market.localeCompare(right.market);
 
 export const filterResearchCalendarEvents = (
     events: readonly ResearchCalendarEvent[],
@@ -147,10 +148,10 @@ export const getResearchCalendar = async (
     macroFetcher: typeof fetchResearchMacroCalendar = fetchResearchMacroCalendar,
 ): Promise<ResearchCalendarResponse> => {
     const earningsOnly = query.type === 'earnings';
-    const selectedInputs = earningsOnly ? inputs.filter((input) =>
+    const selectedInputs = inputs.filter((input) =>
         (query.market === 'ALL' || input.market === query.market)
-        && (query.ticker === 'ALL' || input.symbol === query.ticker)) : inputs;
-    const usSymbols = selectedInputs
+        && (query.ticker === 'ALL' || input.symbol === query.ticker));
+    const usSymbols = (query.type === 'ALL' || earningsOnly ? selectedInputs : [])
         .filter((input) => input.market === 'US' && input.earningsWithinDays !== null)
         .map((input) => input.symbol);
     const [catalystResult, macroResult] = await Promise.allSettled([
@@ -163,7 +164,7 @@ export const getResearchCalendar = async (
     const catalysts: ResearchCalendarCatalyst[] = [...catalystMap.entries()].map(([symbol, catalyst]) => ({ symbol, ...catalyst }));
     const macroEvents = macroResult.status === 'fulfilled' ? macroResult.value.events : [];
     const calendar = buildResearchCalendar({
-        inputs,
+        inputs: selectedInputs,
         catalysts,
         macroEvents,
         now,

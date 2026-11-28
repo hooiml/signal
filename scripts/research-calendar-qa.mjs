@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { researchReadFixture } from './harness/research-read-fixture.mjs';
 
 const args = process.argv.slice(2);
 const getArg = (name) => {
@@ -18,6 +19,8 @@ const requestedTheme = getArg('--theme');
 const captureScreenshots = !args.includes('--no-screenshots');
 const screenshotDirectory = getArg('--screenshot-dir') || path.join(process.env.TEMP || process.cwd(), 'signal-research-calendar-qa');
 const failures = [];
+const watchlistFixture = await (await researchReadFixture().route.GET()).json();
+const savedMsft = { ...watchlistFixture.data[0], symbol: 'MSFT', companyName: 'Microsoft' };
 
 const check = (condition, message) => {
     if (!condition) throw new Error(message);
@@ -82,7 +85,7 @@ try {
         });
         await page.route('**/api/research/watchlist', (route) => {
             if (route.request().method() !== 'GET') researchMutations.push(`${route.request().method()} ${route.request().url()}`);
-            return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: [], archivedSymbols: [] }) });
+            return route.fulfill({ json: { success: true, data: [savedMsft], archivedSymbols: [] } });
         });
         await page.route('**/api/research/watchlist/**', (route) => {
             if (route.request().method() !== 'GET') researchMutations.push(`${route.request().method()} ${route.request().url()}`);
@@ -114,8 +117,8 @@ try {
             } else if (name === 'Watchlist') {
                 await page.getByRole('button', { name: 'Watchlist', exact: true }).click();
             } else {
-                await page.getByRole('button', { name: 'Today', exact: true }).click();
-                await page.getByRole('tab', { name, exact: true }).click();
+                await page.getByLabel('Research sections').getByRole('button', { name: 'Today', exact: true }).click();
+                await page.locator(`#research-workspace-tab-${value}`).click();
             }
         };
         const expectWorkspace = async (name, value) => {
@@ -127,8 +130,9 @@ try {
             } else {
                 if (name === 'Watchlist') await page.getByRole('heading', { name: 'Watchlist', exact: true }).waitFor({ state: 'visible', timeout });
                 else {
-                    await page.getByRole('tab', { name, exact: true }).waitFor({ state: 'visible', timeout });
-                    check(await page.getByRole('tab', { name, exact: true }).getAttribute('aria-selected') === 'true', `${width}: ${name} workspace was not restored`);
+                    const tab = page.locator(`#research-workspace-tab-${value}`);
+                    await tab.waitFor({ state: 'visible', timeout });
+                    check(await tab.getAttribute('aria-selected') === 'true', `${width}: ${name} workspace was not restored`);
                 }
             }
         };
@@ -156,7 +160,7 @@ try {
             await page.keyboard.press('Enter');
             await page.locator('[data-calendar-month-label]').getByText('August 2026', { exact: true }).waitFor({ state: 'visible', timeout });
             check(await page.getByRole('button', { name: 'Next month' }).isDisabled(), `${width}: next month should stop at the end of the thirty-day range`);
-            await page.getByRole('button', { name: 'Today' }).click();
+            await page.getByLabel('Calendar month navigation').getByRole('button', { name: 'Today', exact: true }).click();
             await page.locator('[data-calendar-month-label]').getByText('July 2026', { exact: true }).waitFor({ state: 'visible', timeout });
             check(await page.locator('[data-calendar-week]').count() > 0, `${width}: compact week rows are missing`);
             check(await page.locator('[data-calendar-event-chip]').count() === 3, `${width}: calendar view does not show all events inside their dates`);
@@ -217,11 +221,12 @@ try {
 
             await selectWorkspace('Watchlist', 'research');
             await page.getByRole('searchbox').fill('NVDA');
-            await page.waitForURL(/ticker=NVDA/, { timeout });
+            await page.waitForURL(/query=NVDA/, { timeout });
             await selectWorkspace('Calendar', 'calendar');
             await page.waitForFunction(() => document.querySelectorAll('[data-calendar-event]').length === 3, undefined, { timeout });
             await page.getByRole('button', { name: /Open MSFT review workflow/i }).first().click();
             await page.waitForURL(/ticker=MSFT.*review=edit/, { timeout });
+            check(new URL(page.url()).searchParams.get('market') === 'US', 'Calendar review opened the wrong listing');
             await page.getByRole('heading', { name: 'MSFT', exact: true }).waitFor({ state: 'visible', timeout });
             await page.getByRole('button', { name: 'Continue to Evidence' }).click();
             await page.getByRole('button', { name: 'Continue to Decision' }).click();
@@ -232,6 +237,7 @@ try {
             await page.waitForFunction(() => document.querySelectorAll('[data-calendar-event]').length === 3, undefined, { timeout });
             await page.getByRole('button', { name: /Open MSFT earnings/i }).click();
             await page.waitForURL(/ticker=MSFT.*tab=events/, { timeout });
+            check(new URL(page.url()).searchParams.get('market') === 'US', 'Calendar earnings opened the wrong listing');
             await expectWorkspace('Watchlist', 'research');
             await page.getByRole('tab', { name: 'Events', exact: true }).waitFor({ state: 'visible', timeout });
             check(await page.getByRole('tab', { name: 'Events', exact: true }).getAttribute('aria-selected') === 'true', `${width}: earnings destination did not open Events`);

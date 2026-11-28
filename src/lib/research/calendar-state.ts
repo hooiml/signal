@@ -1,18 +1,22 @@
 import type { ResearchCalendarEvent } from '../types/research-calendar';
 import { isResearchCalendarDate } from './calendar-input';
+import { researchListingKey } from './listing-identity';
 
 export const RESEARCH_CALENDAR_DATE_STATE_KEY = 'signal-research-calendar-dates-v1';
 
 export type ResearchCalendarDateState = Readonly<Record<string, string>>;
 
-const stateKey = (event: Pick<ResearchCalendarEvent, 'symbol' | 'type'>): string => `${event.symbol}:${event.type}`;
+const stateKey = ({ market, symbol, type }: Pick<ResearchCalendarEvent, 'market' | 'symbol' | 'type'>): string => `${researchListingKey(market, symbol)}:${type}`;
 
 export const parseResearchCalendarDateState = (value: unknown): ResearchCalendarDateState => {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
-    return Object.fromEntries(Object.entries(value).filter(([key, date]) =>
-        /^[A-Z0-9.-]{1,15}:(review|earnings|stale)$/.test(key)
-        && typeof date === 'string'
-        && isResearchCalendarDate(date)));
+    const entries = Object.entries(value).filter((entry): entry is [string, string] =>
+        typeof entry[1] === 'string' && isResearchCalendarDate(entry[1]));
+    // Earnings in the old cache came from US-only coverage. Old review dates have no market.
+    const legacyEarnings = entries.filter(([key]) => /^[A-Z0-9.-]{1,15}:earnings$/.test(key))
+        .map(([key, date]) => [`US:${key}`, date]);
+    const listingDates = entries.filter(([key]) => /^(US|MY):[A-Z0-9.-]{1,15}:(review|earnings|stale)$/.test(key));
+    return Object.fromEntries([...legacyEarnings, ...listingDates]);
 };
 
 export const snapshotResearchCalendarDates = (events: readonly ResearchCalendarEvent[]): ResearchCalendarDateState =>

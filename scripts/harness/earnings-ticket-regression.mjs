@@ -28,6 +28,8 @@ function load(file) {
 const { buildResearchCalendar, getResearchCalendar } = load('src/lib/research/calendar.ts');
 const { parseResearchCalendarInputs, parseResearchCalendarQuery } = load('src/lib/research/calendar-input.ts');
 const { parseResearchCalendarResponse } = load('src/lib/research/calendar-response.ts');
+const { buildResearchCalendarRequest } = load('src/lib/research/calendar-request.ts');
+const { createResearchRecord } = load('src/lib/research/records.ts');
 const { fetchUpcomingCatalysts } = load('src/lib/research/catalysts.ts');
 const { POST } = load('src/app/api/research/calendar/route.ts');
 const { parseEarningsCalendarTarget, earningsCalendarInput, nextEarningsEvent, earningsTimingLabel } = load('src/lib/research/earnings-ticket.ts');
@@ -192,9 +194,69 @@ try {
     assert.deepEqual(routeResult.macroEvents, []);
     assert.equal(calls.length, 7, 'The public ticket route only reads the bounded Nasdaq batch.');
     assert.deepEqual(routeResult.warnings, []);
+
+    const today = new Date();
+    const dateOffset = offset => {
+        const date = new Date(today);
+        date.setUTCDate(date.getUTCDate() + offset);
+        return date.toISOString().slice(0, 10);
+    };
+    const reviewDate = dateOffset(3);
+    const savedListing = (market, reviewAgeDays, earningsWithinDays) => {
+        const record = createResearchRecord({ market, symbol: 'AAPL', companyName: `Fixture AAPL ${market}` });
+        return {
+            ...record,
+            decisionJournal: { ...record.decisionJournal, nextReviewAt: reviewDate },
+            lastReviewedAt: dateOffset(-reviewAgeDays - 2),
+            monitoringRules: { ...record.monitoringRules, reviewAgeDays, earningsWithinDays },
+        };
+    };
+    const savedInputs = buildResearchCalendarRequest([savedListing('US', 10, 5), savedListing('MY', 15, 12)]);
+    const postCalendar = (body, queryString = 'range=30') => POST(new Request(`http://localhost/api/research/calendar?${queryString}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    }));
+    const providerHosts = [];
+    globalThis.fetch = async url => {
+        const provider = new URL(url).hostname;
+        providerHosts.push(provider);
+        if (provider === 'api.nasdaq.com') return json({ data: { rows: [row('AAPL')] } });
+        if (provider === 'www.federalreserve.gov') return new Response('');
+        if (provider === 'www.bls.gov') return new Response(`BEGIN:VEVENT\nSUMMARY:Consumer Price Index\nDTSTART:${reviewDate.replaceAll('-', '')}\nEND:VEVENT`);
+        if (provider === 'api.data.gov.my') return Response.json([{ publication_type: 'cpi', title_en: 'Malaysia CPI fixture', release_date: reviewDate }]);
+        throw new Error(`Unexpected calendar provider: ${provider}`);
+    };
+    const savedResponse = await postCalendar(savedInputs);
+    assert.equal(savedResponse.status, 200, 'The real Calendar route accepts the same saved ticker in both markets.');
+    const savedCalendar = parseResearchCalendarResponse(await savedResponse.json());
+    assert.deepEqual(savedCalendar.events.map(({ type, market, sourceDate }) => [type, market, sourceDate]), [
+        ['stale', 'MY', dateOffset(-2)], ['stale', 'US', dateOffset(-2)], ['earnings', 'US', dateOffset(0)],
+        ['review', 'MY', reviewDate], ['review', 'US', reviewDate],
+    ]);
+    assert.equal(new Set(savedCalendar.events.map(event => event.id)).size, 5, 'Same-date reviews and stale reminders have distinct event IDs.');
+    for (const event of savedCalendar.events) {
+        const target = new URL(event.targetHref, 'http://localhost');
+        assert.equal(target.searchParams.get('market'), event.market);
+        assert.equal(target.searchParams.get('ticker'), event.symbol);
+    }
+    assert.deepEqual(savedCalendar.macroEvents.filter(event => event.date === reviewDate && event.category === 'inflation')
+        .map(event => [event.market, event.trackedSymbols]), [['MY', ['AAPL']], ['US', ['AAPL']]]);
+    assert.equal(providerHosts.filter(host => host === 'api.nasdaq.com').length, 7);
+
+    providerHosts.length = 0;
+    const marketResponse = await postCalendar(savedInputs, 'range=30&market=MY&ticker=aapl');
+    assert.equal(marketResponse.status, 200);
+    const marketCalendar = parseResearchCalendarResponse(await marketResponse.json());
+    assert.deepEqual(marketCalendar.events.map(({ type, market }) => [type, market]), [['stale', 'MY'], ['review', 'MY']]);
+    assert.equal(providerHosts.includes('api.nasdaq.com'), false, 'A MY-only Calendar filter skips the Nasdaq scan even with a matching US listing in the body.');
+
+    providerHosts.length = 0;
+    const duplicateResponse = await postCalendar([...savedInputs, { ...savedInputs[0], symbol: ' aapl ' }]);
+    assert.equal(duplicateResponse.status, 400, 'Case and whitespace variants of the same listing are rejected.');
+    assert.match((await duplicateResponse.json()).error, /listings must be unique/);
+    assert.deepEqual(providerHosts, [], 'Duplicate identities are rejected before any provider reads.');
 } finally {
     globalThis.fetch = originalFetch;
     AbortSignal.timeout = originalTimeout;
 }
 
-console.log('Earnings ticket contracts passed: public unsaved read, scoped US coverage, timing, failures, earliest dates and bounded provider work.');
+console.log('Calendar contracts passed: distinct saved US/MY events, duplicate rejection, public unsaved reads, scoped US earnings, timing, failures and bounded provider work.');

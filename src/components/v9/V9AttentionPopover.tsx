@@ -3,7 +3,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { watchlistReview, type WatchlistReview } from '@/lib/research/watchlist-review';
-import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
+import type { ResearchRecord } from '@/lib/types/research';
 import type { ResearchAlert } from '@/lib/types/research-alert';
 import { V9Navigation } from './v9-navigation';
 import type { V9AlertsScanState } from './useV9AlertsScan';
@@ -49,16 +49,7 @@ export function V9AttentionPopover({
             });
     }, [records, utcDay, workspace]);
 
-    const marketBySymbol = useMemo(() => {
-        const map = new Map<string, ResearchMarket>();
-        for (const record of records ?? []) {
-            const sym = record.symbol.trim().toUpperCase();
-            if (!map.has(sym)) map.set(sym, record.market);
-        }
-        return map;
-    }, [records]);
-
-    const alertCount = alertsScan.status === 'ready' ? alertsScan.matchedSymbols.size : 0;
+    const alertCount = alertsScan.status === 'ready' ? alertsScan.matchedListings.size : 0;
     const attentionCount = dueReviews.length + alertCount;
 
     useEffect(() => {
@@ -173,7 +164,7 @@ export function V9AttentionPopover({
                         <div className={styles.attentionSubhead}>
                             <span>On-demand alerts</span>
                             {alertsScan.status === 'ready' && (
-                                <span className={styles.attentionCount}>{alertsScan.matchedSymbols.size}</span>
+                                <span className={styles.attentionCount}>{alertCount}</span>
                             )}
                         </div>
 
@@ -211,50 +202,44 @@ export function V9AttentionPopover({
                                     <p className={styles.attentionEmpty}>No active conditions or matched rules right now.</p>
                                 ) : (
                                     <ul className={styles.attentionList}>
-                                        {alertsScan.sortedAlerts.slice(0, 6).map(alert => {
-                                            const alertMarket = marketBySymbol.get(alert.symbol.trim().toUpperCase()) ?? 'US';
-                                            return (
-                                                <li key={alert.id}>
-                                                    <Link
-                                                        className={styles.attentionRowLink}
-                                                        href={v9Href('research', {
-                                                            ticker: alert.symbol,
-                                                            market: alertMarket,
-                                                            ...(alert.kind === 'structured-trigger' ? { tab: 'monitoring' } : {}),
-                                                        })}
-                                                        onClick={() => setOpen(false)}
-                                                    >
-                                                        <span className={styles.attentionRowMain}>
-                                                            <b>{alert.symbol} · {alert.title}</b>
-                                                            <small>{alert.detail}</small>
-                                                        </span>
-                                                        <span className={styles.attentionBadge} data-tone={alert.severity}>
-                                                            {severityLabel[alert.severity]}
-                                                        </span>
-                                                    </Link>
-                                                </li>
-                                            );
-                                        })}
-                                        {alertsScan.sortedAlerts.length === 0 && alertsScan.matchedTriggers.slice(0, 6).map(trigger => {
-                                            const triggerMarket = marketBySymbol.get(trigger.symbol.trim().toUpperCase()) ?? 'US';
-                                            return (
-                                                <li key={`${trigger.symbol}-${trigger.rule.id}`}>
-                                                    <Link
-                                                        className={styles.attentionRowLink}
-                                                        href={v9Href('research', { ticker: trigger.symbol, market: triggerMarket, tab: 'monitoring' })}
-                                                        onClick={() => setOpen(false)}
-                                                    >
-                                                        <span className={styles.attentionRowMain}>
-                                                            <b>{trigger.symbol} · {trigger.title}</b>
-                                                            <small>{trigger.detail}</small>
-                                                        </span>
-                                                        <span className={styles.attentionBadge} data-tone="watch">
-                                                            Matched
-                                                        </span>
-                                                    </Link>
-                                                </li>
-                                            );
-                                        })}
+                                        {alertsScan.sortedAlerts.slice(0, 6).map(alert => (
+                                            <li key={alert.id}>
+                                                <Link
+                                                    className={styles.attentionRowLink}
+                                                    href={v9Href('research', {
+                                                        ticker: alert.symbol,
+                                                        market: alert.market,
+                                                        ...(alert.kind === 'structured-trigger' ? { tab: 'monitoring' } : {}),
+                                                    })}
+                                                    onClick={() => setOpen(false)}
+                                                >
+                                                    <span className={styles.attentionRowMain}>
+                                                        <b>{alert.symbol} ({alert.market}) · {alert.title}</b>
+                                                        <small>{alert.detail}</small>
+                                                    </span>
+                                                    <span className={styles.attentionBadge} data-tone={alert.severity}>
+                                                        {severityLabel[alert.severity]}
+                                                    </span>
+                                                </Link>
+                                            </li>
+                                        ))}
+                                        {alertsScan.sortedAlerts.length === 0 && alertsScan.matchedTriggers.slice(0, 6).map(trigger => (
+                                            <li key={`${trigger.market}:${trigger.symbol}-${trigger.rule.id}`}>
+                                                <Link
+                                                    className={styles.attentionRowLink}
+                                                    href={v9Href('research', { ticker: trigger.symbol, market: trigger.market, tab: 'monitoring' })}
+                                                    onClick={() => setOpen(false)}
+                                                >
+                                                    <span className={styles.attentionRowMain}>
+                                                        <b>{trigger.symbol} ({trigger.market}) · {trigger.title}</b>
+                                                        <small>{trigger.detail}</small>
+                                                    </span>
+                                                    <span className={styles.attentionBadge} data-tone="watch">
+                                                        Matched
+                                                    </span>
+                                                </Link>
+                                            </li>
+                                        ))}
                                     </ul>
                                 )}
                             </div>

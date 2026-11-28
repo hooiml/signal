@@ -151,7 +151,7 @@ const inboxItem = {
 };
 
 const triggerEvaluation = (overrides) => ({
-    symbol: 'MSFT',
+    symbol: 'MSFT', market: 'US',
     rule: {
         id: 'qa-price-rule',
         enabled: true,
@@ -364,7 +364,7 @@ try {
                         monitoredCount: 1,
                         alerts: [{
                             id: 'MSFT-structured-qa-price-rule',
-                            symbol: 'MSFT',
+                            symbol: 'MSFT', market: 'US',
                             kind: 'structured-trigger',
                             severity: 'risk',
                             title: matched.title,

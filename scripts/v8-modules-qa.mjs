@@ -64,7 +64,7 @@ const calendar = { success: true, data: { generatedAt: new Date().toISOString(),
     { id: 'AAPL-earnings-qa', symbol: 'AAPL', market: 'US', type: 'earnings', title: 'Earnings announcement', detail: 'After market close', source: 'Nasdaq earnings calendar', sourceDate: inDays(9), displayDate: inDays(9), timezone: 'UTC', freshness: 'scheduled', urgency: 'upcoming', targetHref: '/research?ticker=AAPL&tab=events' },
 ] } };
 const alerts = { success: true, data: { generatedAt: new Date().toISOString(), monitoredCount: 3, triggerCoverage: [], warnings: [], alerts: [
-    { id: 'MSFT-qa-risk', symbol: 'MSFT', kind: 'market-condition', severity: 'risk', title: 'QA price below 200-day average', detail: 'Fixture alert for browser QA.', structuredTrigger: null },
+    { id: 'MSFT-qa-risk', symbol: 'MSFT', market: 'US', kind: 'market-condition', severity: 'risk', title: 'QA price below 200-day average', detail: 'Fixture alert for browser QA.', structuredTrigger: null },
 ] } };
 const signal = structuredClone(seedSignal);
 // One volatility driver gives deterministic exposure levels: Technology higher, Consumer Staples lower.

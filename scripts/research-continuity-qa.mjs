@@ -1,3 +1,4 @@
+import { researchReadFixture } from './harness/research-read-fixture.mjs';
 import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -16,6 +17,8 @@ const screenshotDir = arg('--screenshot-dir', path.join('.tmp', 'research-contin
 const token = '0123456789abcdef0123456789abcdef';
 const passphrase = 'correct horse battery staple';
 const failures = [];
+const sampleRecord = (await (await researchReadFixture().route.GET()).json()).data[0];
+const records = ['MSFT', 'NVDA'].map(symbol => ({ ...structuredClone(sampleRecord), symbol, companyName: `${symbol} fixture` }));
 
 await mkdir(screenshotDir, { recursive: true });
 const browser = await chromium.launch({ headless: true });
@@ -61,6 +64,7 @@ try {
         page.on('requestfailed', (request) => {
             if (!(request.failure()?.errorText ?? '').includes('ERR_ABORTED')) issues.push(`request: ${request.url()}`);
         });
+        await page.route('**/api/owner/session', route => route.fulfill({ json: { success: true, data: { configured: true, unlocked: true } } }));
         await page.route('**/api/research/watchlist**', async (route) => {
             if (route.request().method() !== 'GET') {
                 researchMutations.push(`${route.request().method()} ${route.request().url()}`);
@@ -69,7 +73,7 @@ try {
             return route.fulfill({
                 status: 200,
                 contentType: 'application/json',
-                body: JSON.stringify({ success: true, data: [], archivedSymbols: [] }),
+                body: JSON.stringify({ success: true, data: records, archivedSymbols: [] }),
             });
         });
         await page.route('**/api/research/sync', async (route) => {
@@ -96,10 +100,10 @@ try {
                     generatedAt: `2026-07-26T09:0${alertVersion}:00.000Z`,
                     monitoredCount: 2,
                     alerts: [
-                        { symbol: 'MSFT', title: `Risk alert v${alertVersion}`, detail: 'Review the updated risk condition.', severity: 'risk' },
-                        { symbol: 'NVDA', title: 'Near buy zone', detail: 'Price is near the saved range.', severity: 'opportunity' },
+                        { id: 'US:MSFT-risk', symbol: 'MSFT', market: 'US', kind: 'market-condition', structuredTrigger: null, title: `Risk alert v${alertVersion}`, detail: 'Review the updated risk condition.', severity: 'risk' },
+                        { id: 'US:NVDA-watch', symbol: 'NVDA', market: 'US', kind: 'market-condition', structuredTrigger: null, title: 'Near buy zone', detail: 'Price is near the saved range.', severity: 'opportunity' },
                     ],
-                    warnings: [],
+                    triggerCoverage: [], warnings: [],
                 },
             }),
         }));
@@ -164,7 +168,7 @@ try {
             await page.getByRole('region', { name: 'This-device native notifications' }).waitFor({ state: 'visible', timeout });
             await page.waitForFunction(() => window.__signalNotifications.length === 2, undefined, { timeout });
             const delivered = await page.evaluate(() => window.__signalNotifications);
-            if (!delivered[1]?.body.includes('MSFT: Risk alert v2') || delivered[1]?.body.includes('NVDA')) throw new Error(`${width}: risk-only native delivery used the wrong alerts`);
+            if (!delivered[1]?.body.includes('MSFT (US): Risk alert v2') || delivered[1]?.body.includes('NVDA')) throw new Error(`${width}: risk-only native delivery used the wrong alerts`);
             await page.getByRole('button', { name: 'Disable on this device' }).click();
             alertVersion = 3;
             await page.reload({ waitUntil: 'domcontentloaded', timeout });

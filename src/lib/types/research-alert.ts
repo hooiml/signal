@@ -25,6 +25,7 @@ export type AlertMarketState = {
 export type ResearchAlert = {
     readonly id: string;
     readonly symbol: string;
+    readonly market: ResearchMarket;
     readonly kind: 'market-condition' | 'structured-trigger';
     readonly severity: AlertSeverity;
     readonly title: string;

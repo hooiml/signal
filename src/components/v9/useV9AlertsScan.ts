@@ -2,12 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseResearchAlertsResponse } from '@/components/v6/ResearchAlertsV6';
-import { buildResearchAlertRequest } from '@/lib/research/alert-request';
+import { buildResearchAlertRequest, monitoredAlertRecords } from '@/lib/research/alert-request';
+import { researchListingKey } from '@/lib/research/listing-identity';
 import type { ResearchStructuredTriggerEvaluation } from '@/lib/research/structured-triggers';
 import type { ResearchRecord } from '@/lib/types/research';
 import type { ResearchAlert, ResearchAlertsResponse } from '@/lib/types/research-alert';
-
-const MAXIMUM_MONITORED = 50;
 
 export type V9AlertsScanStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -16,7 +15,7 @@ export type V9AlertsScanState = {
     readonly data: ResearchAlertsResponse | null;
     readonly error: string;
     readonly monitoredCount: number;
-    readonly matchedSymbols: ReadonlySet<string>;
+    readonly matchedListings: ReadonlySet<string>;
     readonly sortedAlerts: readonly ResearchAlert[];
     readonly matchedTriggers: readonly ResearchStructuredTriggerEvaluation[];
     readonly scan: () => void;
@@ -38,7 +37,7 @@ export function useV9AlertsScan(records: readonly ResearchRecord[] | null): V9Al
     } | null>(null);
 
     const monitored = useMemo(
-        () => [...new Map((records ?? []).map(record => [record.symbol.trim().toUpperCase(), record])).values()].slice(0, MAXIMUM_MONITORED),
+        () => monitoredAlertRecords(records ?? []),
         [records],
     );
 
@@ -49,17 +48,7 @@ export function useV9AlertsScan(records: readonly ResearchRecord[] | null): V9Al
 
     const requestBody = useMemo(() => {
         if (!monitored.length) return '';
-        return JSON.stringify(
-            buildResearchAlertRequest(
-                monitored.map(record => ({
-                    symbol: record.symbol,
-                    market: record.market,
-                    targetBuyZone: record.targetBuyZone,
-                    lastReviewedAt: null,
-                })),
-                monitored,
-            ),
-        );
+        return JSON.stringify(buildResearchAlertRequest(monitored, monitored));
     }, [monitored]);
 
     useEffect(() => () => controllerRef.current?.abort(), []);
@@ -113,19 +102,17 @@ export function useV9AlertsScan(records: readonly ResearchRecord[] | null): V9Al
         [data],
     );
 
-    const matchedSymbols = useMemo(() => {
-        const set = new Set<string>();
-        for (const alert of sortedAlerts) set.add(alert.symbol.trim().toUpperCase());
-        for (const trigger of matchedTriggers) set.add(trigger.symbol.trim().toUpperCase());
-        return set;
-    }, [matchedTriggers, sortedAlerts]);
+    const matchedListings = useMemo(
+        () => new Set([...sortedAlerts, ...matchedTriggers].map(({ market, symbol }) => researchListingKey(market, symbol))),
+        [matchedTriggers, sortedAlerts],
+    );
 
     return {
         status,
         data,
         error: status === 'error' ? active?.error ?? 'Alerts are unavailable.' : '',
         monitoredCount: monitored.length,
-        matchedSymbols,
+        matchedListings,
         sortedAlerts,
         matchedTriggers,
         scan,

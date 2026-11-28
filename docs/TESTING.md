@@ -9,6 +9,13 @@ applicable harness, browser suites, and screenshot comparisons locally. See
 
 ## Standard Verification
 
+For cross-market Calendar and Alerts, run `node scripts/v9-pr3-qa.mjs` and
+`node scripts/v9-pr4-discover-qa.mjs` against the local production server at
+`SIGNAL_QA_URL`. The dual-listing fixture checks both Calendar request entries,
+event destinations, distinct monitoring rules, the MY-only Watchlist result and
+links from the attention popover and Discover. The full harness exercises both
+POST routes with isolated providers, including duplicate rejection.
+
 For V9 workspace changes, run `node scripts/v9-workspace-qa.mjs` against the local
 production server at `SIGNAL_QA_URL` (default `http://127.0.0.1:3000`). It exercises
 workspace navigation with fixture data and captures Market Pulse and its intraday timeline at 1280, 768

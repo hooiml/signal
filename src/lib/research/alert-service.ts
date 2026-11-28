@@ -6,6 +6,7 @@ import type {
 } from '../types/research-alert';
 import { evaluateResearchAlerts } from './alerts';
 import { fetchUpcomingCatalysts } from './catalysts';
+import { researchListingKey } from './listing-identity';
 import { getResearchSnapshot } from './snapshot';
 import {
     evaluateResearchStructuredTriggers,
@@ -23,11 +24,11 @@ const hasEnabledEarningsRule = (input: AlertTickerInput) =>
         rule.enabled && rule.metric === 'earnings-within-days');
 
 const structuredAlerts = (
-    symbol: string,
     evaluations: ResearchAlertEvaluation['structuredTriggers'],
 ): readonly ResearchAlert[] => evaluations.flatMap((evaluation) => evaluation.status === 'matched' ? [{
-    id: `${symbol}-structured-${evaluation.rule.id}`,
-    symbol,
+    id: `${researchListingKey(evaluation.market, evaluation.symbol)}-structured-${evaluation.rule.id}`,
+    symbol: evaluation.symbol,
+    market: evaluation.market,
     kind: 'structured-trigger' as const,
     severity: evaluation.severity,
     title: evaluation.title,
@@ -62,8 +63,8 @@ const evaluateTicker = async (
             input,
             state,
             alerts: [
-                ...(state ? evaluateResearchAlerts(input.symbol, input.targetBuyZone, state) : []),
-                ...structuredAlerts(input.symbol, structuredTriggers),
+                ...(state ? evaluateResearchAlerts(input, input.targetBuyZone, state) : []),
+                ...structuredAlerts(structuredTriggers),
             ],
             structuredTriggers,
             catalyst,
@@ -82,7 +83,7 @@ const evaluateTicker = async (
         return {
             input,
             state: null,
-            alerts: structuredAlerts(input.symbol, structuredTriggers),
+            alerts: structuredAlerts(structuredTriggers),
             structuredTriggers,
             catalyst,
             failed: true,
@@ -111,7 +112,7 @@ export const evaluateResearchAlertBatch = async (
         results.push(...await Promise.all(inputs.slice(index, index + 6).map((input) =>
             evaluateTicker(
                 input,
-                catalysts.get(input.symbol) ?? null,
+                input.market === 'US' ? catalysts.get(input.symbol) ?? null : null,
                 input.market === 'US' ? usEarningsStatus : 'unavailable',
                 now,
             ))));

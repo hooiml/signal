@@ -170,11 +170,29 @@ for (const symbol of [seededSymbol, 'BOOK']) {
 }
 
 // Exercise the real request parsers and evaluators; replace only provider/SQL enrichment boundaries.
-moduleOverrides.set(path.resolve('src/lib/research/snapshot.ts'), { getResearchSnapshot: async () => structuredClone(researchSnapshotFixture.data) });
-moduleOverrides.set(path.resolve('src/lib/research/catalysts.ts'), { fetchUpcomingCatalysts: async () => new Map() });
+const snapshotRequests = [];
+const catalystRequests = [];
+const dualEarningsDate = new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10);
+moduleOverrides.set(path.resolve('src/lib/research/snapshot.ts'), { getResearchSnapshot: async (symbol, market) => {
+    snapshotRequests.push([market, symbol]);
+    const snapshot = structuredClone(researchSnapshotFixture.data);
+    if (symbol !== 'DUAL') return snapshot;
+    const observedAt = new Date().toISOString();
+    return {
+        ...snapshot, symbol, market, fetchedAt: observedAt,
+        quote: { ...snapshot.quote, observedAt, currency: market === 'MY' ? 'MYR' : 'USD', price: market === 'MY' ? 12 : 24 },
+    };
+} });
+moduleOverrides.set(path.resolve('src/lib/research/catalysts.ts'), { fetchUpcomingCatalysts: async (symbols) => {
+    catalystRequests.push(symbols);
+    return symbols.includes('DUAL') ? new Map([['DUAL', {
+        date: dualEarningsDate, type: 'earnings', timing: 'after-hours', fiscalQuarterEnding: null,
+        epsForecast: null, source: 'Nasdaq earnings calendar',
+    }]]) : new Map();
+} });
 moduleOverrides.set(path.resolve('src/lib/research/macro-calendar.ts'), { fetchResearchMacroCalendar: async () => ({ events: [], warnings: [] }) });
 moduleOverrides.set(path.resolve('src/lib/research/research-attention.ts'), { enrichResearchInboxWithAttention: async inbox => inbox });
-const { buildResearchAlertRequest } = load('src/lib/research/alert-request.ts');
+const { buildResearchAlertRequest, monitoredAlertRecords } = load('src/lib/research/alert-request.ts');
 const { buildResearchCalendarRequest } = load('src/lib/research/calendar-request.ts');
 const monitoredBookmark = {
     ...oldBookmark,
@@ -199,12 +217,93 @@ try {
     assert.equal(alerts.status, 200, 'The Alerts route accepts null as a missing authored-review date.');
     const coverage = (await alerts.json()).data.triggerCoverage;
     assert.equal(coverage[0].status, 'unavailable');
+    assert.equal(coverage[0].market, 'US');
     assert.equal(coverage[0].observed, null);
     assert.match(coverage[0].detail, /no personal review is recorded/);
+
+    const dualRecord = (market, threshold, lastReviewedAt) => {
+        const saved = createResearchRecord({ symbol: 'DUAL', market, companyName: `Fixture ${market}` });
+        return {
+            ...saved, lastReviewedAt,
+            monitoringRules: { ...saved.monitoringRules, reviewAgeDays: null, earningsWithinDays: market === 'US' ? 21 : null,
+                structuredTriggers: { version: 1, migrationState: 'current', rules: [
+                    { id: 'price', enabled: true, purpose: 'opportunity-review', metric: 'price', operator: 'above', threshold },
+                    { id: 'earnings', enabled: true, purpose: 'scheduled-evidence-review', metric: 'earnings-within-days', operator: 'within', threshold: 7 },
+                ] },
+            },
+        };
+    };
+    const us = dualRecord('US', 30, '2026-07-01');
+    const my = dualRecord('MY', 10, '2026-07-02');
+    const { parseWatchlist } = load('src/components/v8/research-v8-connected-data.ts');
+    const savedListings = parseWatchlist({ success: true, data: [us, my] });
+    assert.deepEqual(savedListings.map(({ market, symbol }) => [market, symbol]), [['US', 'DUAL'], ['MY', 'DUAL']]);
+    assert.throws(() => parseWatchlist({ success: true, data: [us, my, us] }), /Duplicate saved securities/);
+    const monitored = monitoredAlertRecords([...savedListings, { ...us, symbol: ' dual ' }]);
+    const dualBody = buildResearchAlertRequest(monitored, [my, us]);
+    assert.deepEqual(
+        dualBody.map(input => [input.market, input.symbol, input.lastReviewedAt, input.monitoringRules.structuredTriggers.rules[0].threshold]),
+        [['US', 'DUAL', '2026-07-01', 30], ['MY', 'DUAL', '2026-07-02', 10]],
+    );
+    snapshotRequests.length = 0;
+    catalystRequests.length = 0;
+    const duplicate = await alertsRoute.POST(post('alerts', [dualBody[0], { ...dualBody[0], symbol: ' dual ' }]));
+    assert.equal(duplicate.status, 400);
+    assert.match((await duplicate.json()).error, /listings must be unique/i);
+    assert.equal(snapshotRequests.length, 0, 'Reject a duplicate before reaching the snapshot provider.');
+    assert.equal(catalystRequests.length, 0, 'Reject a duplicate before reaching the calendar provider.');
+
+    const dualAlerts = await alertsRoute.POST(post('alerts', [{ ...dualBody[0], symbol: ' dual ' }, dualBody[1]]));
+    assert.equal(dualAlerts.status, 200);
+    const dualData = (await dualAlerts.json()).data;
+    assert.equal(dualData.monitoredCount, 2);
+    assert.deepEqual(snapshotRequests.splice(0), [['US', 'DUAL'], ['MY', 'DUAL']]);
+    assert.deepEqual(catalystRequests.splice(0), [['DUAL']], 'Only the listed US security can use the earnings feed.');
+    assert.deepEqual(
+        dualData.triggerCoverage.map(entry => [entry.market, entry.symbol, entry.rule.id, entry.status]),
+        [
+            ['US', 'DUAL', 'price', 'not-matched'], ['US', 'DUAL', 'earnings', 'not-matched'],
+            ['MY', 'DUAL', 'price', 'matched'], ['MY', 'DUAL', 'earnings', 'unavailable'],
+        ],
+    );
+    assert.equal(dualData.triggerCoverage[0].observed.value, 24);
+    assert.equal(dualData.triggerCoverage[1].observed.observedAt, dualEarningsDate);
+    assert.equal(dualData.triggerCoverage[2].observed.value, 12);
+    assert.equal(dualData.triggerCoverage[3].observed, null);
+    assert.deepEqual(dualData.alerts.map(entry => [entry.market, entry.symbol, entry.kind]), [['MY', 'DUAL', 'structured-trigger']]);
+    assert.deepEqual(dualData.alerts[0].structuredTrigger, dualData.triggerCoverage[2]);
+    const { parseResearchAlertsResponse } = load('src/components/v6/ResearchAlertsV6.tsx');
+    const parseAlerts = data => parseResearchAlertsResponse({ success: true, data });
+    assert.deepEqual(parseAlerts(dualData), dualData);
+    const [matched] = dualData.alerts;
+    assert.throws(() => parseAlerts({ ...dualData, alerts: [{ ...matched, market: undefined }] }), /Invalid research alerts data/);
+    assert.throws(() => parseAlerts({ ...dualData, alerts: [{ ...matched, market: 'US' }] }), /Invalid research alerts data/);
+    assert.throws(() => parseAlerts({ ...dualData, triggerCoverage: [{ ...dualData.triggerCoverage[0], market: 'unknown' }] }), /Invalid research alerts data/);
+
+    const bothMatch = dualBody.map(input => ({
+        ...input, targetBuyZone: '10 - 30',
+        monitoringRules: { ...input.monitoringRules, structuredTriggers: {
+            ...input.monitoringRules.structuredTriggers, rules: [{ ...input.monitoringRules.structuredTriggers.rules[0], threshold: 10 }],
+        } },
+    }));
+    const bothResponse = await alertsRoute.POST(post('alerts', bothMatch));
+    assert.equal(bothResponse.status, 200);
+    const matching = (await bothResponse.json()).data.alerts;
+    assert.deepEqual(matching.map(entry => `${entry.market}:${entry.kind}`).sort(), [
+        'MY:market-condition', 'MY:structured-trigger', 'US:market-condition', 'US:structured-trigger',
+    ]);
+    assert.equal(new Set(matching.map(entry => entry.id)).size, 4, 'Same-symbol alerts have different IDs when the market differs.');
+
     assert.equal((await inboxRoute.POST(post('inbox', alertBody))).status, 401, 'Nullable dates do not bypass the real Inbox owner boundary.');
     const inbox = await inboxRoute.POST(post('inbox', alertBody, true));
     assert.equal(inbox.status, 200, 'The authenticated Inbox route accepts the nullable authored date.');
     assert.equal((await inbox.json()).data.items.some(entry => entry.kind === 'stale'), false, 'No legacy or structured stale-review item is fabricated for the bookmark.');
+    const dualInbox = await inboxRoute.POST(post('inbox', [{ ...dualBody[0], targetBuyZone: '20 - 30' }, dualBody[1]], true));
+    assert.equal(dualInbox.status, 200);
+    const inboxEntries = (await dualInbox.json()).data.items;
+    assert.deepEqual(inboxEntries.map(entry => entry.title), ['Inside buy zone', 'Opportunity review', 'Earnings approaching']);
+    assert.match(inboxEntries[0].detail, /Price 24\.00/);
+    assert.equal(inboxEntries[2].eventDate, dualEarningsDate);
     for (const invalidDate of ['2026-02-30', undefined]) {
         const invalid = [{ ...alertBody[0], lastReviewedAt: invalidDate }];
         assert.equal((await alertsRoute.POST(post('alerts', invalid))).status, 400);
@@ -230,4 +329,4 @@ assert.match(panel('Financials', payload.data), /Components reported 2026-03-31 
 assert.match(panel('Financials', legacy.data), /Reporting date unavailable/);
 assert.match(panel('Valuation', payload.data), /not historical ratios at the financial year end/);
 assert.match(panel('Valuation', my), /Share reporting date unavailable/);
-console.log('Research provenance regression passed: exact balance dates, aligned annual values, unknown legacy provenance, quote units/timestamps, authored-review projections and nullable route boundaries.');
+console.log('Research provenance regression passed: balance periods, quote provenance, authored reviews, nullable route boundaries, and cross-market Alerts and Inbox evaluation.');

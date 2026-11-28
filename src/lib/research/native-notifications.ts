@@ -41,7 +41,7 @@ export const researchNativeNotificationDigest = (
     mode: ResearchNativeNotificationMode = 'all',
 ): Promise<string> => {
     const source = [...eligibleAlerts(alerts, mode)]
-        .map((alert) => `${alert.symbol}:${alert.severity}:${alert.title}:${alert.detail}`)
+        .map((alert) => `${alert.market}:${alert.symbol}:${alert.severity}:${alert.title}:${alert.detail}`)
         .sort()
         .join('|');
     return globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(source))
@@ -54,7 +54,7 @@ export const buildResearchNativeNotification = (
 ): { readonly title: string; readonly body: string; readonly tag: string; readonly itemCount: number } | null => {
     const eligible = eligibleAlerts(alerts, mode);
     if (eligible.length === 0) return null;
-    const visible = eligible.slice(0, 3).map((alert) => `${alert.symbol}: ${compact(alert.title, 80)}`);
+    const visible = eligible.slice(0, 3).map((alert) => `${alert.symbol} (${alert.market}): ${compact(alert.title, 80)}`);
     const omitted = eligible.length - visible.length;
     return {
         title: eligible.length === 1 ? '1 Signal research alert' : `${eligible.length} Signal research alerts`,

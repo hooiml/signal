@@ -40,8 +40,10 @@ Structured-trigger purpose controls only fixed alert wording, severity, and Queu
 
 ## Boundary And Coverage
 
-`POST /api/research/alerts` accepts between 1 and 50 normalized ticker inputs and scans Yahoo data in batches of six. Invalid symbols and markets return `400`. Provider failures degrade per ticker and appear as a coverage warning.
+`POST /api/research/alerts` accepts 1–50 listings and scans Yahoo data in batches of six. Each listing is identified by its market and its trimmed, uppercase symbol. Invalid symbols, unsupported markets and duplicate listings return `400`. US and MY can share a symbol and have different monitoring rules. Every alert and structured-trigger evaluation includes its market and symbol. Watchlist filtering and Research links use that pair. Provider failures degrade per listing and appear as a coverage warning.
 
 Buy-zone text must contain exactly two positive numbers. Currency symbols, commas, and reversed bounds are accepted. Other prose is treated as an unset zone rather than guessed.
+
+The owner Watchlist's normal Save action currently rejects a second record with the same symbol, even in another market. Owner edit and delete also look up records by symbol. Calendar and Alerts can read two existing listings independently.
 
 Structured price and technical observations require a current validated snapshot. Missing or stale inputs are unavailable rather than non-matches. Current valuation and fundamental rules require a validated reporting period and provenance; historical valuation rules remain unsupported.
