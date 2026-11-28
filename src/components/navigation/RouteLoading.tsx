@@ -1,4 +1,4 @@
-export default function Loading() {
+export default function RouteLoading() {
     return (
         <main className="min-h-screen bg-[#f4f7fb] text-slate-950 p-4 md:p-8 font-sans">
             <header className="flex flex-wrap gap-4 justify-between items-center mb-8 max-w-7xl mx-auto w-full border-b border-slate-200 pb-6">

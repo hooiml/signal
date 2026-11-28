@@ -420,11 +420,15 @@ async function persistSignalSnapshot(
                 origin = 'observed',
                 coverage_note = NULL,
                 updated_at = NOW()
-            RETURNING snapshot_date::text AS snapshot_date
+            RETURNING snapshot_date::text AS snapshot_date, updated_at::text AS updated_at
         `, onTiming);
         const today = writtenRows[0]?.snapshot_date;
         if (typeof today !== 'string') throw new Error('Signal snapshot write acknowledgement unavailable');
-        persistence = { status: 'persisted', snapshot_date: today };
+        const updatedAt = Date.parse(writtenRows[0].updated_at);
+        persistence = {
+            status: 'persisted', snapshot_date: today,
+            ...(Number.isFinite(updatedAt) ? { updated_at: new Date(updatedAt).toISOString() } : {}),
+        };
 
         const previous = previousRows[0];
         const delta = previous ? signal.composite_score - Number(previous.composite_score) : null;

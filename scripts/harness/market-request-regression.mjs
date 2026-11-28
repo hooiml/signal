@@ -296,9 +296,11 @@ const assertRefreshPersistence = async () => {
         assert.equal(noAcknowledgement.status, 503, 'An INSERT without a returned row is not confirmed persistence.');
         assert.equal(noAcknowledgement.body.failed, 4);
 
-        const nextDay = marketRequestFixture({ snapshotWriteRows: [{ snapshot_date: '2026-09-13' }] });
+        const nextDay = marketRequestFixture({ snapshotWriteRows: [{ snapshot_date: '2026-09-13', updated_at: '2026-09-13 08:05:30+08' }] });
         const datedReading = await request(nextDay);
-        assert.deepEqual(datedReading.body.data.metadata.snapshot_persistence, { status: 'persisted', snapshot_date: '2026-09-13' });
+        assert.deepEqual(datedReading.body.data.metadata.snapshot_persistence, {
+            status: 'persisted', snapshot_date: '2026-09-13', updated_at: '2026-09-13T00:05:30.000Z',
+        });
         assert.equal(datedReading.body.data.metadata.score_delta.snapshot_date, '2026-09-13', 'The confirmed database day takes precedence over the clock before async reads.');
 
         const publicRetry = marketRequestFixture();

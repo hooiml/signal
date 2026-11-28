@@ -54,7 +54,7 @@ export interface ConfidenceMetrics {
 }
 
 export type SignalSnapshotPersistence =
-    | { status: 'persisted'; snapshot_date: string }
+    | { status: 'persisted'; snapshot_date: string; updated_at?: string }
     | { status: 'unavailable'; snapshot_date: null };
 
 export type RecalculatedUsScoreV220 = {

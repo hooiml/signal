@@ -358,7 +358,11 @@ Then open `http://localhost:3000` and check:
 - social toggle still affects the signal request
 - desktop and mobile layouts do not overlap text or controls
 
-Routes stream through `src/app/loading.tsx`, so after `domcontentloaded` the server markup can
+V9 Market Pulse waits for a bounded read of the latest observed score and history for the
+requested configuration before sending the dashboard. Verify the saved score, chart and
+archive timestamp with a fresh browser and a delayed live response. A failed refresh
+must keep the matching saved record visible. Other workspace routes retain their shared
+loading screen through route-level `loading.tsx` files. After `domcontentloaded`, server markup can
 be visible before React hydrates it, and a hidden streamed copy can briefly sit
 beside it. Before typing, filling, pressing shortcuts or counting elements, wait
 for the target to hydrate (see `waitForHydration` in
