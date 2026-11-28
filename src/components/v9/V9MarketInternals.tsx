@@ -3,8 +3,42 @@
 import { useState } from 'react';
 import type { InternalPoint, MarketInternalItem, MarketInternalsPayload } from '@/app/api/signals/internals/route';
 import { fullDate } from '@/components/v8/MarketV8ConnectedData';
+import { MetricGlossary, type GlossaryEntry } from '@/components/v8/MetricGlossary';
 import { smoothSplinePath } from './V9Primitives';
 import styles from './v9-workspace.module.css';
+
+const INTERNAL_GLOSSARY: Readonly<Record<string, GlossaryEntry>> = {
+    credit: {
+        id: 'internal-credit',
+        label: 'Credit Stress (HYG / LQD)',
+        definition: 'High-yield corporate bonds relative to investment-grade bonds vs. their 50-day average. Context only (not scored): falling ratios reflect tighter credit appetite.',
+    },
+    breadth: {
+        id: 'internal-breadth',
+        label: 'Equal-Weight Breadth (RSP / SPY)',
+        definition: 'Equal-weight S&P 500 relative to cap-weighted S&P 500 vs. its 50-day average. Context only (not scored): shows whether participation extends beyond mega-caps.',
+    },
+    safe_haven: {
+        id: 'internal-safe-haven',
+        label: 'Safe-Haven Demand (SPY vs. TLT)',
+        definition: '20-day return difference between US equities (SPY) and long Treasuries (TLT). Context only (not scored): negative spreads mark defensive bond preference.',
+    },
+    klci_trend: {
+        id: 'internal-klci-trend',
+        label: 'FBM KLCI Longer Trend',
+        definition: 'FBM KLCI index close relative to its 125-day moving average. Context only (not scored): frames broader Malaysian equity trend beyond short-term swings.',
+    },
+    myr_fx: {
+        id: 'internal-myr-fx',
+        label: 'Ringgit Stability (USD/MYR)',
+        definition: 'USD/MYR spot exchange rate compared with its 50-day average. Context only (not scored): highlights external currency pressure alongside local market conditions.',
+    },
+    global_credit: {
+        id: 'internal-global-credit',
+        label: 'US Credit Check (HYG / LQD)',
+        definition: 'High-yield versus investment-grade US credit ratio relative to its 50-day average. Context only (not scored): reflects global risk appetite affecting regional flows.',
+    },
+};
 
 export type CheckTone = 'up' | 'neutral' | 'down';
 
@@ -172,7 +206,11 @@ export function V9MarketInternalsGrid({
                         <article key={item.id} className={styles.v9InternalCard}>
                             <div className={styles.v9InternalTop}>
                                 <div>
-                                    <h4>{item.name}</h4>
+                                    <h4>
+                                        {INTERNAL_GLOSSARY[item.id]
+                                            ? <MetricGlossary entry={INTERNAL_GLOSSARY[item.id]}>{item.name}</MetricGlossary>
+                                            : item.name}
+                                    </h4>
                                     <p>{item.subtitle}</p>
                                 </div>
                                 <span className={styles.toneBadge} data-tone={check.tone}>{check.label}</span>

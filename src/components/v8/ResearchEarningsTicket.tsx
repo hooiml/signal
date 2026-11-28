@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
+import { V9Navigation } from '@/components/v9/v9-navigation';
 import type { ResearchMarket } from '@/lib/types/research';
 import type { ResearchCalendarEvent } from '@/lib/types/research-calendar';
 import { parseResearchCalendarResponse } from '@/lib/research/calendar-response';
@@ -9,6 +10,7 @@ import styles from './research-earnings-ticket.module.css';
 import { researchPanelCoverage } from '@/lib/research/reading-display';
 
 export function ResearchEarningsTicket({ symbol, market }: { symbol: string; market: ResearchMarket }) {
+    const v9 = useContext(V9Navigation);
     const [attempt, setAttempt] = useState(0);
     const key = `${market}:${symbol}:${attempt}`;
     const [result, setResult] = useState<{ key: string; event: ResearchCalendarEvent | null; failed: boolean } | null>(null);
@@ -36,7 +38,9 @@ export function ResearchEarningsTicket({ symbol, market }: { symbol: string; mar
     if (current.failed) return <p className={styles.status} data-testid="earnings-ticket">Earnings · Could not load dates. <button type="button" onClick={() => setAttempt(value => value + 1)}>Retry earnings</button></p>;
     if (!event) return <p className={styles.status} data-testid="earnings-ticket">Earnings · No date supplied in the next 30 days</p>;
     const label = new Intl.DateTimeFormat('en', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${event.displayDate}T00:00:00Z`));
-    const href = `/research-v8?${new URLSearchParams({ ticker: symbol, market, discover: 'calendar', calendarDate: event.displayDate })}#discover`;
+    const href = v9
+        ? v9('discover', { discover: 'calendar', ticker: symbol, market, calendarDate: event.displayDate })
+        : `/research-v8?${new URLSearchParams({ ticker: symbol, market, discover: 'calendar', calendarDate: event.displayDate })}#discover`;
     return <a className={styles.ticket} data-testid="earnings-ticket" href={href} target="_blank" rel="noopener noreferrer" aria-label={`${symbol} earnings · ${label} · ${earningsTimingLabel(event.earningsTiming)} · date unconfirmed. Open Calendar in a new tab.`}>
         <span>Earnings · <time dateTime={event.displayDate}>{label}</time> · {earningsTimingLabel(event.earningsTiming)}</span>
         <small>Date unconfirmed · Calendar (new tab) ↗</small>
