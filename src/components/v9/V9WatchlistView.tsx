@@ -4,14 +4,30 @@ import { useContext, useState } from 'react';
 import { ResearchWatchlistV8 } from '@/components/v8/ResearchHomeV8';
 import type { WatchlistSort } from '@/lib/research/watchlist-review';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
+import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
 import { V9Navigation } from './v9-navigation';
+import type { V9QuoteBatchStatus } from './useV9QuoteBatch';
 import styles from './v9-workspace.module.css';
 
-export function V9WatchlistView({ records, owner, loading, error, onReload, onOpenStock, isUnsaved }: {
+export function V9WatchlistView({
+    records,
+    owner,
+    loading,
+    error,
+    quotes,
+    quoteStatus,
+    quoteError,
+    onReload,
+    onOpenStock,
+    isUnsaved,
+}: {
     readonly records: readonly ResearchRecord[] | null;
     readonly owner: boolean;
     readonly loading: boolean;
     readonly error?: string;
+    readonly quotes: ReadonlyMap<string, ResearchSnapshot['quote']>;
+    readonly quoteStatus: V9QuoteBatchStatus;
+    readonly quoteError?: string;
     readonly onReload: () => void;
     readonly onOpenStock: (symbol: string, market: ResearchMarket) => void;
     readonly isUnsaved: (record: ResearchRecord) => boolean;
@@ -47,6 +63,9 @@ export function V9WatchlistView({ records, owner, loading, error, onReload, onOp
             onSort={setSort}
             view={view}
             onView={setView}
+            quotes={quotes}
+            quoteStatus={quoteStatus}
+            quoteError={quoteError}
             actionClassName={styles.ghostBtn}
             reviewHref={(ticker, market) => href('research', { ticker, market, tab: 'review' })}
             onOpenDiscover={() => {

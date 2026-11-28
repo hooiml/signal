@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createResearchRecord } from '../../src/lib/research/records';
-import { reviewWeekEnd, sortWatchlist, watchlistReview } from '../../src/lib/research/watchlist-review';
+import { reviewWeekEnd, sortWatchlist, watchlistHighProximity, watchlistReview, type WatchlistQuoteMetric } from '../../src/lib/research/watchlist-review';
 
 const today = '2026-10-29';
 const bookmark = createResearchRecord({ symbol: 'AAPL', market: 'US', companyName: 'Apple', saveOnly: true });
@@ -40,4 +40,42 @@ assert.deepEqual(keys(sortWatchlist([...rows].reverse(), 'review', today)), keys
 assert.deepEqual(keys(sortWatchlist(rows, 'symbol', today)), ['US:INVALID', 'US:LATER', 'US:OLD', 'MY:TIE', 'US:TIE', 'US:ZZZ']);
 assert.equal(JSON.stringify(rows), bytes, 'Sorting never mutates saved records or their original order.');
 assert.deepEqual(sortWatchlist([], 'review', today), []);
-console.log('Watchlist review contracts passed: UTC weeks, independent deadlines, unknown dates, deterministic ties and immutable order.');
+
+const quoteRows = [
+    scheduled('AAA', null),
+    scheduled('BBB', null),
+    { ...scheduled('BBB', null), market: 'MY' as const },
+    scheduled('CCC', null),
+    scheduled('DDD', null),
+    scheduled('MISSING', null),
+    scheduled('ZERO', null),
+];
+const quoteMap = new Map<string, WatchlistQuoteMetric>([
+    ['US:AAA', { price: 95, dailyChangePercent: -1.5, fiftyTwoWeekHigh: 100 }],
+    ['US:BBB', { price: 190, dailyChangePercent: 3.2, fiftyTwoWeekHigh: 200 }],
+    ['MY:BBB', { price: 9.5, dailyChangePercent: -3.2, fiftyTwoWeekHigh: 10 }],
+    ['US:CCC', { price: 102, dailyChangePercent: 0.4, fiftyTwoWeekHigh: 100 }],
+    ['US:DDD', { price: 98, dailyChangePercent: 0.1, fiftyTwoWeekHigh: 100 }],
+    ['US:ZERO', { price: 0, dailyChangePercent: null, fiftyTwoWeekHigh: 0 }],
+]);
+assert.equal(watchlistHighProximity(quoteMap.get('US:AAA')), -5);
+assert.equal(watchlistHighProximity(quoteMap.get('US:CCC')), 2);
+assert.equal(watchlistHighProximity(quoteMap.get('US:ZERO')), null);
+assert.equal(watchlistHighProximity(undefined), null);
+assert.deepEqual(
+    keys(sortWatchlist(quoteRows, 'move', today, quoteMap)),
+    ['MY:BBB', 'US:BBB', 'US:AAA', 'US:CCC', 'US:DDD', 'US:MISSING', 'US:ZERO'],
+    'Biggest daily % move sorts by absolute magnitude descending, ties by symbol+market, missing last.',
+);
+assert.deepEqual(
+    keys(sortWatchlist(quoteRows, 'high', today, quoteMap)),
+    ['US:CCC', 'US:DDD', 'US:AAA', 'MY:BBB', 'US:BBB', 'US:MISSING', 'US:ZERO'],
+    'Closest to 52-week high sorts by signed distance descending, ties by symbol+market, invalid/missing last.',
+);
+assert.deepEqual(
+    keys(sortWatchlist(quoteRows, 'move', today)),
+    keys(sortWatchlist(quoteRows, 'symbol', today)),
+    'Missing quote map falls back to deterministic symbol+market order.',
+);
+
+console.log('Watchlist review contracts passed: UTC weeks, independent deadlines, unknown dates, quote sorts, deterministic ties and immutable order.');

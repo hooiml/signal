@@ -58,6 +58,7 @@ async function check(name, run) {
     try { await run(); report.checks.push(name); console.log(`PASS ${name}`); }
     catch (e) { report.failures.push({ name, error: e.stack }); console.error(`FAIL ${name}: ${e.message}`); }
 }
+const isMutation = r => r.method !== 'GET' && !(r.method === 'POST' && r.path === '/api/research/quotes');
 async function setup(width, theme, owner = false) {
     const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' });
     const page = await context.newPage(); page.setDefaultTimeout(12000); const requests = [];
@@ -105,7 +106,8 @@ async function setup(width, theme, owner = false) {
         } } });
         if (url.pathname.startsWith('/api/research/benchmark/')) return route.fulfill({ json: { success: true, data: researchSnapshotFixture.data.benchmark } });
         if (url.pathname.startsWith('/api/research/filings/')) return route.fulfill({ json: { success: true, data: { symbol: 'AAPL', cik: '0000320193', issuer: 'Fixture Apple', filings: [] } } });
-        if (req.method() !== 'GET') report.failures.push({ name: 'unexpected mutation', error: `${req.method()} ${url.pathname}` });
+        if (url.pathname === '/api/research/quotes' && req.method() === 'POST') return route.fulfill({ json: { success: true, data: { fetchedAt: '2026-09-12T10:00:00.000Z', items: [] } } });
+        if (isMutation({ method: req.method(), path: url.pathname })) report.failures.push({ name: 'unexpected mutation', error: `${req.method()} ${url.pathname}` });
         return route.fulfill({ json: { success: false, error: 'Not in fixture' } });
     });
     return { context, page, requests };
@@ -198,7 +200,7 @@ try {
         await recovery.getByRole('button', { name: 'Restore AAPL draft' }).click();
         await guest.page.waitForURL(url => url.searchParams.get('ticker') === 'AAPL');
         await guest.page.waitForFunction(() => document.querySelector('textarea[aria-label="Research note"]')?.value === 'AAPL fixture unsaved draft');
-        assert.ok(!guest.requests.some(r => r.method !== 'GET'));
+        assert.ok(!guest.requests.some(isMutation));
     });
     await check('guest can keep a draft after another tab saves the ticker or note', async () => {
         const url = `${base}/v9?view=research&ticker=RACE&market=US`;
@@ -243,7 +245,7 @@ try {
             await update.click();
             await firstEditor.getByText('Saved locally in this browser.', { exact: true }).waitFor();
             await second.waitForFunction(text => document.querySelector('textarea[aria-label="Research note"]')?.value === text, draftText);
-            assert.ok(!guest.requests.some(r => r.method !== 'GET'));
+            assert.ok(!guest.requests.some(isMutation));
         } finally { await second.close(); }
     });
     await check('chart loads VOO and KLCI only on demand', async () => {
@@ -284,7 +286,7 @@ try {
         await owner.page.waitForFunction(() => document.querySelectorAll('[data-testid="watchlist-row"]').length === 1);
         assert.equal(await owner.page.getByTestId('watchlist-row').count(), 1);
         assert.ok(await owner.page.getByTestId('watchlist-row').filter({ has: owner.page.getByRole('link', { name: /Start review for AAPL/ }) }).count());
-        assert.ok(!owner.requests.some(r => r.method !== 'GET'));
+        assert.ok(!owner.requests.some(isMutation));
     });
     await owner.context.close();
     const delayed = await setup(1280, 'dark', true);

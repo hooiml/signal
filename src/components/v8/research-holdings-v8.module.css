@@ -14,6 +14,8 @@
 .summary h3, .cashList h3 { margin: 0 0 8px; font-family: var(--font-display); font-size: var(--text-sm); font-weight: 600; }
 .summary p { display: flex; justify-content: space-between; gap: 12px; margin: 6px 0 0; color: var(--muted); font-size: var(--text-sm); }
 .summary b { color: var(--ink); text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.summary b.plValue[data-tone="up"] { color: var(--up); }
+.summary b.plValue[data-tone="down"] { color: var(--down); }
 .tableWrap { max-width: 100%; margin-top: 16px; overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .tableWrap:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 .tableWrap table { width: 100%; min-width: 560px; border-collapse: collapse; text-align: left; font-size: var(--text-sm); }

@@ -6,7 +6,6 @@ import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import type { MarketSignal } from '@/lib/types/signal-v2';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
-import { buildPortfolioActualSummary, reconcilePortfolioHoldings } from '@/lib/portfolio/holdings';
 import { loadPortfolioHoldingsSnapshot, PORTFOLIO_HOLDINGS_CHANGE_EVENT } from '@/lib/portfolio/holdings-client';
 import { GUEST_WORKSPACE_CLEARED_EVENT, readGuestRecords } from '@/lib/research/guest-workspace';
 import { createTodayMarketContinuation } from '@/lib/research/since-last-visit';
@@ -31,6 +30,7 @@ import { ResearchSecurityLookup } from '@/components/v8/ResearchSecurityLookup';
 import { V9DiscoverView, V9PortfolioView } from './V9PortfolioDiscoverViews';
 import { useV9MarketToday } from './useV9MarketToday';
 import { useV9GuestDrafts } from './useV9GuestDrafts';
+import { useV9QuoteBatch } from './useV9QuoteBatch';
 import base from '@/components/v8/market-v8.module.css';
 import styles from './v9-workspace.module.css';
 
@@ -174,15 +174,14 @@ export function V9Workspace() {
         };
     }, []);
 
-    const portfolio = useMemo(() => {
+    const portfolioCount = useMemo(() => {
         void holdingsTick;
-        if (!defaults) return { count: 0, summaries: [] };
+        if (!defaults) return 0;
         const loaded = loadPortfolioHoldingsSnapshot();
-        if (loaded.status !== 'ready') return { count: 0, summaries: [] };
-        const reconciled = reconcilePortfolioHoldings(loaded.snapshot, records ?? [], new Map());
-        const summaries = buildPortfolioActualSummary(loaded.snapshot, reconciled);
-        return { count: loaded.snapshot.holdings.length, summaries };
-    }, [holdingsTick, records, defaults]);
+        return loaded.status === 'ready' ? loaded.snapshot.holdings.length : 0;
+    }, [holdingsTick, defaults]);
+
+    const quoteBatch = useV9QuoteBatch(records, view === 'portfolio' || showingWatchlist);
 
     const href = useCallback<V9Href>((next, params) =>
         workspaceHref(next, { market, mode, enableSocial: social }, {
@@ -251,7 +250,7 @@ export function V9Workspace() {
     }, []);
     const navItems: readonly { id: keyof typeof navIcons; label: string; shortLabel: string; badge?: string }[] = [
         { id: 'market', label: 'Market Pulse', shortLabel: 'Market', badge: activeSlot.signal ? activeSlot.signal.composite_score.toFixed(0) : undefined },
-        { id: 'portfolio', label: 'Portfolio', shortLabel: 'Portfolio', badge: portfolio.count ? String(portfolio.count) : undefined },
+        { id: 'portfolio', label: 'Portfolio', shortLabel: 'Portfolio', badge: portfolioCount ? String(portfolioCount) : undefined },
         { id: 'discover', label: 'Discover', shortLabel: 'Discover' },
         { id: 'research', label: 'Stock Research', shortLabel: 'Research', badge: showingWatchlist ? undefined : ticker },
     ];
@@ -421,8 +420,8 @@ export function V9Workspace() {
                             records={records}
                             workspace={workspace}
                             theme={isDark ? 'dark' : 'light'}
+                            quoteBatch={quoteBatch}
                             onSavedOwner={mergeSavedOwner}
-                            summaries={portfolio.summaries}
                             onOpenStock={openStock}
                         />
                     )}
@@ -439,6 +438,9 @@ export function V9Workspace() {
                         <ResearchSecurityLookup key={market} initialMarket={market} onSelect={openListing} inferBursaTicker />
                     </div>}
                     {showingWatchlist && <V9WatchlistView records={records} owner={workspace === 'owner'}
+                        quotes={quoteBatch.quotes}
+                        quoteStatus={quoteBatch.status}
+                        quoteError={quoteBatch.error}
                         isUnsaved={item => {
                             const draft = guestDrafts.drafts[`${item.market}:${item.symbol}`];
                             return !!draft && draft.text !== draft.expectedNote;
@@ -448,6 +450,7 @@ export function V9Workspace() {
                             setRefreshingWatchlist(true);
                             setWorkspaceError('');
                             setGuestTick(v => v + 1);
+                            quoteBatch.retry();
                         }} onOpenStock={openStock} />}
                     {view === 'research' && !showingWatchlist && (
                         <V9ResearchView

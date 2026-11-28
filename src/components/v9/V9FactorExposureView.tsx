@@ -16,6 +16,8 @@ import {
     type PortfolioFactorGroup,
 } from '@/lib/research/factor-exposure';
 import { researchFactorIds, type ResearchFactorDirection, type ResearchFactorId, type ResearchMarket, type ResearchRecord } from '@/lib/types/research';
+import type { ResearchSnapshot } from '@/lib/types/research-snapshot';
+import { currencyMatchedHoldingPrices, type V9QuoteBatchStatus } from './useV9QuoteBatch';
 import styles from './v9-workspace.module.css';
 
 const directionShort = (direction: ResearchFactorDirection): string =>
@@ -24,12 +26,19 @@ const directionShort = (direction: ResearchFactorDirection): string =>
 const directionTone = (direction: ResearchFactorDirection): 'up' | 'down' | 'neutral' =>
     direction === 'benefits-when-rises' ? 'up' : direction === 'harmed-when-rises' ? 'down' : 'neutral';
 
+const formatMoney = (value: number, currency: string): string =>
+    new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value);
+
 export function V9FactorExposureView({
     records,
+    quotes,
+    quoteStatus,
     manageHref,
     onOpenStock,
 }: {
     readonly records: readonly ResearchRecord[] | null;
+    readonly quotes?: ReadonlyMap<string, ResearchSnapshot['quote']>;
+    readonly quoteStatus?: V9QuoteBatchStatus;
     readonly manageHref: string;
     readonly onOpenStock: (symbol: string, market: ResearchMarket) => void;
 }) {
@@ -56,9 +65,10 @@ export function V9FactorExposureView({
 
     const groups = useMemo<readonly PortfolioFactorGroup[]>(() => {
         if (!loaded || loaded.status !== 'ready') return [];
-        const reconciled = reconcilePortfolioHoldings(loaded.snapshot, records ?? [], new Map());
+        const prices = quotes ? currencyMatchedHoldingPrices(loaded.snapshot.holdings, quotes) : new Map<string, number | null>();
+        const reconciled = reconcilePortfolioHoldings(loaded.snapshot, records ?? [], prices);
         return buildPortfolioFactorExposure(reconciled);
-    }, [loaded, records]);
+    }, [loaded, quotes, records]);
 
     if (!loaded) {
         return (
@@ -110,6 +120,7 @@ export function V9FactorExposureView({
                     <h2>Factor Exposure Matrix</h2>
                     <p>
                         User-declared exposures joined by exact market + symbol · Accounts and currencies stay separate · Never inferred from sector or price.
+                        {quoteStatus === 'loading' ? ' · Loading live prices…' : ''}
                     </p>
                 </div>
                 {anyDeclaredFactors && (
@@ -158,6 +169,7 @@ export function V9FactorExposureView({
                         const activeDetail = selectedCell && selectedCell.account === `${group.accountLabel}:${group.currency}`
                             ? group.rows.find(row => row.holding.symbol === selectedCell.symbol)?.cells[selectedCell.factor] ?? null
                             : null;
+                        const valueWeighted = group.knownValue > 0;
 
                         return (
                             <article key={`${group.accountLabel}:${group.currency}`} className={styles.factorGroup}>
@@ -166,9 +178,10 @@ export function V9FactorExposureView({
                                         <h3>{group.accountLabel} · {group.currency}</h3>
                                         <p>
                                             {group.rows.length} {group.rows.length === 1 ? 'holding' : 'holdings'}
+                                            {valueWeighted ? ` · Value-weighted (${formatMoney(group.knownValue, group.currency)} priced)` : ''}
                                             {group.unmatchedCount > 0 ? ` · ${group.unmatchedCount} unmatched` : ''}
                                             {group.noAssumptionCount > 0 ? ` · ${group.noAssumptionCount} without factors` : ''}
-                                            {group.missingPriceCount > 0 ? ` · ${group.missingPriceCount} without live price (count-only view)` : ''}
+                                            {group.missingPriceCount > 0 ? ` · ${group.missingPriceCount} without live price${valueWeighted ? '' : ' (count-only view)'}` : ''}
                                         </p>
                                     </div>
                                 </div>
@@ -185,9 +198,37 @@ export function V9FactorExposureView({
                                                     if (materialityFilter === 'high' && cell.assumption.materiality !== 'high') return [];
                                                     return [cell];
                                                 });
-                                                const benefits = matchingCells.filter(c => c.assumption.direction === 'benefits-when-rises').length;
-                                                const harmed = matchingCells.filter(c => c.assumption.direction === 'harmed-when-rises').length;
-                                                const mixed = matchingCells.filter(c => c.assumption.direction === 'mixed').length;
+                                                const benefits = matchingCells.filter(c => c.assumption.direction === 'benefits-when-rises');
+                                                const harmed = matchingCells.filter(c => c.assumption.direction === 'harmed-when-rises');
+                                                const mixed = matchingCells.filter(c => c.assumption.direction === 'mixed');
+
+                                                if (valueWeighted) {
+                                                    const sumVal = (cells: typeof matchingCells) => cells.reduce((sum, cell) => sum + (cell.marketValue ?? 0), 0);
+                                                    const benefitsVal = sumVal(benefits);
+                                                    const harmedVal = sumVal(harmed);
+                                                    const mixedVal = sumVal(mixed);
+                                                    const coveredVal = benefitsVal + harmedVal + mixedVal;
+                                                    const pct = (val: number) => Math.round((val / group.knownValue) * 100);
+                                                    return (
+                                                        <div key={factor} className={styles.factorBarRow}>
+                                                            <div className={styles.factorBarLabel}>
+                                                                <strong>{researchFactorTaxonomy[factor].label}</strong>
+                                                                <span>
+                                                                    {pct(coveredVal)}% of priced value · {matchingCells.length}/{group.rows.length} holdings
+                                                                    {benefitsVal > 0 ? ` · ${pct(benefitsVal)}% benefits` : ''}
+                                                                    {harmedVal > 0 ? ` · ${pct(harmedVal)}% harmed` : ''}
+                                                                    {mixedVal > 0 ? ` · ${pct(mixedVal)}% mixed` : ''}
+                                                                </span>
+                                                            </div>
+                                                            <div className={styles.factorBarTrack} aria-hidden="true">
+                                                                {benefitsVal > 0 && <span className={styles.factorSegUp} style={{ width: `${(benefitsVal / group.knownValue) * 100}%` }} />}
+                                                                {mixedVal > 0 && <span className={styles.factorSegMixed} style={{ width: `${(mixedVal / group.knownValue) * 100}%` }} />}
+                                                                {harmedVal > 0 && <span className={styles.factorSegDown} style={{ width: `${(harmedVal / group.knownValue) * 100}%` }} />}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
                                                 const total = Math.max(1, group.rows.length);
                                                 return (
                                                     <div key={factor} className={styles.factorBarRow}>
@@ -195,15 +236,15 @@ export function V9FactorExposureView({
                                                             <strong>{researchFactorTaxonomy[factor].label}</strong>
                                                             <span>
                                                                 {matchingCells.length}/{group.rows.length} holdings
-                                                                {benefits > 0 ? ` · ${benefits} benefits` : ''}
-                                                                {harmed > 0 ? ` · ${harmed} harmed` : ''}
-                                                                {mixed > 0 ? ` · ${mixed} mixed` : ''}
+                                                                {benefits.length > 0 ? ` · ${benefits.length} benefits` : ''}
+                                                                {harmed.length > 0 ? ` · ${harmed.length} harmed` : ''}
+                                                                {mixed.length > 0 ? ` · ${mixed.length} mixed` : ''}
                                                             </span>
                                                         </div>
                                                         <div className={styles.factorBarTrack} aria-hidden="true">
-                                                            {benefits > 0 && <span className={styles.factorSegUp} style={{ width: `${(benefits / total) * 100}%` }} />}
-                                                            {mixed > 0 && <span className={styles.factorSegMixed} style={{ width: `${(mixed / total) * 100}%` }} />}
-                                                            {harmed > 0 && <span className={styles.factorSegDown} style={{ width: `${(harmed / total) * 100}%` }} />}
+                                                            {benefits.length > 0 && <span className={styles.factorSegUp} style={{ width: `${(benefits.length / total) * 100}%` }} />}
+                                                            {mixed.length > 0 && <span className={styles.factorSegMixed} style={{ width: `${(mixed.length / total) * 100}%` }} />}
+                                                            {harmed.length > 0 && <span className={styles.factorSegDown} style={{ width: `${(harmed.length / total) * 100}%` }} />}
                                                         </div>
                                                     </div>
                                                 );
@@ -278,6 +319,7 @@ export function V9FactorExposureView({
                                                     </strong>
                                                     <span>
                                                         {researchFactorDirectionLabels[activeDetail.assumption.direction]} · {researchFactorMaterialityLabels[activeDetail.assumption.materiality]} materiality · Dated {activeDetail.assumption.evidenceDate}
+                                                        {activeDetail.marketValue !== null ? ` · Market value ${formatMoney(activeDetail.marketValue, group.currency)}` : ''}
                                                     </span>
                                                     {activeDetail.assumption.evidenceNote && <p>{activeDetail.assumption.evidenceNote}</p>}
                                                 </div>
