@@ -34,6 +34,7 @@ export function ResearchWatchlistV8({
     sort, onSort, view, onView, onOpenDiscover, reviewHref = (symbol, market) => researchHref(symbol, 'review', market),
     actionClassName = styles.actionButton,
     quotes, quoteStatus, quoteError,
+    extraFilter, onClearExtraFilter, extraEmptyMessage,
 }: WatchlistProps & {
     sort: WatchlistSort;
     onSort: (sort: WatchlistSort) => void;
@@ -45,10 +46,17 @@ export function ResearchWatchlistV8({
     quotes?: ReadonlyMap<string, ResearchSnapshot['quote']>;
     quoteStatus?: V9QuoteBatchStatus;
     quoteError?: string;
+    extraFilter?: (record: ResearchRecord) => boolean;
+    onClearExtraFilter?: () => void;
+    extraEmptyMessage?: string;
 }) {
     const today = useReviewDay();
     const liveQuotes = quotes !== undefined;
-    const matches = (records ?? []).filter(record => (market === 'All' || record.market === market) && `${record.symbol} ${record.companyName}`.toLowerCase().includes(query.trim().toLowerCase()));
+    const matches = (records ?? []).filter(record =>
+        (market === 'All' || record.market === market)
+        && `${record.symbol} ${record.companyName}`.toLowerCase().includes(query.trim().toLowerCase())
+        && (!extraFilter || extraFilter(record))
+    );
     const due = owner ? matches.filter(record => watchlistReview(record, today).dueThisWeek) : [];
     const queue = owner && view === 'due';
     const hasMoveQuotes = liveQuotes && matches.some(record => {
@@ -105,7 +113,7 @@ export function ResearchWatchlistV8({
             </div>}
             {!!records?.length && <>
             <p className={styles.homeNote} role="status">Showing {ordered.length} of {records.length} loaded stocks{queue ? ' · oldest due first' : ''}.</p>
-            {!ordered.length && <div className={styles.homeEmpty}><b>{queue ? 'No reviews due this week match these filters.' : 'No watchlist stocks match these filters.'}</b><button type="button" className={actionClassName} onClick={() => { onQuery(''); onMarket('All'); onView('all'); }}>Show all saved stocks</button></div>}
+            {!ordered.length && <div className={styles.homeEmpty}><b>{extraEmptyMessage ?? (queue ? 'No reviews due this week match these filters.' : 'No watchlist stocks match these filters.')}</b><button type="button" className={actionClassName} onClick={() => { onQuery(''); onMarket('All'); onView('all'); onClearExtraFilter?.(); }}>Show all saved stocks</button></div>}
             <ul className={styles.homeList}>{ordered.map(record => {
                 const review = owner ? watchlistReview(record, today) : null;
                 const quote = liveQuotes ? quotes.get(`${record.market}:${record.symbol}`) : undefined;

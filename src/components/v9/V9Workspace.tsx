@@ -8,9 +8,11 @@ import type { MarketSignal } from '@/lib/types/signal-v2';
 import type { ResearchMarket, ResearchRecord } from '@/lib/types/research';
 import { loadPortfolioHoldingsSnapshot, PORTFOLIO_HOLDINGS_CHANGE_EVENT } from '@/lib/portfolio/holdings-client';
 import { GUEST_WORKSPACE_CLEARED_EVENT, readGuestRecords } from '@/lib/research/guest-workspace';
+import { writeRecentTicker } from '@/lib/research/command-search';
 import { createTodayMarketContinuation } from '@/lib/research/since-last-visit';
 import { writeTodayContinuation } from '@/lib/research/since-last-visit-client';
 import { useReviewDay } from '@/lib/research/use-review-day';
+import { watchlistReview } from '@/lib/research/watchlist-review';
 import { DEFAULT_SIGNAL_CONFIG, readSignalConfig, type SignalConfig } from '@/lib/signal-config';
 import { parseLearnMetric } from '@/lib/learn/metric-links';
 import { marketRouteConfig } from '@/lib/legacy-routes';
@@ -31,6 +33,8 @@ import { V9DiscoverView, V9PortfolioView } from './V9PortfolioDiscoverViews';
 import { useV9MarketToday } from './useV9MarketToday';
 import { useV9GuestDrafts } from './useV9GuestDrafts';
 import { useV9QuoteBatch } from './useV9QuoteBatch';
+import { useV9AlertsScan } from './useV9AlertsScan';
+import { V9AttentionPopover } from './V9AttentionPopover';
 import base from '@/components/v8/market-v8.module.css';
 import styles from './v9-workspace.module.css';
 
@@ -182,6 +186,13 @@ export function V9Workspace() {
     }, [holdingsTick, defaults]);
 
     const quoteBatch = useV9QuoteBatch(records, view === 'portfolio' || showingWatchlist);
+    const alertsScan = useV9AlertsScan(records);
+
+    useEffect(() => {
+        if (view !== 'research' || showingWatchlist || !requestedTicker) return;
+        const saved = records?.find(item => item.market === tickerMarket && item.symbol.toUpperCase() === requestedTicker);
+        writeRecentTicker(requestedTicker, tickerMarket, saved?.companyName);
+    }, [view, showingWatchlist, requestedTicker, tickerMarket, records]);
 
     const href = useCallback<V9Href>((next, params) =>
         workspaceHref(next, { market, mode, enableSocial: social }, {
@@ -198,10 +209,12 @@ export function V9Workspace() {
 
     const openStock = useCallback((sym: string, mkt: ResearchMarket) => {
         const clean = sym.trim().toUpperCase();
+        const saved = records?.find(item => item.market === mkt && item.symbol.toUpperCase() === clean);
+        writeRecentTicker(clean, mkt, saved?.companyName);
         setLastStock({ symbol: clean, market: mkt });
         window.history.pushState(null, '', href('research', { market: mkt, ticker: clean }));
         window.scrollTo(0, 0);
-    }, [href]);
+    }, [href, records]);
 
     function openListing(symbol: string, listingMarket: ResearchMarket) {
         if (listingMarket === 'MY') {
@@ -254,6 +267,15 @@ export function V9Workspace() {
         { id: 'discover', label: 'Discover', shortLabel: 'Discover' },
         { id: 'research', label: 'Stock Research', shortLabel: 'Research', badge: showingWatchlist ? undefined : ticker },
     ];
+
+    const dueReviewByKey = useMemo(() => {
+        const map = new Map<string, ReturnType<typeof watchlistReview>>();
+        if (workspace !== 'owner' || !records?.length) return map;
+        for (const record of records) {
+            map.set(`${record.market}:${record.symbol}`, watchlistReview(record, utcDay));
+        }
+        return map;
+    }, [records, utcDay, workspace]);
 
     const sideWatch = (records && records.length > 0
         ? records.slice(0, 6).map(r => ({ symbol: r.symbol, market: r.market, name: r.companyName || r.symbol }))
@@ -320,23 +342,39 @@ export function V9Workspace() {
                         <span>{records?.length ? `Watchlist (${records.length})` : 'Quick Stocks'}</span>
                         <Link className={styles.textLink} href={href('research', { tab: 'watchlist' })}>View all</Link>
                     </div>
-                    {sideWatch.map(item => (
-                        <button
-                            key={`${item.market}:${item.symbol}`}
-                            type="button"
-                            className={styles.sideWatchRow}
-                            onClick={() => openStock(item.symbol, item.market)}
-                        >
-                            <span className={styles.sideWatchLeft}>
-                                <span className={styles.tickerAvatar} data-market={item.market} aria-hidden="true">{item.symbol.slice(0, 2)}</span>
-                                <span className={styles.sideWatchMeta}>
-                                    <b>{item.symbol}</b>
-                                    <small>{item.name}</small>
+                    {sideWatch.map(item => {
+                        const sideReview = dueReviewByKey.get(`${item.market}:${item.symbol}`);
+                        const dueStatus = sideReview?.dueThisWeek ? sideReview.status : null;
+                        const dueLabel = dueStatus === 'overdue' ? 'Overdue review' : dueStatus === 'today' ? 'Review due today' : dueStatus === 'upcoming' ? 'Review due this week' : '';
+                        return (
+                            <button
+                                key={`${item.market}:${item.symbol}`}
+                                type="button"
+                                className={styles.sideWatchRow}
+                                onClick={() => openStock(item.symbol, item.market)}
+                            >
+                                <span className={styles.sideWatchLeft}>
+                                    <span className={styles.tickerAvatar} data-market={item.market} aria-hidden="true">{item.symbol.slice(0, 2)}</span>
+                                    <span className={styles.sideWatchMeta}>
+                                        <b>{item.symbol}</b>
+                                        <small>{item.name}</small>
+                                    </span>
                                 </span>
-                            </span>
-                            <span className={styles.mktTag}>{item.market}</span>
-                        </button>
-                    ))}
+                                <span className={styles.sideWatchRight}>
+                                    {dueStatus && (
+                                        <span
+                                            className={styles.sideDueDot}
+                                            data-status={dueStatus}
+                                            data-testid="side-watch-due-dot"
+                                            title={dueLabel}
+                                            aria-label={dueLabel}
+                                        />
+                                    )}
+                                    <span className={styles.mktTag}>{item.market}</span>
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
 
                 <div className={styles.sideFooter}>
@@ -359,10 +397,16 @@ export function V9Workspace() {
                     </div>
 
                     <div className={styles.topSearch}>
-                        <V8CommandPalette market={market} />
+                        <V8CommandPalette market={market} records={records} />
                     </div>
 
                     <div className={styles.topActions}>
+                        <V9AttentionPopover
+                            records={records}
+                            workspace={workspace}
+                            utcDay={utcDay}
+                            alertsScan={alertsScan}
+                        />
                         <button
                             type="button"
                             className={styles.themeToggle}
@@ -441,6 +485,7 @@ export function V9Workspace() {
                         quotes={quoteBatch.quotes}
                         quoteStatus={quoteBatch.status}
                         quoteError={quoteBatch.error}
+                        alertsScan={alertsScan}
                         isUnsaved={item => {
                             const draft = guestDrafts.drafts[`${item.market}:${item.symbol}`];
                             return !!draft && draft.text !== draft.expectedNote;
